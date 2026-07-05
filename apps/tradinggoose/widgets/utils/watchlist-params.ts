@@ -70,6 +70,15 @@ export const sanitizeWatchlistParams = (
   return Object.keys(nextParams).length > 0 ? nextParams : null
 }
 
+export const sanitizeWatchlistRuntimeParams = (
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null => {
+  const sanitized = sanitizeWatchlistParams(params)
+  if (!sanitized) return null
+  const { watchlistId: _watchlistId, ...runtimeParams } = sanitized
+  return Object.keys(runtimeParams).length > 0 ? runtimeParams : null
+}
+
 const mergeWatchlistParams = (
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>

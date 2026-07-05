@@ -1,12 +1,15 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/document'
+import { WatchlistDocumentSchema } from '@/lib/watchlists/import-export'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
 export const INDICATOR_DOCUMENT_FORMAT = 'tg-indicator-document-v1' as const
 export const MCP_SERVER_DOCUMENT_FORMAT = 'tg-mcp-server-document-v1' as const
 export const KNOWLEDGE_BASE_DOCUMENT_FORMAT = 'tg-knowledge-base-document-v1' as const
 export const WORKFLOW_VARIABLE_DOCUMENT_FORMAT = 'tg-workflow-variable-document-v1' as const
+export const WATCHLIST_DOCUMENT_FORMAT = 'tg-watchlist-document-v1' as const
 
 export const ENTITY_DOCUMENT_FORMATS = {
   skill: SKILL_DOCUMENT_FORMAT,
@@ -14,6 +17,7 @@ export const ENTITY_DOCUMENT_FORMATS = {
   indicator: INDICATOR_DOCUMENT_FORMAT,
   mcp_server: MCP_SERVER_DOCUMENT_FORMAT,
   knowledge_base: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+  watchlist: WATCHLIST_DOCUMENT_FORMAT,
 } as const
 
 export type EntityDocumentKind = keyof typeof ENTITY_DOCUMENT_FORMATS
@@ -86,6 +90,7 @@ export const EntityDocumentSchemas = {
   indicator: IndicatorDocumentSchema,
   mcp_server: McpServerDocumentSchema,
   knowledge_base: KnowledgeBaseDocumentSchema,
+  watchlist: WatchlistDocumentSchema,
 } as const
 
 export type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
@@ -201,6 +206,8 @@ export function normalizeEntityFields(
           typeof source.description === 'string' ? source.description.trim() : source.description,
         chunkingConfig: source.chunkingConfig,
       }
+    case 'watchlist':
+      return normalizeWatchlistDocumentFields(source)
   }
 }
 
@@ -261,6 +268,8 @@ export function getEntityDocumentName(
     case 'mcp_server':
       return String(normalized.name ?? '')
     case 'knowledge_base':
+      return String(normalized.name ?? '')
+    case 'watchlist':
       return String(normalized.name ?? '')
   }
 }

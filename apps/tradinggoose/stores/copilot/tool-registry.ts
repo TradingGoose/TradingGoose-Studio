@@ -83,6 +83,7 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   [CopilotTool.get_indicator_metadata]: serverTool(CopilotTool.get_indicator_metadata),
   search_online: serverTool('search_online'),
   search_documentation: serverTool('search_documentation'),
+  search_listing: serverTool('search_listing'),
   [CopilotTool.read_environment_variables]: serverTool(CopilotTool.read_environment_variables),
   set_environment_variables: serverTool('set_environment_variables', true),
   [CopilotTool.read_credentials]: serverTool(CopilotTool.read_credentials),
@@ -115,6 +116,11 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   create_mcp_server: serverTool('create_mcp_server', true),
   edit_mcp_server: serverTool('edit_mcp_server', true),
   rename_mcp_server: serverTool('rename_mcp_server', true),
+  list_watchlists: serverTool('list_watchlists'),
+  read_watchlist: serverTool('read_watchlist'),
+  create_watchlist: serverTool('create_watchlist', true),
+  edit_watchlist: serverTool('edit_watchlist', true),
+  rename_watchlist: serverTool('rename_watchlist', true),
   list_gdrive_files: serverTool('list_gdrive_files'),
   read_gdrive_file: serverTool('read_gdrive_file'),
   [CopilotTool.read_oauth_credentials]: serverTool(CopilotTool.read_oauth_credentials),
@@ -157,6 +163,8 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.create_skill,
   CopilotTool.list_mcp_servers,
   CopilotTool.create_mcp_server,
+  CopilotTool.list_watchlists,
+  CopilotTool.create_watchlist,
 ])
 
 const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([
@@ -363,6 +371,8 @@ export async function handleCopilotServerToolSuccess(
           detail: { workspaceId },
         })
       )
+    } else if (toolName.endsWith('_watchlist')) {
+      return
     } else if (toolName === CopilotTool.edit_monitor) {
       window.dispatchEvent(
         new CustomEvent(MONITOR_DATA_CHANGED_EVENT, {

@@ -4,7 +4,7 @@ import {
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-contract'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
+import type { WatchlistItem } from '@/lib/watchlists/types'
 
 export const HEATMAP_LISTING_CAP = MARKET_QUOTE_SNAPSHOT_REQUEST_CAP
 
@@ -12,6 +12,12 @@ export type HeatmapSourceListing = {
   key: string
   listing: ListingIdentity
   sourceLabels: string[]
+}
+
+type WatchlistHeatmapSource = {
+  id: string
+  name: string
+  items: WatchlistItem[]
 }
 
 export const capHeatmapListings = (
@@ -29,7 +35,7 @@ export const capHeatmapListings = (
   }
 }
 
-export const resolveWatchlistHeatmapListings = (watchlists: WatchlistRecord[]) => {
+export const resolveWatchlistHeatmapListings = (watchlists: WatchlistHeatmapSource[]) => {
   const byKey = new Map<string, HeatmapSourceListing>()
 
   for (const watchlist of watchlists) {

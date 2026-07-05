@@ -49,6 +49,7 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   scope: 'workspace',
   message: 'ok',
 }))
+const searchListingExecute = vi.fn(async () => [])
 const noopEntityExecute = vi.fn(async () => ({}))
 const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
 
@@ -88,6 +89,12 @@ vi.mock('@/lib/copilot/tools/server/docs/search-documentation', () => ({
   searchDocumentationServerTool: {
     name: 'search_documentation',
     execute: vi.fn(async () => ({ results: [] })),
+  },
+}))
+vi.mock('@/lib/copilot/tools/server/listing/search-listing', () => ({
+  searchListingServerTool: {
+    name: 'search_listing',
+    execute: searchListingExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/gdrive/list-files', () => ({
@@ -157,11 +164,13 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   createIndicatorServerTool: entityTool('create_indicator'),
   createMcpServerServerTool: entityTool('create_mcp_server'),
   createSkillServerTool: entityTool('create_skill'),
+  createWatchlistServerTool: entityTool('create_watchlist'),
   createWorkflowServerTool: entityTool('create_workflow'),
   editCustomToolServerTool: entityTool('edit_custom_tool'),
   editIndicatorServerTool: entityTool('edit_indicator'),
   editMcpServerServerTool: entityTool('edit_mcp_server'),
   editSkillServerTool: entityTool('edit_skill'),
+  editWatchlistServerTool: entityTool('edit_watchlist'),
   editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
   editWorkflowServerTool: entityTool('edit_workflow', editWorkflowExecute),
   editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
@@ -169,16 +178,19 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   listIndicatorsServerTool: entityTool('list_indicators'),
   listMcpServersServerTool: entityTool('list_mcp_servers'),
   listSkillsServerTool: entityTool('list_skills'),
+  listWatchlistsServerTool: entityTool('list_watchlists'),
   listWorkflowsServerTool: entityTool('list_workflows'),
   readCustomToolServerTool: entityTool('read_custom_tool'),
   readIndicatorServerTool: entityTool('read_indicator'),
   readMcpServerServerTool: entityTool('read_mcp_server'),
   readSkillServerTool: entityTool('read_skill'),
+  readWatchlistServerTool: entityTool('read_watchlist'),
   readWorkflowServerTool: entityTool('read_workflow'),
   renameCustomToolServerTool: entityTool('rename_custom_tool'),
   renameIndicatorServerTool: entityTool('rename_indicator'),
   renameMcpServerServerTool: entityTool('rename_mcp_server'),
   renameSkillServerTool: entityTool('rename_skill'),
+  renameWatchlistServerTool: entityTool('rename_watchlist'),
   renameWorkflowServerTool: entityTool('rename_workflow'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
@@ -197,11 +209,14 @@ vi.mock('@/lib/permissions/utils', () => ({
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
+let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/router').isWorkspaceAgnosticServerTool
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
   ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
-  ;({ getMcpServerToolIds, routeExecution } = await import('@/lib/copilot/tools/server/router'))
+  ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
+    '@/lib/copilot/tools/server/router'
+  ))
 }, 30000)
 
 beforeEach(() => {
@@ -216,6 +231,7 @@ beforeEach(() => {
   readEnvironmentVariablesExecute.mockClear()
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
+  searchListingExecute.mockClear()
   noopEntityExecute.mockClear()
   checkWorkspaceAccess.mockReset()
   checkWorkspaceAccess.mockResolvedValue({
@@ -242,6 +258,8 @@ describe('copilot contract registry', () => {
     expect(getMcpServerToolIds()).toContain('edit_workflow')
     expect(getMcpServerToolIds()).toContain('set_environment_variables')
     expect(getMcpServerToolIds()).toContain('create_mcp_server')
+    expect(getMcpServerToolIds()).toContain('list_watchlists')
+    expect(getMcpServerToolIds()).toContain('search_listing')
     expect(getMcpServerToolIds()).toContain('get_available_blocks')
     expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
@@ -449,6 +467,13 @@ describe('copilot contract registry', () => {
 })
 
 describe('routeExecution', () => {
+  it('identifies workspace-agnostic server tools from arbitrary strings', () => {
+    expect(isWorkspaceAgnosticServerTool('search_listing')).toBe(true)
+    expect(isWorkspaceAgnosticServerTool('search_documentation')).toBe(true)
+    expect(isWorkspaceAgnosticServerTool('list_watchlists')).toBe(false)
+    expect(isWorkspaceAgnosticServerTool('not_a_tool')).toBe(false)
+  })
+
   it('stops aborted server tool execution before invoking the tool', async () => {
     const controller = new AbortController()
     controller.abort()
@@ -510,6 +535,27 @@ describe('routeExecution', () => {
       { query: 'input', includeItems: true },
       undefined
     )
+  })
+
+  it('routes listing search without workspace inheritance or workspace access checks', async () => {
+    await expect(
+      routeExecution(
+        'search_listing',
+        { query: 'AAPL' },
+        {
+          userId: 'user-1',
+          workspaceId: 'workspace-1',
+          contextEntityKind: 'watchlist',
+          contextEntityId: 'watchlist-1',
+        }
+      )
+    ).resolves.toEqual([])
+
+    expect(searchListingExecute).toHaveBeenCalledWith(
+      { query: 'AAPL' },
+      { userId: 'user-1', accessLevel: undefined, acceptedReviewBaseStateHash: undefined, signal: undefined }
+    )
+    expect(checkWorkspaceAccess).not.toHaveBeenCalled()
   })
 
   it('routes agent accessory catalog requests through the central contract', async () => {

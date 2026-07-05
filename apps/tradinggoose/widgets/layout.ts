@@ -2,6 +2,7 @@ import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identi
 import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
+import { sanitizeWatchlistRuntimeParams } from '@/widgets/utils/watchlist-params'
 
 export type WidgetInstance = {
   key: string
@@ -14,6 +15,7 @@ export type LinkedPairColor = Exclude<PairColor, 'gray'>
 export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
+  watchlistId?: string | null
   listing?: ListingIdentity | null
   indicatorId?: string | null
   mcpServerId?: string | null
@@ -89,6 +91,10 @@ export function resolveWidgetParamsForPairColorChange(
     return currentParams
   }
 
+  if (widget?.key === 'watchlist') {
+    return sanitizeWatchlistRuntimeParams(currentParams)
+  }
+
   return null
 }
 
@@ -135,6 +141,7 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     }
 
     const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
+    const watchlistId = normalizeOptionalString((raw as { watchlistId?: unknown }).watchlistId)
     const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
     const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
@@ -143,6 +150,7 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     normalized.push({
       color: rawColor,
       workflowId,
+      watchlistId,
       listing,
       indicatorId,
       mcpServerId,

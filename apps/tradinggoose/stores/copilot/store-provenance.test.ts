@@ -47,6 +47,51 @@ describe('buildTurnProvenanceFromContexts', () => {
     })
   })
 
+  it('derives saved-entity scope from explicit watchlist mentions', () => {
+    expect(
+      buildTurnProvenanceFromContexts(
+        [
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'watchlist',
+            entityId: 'watchlist-1',
+            workspaceId: 'workspace-1',
+            label: 'Growth',
+          }),
+        ],
+        null,
+        null,
+        null
+      )
+    ).toEqual({
+      contextEntityKind: 'watchlist',
+      contextEntityId: 'watchlist-1',
+      workspaceId: 'workspace-1',
+    })
+  })
+
+  it('uses current watchlist contexts as implicit entity provenance without overriding workspace scope', () => {
+    expect(
+      buildTurnProvenanceFromContexts(
+        [
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'watchlist',
+            entityId: 'watchlist-current',
+            workspaceId: 'workspace-current',
+            label: 'Current Watchlist',
+            current: true,
+          }),
+        ],
+        'workspace-live',
+        null,
+        null
+      )
+    ).toEqual({
+      contextEntityKind: 'watchlist',
+      contextEntityId: 'watchlist-current',
+      workspaceId: 'workspace-live',
+    })
+  })
+
   it('keeps review target identity out of execution provenance', () => {
     expect(
       buildTurnProvenanceFromContexts(

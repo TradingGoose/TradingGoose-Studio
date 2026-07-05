@@ -69,7 +69,7 @@ export type ApplyEntityDocument = (input: {
   entityId: string
   fields: Record<string, unknown>
   workspaceId: string
-}) => Promise<void>
+}) => Promise<Record<string, unknown>>
 
 export type PrepareEntityDocumentFields = (
   fields: Record<string, unknown>
@@ -81,6 +81,7 @@ const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
   indicator: 'indicator',
   knowledge_base: 'knowledge base',
   mcp_server: 'MCP server',
+  watchlist: 'watchlist',
 }
 
 export function requireUserId(context?: ServerToolExecutionContext): string {
@@ -307,15 +308,13 @@ export async function executeUpdateEntityDocumentMutation(
     )
   }
 
-  if (apply) {
-    await apply({ entityId, fields, workspaceId })
-  } else {
-    await applySavedEntityState(kind, entityId, fields)
-  }
+  const persistedFields = apply
+    ? await apply({ entityId, fields, workspaceId })
+    : await applySavedEntityState(kind, entityId, fields)
   return {
     success: true,
     workspaceId,
-    ...buildDocumentEnvelope(kind, entityId, fields),
+    ...buildDocumentEnvelope(kind, entityId, persistedFields),
   }
 }
 

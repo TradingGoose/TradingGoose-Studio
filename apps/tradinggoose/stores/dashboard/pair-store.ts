@@ -10,6 +10,7 @@ import { PAIR_COLORS } from '@/widgets/pair-colors'
 
 export type PairColorContext = {
   workflowId?: string
+  watchlistId?: string | null
   listing?: ListingIdentity | null
   indicatorId?: string | null
   mcpServerId?: string | null
@@ -40,6 +41,7 @@ function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext
 
   const next: PairColorContext = {}
   const workflowId = normalizeOptionalString((ctx as { workflowId?: unknown }).workflowId)
+  const watchlistId = normalizeOptionalString((ctx as { watchlistId?: unknown }).watchlistId)
   const listing = toListingValueObject(
     (ctx as { listing?: unknown }).listing as ListingInputValue | null | undefined
   )
@@ -50,6 +52,10 @@ function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext
 
   if (workflowId) {
     next.workflowId = workflowId
+  }
+
+  if (watchlistId) {
+    next.watchlistId = watchlistId
   }
 
   if (listing) {

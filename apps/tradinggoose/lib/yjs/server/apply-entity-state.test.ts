@@ -8,14 +8,34 @@ import * as Y from 'yjs'
 const {
   events,
   mockApplyEntityStateInSocketServer,
+  mockDbTransaction,
   mockDbUpdate,
+  MockWatchlistDocumentError,
+  mockMaterializeWatchlistDocumentInTx,
+  mockNormalizeWatchlistDocumentFields,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
 } = vi.hoisted(() => ({
   events: [] as string[],
   mockApplyEntityStateInSocketServer: vi.fn(),
+  mockDbTransaction: vi.fn(),
   mockDbUpdate: vi.fn(),
+  MockWatchlistDocumentError: class WatchlistDocumentError extends Error {
+    constructor(
+      message: string,
+      public status = 400
+    ) {
+      super(message)
+      this.name = 'WatchlistDocumentError'
+    }
+  },
+  mockMaterializeWatchlistDocumentInTx: vi.fn(),
+  mockNormalizeWatchlistDocumentFields: vi.fn((value: Record<string, unknown>) => ({
+    name: String(value.name ?? ''),
+    settings: value.settings ?? { showLogo: true, showTicker: true, showDescription: true },
+    items: Array.isArray(value.items) ? value.items : [],
+  })),
   mockUpdateReturning: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
@@ -23,6 +43,7 @@ const {
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
+    transaction: mockDbTransaction,
     update: mockDbUpdate,
   },
 }))
@@ -48,6 +69,12 @@ vi.mock('@/lib/custom-tools/schema', () => ({
   parseCustomToolSchemaText: vi.fn((schemaText) => schemaText),
 }))
 
+vi.mock('@/lib/watchlists/document', () => ({
+  materializeWatchlistDocumentInTx: mockMaterializeWatchlistDocumentInTx,
+  normalizeWatchlistDocumentFields: mockNormalizeWatchlistDocumentFields,
+  WatchlistDocumentError: MockWatchlistDocumentError,
+}))
+
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
 }))
@@ -68,6 +95,23 @@ describe('applySavedEntityState', () => {
     events.length = 0
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
+    })
+    mockDbTransaction.mockImplementation(async (callback) => callback('tx'))
+    mockMaterializeWatchlistDocumentInTx.mockResolvedValue({
+      name: 'Persisted Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          id: 'listing-1',
+          type: 'listing',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
     })
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -94,6 +138,63 @@ describe('applySavedEntityState', () => {
     })
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual(['yjs'])
+  })
+
+  it('applies watchlist changes through the socket-owned saved-entity Yjs session', async () => {
+    const { applySavedEntityState } = await import('./apply-entity-state')
+    const persistedFields = {
+      name: 'Persisted Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          id: 'listing-1',
+          type: 'listing',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    }
+    mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
+
+    await expect(
+      applySavedEntityState('watchlist', 'watchlist-1', {
+        name: 'Draft Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+        ],
+      })
+    ).resolves.toEqual(persistedFields)
+
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('watchlist-1', 'watchlist', {
+      name: 'Draft Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          type: 'listing',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    })
+    expect(mockDbTransaction).not.toHaveBeenCalled()
+    expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
@@ -134,6 +235,110 @@ describe('applySavedEntityState', () => {
       ],
     })
     expect(events).toEqual(['db'])
+  })
+
+  it('materializes watchlist DB state from a provided Yjs document through the document helper', async () => {
+    const { getEntityFields } = await import('@/lib/yjs/entity-session')
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDoc({
+      name: 'Draft Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          type: 'listing',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    })
+
+    try {
+      await expect(saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)).resolves.toEqual({
+        name: 'Persisted Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            id: 'listing-1',
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+        ],
+      })
+
+      expect(getEntityFields(doc, 'watchlist')).toEqual({
+        name: 'Persisted Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            id: 'listing-1',
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+        ],
+      })
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockDbTransaction).toHaveBeenCalledTimes(1)
+    expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledWith(
+      'tx',
+      'workspace-1',
+      'watchlist-1',
+      {
+        name: 'Draft Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+        ],
+      }
+    )
+    expect(mockDbUpdate).not.toHaveBeenCalled()
+  })
+
+  it('maps watchlist document persistence errors to saved-entity persistence errors', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDoc({
+      name: 'Duplicate Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [],
+    })
+    mockMaterializeWatchlistDocumentInTx.mockRejectedValueOnce(
+      new MockWatchlistDocumentError('A watchlist with this name already exists', 409)
+    )
+
+    try {
+      await expect(saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)).rejects.toMatchObject(
+        {
+          status: 409,
+          message: 'A watchlist with this name already exists',
+        }
+      )
+    } finally {
+      doc.destroy()
+    }
   })
 
   it('refuses to materialize when the Yjs document carries no workspace identity', async () => {

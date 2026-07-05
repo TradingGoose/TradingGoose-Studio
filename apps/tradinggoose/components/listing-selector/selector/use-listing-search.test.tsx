@@ -14,9 +14,13 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 const fetchListingsMock = vi.fn()
 
-vi.mock('@/components/listing-selector/fetchers', () => ({
-  fetchListings: (...args: Parameters<typeof fetchListingsMock>) => fetchListingsMock(...args),
-}))
+vi.mock('@/components/listing-selector/fetchers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/listing-selector/fetchers')>()
+  return {
+    ...actual,
+    fetchListings: (...args: Parameters<typeof fetchListingsMock>) => fetchListingsMock(...args),
+  }
+})
 
 function HookHarness(props: Parameters<typeof useMarketListingSearch>[0]) {
   useMarketListingSearch(props)

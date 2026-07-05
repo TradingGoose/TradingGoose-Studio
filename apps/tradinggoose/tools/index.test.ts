@@ -91,6 +91,18 @@ describe('Tools Registry', () => {
     const nonExistentTool = getTool('non_existent_tool')
     expect(nonExistentTool).toBeUndefined()
   })
+
+  it('does not expose removed watchlist mutation tools', async () => {
+    for (const toolId of ['watchlist_add_listing', 'watchlist_remove_listing']) {
+      expect((tools as Record<string, unknown>)[toolId]).toBeUndefined()
+      expect(getTool(toolId)).toBeUndefined()
+
+      await expect(executeTool(toolId, {})).resolves.toMatchObject({
+        success: false,
+        error: `Tool not found: ${toolId}`,
+      })
+    }
+  })
 })
 
 describe('Custom Tools', () => {

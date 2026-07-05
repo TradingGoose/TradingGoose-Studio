@@ -27,6 +27,13 @@ export {
   renameSkillServerTool,
 } from './skill'
 export {
+  createWatchlistServerTool,
+  editWatchlistServerTool,
+  listWatchlistsServerTool,
+  readWatchlistServerTool,
+  renameWatchlistServerTool,
+} from './watchlist'
+export {
   createWorkflowServerTool,
   editWorkflowVariableServerTool,
   editWorkflowBlockServerTool,

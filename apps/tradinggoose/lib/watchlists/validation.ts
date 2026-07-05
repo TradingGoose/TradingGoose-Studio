@@ -1,14 +1,11 @@
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
-import {
-  DEFAULT_WATCHLIST_NAME,
-  DEFAULT_WATCHLIST_SETTINGS,
-  LEGACY_DEFAULT_WATCHLIST_NAME,
-  MAX_SYMBOLS_PER_WATCHLIST,
-} from '@/lib/watchlists/constants'
+import { MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
-  WatchlistImportFileItem,
-  WatchlistImportFileListingItem,
+  WatchlistDocumentInputItem,
+  WatchlistDocumentListingInputItem,
+} from '@/lib/watchlists/document'
+import type {
   WatchlistItem,
   WatchlistSettings,
 } from '@/lib/watchlists/types'
@@ -30,80 +27,78 @@ export const normalizeWatchlistName = (value: unknown): string => {
   return normalized
 }
 
-const PROTECTED_WATCHLIST_NAMES = [DEFAULT_WATCHLIST_NAME, LEGACY_DEFAULT_WATCHLIST_NAME].map(
-  (name) => name.toLowerCase()
-)
-
-export const isProtectedWatchlistName = (value: string): boolean =>
-  PROTECTED_WATCHLIST_NAMES.includes(value.trim().toLowerCase())
-
 export const normalizeWatchlistSettings = (value: unknown): WatchlistSettings => {
   if (!isPlainRecord(value)) {
-    return {
-      ...DEFAULT_WATCHLIST_SETTINGS,
-    }
+    throw new Error('Watchlist settings are required')
+  }
+
+  const { showLogo, showTicker, showDescription } = value
+  if (
+    typeof showLogo !== 'boolean' ||
+    typeof showTicker !== 'boolean' ||
+    typeof showDescription !== 'boolean'
+  ) {
+    throw new Error('Watchlist settings must include showLogo, showTicker, and showDescription')
   }
 
   return {
-    showLogo:
-      typeof value.showLogo === 'boolean' ? value.showLogo : DEFAULT_WATCHLIST_SETTINGS.showLogo,
-    showTicker:
-      typeof value.showTicker === 'boolean'
-        ? value.showTicker
-        : DEFAULT_WATCHLIST_SETTINGS.showTicker,
-    showDescription:
-      typeof value.showDescription === 'boolean'
-        ? value.showDescription
-        : DEFAULT_WATCHLIST_SETTINGS.showDescription,
+    showLogo,
+    showTicker,
+    showDescription,
   }
 }
 
-export const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
+const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   if (!isPlainRecord(value)) return null
   return toListingValueObject(value as ListingInputValue) ?? null
 }
 
-const hasDisallowedImportId = (value: Record<string, unknown>) => 'id' in value
+const normalizeOptionalId = (value: unknown): string | undefined => {
+  const id = normalizeString(value)
+  return id || undefined
+}
 
-const normalizeWatchlistImportFileListingItem = (
+const hasOnlyKeys = (value: Record<string, unknown>, allowedKeys: Set<string>) =>
+  Object.keys(value).every((key) => allowedKeys.has(key))
+
+const listingItemKeys = new Set(['id', 'type', 'listing'])
+const sectionItemKeys = new Set(['id', 'type', 'label'])
+
+const normalizeWatchlistDocumentListingInputItem = (
   value: unknown
-): WatchlistImportFileListingItem | null => {
-  if (!isPlainRecord(value) || hasDisallowedImportId(value)) return null
+): WatchlistDocumentListingInputItem | null => {
+  if (!isPlainRecord(value)) return null
   if (normalizeString(value.type) !== 'listing') return null
+  if (!hasOnlyKeys(value, listingItemKeys)) return null
 
   const listing = normalizeListingIdentity(value.listing)
   if (!listing) return null
 
   return {
+    ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'listing',
     listing,
   }
 }
 
-const normalizeWatchlistImportFileItem = (value: unknown): WatchlistImportFileItem | null => {
-  if (!isPlainRecord(value) || hasDisallowedImportId(value)) return null
+const normalizeWatchlistDocumentInputItem = (value: unknown): WatchlistDocumentInputItem | null => {
+  if (!isPlainRecord(value)) return null
 
   const type = normalizeString(value.type)
   if (type === 'listing') {
-    return normalizeWatchlistImportFileListingItem(value)
+    return normalizeWatchlistDocumentListingInputItem(value)
   }
 
   if (type !== 'section') return null
+  if (!hasOnlyKeys(value, sectionItemKeys)) return null
 
   const label = normalizeString(value.label)
-  if (!label || !Array.isArray(value.items)) return null
-
-  const items: WatchlistImportFileListingItem[] = []
-  for (const entry of value.items) {
-    const item = normalizeWatchlistImportFileListingItem(entry)
-    if (!item) return null
-    items.push(item)
-  }
+  if (!label) return null
 
   return {
+    ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'section',
     label,
-    items,
   }
 }
 
@@ -114,6 +109,7 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
 
   const type = normalizeString(value.type)
   if (type === 'section') {
+    if (!hasOnlyKeys(value, sectionItemKeys)) return null
     const label = normalizeString(value.label)
     if (!label) return null
     return {
@@ -124,6 +120,7 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
   }
 
   if (type === 'listing') {
+    if (!hasOnlyKeys(value, listingItemKeys)) return null
     const listing = normalizeListingIdentity(value.listing)
     if (!listing) return null
     return {
@@ -147,12 +144,14 @@ export const normalizeWatchlistItems = (value: unknown): WatchlistItem[] => {
   return normalized
 }
 
-export const normalizeWatchlistImportFileItems = (value: unknown): WatchlistImportFileItem[] => {
+export const normalizeWatchlistDocumentInputItems = (
+  value: unknown
+): WatchlistDocumentInputItem[] => {
   if (!Array.isArray(value)) return []
 
-  const normalized: WatchlistImportFileItem[] = []
+  const normalized: WatchlistDocumentInputItem[] = []
   for (const entry of value) {
-    const item = normalizeWatchlistImportFileItem(entry)
+    const item = normalizeWatchlistDocumentInputItem(entry)
     if (!item) continue
     normalized.push(item)
   }
@@ -160,7 +159,7 @@ export const normalizeWatchlistImportFileItems = (value: unknown): WatchlistImpo
   return normalized
 }
 
-export const countWatchlistSymbols = (items: WatchlistItem[]) =>
+const countWatchlistSymbols = (items: WatchlistItem[]) =>
   items.reduce((count, item) => (item.type === 'listing' ? count + 1 : count), 0)
 
 export const assertWatchlistSymbolLimit = (items: WatchlistItem[]) => {

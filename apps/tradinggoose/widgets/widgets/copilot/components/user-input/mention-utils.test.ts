@@ -24,6 +24,7 @@ const createMentionSources = (): MentionSources => ({
     indicator: [],
     custom_tool: [{ entityKind: 'custom_tool', id: 'tool-1', name: 'Slack Alerts' }],
     mcp_server: [],
+    watchlist: [{ entityKind: 'watchlist', id: 'watchlist-1', name: 'Growth' }],
   },
   knowledgeBases: [],
   blocksList: [],
@@ -66,6 +67,14 @@ describe('mention-utils', () => {
         type: 'custom_tool',
         id: 'tool-1',
         value: sources.workspaceEntities.custom_tool[0],
+      },
+    ])
+
+    expect(buildAggregatedMentionItems('growth', sources, enMonitorCopy, enMentionCopy)).toEqual([
+      {
+        type: 'watchlist',
+        id: 'watchlist-1',
+        value: sources.workspaceEntities.watchlist[0],
       },
     ])
   })

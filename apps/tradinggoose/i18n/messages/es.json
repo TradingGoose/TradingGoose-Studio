@@ -2922,10 +2922,12 @@
         "currentTool": "Herramienta actual",
         "currentIndicator": "Indicador actual",
         "currentMcpServer": "Servidor MCP actual",
+        "currentWatchlist": "Watchlist actual",
         "workflows": "Flujos de trabajo",
         "customTools": "Herramientas personalizadas",
         "indicators": "Indicadores",
         "mcpServers": "Servidores MCP",
+        "watchlists": "Watchlists",
         "allWorkflows": "Todos los flujos de trabajo",
         "operation": "Operación",
         "id": "Identificador",
@@ -3508,7 +3510,7 @@
           "zep": "Memoria a largo plazo para agentes de IA",
           "zoom": "Crear y gestionar reuniones y grabaciones de Zoom",
           "portfolio_detail": "Obtiene el detalle completo del portafolio desde una cuenta de broker seleccionada.",
-          "watchlist": "Lee listas de seguimiento y agrega o elimina elementos de listado."
+          "watchlist": "Lee listas de seguimiento, listados y secciones del espacio de trabajo."
         },
         "blockLongDescriptions": {
           "response": "Integra Response en el flujo de trabajo. Puede enviar, construir o editar respuestas estructuradas en una respuesta final del flujo de trabajo.",
@@ -20583,6 +20585,7 @@
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
           "createWatchlistToGetStarted": "Crea una watchlist para empezar.",
+          "selectWatchlist": "Selecciona una watchlist.",
           "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
           "symbol": "Símbolo",
           "asset": "Activo",

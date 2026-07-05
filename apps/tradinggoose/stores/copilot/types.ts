@@ -54,6 +54,7 @@ type WorkspaceEntityContextIdFieldByKind = {
   indicator: 'indicatorId'
   custom_tool: 'customToolId'
   mcp_server: 'mcpServerId'
+  watchlist: 'watchlistId'
 }
 
 type WorkspaceEntityContextBase = {

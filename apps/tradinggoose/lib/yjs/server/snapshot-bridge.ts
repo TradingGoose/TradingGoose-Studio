@@ -107,6 +107,19 @@ async function postJsonToSocketServer(path: string, body: unknown): Promise<void
   )
 }
 
+async function postJsonToSocketServerWithResponse<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetchFromSocketServer(
+    new URL(path, getSocketServerUrl()),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    10000
+  )
+  return response.json() as Promise<T>
+}
+
 export async function getYjsSnapshot(
   sessionId: string,
   params?: Record<string, string>
@@ -139,11 +152,23 @@ export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: string,
   fields: Record<string, unknown>
-): Promise<void> {
-  await postJsonToSocketServer(
+): Promise<Record<string, unknown>> {
+  const response = await postJsonToSocketServerWithResponse<{
+    success?: unknown
+    fields?: unknown
+  }>(
     `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
     { entityKind, fields }
   )
+  if (
+    response.success !== true ||
+    !response.fields ||
+    typeof response.fields !== 'object' ||
+    Array.isArray(response.fields)
+  ) {
+    throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
+  }
+  return response.fields as Record<string, unknown>
 }
 
 export async function applyYjsUpdateInSocketServer(

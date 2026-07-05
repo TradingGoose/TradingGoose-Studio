@@ -32,6 +32,9 @@ export async function loadWorkspaceEntityMentionItems(
     case 'mcp_server':
       path = `/api/mcp/servers?workspaceId=${encodeURIComponent(workspaceId)}`
       break
+    case 'watchlist':
+      path = `/api/watchlists?workspaceId=${encodeURIComponent(workspaceId)}`
+      break
   }
 
   const response = await fetch(path)
@@ -88,6 +91,16 @@ export async function loadWorkspaceEntityMentionItems(
           id: item.id,
           name: toTrimmedString(item.name),
           enabled: item.enabled !== false,
+        }))
+    case 'watchlist':
+      return sortByRecent(Array.isArray(data?.watchlists) ? data.watchlists : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          createdAt: toTrimmedString(item.createdAt) || undefined,
+          updatedAt: toTrimmedString(item.updatedAt) || undefined,
         }))
   }
 }

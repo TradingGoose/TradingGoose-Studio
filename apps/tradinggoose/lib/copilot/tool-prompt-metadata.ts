@@ -11,6 +11,8 @@ const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
   'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
+const WATCHLIST_DOCUMENT_GUIDANCE =
+  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Each listing item must use the canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -103,6 +105,12 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     description: 'Search internal documentation.',
     kind: 'search',
     entityKind: 'documentation',
+  },
+  search_listing: {
+    description:
+      'Search companies, tickers, crypto pairs, and currencies and return only canonical `listingIdentity` objects. Takes only `query`; use returned identities exactly in watchlists or other documents that store listing identities.',
+    kind: 'search',
+    entityKind: 'listing',
   },
   search_online: {
     description: 'Search web, news, places, or images.',
@@ -325,6 +333,32 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
       'Rename the target MCP server by sending a full server document with the updated `name`. Keep `[redacted]` header/env values to preserve existing secrets.',
     kind: 'rename',
     entityKind: 'mcp_server',
+  },
+  list_watchlists: {
+    description:
+      'List root watchlists in the current workspace. If the user identifies a watchlist by name, use this list to select the exact `entityId`, then read it with `read_watchlist`.',
+    kind: 'list',
+    entityKind: 'watchlist',
+  },
+  read_watchlist: {
+    description: `Return one watchlist by \`entityId\` as an editable document payload with \`entityDocument\` and \`documentFormat\`. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'read',
+    entityKind: 'watchlist',
+  },
+  create_watchlist: {
+    description: `Create a new root watchlist in the current workspace from a full watchlist document and return the created document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'create',
+    entityKind: 'watchlist',
+  },
+  edit_watchlist: {
+    description: `Update the target watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'edit',
+    entityKind: 'watchlist',
+  },
+  rename_watchlist: {
+    description: `Rename the target watchlist by sending a full watchlist document with the updated \`name\`, then return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'rename',
+    entityKind: 'watchlist',
   },
   sleep: {
     description: 'Pause for a short duration.',

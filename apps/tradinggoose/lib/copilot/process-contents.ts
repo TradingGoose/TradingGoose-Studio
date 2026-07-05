@@ -42,6 +42,8 @@ export type AgentContextType =
   | 'current_custom_tool'
   | 'mcp_server'
   | 'current_mcp_server'
+  | 'watchlist'
+  | 'current_watchlist'
   | 'blocks'
   | 'logs'
   | 'knowledge'
@@ -161,7 +163,9 @@ async function processEntityContext(params: {
     | 'current_custom_tool'
     | 'mcp_server'
     | 'current_mcp_server'
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
+    | 'watchlist'
+    | 'current_watchlist'
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server' | 'watchlist'
   entityId: string
   userId: string
   workspaceId: string | null
@@ -248,7 +252,7 @@ function parseStructuredTextField(value: unknown): unknown {
 }
 
 function serializeEntityContext(
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server' | 'watchlist',
   row: Record<string, unknown>
 ) {
   switch (entityKind) {
@@ -297,6 +301,14 @@ function serializeEntityContext(
         timeout: row.timeout ?? null,
         retries: row.retries ?? null,
         enabled: row.enabled ?? null,
+      }
+    case 'watchlist':
+      return {
+        id: row.id ?? null,
+        workspaceId: row.workspaceId ?? null,
+        name: row.name ?? null,
+        settings: row.settings ?? null,
+        items: Array.isArray(row.items) ? row.items : [],
       }
   }
 }

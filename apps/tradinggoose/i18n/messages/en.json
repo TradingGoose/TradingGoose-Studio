@@ -2922,10 +2922,12 @@
         "currentTool": "Current Tool",
         "currentIndicator": "Current Indicator",
         "currentMcpServer": "Current MCP Server",
+        "currentWatchlist": "Current Watchlist",
         "workflows": "Workflows",
         "customTools": "Custom Tools",
         "indicators": "Indicators",
         "mcpServers": "MCP Servers",
+        "watchlists": "Watchlists",
         "allWorkflows": "All workflows",
         "operation": "Operation",
         "id": "ID",
@@ -3508,7 +3510,7 @@
           "zep": "Long-term memory for AI agents",
           "zoom": "Create and manage Zoom meetings and recordings",
           "portfolio_detail": "Fetch full portfolio detail from a selected broker account.",
-          "watchlist": "Read watchlists and add or remove listing items."
+          "watchlist": "Read workspace watchlists, listings, and sections."
         },
         "blockLongDescriptions": {
           "response": "Integrate Response into the workflow. Can send build or edit structured responses into a final workflow response.",
@@ -20583,6 +20585,7 @@
           "selectWorkspace": "Select a workspace to use watchlists.",
           "failedToLoadWatchlists": "Failed to load watchlists.",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
+          "selectWatchlist": "Select a watchlist.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",

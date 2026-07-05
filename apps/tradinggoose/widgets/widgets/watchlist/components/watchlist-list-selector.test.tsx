@@ -69,24 +69,14 @@ vi.mock('@/components/widget-header-control', () => ({
 
 const watchlists = [
   {
-    id: 'default-watchlist',
-    workspaceId: 'workspace-1',
-    userId: 'user-1',
-    name: 'Default',
-    isSystem: true,
-    items: [],
-    settings: { showLogo: true, showTicker: true, showDescription: true },
+    entityId: 'growth',
+    entityName: 'Growth',
     createdAt: '2026-03-13T00:00:00.000Z',
     updatedAt: '2026-03-13T00:00:00.000Z',
   },
   {
-    id: 'favorites',
-    workspaceId: 'workspace-1',
-    userId: 'user-1',
-    name: 'Favorites',
-    isSystem: false,
-    items: [],
-    settings: { showLogo: true, showTicker: true, showDescription: true },
+    entityId: 'favorites',
+    entityName: 'Favorites',
     createdAt: '2026-03-13T00:00:00.000Z',
     updatedAt: '2026-03-13T00:00:00.000Z',
   },
@@ -121,8 +111,8 @@ describe('WatchlistListSelector', () => {
     await act(async () => {
       root.render(
         <WatchlistListSelector
-          watchlists={watchlists as any}
-          selectedWatchlist={watchlists[1] as any}
+          watchlists={watchlists}
+          selectedWatchlist={watchlists[1]}
           onSelect={vi.fn()}
           onRenameWatchlist={onRenameWatchlist}
         />
@@ -158,8 +148,8 @@ describe('WatchlistListSelector', () => {
     await act(async () => {
       root.render(
         <WatchlistListSelector
-          watchlists={watchlists as any}
-          selectedWatchlist={watchlists[1] as any}
+          watchlists={watchlists}
+          selectedWatchlist={watchlists[1]}
           onSelect={vi.fn()}
         />
       )
@@ -180,8 +170,8 @@ describe('WatchlistListSelector', () => {
     await act(async () => {
       root.render(
         <WatchlistListSelector
-          watchlists={watchlists as any}
-          selectedWatchlist={watchlists[1] as any}
+          watchlists={watchlists}
+          selectedWatchlist={watchlists[1]}
           onSelect={vi.fn()}
           onDeleteWatchlist={onDeleteWatchlist}
         />

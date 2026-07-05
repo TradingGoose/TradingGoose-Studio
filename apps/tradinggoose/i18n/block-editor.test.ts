@@ -141,6 +141,21 @@ describe('block-editor i18n helpers', () => {
     expect(translateWorkflowLabel('zh', 'body')).toBe(zhLabels.body)
   })
 
+  it('keeps localized workflow watchlist block copy read-only', () => {
+    const copies = [
+      getPublicCopy('en').workspace.widgets.blockEditor.blockDescriptions.watchlist,
+      getPublicCopy('es').workspace.widgets.blockEditor.blockDescriptions.watchlist,
+      getPublicCopy('zh').workspace.widgets.blockEditor.blockDescriptions.watchlist,
+    ]
+
+    expect(copies[0]).toContain('Read')
+    expect(copies[1]).toContain('Lee')
+    expect(copies[2]).toContain('读取')
+    for (const copy of copies) {
+      expect(copy).not.toMatch(/add|remove|agrega|elimina|添加|移除/i)
+    }
+  })
+
   it('keeps guardrails block copy in the block editor catalog', () => {
     const esGuardrails = getPublicCopy('es').workspace.widgets.blockEditor.subBlocks.guardrails
     const zhGuardrails = getPublicCopy('zh').workspace.widgets.blockEditor.subBlocks.guardrails

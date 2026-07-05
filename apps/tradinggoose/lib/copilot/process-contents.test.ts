@@ -234,6 +234,84 @@ describe('processContextsServer', () => {
     ])
   })
 
+  it('hydrates current watchlist contexts from saved-entity Yjs fields', async () => {
+    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
+      name: 'Growth',
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          id: 'listing-1',
+          type: 'listing',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_watchlist',
+          label: 'Current Watchlist',
+          workspaceId: 'workspace-1',
+          watchlistId: 'watchlist-1',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
+      'user-1',
+      {
+        entityKind: 'watchlist',
+        entityId: 'watchlist-1',
+        draftSessionId: null,
+        reviewSessionId: null,
+        workspaceId: 'workspace-1',
+        yjsSessionId: 'watchlist-1',
+      },
+      'read'
+    )
+    expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
+      'watchlist',
+      'watchlist-1',
+      'workspace-1'
+    )
+    expect(result).toEqual([
+      {
+        type: 'current_watchlist',
+        tag: '@Current Watchlist',
+        content: JSON.stringify(
+          {
+            id: 'watchlist-1',
+            workspaceId: 'workspace-1',
+            name: 'Growth',
+            settings: { showLogo: true, showTicker: true, showDescription: false },
+            items: [
+              {
+                id: 'listing-1',
+                type: 'listing',
+                listing: {
+                  listing_type: 'default',
+                  listing_id: 'AAPL',
+                  base_id: '',
+                  quote_id: '',
+                },
+              },
+            ],
+          },
+          null,
+          2
+        ),
+      },
+    ])
+  })
+
   it('skips workspace entity contexts without read access', async () => {
     mockVerifyReviewTargetAccess.mockResolvedValueOnce({
       hasAccess: false,

@@ -44,6 +44,7 @@ const createEmptyWorkspaceEntities = (): Record<
   indicator: [],
   custom_tool: [],
   mcp_server: [],
+  watchlist: [],
 })
 
 const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind, boolean> => ({
@@ -52,6 +53,7 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
   indicator: false,
   custom_tool: false,
   mcp_server: false,
+  watchlist: false,
 })
 
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
@@ -367,6 +369,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     indicator: workspaceEntityLoading.indicator,
     custom_tool: workspaceEntityLoading.custom_tool,
     mcp_server: workspaceEntityLoading.mcp_server,
+    watchlist: workspaceEntityLoading.watchlist,
     workflow_blocks: isLoadingWorkflowBlocks,
     blocks: isLoadingBlocks,
     knowledge: isLoadingKnowledge,

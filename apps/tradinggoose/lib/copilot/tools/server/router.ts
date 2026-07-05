@@ -17,11 +17,13 @@ import {
   createIndicatorServerTool,
   createMcpServerServerTool,
   createSkillServerTool,
+  createWatchlistServerTool,
   createWorkflowServerTool,
   editCustomToolServerTool,
   editIndicatorServerTool,
   editMcpServerServerTool,
   editSkillServerTool,
+  editWatchlistServerTool,
   editWorkflowBlockServerTool,
   editWorkflowServerTool,
   editWorkflowVariableServerTool,
@@ -29,16 +31,19 @@ import {
   listIndicatorsServerTool,
   listMcpServersServerTool,
   listSkillsServerTool,
+  listWatchlistsServerTool,
   listWorkflowsServerTool,
   readCustomToolServerTool,
   readIndicatorServerTool,
   readMcpServerServerTool,
   readSkillServerTool,
+  readWatchlistServerTool,
   readWorkflowServerTool,
   renameCustomToolServerTool,
   renameIndicatorServerTool,
   renameMcpServerServerTool,
   renameSkillServerTool,
+  renameWatchlistServerTool,
   renameWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -51,6 +56,7 @@ import {
   readKnowledgeBaseServerTool,
   renameKnowledgeBaseServerTool,
 } from '@/lib/copilot/tools/server/knowledge/knowledge-base'
+import { searchListingServerTool } from '@/lib/copilot/tools/server/listing/search-listing'
 import { editMonitorServerTool } from '@/lib/copilot/tools/server/monitor/edit-monitor'
 import { listMonitorsServerTool } from '@/lib/copilot/tools/server/monitor/list-monitors'
 import { readMonitorServerTool } from '@/lib/copilot/tools/server/monitor/read-monitor'
@@ -119,6 +125,12 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [createMcpServerServerTool.name]: createMcpServerServerTool,
   [editMcpServerServerTool.name]: editMcpServerServerTool,
   [renameMcpServerServerTool.name]: renameMcpServerServerTool,
+  [listWatchlistsServerTool.name]: listWatchlistsServerTool,
+  [readWatchlistServerTool.name]: readWatchlistServerTool,
+  [createWatchlistServerTool.name]: createWatchlistServerTool,
+  [editWatchlistServerTool.name]: editWatchlistServerTool,
+  [renameWatchlistServerTool.name]: renameWatchlistServerTool,
+  [searchListingServerTool.name]: searchListingServerTool,
 }
 
 const lazyServerToolLoaders: Partial<Record<ToolId, () => Promise<BaseServerTool<any, any>>>> = {
@@ -203,12 +215,35 @@ const mcpServerToolIds = [
   createMcpServerServerTool.name,
   editMcpServerServerTool.name,
   renameMcpServerServerTool.name,
+  listWatchlistsServerTool.name,
+  readWatchlistServerTool.name,
+  createWatchlistServerTool.name,
+  editWatchlistServerTool.name,
+  renameWatchlistServerTool.name,
+  searchListingServerTool.name,
   CopilotTool.get_available_blocks,
   CopilotTool.get_blocks_metadata,
   CopilotTool.get_agent_accessory_catalog,
   CopilotTool.get_indicator_catalog,
   CopilotTool.get_indicator_metadata,
 ] satisfies ToolId[]
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
+  CopilotTool.search_documentation,
+  CopilotTool.search_listing,
+] as const satisfies readonly ToolId[]
+
+type WorkspaceAgnosticServerToolId = (typeof WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS)[number]
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET: ReadonlySet<ToolId> = new Set(
+  WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS
+)
+
+export function isWorkspaceAgnosticServerTool(
+  toolName: string
+): toolName is WorkspaceAgnosticServerToolId {
+  return isToolId(toolName) && WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET.has(toolName)
+}
 
 export function getServerToolIds(): ToolId[] {
   return [
@@ -258,6 +293,23 @@ export async function routeExecution(
   }
 
   logger.debug('Routing to tool', { toolName })
+
+  if (isWorkspaceAgnosticServerTool(toolName)) {
+    const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
+    const executionContext = context
+      ? {
+          userId: context.userId,
+          accessLevel: context.accessLevel,
+          acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
+          signal: context.signal,
+        }
+      : undefined
+    throwIfServerToolAborted(executionContext)
+    const result = await tool.execute(args, executionContext)
+    throwIfServerToolAborted(executionContext)
+
+    return contract.result.parse(result)
+  }
 
   let args: any
   try {

@@ -8,34 +8,37 @@ import {
 describe('watchlist import/export', () => {
   it('creates a unified watchlist export file with exactly one watchlist', () => {
     const payload = createWatchlistExportFile({
-      name: '  My Watchlist  ',
-      items: [
-        {
-          id: 'one',
-          type: 'listing',
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+      fields: {
+        name: '  My Watchlist  ',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            id: 'one',
+            type: 'listing',
+            listing: {
+              listing_id: 'aapl-id',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
           },
-        },
-        {
-          id: 'section-1',
-          type: 'section',
-          label: 'Tech',
-        },
-        {
-          id: 'two',
-          type: 'listing',
-          listing: {
-            listing_id: '',
-            base_id: 'BTC',
-            quote_id: 'USDT',
-            listing_type: 'crypto',
+          {
+            id: 'section-1',
+            type: 'section',
+            label: 'Tech',
           },
-        },
-      ],
+          {
+            id: 'two',
+            type: 'listing',
+            listing: {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USDT',
+              listing_type: 'crypto',
+            },
+          },
+        ],
+      },
     })
 
     expect(payload).toMatchObject({
@@ -48,8 +51,10 @@ describe('watchlist import/export', () => {
       watchlists: [
         {
           name: 'My Watchlist',
+          settings: { showLogo: true, showTicker: true, showDescription: false },
           items: [
             {
+              id: 'one',
               type: 'listing',
               listing: {
                 listing_id: 'aapl-id',
@@ -59,19 +64,19 @@ describe('watchlist import/export', () => {
               },
             },
             {
+              id: 'section-1',
               type: 'section',
               label: 'Tech',
-              items: [
-                {
-                  type: 'listing',
-                  listing: {
-                    listing_id: '',
-                    base_id: 'BTC',
-                    quote_id: 'USDT',
-                    listing_type: 'crypto',
-                  },
-                },
-              ],
+            },
+            {
+              id: 'two',
+              type: 'listing',
+              listing: {
+                listing_id: '',
+                base_id: 'BTC',
+                quote_id: 'USDT',
+                listing_type: 'crypto',
+              },
             },
           ],
         },
@@ -83,19 +88,22 @@ describe('watchlist import/export', () => {
 
   it('serializes unified watchlist export files as JSON', () => {
     const payload = exportWatchlistAsJson({
-      name: 'My Watchlist',
-      items: [
-        {
-          id: 'one',
-          type: 'listing',
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+      fields: {
+        name: 'My Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        items: [
+          {
+            id: 'one',
+            type: 'listing',
+            listing: {
+              listing_id: 'aapl-id',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
           },
-        },
-      ],
+        ],
+      },
     })
 
     expect(JSON.parse(payload)).toEqual({
@@ -109,8 +117,10 @@ describe('watchlist import/export', () => {
       watchlists: [
         {
           name: 'My Watchlist',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
           items: [
             {
+              id: 'one',
               type: 'listing',
               listing: {
                 listing_id: 'aapl-id',
@@ -127,46 +137,58 @@ describe('watchlist import/export', () => {
     })
   })
 
-  it('parses mixed unified import files and trims the watchlist name', () => {
-    const parsed = parseImportedWatchlistFile({
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedAt: '2026-04-06T12:00:00.000Z',
-      exportedFrom: 'skillList',
-      resourceTypes: ['watchlists', 'skills'],
-      watchlists: [
-        {
-          name: '  My Watchlist  ',
+  it('rejects id-less export documents while keeping imports permissive before persistence', () => {
+    expect(() =>
+      createWatchlistExportFile({
+        fields: {
+          name: 'My Watchlist',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
           items: [
             {
               type: 'section',
               label: 'Tech',
-              items: [
-                {
-                  type: 'listing',
-                  listing: {
-                    listing_id: 'aapl-id',
-                    base_id: '',
-                    quote_id: '',
-                    listing_type: 'default',
-                  },
-                },
-              ],
             },
           ],
-        },
-      ],
-      skills: [{ name: 'Ignore me' }],
-    })
+        } as any,
+      })
+    ).toThrow('Invalid persisted watchlist item')
 
-    expect(parsed.watchlists).toEqual([
-      {
-        name: 'My Watchlist',
-        items: [
+    expect(() =>
+      createWatchlistExportFile({
+        fields: {
+          name: 'My Watchlist',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [
+            {
+              type: 'listing',
+              listing: {
+                listing_id: 'aapl-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+            },
+          ],
+        } as any,
+      })
+    ).toThrow('Invalid persisted watchlist item')
+
+    expect(
+      parseImportedWatchlistFile({
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-06T12:00:00.000Z',
+        exportedFrom: 'watchlistWidget',
+        resourceTypes: ['watchlists'],
+        watchlists: [
           {
-            type: 'section',
-            label: 'Tech',
+            name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [
+              {
+                type: 'section',
+                label: 'Tech',
+              },
               {
                 type: 'listing',
                 listing: {
@@ -179,8 +201,78 @@ describe('watchlist import/export', () => {
             ],
           },
         ],
-      },
-    ])
+      })
+    ).toEqual({
+      name: 'My Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [
+        {
+          type: 'section',
+          label: 'Tech',
+        },
+        {
+          type: 'listing',
+          listing: {
+            listing_id: 'aapl-id',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+    })
+  })
+
+  it('parses mixed unified import files and trims the watchlist name', () => {
+    const parsed = parseImportedWatchlistFile({
+      version: '1',
+      fileType: 'tradingGooseExport',
+      exportedAt: '2026-04-06T12:00:00.000Z',
+      exportedFrom: 'skillList',
+      resourceTypes: ['watchlists', 'skills'],
+      watchlists: [
+        {
+          name: '  My Watchlist  ',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [
+            {
+              type: 'section',
+              label: 'Tech',
+            },
+            {
+              type: 'listing',
+              listing: {
+                listing_id: 'aapl-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+            },
+          ],
+        },
+      ],
+      skills: [{ name: 'Ignore me' }],
+    })
+
+    expect(parsed).toEqual({
+      name: 'My Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [
+        {
+          type: 'section',
+          label: 'Tech',
+        },
+        {
+          type: 'listing',
+          listing: {
+            listing_id: 'aapl-id',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+    })
   })
 
   it('rejects invalid fileType values', () => {
@@ -194,6 +286,7 @@ describe('watchlist import/export', () => {
         watchlists: [
           {
             name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [],
           },
         ],
@@ -212,6 +305,7 @@ describe('watchlist import/export', () => {
         watchlists: [
           {
             name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [],
           },
         ],
@@ -230,6 +324,7 @@ describe('watchlist import/export', () => {
         watchlists: [
           {
             name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [],
           },
         ],
@@ -259,10 +354,12 @@ describe('watchlist import/export', () => {
         watchlists: [
           {
             name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [],
           },
           {
             name: 'Second Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [],
           },
         ],
@@ -270,7 +367,7 @@ describe('watchlist import/export', () => {
     ).toThrow()
   })
 
-  it('rejects nested import entries with ids', () => {
+  it('rejects nested section import entries', () => {
     expect(() =>
       parseImportedWatchlistFile({
         version: '1',
@@ -281,16 +378,12 @@ describe('watchlist import/export', () => {
         watchlists: [
           {
             name: 'My Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [
               {
-                id: 'legacy-item-id',
-                type: 'listing',
-                listing: {
-                  listing_id: 'aapl-id',
-                  base_id: '',
-                  quote_id: '',
-                  listing_type: 'default',
-                },
+                type: 'section',
+                label: 'Tech',
+                items: [],
               },
             ],
           },

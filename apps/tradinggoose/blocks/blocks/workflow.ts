@@ -14,6 +14,8 @@ export const WorkflowBlock: BlockConfig = {
       id: 'workflowId',
       title: 'Select Workflow',
       type: 'dropdown',
+      entityListKind: 'workflow',
+      excludeCurrentEntity: true,
       required: true,
     },
     {

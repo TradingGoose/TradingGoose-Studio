@@ -4,6 +4,7 @@ import {
   MCP_SERVER_DOCUMENT_FORMAT,
   normalizeEntityFields,
   SKILL_DOCUMENT_FORMAT,
+  WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import {
@@ -46,6 +47,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 describe('entity document mutation helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockApplySavedEntityState.mockImplementation(async (_kind, _entityId, fields) => fields)
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
@@ -249,6 +251,25 @@ const length = input.int(14, 'Length', 1, 50, 1)
         { userId: 'user-1', accessLevel: 'full' }
       )
     ).rejects.toThrow('Invalid MCP server URL: URL is required and must be a string')
+
+    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
+  })
+
+  it('rejects partial watchlist edit documents before persisting state', async () => {
+    await expect(
+      executeUpdateEntityDocumentMutation(
+        'watchlist',
+        'edit_watchlist',
+        {
+          entityId: 'watchlist-1',
+          documentFormat: WATCHLIST_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            name: 'Only Name',
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow(/settings/i)
 
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })

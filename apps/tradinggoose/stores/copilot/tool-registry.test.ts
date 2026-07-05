@@ -170,6 +170,48 @@ describe('tool-registry', () => {
     })
   })
 
+  it('injects hosted workspace context into workspace-targeted watchlist tools', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'list_watchlists',
+      provenance: { workspaceId: 'workspace-1' },
+    })
+
+    expect(prepareCopilotToolArgs('list_watchlists', {}, context)).toEqual({
+      workspaceId: 'workspace-1',
+    })
+
+    expect(
+      prepareCopilotToolArgs(
+        'create_watchlist',
+        {
+          entityDocument: '{"name":"Tech","settings":{},"items":[]}',
+          documentFormat: 'tg-watchlist-document-v1',
+        },
+        context
+      )
+    ).toEqual({
+      workspaceId: 'workspace-1',
+      entityDocument: '{"name":"Tech","settings":{},"items":[]}',
+      documentFormat: 'tg-watchlist-document-v1',
+    })
+  })
+
+  it('does not inject workspace context into listing search', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'search_listing',
+      provenance: { workspaceId: 'workspace-1' },
+    })
+
+    expect(prepareCopilotToolArgs('search_listing', { query: 'Apple' }, context)).toEqual({
+      query: 'Apple',
+    })
+    expect(() =>
+      prepareCopilotToolArgs('search_listing', { query: 'Apple', workspaceId: 'workspace-1' }, context)
+    ).toThrow()
+  })
+
   it('requires workspaceId for local knowledge base list tools', () => {
     const context = createExecutionContext({
       toolCallId,
@@ -189,6 +231,10 @@ describe('tool-registry', () => {
     expect(isGatedTool('edit_indicator')).toBe(true)
     expect(isGatedTool('edit_custom_tool')).toBe(true)
     expect(isGatedTool('edit_mcp_server')).toBe(true)
+    expect(isGatedTool('search_listing')).toBe(false)
+    expect(isGatedTool('create_watchlist')).toBe(true)
+    expect(isGatedTool('edit_watchlist')).toBe(true)
+    expect(isGatedTool('rename_watchlist')).toBe(true)
     expect(isGatedTool('list_knowledge_bases')).toBe(false)
     expect(isGatedTool('read_knowledge_base')).toBe(false)
     expect(isGatedTool('create_knowledge_base')).toBe(true)
@@ -219,6 +265,11 @@ describe('tool-registry', () => {
     expect(ensureClientToolInstance('edit_indicator', 'edit-indicator-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_custom_tool', 'edit-custom-tool-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_mcp_server', 'edit-mcp-server-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('list_watchlists', 'list-watchlists-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('read_watchlist', 'read-watchlist-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('create_watchlist', 'create-watchlist-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('edit_watchlist', 'edit-watchlist-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('rename_watchlist', 'rename-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('list_knowledge_bases', 'list-kb-tool')).toBeUndefined()
     expect(ensureClientToolInstance('read_knowledge_base', 'read-kb-tool')).toBeUndefined()
     expect(ensureClientToolInstance('create_knowledge_base', 'create-kb-tool')).toBeUndefined()
@@ -268,6 +319,16 @@ describe('tool-registry', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: skillsKeys.list('workspace-1'),
     })
+  })
+
+  it('does not invalidate React Query after server-managed watchlist mutations', async () => {
+    const invalidateQueries = vi
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    await handleCopilotServerToolSuccess('edit_watchlist', { workspaceId: 'workspace-1' })
+
+    expect(invalidateQueries).not.toHaveBeenCalled()
   })
 
   it('invalidates the selected knowledge base detail tree after server-managed knowledge mutations', async () => {

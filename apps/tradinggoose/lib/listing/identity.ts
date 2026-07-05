@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 const LISTING_TYPES = ['default', 'crypto', 'currency'] as const
 
 export type ListingType = (typeof LISTING_TYPES)[number]
@@ -29,6 +31,45 @@ export const LISTING_IDENTITY_JSON_SCHEMA = {
   required: ['listing_id', 'base_id', 'quote_id', 'listing_type'],
   additionalProperties: false,
 }
+
+function refineListingIdentityShape(
+  value: ListingIdentity,
+  ctx: z.RefinementCtx
+): void {
+  if (value.listing_type === 'default') {
+    if (!value.listing_id || value.base_id || value.quote_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Default listing identities require listing_id and empty base_id/quote_id',
+      })
+    }
+    return
+  }
+
+  if (value.listing_id || !value.base_id || !value.quote_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Pair listing identities require base_id/quote_id and empty listing_id',
+    })
+  }
+}
+
+const ListingIdentitySchemaShape = {
+  listing_id: z.string(),
+  base_id: z.string(),
+  quote_id: z.string(),
+  listing_type: z.enum(LISTING_TYPES),
+} satisfies z.ZodRawShape
+
+export const ListingIdentitySchema = z
+  .object(ListingIdentitySchemaShape)
+  .strict()
+  .superRefine(refineListingIdentityShape)
+
+export const ListingIdentityPassthroughSchema = z
+  .object(ListingIdentitySchemaShape)
+  .passthrough()
+  .superRefine(refineListingIdentityShape)
 
 export type ListingResolved = ListingIdentity & {
   base: string

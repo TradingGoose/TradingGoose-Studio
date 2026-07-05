@@ -1208,6 +1208,7 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
     nextContexts[pair.color] = {
       ...normalizePairColorContext({
         workflowId: pair.workflowId ?? undefined,
+        watchlistId: pair.watchlistId ?? null,
         listing: pair.listing ?? null,
         indicatorId: pair.indicatorId ?? null,
         mcpServerId: pair.mcpServerId ?? null,
@@ -1229,6 +1230,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
     if (color === 'gray') return
     const context = contexts[color]
     const workflowId = normalizeOptionalString(context?.workflowId)
+    const watchlistId = normalizeOptionalString(context?.watchlistId)
     const listing = getListingIdentity(context?.listing)
     const indicatorId = normalizeOptionalString(context?.indicatorId)
     const mcpServerId = normalizeOptionalString(context?.mcpServerId)
@@ -1238,6 +1240,7 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
     pairs.push({
       color,
       workflowId,
+      watchlistId,
       listing,
       indicatorId,
       mcpServerId,
@@ -1312,6 +1315,9 @@ function seedPairContextForColorSwitch(
 
   if (source.workflowId && !target.workflowId) {
     nextContext.workflowId = source.workflowId
+  }
+  if (source.watchlistId && !target.watchlistId) {
+    nextContext.watchlistId = source.watchlistId
   }
   if (source.listing && !target.listing) {
     nextContext.listing = source.listing

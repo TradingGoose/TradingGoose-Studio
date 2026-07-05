@@ -110,7 +110,7 @@ async function applyMcpServerDocument(input: {
     input.entityId,
     input.workspaceId
   )
-  await applySavedEntityState(
+  return applySavedEntityState(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
     preserveMcpServerSecretPlaceholders(input.fields, currentFields)

@@ -3,22 +3,17 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockRenameWatchlist = vi.fn()
 const mockDeleteWatchlist = vi.fn()
-const mockClearWatchlist = vi.fn()
-const mockUpdateWatchlistSettings = vi.fn()
-const mockReorderWatchlistItems = vi.fn()
+const mockGetWatchlist = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
   }),
 }))
 
@@ -34,11 +29,8 @@ vi.mock('@/lib/watchlists/operations', async () => {
   const actual = await vi.importActual<any>('@/lib/watchlists/operations')
   return {
     ...actual,
-    renameWatchlist: mockRenameWatchlist,
     deleteWatchlist: mockDeleteWatchlist,
-    clearWatchlist: mockClearWatchlist,
-    updateWatchlistSettings: mockUpdateWatchlistSettings,
-    reorderWatchlistItems: mockReorderWatchlistItems,
+    getWatchlist: mockGetWatchlist,
   }
 })
 
@@ -47,43 +39,6 @@ describe('Watchlist by id API route', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-  })
-
-  it('renames a watchlist via PATCH', async () => {
-    mockRenameWatchlist.mockResolvedValue({
-      id: 'watchlist-1',
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      name: 'Updated Name',
-      isSystem: false,
-      items: [],
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-
-    const { PATCH } = await import('@/app/api/watchlists/[watchlistId]/route')
-    const request = createMockRequest('PATCH', {
-      workspaceId: 'workspace-1',
-      action: 'rename',
-      name: 'Updated Name',
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
-    })
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.watchlist.name).toBe('Updated Name')
-    expect(mockRenameWatchlist).toHaveBeenCalledWith(
-      {
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-      },
-      'watchlist-1',
-      'Updated Name'
-    )
   })
 
   it('deletes a watchlist via DELETE', async () => {
@@ -107,7 +62,50 @@ describe('Watchlist by id API route', () => {
     expect(mockDeleteWatchlist).toHaveBeenCalledWith(
       {
         workspaceId: 'workspace-1',
-        userId: 'user-1',
+      },
+      'watchlist-1'
+    )
+  })
+
+  it('reads a watchlist via GET', async () => {
+    mockGetWatchlist.mockResolvedValue({
+      id: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      name: 'Growth',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [],
+      createdAt: '2026-03-13T00:00:00.000Z',
+      updatedAt: '2026-03-13T00:00:00.000Z',
+    })
+
+    const { GET } = await import('@/app/api/watchlists/[watchlistId]/route')
+    const request = new NextRequest(
+      new URL('http://localhost:3000/api/watchlists/watchlist-1?workspaceId=workspace-1'),
+      {
+        method: 'GET',
+      }
+    )
+
+    const response = await GET(request, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.watchlist).toMatchObject({
+      id: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      name: 'Growth',
+      items: [],
+    })
+    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith(
+      'user-1',
+      'workspace',
+      'workspace-1'
+    )
+    expect(mockGetWatchlist).toHaveBeenCalledWith(
+      {
+        workspaceId: 'workspace-1',
       },
       'watchlist-1'
     )

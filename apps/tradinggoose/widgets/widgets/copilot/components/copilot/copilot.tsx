@@ -87,6 +87,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             custom_tool: entityLabels.currentTool,
             indicator: entityLabels.currentIndicator,
             mcp_server: entityLabels.currentMcpServer,
+            watchlist: entityLabels.currentWatchlist,
           },
         }),
       [entityLabels, pairContext, workspaceId]

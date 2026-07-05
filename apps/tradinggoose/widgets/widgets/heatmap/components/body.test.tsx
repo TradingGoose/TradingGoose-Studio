@@ -15,9 +15,19 @@ const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseOAuthConnections = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
-const mockUseWatchlists = vi.fn()
 const mockHeatmapTreemapChart = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
+let currentWatchlists: Array<{
+  id: string
+  workspaceId: string
+  name: string
+  items: Array<{ id: string; type: 'listing'; listing: ReturnType<typeof createListing> }>
+  settings: { showLogo: boolean; showTicker: boolean; showDescription: boolean }
+  createdAt: string
+  updatedAt: string
+}> = []
+let loadingWatchlistDocumentIds = new Set<string>()
+let erroredWatchlistDocuments = new Map<string, string>()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
@@ -93,8 +103,37 @@ vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
 }))
 
-vi.mock('@/hooks/queries/watchlists', () => ({
-  useWatchlists: (...args: unknown[]) => mockUseWatchlists(...args),
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: currentWatchlists.map((entry) => ({
+      entityId: entry.id,
+      entityName: entry.name,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+    })),
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('@/widgets/utils/watchlist-yjs', () => ({
+  useWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
+    const record = currentWatchlists.find((entry) => entry.id === watchlistId) ?? null
+    const isLoading = watchlistId ? loadingWatchlistDocumentIds.has(watchlistId) : false
+    const error = watchlistId ? (erroredWatchlistDocuments.get(watchlistId) ?? null) : null
+    return {
+      record: isLoading || error ? null : record,
+      name: record?.name ?? '',
+      settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
+      items: record?.items ?? [],
+      setName: vi.fn(),
+      setSettings: vi.fn(),
+      setItems: vi.fn(),
+      save: vi.fn(),
+      isLoading,
+      error,
+    }
+  },
 }))
 
 vi.mock('@/widgets/utils/heatmap-params', () => ({
@@ -162,7 +201,9 @@ describe('HeatmapWidgetBody', () => {
     )
     mockUsePortfolioIdentities.mockReturnValue(createQueryResult({ data: [] }))
     mockUsePortfolioDetail.mockReturnValue(createQueryResult({ data: undefined }))
-    mockUseWatchlists.mockReturnValue(createQueryResult({ data: [] }))
+    currentWatchlists = []
+    loadingWatchlistDocumentIds = new Set()
+    erroredWatchlistDocuments = new Map()
     resetPairContexts()
   })
 
@@ -179,23 +220,17 @@ describe('HeatmapWidgetBody', () => {
       type: 'listing' as const,
       listing: createListing(`SYM${index}`),
     }))
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
-          {
-            id: 'watchlist-1',
-            workspaceId: 'workspace-1',
-            userId: 'user-1',
-            name: 'Watchlist',
-            isSystem: false,
-            items: watchlistItems,
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
-          },
-        ],
-      })
-    )
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: watchlistItems,
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
 
     await act(async () => {
       root.render(
@@ -229,35 +264,11 @@ describe('HeatmapWidgetBody', () => {
     )
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toHaveLength(200)
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0].items).toHaveLength(200)
-    expect(mockUseWatchlists).toHaveBeenCalledWith('workspace-1')
     expect(mockUseOAuthProviderAvailability).toHaveBeenCalledWith(expect.any(Array), false)
   })
 
-  it('does not render stale placeholder watchlist data into the shared chart pipeline', async () => {
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
-          {
-            id: 'watchlist-1',
-            workspaceId: 'old-workspace',
-            userId: 'user-1',
-            name: 'Old Watchlist',
-            isSystem: false,
-            items: [
-              {
-                id: 'old-item',
-                type: 'listing' as const,
-                listing: createListing('OLD'),
-              },
-            ],
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
-          },
-        ],
-        isPlaceholderData: true,
-      })
-    )
+  it('does not render watchlist chart data while the Yjs entity list is empty', async () => {
+    currentWatchlists = []
 
     await act(async () => {
       root.render(
@@ -276,6 +287,210 @@ describe('HeatmapWidgetBody', () => {
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
     expect(mockUseResolvedListings.mock.calls.at(-1)?.[0].listings).toEqual([])
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
+  })
+
+  it('waits for watchlist Yjs documents before rendering the watchlist empty state', async () => {
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [],
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
+    loadingWatchlistDocumentIds.add('watchlist-1')
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.querySelector('svg')).toBeTruthy()
+    expect(container.textContent).not.toContain('No watchlist listings found.')
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
+    expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
+  })
+
+  it('does not render partial watchlist data while one Yjs document is still loading', async () => {
+    currentWatchlists = [
+      {
+        id: 'watchlist-loaded',
+        workspaceId: 'workspace-1',
+        name: 'Loaded',
+        items: [
+          {
+            id: 'loaded-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
+          },
+        ],
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 'watchlist-loading',
+        workspaceId: 'workspace-1',
+        name: 'Loading',
+        items: [
+          {
+            id: 'loading-item',
+            type: 'listing' as const,
+            listing: createListing('MSFT'),
+          },
+        ],
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
+    loadingWatchlistDocumentIds.add('watchlist-loading')
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.querySelector('svg')).toBeTruthy()
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
+    expect(mockUseResolvedListings.mock.calls.at(-1)?.[0].listings).toEqual([])
+    expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
+  })
+
+  it('surfaces watchlist Yjs document subscription errors', async () => {
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
+          {
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
+          },
+        ],
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
+    erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed')
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('watchlist document failed')
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
+    expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
+  })
+
+  it('does not reuse stale watchlist chart data when a loaded document returns to loading or error', async () => {
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
+          {
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
+          },
+        ],
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(mockHeatmapTreemapChart).toHaveBeenCalled()
+    mockHeatmapTreemapChart.mockClear()
+
+    loadingWatchlistDocumentIds.add('watchlist-1')
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.querySelector('svg')).toBeTruthy()
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
+    expect(container.textContent).not.toContain('heatmap-chart')
+
+    loadingWatchlistDocumentIds.delete('watchlist-1')
+    erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed again')
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('watchlist document failed again')
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
+    expect(container.textContent).not.toContain('heatmap-chart')
   })
 
   it('does not use portfolio trading provider settings as market quote provider settings', async () => {
@@ -317,29 +532,23 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('switches source modes through the same source-neutral chart props', async () => {
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
           {
-            id: 'watchlist-1',
-            workspaceId: 'workspace-1',
-            userId: 'user-1',
-            name: 'Watchlist',
-            isSystem: false,
-            items: [
-              {
-                id: 'watchlist-item',
-                type: 'listing' as const,
-                listing: createListing('AAPL'),
-              },
-            ],
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
           },
         ],
-      })
-    )
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
     mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
         data: [portfolioIdentity],
@@ -435,29 +644,23 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('uses raw volume for watchlist tile size when selected', async () => {
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
           {
-            id: 'watchlist-1',
-            workspaceId: 'workspace-1',
-            userId: 'user-1',
-            name: 'Watchlist',
-            isSystem: false,
-            items: [
-              {
-                id: 'watchlist-item',
-                type: 'listing' as const,
-                listing: createListing('AAPL'),
-              },
-            ],
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
           },
         ],
-      })
-    )
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
     mockUseMarketQuoteSnapshots.mockReturnValue(
       createQueryResult({
         data: {
@@ -501,29 +704,23 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('writes selected heatmap listings to the linked pair color context', async () => {
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
           {
-            id: 'watchlist-1',
-            workspaceId: 'workspace-1',
-            userId: 'user-1',
-            name: 'Watchlist',
-            isSystem: false,
-            items: [
-              {
-                id: 'watchlist-item',
-                type: 'listing' as const,
-                listing: createListing('AAPL'),
-              },
-            ],
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
           },
         ],
-      })
-    )
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
 
     await act(async () => {
       root.render(
@@ -552,29 +749,23 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('does not rerender heatmap data when linked pair color context changes elsewhere', async () => {
-    mockUseWatchlists.mockReturnValue(
-      createQueryResult({
-        data: [
+    currentWatchlists = [
+      {
+        id: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Watchlist',
+        items: [
           {
-            id: 'watchlist-1',
-            workspaceId: 'workspace-1',
-            userId: 'user-1',
-            name: 'Watchlist',
-            isSystem: false,
-            items: [
-              {
-                id: 'watchlist-item',
-                type: 'listing' as const,
-                listing: createListing('AAPL'),
-              },
-            ],
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            createdAt: '',
-            updatedAt: '',
+            id: 'watchlist-item',
+            type: 'listing' as const,
+            listing: createListing('AAPL'),
           },
         ],
-      })
-    )
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]
 
     await act(async () => {
       root.render(

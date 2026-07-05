@@ -10,6 +10,7 @@ export const SKILL_WIDGET_SELECT_EVENT = 'skill-widgets:select-skill'
 export const SKILL_EDITOR_ACTION_EVENT = 'skill-editor:action'
 export const MCP_WIDGET_SELECT_SERVER_EVENT = 'mcp-widgets:select-server'
 export const MCP_EDITOR_ACTION_EVENT = 'mcp-editor:action'
+export const WATCHLIST_WIDGET_SELECT_EVENT = 'watchlist-widgets:select-watchlist'
 export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-params'
 export const PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT =
   'portfolio-snapshot-widgets:update-params'
@@ -18,6 +19,12 @@ export const HEATMAP_WIDGET_UPDATE_PARAMS_EVENT = 'heatmap-widgets:update-params
 
 export type WorkflowWidgetSelectEventDetail = {
   workflowId?: string | null
+  panelId?: string
+  widgetKey: string
+}
+
+export type WatchlistWidgetSelectEventDetail = {
+  watchlistId?: string | null
   panelId?: string
   widgetKey: string
 }

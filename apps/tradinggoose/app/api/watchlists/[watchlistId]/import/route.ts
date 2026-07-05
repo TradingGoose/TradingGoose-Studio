@@ -3,11 +3,13 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { WatchlistDocumentError } from '@/lib/watchlists/document'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
+import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import {
-  appendWatchlistItemsToWatchlist,
-  WatchlistOperationError,
-} from '@/lib/watchlists/operations'
+  applySavedEntityState,
+  SavedEntityPersistenceError,
+} from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('WatchlistImportAPI')
 
@@ -34,18 +36,21 @@ const requireWorkspacePermission = async (userId: string, workspaceId: string) =
   }
 }
 
-const parseImportedWatchlistItems = (file: unknown) => {
+const parseImportedWatchlistDocument = (file: unknown) => {
   try {
-    return parseImportedWatchlistFile(file).watchlists[0].items
+    return parseImportedWatchlistFile(file)
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new WatchlistOperationError('Invalid watchlist import file', 400)
+    }
+    if (error instanceof WatchlistDocumentError) {
+      throw new WatchlistOperationError(error.message, error.status)
     }
     throw error
   }
 }
 
-const handleRouteError = (error: unknown, fallbackMessage: string) => {
+const handleRouteError = (error: unknown, errorMessage: string) => {
   if (error instanceof WatchlistOperationError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
@@ -55,8 +60,11 @@ const handleRouteError = (error: unknown, fallbackMessage: string) => {
       { status: 400 }
     )
   }
-  logger.error(fallbackMessage, { error })
-  return NextResponse.json({ error: fallbackMessage }, { status: 500 })
+  if (error instanceof SavedEntityPersistenceError) {
+    return NextResponse.json(error.responseBody(), { status: error.status })
+  }
+  logger.error(errorMessage, { error })
+  return NextResponse.json({ error: errorMessage }, { status: 500 })
 }
 
 export async function POST(
@@ -69,27 +77,13 @@ export async function POST(
     const parsed = WatchlistImportSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId)
 
-    const items = parseImportedWatchlistItems(parsed.file)
+    const fields = parseImportedWatchlistDocument(parsed.file)
 
-    const result = await appendWatchlistItemsToWatchlist(
-      {
-        workspaceId: parsed.workspaceId,
-        userId,
-      },
-      watchlistId,
-      items
-    )
+    await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
+    await applySavedEntityState('watchlist', watchlistId, fields)
+    const watchlist = await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
 
-    return NextResponse.json(
-      {
-        watchlist: result.watchlist,
-        import: {
-          addedCount: result.addedCount,
-          skippedCount: result.skippedCount,
-        },
-      },
-      { status: 200 }
-    )
+    return NextResponse.json({ watchlist }, { status: 200 })
   } catch (error) {
     return handleRouteError(error, 'Failed to import watchlist')
   }

@@ -1,19 +1,7 @@
 import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { List } from 'lucide-react'
-import {
-  buildListingDisplayOption,
-  getListingIdentityKey,
-  LISTING_IDENTITY_VALUE_TYPE,
-} from '@/lib/listing/identity'
-import { resolveListingIdentities } from '@/lib/listing/resolve'
-import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
-import type {
-  BlockConfig,
-  BlockOptionLoaderContext,
-  SubBlockCondition,
-  SubBlockOption,
-} from '@/blocks/types'
+import type { BlockConfig, SubBlockCondition } from '@/blocks/types'
 import { WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 
 const WatchlistIcon = (props: SVGProps<SVGSVGElement>) => createElement(List, props)
@@ -23,71 +11,12 @@ const operationCondition = (value: string | string[]): SubBlockCondition => ({
   value,
 })
 
-const loadWatchlists = async (context: BlockOptionLoaderContext): Promise<WatchlistRecord[]> => {
-  const workspaceId = context.workspaceId?.trim()
-  if (!workspaceId) return []
-
-  const response = await fetch(`/api/watchlists?workspaceId=${encodeURIComponent(workspaceId)}`, {
-    cache: 'no-store',
-  })
-  if (!response.ok) {
-    throw new Error('Failed to load watchlists')
-  }
-
-  return ((await response.json()) as { watchlists: WatchlistRecord[] }).watchlists
-}
-
-const fetchWatchlistOptions = async (
-  _blockId: string,
-  _subBlockId: string,
-  context: BlockOptionLoaderContext
-): Promise<SubBlockOption[]> =>
-  (await loadWatchlists(context)).map((watchlist) => {
-    const count = watchlist.items.filter((item) => item.type === 'listing').length
-    return {
-      id: watchlist.id,
-      label: watchlist.name,
-      searchLabel: `${watchlist.name} ${watchlist.id}`,
-      rightLabel: `${count} listing${count === 1 ? '' : 's'}`,
-    }
-  })
-
-const fetchWatchlistListingOptions = async (
-  _blockId: string,
-  _subBlockId: string,
-  context: BlockOptionLoaderContext
-): Promise<SubBlockOption[]> => {
-  const watchlistId =
-    typeof context.contextValues?.watchlistId === 'string' ? context.contextValues.watchlistId : ''
-  if (!watchlistId) return []
-
-  const watchlist = (await loadWatchlists(context)).find((entry) => entry.id === watchlistId)
-  if (!watchlist) return []
-
-  const listingItems = watchlist.items.filter(
-    (item): item is WatchlistListingItem => item.type === 'listing'
-  )
-  const resolvedListings = await resolveListingIdentities(listingItems.map((item) => item.listing))
-
-  return listingItems.map((item) => {
-    const id = getListingIdentityKey(item.listing)
-    const listing = buildListingDisplayOption(item.listing, resolvedListings[id])
-
-    return {
-      id,
-      label:
-        listing.name?.trim() || (listing.quote ? `${listing.base}/${listing.quote}` : listing.base),
-      value: listing,
-    }
-  })
-}
-
 export const WatchlistBlock: BlockConfig = {
   type: 'watchlist',
   name: 'Watchlist',
-  description: 'Read watchlists and add or remove listing items.',
+  description: 'Read workspace watchlists and watchlist items.',
   longDescription:
-    'Read workspace watchlists, inspect items and sections, add listings, and remove listing items.',
+    'Read root workspace watchlists, inspect ordered listing items, and inspect section/category items.',
   category: 'tools',
   bgColor: '#0f766e',
   icon: WatchlistIcon,
@@ -100,8 +29,6 @@ export const WatchlistBlock: BlockConfig = {
       options: [
         { label: 'Read Lists', id: 'readLists' },
         { label: 'Read List Items', id: 'readListItems' },
-        { label: 'Add Listing', id: 'addListing' },
-        { label: 'Remove Listing', id: 'removeListing' },
       ],
       value: () => 'readLists',
       required: true,
@@ -111,24 +38,13 @@ export const WatchlistBlock: BlockConfig = {
       title: 'Watchlist',
       type: 'dropdown',
       layout: 'full',
-      condition: operationCondition(['readListItems', 'addListing', 'removeListing']),
+      condition: operationCondition('readListItems'),
+      entityListKind: 'watchlist',
       options: [],
-      fetchOptions: fetchWatchlistOptions,
       enableSearch: true,
       searchPlaceholder: 'Search watchlists...',
       placeholder: 'Select watchlist',
       autoSelectFirstOption: false,
-      required: true,
-    },
-    {
-      id: 'listing',
-      title: 'Listing',
-      type: 'market-selector',
-      layout: 'full',
-      condition: operationCondition(['addListing', 'removeListing']),
-      dependsOn: ['watchlistId'],
-      fetchOptionsCondition: operationCondition('removeListing'),
-      fetchOptions: fetchWatchlistListingOptions,
       required: true,
     },
   ],
@@ -146,11 +62,6 @@ export const WatchlistBlock: BlockConfig = {
     watchlistId: {
       type: 'string',
       description: 'Watchlist selected by the Watchlist field.',
-      visibility: 'user-or-llm',
-    },
-    listing: {
-      type: LISTING_IDENTITY_VALUE_TYPE,
-      description: 'Structured listing identity.',
       visibility: 'user-or-llm',
     },
   },

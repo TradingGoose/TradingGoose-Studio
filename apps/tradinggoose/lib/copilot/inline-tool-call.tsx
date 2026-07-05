@@ -2,11 +2,18 @@
 
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
+import { parseEntityDocument, WATCHLIST_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
+import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/identity'
+import type {
+  WatchlistDocumentInputFields,
+  WatchlistDocumentInputItem,
+} from '@/lib/watchlists/document'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -32,6 +39,16 @@ type EntityReviewPayload = {
     before: string
     after: string
   }
+}
+type WatchlistReviewPayload = {
+  title: string
+  before: WatchlistDocumentInputFields | null
+  after: WatchlistDocumentInputFields
+}
+type WatchlistReviewSection = {
+  id: string
+  label: string
+  listings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
 }
 
 interface InlineToolCallProps {
@@ -224,6 +241,7 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
     entityKind === 'indicator' ||
     entityKind === 'mcp_server' ||
     entityKind === 'knowledge_base' ||
+    entityKind === 'watchlist' ||
     entityKind === 'workflow'
   )
 }
@@ -269,6 +287,201 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
         : `Proposed ${entityLabel} Changes`,
     documentDiff,
   }
+}
+
+function readWatchlistReviewDocument(value: string): WatchlistDocumentInputFields | null {
+  if (!value.trim()) {
+    return null
+  }
+
+  try {
+    return parseEntityDocument('watchlist', value) as WatchlistDocumentInputFields
+  } catch {
+    return null
+  }
+}
+
+function readWatchlistReviewPayload(toolCall: CopilotToolCall): WatchlistReviewPayload | null {
+  if (!isStagedPreviewState(toolCall.state)) {
+    return null
+  }
+  if (
+    toolCall.name !== 'create_watchlist' &&
+    toolCall.name !== 'edit_watchlist' &&
+    toolCall.name !== 'rename_watchlist'
+  ) {
+    return null
+  }
+
+  const result =
+    toolCall.result && typeof toolCall.result === 'object'
+      ? (toolCall.result as Record<string, any>)
+      : null
+  if (result?.entityKind !== 'watchlist') {
+    return null
+  }
+  if (result.documentFormat && result.documentFormat !== WATCHLIST_DOCUMENT_FORMAT) {
+    return null
+  }
+
+  const documentDiff = result?.preview?.documentDiff
+  if (
+    !documentDiff ||
+    typeof documentDiff.before !== 'string' ||
+    typeof documentDiff.after !== 'string' ||
+    documentDiff.before === documentDiff.after
+  ) {
+    return null
+  }
+
+  const isCreateReview = toolCall.name === 'create_watchlist'
+  const beforeText = documentDiff.before.trim()
+  const before = beforeText ? readWatchlistReviewDocument(documentDiff.before) : null
+  const after = readWatchlistReviewDocument(documentDiff.after)
+  if (!after || (!isCreateReview && !before) || (isCreateReview && beforeText && !before)) {
+    return null
+  }
+
+  return {
+    title:
+      toolCall.state === ClientToolCallState.success
+        ? 'Applied Watchlist Changes'
+        : 'Proposed Watchlist Changes',
+    before,
+    after,
+  }
+}
+
+function groupWatchlistReviewItems(items: WatchlistDocumentInputItem[]) {
+  const rootListings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[] = []
+  const sections: WatchlistReviewSection[] = []
+  let currentSection: WatchlistReviewSection | null = null
+
+  for (const item of items) {
+    if (item.type === 'section') {
+      currentSection = {
+        id: item.id ?? item.label,
+        label: item.label,
+        listings: [],
+      }
+      sections.push(currentSection)
+      continue
+    }
+
+    if (currentSection) {
+      currentSection.listings.push(item)
+    } else {
+      rootListings.push(item)
+    }
+  }
+
+  return { rootListings, sections }
+}
+
+function WatchlistReviewListingRow({
+  item,
+}: {
+  item: Extract<WatchlistDocumentInputItem, { type: 'listing' }>
+}) {
+  return (
+    <div className='rounded-sm border border-border/50 bg-background/70 px-2 py-1.5'>
+      <ListingDisplayRow
+        listing={buildListingDisplayOption(item.listing)}
+        showSecondary
+        className='min-h-5'
+      />
+    </div>
+  )
+}
+
+function WatchlistReviewDocumentView({
+  label,
+  document,
+}: {
+  label: string
+  document: WatchlistDocumentInputFields | null
+}) {
+  if (!document) {
+    return (
+      <div className='flex min-h-20 flex-col gap-2 rounded-md border border-border/60 bg-background/70 p-2'>
+        <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+          {label}
+        </div>
+        <div className='text-muted-foreground text-xs'>No existing watchlist document.</div>
+      </div>
+    )
+  }
+
+  const grouped = groupWatchlistReviewItems(document.items)
+  const settings = [
+    ['Logo', document.settings.showLogo],
+    ['Ticker', document.settings.showTicker],
+    ['Description', document.settings.showDescription],
+  ] as const
+
+  return (
+    <div className='flex min-w-0 flex-col gap-2 rounded-md border border-border/60 bg-background/70 p-2'>
+      <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+        {label}
+      </div>
+      <div className='min-w-0'>
+        <div className='truncate font-semibold text-sm'>{document.name}</div>
+        <div className='mt-1 flex flex-wrap gap-1'>
+          {settings.map(([name, enabled]) => (
+            <span
+              key={name}
+              className='rounded-sm border border-border/60 px-1.5 py-0.5 text-muted-foreground text-[10px]'
+            >
+              {name}: {enabled ? 'On' : 'Off'}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className='flex flex-col gap-1.5'>
+        {grouped.rootListings.map((item, index) => (
+          <WatchlistReviewListingRow
+            key={item.id ?? `${getListingIdentityKey(item.listing)}-${index}`}
+            item={item}
+          />
+        ))}
+        {grouped.sections.map((section, sectionIndex) => (
+          <div
+            key={section.id || `${section.label}-${sectionIndex}`}
+            className='flex flex-col gap-1.5'
+          >
+            <div className='rounded-sm bg-muted/60 px-2 py-1 font-medium text-muted-foreground text-xs'>
+              {section.label}
+            </div>
+            {section.listings.map((item, itemIndex) => (
+              <WatchlistReviewListingRow
+                key={item.id ?? `${getListingIdentityKey(item.listing)}-${itemIndex}`}
+                item={item}
+              />
+            ))}
+          </div>
+        ))}
+        {document.items.length === 0 ? (
+          <div className='rounded-sm border border-dashed border-border/60 px-2 py-3 text-center text-muted-foreground text-xs'>
+            No listings.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function WatchlistReviewDiff({ payload }: { payload: WatchlistReviewPayload }) {
+  return (
+    <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
+      <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+        {payload.title}
+      </div>
+      <div className='grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2'>
+        <WatchlistReviewDocumentView label='Current' document={payload.before} />
+        <WatchlistReviewDocumentView label='Proposed' document={payload.after} />
+      </div>
+    </div>
+  )
 }
 
 function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPayload | null {
@@ -429,7 +642,8 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall)
   const params = toolCall.params ?? {}
-  const entityReviewPayload = readEntityReviewPayload(toolCall)
+  const watchlistReviewPayload = readWatchlistReviewPayload(toolCall)
+  const entityReviewPayload = watchlistReviewPayload ? null : readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)
 
@@ -594,6 +808,11 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='px-1'>{renderPendingDetails()}</div>}
+      {watchlistReviewPayload ? (
+        <div className='px-1'>
+          <WatchlistReviewDiff payload={watchlistReviewPayload} />
+        </div>
+      ) : null}
       {entityReviewPayload ? (
         <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>

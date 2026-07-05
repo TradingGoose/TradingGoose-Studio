@@ -43,13 +43,27 @@ describe('workspace-entities', () => {
         entityKind: 'skill',
         entityId: 'skill-1',
         workspaceId: 'workspace-1',
-        label: 'Risk Filter',
-      })
-    ).toEqual({
+      label: 'Risk Filter',
+    })
+  ).toEqual({
       kind: 'skill',
       skillId: 'skill-1',
       workspaceId: 'workspace-1',
-      label: 'Risk Filter',
+    label: 'Risk Filter',
+  })
+
+    expect(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'watchlist',
+        entityId: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        label: 'Growth',
+      })
+    ).toEqual({
+      kind: 'watchlist',
+      watchlistId: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      label: 'Growth',
     })
   })
 
@@ -125,9 +139,21 @@ describe('workspace-entities', () => {
         {
           workflowId: 'workflow-1',
           customToolId: 'tool-1',
+          watchlistId: 'watchlist-1',
         },
         'custom_tool'
       )
     ).toBe('tool-1')
+
+    expect(
+      getCopilotWorkspaceEntityIdFromPairContext(
+        {
+          workflowId: 'workflow-1',
+          customToolId: 'tool-1',
+          watchlistId: 'watchlist-1',
+        },
+        'watchlist'
+      )
+    ).toBe('watchlist-1')
   })
 })

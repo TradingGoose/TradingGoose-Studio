@@ -170,9 +170,7 @@ const createDeferred = () => {
 const watchlist: WatchlistRecord = {
   id: 'watchlist-1',
   workspaceId: 'workspace-1',
-  userId: 'user-1',
-  name: 'Default',
-  isSystem: true,
+  name: 'Growth',
   items: [
     {
       id: 'section-1',

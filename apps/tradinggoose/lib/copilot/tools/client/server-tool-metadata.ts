@@ -226,6 +226,17 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.rejected]: { text: 'Skipped documentation search', icon: MinusCircle },
     },
   },
+  search_listing: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Listing search complete', icon: BarChart3 },
+      [ClientToolCallState.error]: { text: 'Failed to search listings', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted listing search', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped listing search', icon: MinusCircle },
+    },
+  },
   [CopilotTool.read_environment_variables]: {
     displayNames: {
       [ClientToolCallState.generating]: {
@@ -536,6 +547,11 @@ export const SERVER_TOOL_METADATA = {
   create_mcp_server: createEntityMutationMetadata('MCP server', 'create', Server),
   edit_mcp_server: createEntityMutationMetadata('MCP server', 'edit', Server),
   rename_mcp_server: createEntityMutationMetadata('MCP server', 'rename', Server),
+  list_watchlists: createEntityListMetadata('watchlists', ListChecks),
+  read_watchlist: createEntityReadMetadata('watchlist'),
+  create_watchlist: createEntityMutationMetadata('watchlist', 'create', ListChecks),
+  edit_watchlist: createEntityMutationMetadata('watchlist', 'edit', ListChecks),
+  rename_watchlist: createEntityMutationMetadata('watchlist', 'rename', ListChecks),
   list_gdrive_files: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },

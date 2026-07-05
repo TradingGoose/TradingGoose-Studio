@@ -1,4 +1,5 @@
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/document'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
@@ -73,5 +74,7 @@ export function savedEntityRowToFields(
         retries: row.retries ?? 3,
         enabled: row.enabled ?? true,
       }
+    case 'watchlist':
+      return normalizePersistedWatchlistDocumentFields(row)
   }
 }

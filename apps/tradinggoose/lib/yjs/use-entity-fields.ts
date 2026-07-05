@@ -230,6 +230,8 @@ function invalidateSavedEntityQueries(
     case 'mcp_server':
       window.dispatchEvent(new CustomEvent(MCP_TOOLS_CHANGED_EVENT, { detail: { workspaceId } }))
       return
+    case 'watchlist':
+      return
   }
 }
 

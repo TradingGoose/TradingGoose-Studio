@@ -166,33 +166,41 @@ export const watchlistTable = pgTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    rootWatchlistId: uuid('root_watchlist_id').references((): AnyPgColumn => watchlistTable.id, {
+      onDelete: 'cascade',
+    }),
     parentId: uuid('parent_id').references((): AnyPgColumn => watchlistTable.id, {
       onDelete: 'cascade',
     }),
     name: text('name').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
-    isSystem: boolean('is_system').notNull().default(false),
     settings: jsonb('settings').notNull().default('{}'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(
+    workspaceRootParentUserIdx: index('watchlist_table_workspace_root_parent_user_idx').on(
       table.workspaceId,
+      table.rootWatchlistId,
+      table.parentId,
       table.userId
     ),
-    workspaceUserParentIdx: index('watchlist_table_workspace_user_parent_idx').on(
+    workspaceRootUserIdx: index('watchlist_table_workspace_root_user_idx').on(
       table.workspaceId,
-      table.userId,
-      table.parentId
+      table.rootWatchlistId,
+      table.userId
     ),
-    parentSortIdx: index('watchlist_table_parent_sort_idx').on(table.parentId, table.sortOrder),
-    workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique')
-      .on(table.workspaceId, table.userId, table.name)
-      .where(sql`${table.parentId} is null`),
+    rootParentSortIdx: index('watchlist_table_root_parent_sort_idx').on(
+      table.rootWatchlistId,
+      table.parentId,
+      table.sortOrder
+    ),
+    workspaceRootNameUnique: uniqueIndex('watchlist_table_workspace_root_name_unique')
+      .on(table.workspaceId, table.name)
+      .where(
+        sql`${table.userId} is null and ${table.rootWatchlistId} is null and ${table.parentId} is null`
+      ),
   })
 )
 

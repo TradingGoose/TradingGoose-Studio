@@ -6,6 +6,7 @@ import {
   INDICATOR_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
+  WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import {
   MONITOR_DOCUMENT_FORMAT,
@@ -65,6 +66,11 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
     documentLabel: 'MCP server',
     schema: toJsonSchemaRecord(getEntityDocumentSchema('mcp_server')),
+  },
+  {
+    documentFormat: WATCHLIST_DOCUMENT_FORMAT,
+    documentLabel: 'watchlist',
+    schema: toJsonSchemaRecord(getEntityDocumentSchema('watchlist')),
   },
   {
     documentFormat: MONITOR_DOCUMENT_FORMAT,

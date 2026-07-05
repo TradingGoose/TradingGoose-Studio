@@ -10,6 +10,10 @@ import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
+import {
+  materializeWatchlistDocumentInTx,
+  WatchlistDocumentError,
+} from '@/lib/watchlists/document'
 import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -69,12 +73,12 @@ function normalizeSavedEntityFields(
   }
 }
 
-async function persistSavedEntityState(
+export async function persistSavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>,
   workspaceId: string
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   const now = new Date()
   let persisted: Array<{ id: string }>
 
@@ -170,6 +174,20 @@ async function persistSavedEntityState(
         .returning({ id: mcpServers.id })
       break
     }
+    case 'watchlist':
+      try {
+        return await db.transaction((tx) =>
+          materializeWatchlistDocumentInTx(tx, workspaceId, entityId, fields)
+        )
+      } catch (error) {
+        if (error instanceof WatchlistDocumentError) {
+          throw new SavedEntityPersistenceError(error.status, error.message)
+        }
+        if (isUniqueConstraintViolation(error)) {
+          throw new SavedEntityPersistenceError(409, 'Watchlist contains a duplicate name or listing')
+        }
+        throw error
+      }
   }
 
   if (persisted.length === 0) {
@@ -178,16 +196,18 @@ async function persistSavedEntityState(
       `Saved ${entityKind} ${entityId} was not found while materializing Yjs state`
     )
   }
+
+  return normalizeSavedEntityFields(entityKind, fields)
 }
 
 export async function applySavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -208,7 +228,7 @@ export async function saveSavedEntityYjsDocToDb(
   entityKind: SavedEntityKind,
   entityId: string,
   doc: Y.Doc
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
@@ -217,6 +237,7 @@ export async function saveSavedEntityYjsDocToDb(
       `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
     )
   }
-  await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
-  seedEntitySession(doc, { entityKind, payload: yjsFields })
+  const persistedFields = await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
+  seedEntitySession(doc, { entityKind, payload: persistedFields })
+  return persistedFields
 }

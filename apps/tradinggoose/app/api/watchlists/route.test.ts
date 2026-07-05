@@ -10,6 +10,7 @@ const mockCheckSessionOrInternalAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockListWatchlists = vi.fn()
 const mockCreateWatchlist = vi.fn()
+const mockGetWatchlist = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -34,6 +35,7 @@ vi.mock('@/lib/watchlists/operations', async () => {
     ...actual,
     listWatchlists: mockListWatchlists,
     createWatchlist: mockCreateWatchlist,
+    getWatchlist: mockGetWatchlist,
   }
 })
 
@@ -61,9 +63,7 @@ describe('Watchlists API route', () => {
       {
         id: 'w-1',
         workspaceId: 'workspace-1',
-        userId: 'user-1',
-        name: 'Default',
-        isSystem: true,
+        name: 'Growth',
         items: [],
         settings: { showLogo: true, showTicker: true, showDescription: true },
         createdAt: new Date().toISOString(),
@@ -84,17 +84,35 @@ describe('Watchlists API route', () => {
     expect(payload.watchlists).toHaveLength(1)
     expect(mockListWatchlists).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
-      userId: 'user-1',
     })
+  })
+
+  it('keeps GET as a root-list endpoint even when watchlistId is supplied', async () => {
+    mockListWatchlists.mockResolvedValue([])
+    const { GET } = await import('@/app/api/watchlists/route')
+    const request = new NextRequest(
+      new URL('http://localhost:3000/api/watchlists?workspaceId=workspace-1&watchlistId=w-1'),
+      {
+        method: 'GET',
+      }
+    )
+
+    const response = await GET(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({ watchlists: [] })
+    expect(mockListWatchlists).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+    })
+    expect(mockGetWatchlist).not.toHaveBeenCalled()
   })
 
   it('creates a watchlist through POST', async () => {
     mockCreateWatchlist.mockResolvedValue({
       id: 'w-2',
       workspaceId: 'workspace-1',
-      userId: 'user-1',
       name: 'Momentum',
-      isSystem: false,
       items: [],
       settings: { showLogo: true, showTicker: true, showDescription: true },
       createdAt: new Date().toISOString(),

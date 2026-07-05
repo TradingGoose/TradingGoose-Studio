@@ -123,14 +123,14 @@ describe('ListingSelectorInput', () => {
   it('keeps empty fetched listing candidates stable while options load', () => {
     const fetchedConfig = {
       ...unscopedConfig,
-      fetchOptionsCondition: { field: 'operation', value: 'removeListing' },
+      fetchOptionsCondition: { field: 'operation', value: 'loadCandidates' },
       fetchOptions: vi.fn(() => new Promise<never>(() => {})),
     } satisfies SubBlockConfig
     const props = {
       blockId: 'block-1',
       subBlockId: 'listing',
       config: fetchedConfig,
-      contextValues: { operation: 'removeListing' },
+      contextValues: { operation: 'loadCandidates' },
     }
 
     act(() => {
@@ -143,7 +143,7 @@ describe('ListingSelectorInput', () => {
         <ListingSelectorInput
           {...props}
           config={{ ...fetchedConfig }}
-          contextValues={{ operation: 'removeListing' }}
+          contextValues={{ operation: 'loadCandidates' }}
         />
       )
     })

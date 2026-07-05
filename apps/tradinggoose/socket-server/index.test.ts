@@ -299,6 +299,7 @@ describe('Socket Server Index Integration', () => {
         entityId,
         fields,
       })
+      return fields
     })
 
     // Create HTTP server
@@ -480,11 +481,13 @@ describe('Socket Server Index Integration', () => {
       replaceEntityListSessionMembers(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
       mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
         doc.getMap('fields').set('name', 'Canonical Risk Skill')
+        const fields = getEntityFields(doc, entityKind)
         savedEntityStates.push({
           entityKind,
           entityId,
-          fields: getEntityFields(doc, entityKind),
+          fields,
         })
+        return fields
       })
 
       const response = await sendHttpRequestWithOptions(
@@ -508,6 +511,14 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
+      expect(JSON.parse(response.body)).toEqual({
+        success: true,
+        fields: {
+          name: 'Canonical Risk Skill',
+          description: 'Position sizing rules',
+          content: 'Keep risk below one percent.',
+        },
+      })
       expect(savedEntityStates).toEqual([
         {
           entityKind: 'skill',
@@ -524,6 +535,71 @@ describe('Socket Server Index Integration', () => {
         {
           entityId: 'skill-1',
           entityName: 'Canonical Risk Skill',
+        },
+      ])
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
+    })
+
+    it('applies watchlist state and refreshes the open watchlist entity list', async () => {
+      const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
+      replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
+      mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
+        doc.getMap('fields').set('name', 'Canonical Watchlist')
+        const fields = getEntityFields(doc, entityKind)
+        savedEntityStates.push({
+          entityKind,
+          entityId,
+          fields,
+        })
+        return fields
+      })
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/entities/watchlist-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            entityKind: 'watchlist',
+            fields: {
+              name: 'Draft Watchlist',
+              settings: { showLogo: true, showTicker: true, showDescription: false },
+              items: [],
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(JSON.parse(response.body)).toEqual({
+        success: true,
+        fields: {
+          name: 'Canonical Watchlist',
+          settings: { showLogo: true, showTicker: true, showDescription: false },
+          items: [],
+        },
+      })
+      expect(savedEntityStates).toEqual([
+        {
+          entityKind: 'watchlist',
+          entityId: 'watchlist-1',
+          fields: {
+            name: 'Canonical Watchlist',
+            settings: { showLogo: true, showTicker: true, showDescription: false },
+            items: [],
+          },
+        },
+      ])
+      expect(getEntityListMembers(listDoc)).toEqual([
+        {
+          entityId: 'watchlist-1',
+          entityName: 'Canonical Watchlist',
         },
       ])
 

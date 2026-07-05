@@ -5,7 +5,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   createWatchlist,
-  getWatchlist,
   listWatchlists,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
@@ -40,7 +39,7 @@ const requireWorkspacePermission = async (
   }
 }
 
-const handleRouteError = (error: unknown, fallbackMessage: string) => {
+const handleRouteError = (error: unknown, errorMessage: string) => {
   if (error instanceof WatchlistOperationError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
@@ -50,8 +49,8 @@ const handleRouteError = (error: unknown, fallbackMessage: string) => {
       { status: 400 }
     )
   }
-  logger.error(fallbackMessage, { error })
-  return NextResponse.json({ error: fallbackMessage }, { status: 500 })
+  logger.error(errorMessage, { error })
+  return NextResponse.json({ error: errorMessage }, { status: 500 })
 }
 
 export async function GET(request: NextRequest) {
@@ -64,16 +63,7 @@ export async function GET(request: NextRequest) {
 
     await requireWorkspacePermission(userId, workspaceId)
 
-    const watchlistId = request.nextUrl.searchParams.get('watchlistId')?.trim()
-    if (watchlistId) {
-      const watchlist = await getWatchlist({ workspaceId, userId }, watchlistId)
-      return NextResponse.json({ watchlist }, { status: 200 })
-    }
-
-    const watchlists = await listWatchlists({
-      workspaceId,
-      userId,
-    })
+    const watchlists = await listWatchlists({ workspaceId })
 
     return NextResponse.json({ watchlists }, { status: 200 })
   } catch (error) {
@@ -87,13 +77,7 @@ export async function POST(request: NextRequest) {
     const parsed = CreateWatchlistSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId, { write: true })
 
-    const watchlist = await createWatchlist(
-      {
-        workspaceId: parsed.workspaceId,
-        userId,
-      },
-      parsed.name
-    )
+    const watchlist = await createWatchlist({ workspaceId: parsed.workspaceId }, parsed.name)
 
     return NextResponse.json({ watchlist }, { status: 200 })
   } catch (error) {

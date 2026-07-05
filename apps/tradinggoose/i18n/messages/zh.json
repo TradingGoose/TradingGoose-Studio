@@ -2909,10 +2909,12 @@
         "currentTool": "当前工具",
         "currentIndicator": "当前指标",
         "currentMcpServer": "当前 MCP 服务器",
+        "currentWatchlist": "当前 watchlist",
         "workflows": "工作流",
         "customTools": "自定义工具",
         "indicators": "指标",
         "mcpServers": "MCP 服务器",
+        "watchlists": "Watchlists",
         "allWorkflows": "所有工作流",
         "operation": "操作",
         "id": "ID",
@@ -3495,7 +3497,7 @@
           "zep": "AI 智能体的长期记忆",
           "zoom": "创建和管理 Zoom 会议及录制",
           "portfolio_detail": "从所选券商账户获取完整的投资组合详情。",
-          "watchlist": "读取自选列表并添加或移除标的项目。"
+          "watchlist": "读取工作区自选列表、标的和分区。"
         },
         "blockLongDescriptions": {
           "response": "将响应集成到工作流中。可以构建或编辑结构化响应，并将其放入最终的工作流响应中。",
@@ -20570,6 +20572,7 @@
           "selectWorkspace": "选择一个工作区以使用 watchlists。",
           "failedToLoadWatchlists": "无法加载 watchlists。",
           "createWatchlistToGetStarted": "创建一个 watchlist 开始使用。",
+          "selectWatchlist": "选择一个 watchlist。",
           "noItemsInThisWatchlist": "此 watchlist 中没有项目。",
           "symbol": "符号",
           "asset": "资产",

@@ -352,4 +352,129 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Accept changes')
     expect(container.textContent).toContain('Reject changes')
   })
+
+  it('renders dedicated watchlist review diffs for watchlist mutations', async () => {
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-watchlist-review',
+            name: 'create_watchlist',
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'watchlist',
+              entityName: 'Momentum',
+              documentFormat: 'tg-watchlist-document-v1',
+              preview: {
+                documentDiff: {
+                  before: '',
+                  after: JSON.stringify({
+                    name: 'Momentum',
+                    settings: {
+                      showLogo: true,
+                      showTicker: true,
+                      showDescription: true,
+                    },
+                    items: [
+                      { type: 'section', label: 'Crypto' },
+                      {
+                        type: 'listing',
+                        listing: {
+                          listing_id: '',
+                          base_id: 'BTC',
+                          quote_id: 'USD',
+                          listing_type: 'crypto',
+                        },
+                      },
+                    ],
+                  }),
+                },
+              },
+            },
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Proposed Watchlist Changes')
+    expect(container.textContent).toContain('Momentum')
+    expect(container.textContent).toContain('Crypto')
+    expect(container.textContent).toContain('BTC')
+  })
+
+  it('falls back to generic entity diffs for non-mutation or malformed watchlist reviews', async () => {
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-watchlist-read-preview',
+            name: 'read_watchlist',
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'watchlist',
+              documentFormat: 'tg-watchlist-document-v1',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify({
+                    name: 'Current',
+                    settings: {
+                      showLogo: true,
+                      showTicker: true,
+                      showDescription: true,
+                    },
+                    items: [],
+                  }),
+                  after: JSON.stringify({
+                    name: 'Proposed',
+                    settings: {
+                      showLogo: true,
+                      showTicker: true,
+                      showDescription: true,
+                    },
+                    items: [],
+                  }),
+                },
+              },
+            },
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).not.toContain('Proposed Watchlist Changes')
+    expect(container.textContent).toContain('Proposed Entity Changes')
+
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-watchlist-edit-malformed',
+            name: 'edit_watchlist',
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'watchlist',
+              documentFormat: 'tg-watchlist-document-v1',
+              preview: {
+                documentDiff: {
+                  before: '',
+                  after: JSON.stringify({
+                    name: 'Proposed',
+                    settings: {
+                      showLogo: true,
+                      showTicker: true,
+                      showDescription: true,
+                    },
+                    items: [],
+                  }),
+                },
+              },
+            },
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).not.toContain('Proposed Watchlist Changes')
+    expect(container.textContent).toContain('Proposed Entity Changes')
+  })
 })

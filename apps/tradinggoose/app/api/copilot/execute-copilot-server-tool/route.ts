@@ -67,21 +67,10 @@ export async function POST(req: NextRequest) {
     if (reviewAction === 'accept' && !reviewToken) {
       return createBadRequestResponse('reviewToken is required to accept a server tool review')
     }
-    const payloadWorkspaceId = readPayloadWorkspaceId(payload)
-    const contextWorkspaceId = context?.workspaceId?.trim()
-
-    if (payloadWorkspaceId && contextWorkspaceId && payloadWorkspaceId !== contextWorkspaceId) {
-      return createBadRequestResponse('workspaceId does not match execution context')
-    }
-
-    const executionContextInput =
-      payloadWorkspaceId && !contextWorkspaceId
-        ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
-        : context
 
     const [
       { isToolId },
-      { routeExecution },
+      { isWorkspaceAgnosticServerTool, routeExecution },
       { acceptServerManagedToolReview, stageServerManagedToolReview },
     ] = await Promise.all([
       import('@/lib/copilot/registry'),
@@ -93,9 +82,27 @@ export async function POST(req: NextRequest) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
     }
     const toolId = toolName
+    const isWorkspaceAgnosticTool = isWorkspaceAgnosticServerTool(toolId)
+    const payloadWorkspaceId = readPayloadWorkspaceId(payload)
+    const contextWorkspaceId = context?.workspaceId?.trim()
+
+    if (
+      !isWorkspaceAgnosticTool &&
+      payloadWorkspaceId &&
+      contextWorkspaceId &&
+      payloadWorkspaceId !== contextWorkspaceId
+    ) {
+      return createBadRequestResponse('workspaceId does not match execution context')
+    }
+
+    const executionContextInput = isWorkspaceAgnosticTool
+      ? undefined
+      : payloadWorkspaceId && !contextWorkspaceId
+        ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
+        : context
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
-    if (executionContextInput?.workspaceId) {
+    if (!isWorkspaceAgnosticTool && executionContextInput?.workspaceId) {
       const workspaceAccess = await checkWorkspaceAccess(executionContextInput.workspaceId, userId)
       if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
         return NextResponse.json(

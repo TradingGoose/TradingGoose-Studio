@@ -10,9 +10,11 @@ import {
   Check,
   ChevronRight,
   LibraryBig,
+  ListChecks,
   Server,
   SquareChevronRight,
   ToolCase,
+  type LucideIcon,
   Workflow,
   Wrench,
   X,
@@ -185,13 +187,14 @@ const renderMcpServerBadge = (status?: WorkspaceEntityItem['connectionStatus']) 
 
 const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<
   CopilotWorkspaceEntityKind,
-  typeof Workflow | typeof ToolCase | typeof Activity | typeof Wrench | typeof Server
+  LucideIcon
 > = {
   workflow: Workflow,
   skill: ToolCase,
   indicator: Activity,
   custom_tool: Wrench,
   mcp_server: Server,
+  watchlist: ListChecks,
 }
 
 const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
@@ -237,6 +240,12 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
           <span className='text-muted-foreground text-xs uppercase'>{entity.transport}</span>
         </>
       ) : null}
+    </>
+  ),
+  watchlist: (_entity, label) => (
+    <>
+      <ListChecks className='h-3.5 w-3.5 text-muted-foreground' />
+      <span className='truncate'>{label}</span>
     </>
   ),
 }

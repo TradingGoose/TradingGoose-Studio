@@ -79,6 +79,7 @@ vi.mock('@/widgets/widget-surface', () => ({
         data-testid={`widget-surface-${panelId ?? 'panel'}`}
         data-pair-color={widget?.pairColor ?? 'gray'}
         data-workflow-id={String(widget?.params?.workflowId ?? '')}
+        data-watchlist-id={String(widget?.params?.watchlistId ?? '')}
         data-workspace-id={context?.workspaceId ?? ''}
       />
       <button
@@ -151,6 +152,7 @@ describe('DashboardClient', () => {
 
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
+      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'gray',
     })
@@ -170,6 +172,7 @@ describe('DashboardClient', () => {
 
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-b',
+      watchlistId: '',
       workspaceId: 'ws-b',
       pairColor: 'gray',
     })
@@ -221,6 +224,7 @@ describe('DashboardClient', () => {
     expect(registryProbe.dataset.activeWorkflowId).toBe('wf-red')
     expect(readWidgetSurface(container)).toEqual({
       workflowId: '',
+      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'blue',
     })
@@ -291,6 +295,7 @@ describe('DashboardClient', () => {
     })
     expect(readWidgetSurface(container, 'panel-a')).toEqual({
       workflowId: '',
+      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'red',
     })
@@ -320,6 +325,41 @@ describe('DashboardClient', () => {
     expect(usePairColorStore.getState().contexts.red).toMatchObject({
       workflowId: 'wf-current',
       skillId: 'skill-saved',
+    })
+  })
+
+  it('does not copy linked watchlist pair state into widget params', async () => {
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialState={{
+            id: 'panel-a',
+            type: 'panel',
+            widget: {
+              key: 'watchlist',
+              pairColor: 'red',
+              params: { provider: 'alpaca' },
+            },
+          }}
+          workspaceId='ws-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          initialColorPairs={{
+            pairs: [{ color: 'red', watchlistId: 'watchlist-pair' }],
+          }}
+        />
+      )
+    })
+
+    expect(usePairColorStore.getState().contexts.red).toMatchObject({
+      watchlistId: 'watchlist-pair',
+    })
+    const surface = readWidgetSurface(container)
+    expect(surface).toEqual({
+      workflowId: '',
+      watchlistId: '',
+      workspaceId: 'ws-a',
+      pairColor: 'red',
     })
   })
 
@@ -408,6 +448,7 @@ describe('DashboardClient', () => {
     expect(persistedLayoutIds).toEqual(['layout-a', 'layout-a'])
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
+      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'gray',
     })
@@ -476,6 +517,7 @@ function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
 
   return {
     workflowId: element.dataset.workflowId ?? '',
+    watchlistId: element.dataset.watchlistId ?? '',
     workspaceId: element.dataset.workspaceId ?? '',
     pairColor: element.dataset.pairColor ?? 'gray',
   }

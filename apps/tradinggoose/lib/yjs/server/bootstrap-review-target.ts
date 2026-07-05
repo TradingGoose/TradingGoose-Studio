@@ -149,6 +149,8 @@ export async function readSavedEntityListFieldsForExecution(
           ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
           ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
           ...(typeof member.color === 'string' ? { color: member.color } : {}),
+          ...(typeof member.createdAt === 'string' ? { createdAt: member.createdAt } : {}),
+          ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
           fields: await readSavedEntityFieldsFromDb(entityKind, member.id, workspaceId),
         }
       } catch (error) {

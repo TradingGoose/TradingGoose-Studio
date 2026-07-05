@@ -1,6 +1,6 @@
 'use client'
 
-import { ENTITY_KIND_WORKFLOW, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
@@ -42,12 +42,8 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
 
   return {
     workspaceId: normalizeOptionalString(entityContext.workspaceId),
-    contextEntityKind:
-      entityContext.entityKind === ENTITY_KIND_WORKFLOW ? ENTITY_KIND_WORKFLOW : undefined,
-    contextEntityId:
-      entityContext.entityKind === ENTITY_KIND_WORKFLOW
-        ? normalizeOptionalString(entityContext.entityId)
-        : undefined,
+    contextEntityKind: entityContext.entityKind,
+    contextEntityId: normalizeOptionalString(entityContext.entityId),
     explicit: !entityContext.current,
   }
 }
@@ -63,7 +59,7 @@ export function buildTurnProvenanceFromContexts(
   const provenance: CopilotToolExecutionProvenance = {
     ...(normalizedLiveWorkflowId
       ? {
-          contextEntityKind: ENTITY_KIND_WORKFLOW,
+          contextEntityKind: 'workflow' as const,
           contextEntityId: normalizedLiveWorkflowId,
         }
       : {}),
@@ -78,7 +74,7 @@ export function buildTurnProvenanceFromContexts(
     }
   }
 
-  if (reviewTarget && reviewTarget.entityKind !== ENTITY_KIND_WORKFLOW) {
+  if (reviewTarget && reviewTarget.entityKind !== 'workflow') {
     const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
     if (!reviewWorkspaceId) {
       return hasContext ? provenance : undefined

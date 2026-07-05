@@ -3,6 +3,7 @@ import {
   ENTITY_KIND_INDICATOR,
   ENTITY_KIND_MCP_SERVER,
   ENTITY_KIND_SKILL,
+  ENTITY_KIND_WATCHLIST,
   ENTITY_KIND_WORKFLOW,
   type ReviewEntityKind,
 } from '@/lib/copilot/review-sessions/types'
@@ -12,7 +13,13 @@ import type { PairColorContext } from '@/stores/dashboard/pair-store'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
-  idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId'
+  idField:
+    | 'workflowId'
+    | 'skillId'
+    | 'indicatorId'
+    | 'customToolId'
+    | 'mcpServerId'
+    | 'watchlistId'
 }
 
 export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
@@ -35,6 +42,10 @@ export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
   {
     entityKind: ENTITY_KIND_MCP_SERVER,
     idField: 'mcpServerId',
+  },
+  {
+    entityKind: ENTITY_KIND_WATCHLIST,
+    idField: 'watchlistId',
   },
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
 
@@ -129,6 +140,9 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
     case 'mcp_server':
     case 'current_mcp_server':
       return normalizeOptionalString(context.mcpServerId) ?? null
+    case 'watchlist':
+    case 'current_watchlist':
+      return normalizeOptionalString(context.watchlistId) ?? null
     default:
       return null
   }
@@ -153,6 +167,8 @@ export function getCopilotWorkspaceEntityIdFromPairContext(
       return normalizeOptionalString(pairContext.customToolId) ?? null
     case ENTITY_KIND_MCP_SERVER:
       return normalizeOptionalString(pairContext.mcpServerId) ?? null
+    case ENTITY_KIND_WATCHLIST:
+      return normalizeOptionalString(pairContext.watchlistId) ?? null
   }
 }
 
@@ -207,6 +223,12 @@ export function buildCopilotWorkspaceEntityContext({
         kind: current ? 'current_mcp_server' : 'mcp_server',
         ...baseContext,
         mcpServerId: entityId,
+      }
+    case 'watchlistId':
+      return {
+        kind: current ? 'current_watchlist' : 'watchlist',
+        ...baseContext,
+        watchlistId: entityId,
       }
   }
 }

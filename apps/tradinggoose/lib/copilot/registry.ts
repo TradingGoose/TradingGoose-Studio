@@ -5,8 +5,10 @@ import {
   KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
+  WATCHLIST_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
@@ -47,6 +49,7 @@ export const COPILOT_TOOL_IDS = [
   'get_indicator_catalog',
   'get_indicator_metadata',
   'search_documentation',
+  'search_listing',
   'search_online',
   'make_api_request',
   'read_environment_variables',
@@ -87,6 +90,11 @@ export const COPILOT_TOOL_IDS = [
   'create_mcp_server',
   'edit_mcp_server',
   'rename_mcp_server',
+  'list_watchlists',
+  'read_watchlist',
+  'create_watchlist',
+  'edit_watchlist',
+  'rename_watchlist',
   'sleep',
   'read_block_outputs',
   'read_block_upstream_references',
@@ -271,6 +279,8 @@ const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
 const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
+const EditWatchlistArgs = buildEntityDocumentMutationArgs(WATCHLIST_DOCUMENT_FORMAT)
+const CreateWatchlistArgs = buildEntityDocumentCreateArgs(WATCHLIST_DOCUMENT_FORMAT)
 const EditWorkflowVariableArgs = EntityTargetArgs.extend({
   entityDocument: z
     .string()
@@ -387,6 +397,12 @@ export const ToolArgSchemas = {
     topK: NumberOptional,
   }),
 
+  search_listing: z
+    .object({
+      query: z.string().trim().min(1),
+    })
+    .strict(),
+
   search_online: z.object({
     query: z.string(),
     num: z.number().optional().default(10),
@@ -469,6 +485,12 @@ export const ToolArgSchemas = {
   create_mcp_server: CreateMcpServerArgs,
   edit_mcp_server: EditMcpServerArgs,
   rename_mcp_server: EditMcpServerArgs,
+
+  list_watchlists: WorkspaceTargetArgs.strict(),
+  read_watchlist: EntityTargetArgs,
+  create_watchlist: CreateWatchlistArgs,
+  edit_watchlist: EditWatchlistArgs,
+  rename_watchlist: EditWatchlistArgs,
 
   sleep: z.object({
     seconds: z
@@ -553,6 +575,7 @@ export const ToolSSESchemas = {
     ToolArgSchemas.get_indicator_metadata
   ),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
+  search_listing: toolCallSSEFor('search_listing', ToolArgSchemas.search_listing),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
   [CopilotTool.read_environment_variables]: toolCallSSEFor(
@@ -630,6 +653,11 @@ export const ToolSSESchemas = {
   create_mcp_server: toolCallSSEFor('create_mcp_server', ToolArgSchemas.create_mcp_server),
   edit_mcp_server: toolCallSSEFor('edit_mcp_server', ToolArgSchemas.edit_mcp_server),
   rename_mcp_server: toolCallSSEFor('rename_mcp_server', ToolArgSchemas.rename_mcp_server),
+  list_watchlists: toolCallSSEFor('list_watchlists', ToolArgSchemas.list_watchlists),
+  read_watchlist: toolCallSSEFor('read_watchlist', ToolArgSchemas.read_watchlist),
+  create_watchlist: toolCallSSEFor('create_watchlist', ToolArgSchemas.create_watchlist),
+  edit_watchlist: toolCallSSEFor('edit_watchlist', ToolArgSchemas.edit_watchlist),
+  rename_watchlist: toolCallSSEFor('rename_watchlist', ToolArgSchemas.rename_watchlist),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
   [CopilotTool.read_block_outputs]: toolCallSSEFor(
     CopilotTool.read_block_outputs,
@@ -721,7 +749,7 @@ const GenericEntityListEntry = z.object({
 })
 
 const GenericEntityListResult = z.object({
-  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server', 'watchlist']),
   entities: z.array(GenericEntityListEntry),
   count: z.number(),
 })
@@ -775,7 +803,7 @@ const IndicatorListResult = z.object({
 })
 
 const EntityDocumentEnvelopeBase = z.object({
-  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
+  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server', 'watchlist']),
   entityId: z.string().optional(),
   entityName: z.string().optional(),
   entityDocument: z.string(),
@@ -829,6 +857,10 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
   documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT),
 })
 
+const WatchlistDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
+  documentFormat: z.literal(WATCHLIST_DOCUMENT_FORMAT),
+})
+
 const DocumentDiffReviewMetadata = z.object({
   requiresReview: z.literal(true).optional(),
   reviewBaseStateHash: z.string().optional(),
@@ -880,6 +912,12 @@ const KnowledgeBaseDocumentMutationResult = EditEntityDocumentResultBase.merge(
 const McpServerDocumentMutationResult = EditEntityDocumentResultBase.merge(
   McpServerDocumentEnvelope.extend({
     entityKind: z.literal('mcp_server'),
+  })
+)
+
+const WatchlistDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  WatchlistDocumentEnvelope.extend({
+    entityKind: z.literal('watchlist'),
   })
 )
 
@@ -1004,6 +1042,7 @@ export const ToolResultSchemas = {
   [CopilotTool.get_indicator_catalog]: GetIndicatorCatalogResult,
   [CopilotTool.get_indicator_metadata]: GetIndicatorMetadataResult,
   search_documentation: z.object({ results: z.array(z.any()) }),
+  search_listing: z.array(ListingIdentitySchema),
   search_online: z.object({
     results: z.array(z.any()),
     query: z.string().optional(),
@@ -1168,6 +1207,15 @@ export const ToolResultSchemas = {
   create_mcp_server: McpServerDocumentMutationResult,
   edit_mcp_server: McpServerDocumentMutationResult,
   rename_mcp_server: McpServerDocumentMutationResult,
+  list_watchlists: GenericEntityListResult.extend({
+    entityKind: z.literal('watchlist'),
+  }),
+  read_watchlist: WatchlistDocumentEnvelope.extend({
+    entityKind: z.literal('watchlist'),
+  }),
+  create_watchlist: WatchlistDocumentMutationResult,
+  edit_watchlist: WatchlistDocumentMutationResult,
+  rename_watchlist: WatchlistDocumentMutationResult,
   sleep: z.object({
     success: z.boolean(),
     seconds: z.number(),

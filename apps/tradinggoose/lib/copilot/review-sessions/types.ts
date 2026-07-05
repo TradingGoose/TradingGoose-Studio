@@ -4,6 +4,7 @@ export const ENTITY_KIND_SKILL = 'skill' as const
 export const ENTITY_KIND_CUSTOM_TOOL = 'custom_tool' as const
 export const ENTITY_KIND_INDICATOR = 'indicator' as const
 export const ENTITY_KIND_KNOWLEDGE_BASE = 'knowledge_base' as const
+export const ENTITY_KIND_WATCHLIST = 'watchlist' as const
 
 export const REVIEW_ENTITY_KINDS = [
   ENTITY_KIND_WORKFLOW,
@@ -12,6 +13,7 @@ export const REVIEW_ENTITY_KINDS = [
   ENTITY_KIND_CUSTOM_TOOL,
   ENTITY_KIND_INDICATOR,
   ENTITY_KIND_KNOWLEDGE_BASE,
+  ENTITY_KIND_WATCHLIST,
 ] as const
 
 export type ReviewEntityKind = (typeof REVIEW_ENTITY_KINDS)[number]

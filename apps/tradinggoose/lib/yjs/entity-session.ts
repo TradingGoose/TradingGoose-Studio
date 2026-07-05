@@ -24,6 +24,7 @@
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/document'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -233,6 +234,14 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         fields.set('retries', payload.retries ?? MCP_SERVER_DEFAULTS.retries)
         fields.set('enabled', payload.enabled ?? MCP_SERVER_DEFAULTS.enabled)
         break
+
+      case 'watchlist': {
+        const watchlist = normalizeWatchlistDocumentFields(payload)
+        fields.set('name', watchlist.name)
+        fields.set('settings', watchlist.settings)
+        fields.set('items', watchlist.items)
+        break
+      }
     }
   }, YJS_ORIGINS.SYSTEM)
 }
@@ -289,6 +298,13 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       result.retries = fields.get('retries') ?? MCP_SERVER_DEFAULTS.retries
       result.enabled = fields.get('enabled') ?? MCP_SERVER_DEFAULTS.enabled
       break
+
+    case 'watchlist':
+      return normalizeWatchlistDocumentFields({
+        name: fields.get('name'),
+        settings: fields.get('settings'),
+        items: fields.get('items'),
+      })
   }
 
   return result

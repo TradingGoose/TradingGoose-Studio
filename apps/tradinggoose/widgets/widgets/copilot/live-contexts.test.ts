@@ -7,6 +7,7 @@ const currentLabels = {
   custom_tool: 'Localized Tool',
   indicator: 'Localized Indicator',
   mcp_server: 'Localized MCP Server',
+  watchlist: 'Localized Watchlist',
 }
 
 describe('buildImplicitCopilotContexts', () => {
@@ -17,6 +18,7 @@ describe('buildImplicitCopilotContexts', () => {
         pairContext: {
           workflowId: 'workflow-pair',
           skillId: 'skill-1',
+          watchlistId: 'watchlist-1',
         },
         currentLabels,
       })
@@ -32,6 +34,12 @@ describe('buildImplicitCopilotContexts', () => {
         skillId: 'skill-1',
         workspaceId: 'workspace-1',
         label: 'Localized Skill',
+      },
+      {
+        kind: 'current_watchlist',
+        watchlistId: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        label: 'Localized Watchlist',
       },
     ])
   })

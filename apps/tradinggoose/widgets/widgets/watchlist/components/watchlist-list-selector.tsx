@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react'
 import { Check, ChevronDown, List, Pencil, Search, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,14 +37,14 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import type { EntityListMember } from '@/lib/yjs/entity-session'
 import { cn } from '@/lib/utils'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
 import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 
 type WatchlistListSelectorProps = {
-  watchlists: WatchlistRecord[]
-  selectedWatchlist: WatchlistRecord | null
+  watchlists: EntityListMember[]
+  selectedWatchlist: EntityListMember | null
   onSelect: (watchlistId: string) => void
   onRenameWatchlist?: (watchlistId: string, name: string) => Promise<boolean> | boolean
   onDeleteWatchlist?: (watchlistId: string) => Promise<boolean> | boolean
@@ -69,13 +68,12 @@ export const WatchlistListSelector = ({
   disabled = false,
   align = 'start',
 }: WatchlistListSelectorProps) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.watchlist.listSelector
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [editingWatchlistId, setEditingWatchlistId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<WatchlistRecord | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<EntityListMember | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const renameSubmitInProgressRef = useRef(false)
 
@@ -83,12 +81,12 @@ export const WatchlistListSelector = ({
   const filteredWatchlists = useMemo(() => {
     const filtered = !searchTerm
       ? watchlists
-      : watchlists.filter((watchlist) => watchlist.name.toLowerCase().includes(searchTerm))
+      : watchlists.filter((watchlist) => watchlist.entityName.toLowerCase().includes(searchTerm))
     return filtered.slice(0, 100)
   }, [watchlists, searchTerm])
   const isEditing = Boolean(editingWatchlistId)
   const tooltipText = disabled ? copy.selectionUnavailable : copy.selectLabel
-  const selectionLabel = selectedWatchlist?.name ?? copy.selectLabel
+  const selectionLabel = selectedWatchlist?.entityName ?? copy.selectLabel
 
   const cancelRename = () => {
     setEditingWatchlistId(null)
@@ -110,37 +108,36 @@ export const WatchlistListSelector = ({
     setSearch('')
   }
 
-  const handleStartRename = (watchlist: WatchlistRecord) => {
+  const handleStartRename = (watchlist: EntityListMember) => {
     if (
       !onRenameWatchlist ||
       disabled ||
       isRenamingWatchlist ||
-      isDeletingWatchlist ||
-      watchlist.isSystem
+      isDeletingWatchlist
     ) {
       return
     }
-    setEditingWatchlistId(watchlist.id)
-    setEditingValue(watchlist.name)
+    setEditingWatchlistId(watchlist.entityId)
+    setEditingValue(watchlist.entityName)
   }
 
   const submitRename = async () => {
     if (!onRenameWatchlist || !editingWatchlistId) return
-    const target = watchlists.find((entry) => entry.id === editingWatchlistId)
-    if (!target || target.isSystem) {
+    const target = watchlists.find((entry) => entry.entityId === editingWatchlistId)
+    if (!target) {
       cancelRename()
       return
     }
 
     const nextName = editingValue.trim()
-    if (!nextName || nextName === target.name) {
+    if (!nextName || nextName === target.entityName) {
       cancelRename()
       return
     }
 
     renameSubmitInProgressRef.current = true
     try {
-      const renamed = await onRenameWatchlist(target.id, nextName)
+      const renamed = await onRenameWatchlist(target.entityId, nextName)
       if (!renamed) return
       cancelRename()
     } finally {
@@ -150,9 +147,9 @@ export const WatchlistListSelector = ({
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget || !onDeleteWatchlist || isDeletingWatchlist) return
-    const deleted = await onDeleteWatchlist(deleteTarget.id)
+    const deleted = await onDeleteWatchlist(deleteTarget.entityId)
     if (!deleted) return
-    if (editingWatchlistId === deleteTarget.id) {
+    if (editingWatchlistId === deleteTarget.entityId) {
       cancelRename()
     }
     setDeleteTarget(null)
@@ -178,7 +175,7 @@ export const WatchlistListSelector = ({
 
   useEffect(() => {
     if (!editingWatchlistId) return
-    if (watchlists.some((entry) => entry.id === editingWatchlistId)) return
+    if (watchlists.some((entry) => entry.entityId === editingWatchlistId)) return
     cancelRename()
   }, [editingWatchlistId, watchlists])
 
@@ -269,31 +266,29 @@ export const WatchlistListSelector = ({
                 ) : (
                   <div className='flex w-full min-w-0 flex-col gap-1'>
                     {filteredWatchlists.map((watchlist) => {
-                      const isSelected = watchlist.id === selectedWatchlist?.id
-                      const isEditingRow = watchlist.id === editingWatchlistId
+                      const isSelected = watchlist.entityId === selectedWatchlist?.entityId
+                      const isEditingRow = watchlist.entityId === editingWatchlistId
                       const canRenameRow =
                         Boolean(onRenameWatchlist) &&
                         !disabled &&
                         !isRenamingWatchlist &&
-                        !isDeletingWatchlist &&
-                        !watchlist.isSystem
+                        !isDeletingWatchlist
                       const canDeleteRow =
                         Boolean(onDeleteWatchlist) &&
                         !disabled &&
                         !isRenamingWatchlist &&
-                        !isDeletingWatchlist &&
-                        !watchlist.isSystem
+                        !isDeletingWatchlist
 
                       return (
                         <DropdownMenuItem
-                          key={watchlist.id}
+                          key={watchlist.entityId}
                           className={cn(
                             widgetHeaderMenuItemClassName,
                             'group/watchlist justify-between'
                           )}
                           onSelect={(event) => {
                             event.preventDefault()
-                            handleSelect(watchlist.id)
+                            handleSelect(watchlist.entityId)
                           }}
                         >
                           {isEditingRow ? (
@@ -332,7 +327,7 @@ export const WatchlistListSelector = ({
                                   'min-w-0 flex-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
                                 )}
                               >
-                                <span className='inline-block'>{watchlist.name}</span>
+                                <span className='inline-block'>{watchlist.entityName}</span>
                               </span>
                             </div>
                           )}
@@ -357,10 +352,10 @@ export const WatchlistListSelector = ({
                                     onClick={(event) => {
                                       event.preventDefault()
                                       event.stopPropagation()
-                                      handleStartRename(watchlist)
-                                    }}
-                                    aria-label={formatTemplate(copy.renameAriaLabel, {
-                                      name: watchlist.name,
+                                    handleStartRename(watchlist)
+                                  }}
+                                  aria-label={formatTemplate(copy.renameAriaLabel, {
+                                      name: watchlist.entityName,
                                     })}
                                   >
                                     <Pencil className='!h-3.5 !w-3.5' />
@@ -386,7 +381,7 @@ export const WatchlistListSelector = ({
                                       setDeleteTarget(watchlist)
                                     }}
                                     aria-label={formatTemplate(copy.deleteAriaLabel, {
-                                      name: watchlist.name,
+                                      name: watchlist.entityName,
                                     })}
                                   >
                                     <Trash2 className='!h-3.5 !w-3.5' />
@@ -421,7 +416,7 @@ export const WatchlistListSelector = ({
             <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? formatTemplate(copy.deleteDialogDescription, { name: deleteTarget.name })
+                ? formatTemplate(copy.deleteDialogDescription, { name: deleteTarget.entityName })
                 : copy.deleteDialogDescriptionFallback}
             </AlertDialogDescription>
           </AlertDialogHeader>

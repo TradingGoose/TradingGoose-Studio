@@ -5,10 +5,12 @@ import {
   mcpServers,
   pineIndicators,
   skill,
+  watchlistTable,
   workflow,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { loadWatchlistDocument } from '@/lib/watchlists/operations'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
@@ -16,20 +18,33 @@ import {
 } from '@/lib/yjs/entity-state'
 
 const ENTITY_TABLES = {
-  skill: { table: skill, name: skill.name },
-  custom_tool: { table: customTools, name: customTools.title },
-  indicator: { table: pineIndicators, name: pineIndicators.name },
+  skill: { table: skill, name: skill.name, softDelete: false },
+  custom_tool: { table: customTools, name: customTools.title, softDelete: false },
+  indicator: { table: pineIndicators, name: pineIndicators.name, softDelete: false },
   knowledge_base: { table: knowledgeBase, name: knowledgeBase.name, softDelete: true },
   mcp_server: { table: mcpServers, name: mcpServers.name, softDelete: true },
 } as const
 
-function entityConfig(entityKind: SavedEntityKind) {
-  return ENTITY_TABLES[entityKind] as any
+type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist'>
+
+function entityConfig(entityKind: RowBackedSavedEntityKind) {
+  switch (entityKind) {
+    case 'skill':
+      return ENTITY_TABLES.skill
+    case 'custom_tool':
+      return ENTITY_TABLES.custom_tool
+    case 'indicator':
+      return ENTITY_TABLES.indicator
+    case 'knowledge_base':
+      return ENTITY_TABLES.knowledge_base
+    case 'mcp_server':
+      return ENTITY_TABLES.mcp_server
+  }
 }
 
-function entityCondition(entityKind: SavedEntityKind, clauses: SQL[]): SQL | undefined {
-  const { table, softDelete } = entityConfig(entityKind)
-  const conditions = softDelete ? [...clauses, isNull(table.deletedAt)] : clauses
+function entityCondition(entityKind: RowBackedSavedEntityKind, clauses: SQL[]): SQL | undefined {
+  const config = entityConfig(entityKind)
+  const conditions = config.softDelete ? [...clauses, isNull(config.table.deletedAt)] : clauses
   return conditions.length === 1 ? conditions[0] : and(...conditions)
 }
 
@@ -46,6 +61,22 @@ export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string
 ): Promise<string | null> {
+  if (entityKind === 'watchlist') {
+    const [row] = await db
+      .select({ workspaceId: watchlistTable.workspaceId })
+      .from(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.id, entityId),
+          isNull(watchlistTable.userId),
+          isNull(watchlistTable.rootWatchlistId),
+          isNull(watchlistTable.parentId)
+        )
+      )
+      .limit(1)
+    return row?.workspaceId ?? null
+  }
+
   const { table } = entityConfig(entityKind)
   const [row] = await db
     .select({ workspaceId: table.workspaceId })
@@ -92,6 +123,33 @@ export async function readEntityListMembersFromDb(
       folderId: row.folderId,
       color: row.color,
       createdAt: row.createdAt?.toISOString(),
+    }))
+  }
+
+  if (entityKind === 'watchlist') {
+    const rows = await db
+      .select({
+        id: watchlistTable.id,
+        name: watchlistTable.name,
+        createdAt: watchlistTable.createdAt,
+        updatedAt: watchlistTable.updatedAt,
+      })
+      .from(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.workspaceId, workspaceId),
+          isNull(watchlistTable.userId),
+          isNull(watchlistTable.rootWatchlistId),
+          isNull(watchlistTable.parentId)
+        )
+      )
+      .orderBy(asc(watchlistTable.name), asc(watchlistTable.id))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.createdAt?.toISOString(),
+      updatedAt: row.updatedAt?.toISOString(),
     }))
   }
 
@@ -180,6 +238,15 @@ export async function readSavedEntityFieldsFromDb(
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
+  if (entityKind === 'watchlist') {
+    const watchlist = await loadWatchlistDocument(workspaceId, entityId)
+    return {
+      name: watchlist.name,
+      settings: watchlist.settings,
+      items: watchlist.items,
+    }
+  }
+
   const { table } = entityConfig(entityKind)
   const [row] = await db
     .select()

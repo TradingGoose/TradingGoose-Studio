@@ -208,7 +208,8 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     candidate.entityKind !== 'custom_tool' &&
     candidate.entityKind !== 'indicator' &&
     candidate.entityKind !== 'knowledge_base' &&
-    candidate.entityKind !== 'mcp_server'
+    candidate.entityKind !== 'mcp_server' &&
+    candidate.entityKind !== 'watchlist'
   ) {
     throw new InvalidInternalYjsRequestError('Invalid entityKind')
   }
@@ -272,16 +273,17 @@ async function applyThroughStaging(
   doc: Y.Doc,
   sessionId: string,
   mutate: (target: Y.Doc) => void,
-  persist: (staged: Y.Doc) => Promise<void>
-): Promise<void> {
+  persist: (staged: Y.Doc) => Promise<Record<string, unknown>>
+): Promise<Record<string, unknown>> {
   const liveState = Y.encodeStateVector(doc)
   const staging = new Y.Doc()
   Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc))
   try {
     mutate(staging)
-    await persist(staging)
+    const persisted = await persist(staging)
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging, liveState), YJS_ORIGINS.SYSTEM)
     markDocumentPersisted(doc)
+    return persisted
   } finally {
     staging.destroy()
     discardDocumentIfIdle(sessionId)
@@ -378,7 +380,10 @@ async function handleInternalYjsWorkflowApplyRequest(
       doc,
       workflowId,
       (target) => applyWorkflowApplyRequest(target, body),
-      (staged) => saveWorkflowYjsDocToDb(workflowId, staged)
+      async (staged) => {
+        await saveWorkflowYjsDocToDb(workflowId, staged)
+        return {}
+      }
     )
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -400,20 +405,18 @@ async function handleInternalYjsEntityApplyRequest(
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
     const doc = await getBootstrappedApplyDocument(descriptor)
-    await applyThroughStaging(
+    const persistedFields = await applyThroughStaging(
       doc,
       entityId,
       (target) => {
         seedEntitySession(target, { entityKind: body.entityKind, payload: body.fields })
         clearSessionReseededFromCanonical(target)
       },
-      async (staged) => {
-        await saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
-      }
+      (staged) => saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
     )
     await refreshSavedEntityListDoc(body.entityKind, doc)
 
-    sendJson(res, 200, { success: true })
+    sendJson(res, 200, { success: true, fields: persistedFields })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
     const status =
