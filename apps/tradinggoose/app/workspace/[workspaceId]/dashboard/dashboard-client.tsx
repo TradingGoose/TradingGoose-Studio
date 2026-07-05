@@ -1559,8 +1559,8 @@ function normalizeRemainingSizes(
   const total = remaining.reduce((sum, value) => sum + value, 0)
 
   if (total <= 0) {
-    const fallback = 100 / nextLength
-    return new Array(nextLength).fill(fallback)
+    const equalSize = 100 / nextLength
+    return new Array(nextLength).fill(equalSize)
   }
 
   return remaining.map((value) => (value / total) * 100)
