@@ -1,5 +1,3 @@
-import type { EntityListMember } from '@/lib/yjs/entity-session'
-import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/document'
 import type {
   WatchlistItem,
   WatchlistListingItem,
@@ -8,23 +6,23 @@ import type {
 } from '@/lib/watchlists/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
-type WatchlistScopedParams = {
+export type WatchlistScopedParams = {
   _context?: {
     workspaceId?: string
     isDeployedContext?: boolean
   }
 }
 
-type WatchlistReadListItemsParams = WatchlistScopedParams & { watchlistId: string }
+export type WatchlistReadListItemsParams = WatchlistScopedParams & { watchlistId: string }
 
-type WatchlistListItemsOutput = {
+export type WatchlistListItemsOutput = {
   watchlist: WatchlistRecord
   items: WatchlistItem[]
   listings: WatchlistListingItem[]
   sections: WatchlistSectionItem[]
 }
 
-type WatchlistListsOutput = {
+export type WatchlistListsOutput = {
   watchlists: WatchlistRecord[]
 }
 
@@ -37,11 +35,10 @@ export const WATCHLIST_TOOL_IDS = {
   readListItems: 'watchlist_read_list_items',
 } as const
 
-type WatchlistEntityListEntry = EntityListMember & {
-  fields: Record<string, unknown>
-  createdAt?: string
-  updatedAt?: string
-}
+export type WatchlistToolId = (typeof WATCHLIST_TOOL_IDS)[keyof typeof WATCHLIST_TOOL_IDS]
+
+export const isWatchlistToolId = (toolId: string): toolId is WatchlistToolId =>
+  Object.values(WATCHLIST_TOOL_IDS).includes(toolId as WatchlistToolId)
 
 const workspaceReadExecution = {
   workspace: { required: true, access: 'read' },
@@ -70,68 +67,6 @@ const watchlistListItemsOutputs = {
   sections: { type: 'array', description: 'Section/category items in the watchlist.' },
 } as const
 
-const resolveWorkspaceId = (params: WatchlistScopedParams, toolId: string) => {
-  const workspaceId = params._context?.workspaceId?.trim()
-  if (!workspaceId) {
-    throw new Error(`${toolId} requires workspace execution context`)
-  }
-  return workspaceId
-}
-
-const splitWatchlistItems = (items: WatchlistItem[]) => {
-  const listings: WatchlistListingItem[] = []
-  const sections: WatchlistSectionItem[] = []
-
-  for (const item of items) {
-    if (item.type === 'listing') listings.push(item)
-    else sections.push(item)
-  }
-
-  return { items, listings, sections }
-}
-
-const readWatchlistEntries = async (
-  params: WatchlistScopedParams
-): Promise<WatchlistEntityListEntry[]> => {
-  const workspaceId = resolveWorkspaceId(params, WATCHLIST_TOOL_IDS.readLists)
-  const { readSavedEntityListFieldsForExecution } = await import(
-    '@/lib/yjs/server/bootstrap-review-target'
-  )
-
-  return readSavedEntityListFieldsForExecution(
-    'watchlist',
-    workspaceId,
-    params._context?.isDeployedContext !== false
-  ) as Promise<WatchlistEntityListEntry[]>
-}
-
-const normalizeWatchlistEntry = (
-  entry: WatchlistEntityListEntry,
-  workspaceId: string
-): WatchlistRecord => {
-  const fields = normalizePersistedWatchlistDocumentFields(entry.fields)
-  return {
-    id: entry.entityId,
-    workspaceId,
-    name: fields.name,
-    settings: fields.settings,
-    items: fields.items,
-    createdAt: entry.createdAt ?? '',
-    updatedAt: entry.updatedAt ?? '',
-  }
-}
-
-const watchlistOutput = (watchlist: WatchlistRecord): WatchlistListItemsOutput => ({
-  watchlist,
-  ...splitWatchlistItems(watchlist.items),
-})
-
-async function readWatchlists(params: WatchlistScopedParams): Promise<WatchlistRecord[]> {
-  const workspaceId = resolveWorkspaceId(params, WATCHLIST_TOOL_IDS.readLists)
-  const entries = await readWatchlistEntries(params)
-  return entries.map((entry) => normalizeWatchlistEntry(entry, workspaceId))
-}
-
 export const watchlistReadListsTool: ToolConfig<
   WatchlistScopedParams,
   WatchlistToolResponse<WatchlistListsOutput>
@@ -143,12 +78,6 @@ export const watchlistReadListsTool: ToolConfig<
   execution: workspaceReadExecution,
   params: {},
   request: noopRequest,
-  directExecution: async (params) => ({
-    success: true,
-    output: {
-      watchlists: await readWatchlists(params),
-    },
-  }),
   outputs: {
     watchlists: {
       type: 'array',
@@ -170,16 +99,5 @@ export const watchlistReadListItemsTool: ToolConfig<
     watchlistId: watchlistIdParam,
   },
   request: noopRequest,
-  directExecution: async (params) => {
-    const watchlist = (await readWatchlists(params)).find((entry) => entry.id === params.watchlistId)
-    if (!watchlist) {
-      throw new Error(`Watchlist not found: ${params.watchlistId}`)
-    }
-
-    return {
-      success: true,
-      output: watchlistOutput(watchlist),
-    }
-  },
   outputs: watchlistListItemsOutputs,
 }

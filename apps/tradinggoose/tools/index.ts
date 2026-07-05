@@ -9,9 +9,11 @@ import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
+import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
 import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
+import { isWatchlistToolId, WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
@@ -115,6 +117,48 @@ async function getServerCustomTool(
     false,
     workflowId
   )
+}
+
+async function executeWatchlistTool(
+  toolId: string,
+  params: Record<string, any>
+): Promise<ToolResponse> {
+  const workspaceId = params._context?.workspaceId?.trim()
+  if (!workspaceId) throw new Error(`${toolId} requires workspace execution context`)
+
+  const { readSavedEntityListFieldsForExecution } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const entries = await readSavedEntityListFieldsForExecution(
+    'watchlist',
+    workspaceId,
+    params._context?.isDeployedContext !== false
+  )
+  const watchlists = entries.map((entry: any) => {
+    const fields = normalizePersistedWatchlistDocumentFields(entry.fields)
+    return {
+      id: entry.entityId,
+      workspaceId,
+      name: fields.name,
+      settings: fields.settings,
+      items: fields.items,
+      createdAt: entry.createdAt ?? '',
+      updatedAt: entry.updatedAt ?? '',
+    }
+  })
+
+  if (toolId === WATCHLIST_TOOL_IDS.readLists) {
+    return { success: true, output: { watchlists } }
+  }
+
+  const watchlist = watchlists.find((entry) => entry.id === params.watchlistId)
+  if (!watchlist) throw new Error(`Watchlist not found: ${params.watchlistId}`)
+  const listings = watchlist.items.filter((item) => item.type === 'listing')
+  const sections = watchlist.items.filter((item) => item.type === 'section')
+  return {
+    success: true,
+    output: { watchlist, items: watchlist.items, listings, sections },
+  }
 }
 
 export async function getToolAsync(
@@ -378,6 +422,12 @@ export async function executeTool(
     } else {
       // For built-in tools, use the synchronous version
       tool = getTool(toolId)
+      if (tool && isWatchlistToolId(toolId)) {
+        tool = {
+          ...tool,
+          directExecution: (contextParams) => executeWatchlistTool(toolId, contextParams),
+        }
+      }
       if (!tool) {
         logger.error(`[${requestId}] Built-in tool not found: ${toolId}`)
       }
