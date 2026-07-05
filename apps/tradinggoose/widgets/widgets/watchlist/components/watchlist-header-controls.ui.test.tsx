@@ -21,7 +21,6 @@ const mockSetWatchlistName = vi.fn()
 const mockSetWatchlistSettings = vi.fn()
 const mockSaveWatchlistDocument = vi.fn()
 const mockSaveSavedEntityField = vi.fn()
-const mockEmitWatchlistParamsChange = vi.fn()
 const mockEmitWatchlistSelectionChange = vi.fn()
 const mockExportWatchlistAsJson = vi.fn()
 
@@ -73,10 +72,6 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       error: null,
     }
   },
-}))
-
-vi.mock('@/widgets/utils/watchlist-params', () => ({
-  emitWatchlistParamsChange: (...args: unknown[]) => mockEmitWatchlistParamsChange(...args),
 }))
 
 vi.mock('@/widgets/utils/watchlist-selection', () => ({
@@ -450,9 +445,6 @@ describe('watchlist header controls', () => {
       panelId: 'panel-1',
       widgetKey: 'watchlist',
     })
-    expect(mockEmitWatchlistParamsChange).not.toHaveBeenCalledWith(
-      expect.objectContaining({ params: { watchlistId: 'watchlist-2' } })
-    )
     expect(usePairColorStore.getState().contexts.gray.watchlistId).toBeUndefined()
   })
 
@@ -490,9 +482,6 @@ describe('watchlist header controls', () => {
       panelId: 'panel-1',
       widgetKey: 'watchlist',
     })
-    expect(mockEmitWatchlistParamsChange).not.toHaveBeenCalledWith(
-      expect.objectContaining({ params: { watchlistId: 'watchlist-2' } })
-    )
   })
 
   it('selects newly created watchlists through pair context for linked widgets', async () => {

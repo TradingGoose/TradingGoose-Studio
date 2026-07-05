@@ -27,10 +27,13 @@ import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields
 import { type EntityListMember } from '@/lib/yjs/entity-session'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
+import {
+  WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
+  type WatchlistWidgetUpdateEventDetail,
+} from '@/widgets/events'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
 import { emitWatchlistSelectionChange } from '@/widgets/utils/watchlist-selection'
 import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
@@ -84,6 +87,24 @@ const resolveHeaderSelectedWatchlistId = ({
 
 const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widgetKey: string) =>
   `watchlist-header-listing-${panelId ?? 'panel'}-${widgetKey}`
+
+function emitWatchlistParamsChange({
+  params,
+  panelId,
+  widgetKey,
+}: WatchlistWidgetUpdateEventDetail & { panelId?: string; widgetKey?: string }) {
+  if (!params || Object.keys(params).length === 0) return
+
+  window.dispatchEvent(
+    new CustomEvent<WatchlistWidgetUpdateEventDetail>(WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT, {
+      detail: {
+        params,
+        panelId,
+        widgetKey,
+      },
+    })
+  )
+}
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 

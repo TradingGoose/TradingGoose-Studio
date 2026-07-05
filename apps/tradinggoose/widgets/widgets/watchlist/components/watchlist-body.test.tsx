@@ -78,11 +78,6 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
   useMarketQuoteSnapshots: (request: unknown) => mockUseMarketQuoteSnapshots(request),
 }))
 
-vi.mock('@/widgets/utils/watchlist-params', () => ({
-  emitWatchlistParamsChange: vi.fn(),
-  useWatchlistParamsPersistence: vi.fn(),
-}))
-
 vi.mock('@/widgets/widgets/watchlist/components/watchlist-table', () => ({
   WatchlistTable: (props: {
     selectedListing?: ListingIdentity | null

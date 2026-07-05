@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import {
+  WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
+  type WatchlistWidgetUpdateEventDetail,
+} from '@/widgets/events'
+import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
@@ -10,10 +15,7 @@ import {
   resolveEntityIdFromList,
   usePersistResolvedEntityId,
 } from '@/widgets/utils/entity-selection'
-import {
-  emitWatchlistParamsChange,
-  useWatchlistParamsPersistence,
-} from '@/widgets/utils/watchlist-params'
+import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/utils/watchlist-params'
 import { useWatchlistSelectionPersistence } from '@/widgets/utils/watchlist-selection'
 import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import {
@@ -24,6 +26,80 @@ import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
 
 const resolveProviderId = (params: WatchlistWidgetParams | null) => {
   return resolveSeriesMarketProviderId(params?.provider, providerOptions)
+}
+
+interface UseWatchlistParamsPersistenceOptions {
+  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
+  panelId?: string
+  widget?: WidgetInstance | null
+  params?: Record<string, unknown> | null
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const areValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false
+    if (left.length !== right.length) return false
+    return left.every((value, index) => areValuesEqual(value, right[index]))
+  }
+
+  if (isRecord(left) || isRecord(right)) {
+    if (!isRecord(left) || !isRecord(right)) return false
+    const leftKeys = Object.keys(left)
+    const rightKeys = Object.keys(right)
+    if (leftKeys.length !== rightKeys.length) return false
+    return leftKeys.every((key) => key in right && areValuesEqual(left[key], right[key]))
+  }
+
+  return false
+}
+
+function useWatchlistParamsPersistence({
+  onWidgetParamsChange,
+  panelId,
+  widget,
+  params,
+}: UseWatchlistParamsPersistenceOptions) {
+  const latestParamsRef = useRef<Record<string, unknown> | null>(sanitizeWatchlistParams(params))
+
+  useEffect(() => {
+    latestParamsRef.current = sanitizeWatchlistParams(params)
+  }, [params])
+
+  useEffect(() => {
+    if (!onWidgetParamsChange) return
+
+    const handleParamsUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<WatchlistWidgetUpdateEventDetail>).detail
+      if (!detail?.params || !isRecord(detail.params)) return
+      if (panelId && detail.panelId && detail.panelId !== panelId) return
+      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) return
+
+      const currentParams = latestParamsRef.current
+      const nextParams = mergeWatchlistParams(currentParams, detail.params)
+
+      if (areValuesEqual(currentParams, nextParams)) return
+
+      latestParamsRef.current = nextParams
+      onWidgetParamsChange(nextParams)
+    }
+
+    window.addEventListener(
+      WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
+      handleParamsUpdate as EventListener
+    )
+
+    return () => {
+      window.removeEventListener(
+        WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
+        handleParamsUpdate as EventListener
+      )
+    }
+  }, [onWidgetParamsChange, panelId, widget?.key])
 }
 
 export function useWatchlistWidgetState({
@@ -70,12 +146,8 @@ export function useWatchlistWidgetState({
   useEffect(() => {
     if (!providerId) return
     if (widgetParams?.provider) return
-    emitWatchlistParamsChange({
-      params: { provider: providerId },
-      panelId,
-      widgetKey,
-    })
-  }, [providerId, widgetParams?.provider, panelId, widgetKey])
+    onWidgetParamsChange?.(mergeWatchlistParams(paramsRecord, { provider: providerId }))
+  }, [providerId, widgetParams?.provider, onWidgetParamsChange, paramsRecord])
 
   const storedWatchlistId = resolveEntityId('watchlistId', {
     params: isLinkedToColorPair ? null : paramsRecord,
