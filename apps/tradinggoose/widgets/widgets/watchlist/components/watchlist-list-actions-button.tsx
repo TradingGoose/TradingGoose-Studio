@@ -112,11 +112,11 @@ export const WatchlistListActionsButton = ({
           <span className='inline-flex'>
             <PopoverTrigger asChild>
               <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              disabled={triggerDisabled}
-            >
-              <Plus className='h-3.5 w-3.5' />
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                disabled={triggerDisabled}
+              >
+                <Plus className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.listActionsAriaLabel}</span>
               </button>
             </PopoverTrigger>
