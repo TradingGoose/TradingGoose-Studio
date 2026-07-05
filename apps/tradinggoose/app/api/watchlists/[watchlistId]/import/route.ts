@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { WatchlistDocumentError } from '@/lib/watchlists/document'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import {

@@ -71,6 +71,9 @@ vi.mock('@/lib/custom-tools/schema', () => ({
 
 vi.mock('@/lib/watchlists/document', () => ({
   materializeWatchlistDocumentInTx: mockMaterializeWatchlistDocumentInTx,
+}))
+
+vi.mock('@/lib/watchlists/validation', () => ({
   normalizeWatchlistDocumentFields: mockNormalizeWatchlistDocumentFields,
   WatchlistDocumentError: MockWatchlistDocumentError,
 }))

@@ -10,10 +10,8 @@ import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import {
-  materializeWatchlistDocumentInTx,
-  WatchlistDocumentError,
-} from '@/lib/watchlists/document'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/document'
 import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'

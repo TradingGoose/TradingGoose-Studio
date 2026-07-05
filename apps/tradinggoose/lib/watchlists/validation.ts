@@ -1,10 +1,12 @@
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
 import { MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
+  WatchlistDocumentFields,
+  WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
   WatchlistDocumentListingInputItem,
-} from '@/lib/watchlists/document'
+} from '@/lib/watchlists/types'
 import type {
   WatchlistItem,
   WatchlistSettings,
@@ -12,6 +14,18 @@ import type {
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const watchlistDocumentKeys = new Set(['name', 'settings', 'items'])
+
+export class WatchlistDocumentError extends Error {
+  constructor(
+    message: string,
+    public status = 400
+  ) {
+    super(message)
+    this.name = 'WatchlistDocumentError'
+  }
+}
 
 const normalizeString = (value: unknown) => {
   if (typeof value !== 'string') return ''
@@ -167,4 +181,107 @@ export const assertWatchlistSymbolLimit = (items: WatchlistItem[]) => {
   if (symbolCount > MAX_SYMBOLS_PER_WATCHLIST) {
     throw new Error(`Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`)
   }
+}
+
+function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (!item.id) continue
+    if (seen.has(item.id)) {
+      throw new WatchlistDocumentError('Watchlist document contains duplicate item ids')
+    }
+    seen.add(item.id)
+  }
+}
+
+function assertNoDuplicateListings(items: Array<{ type: string; listing?: ListingIdentity }>): void {
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (item.type !== 'listing' || !item.listing) continue
+    const key = getListingIdentityKey(item.listing)
+    if (seen.has(key)) {
+      throw new WatchlistDocumentError('Listing already exists in watchlist', 409)
+    }
+    seen.add(key)
+  }
+}
+
+function assertWatchlistDocumentSymbolLimit(items: WatchlistItem[]): void {
+  try {
+    assertWatchlistSymbolLimit(items)
+  } catch (error) {
+    throw new WatchlistDocumentError(
+      error instanceof Error ? error.message : 'Watchlist symbol limit exceeded'
+    )
+  }
+}
+
+function assertOnlyWatchlistDocumentKeys(source: Record<string, unknown>): void {
+  const unexpectedKey = Object.keys(source).find((key) => !watchlistDocumentKeys.has(key))
+  if (unexpectedKey) {
+    throw new WatchlistDocumentError(`Unsupported watchlist document field: ${unexpectedKey}`)
+  }
+}
+
+function requireWatchlistDocumentRecord(value: unknown): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    throw new WatchlistDocumentError('Watchlist document fields must be an object')
+  }
+  return value
+}
+
+function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
+  if (!Array.isArray(value)) {
+    throw new WatchlistDocumentError('Watchlist items must be an array')
+  }
+
+  const normalized = normalizeWatchlistDocumentInputItems(value)
+  if (normalized.length !== value.length) {
+    throw new WatchlistDocumentError('Invalid watchlist item')
+  }
+
+  assertNoDuplicateSubmittedIds(normalized)
+  assertNoDuplicateListings(normalized)
+  assertWatchlistDocumentSymbolLimit(
+    normalized.filter(
+      (item): item is Extract<WatchlistDocumentInputItem, { type: 'listing' }> =>
+        item.type === 'listing'
+    ) as unknown as WatchlistItem[]
+  )
+  return normalized
+}
+
+export function normalizeWatchlistDocumentFields(
+  value: unknown
+): WatchlistDocumentInputFields {
+  const source = requireWatchlistDocumentRecord(value)
+  assertOnlyWatchlistDocumentKeys(source)
+  return {
+    name: normalizeWatchlistName(source.name),
+    settings: normalizeWatchlistSettings(source.settings),
+    items: normalizeInputItems(source.items),
+  }
+}
+
+export function normalizePersistedWatchlistDocumentFields(
+  value: unknown
+): WatchlistDocumentFields {
+  const source = requireWatchlistDocumentRecord(value)
+  assertOnlyWatchlistDocumentKeys(source)
+  const name = normalizeWatchlistName(source.name)
+  const settings = normalizeWatchlistSettings(source.settings)
+  if (!Array.isArray(source.items)) {
+    throw new WatchlistDocumentError('Watchlist items must be an array')
+  }
+  const items = normalizeWatchlistItems(source.items)
+
+  if (items.length !== source.items.length) {
+    throw new WatchlistDocumentError('Invalid persisted watchlist item')
+  }
+
+  assertNoDuplicateSubmittedIds(items)
+  assertNoDuplicateListings(items)
+  assertWatchlistDocumentSymbolLimit(items)
+
+  return { name, settings, items }
 }

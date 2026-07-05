@@ -8,9 +8,11 @@ import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentFields,
-  type WatchlistDocumentFields,
-  type WatchlistDocumentInputFields,
-} from '@/lib/watchlists/document'
+} from '@/lib/watchlists/validation'
+import type {
+  WatchlistDocumentFields,
+  WatchlistDocumentInputFields,
+} from '@/lib/watchlists/types'
 
 export const WATCHLIST_EXPORT_SOURCE = 'watchlistWidget'
 

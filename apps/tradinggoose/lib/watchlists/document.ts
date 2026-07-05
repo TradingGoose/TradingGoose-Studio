@@ -1,176 +1,28 @@
 import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
-import type { ListingIdentity } from '@/lib/listing/identity'
-import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
+import { toListingValueObject } from '@/lib/listing/identity'
 import type { ListingInputValue } from '@/lib/listing/identity'
-import type {
-  WatchlistItem,
-  WatchlistSettings,
-} from '@/lib/watchlists/types'
 import {
-  assertWatchlistSymbolLimit,
-  normalizeWatchlistDocumentInputItems,
-  normalizeWatchlistItems,
-  normalizeWatchlistName,
-  normalizeWatchlistSettings,
+  normalizePersistedWatchlistDocumentFields,
+  normalizeWatchlistDocumentFields,
+  WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const watchlistDocumentKeys = new Set(['name', 'settings', 'items'])
+import type {
+  WatchlistDocumentFields,
+  WatchlistDocumentInputItem,
+  WatchlistItem,
+} from '@/lib/watchlists/types'
 
 type WatchlistRow = typeof watchlistTable.$inferSelect
 type WatchlistItemRow = typeof watchlistItem.$inferSelect
 export type WatchlistDocumentTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-export type WatchlistDocumentListingInputItem = {
-  id?: string
-  type: 'listing'
-  listing: ListingIdentity
-}
-
-export type WatchlistDocumentSectionInputItem = {
-  id?: string
-  type: 'section'
-  label: string
-}
-
-export type WatchlistDocumentInputItem =
-  | WatchlistDocumentListingInputItem
-  | WatchlistDocumentSectionInputItem
-
-export type WatchlistDocumentInputFields = {
-  name: string
-  settings: WatchlistSettings
-  items: WatchlistDocumentInputItem[]
-}
-
-export type WatchlistDocumentFields = {
-  name: string
-  settings: WatchlistSettings
-  items: WatchlistItem[]
-}
 
 export type CreatedWatchlistDocument = {
   id: string
   fields: WatchlistDocumentFields
   createdAt: Date | string
   updatedAt: Date | string
-}
-
-export class WatchlistDocumentError extends Error {
-  constructor(
-    message: string,
-    public status = 400
-  ) {
-    super(message)
-    this.name = 'WatchlistDocumentError'
-  }
-}
-
-function assertNoDuplicateSubmittedIds(items: WatchlistDocumentInputItem[]): void {
-  const seen = new Set<string>()
-  for (const item of items) {
-    if (!item.id) continue
-    if (seen.has(item.id)) {
-      throw new WatchlistDocumentError('Watchlist document contains duplicate item ids')
-    }
-    seen.add(item.id)
-  }
-}
-
-function assertNoDuplicateListings(items: Array<{ type: string; listing?: ListingIdentity }>): void {
-  const seen = new Set<string>()
-  for (const item of items) {
-    if (item.type !== 'listing' || !item.listing) continue
-    const key = getListingIdentityKey(item.listing)
-    if (seen.has(key)) {
-      throw new WatchlistDocumentError('Listing already exists in watchlist', 409)
-    }
-    seen.add(key)
-  }
-}
-
-function assertWatchlistDocumentSymbolLimit(items: WatchlistItem[]): void {
-  try {
-    assertWatchlistSymbolLimit(items)
-  } catch (error) {
-    throw new WatchlistDocumentError(
-      error instanceof Error ? error.message : 'Watchlist symbol limit exceeded'
-    )
-  }
-}
-
-function assertOnlyWatchlistDocumentKeys(source: Record<string, unknown>): void {
-  const unexpectedKey = Object.keys(source).find((key) => !watchlistDocumentKeys.has(key))
-  if (unexpectedKey) {
-    throw new WatchlistDocumentError(`Unsupported watchlist document field: ${unexpectedKey}`)
-  }
-}
-
-function requireWatchlistDocumentRecord(value: unknown): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new WatchlistDocumentError('Watchlist document fields must be an object')
-  }
-  return value
-}
-
-function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
-  if (!Array.isArray(value)) {
-    throw new WatchlistDocumentError('Watchlist items must be an array')
-  }
-
-  const normalized = normalizeWatchlistDocumentInputItems(value)
-  if (normalized.length !== value.length) {
-    throw new WatchlistDocumentError('Invalid watchlist item')
-  }
-
-  assertNoDuplicateSubmittedIds(normalized)
-  assertNoDuplicateListings(normalized)
-  assertWatchlistDocumentSymbolLimit(
-    normalized.filter(
-      (item): item is Extract<WatchlistDocumentInputItem, { type: 'listing' }> =>
-        item.type === 'listing'
-    ) as unknown as WatchlistItem[]
-  )
-  return normalized
-}
-
-export function normalizeWatchlistDocumentFields(
-  value: unknown
-): WatchlistDocumentInputFields {
-  const source = requireWatchlistDocumentRecord(value)
-  assertOnlyWatchlistDocumentKeys(source)
-  return {
-    name: normalizeWatchlistName(source.name),
-    settings: normalizeWatchlistSettings(source.settings),
-    items: normalizeInputItems(source.items),
-  }
-}
-
-export function normalizePersistedWatchlistDocumentFields(
-  value: unknown
-): WatchlistDocumentFields {
-  const source = requireWatchlistDocumentRecord(value)
-  assertOnlyWatchlistDocumentKeys(source)
-  const name = normalizeWatchlistName(source.name)
-  const settings = normalizeWatchlistSettings(source.settings)
-  if (!Array.isArray(source.items)) {
-    throw new WatchlistDocumentError('Watchlist items must be an array')
-  }
-  const items = normalizeWatchlistItems(source.items)
-
-  if (items.length !== source.items.length) {
-    throw new WatchlistDocumentError('Invalid persisted watchlist item')
-  }
-
-  assertNoDuplicateSubmittedIds(items)
-  assertNoDuplicateListings(items)
-  assertWatchlistDocumentSymbolLimit(items)
-
-  return { name, settings, items }
 }
 
 const ensureFound = <T>(row: T | undefined, message = 'Watchlist not found'): T => {

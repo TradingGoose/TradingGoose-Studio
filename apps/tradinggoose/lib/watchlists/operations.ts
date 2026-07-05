@@ -9,10 +9,11 @@ import {
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
   rootWatchlistCondition,
-  type WatchlistDocumentFields,
-  WatchlistDocumentError,
 } from '@/lib/watchlists/document'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
+import {
+  WatchlistDocumentError,
+} from '@/lib/watchlists/validation'
+import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
   refreshEntityListSession,
   deleteYjsSessionInSocketServer,

@@ -13,7 +13,7 @@ import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/
 import type {
   WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
-} from '@/lib/watchlists/document'
+} from '@/lib/watchlists/types'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,

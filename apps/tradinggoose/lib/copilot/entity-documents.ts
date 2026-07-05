@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/document'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { WatchlistDocumentSchema } from '@/lib/watchlists/import-export'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const

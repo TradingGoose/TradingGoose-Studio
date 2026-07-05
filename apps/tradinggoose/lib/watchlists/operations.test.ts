@@ -38,7 +38,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
 }))
 
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/document'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/operations'
 
 const rootRow = {

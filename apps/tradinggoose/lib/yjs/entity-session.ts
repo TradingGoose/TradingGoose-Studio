@@ -24,7 +24,7 @@
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/document'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 

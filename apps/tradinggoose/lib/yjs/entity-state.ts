@@ -1,5 +1,5 @@
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/document'
+import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/validation'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
