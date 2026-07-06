@@ -17,6 +17,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
@@ -75,7 +76,7 @@ export function WorkflowDropdown({
         id: member.entityId,
         name: member.entityName,
         description: member.entityDescription ?? '',
-        color: member.color ?? '#64748b',
+        color: getEntityIconColor(member.entityId, member.color),
         workspaceId,
         folderId: member.folderId ?? null,
       }))
@@ -210,7 +211,7 @@ export function WorkflowDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-  const selectedWorkflowColor = selectedWorkflow?.color ?? '#64748b'
+  const selectedWorkflowColor = getEntityIconColor(selectedWorkflow?.id, selectedWorkflow?.color)
   const colorBadge = (
     <div
       className='h-5 w-5 rounded-xs p-0.5'

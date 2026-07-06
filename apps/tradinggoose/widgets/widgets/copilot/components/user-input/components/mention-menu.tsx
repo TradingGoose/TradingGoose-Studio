@@ -11,16 +11,16 @@ import {
   ChevronRight,
   LibraryBig,
   ListChecks,
+  type LucideIcon,
   Server,
   SquareChevronRight,
   ToolCase,
-  type LucideIcon,
   Workflow,
   Wrench,
   X,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { getEntityIconColor, getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import {
@@ -79,12 +79,6 @@ interface MentionMenuProps {
   submenuQuery: string
 }
 
-const FALLBACK_WORKFLOW_COLOR = '#3972F6'
-const FALLBACK_INDICATOR_COLOR = '#3972F6'
-const SKILL_ICON_COLOR = '#059669'
-const CUSTOM_TOOL_ICON_COLOR = '#d97706'
-const DEFAULT_MCP_ICON_COLOR = '#64748b'
-
 const formatTimestamp = (iso: string) => {
   try {
     const date = new Date(iso)
@@ -96,18 +90,6 @@ const formatTimestamp = (iso: string) => {
   } catch {
     return iso
   }
-}
-
-const getServerIconColor = (status?: WorkspaceEntityItem['connectionStatus']) => {
-  if (status === 'connected') {
-    return '#10b981'
-  }
-
-  if (status === 'error') {
-    return '#ef4444'
-  }
-
-  return DEFAULT_MCP_ICON_COLOR
 }
 
 const renderBlockIcon = (item: BlockItem | WorkflowBlockItem) => {
@@ -123,8 +105,16 @@ const renderBlockIcon = (item: BlockItem | WorkflowBlockItem) => {
   )
 }
 
-const renderWorkflowBadge = (color?: string) => {
-  const iconColor = sanitizeSolidIconColor(color) || FALLBACK_WORKFLOW_COLOR
+const renderEntityBadge = ({
+  icon: Icon,
+  entityId,
+  color,
+}: {
+  icon: LucideIcon
+  entityId: string
+  color?: string
+}) => {
+  const iconColor = getEntityIconColor(entityId, color)
 
   return (
     <span
@@ -132,63 +122,12 @@ const renderWorkflowBadge = (color?: string) => {
       style={{ backgroundColor: `${iconColor}20` }}
       aria-hidden='true'
     >
-      <Workflow className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
+      <Icon className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
     </span>
   )
 }
 
-const renderIndicatorBadge = (color?: string) => {
-  const iconColor = sanitizeSolidIconColor(color) || FALLBACK_INDICATOR_COLOR
-
-  return (
-    <span
-      className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
-      style={{ backgroundColor: `${iconColor}20` }}
-      aria-hidden='true'
-    >
-      <Activity className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
-    </span>
-  )
-}
-
-const renderCustomToolBadge = () => (
-  <span
-    className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
-    style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
-    aria-hidden='true'
-  >
-    <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: CUSTOM_TOOL_ICON_COLOR }} />
-  </span>
-)
-
-const renderSkillBadge = () => (
-  <span
-    className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
-    style={{ backgroundColor: `${SKILL_ICON_COLOR}20` }}
-    aria-hidden='true'
-  >
-    <ToolCase className='h-4 w-4' aria-hidden='true' style={{ color: SKILL_ICON_COLOR }} />
-  </span>
-)
-
-const renderMcpServerBadge = (status?: WorkspaceEntityItem['connectionStatus']) => {
-  const iconColor = getServerIconColor(status)
-
-  return (
-    <span
-      className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
-      style={{ backgroundColor: `${iconColor}20` }}
-      aria-hidden='true'
-    >
-      <Server className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
-    </span>
-  )
-}
-
-const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<
-  CopilotWorkspaceEntityKind,
-  LucideIcon
-> = {
+const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<CopilotWorkspaceEntityKind, LucideIcon> = {
   workflow: Workflow,
   skill: ToolCase,
   indicator: Activity,
@@ -208,31 +147,31 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
 > = {
   workflow: (entity, label) => (
     <>
-      {renderWorkflowBadge(entity.color)}
+      {renderEntityBadge({ icon: Workflow, entityId: entity.id, color: entity.color })}
       <span className='truncate'>{label}</span>
     </>
   ),
   skill: (entity, label) => (
     <>
-      {renderSkillBadge()}
+      {renderEntityBadge({ icon: ToolCase, entityId: entity.id })}
       <span className='truncate'>{label}</span>
     </>
   ),
   indicator: (entity, label) => (
     <>
-      {renderIndicatorBadge(entity.color)}
+      {renderEntityBadge({ icon: Activity, entityId: entity.id, color: entity.color })}
       <span className='truncate'>{label}</span>
     </>
   ),
   custom_tool: (entity, label) => (
     <>
-      {renderCustomToolBadge()}
+      {renderEntityBadge({ icon: Wrench, entityId: entity.id })}
       <span className='truncate'>{label}</span>
     </>
   ),
   mcp_server: (entity, label) => (
     <>
-      {renderMcpServerBadge(entity.connectionStatus)}
+      {renderEntityBadge({ icon: Server, entityId: entity.id })}
       <span className='truncate'>{label}</span>
       {entity.transport ? (
         <>
@@ -242,9 +181,9 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
       ) : null}
     </>
   ),
-  watchlist: (_entity, label) => (
+  watchlist: (entity, label) => (
     <>
-      <ListChecks className='h-3.5 w-3.5 text-muted-foreground' />
+      {renderEntityBadge({ icon: ListChecks, entityId: entity.id })}
       <span className='truncate'>{label}</span>
     </>
   ),

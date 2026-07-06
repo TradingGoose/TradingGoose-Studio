@@ -29,6 +29,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
@@ -95,12 +96,6 @@ type McpServerListEntry = {
 }
 
 const getServerName = (server: McpServerListEntry, fallback: string) => server.name || fallback
-
-const getServerIconColor = (status?: string) => {
-  if (status === 'connected') return '#10b981'
-  if (status === 'error') return '#ef4444'
-  return '#64748b'
-}
 
 const McpCreateMenu = ({
   disabled = false,
@@ -417,7 +412,7 @@ const McpServerListItem = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const displayName = getServerName(server, copy.unnamedMcpServer)
-  const iconColor = getServerIconColor(server.connectionStatus)
+  const iconColor = getEntityIconColor(server.id)
 
   useEffect(() => {
     setEditValue(server.name ?? '')

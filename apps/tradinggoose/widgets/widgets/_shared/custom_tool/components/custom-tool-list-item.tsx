@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
@@ -48,6 +49,7 @@ export function CustomToolListItem({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const nameLabel = getCustomToolTitle(tool)
+  const iconColor = getEntityIconColor(tool.id)
 
   useEffect(() => {
     setEditValue(getCustomToolTitle(tool))
@@ -180,10 +182,11 @@ export function CustomToolListItem({
           draggable={false}
         >
           <span
-            className='flex h-5 w-5 items-center justify-center rounded-xs bg-amber-500/15 p-0.5'
+            className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+            style={{ backgroundColor: `${iconColor}20` }}
             aria-hidden='true'
           >
-            <Wrench className='h-full text-amber-600' aria-hidden='true' />
+            <Wrench className='h-full' style={{ color: iconColor }} aria-hidden='true' />
           </span>
           {interactiveChildren}
         </button>

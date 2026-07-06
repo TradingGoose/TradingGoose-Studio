@@ -5,7 +5,7 @@ import { LayoutList } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { getStableVibrantColor } from '@/lib/colors'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -86,7 +86,7 @@ const WorkflowListWidgetBody = ({
                 id: member.entityId,
                 name: member.entityName,
                 description: member.entityDescription ?? '',
-                color: member.color ?? getStableVibrantColor(member.entityId),
+                color: getEntityIconColor(member.entityId, member.color),
                 workspaceId,
                 folderId: member.folderId ?? null,
               }

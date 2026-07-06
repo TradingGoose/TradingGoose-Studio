@@ -18,12 +18,12 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
-const CUSTOM_TOOL_ICON_COLOR = '#d97706'
 
 interface CustomToolDropdownProps {
   workspaceId?: string | null
@@ -155,6 +155,7 @@ export function CustomToolDropdown({
       <div className='flex flex-col gap-1'>
         {filteredTools.map((tool) => {
           const isSelected = tool.id === selectedToolId
+          const iconColor = getEntityIconColor(tool.id)
           return (
             <DropdownMenuItem
               key={tool.id}
@@ -168,14 +169,10 @@ export function CustomToolDropdown({
               <div className='flex min-w-0 items-center gap-2'>
                 <span
                   className='h-5 w-5 rounded-xs p-0.5'
-                  style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+                  style={{ backgroundColor: `${iconColor}20` }}
                   aria-hidden='true'
                 >
-                  <Wrench
-                    className='h-4 w-4'
-                    aria-hidden='true'
-                    style={{ color: CUSTOM_TOOL_ICON_COLOR }}
-                  />
+                  <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {getToolTitle(tool)}
@@ -191,14 +188,15 @@ export function CustomToolDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const selectedIconColor = getEntityIconColor(selectedToolId)
 
   const iconBadge = (
     <span
       className='h-5 w-5 rounded-xs p-0.5'
-      style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+      style={{ backgroundColor: `${selectedIconColor}20` }}
       aria-hidden='true'
     >
-      <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: CUSTOM_TOOL_ICON_COLOR }} />
+      <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: selectedIconColor }} />
     </span>
   )
 

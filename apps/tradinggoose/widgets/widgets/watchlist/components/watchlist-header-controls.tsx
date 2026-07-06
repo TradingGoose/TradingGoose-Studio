@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react'
 import { Check, ChevronDown, List, Pencil, Trash2 } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import {
   AlertDialog,
@@ -34,12 +35,11 @@ import {
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { useMessages } from 'next-intl'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
-import { getStableVibrantColor } from '@/lib/colors'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
+import { cn } from '@/lib/utils'
 import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { cn } from '@/lib/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
@@ -49,8 +49,8 @@ import {
 import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { emitWatchlistSelectionChange } from '@/widgets/utils/watchlist-selection'
+import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import { DataChartListingSelector } from '@/widgets/widgets/data_chart/components/listing-control'
 import {
@@ -102,7 +102,6 @@ const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widg
   `watchlist-header-listing-${panelId ?? 'panel'}-${widgetKey}`
 
 const ROOT_LIST_SELECTOR_ID = '__watchlist_root__'
-const WATCHLIST_ROOT_COLOR_SEED = 'watchlist-root'
 
 type WatchlistListOption = {
   id: string
@@ -111,7 +110,7 @@ type WatchlistListOption = {
 }
 
 const resolveWatchlistListColor = (option: Pick<WatchlistListOption, 'watchlistId'>) =>
-  getStableVibrantColor(option.watchlistId ?? WATCHLIST_ROOT_COLOR_SEED)
+  getEntityIconColor(option.watchlistId)
 
 function emitWatchlistParamsChange({
   params,

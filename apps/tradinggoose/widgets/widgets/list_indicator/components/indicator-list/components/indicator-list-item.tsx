@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 
@@ -49,6 +50,7 @@ export function IndicatorListItem({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const nameLabel = indicator.name || copy.untitledIndicator
+  const iconColor = getEntityIconColor(indicator.id, indicator.color)
 
   useEffect(() => {
     setEditValue(indicator.name ?? '')
@@ -192,15 +194,11 @@ export function IndicatorListItem({
           <span
             className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
             style={{
-              backgroundColor: `${indicator.color ?? '#3972F6'}20`,
+              backgroundColor: `${iconColor}20`,
             }}
             aria-hidden='true'
           >
-            <Activity
-              className='h-full'
-              aria-hidden='true'
-              style={{ color: indicator.color ?? '#3972F6' }}
-            />
+            <Activity className='h-full' aria-hidden='true' style={{ color: iconColor }} />
           </span>
           {interactiveChildren}
         </button>
