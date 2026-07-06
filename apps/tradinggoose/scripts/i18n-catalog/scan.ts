@@ -2,13 +2,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import {
-  deriveComponentKeySegment,
-  deriveRouteNamespace,
-  getRouteOwnedNamespaces,
-} from './ownership'
-import {
   createEntryDiscoveryContext,
   discoverAllModeEntries,
+  type EntryDiscoveryContext,
+  type EntryExportName,
   isIgnoredProjectPath,
   isPathInsideDirectory,
   isRoutePathPrefix,
@@ -17,9 +14,12 @@ import {
   resolveRouteEntries,
   SOURCE_EXTENSIONS,
   toRelativeProjectPath,
-  type EntryDiscoveryContext,
-  type EntryExportName,
 } from './entries'
+import {
+  deriveComponentKeySegment,
+  deriveRouteNamespace,
+  getRouteOwnedNamespaces,
+} from './ownership'
 
 const HARD_CODED_PROP_NAMES = new Set([
   'title',
@@ -3428,11 +3428,20 @@ function scanNodeWithScope(
   ) {
     const staticText = getStaticTextValue(unwrapExpression(node.initializer))
     if (staticText) {
-      captureHardcodedCandidate(state, context, analysis, scope, node.initializer, staticText, {
-        kind: 'metadata',
-        attributeName: getLiteralPropertyName(node.name) ?? undefined,
-        metadata: true,
-      }, activeRoutePath)
+      captureHardcodedCandidate(
+        state,
+        context,
+        analysis,
+        scope,
+        node.initializer,
+        staticText,
+        {
+          kind: 'metadata',
+          attributeName: getLiteralPropertyName(node.name) ?? undefined,
+          metadata: true,
+        },
+        activeRoutePath
+      )
     }
   }
 

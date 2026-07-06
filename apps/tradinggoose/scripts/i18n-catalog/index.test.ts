@@ -7,7 +7,7 @@ import { buildCatalogReport } from './catalog'
 import { discoverAllModeEntries, resolveRouteEntries } from './entries'
 import { runCatalogCli } from './index'
 import { deriveRouteNamespace, getRouteOwnedNamespaces } from './ownership'
-import { scanCatalogProject, type CatalogScanResult, type CoverageRecord } from './scan'
+import { type CatalogScanResult, type CoverageRecord, scanCatalogProject } from './scan'
 
 const tempRoots: string[] = []
 
@@ -1241,8 +1241,12 @@ function createDynamicLocaleGapProject() {
   const esMessages = parseLocaleMessages()
   const zhMessages = parseLocaleMessages()
 
-  delete esMessages.workspace.monitor.values.paused
-  delete zhMessages.workspace.monitor.values.paused
+  esMessages.workspace.monitor.values = Object.fromEntries(
+    Object.entries(esMessages.workspace.monitor.values).filter(([key]) => key !== 'paused')
+  )
+  zhMessages.workspace.monitor.values = Object.fromEntries(
+    Object.entries(zhMessages.workspace.monitor.values).filter(([key]) => key !== 'paused')
+  )
 
   return createTempProject({
     'i18n/messages/en.json': toJson(enMessages),
@@ -2973,9 +2977,7 @@ describe('i18n catalog report derivation', () => {
       .filter((entry) => entry.pathKey === 'workspace.monitor.values.paused')
       .map((entry) => entry.locale)
       .sort()
-    const expectedTargetLocales = locales
-      .filter((locale) => locale !== defaultLocale)
-      .sort()
+    const expectedTargetLocales = locales.filter((locale) => locale !== defaultLocale).sort()
 
     expect(pausedGapLocales).toEqual(expectedTargetLocales)
   })
@@ -3168,11 +3170,7 @@ describe('i18n catalog report derivation', () => {
   it('derives owned namespaces for concrete and canonical catch-all routes', () => {
     expect(getRouteOwnedNamespaces('/blog/hello-world')).toEqual(['blog', 'meta.blog'])
     expect(deriveRouteNamespace('/blog/hello-world')).toBe('blog')
-    expect(getRouteOwnedNamespaces('/error')).toEqual([
-      'auth.common',
-      'auth.error',
-      'auth.sso',
-    ])
+    expect(getRouteOwnedNamespaces('/error')).toEqual(['auth.common', 'auth.error', 'auth.sso'])
     expect(deriveRouteNamespace('/error')).toBe('auth.error')
     expect(deriveRouteNamespace('/error/callback')).toBe('auth.error')
     expect(getRouteOwnedNamespaces('/missing')).toEqual(['notFound'])

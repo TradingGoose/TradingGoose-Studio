@@ -1,8 +1,8 @@
 import { parseArgs } from 'node:util'
 import { buildCatalogReport, type CatalogReport } from './catalog'
 import {
-  createCatalogProjectContext,
   type CatalogScanResult,
+  createCatalogProjectContext,
   scanCatalogProjectWithContext,
 } from './scan'
 
@@ -56,7 +56,10 @@ export function formatCatalogCliText(scanResult: CatalogScanResult, report: Cata
     `Mode: ${scanResult.mode}${scanResult.routePath ? ` (${scanResult.routePath})` : ''}`,
     `Scanned files: ${report.scannedFiles.length}`,
     formatList('Used keys', report.usedKeys),
-    formatList('Missing keys', report.missingKeys.map((entry) => entry.pathKey)),
+    formatList(
+      'Missing keys',
+      report.missingKeys.map((entry) => entry.pathKey)
+    ),
     formatList(
       'Target locale gaps',
       report.targetLocaleGaps.map((entry) => `${entry.locale}: ${entry.pathKey}`)
@@ -76,7 +79,10 @@ export function formatCatalogCliText(scanResult: CatalogScanResult, report: Cata
     sections.splice(
       4,
       0,
-      formatList('Orphaned keys', report.orphanedKeys.map((entry) => entry.pathKey))
+      formatList(
+        'Orphaned keys',
+        report.orphanedKeys.map((entry) => entry.pathKey)
+      )
     )
   }
   if (report.dynamicProtectedRoots) {

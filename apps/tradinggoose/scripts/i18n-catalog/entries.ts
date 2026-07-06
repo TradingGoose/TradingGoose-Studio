@@ -126,7 +126,10 @@ export function toRelativeProjectPath(projectRoot: string, filePath: string) {
   return path.relative(projectRoot, filePath).split(path.sep).join('/')
 }
 
-export function walkProjectSourceFiles(projectRoot: string, startDirectory = projectRoot): string[] {
+export function walkProjectSourceFiles(
+  projectRoot: string,
+  startDirectory = projectRoot
+): string[] {
   const pending = [startDirectory]
   const results: string[] = []
 
@@ -342,7 +345,10 @@ export function resolveAppRoutePathForFile(
   return getRoutePathForAppDirectory(context, path.dirname(filePath))
 }
 
-function collectNonLocalizedRouteBoundaryEntries(context: EntryDiscoveryContext, routePath: string) {
+function collectNonLocalizedRouteBoundaryEntries(
+  context: EntryDiscoveryContext,
+  routePath: string
+) {
   const entryExportNamesByFile = new Map<string, EntryExportName[]>()
 
   for (const filePath of context.appSourceFiles) {
@@ -367,7 +373,10 @@ function collectNonLocalizedRouteBoundaryEntries(context: EntryDiscoveryContext,
   return entryExportNamesByFile
 }
 
-function collectExactNonLocalizedRouteOwnedRoots(context: EntryDiscoveryContext, routePath: string) {
+function collectExactNonLocalizedRouteOwnedRoots(
+  context: EntryDiscoveryContext,
+  routePath: string
+) {
   const routeOwnedRoots = new Set<string>()
 
   for (const filePath of context.appSourceFiles) {
@@ -376,7 +385,10 @@ function collectExactNonLocalizedRouteOwnedRoots(context: EntryDiscoveryContext,
     }
 
     let directoryPath = path.dirname(filePath)
-    while (directoryPath !== context.appRoot && isPathInsideDirectory(directoryPath, context.appRoot)) {
+    while (
+      directoryPath !== context.appRoot &&
+      isPathInsideDirectory(directoryPath, context.appRoot)
+    ) {
       if (getRoutePathForAppDirectory(context, directoryPath) === routePath) {
         routeOwnedRoots.add(directoryPath)
         break
@@ -393,7 +405,9 @@ function collectExactNonLocalizedRouteOwnedRoots(context: EntryDiscoveryContext,
   return [...routeOwnedRoots].sort()
 }
 
-function toEntryDiscoveryResult(entryExportNamesByFile: Map<string, EntryExportName[]>): EntryDiscoveryResult {
+function toEntryDiscoveryResult(
+  entryExportNamesByFile: Map<string, EntryExportName[]>
+): EntryDiscoveryResult {
   return {
     entryExportNamesByFile,
     entryFiles: [...entryExportNamesByFile.keys()].sort(),
@@ -452,7 +466,10 @@ export function resolveOwningRoutePathForFile(
   return null
 }
 
-export function resolveRouteEntries(input: EntryDiscoveryInput, routePath: string): RouteResolution {
+export function resolveRouteEntries(
+  input: EntryDiscoveryInput,
+  routePath: string
+): RouteResolution {
   const context = resolveEntryDiscoveryContext(input)
   const normalizedRoutePath = normalizeRoutePath(routePath)
   const { filePath: pageFilePath, routePath: matchedRoutePath } = findLocalizedPageFile(

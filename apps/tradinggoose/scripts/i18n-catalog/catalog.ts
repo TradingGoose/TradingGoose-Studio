@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { defaultLocale, locales, type AppLocale } from '../../i18n/routing'
+import { type AppLocale, defaultLocale, locales } from '../../i18n/routing'
 import { toRelativeProjectPath } from './entries'
 import type { CatalogScanResult, CoverageRecord, HardcodedCandidate } from './scan'
 
