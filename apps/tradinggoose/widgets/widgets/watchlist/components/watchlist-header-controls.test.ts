@@ -1,21 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import {
-  resolveNextSectionName,
-  resolveNextWatchlistName,
-} from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
+import { resolveNextSectionName } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 import { resolveMarketProviderSettingsDefinitions } from '@/lib/market/market-provider-settings'
 
 describe('watchlist header naming helpers', () => {
-  it('resolves the next available watchlist number', () => {
-    expect(
-      resolveNextWatchlistName([
-        { name: 'Favorites' },
-        { name: 'Watchlist 1' },
-        { name: 'Watchlist 3' },
-      ])
-    ).toBe('Watchlist 2')
-  })
-
   it('resolves the next available section number from existing sections only', () => {
     expect(
       resolveNextSectionName({
@@ -23,11 +10,13 @@ describe('watchlist header naming helpers', () => {
           {
             id: 'section-1',
             type: 'section',
+            parentId: null,
             label: 'Section 1',
           },
           {
             id: 'listing-1',
             type: 'listing',
+            parentId: null,
             listing: {
               listing_id: 'BTC',
               base_id: '',
@@ -38,11 +27,13 @@ describe('watchlist header naming helpers', () => {
           {
             id: 'section-3',
             type: 'section',
+            parentId: null,
             label: 'Section 3',
           },
           {
             id: 'section-custom',
             type: 'section',
+            parentId: null,
             label: 'Favorites',
           },
         ],

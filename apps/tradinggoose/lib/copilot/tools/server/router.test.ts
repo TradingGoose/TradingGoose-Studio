@@ -164,7 +164,6 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   createIndicatorServerTool: entityTool('create_indicator'),
   createMcpServerServerTool: entityTool('create_mcp_server'),
   createSkillServerTool: entityTool('create_skill'),
-  createWatchlistServerTool: entityTool('create_watchlist'),
   createWorkflowServerTool: entityTool('create_workflow'),
   editCustomToolServerTool: entityTool('edit_custom_tool'),
   editIndicatorServerTool: entityTool('edit_indicator'),
@@ -190,7 +189,6 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   renameIndicatorServerTool: entityTool('rename_indicator'),
   renameMcpServerServerTool: entityTool('rename_mcp_server'),
   renameSkillServerTool: entityTool('rename_skill'),
-  renameWatchlistServerTool: entityTool('rename_watchlist'),
   renameWorkflowServerTool: entityTool('rename_workflow'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
@@ -553,7 +551,12 @@ describe('routeExecution', () => {
 
     expect(searchListingExecute).toHaveBeenCalledWith(
       { query: 'AAPL' },
-      { userId: 'user-1', accessLevel: undefined, acceptedReviewBaseStateHash: undefined, signal: undefined }
+      {
+        userId: 'user-1',
+        accessLevel: undefined,
+        acceptedReviewBaseStateHash: undefined,
+        signal: undefined,
+      }
     )
     expect(checkWorkspaceAccess).not.toHaveBeenCalled()
   })

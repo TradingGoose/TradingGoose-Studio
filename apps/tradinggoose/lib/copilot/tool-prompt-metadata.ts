@@ -12,7 +12,7 @@ const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
-  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Each listing item must use the canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
+  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "list"`, `type: "section"`, or `type: "listing"` entries. Root lists, root sections, and root listings use `parentId: null`; listings directly under a list use that list id as `parentId`; listings under a section use that section id. Each listing item must use a canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -336,7 +336,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   list_watchlists: {
     description:
-      'List root watchlists in the current workspace. If the user identifies a watchlist by name, use this list to select the exact `entityId`, then read it with `read_watchlist`.',
+      'List the current workspace watchlist document. Use the returned `entityId` to read or edit the workspace root watchlist.',
     kind: 'list',
     entityKind: 'watchlist',
   },
@@ -345,19 +345,9 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'read',
     entityKind: 'watchlist',
   },
-  create_watchlist: {
-    description: `Create a new root watchlist in the current workspace from a full watchlist document and return the created document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
-    kind: 'create',
-    entityKind: 'watchlist',
-  },
   edit_watchlist: {
-    description: `Update the target watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    description: `Update the workspace root watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
-    entityKind: 'watchlist',
-  },
-  rename_watchlist: {
-    description: `Rename the target watchlist by sending a full watchlist document with the updated \`name\`, then return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
-    kind: 'rename',
     entityKind: 'watchlist',
   },
   sleep: {

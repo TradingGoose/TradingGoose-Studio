@@ -1,35 +1,15 @@
 import { ENTITY_KIND_WATCHLIST } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { createWatchlistDocument } from '@/lib/watchlists/operations'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
-  type EntityCreateResult,
   type EntityServerTool,
-  executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
   readSavedEntityDocumentFields,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
-
-async function createWatchlistEntity(
-  fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
-): Promise<EntityCreateResult> {
-  const { workspaceId } = await verifyWorkspaceContext(context, 'write')
-  const watchlist = await createWatchlistDocument(workspaceId, fields)
-
-  return {
-    entityId: watchlist.id,
-    fields: {
-      name: watchlist.name,
-      settings: watchlist.settings,
-      items: watchlist.items,
-    },
-  }
-}
 
 export const listWatchlistsServerTool: EntityServerTool<{ workspaceId?: string }> = {
   name: 'list_watchlists',
@@ -63,36 +43,12 @@ export const readWatchlistServerTool: EntityServerTool = {
   },
 }
 
-export const createWatchlistServerTool: EntityServerTool = {
-  name: 'create_watchlist',
-  execute(args, context) {
-    return executeCreateEntityDocumentMutation(
-      ENTITY_KIND_WATCHLIST,
-      args,
-      context,
-      createWatchlistEntity
-    )
-  },
-}
-
 export const editWatchlistServerTool: EntityServerTool = {
   name: 'edit_watchlist',
   execute(args, context) {
     return executeUpdateEntityDocumentMutation(
       ENTITY_KIND_WATCHLIST,
       'edit_watchlist',
-      args,
-      context
-    )
-  },
-}
-
-export const renameWatchlistServerTool: EntityServerTool = {
-  name: 'rename_watchlist',
-  execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_WATCHLIST,
-      'rename_watchlist',
       args,
       context
     )

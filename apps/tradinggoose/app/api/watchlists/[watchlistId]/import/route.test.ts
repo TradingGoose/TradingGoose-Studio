@@ -87,7 +87,7 @@ describe('Watchlist import API route', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockGetWatchlist.mockResolvedValue({
-      id: 'watchlist-1',
+      id: 'workspace-1',
       workspaceId: 'workspace-1',
       name: 'Imported Watchlist',
       items: [],
@@ -110,20 +110,33 @@ describe('Watchlist import API route', () => {
     })
 
     const response = await POST(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      params: Promise.resolve({ watchlistId: 'workspace-1' }),
     })
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(payload.watchlist.id).toBe('watchlist-1')
-    expect(mockGetWatchlist).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1' },
-      'watchlist-1'
-    )
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('watchlist', 'watchlist-1', {
+    expect(payload.watchlist.id).toBe('workspace-1')
+    expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'workspace-1')
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('watchlist', 'workspace-1', {
       name: 'Imported Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: true },
-      items: importedFile.watchlists[0].items,
+      items: [
+        {
+          type: 'section',
+          parentId: null,
+          label: 'Tech',
+        },
+        {
+          type: 'listing',
+          parentId: null,
+          listing: {
+            listing_id: 'aapl-id',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
     })
   })
 
@@ -150,7 +163,7 @@ describe('Watchlist import API route', () => {
     })
 
     const response = await POST(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      params: Promise.resolve({ watchlistId: 'workspace-1' }),
     })
     const payload = await response.json()
 
@@ -195,7 +208,7 @@ describe('Watchlist import API route', () => {
     })
 
     const response = await POST(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      params: Promise.resolve({ watchlistId: 'workspace-1' }),
     })
     const payload = await response.json()
 
@@ -215,7 +228,7 @@ describe('Watchlist import API route', () => {
     })
 
     const response = await POST(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      params: Promise.resolve({ watchlistId: 'workspace-1' }),
     })
     const payload = await response.json()
 

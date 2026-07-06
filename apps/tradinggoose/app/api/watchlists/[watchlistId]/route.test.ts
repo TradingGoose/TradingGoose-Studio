@@ -6,7 +6,6 @@ import { NextRequest } from 'next/server'
 
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockDeleteWatchlist = vi.fn()
 const mockGetWatchlist = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -29,7 +28,6 @@ vi.mock('@/lib/watchlists/operations', async () => {
   const actual = await vi.importActual<any>('@/lib/watchlists/operations')
   return {
     ...actual,
-    deleteWatchlist: mockDeleteWatchlist,
     getWatchlist: mockGetWatchlist,
   }
 })
@@ -41,37 +39,11 @@ describe('Watchlist by id API route', () => {
     mockGetUserEntityPermissions.mockResolvedValue('admin')
   })
 
-  it('deletes a watchlist via DELETE', async () => {
-    mockDeleteWatchlist.mockResolvedValue(undefined)
-
-    const { DELETE } = await import('@/app/api/watchlists/[watchlistId]/route')
-    const request = new NextRequest(
-      new URL('http://localhost:3000/api/watchlists/watchlist-1?workspaceId=workspace-1'),
-      {
-        method: 'DELETE',
-      }
-    )
-
-    const response = await DELETE(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
-    })
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.success).toBe(true)
-    expect(mockDeleteWatchlist).toHaveBeenCalledWith(
-      {
-        workspaceId: 'workspace-1',
-      },
-      'watchlist-1'
-    )
-  })
-
   it('reads a watchlist via GET', async () => {
     mockGetWatchlist.mockResolvedValue({
-      id: 'watchlist-1',
+      id: 'workspace-1',
       workspaceId: 'workspace-1',
-      name: 'Growth',
+      name: 'Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [],
       createdAt: '2026-03-13T00:00:00.000Z',
@@ -80,34 +52,30 @@ describe('Watchlist by id API route', () => {
 
     const { GET } = await import('@/app/api/watchlists/[watchlistId]/route')
     const request = new NextRequest(
-      new URL('http://localhost:3000/api/watchlists/watchlist-1?workspaceId=workspace-1'),
+      new URL('http://localhost:3000/api/watchlists/workspace-1?workspaceId=workspace-1'),
       {
         method: 'GET',
       }
     )
 
     const response = await GET(request, {
-      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      params: Promise.resolve({ watchlistId: 'workspace-1' }),
     })
     const payload = await response.json()
 
     expect(response.status).toBe(200)
     expect(payload.watchlist).toMatchObject({
-      id: 'watchlist-1',
+      id: 'workspace-1',
       workspaceId: 'workspace-1',
-      name: 'Growth',
+      name: 'Watchlist',
       items: [],
     })
-    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith(
-      'user-1',
-      'workspace',
-      'workspace-1'
-    )
+    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith(
       {
         workspaceId: 'workspace-1',
       },
-      'watchlist-1'
+      'workspace-1'
     )
   })
 })

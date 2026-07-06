@@ -3,11 +3,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  deleteWatchlist,
-  getWatchlist,
-  WatchlistOperationError,
-} from '@/lib/watchlists/operations'
+import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistByIdAPI')
 
@@ -19,17 +15,10 @@ const requireSessionUser = async () => {
   return session.user.id
 }
 
-const requireWorkspacePermission = async (
-  userId: string,
-  workspaceId: string,
-  options?: { write?: boolean }
-) => {
+const requireWorkspacePermission = async (userId: string, workspaceId: string) => {
   const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
   if (!permission) {
     throw new WatchlistOperationError('Access denied', 403)
-  }
-  if (options?.write && permission === 'read') {
-    throw new WatchlistOperationError('Write permission required', 403)
   }
 }
 
@@ -38,32 +27,13 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
   if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request data', details: error.errors },
+      { status: 400 }
+    )
   }
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ watchlistId: string }> }
-) {
-  try {
-    const userId = await requireSessionUser()
-    const { watchlistId } = await params
-    const workspaceId = request.nextUrl.searchParams.get('workspaceId')?.trim()
-    if (!workspaceId) {
-      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
-    }
-
-    await requireWorkspacePermission(userId, workspaceId, { write: true })
-
-    await deleteWatchlist({ workspaceId }, watchlistId)
-
-    return NextResponse.json({ success: true }, { status: 200 })
-  } catch (error) {
-    return handleRouteError(error, 'Failed to delete watchlist')
-  }
 }
 
 export async function GET(

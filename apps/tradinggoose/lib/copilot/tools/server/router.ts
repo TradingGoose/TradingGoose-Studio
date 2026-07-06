@@ -17,7 +17,6 @@ import {
   createIndicatorServerTool,
   createMcpServerServerTool,
   createSkillServerTool,
-  createWatchlistServerTool,
   createWorkflowServerTool,
   editCustomToolServerTool,
   editIndicatorServerTool,
@@ -43,7 +42,6 @@ import {
   renameIndicatorServerTool,
   renameMcpServerServerTool,
   renameSkillServerTool,
-  renameWatchlistServerTool,
   renameWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -127,9 +125,7 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [renameMcpServerServerTool.name]: renameMcpServerServerTool,
   [listWatchlistsServerTool.name]: listWatchlistsServerTool,
   [readWatchlistServerTool.name]: readWatchlistServerTool,
-  [createWatchlistServerTool.name]: createWatchlistServerTool,
   [editWatchlistServerTool.name]: editWatchlistServerTool,
-  [renameWatchlistServerTool.name]: renameWatchlistServerTool,
   [searchListingServerTool.name]: searchListingServerTool,
 }
 
@@ -217,9 +213,7 @@ const mcpServerToolIds = [
   renameMcpServerServerTool.name,
   listWatchlistsServerTool.name,
   readWatchlistServerTool.name,
-  createWatchlistServerTool.name,
   editWatchlistServerTool.name,
-  renameWatchlistServerTool.name,
   searchListingServerTool.name,
   CopilotTool.get_available_blocks,
   CopilotTool.get_blocks_metadata,

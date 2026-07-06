@@ -6,11 +6,10 @@ import type {
   WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
   WatchlistDocumentListingInputItem,
+  WatchlistDocumentListInputItem,
+  WatchlistDocumentSectionInputItem,
 } from '@/lib/watchlists/types'
-import type {
-  WatchlistItem,
-  WatchlistSettings,
-} from '@/lib/watchlists/types'
+import type { WatchlistItem, WatchlistSettings } from '@/lib/watchlists/types'
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -72,11 +71,19 @@ const normalizeOptionalId = (value: unknown): string | undefined => {
   return id || undefined
 }
 
+const normalizeNullableParentId = (value: unknown): string | null => {
+  if (value == null) return null
+  const id = normalizeString(value)
+  return id || null
+}
+
 const hasOnlyKeys = (value: Record<string, unknown>, allowedKeys: Set<string>) =>
   Object.keys(value).every((key) => allowedKeys.has(key))
 
-const listingItemKeys = new Set(['id', 'type', 'listing'])
-const sectionItemKeys = new Set(['id', 'type', 'label'])
+const listingItemKeys = new Set(['id', 'type', 'parentId', 'listing'])
+const containerItemKeys = new Set(['id', 'type', 'parentId', 'label'])
+const ROOT_PARENT_KEY = '__root__'
+const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARENT_KEY
 
 const normalizeWatchlistDocumentListingInputItem = (
   value: unknown
@@ -91,6 +98,7 @@ const normalizeWatchlistDocumentListingInputItem = (
   return {
     ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'listing',
+    parentId: normalizeNullableParentId(value.parentId),
     listing,
   }
 }
@@ -103,17 +111,27 @@ const normalizeWatchlistDocumentInputItem = (value: unknown): WatchlistDocumentI
     return normalizeWatchlistDocumentListingInputItem(value)
   }
 
-  if (type !== 'section') return null
-  if (!hasOnlyKeys(value, sectionItemKeys)) return null
+  if (type !== 'list' && type !== 'section') return null
+  if (!hasOnlyKeys(value, containerItemKeys)) return null
 
   const label = normalizeString(value.label)
   if (!label) return null
 
+  if (type === 'list') {
+    return {
+      ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
+      type: 'list',
+      parentId: normalizeNullableParentId(value.parentId),
+      label,
+    } satisfies WatchlistDocumentListInputItem
+  }
+
   return {
     ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'section',
+    parentId: normalizeNullableParentId(value.parentId),
     label,
-  }
+  } satisfies WatchlistDocumentSectionInputItem
 }
 
 const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
@@ -122,13 +140,26 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
   if (!id) return null
 
   const type = normalizeString(value.type)
+  if (type === 'list') {
+    if (!hasOnlyKeys(value, containerItemKeys)) return null
+    const label = normalizeString(value.label)
+    if (!label) return null
+    return {
+      id,
+      type: 'list',
+      parentId: null,
+      label,
+    }
+  }
+
   if (type === 'section') {
-    if (!hasOnlyKeys(value, sectionItemKeys)) return null
+    if (!hasOnlyKeys(value, containerItemKeys)) return null
     const label = normalizeString(value.label)
     if (!label) return null
     return {
       id,
       type: 'section',
+      parentId: normalizeNullableParentId(value.parentId),
       label,
     }
   }
@@ -140,6 +171,7 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
     return {
       id,
       type: 'listing',
+      parentId: normalizeNullableParentId(value.parentId),
       listing,
     }
   }
@@ -194,15 +226,59 @@ function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   }
 }
 
-function assertNoDuplicateListings(items: Array<{ type: string; listing?: ListingIdentity }>): void {
+function assertNoDuplicateListings(items: Array<{
+  type: string
+  parentId?: string | null
+  listing?: ListingIdentity
+}>): void {
   const seen = new Set<string>()
   for (const item of items) {
     if (item.type !== 'listing' || !item.listing) continue
-    const key = getListingIdentityKey(item.listing)
+    const key = `${parentKey(item.parentId)}:${getListingIdentityKey(item.listing)}`
     if (seen.has(key)) {
       throw new WatchlistDocumentError('Listing already exists in watchlist', 409)
     }
     seen.add(key)
+  }
+}
+
+function assertValidParentTree(
+  items: Array<{ id?: string; type: string; parentId?: string | null }>
+) {
+  const containerTypes = new Map<string, 'list' | 'section'>()
+  const containerParents = new Map<string, string | null>()
+
+  for (const item of items) {
+    if ((item.type !== 'list' && item.type !== 'section') || !item.id) continue
+    containerTypes.set(item.id, item.type)
+    containerParents.set(item.id, item.parentId ?? null)
+  }
+
+  for (const item of items) {
+    const parentId = item.parentId ?? null
+    if (item.type === 'list' && parentId) {
+      throw new WatchlistDocumentError('Watchlist list parentId must be null')
+    }
+    if (!parentId) continue
+    if (!containerTypes.has(parentId)) {
+      throw new WatchlistDocumentError('Watchlist item parentId must reference a list or section')
+    }
+    if ((item.type === 'list' || item.type === 'section') && item.id === parentId) {
+      throw new WatchlistDocumentError('Watchlist container cannot reference itself as parent')
+    }
+  }
+
+  for (const containerId of containerTypes.keys()) {
+    const visited = new Set<string>()
+    let currentParentId = containerParents.get(containerId) ?? null
+
+    while (currentParentId) {
+      if (currentParentId === containerId || visited.has(currentParentId)) {
+        throw new WatchlistDocumentError('Watchlist container parentId cycle detected')
+      }
+      visited.add(currentParentId)
+      currentParentId = containerParents.get(currentParentId) ?? null
+    }
   }
 }
 
@@ -242,6 +318,7 @@ function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
 
   assertNoDuplicateSubmittedIds(normalized)
   assertNoDuplicateListings(normalized)
+  assertValidParentTree(normalized)
   assertWatchlistDocumentSymbolLimit(
     normalized.filter(
       (item): item is Extract<WatchlistDocumentInputItem, { type: 'listing' }> =>
@@ -251,9 +328,7 @@ function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
   return normalized
 }
 
-export function normalizeWatchlistDocumentFields(
-  value: unknown
-): WatchlistDocumentInputFields {
+export function normalizeWatchlistDocumentFields(value: unknown): WatchlistDocumentInputFields {
   const source = requireWatchlistDocumentRecord(value)
   assertOnlyWatchlistDocumentKeys(source)
   return {
@@ -263,9 +338,7 @@ export function normalizeWatchlistDocumentFields(
   }
 }
 
-export function normalizePersistedWatchlistDocumentFields(
-  value: unknown
-): WatchlistDocumentFields {
+export function normalizePersistedWatchlistDocumentFields(value: unknown): WatchlistDocumentFields {
   const source = requireWatchlistDocumentRecord(value)
   assertOnlyWatchlistDocumentKeys(source)
   const name = normalizeWatchlistName(source.name)
@@ -281,6 +354,7 @@ export function normalizePersistedWatchlistDocumentFields(
 
   assertNoDuplicateSubmittedIds(items)
   assertNoDuplicateListings(items)
+  assertValidParentTree(items)
   assertWatchlistDocumentSymbolLimit(items)
 
   return { name, settings, items }

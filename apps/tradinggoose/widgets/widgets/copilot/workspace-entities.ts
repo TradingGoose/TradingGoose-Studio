@@ -13,13 +13,7 @@ import type { PairColorContext } from '@/stores/dashboard/pair-store'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
-  idField:
-    | 'workflowId'
-    | 'skillId'
-    | 'indicatorId'
-    | 'customToolId'
-    | 'mcpServerId'
-    | 'watchlistId'
+  idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId' | 'watchlistId'
 }
 
 export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
@@ -141,8 +135,13 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
     case 'current_mcp_server':
       return normalizeOptionalString(context.mcpServerId) ?? null
     case 'watchlist':
-    case 'current_watchlist':
       return normalizeOptionalString(context.watchlistId) ?? null
+    case 'current_watchlist':
+      return (
+        normalizeOptionalString(context.workspaceId) ??
+        normalizeOptionalString(context.watchlistId) ??
+        null
+      )
     default:
       return null
   }
@@ -168,7 +167,7 @@ export function getCopilotWorkspaceEntityIdFromPairContext(
     case ENTITY_KIND_MCP_SERVER:
       return normalizeOptionalString(pairContext.mcpServerId) ?? null
     case ENTITY_KIND_WATCHLIST:
-      return normalizeOptionalString(pairContext.watchlistId) ?? null
+      return null
   }
 }
 

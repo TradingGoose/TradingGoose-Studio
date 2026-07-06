@@ -103,19 +103,6 @@ vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
 }))
 
-vi.mock('@/lib/yjs/use-entity-fields', () => ({
-  useEntityList: () => ({
-    members: currentWatchlists.map((entry) => ({
-      entityId: entry.id,
-      entityName: entry.name,
-      createdAt: entry.createdAt,
-      updatedAt: entry.updatedAt,
-    })),
-    isLoading: false,
-    error: null,
-  }),
-}))
-
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
   useWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
     const record = currentWatchlists.find((entry) => entry.id === watchlistId) ?? null
@@ -222,7 +209,7 @@ describe('HeatmapWidgetBody', () => {
     }))
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: watchlistItems,
@@ -292,7 +279,7 @@ describe('HeatmapWidgetBody', () => {
   it('waits for watchlist Yjs documents before rendering the watchlist empty state', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [],
@@ -301,7 +288,7 @@ describe('HeatmapWidgetBody', () => {
         updatedAt: '',
       },
     ]
-    loadingWatchlistDocumentIds.add('watchlist-1')
+    loadingWatchlistDocumentIds.add('workspace-1')
 
     await act(async () => {
       root.render(
@@ -323,15 +310,15 @@ describe('HeatmapWidgetBody', () => {
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
   })
 
-  it('does not render partial watchlist data while one Yjs document is still loading', async () => {
+  it('does not render watchlist data while the root Yjs document is loading', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-loaded',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
-        name: 'Loaded',
+        name: 'Watchlist',
         items: [
           {
-            id: 'loaded-item',
+            id: 'root-item',
             type: 'listing' as const,
             listing: createListing('AAPL'),
           },
@@ -340,23 +327,8 @@ describe('HeatmapWidgetBody', () => {
         createdAt: '',
         updatedAt: '',
       },
-      {
-        id: 'watchlist-loading',
-        workspaceId: 'workspace-1',
-        name: 'Loading',
-        items: [
-          {
-            id: 'loading-item',
-            type: 'listing' as const,
-            listing: createListing('MSFT'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
     ]
-    loadingWatchlistDocumentIds.add('watchlist-loading')
+    loadingWatchlistDocumentIds.add('workspace-1')
 
     await act(async () => {
       root.render(
@@ -381,7 +353,7 @@ describe('HeatmapWidgetBody', () => {
   it('surfaces watchlist Yjs document subscription errors', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [
@@ -396,7 +368,7 @@ describe('HeatmapWidgetBody', () => {
         updatedAt: '',
       },
     ]
-    erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed')
+    erroredWatchlistDocuments.set('workspace-1', 'watchlist document failed')
 
     await act(async () => {
       root.render(
@@ -420,7 +392,7 @@ describe('HeatmapWidgetBody', () => {
   it('does not reuse stale watchlist chart data when a loaded document returns to loading or error', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [
@@ -453,7 +425,7 @@ describe('HeatmapWidgetBody', () => {
     expect(mockHeatmapTreemapChart).toHaveBeenCalled()
     mockHeatmapTreemapChart.mockClear()
 
-    loadingWatchlistDocumentIds.add('watchlist-1')
+    loadingWatchlistDocumentIds.add('workspace-1')
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
@@ -472,8 +444,8 @@ describe('HeatmapWidgetBody', () => {
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
     expect(container.textContent).not.toContain('heatmap-chart')
 
-    loadingWatchlistDocumentIds.delete('watchlist-1')
-    erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed again')
+    loadingWatchlistDocumentIds.delete('workspace-1')
+    erroredWatchlistDocuments.set('workspace-1', 'watchlist document failed again')
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
@@ -534,7 +506,7 @@ describe('HeatmapWidgetBody', () => {
   it('switches source modes through the same source-neutral chart props', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [
@@ -646,7 +618,7 @@ describe('HeatmapWidgetBody', () => {
   it('uses raw volume for watchlist tile size when selected', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [
@@ -706,7 +678,7 @@ describe('HeatmapWidgetBody', () => {
   it('writes selected heatmap listings to the linked pair color context', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [
@@ -751,7 +723,7 @@ describe('HeatmapWidgetBody', () => {
   it('does not rerender heatmap data when linked pair color context changes elsewhere', async () => {
     currentWatchlists = [
       {
-        id: 'watchlist-1',
+        id: 'workspace-1',
         workspaceId: 'workspace-1',
         name: 'Watchlist',
         items: [

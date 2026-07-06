@@ -74,11 +74,15 @@ export function createSelectionPersistenceHook(config: SelectionPersistenceConfi
 
         const currentParams =
           params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
+        const nextParams = { ...currentParams }
 
-        onWidgetParamsChange?.({
-          ...currentParams,
-          [paramsIdKey]: entityId,
-        })
+        if (entityId) {
+          nextParams[paramsIdKey] = entityId
+        } else {
+          delete nextParams[paramsIdKey]
+        }
+
+        onWidgetParamsChange?.(Object.keys(nextParams).length > 0 ? nextParams : null)
       }
 
       window.addEventListener(eventName, handleSelect as EventListener)

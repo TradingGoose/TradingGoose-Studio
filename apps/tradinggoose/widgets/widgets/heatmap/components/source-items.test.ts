@@ -23,14 +23,14 @@ describe('heatmap source item helpers', () => {
           id: 'list-1',
           name: 'One',
           items: [
-            { id: 'a', type: 'listing', listing },
-            { id: 'section', type: 'section', label: 'Tech' },
+            { id: 'a', type: 'listing', parentId: null, listing },
+            { id: 'section', type: 'section', parentId: null, label: 'Tech' },
           ],
         },
         {
           id: 'list-2',
           name: 'Two',
-          items: [{ id: 'b', type: 'listing', listing }],
+          items: [{ id: 'b', type: 'listing', parentId: null, listing }],
         },
       ])
     ).toEqual([
@@ -81,17 +81,17 @@ describe('heatmap source item helpers', () => {
         {
           id: 'list-1',
           name: 'One',
-          items: [{ id: 'a', type: 'listing', listing }],
+          items: [{ id: 'a', type: 'listing', parentId: null, listing }],
         },
         {
           id: 'list-2',
           name: '  ',
-          items: [{ id: 'b', type: 'listing', listing }],
+          items: [{ id: 'b', type: 'listing', parentId: null, listing }],
         },
         {
           id: 'list-3',
           name: 'Two',
-          items: [{ id: 'c', type: 'listing', listing }],
+          items: [{ id: 'c', type: 'listing', parentId: null, listing }],
         },
       ])
     ).toEqual([

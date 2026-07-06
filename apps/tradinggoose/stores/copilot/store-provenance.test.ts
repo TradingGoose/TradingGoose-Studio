@@ -75,7 +75,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         [
           buildCopilotWorkspaceEntityContext({
             entityKind: 'watchlist',
-            entityId: 'watchlist-current',
+            entityId: 'workspace-current',
             workspaceId: 'workspace-current',
             label: 'Current Watchlist',
             current: true,
@@ -87,7 +87,7 @@ describe('buildTurnProvenanceFromContexts', () => {
       )
     ).toEqual({
       contextEntityKind: 'watchlist',
-      contextEntityId: 'watchlist-current',
+      contextEntityId: 'workspace-current',
       workspaceId: 'workspace-live',
     })
   })

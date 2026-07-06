@@ -1,20 +1,10 @@
 'use client'
 
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
-import type { EntityListMember } from '@/lib/yjs/entity-session'
-import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
@@ -50,12 +40,6 @@ import type {
   HeatmapWidgetParams,
 } from '@/widgets/widgets/heatmap/types'
 
-type WatchlistDocumentSubscriptionState = {
-  record: WatchlistRecord | null
-  isLoading: boolean
-  error: string | null
-}
-
 const HeatmapMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
     {message}
@@ -78,43 +62,6 @@ const resolveWatchlistSizeValue = (
   return isPositiveFiniteNumber(value) ? value : undefined
 }
 
-function WatchlistHeatmapDocumentSubscriber({
-  member,
-  workspaceId,
-  onStateChange,
-}: {
-  member: EntityListMember
-  workspaceId: string
-  onStateChange: (watchlistId: string, state: WatchlistDocumentSubscriptionState) => void
-}) {
-  const document = useWatchlistYjsDocument({
-    workspaceId,
-    watchlistId: member.entityId,
-    member,
-  })
-
-  useLayoutEffect(() => {
-    onStateChange(member.entityId, {
-      record: document.isLoading || document.error ? null : document.record,
-      isLoading: document.isLoading,
-      error: document.error ? String(document.error) : null,
-    })
-  }, [document.error, document.isLoading, document.record, member.entityId, onStateChange])
-
-  useEffect(
-    () => () => {
-      onStateChange(member.entityId, {
-        record: null,
-        isLoading: false,
-        error: null,
-      })
-    },
-    [member.entityId, onStateChange]
-  )
-
-  return null
-}
-
 export function HeatmapWidgetBody({
   context,
   panelId,
@@ -133,12 +80,10 @@ export function HeatmapWidgetBody({
   const marketProviderId = resolveHeatmapMarketProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
-  const [watchlistRecordsById, setWatchlistRecordsById] = useState<Record<string, WatchlistRecord>>(
-    {}
-  )
-  const [watchlistDocumentStatesById, setWatchlistDocumentStatesById] = useState<
-    Record<string, Pick<WatchlistDocumentSubscriptionState, 'isLoading' | 'error'>>
-  >({})
+  const watchlistDocument = useWatchlistYjsDocument({
+    workspaceId,
+    watchlistId: workspaceId,
+  })
 
   useHeatmapParamsPersistence({
     onWidgetParamsChange,
@@ -154,112 +99,18 @@ export function HeatmapWidgetBody({
     emitHeatmapParamsChange({ params: nextParams, panelId, widgetKey })
   }, [panelId, sourceMode, widgetKey, widgetParams])
 
-  const {
-    members: watchlistMembers,
-    isLoading: watchlistsLoading,
-    error: watchlistsError,
-  } = useEntityList('watchlist', sourceMode === 'watchlist' ? workspaceId : null)
-  const watchlistMemberIds = useMemo(
-    () => new Set(watchlistMembers.map((member) => member.entityId)),
-    [watchlistMembers]
-  )
-  useEffect(() => {
-    setWatchlistRecordsById((current) => {
-      let changed = false
-      const next: Record<string, WatchlistRecord> = {}
-      for (const [id, record] of Object.entries(current)) {
-        if (!watchlistMemberIds.has(id)) {
-          changed = true
-          continue
-        }
-        next[id] = record
-      }
-      return changed ? next : current
-    })
-    setWatchlistDocumentStatesById((current) => {
-      let changed = false
-      const next: Record<string, Pick<WatchlistDocumentSubscriptionState, 'isLoading' | 'error'>> =
-        {}
-      for (const [id, state] of Object.entries(current)) {
-        if (!watchlistMemberIds.has(id)) {
-          changed = true
-          continue
-        }
-        next[id] = state
-      }
-      return changed ? next : current
-    })
-  }, [watchlistMemberIds])
-  const handleWatchlistDocumentStateChange = useCallback(
-    (watchlistId: string, state: WatchlistDocumentSubscriptionState) => {
-      setWatchlistDocumentStatesById((current) => {
-        const previous = current[watchlistId]
-        if (previous?.isLoading === state.isLoading && previous?.error === state.error) {
-          return current
-        }
-        return {
-          ...current,
-          [watchlistId]: {
-            isLoading: state.isLoading,
-            error: state.error,
-          },
-        }
-      })
-      setWatchlistRecordsById((current) => {
-        const record = state.record
-        if (!record) {
-          if (!current[watchlistId]) return current
-          const { [watchlistId]: _removed, ...next } = current
-          return next
-        }
-        if (current[watchlistId] === record) return current
-        return { ...current, [watchlistId]: record }
-      })
-    },
-    []
-  )
   const watchlistDocumentsLoading =
-    sourceMode === 'watchlist' &&
-    watchlistMembers.length > 0 &&
-    watchlistMembers.some((member) => {
-      const state = watchlistDocumentStatesById[member.entityId]
-      return !state || state.isLoading
-    })
+    sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocument.isLoading
   const watchlistDocumentError =
-    sourceMode === 'watchlist'
-      ? watchlistMembers
-          .map((member) => watchlistDocumentStatesById[member.entityId]?.error)
-          .find((error): error is string => Boolean(error))
-      : null
-  const watchlistSubscribers =
-    sourceMode === 'watchlist' && workspaceId
-      ? watchlistMembers.map((member) => (
-          <WatchlistHeatmapDocumentSubscriber
-            key={member.entityId}
-            member={member}
-            workspaceId={workspaceId}
-            onStateChange={handleWatchlistDocumentStateChange}
-          />
-        ))
-      : null
-  const withWatchlistSubscribers = useCallback(
-    (content: ReactNode) =>
-      sourceMode === 'watchlist' ? (
-        <>
-          {watchlistSubscribers}
-          {content}
-        </>
-      ) : (
-        content
-      ),
-    [sourceMode, watchlistSubscribers]
-  )
+    sourceMode === 'watchlist' && watchlistDocument.error ? String(watchlistDocument.error) : null
   const watchlistSources = useMemo(
     () =>
       sourceMode === 'watchlist' && (watchlistDocumentsLoading || watchlistDocumentError)
         ? []
-        : resolveWatchlistHeatmapListings(Object.values(watchlistRecordsById)),
-    [sourceMode, watchlistDocumentError, watchlistDocumentsLoading, watchlistRecordsById]
+        : resolveWatchlistHeatmapListings(
+            watchlistDocument.record ? [watchlistDocument.record] : []
+          ),
+    [sourceMode, watchlistDocument.record, watchlistDocumentError, watchlistDocumentsLoading]
   )
 
   const providerAvailabilityQuery = useOAuthProviderAvailability(
@@ -408,24 +259,8 @@ export function HeatmapWidgetBody({
   }
 
   if (sourceMode === 'watchlist') {
-    if (watchlistsLoading) {
-      return (
-        <div className='flex h-full items-center justify-center'>
-          <LoadingAgent size='md' />
-        </div>
-      )
-    }
-
-    if (watchlistsError) {
-      return (
-        <HeatmapMessage
-          message={watchlistsError ? String(watchlistsError) : copy.failedToLoadWatchlists}
-        />
-      )
-    }
-
     if (watchlistDocumentsLoading) {
-      return withWatchlistSubscribers(
+      return (
         <div className='flex h-full items-center justify-center'>
           <LoadingAgent size='md' />
         </div>
@@ -433,7 +268,7 @@ export function HeatmapWidgetBody({
     }
 
     if (watchlistDocumentError) {
-      return withWatchlistSubscribers(<HeatmapMessage message={watchlistDocumentError} />)
+      return <HeatmapMessage message={watchlistDocumentError} />
     }
   }
 
@@ -524,7 +359,7 @@ export function HeatmapWidgetBody({
   }
 
   if (listings.length === 0) {
-    return withWatchlistSubscribers(
+    return (
       <HeatmapMessage
         message={
           sourceMode === 'portfolio'
@@ -541,7 +376,7 @@ export function HeatmapWidgetBody({
       : copy.failedToLoadMarketQuotes
     : null
 
-  return withWatchlistSubscribers(
+  return (
     <div className='flex h-full flex-col gap-2 p-2'>
       <div className='min-h-0 flex-1'>
         <HeatmapTreemapChart

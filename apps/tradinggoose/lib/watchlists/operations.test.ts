@@ -9,6 +9,8 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   watchlistItem: {
     id: 'watchlist_item.id',
+    workspaceId: 'watchlist_item.workspace_id',
+    userId: 'watchlist_item.user_id',
     watchlistId: 'watchlist_item.watchlist_id',
     containerId: 'watchlist_item.container_id',
     listing: 'watchlist_item.listing',
@@ -20,7 +22,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'watchlist_table.id',
     workspaceId: 'watchlist_table.workspace_id',
     userId: 'watchlist_table.user_id',
-    rootWatchlistId: 'watchlist_table.root_watchlist_id',
     parentId: 'watchlist_table.parent_id',
     name: 'watchlist_table.name',
     sortOrder: 'watchlist_table.sort_order',
@@ -45,7 +46,6 @@ const rootRow = {
   id: 'watchlist-1',
   workspaceId: 'workspace-1',
   userId: null,
-  rootWatchlistId: null,
   parentId: null,
   name: 'Growth',
   sortOrder: 0,
@@ -88,43 +88,14 @@ describe('watchlist operations', () => {
     vi.clearAllMocks()
   })
 
-  it('materializes sections as root-owned rows and listings as root watchlist items', async () => {
+  it('materializes sections and listings with nullable parent references', async () => {
     const whereCalls: Array<{ condition: unknown }> = []
     const insertedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const updatedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const deletedRows: Array<{ table: unknown; condition: unknown }> = []
-    const selectResults = [
-      [rootRow],
-      [
-        {
-          ...rootRow,
-          id: 'section-old',
-          rootWatchlistId: 'watchlist-1',
-          parentId: null,
-          name: 'Old',
-        },
-      ],
-      [
-        {
-          id: 'item-old',
-          watchlistId: 'watchlist-1',
-          containerId: 'section-old',
-          listing: {
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
-          sortOrder: 0,
-          createdAt: new Date('2026-03-17T10:15:00.000Z'),
-          updatedAt: new Date('2026-03-17T10:15:00.000Z'),
-        },
-      ],
-    ]
     const tx: any = {
       select: vi.fn(() => {
-        if (selectResults.length === 0) throw new Error('Unexpected select call')
-        return createQueryChain(selectResults.shift(), whereCalls)
+        throw new Error('Unexpected select call')
       }),
       delete: vi.fn((table: unknown) => ({
         where: vi.fn(async (condition: unknown) => {
@@ -150,7 +121,10 @@ describe('watchlist operations', () => {
           insertedRows.push({ table, values })
           return {
             returning: vi.fn(async () => {
-              if ('rootWatchlistId' in values) {
+              if (
+                table === 'watchlist_table.id' ||
+                (table as { id?: unknown }).id === 'watchlist_table.id'
+              ) {
                 return [{ ...rootRow, ...values, id: 'section-new' }]
               }
               return [
@@ -170,16 +144,19 @@ describe('watchlist operations', () => {
       })),
     }
 
-    const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', {
+    const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'workspace-1', {
       name: 'Growth',
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
         {
+          id: 'section-1',
           type: 'section',
+          parentId: null,
           label: 'Semiconductors',
         },
         {
           type: 'listing',
+          parentId: 'section-1',
           listing: {
             listing_id: 'NVDA',
             base_id: '',
@@ -190,17 +167,30 @@ describe('watchlist operations', () => {
       ],
     })
 
-    const rootLookup = whereCalls[0]?.condition
-    expect(findCondition(rootLookup, (condition) => condition.left === 'watchlist_table.workspace_id'))
-      .toMatchObject({ right: 'workspace-1' })
-    expect(findCondition(rootLookup, (condition) => condition.value === 'watchlist_table.user_id'))
-      .toBeTruthy()
     expect(
-      findCondition(rootLookup, (condition) => condition.value === 'watchlist_table.root_watchlist_id')
+      findCondition(
+        deletedRows[0]?.condition,
+        (condition) => condition.left === 'watchlist_item.workspace_id'
+      )
+    ).toMatchObject({ right: 'workspace-1' })
+    expect(
+      findCondition(
+        deletedRows[0]?.condition,
+        (condition) => condition.value === 'watchlist_item.user_id'
+      )
     ).toBeTruthy()
-    expect(findCondition(rootLookup, (condition) => condition.value === 'watchlist_table.parent_id'))
-      .toBeTruthy()
-
+    expect(
+      findCondition(
+        deletedRows[1]?.condition,
+        (condition) => condition.left === 'watchlist_table.workspace_id'
+      )
+    ).toMatchObject({ right: 'workspace-1' })
+    expect(
+      findCondition(
+        deletedRows[1]?.condition,
+        (condition) => condition.value === 'watchlist_table.user_id'
+      )
+    ).toBeTruthy()
     expect(deletedRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -211,15 +201,11 @@ describe('watchlist operations', () => {
         }),
       ])
     )
-    expect(
-      findCondition(deletedRows[1]?.condition, (condition) => condition.left === 'watchlist_table.root_watchlist_id')
-    ).toMatchObject({ right: 'watchlist-1' })
-
     expect(insertedRows[0]).toMatchObject({
       table: expect.objectContaining({ id: 'watchlist_table.id' }),
       values: {
+        workspaceId: 'workspace-1',
         userId: null,
-        rootWatchlistId: 'watchlist-1',
         parentId: null,
         name: 'Semiconductors',
         sortOrder: 0,
@@ -228,23 +214,20 @@ describe('watchlist operations', () => {
     expect(insertedRows[1]).toMatchObject({
       table: expect.objectContaining({ id: 'watchlist_item.id' }),
       values: {
-        watchlistId: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        userId: null,
+        watchlistId: null,
         containerId: 'section-new',
         sortOrder: 0,
       },
     })
-    expect(updatedRows[0]).toMatchObject({
-      table: expect.objectContaining({ id: 'watchlist_table.id' }),
-      values: {
-        name: 'Growth',
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-      },
-    })
+    expect(updatedRows).toEqual([])
     expect(fields.items).toEqual([
-      { id: 'section-new', type: 'section', label: 'Semiconductors' },
+      { id: 'section-new', type: 'section', parentId: null, label: 'Semiconductors' },
       {
         id: 'item-new',
         type: 'listing',
+        parentId: 'section-new',
         listing: {
           listing_id: 'NVDA',
           base_id: '',
@@ -255,7 +238,53 @@ describe('watchlist operations', () => {
     ])
   })
 
-  it('rejects explicit ownership metadata instead of reinterpreting non-flat item order', () => {
+  it('accepts canonical parentId ownership and rejects old containerId ownership', () => {
+    expect(
+      normalizeWatchlistDocumentFields({
+        name: 'Growth',
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        items: [
+          {
+            id: 'section-1',
+            type: 'section',
+            parentId: null,
+            label: 'Semiconductors',
+          },
+          {
+            type: 'listing',
+            parentId: 'section-1',
+            listing: {
+              listing_id: 'NVDA',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          },
+        ],
+      })
+    ).toEqual({
+      name: 'Growth',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [
+        {
+          id: 'section-1',
+          type: 'section',
+          parentId: null,
+          label: 'Semiconductors',
+        },
+        {
+          type: 'listing',
+          parentId: 'section-1',
+          listing: {
+            listing_id: 'NVDA',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+    })
+
     expect(() =>
       normalizeWatchlistDocumentFields({
         name: 'Growth',

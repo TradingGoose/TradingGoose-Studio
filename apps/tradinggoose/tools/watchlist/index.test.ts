@@ -16,9 +16,6 @@ describe('watchlist tools', () => {
   it('keeps watchlist tool metadata client-safe', () => {
     expect(watchlistReadListsTool.directExecution).toBeUndefined()
     expect(watchlistReadListItemsTool.directExecution).toBeUndefined()
-    expect(watchlistReadListItemsTool.params.watchlistId).toMatchObject({
-      type: 'string',
-      required: true,
-    })
+    expect(watchlistReadListItemsTool.params).toEqual({})
   })
 })

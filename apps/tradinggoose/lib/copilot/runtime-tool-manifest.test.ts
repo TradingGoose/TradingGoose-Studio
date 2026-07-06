@@ -257,26 +257,6 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'mcp_server',
         }),
         expect.objectContaining({
-          name: 'create_watchlist',
-          kind: 'create',
-          entityKind: 'watchlist',
-          semanticValidators: expect.arrayContaining([
-            expect.objectContaining({
-              path: 'entityDocument',
-              kind: 'string_json_schema',
-              args: expect.objectContaining({
-                schema: expect.objectContaining({
-                  properties: expect.objectContaining({
-                    items: expect.any(Object),
-                    name: expect.any(Object),
-                    settings: expect.any(Object),
-                  }),
-                }),
-              }),
-            }),
-          ]),
-        }),
-        expect.objectContaining({
           name: 'edit_watchlist',
           kind: 'edit',
           entityKind: 'watchlist',

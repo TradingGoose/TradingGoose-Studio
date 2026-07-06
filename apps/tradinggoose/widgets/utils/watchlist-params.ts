@@ -28,8 +28,8 @@ export const sanitizeWatchlistParams = (
       : undefined
 
   const nextParams: Record<string, unknown> = {}
-  if (provider) nextParams.provider = provider
   if (watchlistId) nextParams.watchlistId = watchlistId
+  if (provider) nextParams.provider = provider
   if (providerParams) nextParams.providerParams = providerParams
   if (auth) nextParams.auth = auth
   if (refreshAt !== undefined) nextParams.runtime = { refreshAt }
@@ -40,10 +40,7 @@ export const sanitizeWatchlistParams = (
 export const sanitizeWatchlistRuntimeParams = (
   params: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null => {
-  const sanitized = sanitizeWatchlistParams(params)
-  if (!sanitized) return null
-  const { watchlistId: _watchlistId, ...runtimeParams } = sanitized
-  return Object.keys(runtimeParams).length > 0 ? runtimeParams : null
+  return sanitizeWatchlistParams(params)
 }
 
 export const mergeWatchlistParams = (

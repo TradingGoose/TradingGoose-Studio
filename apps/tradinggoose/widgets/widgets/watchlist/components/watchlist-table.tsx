@@ -54,14 +54,15 @@ import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import type {
+  WatchlistItem,
+  WatchlistContainerItem,
   WatchlistListingItem,
   WatchlistRecord,
-  WatchlistSectionItem,
 } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
   createWatchlistListingSortableId,
-  createWatchlistSectionSortableId,
+  createWatchlistContainerSortableId,
   moveWatchlistItem,
   resolveEffectiveDropTarget,
   WATCHLIST_ROOT_SORTABLE_ID,
@@ -74,13 +75,14 @@ import {
 
 type WatchlistTableProps = {
   watchlist: WatchlistRecord | null
+  rootParentId?: string | null
   quotes: Record<string, MarketQuoteSnapshot>
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
-  onReorderItems: (orderedItemIds: string[]) => Promise<void>
+  onReorderItems: (items: WatchlistItem[]) => Promise<void>
   onRemoveItem: (itemId: string) => Promise<void> | void
-  onRenameSection: (sectionId: string, label: string) => Promise<void> | void
-  onRemoveSection: (sectionId: string) => Promise<void> | void
+  onRenameContainer: (containerId: string, label: string) => Promise<void> | void
+  onRemoveContainer: (containerId: string) => Promise<void> | void
   isMutating?: boolean
   selectedListing?: ListingIdentity | null
   isLinkedSelection?: boolean
@@ -91,11 +93,14 @@ type ListingRowEntry = {
   item: WatchlistListingItem
   listing: ListingIdentity
   itemId: string
+  depth: number
 }
 
-type SectionBlock = {
-  section: WatchlistSectionItem
+type ContainerBlock = {
+  container: WatchlistContainerItem
   rows: ListingRowEntry[]
+  containers: ContainerBlock[]
+  depth: number
 }
 
 type ResolvedListingEntry = {
@@ -138,15 +143,19 @@ const buildListingEditorInstanceId = (itemId: string) => `watchlist-listing-edit
 
 const buildListingEditSurfaceId = (itemId: string) => `watchlist-listing-edit-surface-${itemId}`
 
+const ROOT_PARENT_KEY = '__root__'
+const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARENT_KEY
+
 export const WatchlistTable = ({
   watchlist,
+  rootParentId = null,
   quotes,
   providerId,
   onUpdateItemListing,
   onReorderItems,
   onRemoveItem,
-  onRenameSection,
-  onRemoveSection,
+  onRenameContainer,
+  onRemoveContainer,
   isMutating = false,
   selectedListing = null,
   isLinkedSelection = false,
@@ -158,63 +167,85 @@ export const WatchlistTable = ({
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)
   const [resolvedByItemId, setResolvedByItemId] = useState<Record<string, ResolvedListingEntry>>({})
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [expandedContainers, setExpandedContainers] = useState<Record<string, boolean>>({})
   const [dropTarget, setDropTarget] = useState<WatchlistDropTarget | null>(null)
   const [listingToDelete, setListingToDelete] = useState<ListingToDelete | null>(null)
-  const [sectionToDelete, setSectionToDelete] = useState<WatchlistSectionItem | null>(null)
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
-  const [editingSectionLabel, setEditingSectionLabel] = useState('')
-  const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+  const [containerToDelete, setContainerToDelete] = useState<WatchlistContainerItem | null>(null)
+  const [editingContainerId, setEditingContainerId] = useState<string | null>(null)
+  const [editingContainerLabel, setEditingContainerLabel] = useState('')
+  const [activeContainerId, setActiveContainerId] = useState<string | null>(null)
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [editingListingId, setEditingListingId] = useState<string | null>(null)
-  const sectionRenameInputRef = useRef<HTMLInputElement | null>(null)
+  const containerRenameInputRef = useRef<HTMLInputElement | null>(null)
 
   const parsedRows = useMemo(() => {
-    const unsectionedRows: ListingRowEntry[] = []
-    const sections: SectionBlock[] = []
-    let activeSection: SectionBlock | null = null
+    const rowsByParent = new Map<string, WatchlistListingItem[]>()
+    const containersByParent = new Map<string, WatchlistContainerItem[]>()
 
     for (const item of watchlist?.items ?? []) {
       if (item.type === 'section') {
-        const sectionBlock = { section: item, rows: [] as ListingRowEntry[] }
-        sections.push(sectionBlock)
-        activeSection = sectionBlock
+        const key = parentKey(item.parentId)
+        containersByParent.set(key, [...(containersByParent.get(key) ?? []), item])
         continue
       }
 
-      const row: ListingRowEntry = {
+      if (item.type === 'list') continue
+
+      const key = parentKey(item.parentId)
+      rowsByParent.set(key, [...(rowsByParent.get(key) ?? []), item])
+    }
+
+    const buildRows = (parentId: string | null, depth: number): ListingRowEntry[] =>
+      (rowsByParent.get(parentKey(parentId)) ?? []).map((item) => ({
         item,
         listing: item.listing,
         itemId: item.id,
-      }
+        depth,
+      }))
 
-      if (activeSection) {
-        activeSection.rows.push(row)
-      } else {
-        unsectionedRows.push(row)
+    const buildContainers = (parentId: string | null, depth: number): ContainerBlock[] =>
+      (containersByParent.get(parentKey(parentId)) ?? []).map((container) => ({
+        container,
+        rows: buildRows(container.id, depth + 1),
+        containers: buildContainers(container.id, depth + 1),
+        depth,
+      }))
+
+    const flattenContainers = (containers: ContainerBlock[]): ContainerBlock[] => {
+      const output: ContainerBlock[] = []
+      for (const container of containers) {
+        output.push(container, ...flattenContainers(container.containers))
       }
+      return output
     }
 
-    return { unsectionedRows, sections }
-  }, [watchlist])
+    const containers = buildContainers(rootParentId, 0)
+    const allContainers = flattenContainers(containers)
+
+    return {
+      rootRows: buildRows(rootParentId, 0),
+      containers,
+      allContainers,
+    }
+  }, [rootParentId, watchlist])
 
   const listingRows = useMemo(
     () => [
-      ...parsedRows.unsectionedRows,
-      ...parsedRows.sections.flatMap((section) => section.rows),
+      ...parsedRows.rootRows,
+      ...parsedRows.allContainers.flatMap((container) => container.rows),
     ],
     [parsedRows]
   )
 
   useEffect(() => {
-    setExpandedSections((current) => {
+    setExpandedContainers((current) => {
       const next: Record<string, boolean> = {}
-      parsedRows.sections.forEach((section) => {
-        next[section.section.id] = current[section.section.id] ?? true
+      parsedRows.allContainers.forEach((container) => {
+        next[container.container.id] = current[container.container.id] ?? true
       })
       return next
     })
-  }, [parsedRows.sections])
+  }, [parsedRows.allContainers])
 
   useEffect(() => {
     const pending = listingRows.filter((entry) => {
@@ -254,15 +285,18 @@ export const WatchlistTable = ({
   }, [listingRows, resolvedByItemId])
 
   useEffect(() => {
-    if (!activeSectionId) return
+    if (!activeContainerId) return
 
     const exists =
-      watchlist?.items.some((item) => item.type === 'section' && item.id === activeSectionId) ??
+      watchlist?.items.some(
+        (item) =>
+          (item.type === 'list' || item.type === 'section') && item.id === activeContainerId
+      ) ??
       false
     if (!exists) {
-      setActiveSectionId(null)
+      setActiveContainerId(null)
     }
-  }, [activeSectionId, watchlist])
+  }, [activeContainerId, watchlist])
 
   useEffect(() => {
     if (!selectedListingId) return
@@ -364,12 +398,11 @@ export const WatchlistTable = ({
   }, [cancelListingEdit, editingListingId, isMutating])
 
   useEffect(() => {
-    if (!editingSectionId) return
-    sectionRenameInputRef.current?.focus()
-  }, [editingSectionId])
+    if (!editingContainerId) return
+    containerRenameInputRef.current?.focus()
+  }, [editingContainerId])
 
-  const hasAnyItem = (watchlist?.items.length ?? 0) > 0
-  const hasSections = parsedRows.sections.length > 0
+  const hasContainers = parsedRows.allContainers.length > 0
   const dragEnabled = !isMutating
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -390,33 +423,41 @@ export const WatchlistTable = ({
   const sortableIds = useMemo(() => {
     const next: UniqueIdentifier[] = []
 
-    if (hasSections) {
+    if (hasContainers) {
       next.push(WATCHLIST_ROOT_SORTABLE_ID)
     }
 
-    parsedRows.unsectionedRows.forEach((row) => {
+    parsedRows.rootRows.forEach((row) => {
       next.push(createWatchlistListingSortableId(row.item.id))
     })
 
-    parsedRows.sections.forEach((section) => {
-      next.push(createWatchlistSectionSortableId(section.section.id))
-      if (!(expandedSections[section.section.id] ?? true)) return
+    const appendContainerIds = (container: ContainerBlock) => {
+      next.push(createWatchlistContainerSortableId(container.container.id))
+      if (!(expandedContainers[container.container.id] ?? true)) return
 
-      section.rows.forEach((row) => {
+      container.rows.forEach((row) => {
         next.push(createWatchlistListingSortableId(row.item.id))
       })
-    })
+      container.containers.forEach(appendContainerIds)
+    }
+
+    parsedRows.containers.forEach(appendContainerIds)
 
     return next
-  }, [expandedSections, hasSections, parsedRows])
+  }, [expandedContainers, hasContainers, parsedRows])
 
   const commitDrop = async (activeSortableId: string, overSortableId: string) => {
     if (!watchlist || !dragEnabled) return
 
-    const nextItems = moveWatchlistItem(watchlist.items, activeSortableId, overSortableId)
+    const nextItems = moveWatchlistItem(
+      watchlist.items,
+      activeSortableId,
+      overSortableId,
+      rootParentId
+    )
     if (!nextItems) return
 
-    await onReorderItems(nextItems.map((item) => item.id))
+    await onReorderItems(nextItems)
   }
 
   const handleMove = (activeId: UniqueIdentifier, overId: UniqueIdentifier | null) => {
@@ -430,62 +471,64 @@ export const WatchlistTable = ({
       return
     }
 
-    setDropTarget(resolveEffectiveDropTarget(watchlist.items, String(active.id), String(over.id)))
+    setDropTarget(
+      resolveEffectiveDropTarget(watchlist.items, String(active.id), String(over.id), rootParentId)
+    )
   }
 
   const resetDragState = () => {
     setDropTarget(null)
   }
 
-  const cancelSectionRename = () => {
-    setEditingSectionId(null)
-    setEditingSectionLabel('')
+  const cancelContainerRename = () => {
+    setEditingContainerId(null)
+    setEditingContainerLabel('')
   }
 
-  const startSectionRename = (section: WatchlistSectionItem) => {
+  const startContainerRename = (container: WatchlistContainerItem) => {
     if (isMutating) return
-    setEditingSectionId(section.id)
-    setEditingSectionLabel(section.label)
-    setActiveSectionId(section.id)
+    setEditingContainerId(container.id)
+    setEditingContainerLabel(container.label)
+    setActiveContainerId(container.id)
   }
 
-  const commitSectionRename = async (section: WatchlistSectionItem) => {
-    const nextLabel = editingSectionLabel.trim()
-    if (!nextLabel || nextLabel === section.label) {
-      cancelSectionRename()
+  const commitContainerRename = async (container: WatchlistContainerItem) => {
+    const nextLabel = editingContainerLabel.trim()
+    if (!nextLabel || nextLabel === container.label) {
+      cancelContainerRename()
       return
     }
 
     try {
-      await onRenameSection(section.id, nextLabel)
-      cancelSectionRename()
+      await onRenameContainer(container.id, nextLabel)
+      cancelContainerRename()
     } catch {
       // Keep edit mode active so the user can retry.
     }
   }
 
-  const handleSectionRenameKeyDown = (
+  const handleContainerRenameKeyDown = (
     event: KeyboardEvent<HTMLInputElement>,
-    section: WatchlistSectionItem
+    container: WatchlistContainerItem
   ) => {
     if (event.key === 'Enter') {
       event.preventDefault()
-      void commitSectionRename(section)
+      void commitContainerRename(container)
       return
     }
 
     if (event.key === 'Escape') {
       event.preventDefault()
-      cancelSectionRename()
+      cancelContainerRename()
     }
   }
 
-  const handleConfirmSectionDelete = async () => {
-    if (!sectionToDelete) return
+  const handleConfirmContainerDelete = async () => {
+    if (!containerToDelete) return
 
     try {
-      await onRemoveSection(sectionToDelete.id)
-      setSectionToDelete(null)
+      await onRemoveContainer(containerToDelete.id)
+      setContainerToDelete(null)
     } catch {
       // Keep the dialog open so the user can retry or cancel.
     }
@@ -515,7 +558,7 @@ export const WatchlistTable = ({
     setSelectedListingId((current) => (current === row.item.id ? null : row.item.id))
   }
 
-  if (!watchlist || !hasAnyItem) {
+  if (!watchlist || listingRows.length + parsedRows.allContainers.length === 0) {
     return (
       <div className='flex h-full max-h-full min-h-0 flex-col overflow-hidden bg-background'>
         <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
@@ -589,7 +632,10 @@ export const WatchlistTable = ({
             {isEditing ? (
               renderListingEditor(row.item.id)
             ) : (
-              <div className='flex items-center'>
+              <div
+                className='flex items-center'
+                style={row.depth > 0 ? { paddingLeft: row.depth * 16 } : undefined}
+              >
                 <MarketListingRow listing={listing} className='w-full pl-1' />
               </div>
             )}
@@ -690,6 +736,140 @@ export const WatchlistTable = ({
     )
   }
 
+  const renderContainerBlock = (container: ContainerBlock) => {
+    const isExpanded = expandedContainers[container.container.id] ?? true
+    const isDropContainer =
+      dropTarget?.type === 'container' && dropTarget.containerId === container.container.id
+    const containerSortableId = createWatchlistContainerSortableId(container.container.id)
+    const isEditingContainer = editingContainerId === container.container.id
+    const isSelected = activeContainerId === container.container.id
+
+    return (
+      <Fragment key={container.container.id}>
+        <SortableItem value={containerSortableId} asHandle asChild disabled={!dragEnabled}>
+          <tr
+            className={cn(
+              'group/section border-b bg-card transition-colors',
+              isDropContainer ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
+            )}
+            onClick={() => setActiveContainerId(container.container.id)}
+          >
+            <td colSpan={COLUMN_COUNT} className='p-0'>
+              <div
+                className='flex items-center gap-2 px-3 py-2'
+                style={
+                  container.depth > 0 ? { paddingLeft: 12 + container.depth * 16 } : undefined
+                }
+              >
+                <Button
+                  type='button'
+                  size='icon'
+                  variant='ghost'
+                  className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                  onPointerDownCapture={stopSortableActivation}
+                  onMouseDown={stopSortableActivation}
+                  onTouchStart={stopSortableActivation}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setExpandedContainers((current) => ({
+                      ...current,
+                      [container.container.id]: !(current[container.container.id] ?? true),
+                    }))
+                  }}
+                >
+                  <ChevronRight
+                    className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')}
+                  />
+                  <span className='sr-only'>
+                    {isExpanded ? copy.collapseSection : copy.expandSection}
+                  </span>
+                </Button>
+
+                {isEditingContainer ? (
+                  <input
+                    ref={containerRenameInputRef}
+                    value={editingContainerLabel}
+                    onChange={(event) => setEditingContainerLabel(event.target.value)}
+                    onKeyDown={(event) => handleContainerRenameKeyDown(event, container.container)}
+                    onBlur={() => {
+                      void commitContainerRename(container.container)
+                    }}
+                    onPointerDownCapture={stopSortableActivation}
+                    onMouseDown={stopSortableActivation}
+                    onTouchStart={stopSortableActivation}
+                    onClick={(event) => event.stopPropagation()}
+                    className='min-w-0 flex-1 border-0 bg-transparent p-0 font-medium text-foreground text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                    maxLength={100}
+                    disabled={isMutating}
+                    autoComplete='off'
+                    autoCorrect='off'
+                    autoCapitalize='off'
+                    spellCheck='false'
+                  />
+                ) : (
+                  <span className='min-w-0 flex-1 truncate pr-1 font-medium text-foreground text-sm'>
+                    {container.container.label}
+                  </span>
+                )}
+
+                <div
+                  className={cn(
+                    'flex items-center justify-center gap-1',
+                    isEditingContainer
+                      ? 'pointer-events-auto opacity-100'
+                      : 'pointer-events-none opacity-0 transition-opacity group-focus-within/section:pointer-events-auto group-focus-within/section:opacity-100 group-hover/section:pointer-events-auto group-hover/section:opacity-100'
+                  )}
+                >
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                    onPointerDownCapture={stopSortableActivation}
+                    onMouseDown={stopSortableActivation}
+                    onTouchStart={stopSortableActivation}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      startContainerRename(container.container)
+                    }}
+                    disabled={isMutating || isEditingContainer}
+                  >
+                    <Pencil className='!h-3.5 !w-3.5' />
+                    <span className='sr-only'>{copy.renameSection}</span>
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                    onPointerDownCapture={stopSortableActivation}
+                    onMouseDown={stopSortableActivation}
+                    onTouchStart={stopSortableActivation}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setContainerToDelete(container.container)
+                    }}
+                    disabled={isMutating}
+                  >
+                    <Trash2 className='!h-3.5 !w-3.5' />
+                    <span className='sr-only'>{copy.deleteSection}</span>
+                  </Button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </SortableItem>
+
+        {isExpanded ? (
+          <>
+            {container.rows.map((row) => renderListingRow(row))}
+            {container.containers.map((childContainer) => renderContainerBlock(childContainer))}
+          </>
+        ) : null}
+      </Fragment>
+    )
+  }
+
   return (
     <div className='flex h-full max-h-full min-h-0 flex-col overflow-hidden bg-background'>
       <div className='h-full max-h-full min-h-0 overflow-auto'>
@@ -721,7 +901,9 @@ export const WatchlistTable = ({
                   <span className='text-muted-foreground text-xs leading-none'>{copy.change}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>{copy.changePercent}</span>
+                  <span className='text-muted-foreground text-xs leading-none'>
+                    {copy.changePercent}
+                  </span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.actions}</span>
@@ -730,7 +912,7 @@ export const WatchlistTable = ({
             </thead>
             <SortableContent withoutSlot>
               <tbody>
-                {hasSections ? (
+                {hasContainers ? (
                   <SortableItem value={WATCHLIST_ROOT_SORTABLE_ID} asChild>
                     <tr>
                       <td colSpan={COLUMN_COUNT} className='p-0'>
@@ -747,145 +929,8 @@ export const WatchlistTable = ({
                   </SortableItem>
                 ) : null}
 
-                {parsedRows.unsectionedRows.map((row) => renderListingRow(row))}
-
-                {parsedRows.sections.map((section) => {
-                  const isExpanded = expandedSections[section.section.id] ?? true
-                  const isDropSection =
-                    dropTarget?.type === 'section' && dropTarget.sectionId === section.section.id
-                  const sectionSortableId = createWatchlistSectionSortableId(section.section.id)
-                  const isEditingSection = editingSectionId === section.section.id
-                  const isSelected = activeSectionId === section.section.id
-
-                  return (
-                    <Fragment key={section.section.id}>
-                      <SortableItem
-                        value={sectionSortableId}
-                        asHandle
-                        asChild
-                        disabled={!dragEnabled}
-                      >
-                        <tr
-                          className={cn(
-                            'group/section border-b bg-card transition-colors',
-                            isDropSection
-                              ? 'bg-primary/10'
-                              : isSelected
-                                ? 'bg-accent'
-                                : 'hover:bg-accent/20'
-                          )}
-                          onClick={() => setActiveSectionId(section.section.id)}
-                        >
-                          <td colSpan={COLUMN_COUNT} className='p-0'>
-                            <div className='flex items-center gap-2 px-3 py-2'>
-                              <Button
-                                type='button'
-                                size='icon'
-                                variant='ghost'
-                                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                                onPointerDownCapture={stopSortableActivation}
-                                onMouseDown={stopSortableActivation}
-                                onTouchStart={stopSortableActivation}
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setExpandedSections((current) => ({
-                                    ...current,
-                                    [section.section.id]: !(current[section.section.id] ?? true),
-                                  }))
-                                }}
-                                >
-                                  <ChevronRight
-                                    className={cn(
-                                      'h-3.5 w-3.5 transition-transform',
-                                      isExpanded && 'rotate-90'
-                                    )}
-                                  />
-                                <span className='sr-only'>
-                                  {isExpanded ? copy.collapseSection : copy.expandSection}
-                                </span>
-                              </Button>
-
-                              {isEditingSection ? (
-                                <input
-                                  ref={sectionRenameInputRef}
-                                  value={editingSectionLabel}
-                                  onChange={(event) => setEditingSectionLabel(event.target.value)}
-                                  onKeyDown={(event) =>
-                                    handleSectionRenameKeyDown(event, section.section)
-                                  }
-                                  onBlur={() => {
-                                    void commitSectionRename(section.section)
-                                  }}
-                                  onPointerDownCapture={stopSortableActivation}
-                                  onMouseDown={stopSortableActivation}
-                                  onTouchStart={stopSortableActivation}
-                                  onClick={(event) => event.stopPropagation()}
-                                  className='min-w-0 flex-1 border-0 bg-transparent p-0 font-medium text-foreground text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                                  maxLength={100}
-                                  disabled={isMutating}
-                                  autoComplete='off'
-                                  autoCorrect='off'
-                                  autoCapitalize='off'
-                                  spellCheck='false'
-                                />
-                              ) : (
-                                <span className='min-w-0 flex-1 truncate pr-1 font-medium text-foreground text-sm'>
-                                  {section.section.label}
-                                </span>
-                              )}
-
-                              <div
-                                className={cn(
-                                  'flex items-center justify-center gap-1',
-                                  isEditingSection
-                                    ? 'pointer-events-auto opacity-100'
-                                    : 'pointer-events-none opacity-0 transition-opacity group-focus-within/section:pointer-events-auto group-focus-within/section:opacity-100 group-hover/section:pointer-events-auto group-hover/section:opacity-100'
-                                )}
-                              >
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='icon'
-                                  className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                                  onPointerDownCapture={stopSortableActivation}
-                                  onMouseDown={stopSortableActivation}
-                                  onTouchStart={stopSortableActivation}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    startSectionRename(section.section)
-                                  }}
-                                  disabled={isMutating || isEditingSection}
-                                  >
-                                  <Pencil className='!h-3.5 !w-3.5' />
-                                  <span className='sr-only'>{copy.renameSection}</span>
-                                </Button>
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='icon'
-                                  className='h-8 w-8 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                                  onPointerDownCapture={stopSortableActivation}
-                                  onMouseDown={stopSortableActivation}
-                                  onTouchStart={stopSortableActivation}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    setSectionToDelete(section.section)
-                                  }}
-                                  disabled={isMutating}
-                                  >
-                                  <Trash2 className='!h-3.5 !w-3.5' />
-                                  <span className='sr-only'>{copy.deleteSection}</span>
-                                </Button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      </SortableItem>
-
-                      {isExpanded ? section.rows.map((row) => renderListingRow(row)) : null}
-                    </Fragment>
-                  )
-                })}
+                {parsedRows.rootRows.map((row) => renderListingRow(row))}
+                {parsedRows.containers.map((container) => renderContainerBlock(container))}
               </tbody>
             </SortableContent>
           </table>
@@ -929,15 +974,13 @@ export const WatchlistTable = ({
       </AlertDialog>
 
       <AlertDialog
-        open={Boolean(sectionToDelete)}
-        onOpenChange={(open) => !open && setSectionToDelete(null)}
+        open={Boolean(containerToDelete)}
+        onOpenChange={(open) => !open && setContainerToDelete(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.deleteSectionDialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {copy.deleteSectionDialogDescription}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{copy.deleteSectionDialogDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isMutating}>{copy.cancel}</AlertDialogCancel>
@@ -945,7 +988,7 @@ export const WatchlistTable = ({
               disabled={isMutating}
               onClick={(event) => {
                 event.preventDefault()
-                void handleConfirmSectionDelete()
+                void handleConfirmContainerDelete()
               }}
             >
               {copy.sectionDelete}

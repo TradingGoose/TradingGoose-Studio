@@ -9,31 +9,52 @@ export type WatchlistSettings = {
 export type WatchlistListingItem = {
   id: string
   type: 'listing'
+  parentId: string | null
   listing: ListingIdentity
+}
+
+export type WatchlistListItem = {
+  id: string
+  type: 'list'
+  parentId: null
+  label: string
 }
 
 export type WatchlistSectionItem = {
   id: string
   type: 'section'
+  parentId: string | null
   label: string
 }
 
-export type WatchlistItem = WatchlistListingItem | WatchlistSectionItem
+export type WatchlistContainerItem = WatchlistListItem | WatchlistSectionItem
+
+export type WatchlistItem = WatchlistListingItem | WatchlistContainerItem
 
 export type WatchlistDocumentListingInputItem = {
   id?: string
   type: 'listing'
+  parentId?: string | null
   listing: ListingIdentity
+}
+
+export type WatchlistDocumentListInputItem = {
+  id?: string
+  type: 'list'
+  parentId?: string | null
+  label: string
 }
 
 export type WatchlistDocumentSectionInputItem = {
   id?: string
   type: 'section'
+  parentId?: string | null
   label: string
 }
 
 export type WatchlistDocumentInputItem =
   | WatchlistDocumentListingInputItem
+  | WatchlistDocumentListInputItem
   | WatchlistDocumentSectionInputItem
 
 export type WatchlistDocumentInputFields = {

@@ -21,7 +21,7 @@ export function useWatchlistYjsDocument(args: {
     watchlistId,
     workspaceId
   )
-  const [name, setName] = useYjsStringField(doc, 'name', member?.entityName ?? '')
+  const [name, setName] = useYjsStringField(doc, 'name', member?.entityName ?? 'Watchlist')
   const [settings, setSettings] = useYjsField<WatchlistSettings>(
     doc,
     'settings',
@@ -40,15 +40,7 @@ export function useWatchlistYjsDocument(args: {
       createdAt: member?.createdAt ?? '',
       updatedAt: member?.updatedAt ?? '',
     }
-  }, [
-    items,
-    member?.createdAt,
-    member?.updatedAt,
-    name,
-    settings,
-    watchlistId,
-    workspaceId,
-  ])
+  }, [items, member?.createdAt, member?.updatedAt, name, settings, watchlistId, workspaceId])
 
   return {
     doc,

@@ -3,18 +3,9 @@ import { z } from 'zod'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  createWatchlist,
-  listWatchlists,
-  WatchlistOperationError,
-} from '@/lib/watchlists/operations'
+import { listWatchlists, WatchlistOperationError } from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistsAPI')
-
-const CreateWatchlistSchema = z.object({
-  workspaceId: z.string().trim().min(1, 'workspaceId is required'),
-  name: z.string().trim().min(1, 'name is required'),
-})
 
 const requireSessionUser = async (request: NextRequest) => {
   const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
@@ -24,18 +15,10 @@ const requireSessionUser = async (request: NextRequest) => {
   return auth.userId
 }
 
-const requireWorkspacePermission = async (
-  userId: string,
-  workspaceId: string,
-  options?: { write?: boolean }
-) => {
+const requireWorkspacePermission = async (userId: string, workspaceId: string) => {
   const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
   if (!permission) {
     throw new WatchlistOperationError('Access denied', 403)
-  }
-
-  if (options?.write && permission === 'read') {
-    throw new WatchlistOperationError('Write permission required', 403)
   }
 }
 
@@ -68,19 +51,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ watchlists }, { status: 200 })
   } catch (error) {
     return handleRouteError(error, 'Failed to fetch watchlists')
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const userId = await requireSessionUser(request)
-    const parsed = CreateWatchlistSchema.parse(await request.json())
-    await requireWorkspacePermission(userId, parsed.workspaceId, { write: true })
-
-    const watchlist = await createWatchlist({ workspaceId: parsed.workspaceId }, parsed.name)
-
-    return NextResponse.json({ watchlist }, { status: 200 })
-  } catch (error) {
-    return handleRouteError(error, 'Failed to create watchlist')
   }
 }

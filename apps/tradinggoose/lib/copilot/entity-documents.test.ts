@@ -18,16 +18,6 @@ describe('copilot entity documents', () => {
         })
       )
     ).toThrow('Unsupported watchlist document field: parentId')
-
-    expect(() =>
-      parseEntityDocument(
-        'watchlist',
-        JSON.stringify({
-          ...watchlistDocument,
-          rootWatchlistId: null,
-        })
-      )
-    ).toThrow('Unsupported watchlist document field: rootWatchlistId')
   })
 
   it('accepts canonical watchlist documents for the current format', () => {

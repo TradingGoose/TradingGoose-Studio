@@ -1,7 +1,15 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { Check, ChevronDown, List, Pencil, Trash2 } from 'lucide-react'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import {
   AlertDialog,
@@ -13,18 +21,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   widgetHeaderButtonGroupClassName,
+  widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { getStableVibrantColor } from '@/lib/colors'
 import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
-import { type EntityListMember } from '@/lib/yjs/entity-session'
+import { cn } from '@/lib/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
@@ -34,8 +49,8 @@ import {
 import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitWatchlistSelectionChange } from '@/widgets/utils/watchlist-selection'
 import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import { emitWatchlistSelectionChange } from '@/widgets/utils/watchlist-selection'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import { DataChartListingSelector } from '@/widgets/widgets/data_chart/components/listing-control'
 import {
@@ -43,7 +58,6 @@ import {
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
-import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
 import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
 
 type WatchlistHeaderControlsSlotProps = {
@@ -56,12 +70,6 @@ const resolveProviderId = (params: WatchlistWidgetParams | null | undefined) => 
   return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
-const toEpochMs = (value?: string | null) => {
-  if (!value) return 0
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 const resolveWatchlistParams = (widget?: WidgetInstance | null): WatchlistWidgetParams | null => {
   return widget?.params && typeof widget.params === 'object'
     ? (widget.params as WatchlistWidgetParams)
@@ -71,7 +79,13 @@ const resolveWatchlistParams = (widget?: WidgetInstance | null): WatchlistWidget
 const resolvePairColor = (widget?: WidgetInstance | null): PairColor =>
   ((widget?.pairColor ?? 'gray') as PairColor) ?? 'gray'
 
-const resolveHeaderSelectedWatchlistId = ({
+const normalizeSelectedListId = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+const resolveSelectedListId = ({
   params,
   pairColor,
   pairWatchlistId,
@@ -80,13 +94,24 @@ const resolveHeaderSelectedWatchlistId = ({
   pairColor: PairColor
   pairWatchlistId?: string | null
 }) => {
-  if (pairColor !== 'gray') return pairWatchlistId ?? null
-  const raw = params?.watchlistId
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw : null
+  if (pairColor !== 'gray') return normalizeSelectedListId(pairWatchlistId)
+  return normalizeSelectedListId(params?.watchlistId)
 }
 
 const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widgetKey: string) =>
   `watchlist-header-listing-${panelId ?? 'panel'}-${widgetKey}`
+
+const ROOT_LIST_SELECTOR_ID = '__watchlist_root__'
+const WATCHLIST_ROOT_COLOR_SEED = 'watchlist-root'
+
+type WatchlistListOption = {
+  id: string
+  name: string
+  watchlistId: string | null
+}
+
+const resolveWatchlistListColor = (option: Pick<WatchlistListOption, 'watchlistId'>) =>
+  getStableVibrantColor(option.watchlistId ?? WATCHLIST_ROOT_COLOR_SEED)
 
 function emitWatchlistParamsChange({
   params,
@@ -108,40 +133,16 @@ function emitWatchlistParamsChange({
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-export const resolveNextWatchlistName = (
-  watchlists: Array<{ name: string }>,
-  baseName = 'Watchlist'
-) => {
-  const usedNumbers = new Set<number>()
-
-  for (const watchlist of watchlists) {
-    const match = watchlist.name
-      .trim()
-      .match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
-    if (!match) continue
-
-    const value = Number.parseInt(match[1] ?? '', 10)
-    if (Number.isInteger(value) && value > 0) {
-      usedNumbers.add(value)
-    }
-  }
-
-  let nextNumber = 1
-  while (usedNumbers.has(nextNumber)) {
-    nextNumber += 1
-  }
-
-  return `${baseName} ${nextNumber}`
-}
-
 export const resolveNextSectionName = (
   watchlist: Pick<WatchlistRecord, 'items'> | null | undefined,
-  baseName = 'Section'
+  baseName = 'Section',
+  parentId: string | null = null
 ) => {
   const usedNumbers = new Set<number>()
 
   for (const item of watchlist?.items ?? []) {
     if (item.type !== 'section') continue
+    if ((item.parentId ?? null) !== parentId) continue
 
     const match = item.label.trim().match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
     if (!match) continue
@@ -160,23 +161,30 @@ export const resolveNextSectionName = (
   return `${baseName} ${nextNumber}`
 }
 
-const useWatchlistSelection = (
-  workspaceId?: string,
-  selectedWatchlistId?: string | null,
-  selectFirstWhenUnspecified = true
+export const resolveNextListName = (
+  watchlist: Pick<WatchlistRecord, 'items'> | null | undefined,
+  baseName = 'Watchlist'
 ) => {
-  const { members } = useEntityList('watchlist', workspaceId)
-  const selectedMember = useMemo(() => {
-    if (selectedWatchlistId) {
-      return members.find((entry) => entry.entityId === selectedWatchlistId) ?? null
-    }
-    return selectFirstWhenUnspecified ? (members[0] ?? null) : null
-  }, [members, selectedWatchlistId, selectFirstWhenUnspecified])
+  const usedNumbers = new Set<number>()
 
-  return {
-    watchlists: members,
-    selectedMember,
+  for (const item of watchlist?.items ?? []) {
+    if (item.type !== 'list') continue
+
+    const match = item.label.trim().match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
+    if (!match) continue
+
+    const value = Number.parseInt(match[1] ?? '', 10)
+    if (Number.isInteger(value) && value > 0) {
+      usedNumbers.add(value)
+    }
   }
+
+  let nextNumber = 1
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1
+  }
+
+  return `${baseName} ${nextNumber}`
 }
 
 export const WatchlistHeaderLeftControls = ({
@@ -245,22 +253,19 @@ export const WatchlistHeaderCenterControls = ({
   const providerId = resolveProviderId(params)
   const pairColor = resolvePairColor(widget)
   const pairContext = usePairColorContext(pairColor)
-  const selectedWatchlistId = resolveHeaderSelectedWatchlistId({
+  const requestedListId = resolveSelectedListId({
     params,
     pairColor,
     pairWatchlistId: pairContext.watchlistId,
   })
-  const { selectedMember } = useWatchlistSelection(
-    workspaceId,
-    selectedWatchlistId,
-    pairColor === 'gray'
-  )
   const selectedDocument = useWatchlistYjsDocument({
     workspaceId,
-    watchlistId: selectedMember?.entityId,
-    member: selectedMember,
+    watchlistId: workspaceId,
   })
   const selectedWatchlist = selectedDocument.record
+  const selectedListId =
+    selectedDocument.items.find((item) => item.type === 'list' && item.id === requestedListId)
+      ?.id ?? null
   const selectorInstanceId = useMemo(
     () => buildWatchlistHeaderListingSelectorId(panelId, widgetKey),
     [panelId, widgetKey]
@@ -305,12 +310,12 @@ export const WatchlistHeaderCenterControls = ({
 
   const previousWatchlistIdRef = useRef<string | null>(null)
   useEffect(() => {
-    const nextWatchlistId = selectedWatchlist?.id ?? null
+    const nextWatchlistId = selectedListId ?? selectedWatchlist?.id ?? null
     if (previousWatchlistIdRef.current !== nextWatchlistId) {
       clearPendingListing()
     }
     previousWatchlistIdRef.current = nextWatchlistId
-  }, [clearPendingListing, selectedWatchlist?.id])
+  }, [clearPendingListing, selectedListId, selectedWatchlist?.id])
 
   const handleListingChange = (listing: ListingOption | null) => {
     updateSelectorInstance(selectorInstanceId, {
@@ -329,18 +334,10 @@ export const WatchlistHeaderCenterControls = ({
       const item = {
         id: crypto.randomUUID(),
         type: 'listing' as const,
+        parentId: selectedListId,
         listing: pendingListing,
       }
-      const firstSectionIndex = selectedDocument.items.findIndex((entry) => entry.type === 'section')
-      const nextItems =
-        firstSectionIndex === -1
-          ? [...selectedDocument.items, item]
-          : [
-              ...selectedDocument.items.slice(0, firstSectionIndex),
-              item,
-              ...selectedDocument.items.slice(firstSectionIndex),
-            ]
-      selectedDocument.setItems(nextItems)
+      selectedDocument.setItems([...selectedDocument.items, item])
       await selectedDocument.save()
       clearPendingListing()
     } catch {
@@ -388,9 +385,13 @@ export const WatchlistHeaderRightControls = ({
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
   const copy = useMessages().workspace.widgets.watchlist
+  const [listDropdownOpen, setListDropdownOpen] = useState(false)
   const [listActionsOpen, setListActionsOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [renamingListValue, setRenamingListValue] = useState('')
+  const [listToDelete, setListToDelete] = useState<WatchlistListOption | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const renameListInputRef = useRef<HTMLInputElement | null>(null)
 
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
@@ -398,36 +399,43 @@ export const WatchlistHeaderRightControls = ({
   const pairColor = resolvePairColor(widget)
   const pairContext = usePairColorContext(pairColor)
   const setPairContext = useSetPairColorContext()
-  const selectedWatchlistId = resolveHeaderSelectedWatchlistId({
+  const requestedListId = resolveSelectedListId({
     params,
     pairColor,
     pairWatchlistId: pairContext.watchlistId,
   })
-
-  const { watchlists, selectedMember } = useWatchlistSelection(
-    workspaceId,
-    selectedWatchlistId,
-    pairColor === 'gray'
-  )
   const selectedDocument = useWatchlistYjsDocument({
     workspaceId,
-    watchlistId: selectedMember?.entityId,
-    member: selectedMember,
+    watchlistId: workspaceId,
   })
   const selectedWatchlist = selectedDocument.record
   const [pendingAction, setPendingAction] = useState<string | null>(null)
-  const orderedWatchlists = useMemo(
-    () =>
-      [...watchlists].sort((left, right) => toEpochMs(right.createdAt) - toEpochMs(left.createdAt)),
-    [watchlists]
-  )
+  const selectedListId =
+    selectedDocument.items.find((item) => item.type === 'list' && item.id === requestedListId)
+      ?.id ?? null
+  const rootListName = copy.header.rootListName
+  const listOptions: WatchlistListOption[] = useMemo(() => {
+    return [
+      { id: ROOT_LIST_SELECTOR_ID, name: rootListName, watchlistId: null },
+      ...selectedDocument.items
+        .filter((item) => item.type === 'list')
+        .map((item) => ({
+          id: item.id,
+          name: item.label,
+          watchlistId: item.id,
+        })),
+    ]
+  }, [rootListName, selectedDocument.items])
+  const selectedOptionId = selectedListId ?? ROOT_LIST_SELECTOR_ID
+  const selectedOption =
+    listOptions.find((option) => option.id === selectedOptionId) ?? listOptions[0] ?? null
+  const selectedOptionColor = selectedOption ? resolveWatchlistListColor(selectedOption) : null
 
   const hasSelectedWatchlist = Boolean(selectedWatchlist)
-  const canManageSections = hasSelectedWatchlist
-  const canDeleteCurrent = Boolean(selectedWatchlist)
+  const canManageContainers = hasSelectedWatchlist
   const isMutating = Boolean(pendingAction)
 
-  const handleSelectWatchlist = (watchlistId: string | null) => {
+  const handleSelectList = (watchlistId: string | null) => {
     if (pairColor !== 'gray') {
       setPairContext(pairColor, { watchlistId })
     }
@@ -438,55 +446,109 @@ export const WatchlistHeaderRightControls = ({
     })
   }
 
-  const handleRenameWatchlist = async (watchlistId: string, nextName: string) => {
-    if (!workspaceId || pendingAction) {
-      return false
-    }
-
-    const target = watchlists.find((entry) => entry.entityId === watchlistId)
-    if (!target) return false
-
-    const trimmed = nextName.trim()
-    if (!trimmed || trimmed === target.entityName) {
-      return true
-    }
-
-    try {
-      setPendingAction('rename')
-      await saveSavedEntityField('watchlist', target.entityId, workspaceId, 'name', trimmed)
-      return true
-    } catch {
-      return false
-    } finally {
-      setPendingAction(null)
-    }
+  const selectListOption = (option: WatchlistListOption) => {
+    cancelListRename()
+    handleSelectList(option.watchlistId)
+    setListDropdownOpen(false)
   }
 
-  const handleDeleteWatchlistById = async (watchlistId: string) => {
-    if (!workspaceId || pendingAction) return false
-    const target = watchlists.find((entry) => entry.entityId === watchlistId)
-    if (!target) return false
+  const cancelListRename = () => {
+    setEditingListId(null)
+    setRenamingListValue('')
+  }
+
+  const handleListDropdownOpenChange = (open: boolean) => {
+    setListDropdownOpen(open)
+    if (!open) cancelListRename()
+  }
+
+  const startRenameList = (option: WatchlistListOption) => {
+    if (!option.watchlistId || isMutating) return
+    setEditingListId(option.watchlistId)
+    setRenamingListValue(option.name)
+  }
+
+  const handleConfirmRemoveList = async () => {
+    const watchlistId = listToDelete?.watchlistId
+    if (!watchlistId || isMutating) return
 
     try {
-      setPendingAction('delete')
-      const response = await fetch(
-        `/api/watchlists/${encodeURIComponent(target.entityId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
-        { method: 'DELETE' }
+      setPendingAction('delete-list')
+      selectedDocument.setItems(
+        selectedDocument.items
+          .filter((item) => item.id !== watchlistId)
+          .map((item) => (item.parentId === watchlistId ? { ...item, parentId: null } : item))
       )
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error || 'Failed to delete watchlist')
+      await selectedDocument.save()
+      setListToDelete(null)
+      if (selectedListId === watchlistId) {
+        handleSelectList(null)
       }
-      if (selectedWatchlist?.id === target.entityId) {
-        handleSelectWatchlist(null)
-      }
-      return true
     } catch {
-      return false
+      // Keep the current list in place so the user can retry.
     } finally {
       setPendingAction(null)
     }
   }
+
+  const commitListRename = async () => {
+    if (!editingListId) {
+      cancelListRename()
+      return
+    }
+
+    const editingOption = listOptions.find((option) => option.watchlistId === editingListId) ?? null
+    if (!editingOption) {
+      cancelListRename()
+      return
+    }
+
+    const nextName = renamingListValue.trim()
+    if (!nextName || nextName === editingOption.name) {
+      cancelListRename()
+      return
+    }
+
+    try {
+      setPendingAction('rename-list')
+      selectedDocument.setItems(
+        selectedDocument.items.map((item) =>
+          item.type === 'list' && item.id === editingListId ? { ...item, label: nextName } : item
+        )
+      )
+      await selectedDocument.save()
+      cancelListRename()
+    } catch {
+      // Keep edit mode active so the user can retry.
+    } finally {
+      setPendingAction(null)
+    }
+  }
+
+  const handleListRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void commitListRename()
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelListRename()
+    }
+  }
+
+  useEffect(() => {
+    if (!editingListId) return
+    renameListInputRef.current?.focus()
+    renameListInputRef.current?.select()
+  }, [editingListId])
+
+  useEffect(() => {
+    if (!editingListId) return
+    if (listOptions.some((option) => option.watchlistId === editingListId)) return
+    cancelListRename()
+  }, [editingListId, listOptions])
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -558,32 +620,27 @@ export const WatchlistHeaderRightControls = ({
     }
   }
 
-  const handleCreateWatchlist = async () => {
-    if (!workspaceId || pendingAction) return
+  const handleCreateList = async () => {
+    if (!workspaceId || !selectedWatchlist || pendingAction) {
+      return
+    }
 
     try {
-      setPendingAction('create')
-      const response = await fetch('/api/watchlists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId,
-          name: resolveNextWatchlistName(
-            watchlists.map((entry) => ({ name: entry.entityName })),
-            copy.header.defaultWatchlistPrefix
-          ),
-        }),
-      })
-      const payload = (await response.json().catch(() => null)) as {
-        watchlist?: WatchlistRecord
-        error?: string
-      } | null
-      if (!response.ok || !payload?.watchlist) {
-        throw new Error(payload?.error || 'Failed to create watchlist')
-      }
-      handleSelectWatchlist(payload.watchlist.id)
+      setPendingAction('list')
+      const listId = crypto.randomUUID()
+      selectedDocument.setItems([
+        ...selectedDocument.items,
+        {
+          id: listId,
+          type: 'list',
+          parentId: null,
+          label: resolveNextListName(selectedWatchlist, copy.header.defaultWatchlistPrefix),
+        },
+      ])
+      await selectedDocument.save()
+      handleSelectList(listId)
     } catch {
-      // Create errors are surfaced by keeping the current selection unchanged.
+      // Save errors leave the existing containers unchanged.
     } finally {
       setPendingAction(null)
     }
@@ -601,12 +658,17 @@ export const WatchlistHeaderRightControls = ({
         {
           id: crypto.randomUUID(),
           type: 'section',
-          label: resolveNextSectionName(selectedWatchlist, copy.header.defaultSectionPrefix),
+          parentId: selectedListId,
+          label: resolveNextSectionName(
+            selectedWatchlist,
+            copy.header.defaultSectionPrefix,
+            selectedListId
+          ),
         },
       ])
       await selectedDocument.save()
     } catch {
-      // Save errors leave the existing sections unchanged.
+      // Save errors leave the existing containers unchanged.
     } finally {
       setPendingAction(null)
     }
@@ -625,93 +687,279 @@ export const WatchlistHeaderRightControls = ({
     })
   }
 
-  const handleDeleteWatchlist = async () => {
-    if (!workspaceId || !selectedWatchlist) return
-    const deleted = await handleDeleteWatchlistById(selectedWatchlist.id)
-    if (!deleted) return
-    setDeleteDialogOpen(false)
-  }
-
   return (
-    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <div className='w-full min-w-0 max-w-[220px]'>
-        <WatchlistListSelector
-          watchlists={orderedWatchlists}
-          selectedWatchlist={selectedMember}
-          onSelect={handleSelectWatchlist}
-          onRenameWatchlist={handleRenameWatchlist}
-          onDeleteWatchlist={handleDeleteWatchlistById}
-          isRenamingWatchlist={pendingAction === 'rename'}
-          isDeletingWatchlist={pendingAction === 'delete'}
+    <>
+      <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+        <div className='min-w-0'>
+          <DropdownMenu
+            modal={false}
+            open={listDropdownOpen}
+            onOpenChange={handleListDropdownOpenChange}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className='inline-flex'>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type='button'
+                      disabled={!workspaceId || !selectedWatchlist}
+                      className={widgetHeaderControlClassName(
+                        'group flex min-w-[240px] items-center justify-between gap-1'
+                      )}
+                      aria-haspopup='listbox'
+                      aria-label={copy.header.explorer}
+                    >
+                      {selectedOptionColor ? (
+                        <span
+                          className='h-5 w-5 rounded-xs p-0.5'
+                          style={{ backgroundColor: `${selectedOptionColor}20` }}
+                          aria-hidden='true'
+                        >
+                          <List
+                            className='h-4 w-4'
+                            aria-hidden='true'
+                            style={{ color: selectedOptionColor }}
+                          />
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          'min-w-0 flex-1 truncate text-left font-medium text-sm',
+                          selectedOption ? 'text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
+                        {selectedOption?.name ?? rootListName}
+                      </span>
+                      <ChevronDown
+                        className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                        aria-hidden='true'
+                      />
+                    </button>
+                  </DropdownMenuTrigger>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side='top'>
+                {!workspaceId || !selectedWatchlist
+                  ? copy.header.selectWorkspace
+                  : copy.header.explorer}
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent
+              align='end'
+              sideOffset={6}
+              className={cn(
+                widgetHeaderMenuContentClassName,
+                'max-h-[20rem] w-[240px] overflow-y-auto p-2 shadow-lg'
+              )}
+              onWheel={(event) => event.stopPropagation()}
+            >
+              {listOptions.map((option) => {
+                const isSelected = option.id === selectedOptionId
+                const isEditing =
+                  option.watchlistId !== null && option.watchlistId === editingListId
+                const optionColor = resolveWatchlistListColor(option)
+
+                return (
+                  <div
+                    key={option.id}
+                    className={cn(
+                      'group/list flex h-8 cursor-pointer items-center rounded-sm px-2 py-2 font-medium font-sans text-sm transition-colors',
+                      isSelected ? 'bg-secondary/60' : 'hover:bg-secondary/30'
+                    )}
+                  >
+                    {isEditing ? (
+                      <>
+                        <span
+                          className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
+                          style={{ backgroundColor: `${optionColor}20` }}
+                          aria-hidden='true'
+                        >
+                          <List
+                            className='h-4 w-4'
+                            aria-hidden='true'
+                            style={{ color: optionColor }}
+                          />
+                        </span>
+                        <input
+                          ref={renameListInputRef}
+                          value={renamingListValue}
+                          onChange={(event) => setRenamingListValue(event.target.value)}
+                          onBlur={() => {
+                            void commitListRename()
+                          }}
+                          onKeyDown={handleListRenameKeyDown}
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          className={cn(
+                            'min-w-0 flex-1 border-0 bg-transparent p-0 font-medium font-sans text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
+                            isSelected
+                              ? 'text-foreground'
+                              : 'text-muted-foreground group-hover/list:text-foreground'
+                          )}
+                          maxLength={100}
+                          disabled={pendingAction === 'rename-list'}
+                          autoComplete='off'
+                          autoCorrect='off'
+                          autoCapitalize='off'
+                          spellCheck='false'
+                          aria-label={copy.header.renameList}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type='button'
+                        className='flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-left'
+                        onClick={() => {
+                          selectListOption(option)
+                        }}
+                        draggable={false}
+                      >
+                        <span
+                          className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
+                          style={{ backgroundColor: `${optionColor}20` }}
+                          aria-hidden='true'
+                        >
+                          <List
+                            className='h-4 w-4'
+                            aria-hidden='true'
+                            style={{ color: optionColor }}
+                          />
+                        </span>
+                        <span
+                          className={cn(
+                            'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
+                            widgetHeaderMenuTextClassName,
+                            isSelected
+                              ? 'text-foreground'
+                              : 'text-muted-foreground group-hover/list:text-foreground'
+                          )}
+                        >
+                          {option.name}
+                        </span>
+                      </button>
+                    )}
+
+                    {!isEditing && option.watchlistId ? (
+                      <div
+                        className='flex items-center justify-center gap-1 opacity-0 transition-opacity group-focus-within/list:opacity-100 group-hover/list:opacity-100'
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          type='button'
+                          className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50'
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          onPointerDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            startRenameList(option)
+                          }}
+                          aria-label={copy.header.renameList}
+                          disabled={isMutating}
+                        >
+                          <Pencil className='!h-3.5 !w-3.5' />
+                        </button>
+                        <button
+                          type='button'
+                          className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50'
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          onPointerDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setListToDelete(option)
+                          }}
+                          aria-label={copy.header.deleteList}
+                          disabled={isMutating}
+                        >
+                          <Trash2 className='!h-3.5 !w-3.5' />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <WatchlistListActionsButton
+          open={listActionsOpen}
+          onOpenChange={setListActionsOpen}
           disabled={!workspaceId}
-          align='end'
+          createListDisabled={!workspaceId || !canManageContainers || isMutating}
+          createSectionDisabled={!workspaceId || !canManageContainers || isMutating}
+          onCreateList={() => {
+            void handleCreateList()
+          }}
+          importDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
+          exportDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
+          onCreateSection={() => {
+            void handleCreateSection()
+          }}
+          onImport={handleImportClick}
+          onExport={() => {
+            void handleExport()
+          }}
+        />
+
+        <WidgetHeaderRefreshButton
+          label={copy.header.refresh}
+          onClick={handleRefreshData}
+          disabled={!workspaceId || !providerId}
+        />
+
+        <input
+          ref={fileInputRef}
+          type='file'
+          accept='.json,application/json'
+          className='hidden'
+          onChange={handleImportChange}
         />
       </div>
-      <WatchlistListActionsButton
-        open={listActionsOpen}
-        onOpenChange={setListActionsOpen}
-        disabled={!workspaceId}
-        createWatchlistDisabled={!workspaceId || isMutating}
-        createSectionDisabled={!workspaceId || !canManageSections || isMutating}
-        importDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
-        exportDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
-        deleteWatchlistDisabled={!workspaceId || !canDeleteCurrent || isMutating}
-        onCreateWatchlist={() => {
-          void handleCreateWatchlist()
+      <AlertDialog
+        open={Boolean(listToDelete)}
+        onOpenChange={(open) => {
+          if (open || pendingAction === 'delete-list') return
+          setListToDelete(null)
         }}
-        onCreateSection={() => {
-          void handleCreateSection()
-        }}
-        onImport={handleImportClick}
-        onExport={() => {
-          void handleExport()
-        }}
-        onDeleteWatchlist={() => {
-          setDeleteDialogOpen(true)
-        }}
-      />
-
-      <WidgetHeaderRefreshButton
-        label={copy.header.refresh}
-        onClick={handleRefreshData}
-        disabled={!workspaceId || !providerId}
-      />
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{copy.listSelector.deleteDialogTitle}</AlertDialogTitle>
+            <AlertDialogTitle>{copy.header.deleteListDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedWatchlist
-                ? formatTemplate(copy.listSelector.deleteDialogDescription, {
-                    name: selectedWatchlist.name,
-                  })
-                : copy.listSelector.deleteDialogDescriptionFallback}
+              {copy.header.deleteListDialogDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>{copy.listSelector.cancel}</AlertDialogCancel>
+            <AlertDialogCancel disabled={pendingAction === 'delete-list'}>
+              {copy.header.cancel}
+            </AlertDialogCancel>
             <AlertDialogAction
-              disabled={isMutating}
+              disabled={pendingAction === 'delete-list'}
               onClick={(event) => {
                 event.preventDefault()
-                void handleDeleteWatchlist()
+                void handleConfirmRemoveList()
               }}
             >
-              {copy.listSelector.delete}
+              {copy.header.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <input
-        ref={fileInputRef}
-        type='file'
-        accept='.json,application/json'
-        className='hidden'
-        onChange={handleImportChange}
-      />
-    </div>
+    </>
   )
 }
 

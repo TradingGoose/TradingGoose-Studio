@@ -167,9 +167,6 @@ export const watchlistTable = pgTable(
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-    rootWatchlistId: uuid('root_watchlist_id').references((): AnyPgColumn => watchlistTable.id, {
-      onDelete: 'cascade',
-    }),
     parentId: uuid('parent_id').references((): AnyPgColumn => watchlistTable.id, {
       onDelete: 'cascade',
     }),
@@ -180,27 +177,19 @@ export const watchlistTable = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceRootParentUserIdx: index('watchlist_table_workspace_root_parent_user_idx').on(
+    workspaceUserIdx: index('watchlist_table_workspace_user_idx').on(
       table.workspaceId,
-      table.rootWatchlistId,
-      table.parentId,
       table.userId
     ),
-    workspaceRootUserIdx: index('watchlist_table_workspace_root_user_idx').on(
+    workspaceUserParentIdx: index('watchlist_table_workspace_user_parent_idx').on(
       table.workspaceId,
-      table.rootWatchlistId,
-      table.userId
+      table.userId,
+      table.parentId
     ),
-    rootParentSortIdx: index('watchlist_table_root_parent_sort_idx').on(
-      table.rootWatchlistId,
-      table.parentId,
-      table.sortOrder
-    ),
-    workspaceRootNameUnique: uniqueIndex('watchlist_table_workspace_root_name_unique')
+    parentSortIdx: index('watchlist_table_parent_sort_idx').on(table.parentId, table.sortOrder),
+    workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique')
       .on(table.workspaceId, table.name)
-      .where(
-        sql`${table.userId} is null and ${table.rootWatchlistId} is null and ${table.parentId} is null`
-      ),
+      .where(sql`${table.userId} is null and ${table.parentId} is null`),
   })
 )
 
@@ -208,9 +197,11 @@ export const watchlistItem = pgTable(
   'watchlist_item',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    watchlistId: uuid('watchlist_id')
+    workspaceId: text('workspace_id')
       .notNull()
-      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    watchlistId: uuid('watchlist_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
     containerId: uuid('container_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
     listing: jsonb('listing').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -218,9 +209,14 @@ export const watchlistItem = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
+    workspaceUserIdx: index('watchlist_item_workspace_user_idx').on(
+      table.workspaceId,
+      table.userId
+    ),
     watchlistIdx: index('watchlist_item_watchlist_idx').on(table.watchlistId),
-    watchlistContainerSortIdx: index('watchlist_item_watchlist_container_sort_idx').on(
-      table.watchlistId,
+    workspaceContainerSortIdx: index('watchlist_item_workspace_container_sort_idx').on(
+      table.workspaceId,
+      table.userId,
       table.containerId,
       table.sortOrder
     ),
@@ -228,15 +224,16 @@ export const watchlistItem = pgTable(
       table.containerId,
       table.sortOrder
     ),
-    watchlistListingIdentityUnique: uniqueIndex(
-      'watchlist_item_watchlist_listing_identity_unique'
-    ).on(
-      table.watchlistId,
-      sql`coalesce(${table.listing}->>'listing_type', '')`,
-      sql`coalesce(${table.listing}->>'listing_id', '')`,
-      sql`coalesce(${table.listing}->>'base_id', '')`,
-      sql`coalesce(${table.listing}->>'quote_id', '')`
-    ),
+    watchlistListingIdentityUnique: uniqueIndex('watchlist_item_watchlist_listing_identity_unique')
+      .on(
+        table.workspaceId,
+        sql`coalesce(${table.containerId}::text, '')`,
+        sql`coalesce(${table.listing}->>'listing_type', '')`,
+        sql`coalesce(${table.listing}->>'listing_id', '')`,
+        sql`coalesce(${table.listing}->>'base_id', '')`,
+        sql`coalesce(${table.listing}->>'quote_id', '')`
+      )
+      .where(sql`${table.userId} is null`),
   })
 )
 

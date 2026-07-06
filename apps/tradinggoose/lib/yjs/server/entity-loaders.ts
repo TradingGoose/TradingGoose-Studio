@@ -5,7 +5,6 @@ import {
   mcpServers,
   pineIndicators,
   skill,
-  watchlistTable,
   workflow,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
@@ -62,19 +61,7 @@ export async function resolveEntityWorkspaceId(
   entityId: string
 ): Promise<string | null> {
   if (entityKind === 'watchlist') {
-    const [row] = await db
-      .select({ workspaceId: watchlistTable.workspaceId })
-      .from(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.id, entityId),
-          isNull(watchlistTable.userId),
-          isNull(watchlistTable.rootWatchlistId),
-          isNull(watchlistTable.parentId)
-        )
-      )
-      .limit(1)
-    return row?.workspaceId ?? null
+    return entityId
   }
 
   const { table } = entityConfig(entityKind)
@@ -127,30 +114,8 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'watchlist') {
-    const rows = await db
-      .select({
-        id: watchlistTable.id,
-        name: watchlistTable.name,
-        createdAt: watchlistTable.createdAt,
-        updatedAt: watchlistTable.updatedAt,
-      })
-      .from(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.workspaceId, workspaceId),
-          isNull(watchlistTable.userId),
-          isNull(watchlistTable.rootWatchlistId),
-          isNull(watchlistTable.parentId)
-        )
-      )
-      .orderBy(asc(watchlistTable.name), asc(watchlistTable.id))
-
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      createdAt: row.createdAt?.toISOString(),
-      updatedAt: row.updatedAt?.toISOString(),
-    }))
+    const createdAt = new Date(0).toISOString()
+    return [{ id: workspaceId, name: 'Watchlist', createdAt, updatedAt: createdAt }]
   }
 
   if (entityKind === 'mcp_server') {

@@ -43,14 +43,14 @@ describe('workspace-entities', () => {
         entityKind: 'skill',
         entityId: 'skill-1',
         workspaceId: 'workspace-1',
-      label: 'Risk Filter',
-    })
-  ).toEqual({
+        label: 'Risk Filter',
+      })
+    ).toEqual({
       kind: 'skill',
       skillId: 'skill-1',
       workspaceId: 'workspace-1',
-    label: 'Risk Filter',
-  })
+      label: 'Risk Filter',
+    })
 
     expect(
       buildCopilotWorkspaceEntityContext({
@@ -110,14 +110,14 @@ describe('workspace-entities', () => {
 
     expect(
       readCopilotWorkspaceEntityContext({
-        kind: 'current_skill',
-        skillId: 'skill-1',
+        kind: 'current_watchlist',
+        watchlistId: 'watchlist-1',
         workspaceId: 'workspace-1',
-        label: 'Current Skill',
+        label: 'Current Watchlist',
       })
     ).toEqual({
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'watchlist',
+      entityId: 'workspace-1',
       workspaceId: 'workspace-1',
       current: true,
     })
@@ -154,6 +154,6 @@ describe('workspace-entities', () => {
         },
         'watchlist'
       )
-    ).toBe('watchlist-1')
+    ).toBeNull()
   })
 })

@@ -32,10 +32,10 @@ export const buildImplicitCopilotContexts = ({
   const contexts: ChatContext[] = []
 
   for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
-    const entityId = getCopilotWorkspaceEntityIdFromPairContext(
-      currentPairContext,
-      config.entityKind
-    )
+    const entityId =
+      config.entityKind === 'watchlist'
+        ? resolvedWorkspaceId
+        : getCopilotWorkspaceEntityIdFromPairContext(currentPairContext, config.entityKind)
     if (!entityId) {
       continue
     }

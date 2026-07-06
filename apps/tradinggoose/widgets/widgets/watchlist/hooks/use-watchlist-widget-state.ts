@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import {
   WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
@@ -10,11 +9,7 @@ import {
 import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityId,
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { resolveEntityId } from '@/widgets/utils/entity-selection'
 import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/utils/watchlist-params'
 import { useWatchlistSelectionPersistence } from '@/widgets/utils/watchlist-selection'
 import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
@@ -121,7 +116,6 @@ export function useWatchlistWidgetState({
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const { members: watchlistMembers, isLoading, error } = useEntityList('watchlist', workspaceId)
   const paramsRecord =
     params && typeof params === 'object' ? (params as Record<string, unknown>) : null
 
@@ -149,40 +143,21 @@ export function useWatchlistWidgetState({
     onWidgetParamsChange?.(mergeWatchlistParams(paramsRecord, { provider: providerId }))
   }, [providerId, widgetParams?.provider, onWidgetParamsChange, paramsRecord])
 
-  const storedWatchlistId = resolveEntityId('watchlistId', {
-    params: isLinkedToColorPair ? null : paramsRecord,
-    pairContext: isLinkedToColorPair ? pairContext : null,
-  })
-  const watchlistIds = useMemo(
-    () => watchlistMembers.map((entry) => entry.entityId),
-    [watchlistMembers]
-  )
-  const resolvedWatchlistId = useMemo(
-    () =>
-      resolveEntityIdFromList({
-        requestedEntityId: storedWatchlistId,
-        entityIds: watchlistIds,
-        useDefaultEntity: !isLinkedToColorPair,
-      }),
-    [isLinkedToColorPair, storedWatchlistId, watchlistIds]
-  )
-  const selectedWatchlistMember = useMemo(
-    () => watchlistMembers.find((entry) => entry.entityId === resolvedWatchlistId) ?? null,
-    [resolvedWatchlistId, watchlistMembers]
-  )
   const selectedDocument = useWatchlistYjsDocument({
     workspaceId,
-    watchlistId: selectedWatchlistMember?.entityId,
-    member: selectedWatchlistMember,
+    watchlistId: workspaceId,
   })
-
-  usePersistResolvedEntityId({
-    entityId: resolvedWatchlistId,
-    entityIdKey: 'watchlistId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
-    params: paramsRecord,
+  const requestedWatchlistId = resolveEntityId('watchlistId', {
+    params: resolvedPairColor === 'gray' ? paramsRecord : null,
+    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
   })
+  const selectedList = useMemo(
+    () =>
+      selectedDocument.items.find(
+        (item) => item.type === 'list' && item.id === requestedWatchlistId
+      ) ?? null,
+    [requestedWatchlistId, selectedDocument.items]
+  )
 
   return {
     workspaceId,
@@ -193,10 +168,11 @@ export function useWatchlistWidgetState({
     refreshAt,
     pairContext,
     setPairContext,
-    watchlistMembers,
-    isLoading,
-    error,
+    isLoading: selectedDocument.isLoading,
+    error: selectedDocument.error,
     selectedDocument,
     selectedWatchlist: selectedDocument.record,
+    selectedListId: selectedList?.id ?? null,
+    selectedList,
   }
 }

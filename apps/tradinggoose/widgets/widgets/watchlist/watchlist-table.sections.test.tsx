@@ -175,11 +175,13 @@ const watchlist: WatchlistRecord = {
     {
       id: 'section-1',
       type: 'section' as const,
+      parentId: null,
       label: 'Section 1',
     },
     {
       id: 'listing-1',
       type: 'listing' as const,
+      parentId: 'section-1',
       listing: {
         listing_id: 'BTC',
         base_id: '',
@@ -212,8 +214,8 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   onUpdateItemListing: vi.fn().mockResolvedValue(true),
   onReorderItems: vi.fn(),
   onRemoveItem: vi.fn(),
-  onRenameSection: vi.fn(),
-  onRemoveSection: vi.fn(),
+  onRenameContainer: vi.fn(),
+  onRemoveContainer: vi.fn(),
   selectedListing: null,
   isLinkedSelection: false,
   onSelectListing: vi.fn(),
@@ -300,6 +302,98 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
+  })
+
+  it('does not render custom lists as root table rows', async () => {
+    const rootedWatchlist: WatchlistRecord = {
+      ...watchlist,
+      items: [
+        { id: 'list-1', type: 'list', parentId: null, label: 'Tech Watchlist' },
+        { id: 'root-section', type: 'section', parentId: null, label: 'Root Section' },
+        {
+          id: 'root-listing',
+          type: 'listing',
+          parentId: null,
+          listing: {
+            listing_id: 'MSFT',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+        { id: 'list-section', type: 'section', parentId: 'list-1', label: 'List Section' },
+        {
+          id: 'list-listing',
+          type: 'listing',
+          parentId: 'list-1',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+    }
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable {...(createTableProps({ watchlist: rootedWatchlist }) as any)} />
+      )
+    })
+
+    expect(container.textContent).toContain('Root Section')
+    expect(container.textContent).toContain('MSFT')
+    expect(container.textContent).not.toContain('Tech Watchlist')
+    expect(container.textContent).not.toContain('List Section')
+    expect(container.textContent).not.toContain('AAPL')
+  })
+
+  it('renders the selected custom list contents from that list parent', async () => {
+    const rootedWatchlist: WatchlistRecord = {
+      ...watchlist,
+      items: [
+        { id: 'list-1', type: 'list', parentId: null, label: 'Tech Watchlist' },
+        { id: 'root-section', type: 'section', parentId: null, label: 'Root Section' },
+        {
+          id: 'root-listing',
+          type: 'listing',
+          parentId: null,
+          listing: {
+            listing_id: 'MSFT',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+        { id: 'list-section', type: 'section', parentId: 'list-1', label: 'List Section' },
+        {
+          id: 'list-listing',
+          type: 'listing',
+          parentId: 'list-1',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+    }
+
+    await act(async () => {
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({ watchlist: rootedWatchlist, rootParentId: 'list-1' }) as any)}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('List Section')
+    expect(container.textContent).toContain('AAPL')
+    expect(container.textContent).not.toContain('Tech Watchlist')
+    expect(container.textContent).not.toContain('Root Section')
+    expect(container.textContent).not.toContain('MSFT')
   })
 
   it('formats watchlist item numbers with two decimal digits', async () => {
@@ -454,10 +548,10 @@ describe('WatchlistTable section interactions', () => {
 
   it('opens delete confirmation from the section action and waits for delete success before closing', async () => {
     const deferred = createDeferred()
-    const onRemoveSection = vi.fn().mockReturnValue(deferred.promise)
+    const onRemoveContainer = vi.fn().mockReturnValue(deferred.promise)
 
     await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps({ onRemoveSection }) as any)} />)
+      root.render(<WatchlistTable {...(createTableProps({ onRemoveContainer }) as any)} />)
     })
 
     const deleteButton = findButtonByText(container, 'Delete section')
@@ -484,7 +578,7 @@ describe('WatchlistTable section interactions', () => {
       )
     })
 
-    expect(onRemoveSection).toHaveBeenCalledWith('section-1')
+    expect(onRemoveContainer).toHaveBeenCalledWith('section-1')
     expect(container.textContent).toContain('Delete section?')
 
     await act(async () => {

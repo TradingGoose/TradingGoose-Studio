@@ -15,6 +15,7 @@ describe('watchlist import/export', () => {
           {
             id: 'one',
             type: 'listing',
+            parentId: null,
             listing: {
               listing_id: 'aapl-id',
               base_id: '',
@@ -25,11 +26,13 @@ describe('watchlist import/export', () => {
           {
             id: 'section-1',
             type: 'section',
+            parentId: null,
             label: 'Tech',
           },
           {
             id: 'two',
             type: 'listing',
+            parentId: null,
             listing: {
               listing_id: '',
               base_id: 'BTC',
@@ -56,6 +59,7 @@ describe('watchlist import/export', () => {
             {
               id: 'one',
               type: 'listing',
+              parentId: null,
               listing: {
                 listing_id: 'aapl-id',
                 base_id: '',
@@ -66,11 +70,13 @@ describe('watchlist import/export', () => {
             {
               id: 'section-1',
               type: 'section',
+              parentId: null,
               label: 'Tech',
             },
             {
               id: 'two',
               type: 'listing',
+              parentId: null,
               listing: {
                 listing_id: '',
                 base_id: 'BTC',
@@ -95,6 +101,7 @@ describe('watchlist import/export', () => {
           {
             id: 'one',
             type: 'listing',
+            parentId: null,
             listing: {
               listing_id: 'aapl-id',
               base_id: '',
@@ -122,6 +129,7 @@ describe('watchlist import/export', () => {
             {
               id: 'one',
               type: 'listing',
+              parentId: null,
               listing: {
                 listing_id: 'aapl-id',
                 base_id: '',
@@ -208,10 +216,12 @@ describe('watchlist import/export', () => {
       items: [
         {
           type: 'section',
+          parentId: null,
           label: 'Tech',
         },
         {
           type: 'listing',
+          parentId: null,
           listing: {
             listing_id: 'aapl-id',
             base_id: '',
@@ -260,10 +270,12 @@ describe('watchlist import/export', () => {
       items: [
         {
           type: 'section',
+          parentId: null,
           label: 'Tech',
         },
         {
           type: 'listing',
+          parentId: null,
           listing: {
             listing_id: 'aapl-id',
             base_id: '',

@@ -5,6 +5,7 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { useMessages } from 'next-intl'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
+import type { WatchlistItem } from '@/lib/watchlists/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 import { useWatchlistWidgetState } from '@/widgets/widgets/watchlist/hooks/use-watchlist-widget-state'
@@ -15,16 +16,43 @@ const WatchlistMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-const removeSectionBlock = <T extends { id: string; type: string }>(items: T[], sectionId: string) => {
-  let removingSection = false
+const removeContainerPromoteChildren = <
+  T extends { id: string; type: string; parentId?: string | null },
+>(
+  items: T[],
+  containerId: string
+) => {
+  const removedContainer = items.find((item) => item.id === containerId)
+  const nextParentId = removedContainer?.parentId ?? null
+
+  return items
+    .filter((item) => item.id !== containerId)
+    .map((item) => (item.parentId === containerId ? { ...item, parentId: nextParentId } : item))
+}
+
+export const collectWatchlistViewItems = (
+  items: WatchlistItem[],
+  rootParentId: string | null
+): WatchlistItem[] => {
+  const visibleContainerIds = new Set<string>()
+  let changed = true
+
+  while (changed) {
+    changed = false
+    for (const item of items) {
+      if (item.type !== 'section' || visibleContainerIds.has(item.id)) continue
+      const parentId = item.parentId ?? null
+      if (parentId === rootParentId || (parentId ? visibleContainerIds.has(parentId) : false)) {
+        visibleContainerIds.add(item.id)
+        changed = true
+      }
+    }
+  }
 
   return items.filter((item) => {
-    if (item.type === 'section') {
-      removingSection = item.id === sectionId
-      return !removingSection
-    }
-
-    return !removingSection
+    if (item.type === 'list') return false
+    const parentId = item.parentId ?? null
+    return parentId === rootParentId || (parentId ? visibleContainerIds.has(parentId) : false)
   })
 }
 
@@ -39,22 +67,26 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     refreshAt,
     pairContext,
     setPairContext,
-    watchlistMembers,
     isLoading,
     error,
     selectedDocument,
     selectedWatchlist,
+    selectedListId,
   } = useWatchlistWidgetState(props)
 
+  const viewItems = useMemo(
+    () => collectWatchlistViewItems(selectedWatchlist?.items ?? [], selectedListId),
+    [selectedListId, selectedWatchlist?.items]
+  )
   const quoteItems = useMemo(
     () =>
-      (selectedWatchlist?.items ?? [])
+      viewItems
         .filter((item) => item.type === 'listing')
         .map((item) => ({
           key: item.id,
           listing: item.listing,
         })),
-    [selectedWatchlist]
+    [viewItems]
   )
 
   const { data: quotes = {} } = useMarketQuoteSnapshots({
@@ -94,25 +126,22 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     await persistItems((items) => items.filter((item) => item.id !== itemId))
   }
 
-  const handleRemoveSection = async (sectionId: string) => {
-    await persistItems((items) => removeSectionBlock(items, sectionId))
+  const handleRemoveContainer = async (containerId: string) => {
+    await persistItems((items) => removeContainerPromoteChildren(items, containerId))
   }
 
-  const handleRenameSection = async (sectionId: string, label: string) => {
+  const handleRenameContainer = async (containerId: string, label: string) => {
     await persistItems((items) =>
       items.map((item) =>
-        item.type === 'section' && item.id === sectionId ? { ...item, label } : item
+        (item.type === 'list' || item.type === 'section') && item.id === containerId
+          ? { ...item, label }
+          : item
       )
     )
   }
 
-  const handleReorderItems = async (orderedItemIds: string[]) => {
-    await persistItems((items) => {
-      const byId = new Map(items.map((item) => [item.id, item]))
-      return orderedItemIds
-        .map((id) => byId.get(id))
-        .filter((item): item is (typeof items)[number] => Boolean(item))
-    })
+  const handleReorderItems = async (items: typeof selectedDocument.items) => {
+    await persistItems(() => items)
   }
   const selectedListing = isLinkedToColorPair ? (pairContext.listing ?? null) : null
 
@@ -151,26 +180,17 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     )
   }
 
-  if (!selectedWatchlist) {
-    return (
-      <WatchlistMessage
-        message={
-          watchlistMembers.length > 0 ? copy.selectWatchlist : copy.createWatchlistToGetStarted
-        }
-      />
-    )
-  }
-
   return (
     <WatchlistTable
       watchlist={selectedWatchlist}
+      rootParentId={selectedListId}
       quotes={quotes}
       providerId={providerId}
       onUpdateItemListing={handleUpdateItemListing}
       onReorderItems={handleReorderItems}
       onRemoveItem={handleRemoveItem}
-      onRenameSection={handleRenameSection}
-      onRemoveSection={handleRemoveSection}
+      onRenameContainer={handleRenameContainer}
+      onRemoveContainer={handleRemoveContainer}
       isMutating={isMutating}
       selectedListing={selectedListing}
       isLinkedSelection={isLinkedToColorPair}

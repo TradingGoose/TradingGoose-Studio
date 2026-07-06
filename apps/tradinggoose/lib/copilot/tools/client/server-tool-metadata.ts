@@ -314,7 +314,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Queried knowledge base', icon: Database },
       [ClientToolCallState.error]: { text: 'Failed to query knowledge base', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted querying knowledge base', icon: XCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped querying knowledge base', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped querying knowledge base',
+        icon: MinusCircle,
+      },
     },
   },
   [CopilotTool.list_workflows]: createEntityListMetadata('workflows', ListChecks),
@@ -326,7 +329,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Analyzed your workflow', icon: Workflow },
       [ClientToolCallState.error]: { text: 'Failed to analyze your workflow', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted analyzing your workflow', icon: XCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped analyzing your workflow', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped analyzing your workflow',
+        icon: MinusCircle,
+      },
     },
   },
   [CopilotTool.edit_workflow_variable]: {
@@ -390,7 +396,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Edited your workflow block', icon: Grid2x2 },
       [ClientToolCallState.error]: { text: 'Failed to edit workflow block', icon: XCircle },
       [ClientToolCallState.review]: { text: 'Review your workflow block changes', icon: Grid2x2 },
-      [ClientToolCallState.rejected]: { text: 'Rejected workflow block changes', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Rejected workflow block changes',
+        icon: MinusCircle,
+      },
       [ClientToolCallState.aborted]: { text: 'Aborted editing workflow block', icon: XCircle },
     },
     interrupt: {
@@ -549,9 +558,7 @@ export const SERVER_TOOL_METADATA = {
   rename_mcp_server: createEntityMutationMetadata('MCP server', 'rename', Server),
   list_watchlists: createEntityListMetadata('watchlists', ListChecks),
   read_watchlist: createEntityReadMetadata('watchlist'),
-  create_watchlist: createEntityMutationMetadata('watchlist', 'create', ListChecks),
   edit_watchlist: createEntityMutationMetadata('watchlist', 'edit', ListChecks),
-  rename_watchlist: createEntityMutationMetadata('watchlist', 'rename', ListChecks),
   list_gdrive_files: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },

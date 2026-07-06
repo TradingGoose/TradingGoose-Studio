@@ -37,7 +37,7 @@ describe('buildImplicitCopilotContexts', () => {
       },
       {
         kind: 'current_watchlist',
-        watchlistId: 'watchlist-1',
+        watchlistId: 'workspace-1',
         workspaceId: 'workspace-1',
         label: 'Localized Watchlist',
       },
@@ -63,16 +63,29 @@ describe('buildImplicitCopilotContexts', () => {
         workspaceId: 'workspace-1',
         label: 'Localized Workflow',
       },
+      {
+        kind: 'current_watchlist',
+        watchlistId: 'workspace-1',
+        workspaceId: 'workspace-1',
+        label: 'Localized Watchlist',
+      },
     ])
   })
 
-  it('does not emit current context without selected entity ids', () => {
+  it('emits current watchlist from the workspace root without selected entity ids', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
         pairContext: {},
         currentLabels,
       })
-    ).toEqual([])
+    ).toEqual([
+      {
+        kind: 'current_watchlist',
+        watchlistId: 'workspace-1',
+        workspaceId: 'workspace-1',
+        label: 'Localized Watchlist',
+      },
+    ])
   })
 })

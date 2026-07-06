@@ -1,23 +1,9 @@
-import { db } from '@tradinggoose/db'
-import { watchlistTable } from '@tradinggoose/db/schema'
-import { asc } from 'drizzle-orm'
-import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
-  createWatchlistDocumentInTx,
-  fetchRootWatchlistRow,
   loadWatchlistDocumentFields,
-  mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
-  rootWatchlistCondition,
 } from '@/lib/watchlists/document'
-import {
-  WatchlistDocumentError,
-} from '@/lib/watchlists/validation'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
-import {
-  refreshEntityListSession,
-  deleteYjsSessionInSocketServer,
-} from '@/lib/yjs/server/snapshot-bridge'
 
 type WatchlistScope = {
   workspaceId: string
@@ -42,11 +28,7 @@ function mapDocumentError(error: unknown): never {
   throw error
 }
 
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Error &&
-  (error.message.includes('watchlist_table_workspace_root_name_unique') ||
-    error.message.includes('watchlist_item_watchlist_listing_identity_unique') ||
-    error.message.toLowerCase().includes('duplicate key'))
+const ROOT_TIMESTAMP = new Date(0).toISOString()
 
 function buildWatchlistRecordFromDocument(
   metadata: {
@@ -69,6 +51,15 @@ function buildWatchlistRecordFromDocument(
   }
 }
 
+function buildRootWatchlistMetadata(workspaceId: string) {
+  return {
+    id: workspaceId,
+    workspaceId,
+    createdAt: ROOT_TIMESTAMP,
+    updatedAt: ROOT_TIMESTAMP,
+  }
+}
+
 export async function loadWatchlistDocument(
   workspaceId: string,
   watchlistId: string
@@ -81,20 +72,8 @@ export async function loadWatchlistDocument(
 }
 
 export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRecord[]> {
-  return db.transaction(async (tx) => {
-    const rows = await tx
-      .select()
-      .from(watchlistTable)
-      .where(rootWatchlistCondition(scope.workspaceId))
-      .orderBy(asc(watchlistTable.name), asc(watchlistTable.createdAt))
-
-    return Promise.all(
-      rows.map(async (row) => {
-        const fields = await mapWatchlistDocumentFieldsInTx(tx, row)
-        return buildWatchlistRecordFromDocument(row, fields)
-      })
-    )
-  })
+  const fields = await loadWatchlistDocument(scope.workspaceId, scope.workspaceId)
+  return [buildWatchlistRecordFromDocument(buildRootWatchlistMetadata(scope.workspaceId), fields)]
 }
 
 export async function getWatchlist(
@@ -102,64 +81,9 @@ export async function getWatchlist(
   watchlistId: string
 ): Promise<WatchlistRecord> {
   try {
-    return await db.transaction(async (tx) => {
-      const row = await fetchRootWatchlistRow(tx, scope.workspaceId, watchlistId)
-      const fields = await mapWatchlistDocumentFieldsInTx(tx, row)
-      return buildWatchlistRecordFromDocument(row, fields)
-    })
+    const fields = await loadWatchlistDocument(scope.workspaceId, watchlistId)
+    return buildWatchlistRecordFromDocument(buildRootWatchlistMetadata(scope.workspaceId), fields)
   } catch (error) {
     mapDocumentError(error)
   }
-}
-
-export async function createWatchlistDocument(
-  workspaceId: string,
-  rawFields: Record<string, unknown>
-): Promise<WatchlistRecord> {
-  try {
-    const created = await db.transaction((tx) =>
-      createWatchlistDocumentInTx(tx, workspaceId, rawFields)
-    )
-
-    await refreshEntityListSession('watchlist', workspaceId)
-    return buildWatchlistRecordFromDocument(
-      {
-        id: created.id,
-        workspaceId,
-        createdAt: created.createdAt,
-        updatedAt: created.updatedAt,
-      },
-      created.fields
-    )
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new WatchlistOperationError('A watchlist with this name already exists', 409)
-    }
-    mapDocumentError(error)
-  }
-}
-
-export async function createWatchlist(
-  scope: WatchlistScope,
-  rawName: string
-): Promise<WatchlistRecord> {
-  return createWatchlistDocument(scope.workspaceId, {
-    name: rawName,
-    settings: DEFAULT_WATCHLIST_SETTINGS,
-    items: [],
-  })
-}
-
-export async function deleteWatchlist(scope: WatchlistScope, watchlistId: string): Promise<void> {
-  try {
-    await db.transaction(async (tx) => {
-      await fetchRootWatchlistRow(tx, scope.workspaceId, watchlistId)
-      await tx.delete(watchlistTable).where(rootWatchlistCondition(scope.workspaceId, watchlistId))
-    })
-  } catch (error) {
-    mapDocumentError(error)
-  }
-
-  await refreshEntityListSession('watchlist', scope.workspaceId)
-  await Promise.allSettled([deleteYjsSessionInSocketServer(watchlistId)])
 }

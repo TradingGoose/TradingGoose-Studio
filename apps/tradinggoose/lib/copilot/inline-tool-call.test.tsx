@@ -359,7 +359,7 @@ describe('InlineToolCall', () => {
         <InlineToolCall
           toolCall={{
             id: 'tool-watchlist-review',
-            name: 'create_watchlist',
+            name: 'edit_watchlist',
             state: ClientToolCallState.review,
             result: {
               entityKind: 'watchlist',
@@ -367,7 +367,15 @@ describe('InlineToolCall', () => {
               documentFormat: 'tg-watchlist-document-v1',
               preview: {
                 documentDiff: {
-                  before: '',
+                  before: JSON.stringify({
+                    name: 'Watchlist',
+                    settings: {
+                      showLogo: true,
+                      showTicker: true,
+                      showDescription: true,
+                    },
+                    items: [],
+                  }),
                   after: JSON.stringify({
                     name: 'Momentum',
                     settings: {

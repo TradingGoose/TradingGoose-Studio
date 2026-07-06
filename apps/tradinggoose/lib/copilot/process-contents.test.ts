@@ -259,7 +259,7 @@ describe('processContextsServer', () => {
           kind: 'current_watchlist',
           label: 'Current Watchlist',
           workspaceId: 'workspace-1',
-          watchlistId: 'watchlist-1',
+          watchlistId: 'workspace-1',
         },
       ],
       'user-1'
@@ -269,17 +269,17 @@ describe('processContextsServer', () => {
       'user-1',
       {
         entityKind: 'watchlist',
-        entityId: 'watchlist-1',
+        entityId: 'workspace-1',
         draftSessionId: null,
         reviewSessionId: null,
         workspaceId: 'workspace-1',
-        yjsSessionId: 'watchlist-1',
+        yjsSessionId: 'workspace-1',
       },
       'read'
     )
     expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
       'watchlist',
-      'watchlist-1',
+      'workspace-1',
       'workspace-1'
     )
     expect(result).toEqual([
@@ -288,7 +288,7 @@ describe('processContextsServer', () => {
         tag: '@Current Watchlist',
         content: JSON.stringify(
           {
-            id: 'watchlist-1',
+            id: 'workspace-1',
             workspaceId: 'workspace-1',
             name: 'Growth',
             settings: { showLogo: true, showTicker: true, showDescription: false },

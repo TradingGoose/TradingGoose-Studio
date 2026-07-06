@@ -9,7 +9,6 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockCheckSessionOrInternalAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockListWatchlists = vi.fn()
-const mockCreateWatchlist = vi.fn()
 const mockGetWatchlist = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -34,7 +33,6 @@ vi.mock('@/lib/watchlists/operations', async () => {
   return {
     ...actual,
     listWatchlists: mockListWatchlists,
-    createWatchlist: mockCreateWatchlist,
     getWatchlist: mockGetWatchlist,
   }
 })
@@ -106,29 +104,5 @@ describe('Watchlists API route', () => {
       workspaceId: 'workspace-1',
     })
     expect(mockGetWatchlist).not.toHaveBeenCalled()
-  })
-
-  it('creates a watchlist through POST', async () => {
-    mockCreateWatchlist.mockResolvedValue({
-      id: 'w-2',
-      workspaceId: 'workspace-1',
-      name: 'Momentum',
-      items: [],
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-
-    const { POST } = await import('@/app/api/watchlists/route')
-    const request = createMockRequest('POST', {
-      workspaceId: 'workspace-1',
-      name: 'Momentum',
-    })
-
-    const response = await POST(request)
-    const payload = await response.json()
-    expect(response.status).toBe(200)
-    expect(payload.watchlist.name).toBe('Momentum')
-    expect(mockCreateWatchlist).toHaveBeenCalled()
   })
 })

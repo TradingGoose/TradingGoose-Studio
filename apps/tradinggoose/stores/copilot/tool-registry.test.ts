@@ -170,7 +170,7 @@ describe('tool-registry', () => {
     })
   })
 
-  it('injects hosted workspace context into workspace-targeted watchlist tools', () => {
+  it('injects hosted workspace context into workspace-targeted watchlist list tool', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'list_watchlists',
@@ -179,21 +179,6 @@ describe('tool-registry', () => {
 
     expect(prepareCopilotToolArgs('list_watchlists', {}, context)).toEqual({
       workspaceId: 'workspace-1',
-    })
-
-    expect(
-      prepareCopilotToolArgs(
-        'create_watchlist',
-        {
-          entityDocument: '{"name":"Tech","settings":{},"items":[]}',
-          documentFormat: 'tg-watchlist-document-v1',
-        },
-        context
-      )
-    ).toEqual({
-      workspaceId: 'workspace-1',
-      entityDocument: '{"name":"Tech","settings":{},"items":[]}',
-      documentFormat: 'tg-watchlist-document-v1',
     })
   })
 
@@ -208,7 +193,11 @@ describe('tool-registry', () => {
       query: 'Apple',
     })
     expect(() =>
-      prepareCopilotToolArgs('search_listing', { query: 'Apple', workspaceId: 'workspace-1' }, context)
+      prepareCopilotToolArgs(
+        'search_listing',
+        { query: 'Apple', workspaceId: 'workspace-1' },
+        context
+      )
     ).toThrow()
   })
 
@@ -232,9 +221,7 @@ describe('tool-registry', () => {
     expect(isGatedTool('edit_custom_tool')).toBe(true)
     expect(isGatedTool('edit_mcp_server')).toBe(true)
     expect(isGatedTool('search_listing')).toBe(false)
-    expect(isGatedTool('create_watchlist')).toBe(true)
     expect(isGatedTool('edit_watchlist')).toBe(true)
-    expect(isGatedTool('rename_watchlist')).toBe(true)
     expect(isGatedTool('list_knowledge_bases')).toBe(false)
     expect(isGatedTool('read_knowledge_base')).toBe(false)
     expect(isGatedTool('create_knowledge_base')).toBe(true)
@@ -267,9 +254,7 @@ describe('tool-registry', () => {
     expect(ensureClientToolInstance('edit_mcp_server', 'edit-mcp-server-tool')).toBeUndefined()
     expect(ensureClientToolInstance('list_watchlists', 'list-watchlists-tool')).toBeUndefined()
     expect(ensureClientToolInstance('read_watchlist', 'read-watchlist-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('create_watchlist', 'create-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_watchlist', 'edit-watchlist-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('rename_watchlist', 'rename-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('list_knowledge_bases', 'list-kb-tool')).toBeUndefined()
     expect(ensureClientToolInstance('read_knowledge_base', 'read-kb-tool')).toBeUndefined()
     expect(ensureClientToolInstance('create_knowledge_base', 'create-kb-tool')).toBeUndefined()

@@ -45,10 +45,12 @@ type WatchlistReviewPayload = {
   before: WatchlistDocumentInputFields | null
   after: WatchlistDocumentInputFields
 }
-type WatchlistReviewSection = {
+type WatchlistReviewContainer = {
   id: string
+  type: 'list' | 'section'
   label: string
   listings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
+  containers: WatchlistReviewContainer[]
 }
 
 interface InlineToolCallProps {
@@ -334,11 +336,13 @@ function readWatchlistReviewPayload(toolCall: CopilotToolCall): WatchlistReviewP
     return null
   }
 
-  const isCreateReview = toolCall.name === 'create_watchlist'
   const beforeText = documentDiff.before.trim()
   const before = beforeText ? readWatchlistReviewDocument(documentDiff.before) : null
   const after = readWatchlistReviewDocument(documentDiff.after)
-  if (!after || (!isCreateReview && !before) || (isCreateReview && beforeText && !before)) {
+  if (!after) {
+    return null
+  }
+  if (toolCall.name !== 'create_watchlist' && !before) {
     return null
   }
 
@@ -353,29 +357,42 @@ function readWatchlistReviewPayload(toolCall: CopilotToolCall): WatchlistReviewP
 }
 
 function groupWatchlistReviewItems(items: WatchlistDocumentInputItem[]) {
-  const rootListings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[] = []
-  const sections: WatchlistReviewSection[] = []
-  let currentSection: WatchlistReviewSection | null = null
+  const rootKey = '__root__'
+  const keyForParent = (parentId: string | null | undefined) => parentId ?? rootKey
+  const listingsByParent = new Map<
+    string,
+    Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
+  >()
+  const containersByParent = new Map<
+    string,
+    (
+      | Extract<WatchlistDocumentInputItem, { type: 'list' }>
+      | Extract<WatchlistDocumentInputItem, { type: 'section' }>
+    )[]
+  >()
 
   for (const item of items) {
-    if (item.type === 'section') {
-      currentSection = {
-        id: item.id ?? item.label,
-        label: item.label,
-        listings: [],
-      }
-      sections.push(currentSection)
-      continue
-    }
-
-    if (currentSection) {
-      currentSection.listings.push(item)
+    const key = keyForParent(item.parentId)
+    if (item.type === 'list' || item.type === 'section') {
+      containersByParent.set(key, [...(containersByParent.get(key) ?? []), item])
     } else {
-      rootListings.push(item)
+      listingsByParent.set(key, [...(listingsByParent.get(key) ?? []), item])
     }
   }
 
-  return { rootListings, sections }
+  const buildContainers = (parentId: string | null): WatchlistReviewContainer[] =>
+    (containersByParent.get(keyForParent(parentId)) ?? []).map((container) => ({
+      id: container.id ?? container.label,
+      type: container.type,
+      label: container.label,
+      listings: listingsByParent.get(container.id ?? '') ?? [],
+      containers: container.id ? buildContainers(container.id) : [],
+    }))
+
+  return {
+    rootListings: listingsByParent.get(rootKey) ?? [],
+    containers: buildContainers(null),
+  }
 }
 
 function WatchlistReviewListingRow({
@@ -419,6 +436,26 @@ function WatchlistReviewDocumentView({
     ['Description', document.settings.showDescription],
   ] as const
 
+  const renderContainer = (container: WatchlistReviewContainer, depth = 0) => (
+    <div key={container.id} className='flex flex-col gap-1.5'>
+      <div
+        className='rounded-sm bg-muted/60 px-2 py-1 font-medium text-muted-foreground text-xs'
+        style={depth > 0 ? { marginLeft: depth * 12 } : undefined}
+      >
+        {container.label}
+      </div>
+      {container.listings.map((item, itemIndex) => (
+        <div
+          key={item.id ?? `${getListingIdentityKey(item.listing)}-${itemIndex}`}
+          style={depth > 0 ? { marginLeft: depth * 12 } : undefined}
+        >
+          <WatchlistReviewListingRow item={item} />
+        </div>
+      ))}
+      {container.containers.map((childContainer) => renderContainer(childContainer, depth + 1))}
+    </div>
+  )
+
   return (
     <div className='flex min-w-0 flex-col gap-2 rounded-md border border-border/60 bg-background/70 p-2'>
       <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
@@ -444,22 +481,7 @@ function WatchlistReviewDocumentView({
             item={item}
           />
         ))}
-        {grouped.sections.map((section, sectionIndex) => (
-          <div
-            key={section.id || `${section.label}-${sectionIndex}`}
-            className='flex flex-col gap-1.5'
-          >
-            <div className='rounded-sm bg-muted/60 px-2 py-1 font-medium text-muted-foreground text-xs'>
-              {section.label}
-            </div>
-            {section.listings.map((item, itemIndex) => (
-              <WatchlistReviewListingRow
-                key={item.id ?? `${getListingIdentityKey(item.listing)}-${itemIndex}`}
-                item={item}
-              />
-            ))}
-          </div>
-        ))}
+        {grouped.containers.map((container) => renderContainer(container))}
         {document.items.length === 0 ? (
           <div className='rounded-sm border border-dashed border-border/60 px-2 py-3 text-center text-muted-foreground text-xs'>
             No listings.

@@ -92,9 +92,7 @@ export const COPILOT_TOOL_IDS = [
   'rename_mcp_server',
   'list_watchlists',
   'read_watchlist',
-  'create_watchlist',
   'edit_watchlist',
-  'rename_watchlist',
   'sleep',
   'read_block_outputs',
   'read_block_upstream_references',
@@ -280,7 +278,6 @@ const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const EditWatchlistArgs = buildEntityDocumentMutationArgs(WATCHLIST_DOCUMENT_FORMAT)
-const CreateWatchlistArgs = buildEntityDocumentCreateArgs(WATCHLIST_DOCUMENT_FORMAT)
 const EditWorkflowVariableArgs = EntityTargetArgs.extend({
   entityDocument: z
     .string()
@@ -488,9 +485,7 @@ export const ToolArgSchemas = {
 
   list_watchlists: WorkspaceTargetArgs.strict(),
   read_watchlist: EntityTargetArgs,
-  create_watchlist: CreateWatchlistArgs,
   edit_watchlist: EditWatchlistArgs,
-  rename_watchlist: EditWatchlistArgs,
 
   sleep: z.object({
     seconds: z
@@ -655,9 +650,7 @@ export const ToolSSESchemas = {
   rename_mcp_server: toolCallSSEFor('rename_mcp_server', ToolArgSchemas.rename_mcp_server),
   list_watchlists: toolCallSSEFor('list_watchlists', ToolArgSchemas.list_watchlists),
   read_watchlist: toolCallSSEFor('read_watchlist', ToolArgSchemas.read_watchlist),
-  create_watchlist: toolCallSSEFor('create_watchlist', ToolArgSchemas.create_watchlist),
   edit_watchlist: toolCallSSEFor('edit_watchlist', ToolArgSchemas.edit_watchlist),
-  rename_watchlist: toolCallSSEFor('rename_watchlist', ToolArgSchemas.rename_watchlist),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
   [CopilotTool.read_block_outputs]: toolCallSSEFor(
     CopilotTool.read_block_outputs,
@@ -1213,9 +1206,7 @@ export const ToolResultSchemas = {
   read_watchlist: WatchlistDocumentEnvelope.extend({
     entityKind: z.literal('watchlist'),
   }),
-  create_watchlist: WatchlistDocumentMutationResult,
   edit_watchlist: WatchlistDocumentMutationResult,
-  rename_watchlist: WatchlistDocumentMutationResult,
   sleep: z.object({
     success: z.boolean(),
     seconds: z.number(),

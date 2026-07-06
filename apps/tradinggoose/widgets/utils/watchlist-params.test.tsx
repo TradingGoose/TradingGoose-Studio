@@ -13,8 +13,8 @@ describe('sanitizeWatchlistParams', () => {
         },
       })
     ).toEqual({
-      provider: 'alpaca',
       watchlistId: 'watchlist-1',
+      provider: 'alpaca',
       auth: {
         apiKey: 'raw-key',
         apiSecret: '{{ ALPACA_API_SECRET }}',
@@ -41,8 +41,8 @@ describe('sanitizeWatchlistParams', () => {
         }
       )
     ).toEqual({
-      provider: 'alpaca',
       watchlistId: 'watchlist-1',
+      provider: 'alpaca',
       runtime: {
         refreshAt: 200,
       },
