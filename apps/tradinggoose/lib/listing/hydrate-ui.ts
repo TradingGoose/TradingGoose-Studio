@@ -5,7 +5,7 @@ import {
   type ListingResolved,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { resolveListingIdentities, resolveListingIdentity } from '@/lib/listing/resolve'
 import {
   type LayoutNode,
   normalizeColorPairsState,
@@ -40,7 +40,10 @@ const hasResolvedFields = (
   return true
 }
 
-const mergeResolvedListing = (current: ListingRecord, resolved: ListingResolved): ListingRecord => {
+const mergeResolvedListing = (
+  current: ListingRecord,
+  resolved: ListingResolved
+): ListingRecord => {
   const next: ListingRecord = { ...current }
   let changed = false
 
@@ -88,7 +91,9 @@ const resolveListingValue = async (
 
   const key = getListingIdentityKey(listingIdentity)
   if (!cache.has(key)) {
-    const resolved = await resolveListingIdentity(listingIdentity).catch(() => null)
+    const resolved = await resolveListingIdentity(listingIdentity).catch(
+      () => null
+    )
     cache.set(key, resolved ?? null)
   }
   const resolved = cache.get(key)
@@ -97,83 +102,108 @@ const resolveListingValue = async (
   return mergeResolvedListing(record, resolved)
 }
 
-const hydrateWidgetParams = async (
-  params: Record<string, unknown> | null | undefined,
-  cache: ListingHydrationCache
-) => {
-  if (!params || typeof params !== 'object') return params
-  if (!('listing' in params)) return params
-
-  const listingValue = (params as { listing?: unknown }).listing
-  const resolved = await resolveListingValue(listingValue, cache)
-  if (resolved === listingValue) return params
-
-  return {
-    ...params,
-    listing: resolved ?? null,
+export function collectDashboardListingIdentities(
+  layoutState: unknown,
+  colorPairsState: unknown
+): ListingIdentity[] {
+  const identities = new Map<string, ListingIdentity>()
+  const collect = (value: unknown) => {
+    const listing = toListingValueObject(value as ListingInputValue)
+    if (!listing) return
+    identities.set(getListingIdentityKey(listing), listing)
   }
+  const walk = (node: LayoutNode) => {
+    if (node.type === 'panel') {
+      collect(
+        node.widget?.params && typeof node.widget.params === 'object'
+          ? (node.widget.params as { listing?: unknown }).listing
+          : null
+      )
+      return
+    }
+    node.children.forEach(walk)
+  }
+
+  walk(normalizeDashboardLayout(layoutState))
+  for (const pair of normalizeColorPairsState(colorPairsState).pairs) {
+    collect(pair.listing)
+  }
+  return [...identities.values()]
 }
 
-const hydrateLayoutListings = async (
+function resolveListingValueFromMap(
+  value: unknown,
+  resolvedByKey: Record<string, ListingResolved | null>
+): unknown {
+  if (!value) return value
+  if (typeof value === 'string') return value
+  if (typeof value !== 'object') return value
+
+  const record = value as ListingRecord
+  const listingIdentity = toListingValueObject(record as ListingInputValue)
+  if (!listingIdentity) return value
+  if (hasResolvedFields(record, listingIdentity.listing_type)) return value
+
+  const resolved = resolvedByKey[getListingIdentityKey(listingIdentity)]
+  return resolved ? mergeResolvedListing(record, resolved) : value
+}
+
+function hydrateLayoutListingsFromMap(
   layout: LayoutNode,
-  cache: ListingHydrationCache
-): Promise<LayoutNode> => {
+  resolvedByKey: Record<string, ListingResolved | null>
+): LayoutNode {
   if (layout.type === 'panel') {
     const widget = layout.widget
-    if (!widget || !widget.params || typeof widget.params !== 'object') {
-      return layout
-    }
-
-    const hydratedParams = await hydrateWidgetParams(
-      widget.params as Record<string, unknown>,
-      cache
-    )
-    if (hydratedParams === widget.params) {
-      return layout
-    }
-
+    if (!widget || !widget.params || typeof widget.params !== 'object') return layout
+    const listingValue = (widget.params as { listing?: unknown }).listing
+    const resolved = resolveListingValueFromMap(listingValue, resolvedByKey)
+    if (resolved === listingValue) return layout
     return {
       ...layout,
       widget: {
         ...widget,
-        params: hydratedParams ?? null,
+        params: {
+          ...(widget.params as Record<string, unknown>),
+          listing: resolved ?? null,
+        },
       },
     }
   }
 
-  const children = await Promise.all(
-    layout.children.map((child) => hydrateLayoutListings(child, cache))
-  )
-  const changed = children.some((child, index) => child !== layout.children[index])
-  if (!changed) return layout
-  return {
-    ...layout,
-    children,
-  }
+  const children = layout.children.map((child) => hydrateLayoutListingsFromMap(child, resolvedByKey))
+  return children.some((child, index) => child !== layout.children[index])
+    ? { ...layout, children }
+    : layout
 }
 
-const hydrateColorPairsListings = async (
+function hydrateColorPairsListingsFromMap(
   state: PersistedColorPairsState,
-  cache: ListingHydrationCache
-): Promise<PersistedColorPairsState> => {
-  if (!state || !Array.isArray(state.pairs)) return state
+  resolvedByKey: Record<string, ListingResolved | null>
+): PersistedColorPairsState {
   let mutated = false
+  const pairs = state.pairs.map((pair) => {
+    const resolved = resolveListingValueFromMap(pair.listing, resolvedByKey)
+    if (resolved === pair.listing) return pair
+    mutated = true
+    return { ...pair, listing: (resolved ?? null) as ListingIdentity | null }
+  })
+  return mutated ? { pairs } : state
+}
 
-  const nextPairs = await Promise.all(
-    state.pairs.map(async (pair) => {
-      const listingValue = pair?.listing
-      if (!listingValue) return pair
-      const resolved = await resolveListingValue(listingValue, cache)
-      if (resolved === listingValue) return pair
-      mutated = true
-      return {
-        ...pair,
-        listing: (resolved ?? null) as ListingIdentity | null,
-      }
-    })
-  )
-
-  return mutated ? { pairs: nextPairs } : state
+export function applyResolvedDashboardListings(
+  layoutState: unknown,
+  colorPairsState: unknown,
+  resolvedByKey: Record<string, ListingResolved | null>
+): {
+  layout: LayoutNode
+  colorPairs: PersistedColorPairsState
+} {
+  const layout = normalizeDashboardLayout(layoutState)
+  const colorPairs = normalizeColorPairsState(colorPairsState)
+  return {
+    layout: hydrateLayoutListingsFromMap(layout, resolvedByKey),
+    colorPairs: hydrateColorPairsListingsFromMap(colorPairs, resolvedByKey),
+  }
 }
 
 export async function hydrateDashboardListingData(
@@ -183,22 +213,15 @@ export async function hydrateDashboardListingData(
   layout: LayoutNode
   colorPairs: PersistedColorPairsState
 }> {
-  const cache: ListingHydrationCache = new Map()
-  const layout = normalizeDashboardLayout(layoutState)
-  const colorPairs = normalizeColorPairsState(colorPairsState)
-
-  const [hydratedLayout, hydratedColorPairs] = await Promise.all([
-    hydrateLayoutListings(layout, cache),
-    hydrateColorPairsListings(colorPairs, cache),
-  ])
-
-  return {
-    layout: hydratedLayout,
-    colorPairs: hydratedColorPairs,
-  }
+  const resolvedByKey = await resolveListingIdentities(
+    collectDashboardListingIdentities(layoutState, colorPairsState)
+  ).catch(() => ({}))
+  return applyResolvedDashboardListings(layoutState, colorPairsState, resolvedByKey)
 }
 
-export async function hydrateListingUI(blocks: Record<string, any>): Promise<Record<string, any>> {
+export async function hydrateListingUI(
+  blocks: Record<string, any>
+): Promise<Record<string, any>> {
   const cache: ListingHydrationCache = new Map()
   let mutatedBlocks = false
   const nextBlocks: Record<string, any> = { ...blocks }

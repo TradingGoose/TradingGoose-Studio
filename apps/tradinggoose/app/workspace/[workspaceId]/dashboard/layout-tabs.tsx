@@ -4,25 +4,19 @@ import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Check, Pencil, Plus, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
+import type { DashboardLayoutListEntry } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
+import { formatTemplate } from '@/i18n/utils'
 
-export type LayoutTab = {
-  id: string
-  name: string
-  sortOrder: number
-  isActive: boolean
-  hasDraft?: boolean
-}
+export type LayoutTab = DashboardLayoutListEntry
 
 interface LayoutTabsProps {
   layouts: LayoutTab[]
   isBusy?: boolean
   onSelect: (layoutId: string) => void
-  onReorder: (nextLayouts: LayoutTab[]) => void
+  onReorder: (layoutId: string, targetIndex: number) => void
   onCreate: () => void
   onRename?: (layoutId: string, name: string) => void
   onRequestRename?: (layoutId: string) => void
@@ -46,13 +40,6 @@ export function LayoutTabs({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
 
-  const handleValueChange = (items: LayoutTab[]) => {
-    const ordered = items.map((item, index) => ({
-      ...item,
-      sortOrder: index,
-    }))
-    onReorder(ordered)
-  }
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
@@ -121,7 +108,12 @@ export function LayoutTabs({
       orientation='horizontal'
       value={layouts}
       getItemValue={(item) => item.id}
-      onValueChange={handleValueChange}
+      onMove={({ activeIndex, overIndex }) => {
+        if (activeIndex === overIndex) return
+        const moved = layouts[activeIndex]
+        if (!moved) return
+        onReorder(moved.id, overIndex)
+      }}
       sensors={sensors}
       flatCursor
     >

@@ -1,44 +1,27 @@
 import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { toListingValueObject } from '@/lib/listing/identity'
 import type { ListingInputValue } from '@/lib/listing/identity'
-import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentFields,
+  normalizeWatchlistSettings,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
 import type {
   WatchlistDocumentFields,
   WatchlistDocumentInputItem,
   WatchlistItem,
+  WatchlistSettings,
 } from '@/lib/watchlists/types'
 
 type WatchlistContainerRow = typeof watchlistTable.$inferSelect
 type WatchlistItemRow = typeof watchlistItem.$inferSelect
 export type WatchlistDocumentTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-type WatchlistContainerKind = 'list' | 'section'
-type WatchlistContainerInputItem = Extract<WatchlistDocumentInputItem, { type: 'list' }> | Extract<
-  WatchlistDocumentInputItem,
-  { type: 'section' }
->
-type WatchlistContainerItem = Extract<WatchlistItem, { type: 'list' }> | Extract<
-  WatchlistItem,
-  { type: 'section' }
->
-
-type RootWatchlistReference = {
-  id: string
-  workspaceId: string
-  name: string
-  settings: typeof DEFAULT_WATCHLIST_SETTINGS
-  createdAt: Date
-  updatedAt: Date
-}
-
-const ROOT_WATCHLIST_NAME = 'Watchlist'
-const ROOT_TIMESTAMP = new Date(0)
+type WatchlistContainerInputItem = Extract<WatchlistDocumentInputItem, { type: 'section' }>
+type WatchlistContainerItem = Extract<WatchlistItem, { type: 'section' }>
+export type WatchlistRootRow = WatchlistContainerRow & { settings: WatchlistSettings }
 
 const ensureFound = <T>(row: T | undefined, message = 'Watchlist not found'): T => {
   if (!row) {
@@ -56,48 +39,81 @@ const isUniqueViolation = (error: unknown) =>
 export const workspaceContainerCondition = (workspaceId: string) =>
   and(eq(watchlistTable.workspaceId, workspaceId), isNull(watchlistTable.userId))
 
-const rootItemCondition = (workspaceId: string) =>
-  and(eq(watchlistItem.workspaceId, workspaceId), isNull(watchlistItem.userId))
+const workspaceRootWatchlistCondition = (workspaceId: string) =>
+  and(
+    eq(watchlistTable.workspaceId, workspaceId),
+    isNull(watchlistTable.userId),
+    isNull(watchlistTable.parentId)
+  )
 
-function assertRootWatchlistId(workspaceId: string, watchlistId: string): RootWatchlistReference {
-  if (watchlistId !== workspaceId) {
-    throw new WatchlistDocumentError('Watchlist not found', 404)
-  }
+const rootWatchlistCondition = (workspaceId: string, watchlistId: string) =>
+  and(
+    eq(watchlistTable.id, watchlistId),
+    eq(watchlistTable.workspaceId, workspaceId),
+    isNull(watchlistTable.userId),
+    isNull(watchlistTable.parentId)
+  )
 
-  return {
-    id: watchlistId,
-    workspaceId,
-    name: ROOT_WATCHLIST_NAME,
-    settings: DEFAULT_WATCHLIST_SETTINGS,
-    createdAt: ROOT_TIMESTAMP,
-    updatedAt: ROOT_TIMESTAMP,
+const documentItemCondition = (workspaceId: string, watchlistId: string) =>
+  and(
+    eq(watchlistItem.workspaceId, workspaceId),
+    eq(watchlistItem.watchlistId, watchlistId),
+    isNull(watchlistItem.userId)
+  )
+
+const normalizeRootRow = (row: WatchlistContainerRow): WatchlistRootRow => {
+  try {
+    return { ...row, settings: normalizeWatchlistSettings(row.settings) }
+  } catch {
+    throw new WatchlistDocumentError('Invalid persisted watchlist settings')
   }
 }
 
 export const fetchRootWatchlistRow = async (
-  _tx: WatchlistDocumentTx,
+  tx: WatchlistDocumentTx,
   workspaceId: string,
   watchlistId: string
-): Promise<RootWatchlistReference> => assertRootWatchlistId(workspaceId, watchlistId)
+): Promise<WatchlistRootRow> => {
+  const [row] = await tx
+    .select()
+    .from(watchlistTable)
+    .where(rootWatchlistCondition(workspaceId, watchlistId))
+    .limit(1)
 
-const loadWatchlistRows = async (tx: WatchlistDocumentTx, workspaceId: string) => {
+  return normalizeRootRow(ensureFound(row))
+}
+
+export const listRootWatchlistRowsInTx = async (
+  tx: Pick<WatchlistDocumentTx, 'select'>,
+  workspaceId: string
+): Promise<WatchlistRootRow[]> => {
+  const rows = await tx
+    .select()
+    .from(watchlistTable)
+    .where(workspaceRootWatchlistCondition(workspaceId))
+    .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt), asc(watchlistTable.id))
+
+  return rows.map(normalizeRootRow)
+}
+
+const loadWatchlistRows = async (tx: WatchlistDocumentTx, root: WatchlistRootRow) => {
   const [containers, items] = await Promise.all([
     tx
       .select()
       .from(watchlistTable)
-      .where(workspaceContainerCondition(workspaceId))
+      .where(workspaceContainerCondition(root.workspaceId))
       .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
     tx
       .select()
       .from(watchlistItem)
-      .where(rootItemCondition(workspaceId))
+      .where(documentItemCondition(root.workspaceId, root.id))
       .orderBy(asc(watchlistItem.sortOrder), asc(watchlistItem.createdAt)),
   ])
 
   return { containers, items }
 }
 
-const mapListingRow = (row: WatchlistItemRow): WatchlistItem => {
+const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => {
   const listing = toListingValueObject(row.listing as ListingInputValue)
   if (!listing) {
     throw new WatchlistDocumentError('Invalid persisted watchlist listing')
@@ -106,7 +122,7 @@ const mapListingRow = (row: WatchlistItemRow): WatchlistItem => {
   return {
     id: row.id,
     type: 'listing',
-    parentId: row.containerId ?? null,
+    parentId: row.containerId === rootId ? null : (row.containerId ?? null),
     listing,
   }
 }
@@ -134,7 +150,8 @@ const groupRowsByParent = <T extends { parentId?: string | null; containerId?: s
 
 export const composeWatchlistDocumentFromRows = (
   containers: WatchlistContainerRow[],
-  items: WatchlistItemRow[]
+  items: WatchlistItemRow[],
+  rootId: string
 ): WatchlistItem[] => {
   const output: WatchlistItem[] = []
   const containersByParent = groupRowsByParent(containers, (container) => container.parentId)
@@ -145,41 +162,32 @@ export const composeWatchlistDocumentFromRows = (
 
   const appendChildren = (parentId: string | null) => {
     for (const row of itemsByParent.get(parentKey(parentId)) ?? []) {
-      output.push(mapListingRow(row))
+      output.push(mapListingRow(row, rootId))
     }
 
     for (const container of containersByParent.get(parentKey(parentId)) ?? []) {
-      const type = readContainerKind(container)
-      output.push(
-        type === 'list'
-          ? {
-              id: container.id,
-              type: 'list',
-              parentId: null,
-              label: container.name,
-            }
-          : {
-              id: container.id,
-              type: 'section',
-              parentId: container.parentId ?? null,
-              label: container.name,
-            }
-      )
+      readContainerKind(container)
+      output.push({
+        id: container.id,
+        type: 'section',
+        parentId: container.parentId === rootId ? null : (container.parentId ?? null),
+        label: container.name,
+      })
       appendChildren(container.id)
     }
   }
 
-  appendChildren(null)
+  appendChildren(rootId)
 
   return output
 }
 
 export const mapWatchlistDocumentFieldsInTx = async (
   tx: WatchlistDocumentTx,
-  root: RootWatchlistReference
+  root: WatchlistRootRow
 ): Promise<WatchlistDocumentFields> => {
-  const { containers, items } = await loadWatchlistRows(tx, root.workspaceId)
-  const documentItems = composeWatchlistDocumentFromRows(containers, items)
+  const { containers, items } = await loadWatchlistRows(tx, root)
+  const documentItems = composeWatchlistDocumentFromRows(containers, items, root.id)
   return normalizePersistedWatchlistDocumentFields({
     name: root.name,
     settings: root.settings,
@@ -189,30 +197,67 @@ export const mapWatchlistDocumentFieldsInTx = async (
 
 const itemId = (item: WatchlistDocumentInputItem) => item.id?.trim() || null
 
-async function deleteWatchlistDocumentChildren(tx: WatchlistDocumentTx, workspaceId: string) {
-  await tx.delete(watchlistItem).where(rootItemCondition(workspaceId))
-  await tx.delete(watchlistTable).where(workspaceContainerCondition(workspaceId))
+function collectDescendantContainerIds(
+  containers: Array<{ id: string; parentId: string | null }>,
+  rootId: string
+): string[] {
+  const childrenByParent = groupRowsByParent(containers, (container) => container.parentId)
+  const descendantIds: string[] = []
+  const queue = [...(childrenByParent.get(parentKey(rootId)) ?? [])]
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const row = queue[index]
+    if (!row) continue
+    descendantIds.push(row.id)
+    queue.push(...(childrenByParent.get(parentKey(row.id)) ?? []))
+  }
+
+  return descendantIds
 }
 
-function readContainerKind(row: WatchlistContainerRow): WatchlistContainerKind {
+async function deleteWatchlistDocumentChildren(
+  tx: WatchlistDocumentTx,
+  workspaceId: string,
+  watchlistId: string
+) {
+  const containers = await tx
+    .select({ id: watchlistTable.id, parentId: watchlistTable.parentId })
+    .from(watchlistTable)
+    .where(workspaceContainerCondition(workspaceId))
+
+  const descendantContainerIds = collectDescendantContainerIds(containers, watchlistId)
+
+  await tx.delete(watchlistItem).where(documentItemCondition(workspaceId, watchlistId))
+  if (descendantContainerIds.length > 0) {
+    await tx
+      .delete(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.workspaceId, workspaceId),
+          isNull(watchlistTable.userId),
+          inArray(watchlistTable.id, descendantContainerIds)
+        )
+      )
+  }
+}
+
+function readContainerKind(row: WatchlistContainerRow): void {
   const settings = row.settings
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
     throw new WatchlistDocumentError('Invalid persisted watchlist container kind')
   }
 
   const kind = (settings as Record<string, unknown>).kind
-  if (kind !== 'list' && kind !== 'section') {
+  if (kind !== 'section') {
     throw new WatchlistDocumentError('Invalid persisted watchlist container kind')
   }
-
-  return kind
 }
 
 async function insertContainer(
   tx: WatchlistDocumentTx,
   workspaceId: string,
   item: WatchlistContainerInputItem,
-  parentId: string | null,
+  parentId: string,
   sortOrder: number
 ): Promise<string> {
   const submittedId = itemId(item)
@@ -235,8 +280,9 @@ async function insertContainer(
 async function insertListingItem(
   tx: WatchlistDocumentTx,
   workspaceId: string,
+  watchlistId: string,
   item: Extract<WatchlistDocumentInputItem, { type: 'listing' }>,
-  containerId: string | null,
+  containerId: string,
   sortOrder: number
 ): Promise<string> {
   const submittedId = itemId(item)
@@ -246,7 +292,7 @@ async function insertListingItem(
       ...(submittedId ? { id: submittedId } : {}),
       workspaceId,
       userId: null,
-      watchlistId: null,
+      watchlistId,
       containerId,
       listing: item.listing,
       sortOrder,
@@ -262,10 +308,21 @@ export async function materializeWatchlistDocumentInTx(
   rawFields: Record<string, unknown>
 ): Promise<WatchlistDocumentFields> {
   const fields = normalizeWatchlistDocumentFields(rawFields)
-  assertRootWatchlistId(workspaceId, watchlistId)
+  await fetchRootWatchlistRow(tx, workspaceId, watchlistId)
 
   try {
-    await deleteWatchlistDocumentChildren(tx, workspaceId)
+    const [updatedRoot] = await tx
+      .update(watchlistTable)
+      .set({
+        name: fields.name,
+        settings: fields.settings,
+        updatedAt: new Date(),
+      })
+      .where(rootWatchlistCondition(workspaceId, watchlistId))
+      .returning()
+
+    const root = normalizeRootRow(ensureFound(updatedRoot))
+    await deleteWatchlistDocumentChildren(tx, workspaceId, root.id)
 
     const persistedItems: WatchlistItem[] = []
 
@@ -273,7 +330,7 @@ export async function materializeWatchlistDocumentInTx(
       fields.items
         .filter(
           (item): item is WatchlistContainerInputItem =>
-            (item.type === 'list' || item.type === 'section') && Boolean(item.id)
+            item.type === 'section' && Boolean(item.id)
         )
         .map((item) => item.id as string)
     )
@@ -292,8 +349,7 @@ export async function materializeWatchlistDocumentInTx(
     }
 
     const pendingContainers = fields.items.filter(
-      (item): item is WatchlistContainerInputItem =>
-        item.type === 'list' || item.type === 'section'
+      (item): item is WatchlistContainerInputItem => item.type === 'section'
     )
 
     while (pendingContainers.length > 0) {
@@ -306,6 +362,7 @@ export async function materializeWatchlistDocumentInTx(
         const parentId: string | null = submittedParentId
           ? (persistedContainerIds.get(submittedParentId) ?? null)
           : null
+        const dbParentId = parentId ?? root.id
 
         if (submittedParentId && !parentId && submittedContainerIds.has(submittedParentId)) {
           continue
@@ -315,7 +372,7 @@ export async function materializeWatchlistDocumentInTx(
           tx,
           workspaceId,
           item,
-          parentId,
+          dbParentId,
           nextSortOrder(containerSortOrders, parentId)
         )
         if (item.id) {
@@ -323,10 +380,10 @@ export async function materializeWatchlistDocumentInTx(
         }
         persistedContainers.set(item, {
           id: persistedId,
-          type: item.type,
-          parentId: item.type === 'list' ? null : parentId,
+          type: 'section',
+          parentId,
           label: item.label,
-        } as WatchlistContainerItem)
+        })
         pendingContainers.splice(index, 1)
         index -= 1
         insertedCount += 1
@@ -338,7 +395,7 @@ export async function materializeWatchlistDocumentInTx(
     }
 
     for (const item of fields.items) {
-      if (item.type === 'list' || item.type === 'section') {
+      if (item.type === 'section') {
         const persistedContainer = persistedContainers.get(item)
         if (persistedContainer) {
           persistedItems.push(persistedContainer)
@@ -347,11 +404,13 @@ export async function materializeWatchlistDocumentInTx(
       }
 
       const containerId = item.parentId ? (persistedContainerIds.get(item.parentId) ?? null) : null
+      const dbContainerId = containerId ?? root.id
       const persistedId = await insertListingItem(
         tx,
         workspaceId,
+        root.id,
         item,
-        containerId,
+        dbContainerId,
         nextSortOrder(listingSortOrders, containerId)
       )
       persistedItems.push({
@@ -363,8 +422,8 @@ export async function materializeWatchlistDocumentInTx(
     }
 
     return normalizePersistedWatchlistDocumentFields({
-      name: fields.name,
-      settings: fields.settings,
+      name: root.name,
+      settings: root.settings,
       items: persistedItems,
     })
   } catch (error) {

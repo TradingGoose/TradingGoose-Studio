@@ -10,7 +10,11 @@ import {
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  getEntityOwnerUserId,
+  getEntityWorkspaceId,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
   saveSavedEntityYjsDocToDb,
@@ -66,6 +70,7 @@ type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
   fields: Record<string, any>
+  ownerUserId?: string | null
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -209,7 +214,8 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     candidate.entityKind !== 'indicator' &&
     candidate.entityKind !== 'knowledge_base' &&
     candidate.entityKind !== 'mcp_server' &&
-    candidate.entityKind !== 'watchlist'
+    candidate.entityKind !== 'watchlist' &&
+    candidate.entityKind !== 'dashboard_layout'
   ) {
     throw new InvalidInternalYjsRequestError('Invalid entityKind')
   }
@@ -222,9 +228,15 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
+  const ownerUserId = typeof candidate.ownerUserId === 'string' ? candidate.ownerUserId.trim() : ''
+  if (candidate.entityKind === 'dashboard_layout' && !ownerUserId) {
+    throw new InvalidInternalYjsRequestError('Dashboard layout ownerUserId is required')
+  }
+
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
+    ownerUserId: ownerUserId || null,
   }
 }
 
@@ -303,15 +315,23 @@ async function refreshSavedEntityListDoc(
   entityKind: SavedEntityKind,
   entityDoc: Y.Doc
 ): Promise<void> {
-  const workspaceId = entityDoc.getMap('metadata').get('workspaceId')
-  if (typeof workspaceId !== 'string' || !workspaceId) return
+  const workspaceId = getEntityWorkspaceId(entityDoc)
+  const ownerUserId = getEntityOwnerUserId(entityDoc)
+  if (!workspaceId) return
 
-  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId, {
+    ownerUserId,
+  })
   const listDoc = await getExistingDocument(descriptor.yjsSessionId)
   if (!listDoc) return
 
   try {
-    await reseedEntityListSessionFromDb(listDoc, entityKind, workspaceId)
+    await reseedEntityListSessionFromDb(
+      listDoc,
+      entityKind,
+      workspaceId,
+      typeof ownerUserId === 'string' ? ownerUserId : null
+    )
     markDocumentPersisted(listDoc)
     discardDocumentIfIdle(descriptor.yjsSessionId)
   } catch {
@@ -346,7 +366,8 @@ async function handleInternalYjsEntityListMembersRequest(
     await reseedEntityListSessionFromDb(
       liveDoc,
       descriptor.entityKind,
-      descriptor.workspaceId as string
+      descriptor.workspaceId as string,
+      descriptor.ownerUserId ?? null
     )
     markDocumentPersisted(liveDoc)
     discardDocumentIfIdle(sessionId)
@@ -369,6 +390,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
     const descriptor = {
       workspaceId: null,
+      ownerUserId: null,
       entityKind: 'workflow',
       entityId: workflowId,
       draftSessionId: null,
@@ -403,7 +425,9 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
-    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
+    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null, {
+      ownerUserId: body.ownerUserId,
+    })
     const doc = await getBootstrappedApplyDocument(descriptor)
     const persistedFields = await applyThroughStaging(
       doc,
@@ -517,7 +541,8 @@ async function handleInternalYjsSnapshotRequest(
       const bootstrapped = isEntityListSessionId(descriptor.yjsSessionId)
         ? await createEntityListBootstrapUpdate(
             descriptor.entityKind,
-            descriptor.workspaceId as string
+            descriptor.workspaceId as string,
+            descriptor.ownerUserId ?? null
           )
         : descriptor.entityId
           ? await createSavedReviewTargetBootstrapUpdate(descriptor)
@@ -542,7 +567,8 @@ async function handleInternalYjsSnapshotRequest(
         await reseedEntityListSessionFromDb(
           liveDoc,
           descriptor.entityKind,
-          descriptor.workspaceId as string
+          descriptor.workspaceId as string,
+          descriptor.ownerUserId ?? null
         )
         markDocumentPersisted(liveDoc)
       } catch (error) {

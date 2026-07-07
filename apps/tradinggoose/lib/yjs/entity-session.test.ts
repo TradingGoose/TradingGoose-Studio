@@ -12,7 +12,7 @@ describe('entity list sessions', () => {
         { id: 'entity-c', name: 'Other' },
       ])
 
-      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual([
+      expect(getEntityListMembers(doc, 'skill').map((member) => member.entityId)).toEqual([
         'entity-c',
         'entity-a',
         'entity-b',

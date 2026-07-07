@@ -36,18 +36,6 @@ const WatchlistDocumentListingItemSchema = z
   })
   .strict()
 
-const WatchlistDocumentListItemSchema = z
-  .object({
-    id: z.string().trim().min(1).optional(),
-    type: z.literal('list'),
-    parentId: z.null().optional(),
-    label: z
-      .string()
-      .transform(normalizeString)
-      .pipe(z.string().min(1, 'List label is required')),
-  })
-  .strict()
-
 const WatchlistDocumentSectionItemSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
@@ -62,7 +50,6 @@ const WatchlistDocumentSectionItemSchema = z
 
 const WatchlistDocumentItemSchema = z.union([
   WatchlistDocumentListingItemSchema,
-  WatchlistDocumentListItemSchema,
   WatchlistDocumentSectionItemSchema,
 ])
 

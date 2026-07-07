@@ -13,13 +13,6 @@ export type WatchlistListingItem = {
   listing: ListingIdentity
 }
 
-export type WatchlistListItem = {
-  id: string
-  type: 'list'
-  parentId: null
-  label: string
-}
-
 export type WatchlistSectionItem = {
   id: string
   type: 'section'
@@ -27,7 +20,7 @@ export type WatchlistSectionItem = {
   label: string
 }
 
-export type WatchlistContainerItem = WatchlistListItem | WatchlistSectionItem
+export type WatchlistContainerItem = WatchlistSectionItem
 
 export type WatchlistItem = WatchlistListingItem | WatchlistContainerItem
 
@@ -36,13 +29,6 @@ export type WatchlistDocumentListingInputItem = {
   type: 'listing'
   parentId?: string | null
   listing: ListingIdentity
-}
-
-export type WatchlistDocumentListInputItem = {
-  id?: string
-  type: 'list'
-  parentId?: string | null
-  label: string
 }
 
 export type WatchlistDocumentSectionInputItem = {
@@ -54,7 +40,6 @@ export type WatchlistDocumentSectionInputItem = {
 
 export type WatchlistDocumentInputItem =
   | WatchlistDocumentListingInputItem
-  | WatchlistDocumentListInputItem
   | WatchlistDocumentSectionInputItem
 
 export type WatchlistDocumentInputFields = {

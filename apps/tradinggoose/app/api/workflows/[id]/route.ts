@@ -15,6 +15,10 @@ import {
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
+import {
+  assertCanDeleteWorkspaceEntityDocument,
+  WorkspaceEntityDocumentDeletionError,
+} from '@/lib/workspaces/entity-documents'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -245,6 +249,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    if (workflowData.workspaceId) {
+      await assertCanDeleteWorkspaceEntityDocument({
+        entityKind: 'workflow',
+        workspaceId: workflowData.workspaceId,
+      })
+    }
+
     await db.delete(workflow).where(eq(workflow.id, workflowId))
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
@@ -260,6 +271,9 @@ export async function DELETE(
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
     const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
     if (realtimeResponse) return realtimeResponse
+    if (error instanceof WorkspaceEntityDocumentDeletionError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

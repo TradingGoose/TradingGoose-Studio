@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
+import {
+  deleteWatchlist,
+  getWatchlist,
+  WatchlistOperationError,
+} from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistByIdAPI')
 
@@ -15,10 +19,17 @@ const requireSessionUser = async () => {
   return session.user.id
 }
 
-const requireWorkspacePermission = async (userId: string, workspaceId: string) => {
+const requireWorkspacePermission = async (
+  userId: string,
+  workspaceId: string,
+  options: { write?: boolean } = {}
+) => {
   const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
   if (!permission) {
     throw new WatchlistOperationError('Access denied', 403)
+  }
+  if (options.write && permission !== 'admin' && permission !== 'write') {
+    throw new WatchlistOperationError('Write permission required', 403)
   }
 }
 
@@ -55,5 +66,30 @@ export async function GET(
     return NextResponse.json({ watchlist }, { status: 200 })
   } catch (error) {
     return handleRouteError(error, 'Failed to load watchlist')
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ watchlistId: string }> }
+) {
+  try {
+    const userId = await requireSessionUser()
+    const { watchlistId } = await params
+    const workspaceId = request.nextUrl.searchParams.get('workspaceId')?.trim()
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
+    }
+
+    await requireWorkspacePermission(userId, workspaceId, { write: true })
+
+    const deleted = await deleteWatchlist({ workspaceId }, watchlistId)
+    if (!deleted) {
+      return NextResponse.json({ error: 'Watchlist not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 })
+  } catch (error) {
+    return handleRouteError(error, 'Failed to delete watchlist')
   }
 }

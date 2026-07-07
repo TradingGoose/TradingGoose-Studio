@@ -16,7 +16,7 @@ import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewAccessMode, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import {
   type EntityListMember,
@@ -27,6 +27,7 @@ import {
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -232,6 +233,8 @@ function invalidateSavedEntityQueries(
       return
     case 'watchlist':
       return
+    case 'dashboard_layout':
+      return
   }
 }
 
@@ -272,12 +275,29 @@ function useYjsSession(
 export function useSavedEntityYjsSession(
   entityKind: SavedEntityKind,
   entityId: string | null | undefined,
-  workspaceId: string | null | undefined
+  workspaceId: string | null | undefined,
+  ownerUserId?: string | null | undefined,
+  accessMode: ReviewAccessMode = 'write'
 ) {
-  const sessionKey = entityId && workspaceId ? `${entityKind}:${workspaceId}:${entityId}` : null
+  const descriptor = useMemo(
+    () =>
+      entityId && workspaceId
+        ? buildSavedEntityDescriptor(entityKind, entityId, workspaceId, { ownerUserId })
+        : null,
+    [entityId, entityKind, ownerUserId, workspaceId]
+  )
+  const sessionKey = descriptor
+    ? [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
+    : null
   const openSession = useCallback(
-    () => bootstrapYjsProvider(buildSavedEntityDescriptor(entityKind, entityId!, workspaceId!)),
-    [entityId, entityKind, workspaceId]
+    () => bootstrapYjsProvider(descriptor!, undefined, accessMode),
+    [accessMode, descriptor]
   )
   const activeState = useYjsSession(
     sessionKey,
@@ -306,13 +326,29 @@ export async function saveSavedEntityField(
   entityId: string,
   workspaceId: string,
   key: string,
-  value: unknown
+  value: unknown,
+  ownerUserId?: string | null
+): Promise<void> {
+  await saveSavedEntityFields(entityKind, entityId, workspaceId, { [key]: value }, ownerUserId)
+}
+
+export async function saveSavedEntityFields(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string,
+  fields: Record<string, unknown>,
+  ownerUserId?: string | null
 ): Promise<void> {
   const result = await bootstrapYjsProvider(
-    buildSavedEntityDescriptor(entityKind, entityId, workspaceId)
+    buildSavedEntityDescriptor(entityKind, entityId, workspaceId, { ownerUserId })
   )
   try {
-    setEntityField(result.doc, key, value)
+    result.doc.transact(() => {
+      const fieldsMap = getFieldsMap(result.doc)
+      for (const [key, value] of Object.entries(fields)) {
+        fieldsMap.set(key, value)
+      }
+    }, YJS_ORIGINS.USER)
     await saveYjsSessionSnapshot(result)
     invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
   } finally {
@@ -322,13 +358,21 @@ export async function saveSavedEntityField(
 
 export function useEntityList(
   entityKind: ReviewEntityKind,
-  workspaceId: string | null | undefined
+  workspaceId: string | null | undefined,
+  ownerUserId?: string | null | undefined
 ) {
-  const sessionKey = workspaceId ? `list:${entityKind}:${workspaceId}` : null
+  const descriptor = useMemo(() => {
+    if (!workspaceId) return null
+    try {
+      return buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
+    } catch {
+      return null
+    }
+  }, [entityKind, ownerUserId, workspaceId])
+  const sessionKey = descriptor ? descriptor.yjsSessionId : null
   const openSession = useCallback(
-    () =>
-      bootstrapYjsProvider(buildEntityListDescriptor(entityKind, workspaceId!), undefined, 'read'),
-    [entityKind, workspaceId]
+    () => bootstrapYjsProvider(descriptor!, undefined, 'read'),
+    [descriptor]
   )
   const activeState = useYjsSession(
     sessionKey,
@@ -346,7 +390,10 @@ export function useEntityList(
     }
   }, [doc])
 
-  const extract = useCallback(() => (doc ? getEntityListMembers(doc) : []), [doc])
+  const extract = useCallback(
+    () => (doc ? getEntityListMembers(doc, entityKind) : []),
+    [doc, entityKind]
+  )
   const members = useYjsSubscription<EntityListMember[]>(subscribe, extract, [])
 
   return {
@@ -477,26 +524,4 @@ export function useYjsField<T>(
   )
 
   return [value, setValue]
-}
-
-/**
- * Subscribe to a boolean field on the entity Yjs doc's `fields` Y.Map.
- */
-export function useYjsBooleanField(
-  doc: Y.Doc | null | undefined,
-  key: string,
-  fallback = false
-): [boolean, (v: boolean) => void] {
-  return useYjsField(doc, key, fallback)
-}
-
-/**
- * Subscribe to a number field on the entity Yjs doc's `fields` Y.Map.
- */
-export function useYjsNumberField(
-  doc: Y.Doc | null | undefined,
-  key: string,
-  fallback = 0
-): [number, (v: number) => void] {
-  return useYjsField(doc, key, fallback)
 }

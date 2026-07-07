@@ -5,41 +5,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 
-const {
-  events,
-  mockApplyEntityStateInSocketServer,
-  mockDbTransaction,
-  mockDbUpdate,
-  MockWatchlistDocumentError,
-  mockMaterializeWatchlistDocumentInTx,
-  mockNormalizeWatchlistDocumentFields,
-  mockUpdateReturning,
-  mockUpdateSet,
-  mockUpdateWhere,
-} = vi.hoisted(() => ({
-  events: [] as string[],
-  mockApplyEntityStateInSocketServer: vi.fn(),
-  mockDbTransaction: vi.fn(),
-  mockDbUpdate: vi.fn(),
-  MockWatchlistDocumentError: class WatchlistDocumentError extends Error {
-    constructor(
-      message: string,
-      public status = 400
-    ) {
-      super(message)
-      this.name = 'WatchlistDocumentError'
-    }
-  },
-  mockMaterializeWatchlistDocumentInTx: vi.fn(),
-  mockNormalizeWatchlistDocumentFields: vi.fn((value: Record<string, unknown>) => ({
-    name: String(value.name ?? ''),
-    settings: value.settings ?? { showLogo: true, showTicker: true, showDescription: true },
-    items: Array.isArray(value.items) ? value.items : [],
-  })),
-  mockUpdateReturning: vi.fn(),
-  mockUpdateSet: vi.fn(),
-  mockUpdateWhere: vi.fn(),
+const events: string[] = []
+const mockApplyEntityStateInSocketServer = vi.fn()
+const mockDbTransaction = vi.fn()
+const mockDbUpdate = vi.fn()
+const mockMaterializeDashboardLayoutFields = vi.fn()
+const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
+class MockWatchlistDocumentError extends Error {
+  constructor(
+    message: string,
+    public status = 400
+  ) {
+    super(message)
+    this.name = 'WatchlistDocumentError'
+  }
+}
+const mockMaterializeWatchlistDocumentInTx = vi.fn()
+const mockNormalizeWatchlistDocumentFields = vi.fn((value: Record<string, unknown>) => ({
+  name: String(value.name ?? ''),
+  settings: value.settings ?? { showLogo: true, showTicker: true, showDescription: true },
+  items: Array.isArray(value.items) ? value.items : [],
 }))
+const mockUpdateReturning = vi.fn()
+const mockUpdateSet = vi.fn()
+const mockUpdateWhere = vi.fn()
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -62,7 +51,11 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/copilot/entity-documents', () => ({
-  normalizeEntityFields: vi.fn((_entityKind, fields) => fields),
+  normalizeEntityFields: mockNormalizeEntityFields,
+}))
+
+vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  materializeDashboardLayoutFields: mockMaterializeDashboardLayoutFields,
 }))
 
 vi.mock('@/lib/custom-tools/schema', () => ({
@@ -74,6 +67,7 @@ vi.mock('@/lib/watchlists/document', () => ({
 }))
 
 vi.mock('@/lib/watchlists/validation', () => ({
+  normalizePersistedWatchlistDocumentFields: mockNormalizeWatchlistDocumentFields,
   normalizeWatchlistDocumentFields: mockNormalizeWatchlistDocumentFields,
   WatchlistDocumentError: MockWatchlistDocumentError,
 }))
@@ -82,12 +76,19 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
 }))
 
-function buildDoc(fields: Record<string, unknown>, workspaceId: string | null = 'workspace-1') {
+function buildDoc(
+  fields: Record<string, unknown>,
+  workspaceId: string | null = 'workspace-1',
+  ownerUserId: string | null = null
+) {
   const doc = new Y.Doc()
   const map = doc.getMap('fields')
   for (const [key, value] of Object.entries(fields)) map.set(key, value)
   if (workspaceId !== null) {
     doc.getMap('metadata').set('workspaceId', workspaceId)
+  }
+  if (ownerUserId !== null) {
+    doc.getMap('metadata').set('ownerUserId', ownerUserId)
   }
   return doc
 }
@@ -96,6 +97,7 @@ describe('applySavedEntityState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     events.length = 0
+    mockNormalizeEntityFields.mockImplementation((_entityKind, fields) => fields)
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })
@@ -116,6 +118,9 @@ describe('applySavedEntityState', () => {
         },
       ],
     })
+    mockMaterializeDashboardLayoutFields.mockImplementation(
+      async (_scope, _entityId, fields) => fields
+    )
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
@@ -134,11 +139,16 @@ describe('applySavedEntityState', () => {
       content: 'Use the Copilot input.',
     })
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('skill-1', 'skill', {
-      name: 'Copilot Skill',
-      description: 'Copilot description',
-      content: 'Use the Copilot input.',
-    })
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'skill-1',
+      'skill',
+      {
+        name: 'Copilot Skill',
+        description: 'Copilot description',
+        content: 'Use the Copilot input.',
+      },
+      null
+    )
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual(['yjs'])
   })
@@ -181,30 +191,34 @@ describe('applySavedEntityState', () => {
       })
     ).resolves.toEqual(persistedFields)
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('watchlist-1', 'watchlist', {
-      name: 'Draft Watchlist',
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          type: 'listing',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'watchlist-1',
+      'watchlist',
+      {
+        name: 'Draft Watchlist',
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
           },
-        },
-      ],
-    })
+        ],
+      },
+      null
+    )
     expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
-    const { normalizeEntityFields } = await import('@/lib/copilot/entity-documents')
     const { getEntityFields } = await import('@/lib/yjs/entity-session')
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    vi.mocked(normalizeEntityFields).mockImplementationOnce((_entityKind, fields) => ({
+    mockNormalizeEntityFields.mockImplementationOnce((_entityKind, fields) => ({
       ...fields,
       name: 'Canonical Indicator',
     }))
@@ -321,6 +335,97 @@ describe('applySavedEntityState', () => {
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
+  it('refuses to materialize dashboard layouts when the Yjs document has no owner identity', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDoc({
+      name: 'Layout 1',
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        widget: null,
+      },
+      colorPairs: { pairs: [] },
+      isActive: true,
+      sortOrder: 0,
+    })
+
+    try {
+      await expect(
+        saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)
+      ).rejects.toMatchObject({
+        status: 400,
+        message: 'Dashboard layout ownerUserId is required',
+      })
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockMaterializeDashboardLayoutFields).not.toHaveBeenCalled()
+  })
+
+  it('passes dashboard layout owner scope into materialization', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const fields = {
+      name: 'Layout 1',
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        widget: null,
+      },
+      colorPairs: { pairs: [] },
+      isActive: true,
+      sortOrder: 0,
+    }
+    const doc = buildDoc(fields, 'workspace-1', 'user-1')
+
+    try {
+      await expect(saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)).resolves.toEqual(
+        fields
+      )
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockMaterializeDashboardLayoutFields).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      'layout-1',
+      fields
+    )
+  })
+
+  it('refuses to materialize malformed dashboard layout fields from Yjs', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    mockNormalizeEntityFields.mockImplementationOnce((entityKind, fields) => {
+      if (entityKind === 'dashboard_layout') {
+        throw new Error('dashboard layout document requires layout')
+      }
+      return fields
+    })
+    const doc = buildDoc(
+      {
+        name: 'Layout 1',
+        colorPairs: { pairs: [] },
+        isActive: true,
+        sortOrder: 0,
+      },
+      'workspace-1',
+      'user-1'
+    )
+
+    try {
+      await expect(
+        saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)
+      ).rejects.toMatchObject({
+        status: 400,
+        message: 'dashboard layout document requires layout',
+      })
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockMaterializeDashboardLayoutFields).not.toHaveBeenCalled()
+  })
+
   it('maps watchlist document persistence errors to saved-entity persistence errors', async () => {
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const doc = buildDoc({
@@ -333,12 +438,12 @@ describe('applySavedEntityState', () => {
     )
 
     try {
-      await expect(saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)).rejects.toMatchObject(
-        {
-          status: 409,
-          message: 'A watchlist with this name already exists',
-        }
-      )
+      await expect(
+        saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)
+      ).rejects.toMatchObject({
+        status: 409,
+        message: 'A watchlist with this name already exists',
+      })
     } finally {
       doc.destroy()
     }

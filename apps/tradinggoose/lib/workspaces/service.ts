@@ -1,11 +1,36 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workspace } from '@tradinggoose/db/schema'
+import {
+  customTools,
+  layoutMap,
+  mcpServers,
+  permissions,
+  pineIndicators,
+  skill,
+  watchlistTable,
+  workflow,
+  workspace,
+} from '@tradinggoose/db/schema'
 import { desc, eq, sql } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
+import { getStableVibrantColor } from '@/lib/colors'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
+import {
+  createDefaultColorPairsState,
+  createDefaultLayoutState,
+  serializeLayout,
+} from '@/widgets/layout'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
 const DEFAULT_WORKSPACE_BOOTSTRAP_LOCK_NAMESPACE = 1_904_202_615
+const DEFAULT_CUSTOM_TOOL_SCHEMA = {
+  type: 'function',
+  function: {
+    description: '',
+    parameters: { type: 'object', properties: {}, required: [] },
+  },
+}
 
 export async function getUserWorkspaces({ userId }: { userId: string }) {
   const workspaceAccess = buildWorkspaceAccessScope(userId, workspace.id)
@@ -55,6 +80,7 @@ export async function createDefaultWorkspaceForUser(userId: string, userName?: s
 
     const workspaceDetails = buildWorkspaceRecord(userId, name)
     await tx.insert(workspace).values(workspaceDetails)
+    await insertDefaultWorkspaceEntityDocuments(tx, workspaceDetails.id, userId)
     return toOwnedWorkspaceApiRecord(workspaceDetails)
   })
 }
@@ -85,6 +111,90 @@ function toOwnedWorkspaceApiRecord(workspaceDetails: WorkspaceRecord) {
 
 export async function createWorkspace(userId: string, name: string) {
   const workspaceDetails = buildWorkspaceRecord(userId, name)
-  await db.insert(workspace).values(workspaceDetails)
+  await db.transaction(async (tx) => {
+    await tx.insert(workspace).values(workspaceDetails)
+    await insertDefaultWorkspaceEntityDocuments(tx, workspaceDetails.id, userId)
+  })
   return toOwnedWorkspaceApiRecord(workspaceDetails)
+}
+
+async function insertDefaultWorkspaceEntityDocuments(
+  tx: Pick<typeof db, 'insert'>,
+  workspaceId: string,
+  userId: string
+) {
+  const now = new Date()
+  const workflowId = crypto.randomUUID()
+  const indicatorId = crypto.randomUUID()
+
+  await tx.insert(layoutMap).values({
+    id: crypto.randomUUID(),
+    workspaceId,
+    userId,
+    name: 'Default Layout',
+    sort_order: 0,
+    layout: serializeLayout(createDefaultLayoutState()),
+    color_pair: createDefaultColorPairsState(),
+    isActive: true,
+  })
+
+  await tx.insert(workflow).values({
+    id: workflowId,
+    userId,
+    workspaceId,
+    name: 'Default Workflow',
+    description: '',
+    color: getStableVibrantColor(workflowId),
+    lastSynced: now,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await tx.insert(watchlistTable).values({
+    id: crypto.randomUUID(),
+    workspaceId,
+    userId: null,
+    parentId: null,
+    name: 'Watchlist',
+    sortOrder: 0,
+    settings: DEFAULT_WATCHLIST_SETTINGS,
+  })
+
+  await tx.insert(skill).values({
+    id: nanoid(),
+    workspaceId,
+    userId,
+    name: 'New Skill',
+    description: '',
+    content: '',
+  })
+
+  await tx.insert(customTools).values({
+    id: nanoid(),
+    workspaceId,
+    userId,
+    title: 'New Custom Tool',
+    schema: DEFAULT_CUSTOM_TOOL_SCHEMA,
+    code: '',
+  })
+
+  await tx.insert(pineIndicators).values({
+    id: indicatorId,
+    workspaceId,
+    userId,
+    name: 'New Indicator',
+    color: getStableVibrantColor(indicatorId),
+    pineCode: '',
+  })
+
+  await tx.insert(mcpServers).values({
+    id: crypto.randomUUID(),
+    workspaceId,
+    createdBy: userId,
+    name: 'New MCP Server',
+    description: null,
+    transport: 'streamable-http',
+    url: null,
+    enabled: false,
+  })
 }

@@ -159,6 +159,7 @@ function ensureSessionEntry(args: {
 async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promise<void> {
   const descriptor: ReviewTargetDescriptor = {
     workspaceId: entry.workspaceId,
+    ownerUserId: null,
     entityKind: 'workflow',
     entityId: entry.workflowId,
     draftSessionId: null,

@@ -531,7 +531,7 @@ describe('Socket Server Index Integration', () => {
         },
       ])
       expect(await getExistingDocument('skill-1')).toBeNull()
-      expect(getEntityListMembers(listDoc)).toEqual([
+      expect(getEntityListMembers(listDoc, 'skill')).toEqual([
         {
           entityId: 'skill-1',
           entityName: 'Canonical Risk Skill',
@@ -596,7 +596,7 @@ describe('Socket Server Index Integration', () => {
           },
         },
       ])
-      expect(getEntityListMembers(listDoc)).toEqual([
+      expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
           entityName: 'Canonical Watchlist',
@@ -605,6 +605,40 @@ describe('Socket Server Index Integration', () => {
 
       conn.emit('close')
       await new Promise((resolve) => setImmediate(resolve))
+    })
+
+    it('requires dashboard owner identity for internal apply-state requests', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/entities/layout-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            entityKind: 'dashboard_layout',
+            fields: {
+              name: 'Layout 1',
+              layout: {
+                id: 'panel-1',
+                type: 'panel',
+                widget: null,
+              },
+              colorPairs: { pairs: [] },
+              isActive: true,
+              sortOrder: 0,
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(400)
+      expect(JSON.parse(response.body)).toEqual({
+        error: 'Dashboard layout ownerUserId is required',
+      })
+      expect(mockSaveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
     })
 
     it('should discard an idle workflow document when materialization fails', async () => {
@@ -785,6 +819,7 @@ describe('Socket Server Index Integration', () => {
           workspaceId: null,
           entityKind: 'workflow',
           entityId: 'workflow-state-update',
+          ownerUserId: null,
           draftSessionId: null,
           reviewSessionId: null,
           yjsSessionId: 'workflow-state-update',
@@ -837,16 +872,17 @@ describe('Socket Server Index Integration', () => {
       expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
         liveDoc,
         'skill',
-        'workspace-1'
+        'workspace-1',
+        null
       )
 
       const data = JSON.parse(response.body)
       const snapshotDoc = new Y.Doc()
       try {
         Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
-        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
-          'skill-db',
-        ])
+        expect(getEntityListMembers(snapshotDoc, 'skill').map((member) => member.entityId)).toEqual(
+          ['skill-db']
+        )
       } finally {
         snapshotDoc.destroy()
       }
@@ -875,16 +911,17 @@ describe('Socket Server Index Integration', () => {
       expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
         liveDoc,
         'skill',
-        'workspace-1'
+        'workspace-1',
+        null
       )
 
       const data = JSON.parse(response.body)
       const snapshotDoc = new Y.Doc()
       try {
         Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
-        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
-          'skill-live',
-        ])
+        expect(getEntityListMembers(snapshotDoc, 'skill').map((member) => member.entityId)).toEqual(
+          ['skill-live']
+        )
       } finally {
         snapshotDoc.destroy()
       }
@@ -950,7 +987,9 @@ describe('Socket Server Index Integration', () => {
 
       await new Promise((resolve) => setImmediate(resolve))
 
-      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual(['skill-1'])
+      expect(getEntityListMembers(doc, 'skill').map((member) => member.entityId)).toEqual([
+        'skill-1',
+      ])
       expect(conn.close).toHaveBeenCalled()
     })
 

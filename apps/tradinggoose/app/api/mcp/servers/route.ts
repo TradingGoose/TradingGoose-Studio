@@ -9,6 +9,10 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import {
+  assertCanDeleteWorkspaceEntityDocument,
+  WorkspaceEntityDocumentDeletionError,
+} from '@/lib/workspaces/entity-documents'
+import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
@@ -163,6 +167,11 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
+      await assertCanDeleteWorkspaceEntityDocument({
+        entityKind: 'mcp_server',
+        workspaceId,
+      })
+
       await db
         .delete(mcpServers)
         .where(
@@ -181,6 +190,9 @@ export const DELETE = withMcpAuth('write')(
         message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
+      if (error instanceof WorkspaceEntityDocumentDeletionError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),

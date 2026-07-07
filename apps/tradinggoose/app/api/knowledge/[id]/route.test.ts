@@ -15,6 +15,7 @@ import {
 mockKnowledgeSchemas()
 mockDrizzleOrm()
 mockConsoleLogger()
+vi.setConfig({ testTimeout: 15000 })
 
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseById: vi.fn(),

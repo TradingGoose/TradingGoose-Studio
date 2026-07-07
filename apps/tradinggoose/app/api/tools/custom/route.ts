@@ -10,6 +10,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import {
+  assertCanDeleteWorkspaceEntityDocument,
+  WorkspaceEntityDocumentDeletionError,
+} from '@/lib/workspaces/entity-documents'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -228,6 +232,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
+    await assertCanDeleteWorkspaceEntityDocument({
+      entityKind: 'custom_tool',
+      workspaceId,
+    })
+
     await db
       .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
@@ -238,6 +247,9 @@ export async function DELETE(request: NextRequest) {
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof WorkspaceEntityDocumentDeletionError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     logger.error(`[${requestId}] Error deleting custom tool:`, error)
     return NextResponse.json({ error: 'Failed to delete custom tool' }, { status: 500 })
   }

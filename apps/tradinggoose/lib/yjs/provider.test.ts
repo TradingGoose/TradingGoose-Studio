@@ -104,6 +104,7 @@ async function waitForCondition(assertion: () => void, timeoutMs = 1000) {
 describe('bootstrapYjsProvider', () => {
   const descriptor: ReviewTargetDescriptor = {
     workspaceId: 'workspace-1',
+    ownerUserId: null,
     entityKind: 'workflow',
     entityId: 'workflow-1',
     draftSessionId: null,

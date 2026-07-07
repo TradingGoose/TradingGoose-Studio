@@ -9,7 +9,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -38,9 +37,7 @@ function getInitialWorkflowState(
   canonicalState: WorkflowState
   variables: Record<string, unknown>
 } {
-  const source = isPlainObject(initialWorkflowState)
-    ? initialWorkflowState
-    : buildDefaultWorkflowArtifacts().workflowState
+  const source = isPlainObject(initialWorkflowState) ? initialWorkflowState : {}
   const sourceRecord = source as Record<string, unknown>
 
   const blocks = isPlainObject(sourceRecord.blocks) ? sourceRecord.blocks : {}

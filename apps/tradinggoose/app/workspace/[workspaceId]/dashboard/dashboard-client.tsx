@@ -6,7 +6,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -20,69 +19,74 @@ import {
   ScrollText,
   Search,
 } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
-import {
-  type ListingIdentity,
-  type ListingInputValue,
-  toListingValueObject,
-} from '@/lib/listing/identity'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { normalizeOptionalString } from '@/lib/utils'
+import { saveSavedEntityField } from '@/lib/yjs/use-entity-fields'
+import {
+  createDashboardLayoutAction,
+  deleteDashboardLayoutAction,
+} from '@/app/workspace/[workspaceId]/dashboard/actions'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
+import {
+  useDashboardLayoutDocument,
+  useDashboardLayoutList,
+} from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import {
-  normalizePairColorContext,
-  type PairColorContext,
-  usePairColorStore,
-} from '@/stores/dashboard/pair-store'
-import {
-  createLayoutNodeId,
+  closeDashboardLayoutPanelGroup,
+  createDefaultColorPairsState,
+  createDefaultLayoutState,
+  findDashboardLayoutParentGroupId,
   type LayoutNode,
-  type LinkedPairColor,
   normalizeColorPairsState,
-  type PersistedColorPair,
   type PersistedColorPairsState,
-  resolveWidgetParamsForPairColorChange,
-  serializeLayout,
-  type WidgetInstance,
+  splitDashboardLayoutPanelIntoHorizontalGroup,
+  splitDashboardLayoutPanelIntoVerticalGroup,
+  updateDashboardLayoutGroupSizes,
 } from '@/widgets/layout'
-import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetRuntimeContext } from '@/widgets/types'
+import {
+  useWidgetConfigRuntimeActions,
+  WidgetConfigRuntimeProvider,
+} from '@/widgets/widget-config-runtime'
+import { pruneDashboardColorPairsForLayout } from '@/widgets/widget-contracts'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 interface DashboardClientProps {
   initialState: LayoutNode
   workspaceId: string
+  ownerUserId: string
   layoutId: string
+  initialLayoutName: string
   initialLayouts: LayoutTab[]
-  initialColorPairs?: PersistedColorPairsState | unknown
-}
-
-interface LayoutResponse {
-  layout?: LayoutNode
-  layouts?: LayoutTab[]
-  layoutId?: string
-  colorPairs?: unknown
+  initialColorPairs: PersistedColorPairsState | unknown
+  canWrite: boolean
 }
 
 interface DashboardNodeProps {
   node: LayoutNode
-  persistGroup: (id: string, sizes: number[]) => void
+  persistGroup?: (id: string, sizes: number[]) => void
   widgetContext: WidgetRuntimeContext
-  updatePairColor: (panelId: string, color: PairColor) => void
-  updateWidget: (panelId: string, widgetKey: string) => void
-  updateWidgetParams: (panelId: string, params: Record<string, unknown> | null) => void
+  updatePairColor?: (panelId: string, color: PairColor) => void
+  updateWidget?: (panelId: string, widgetKey: string) => void
+  updateWidgetParamsPatch?: (
+    panelId: string,
+    widgetKey: string,
+    params: Record<string, unknown>
+  ) => void
   sizeHint?: number
   availableWidth?: number
   availableHeight?: number
-  splitPanelVertical: (panelId: string) => void
-  splitPanelHorizontal: (panelId: string) => void
-  closePanel: (panelId: string) => void
+  splitPanelVertical?: (panelId: string) => void
+  splitPanelHorizontal?: (panelId: string) => void
+  closePanel?: (panelId: string) => void
 }
 
 const PANEL_MIN_SIZE = 10
@@ -96,125 +100,114 @@ interface DropdownItem {
   bgColor?: string
 }
 
-const DashboardNode = memo(
-  function DashboardNode({
-    node,
-    persistGroup,
-    widgetContext,
-    updatePairColor,
-    updateWidget,
-    updateWidgetParams,
-    sizeHint,
-    availableWidth = 100,
-    availableHeight = 100,
-    splitPanelVertical,
-    splitPanelHorizontal,
-    closePanel,
-  }: DashboardNodeProps) {
-    if (node.type === 'panel') {
-      const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
-      const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
-
-      return (
-        <WidgetSurface
-          widget={node.widget}
-          context={widgetContext}
-          panelId={node.id}
-          onPairColorChange={(color) => updatePairColor(node.id, color)}
-          onWidgetChange={(key) => updateWidget(node.id, key)}
-          onWidgetParamsChange={(params) => updateWidgetParams(node.id, params)}
-          onPanelSplit={canSplitVertical ? () => splitPanelVertical(node.id) : undefined}
-          onPanelSplitHorizontal={
-            canSplitHorizontal ? () => splitPanelHorizontal(node.id) : undefined
-          }
-          onPanelClose={() => closePanel(node.id)}
-        />
-      )
-    }
+const DashboardNode = memo(function DashboardNode({
+  node,
+  persistGroup,
+  widgetContext,
+  updatePairColor,
+  updateWidget,
+  updateWidgetParamsPatch,
+  sizeHint,
+  availableWidth = 100,
+  availableHeight = 100,
+  splitPanelVertical,
+  splitPanelHorizontal,
+  closePanel,
+}: DashboardNodeProps) {
+  if (node.type === 'panel') {
+    const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
+    const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
+    const panelWidgetKey = node.widget?.key
 
     return (
-      <ResizablePanelGroup
-        key={node.id}
-        direction={node.direction}
-        layout={node.sizes}
-        onLayout={(sizes) => persistGroup(node.id, sizes)}
-        className='h-full w-full'
-      >
-        {node.children.map((child, index) => {
-          const childSize = node.sizes[index] ?? 100 / Math.max(node.children.length, 1)
-          const nextAvailableWidth =
-            node.direction === 'horizontal' ? (availableWidth * childSize) / 100 : availableWidth
-          const nextAvailableHeight =
-            node.direction === 'vertical' ? (availableHeight * childSize) / 100 : availableHeight
-
-          return (
-            <Fragment key={`${node.id}-${child.id}`}>
-              <ResizablePanel
-                id={child.id}
-                order={index + 1}
-                defaultSize={childSize}
-                minSize={PANEL_MIN_SIZE}
-                collapsible
-              >
-                <DashboardNode
-                  node={child}
-                  persistGroup={persistGroup}
-                  widgetContext={widgetContext}
-                  updatePairColor={updatePairColor}
-                  updateWidget={updateWidget}
-                  updateWidgetParams={updateWidgetParams}
-                  sizeHint={childSize}
-                  availableWidth={nextAvailableWidth}
-                  availableHeight={nextAvailableHeight}
-                  splitPanelVertical={splitPanelVertical}
-                  splitPanelHorizontal={splitPanelHorizontal}
-                  closePanel={closePanel}
-                />
-              </ResizablePanel>
-              {index < node.children.length - 1 && <ResizableHandle withHandle />}
-            </Fragment>
-          )
-        })}
-      </ResizablePanelGroup>
+      <WidgetSurface
+        widget={node.widget}
+        context={widgetContext}
+        panelId={node.id}
+        onPairColorChange={updatePairColor ? (color) => updatePairColor(node.id, color) : undefined}
+        onWidgetChange={updateWidget ? (key) => updateWidget(node.id, key) : undefined}
+        onWidgetParamsPatch={
+          updateWidgetParamsPatch && panelWidgetKey
+            ? (params) => updateWidgetParamsPatch(node.id, panelWidgetKey, params)
+            : undefined
+        }
+        onPanelSplit={
+          splitPanelVertical && canSplitVertical ? () => splitPanelVertical(node.id) : undefined
+        }
+        onPanelSplitHorizontal={
+          splitPanelHorizontal && canSplitHorizontal
+            ? () => splitPanelHorizontal(node.id)
+            : undefined
+        }
+        onPanelClose={closePanel ? () => closePanel(node.id) : undefined}
+      />
     )
-  },
-  (prev, next) =>
-    prev.node === next.node &&
-    prev.sizeHint === next.sizeHint &&
-    prev.availableWidth === next.availableWidth &&
-    prev.availableHeight === next.availableHeight
-)
+  }
+
+  return (
+    <ResizablePanelGroup
+      key={node.id}
+      direction={node.direction}
+      layout={node.sizes}
+      onLayout={persistGroup ? (sizes) => persistGroup(node.id, sizes) : undefined}
+      className='h-full w-full'
+    >
+      {node.children.map((child, index) => {
+        const childSize = node.sizes[index] ?? 100 / Math.max(node.children.length, 1)
+        const nextAvailableWidth =
+          node.direction === 'horizontal' ? (availableWidth * childSize) / 100 : availableWidth
+        const nextAvailableHeight =
+          node.direction === 'vertical' ? (availableHeight * childSize) / 100 : availableHeight
+
+        return (
+          <Fragment key={`${node.id}-${child.id}`}>
+            <ResizablePanel
+              id={child.id}
+              order={index + 1}
+              defaultSize={childSize}
+              minSize={PANEL_MIN_SIZE}
+              collapsible
+            >
+              <DashboardNode
+                node={child}
+                persistGroup={persistGroup}
+                widgetContext={widgetContext}
+                updatePairColor={updatePairColor}
+                updateWidget={updateWidget}
+                updateWidgetParamsPatch={updateWidgetParamsPatch}
+                sizeHint={childSize}
+                availableWidth={nextAvailableWidth}
+                availableHeight={nextAvailableHeight}
+                splitPanelVertical={splitPanelVertical}
+                splitPanelHorizontal={splitPanelHorizontal}
+                closePanel={closePanel}
+              />
+            </ResizablePanel>
+            {index < node.children.length - 1 && <ResizableHandle withHandle />}
+          </Fragment>
+        )
+      })}
+    </ResizablePanelGroup>
+  )
+})
 
 export function DashboardClient({
   initialState,
   workspaceId,
+  ownerUserId,
   layoutId,
+  initialLayoutName,
   initialLayouts,
   initialColorPairs,
+  canWrite,
 }: DashboardClientProps) {
-  const normalizedInitialColorPairs = useMemo(
-    () => normalizeColorPairsState(initialColorPairs),
-    [initialColorPairs]
-  )
-  const initialTree = useMemo(() => {
-    if (!hasLinkedColorPairs(normalizedInitialColorPairs)) {
-      return initialState
-    }
-    return applyColorPairsToLayout(initialState, normalizedInitialColorPairs)
-  }, [initialState, normalizedInitialColorPairs])
-  const dashboardIdentity = `${workspaceId}:${layoutId}`
-  const [tree, setTree] = useState<LayoutNode>(initialTree)
-  const [layouts, setLayouts] = useState<LayoutTab[]>(() => sortLayouts(initialLayouts ?? []))
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
-  const layoutIdRef = useRef(layoutId)
-  const loadedLayoutIdRef = useRef(layoutId)
-  const latestLayoutRef = useRef<LayoutNode>(initialTree)
-  const hydratedDashboardIdentityRef = useRef(dashboardIdentity)
-  const layoutSwitchRequestRef = useRef(0)
+  const [pendingActivationId, setPendingActivationId] = useState<string | null>(null)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const isCreatingLayoutRef = useRef(false)
-  const pathname = usePathname()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -225,74 +218,61 @@ export function DashboardClient({
   const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
   const t = useTranslations('workspace.dashboard')
-
-  const applyLayoutData = useCallback(
-    (data: LayoutResponse) => {
-      const normalizedPairs = normalizeColorPairsState(
-        data.colorPairs ?? normalizedInitialColorPairs
-      )
-      const hasLinkedPairs = hasLinkedColorPairs(normalizedPairs)
-      hydratePairStoreFromColorPairs(normalizedPairs)
-
-      if (data.layout) {
-        const layoutWithPairs = hasLinkedPairs
-          ? applyColorPairsToLayout(data.layout, normalizedPairs)
-          : data.layout
-        setTree(layoutWithPairs)
-        latestLayoutRef.current = layoutWithPairs
-      }
-
-      if (Array.isArray(data.layouts)) {
-        setLayouts(sortLayouts(data.layouts))
-      }
-
-      if (typeof data.layoutId === 'string') {
-        layoutIdRef.current = data.layoutId
-        loadedLayoutIdRef.current = data.layoutId
-      }
-    },
-    [normalizedInitialColorPairs, sortLayouts]
+  const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
+  const layouts = useMemo(
+    () => (dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts),
+    [dashboardLayoutList.isLoading, dashboardLayoutList.layouts, initialLayouts]
   )
-
-  const persistLayoutImmediate = useCallback(
-    async (
-      layoutIdOverride?: string,
-      snapshot?: {
-        layout: ReturnType<typeof serializeLayout>
-        colorPairs: PersistedColorPairsState
-      }
-    ) => {
-      const targetLayoutId = layoutIdOverride ?? loadedLayoutIdRef.current
-      if (!targetLayoutId) return
-
-      const currentSnapshot = snapshot ?? {
-        layout: serializeLayout(latestLayoutRef.current),
-        colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
-      }
-      await fetch(`/api/workspaces/${workspaceId}/layout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layoutId: targetLayoutId, ...currentSnapshot }),
-      })
-    },
-    [workspaceId]
+  const listActiveLayout = useMemo(
+    () => layouts.find((layout) => layout.isActive) ?? null,
+    [layouts]
   )
-
-  const loadLayoutData = useCallback(
-    async (targetLayoutId?: string) => {
-      const query = targetLayoutId ? `?layoutId=${targetLayoutId}` : ''
-      const response = await fetch(`/api/workspaces/${workspaceId}/layout${query}`, {
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to load layout (${response.status})`)
-      }
-
-      return (await response.json()) as LayoutResponse
-    },
-    [workspaceId]
+  const activeLayoutId = listActiveLayout?.id ?? (dashboardLayoutList.isLoading ? layoutId : null)
+  const emptyInitialLayout = useMemo(() => createDefaultLayoutState(), [])
+  const emptyInitialColorPairs = useMemo(() => createDefaultColorPairsState(), [])
+  const activeInitialLayout = activeLayoutId === layoutId ? initialState : emptyInitialLayout
+  const activeInitialColorPairs = useMemo(
+    () =>
+      activeLayoutId === layoutId
+        ? normalizeColorPairsState(initialColorPairs)
+        : emptyInitialColorPairs,
+    [activeLayoutId, emptyInitialColorPairs, initialColorPairs, layoutId]
   )
+  const activeInitialName = listActiveLayout?.name ?? initialLayoutName
+  const layoutDocument = useDashboardLayoutDocument({
+    workspaceId,
+    ownerUserId,
+    layoutId: activeLayoutId,
+    canWrite,
+    initialName: activeInitialName,
+    initialLayout: activeInitialLayout,
+    initialColorPairs: activeInitialColorPairs,
+  })
+  const rawTree = layoutDocument.layout
+  const colorPairs = layoutDocument.colorPairs
+  const tree = layoutDocument.effectiveLayout
+  const mutateLayoutDocument = layoutDocument.mutateLayoutDocument
+  const canEditContent = canWrite && layoutDocument.isProviderReady && Boolean(activeLayoutId)
+
+  useEffect(() => {
+    skipLayoutRef.current.clear()
+  }, [activeLayoutId])
+
+  useEffect(() => {
+    if (pendingActivationId && activeLayoutId === pendingActivationId) {
+      setPendingActivationId(null)
+    }
+  }, [activeLayoutId, pendingActivationId])
+
+  useEffect(() => {
+    if (dashboardLayoutList.isLoading || !listActiveLayout?.id) return
+    if (searchParams.get('layoutId') === listActiveLayout.id) return
+
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set('layoutId', listActiveLayout.id)
+    const query = nextParams.toString()
+    router.replace(`${pathname}${query ? `?${query}` : ''}`)
+  }, [dashboardLayoutList.isLoading, listActiveLayout?.id, pathname, router, searchParams])
 
   useEffect(() => {
     let isMounted = true
@@ -332,93 +312,6 @@ export function DashboardClient({
   }, [])
 
   useEffect(() => {
-    if (hydratedDashboardIdentityRef.current === dashboardIdentity) {
-      return
-    }
-
-    hydratedDashboardIdentityRef.current = dashboardIdentity
-    setTree(initialTree)
-    setLayouts(sortLayouts(initialLayouts ?? []))
-    layoutIdRef.current = layoutId
-    loadedLayoutIdRef.current = layoutId
-    latestLayoutRef.current = initialTree
-    layoutSwitchRequestRef.current += 1
-    skipLayoutRef.current = new Set()
-    setSearchQuery('')
-    setIsSearchOpen(false)
-  }, [dashboardIdentity, initialLayouts, initialTree, layoutId])
-
-  useLayoutEffect(() => {
-    hydratePairStoreFromColorPairs(normalizedInitialColorPairs)
-  }, [normalizedInitialColorPairs])
-
-  useEffect(() => {
-    cleanupUnusedPairContexts(tree)
-  }, [tree])
-
-  useEffect(() => {
-    latestLayoutRef.current = tree
-  }, [tree])
-
-  const persistLayout = useCallback(async () => {
-    const currentLayoutId = loadedLayoutIdRef.current
-    if (!currentLayoutId) return
-
-    const snapshot = {
-      layout: serializeLayout(latestLayoutRef.current),
-      colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
-    }
-    const body = JSON.stringify({ layoutId: currentLayoutId, ...snapshot })
-    const url = `/api/workspaces/${workspaceId}/layout`
-
-    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-      const blob = new Blob([body], { type: 'application/json' })
-      navigator.sendBeacon(url, blob)
-      return
-    }
-
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body,
-        keepalive: true,
-      })
-    } catch {
-      // Silently ignore persistence errors on unload
-    }
-  }, [workspaceId])
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      void persistLayout()
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        void persistLayout()
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      void persistLayout()
-    }
-  }, [persistLayout])
-
-  useEffect(() => {
-    return () => {
-      void persistLayout()
-    }
-  }, [pathname, persistLayout])
-
-  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         searchContainerRef.current &&
@@ -432,36 +325,31 @@ export function DashboardClient({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const persistGroup = useCallback((groupId: string, sizes: number[]) => {
-    if (skipLayoutRef.current.has(groupId)) {
-      skipLayoutRef.current.delete(groupId)
-      return
-    }
+  const persistGroup = useCallback(
+    (groupId: string, sizes: number[]) => {
+      if (!canEditContent) return
+      if (skipLayoutRef.current.has(groupId)) {
+        skipLayoutRef.current.delete(groupId)
+        return
+      }
 
-    setTree((prev) => updateGroupSizes(prev, groupId, sizes))
-  }, [])
+      mutateLayoutDocument((current) => {
+        const next = updateDashboardLayoutGroupSizes(current.layout, groupId, sizes)
+        return next === current.layout ? null : { layout: next }
+      })
+    },
+    [canEditContent, mutateLayoutDocument]
+  )
 
-  const widgetContext = useMemo<WidgetRuntimeContext>(() => ({ workspaceId }), [workspaceId])
-
-  const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
-    const currentTree = latestLayoutRef.current
-    const currentWidget = findPanelWidget(currentTree, panelId)
-    const previousColor = isPairColor(currentWidget?.pairColor)
-      ? currentWidget.pairColor
-      : undefined
-    if (previousColor === color) {
-      return
-    }
-
-    seedPairContextForColorSwitch(previousColor, color, currentWidget)
-    const nextTree = updatePanelPairColor(currentTree, panelId, color)
-    if (nextTree === currentTree) {
-      return
-    }
-
-    latestLayoutRef.current = nextTree
-    setTree(nextTree)
-  }, [])
+  const widgetContext = useMemo<WidgetRuntimeContext>(
+    () => ({
+      workspaceId,
+      dashboardLayoutId: activeLayoutId ?? undefined,
+      dashboardLayoutName: layoutDocument.name,
+      dashboardLayoutOwnerUserId: ownerUserId,
+    }),
+    [activeLayoutId, layoutDocument.name, ownerUserId, workspaceId]
+  )
 
   const searchKnowledgeBases = useMemo(
     () =>
@@ -553,170 +441,124 @@ export function DashboardClient({
     filteredDocs.length > 0
   const showDropdown = isSearchOpen
 
-  const handleWidgetChange = useCallback((panelId: string, widgetKey: string) => {
-    setTree((prev) => {
-      const next = updatePanelWidget(prev, panelId, widgetKey)
-      return next === prev ? prev : next
-    })
-  }, [])
-
-  const handleWidgetParamsChange = useCallback(
-    (panelId: string, params: Record<string, unknown> | null) => {
-      setTree((prev) => {
-        const next = updatePanelWidgetParams(prev, panelId, params)
-        return next === prev ? prev : next
+  const handleSplitPanelVertical = useCallback(
+    (panelId: string) => {
+      if (!canEditContent) return
+      mutateLayoutDocument((current) => {
+        const parentId = findDashboardLayoutParentGroupId(current.layout, panelId)
+        const next = splitDashboardLayoutPanelIntoVerticalGroup(current.layout, panelId)
+        if (next === current.layout) return null
+        if (parentId) skipLayoutRef.current.add(parentId)
+        return { layout: next }
       })
     },
-    []
+    [canEditContent, mutateLayoutDocument]
   )
 
-  const handleSplitPanelVertical = useCallback((panelId: string) => {
-    setTree((prev) => {
-      const parentId = findParentGroupId(prev, panelId)
-      const next = splitPanelIntoVerticalGroup(prev, panelId)
-      if (next !== prev && parentId) {
-        skipLayoutRef.current.add(parentId)
-      }
-      return next === prev ? prev : next
-    })
-  }, [])
+  const handleSplitPanelHorizontal = useCallback(
+    (panelId: string) => {
+      if (!canEditContent) return
+      mutateLayoutDocument((current) => {
+        const parentId = findDashboardLayoutParentGroupId(current.layout, panelId)
+        const next = splitDashboardLayoutPanelIntoHorizontalGroup(current.layout, panelId)
+        if (next === current.layout) return null
+        if (parentId) skipLayoutRef.current.add(parentId)
+        return { layout: next }
+      })
+    },
+    [canEditContent, mutateLayoutDocument]
+  )
 
-  const handleSplitPanelHorizontal = useCallback((panelId: string) => {
-    setTree((prev) => {
-      const parentId = findParentGroupId(prev, panelId)
-      const next = splitPanelIntoHorizontalGroup(prev, panelId)
-      if (next !== prev && parentId) {
-        skipLayoutRef.current.add(parentId)
-      }
-      return next === prev ? prev : next
-    })
-  }, [])
-
-  const handleClosePanel = useCallback((panelId: string) => {
-    setTree((prev) => {
-      const next = closePanelGroup(prev, panelId)
-      return next === prev ? prev : next
-    })
-  }, [])
+  const handleClosePanel = useCallback(
+    (panelId: string) => {
+      if (!canEditContent) return
+      mutateLayoutDocument((current) => {
+        const next = closeDashboardLayoutPanelGroup(current.layout, panelId)
+        if (next === current.layout) return null
+        return {
+          layout: next,
+          colorPairs: pruneDashboardColorPairsForLayout(next, current.colorPairs),
+        }
+      })
+    },
+    [canEditContent, mutateLayoutDocument]
+  )
 
   const handleSelectLayout = useCallback(
     async (nextLayoutId: string) => {
-      const previousSelectedLayoutId = layoutIdRef.current
-      if (!nextLayoutId || nextLayoutId === previousSelectedLayoutId) return
-
-      const previousLayouts = layouts
-      const sourceLayoutId = loadedLayoutIdRef.current
-      const sourceSnapshot = {
-        layout: serializeLayout(latestLayoutRef.current),
-        colorPairs: buildPersistedColorPairs(latestLayoutRef.current),
-      }
-      const requestId = layoutSwitchRequestRef.current + 1
-      layoutSwitchRequestRef.current = requestId
-
-      layoutIdRef.current = nextLayoutId
-      setLayouts((current) =>
-        current.map((layout) => ({
-          ...layout,
-          isActive: layout.id === nextLayoutId,
-        }))
-      )
+      if (!nextLayoutId || nextLayoutId === activeLayoutId) return
+      setPendingActivationId(nextLayoutId)
 
       try {
-        await persistLayoutImmediate(sourceLayoutId ?? undefined, sourceSnapshot)
+        if (!canWrite) {
+          throw new Error('Write access is required to switch the active layout')
+        }
+        await saveSavedEntityField(
+          'dashboard_layout',
+          nextLayoutId,
+          workspaceId,
+          'isActive',
+          true,
+          ownerUserId
+        )
       } catch (error) {
-        console.error('Failed to persist current layout before switching:', error)
-      }
-
-      if (layoutSwitchRequestRef.current !== requestId) {
-        return
-      }
-
-      try {
-        const switchResponse = await fetch(`/api/workspaces/${workspaceId}/layout`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activeLayoutId: nextLayoutId }),
-        })
-        if (!switchResponse.ok) {
-          throw new Error(`Failed to switch layout (${switchResponse.status})`)
-        }
-
-        if (layoutSwitchRequestRef.current !== requestId) {
-          return
-        }
-
-        const data = await loadLayoutData(nextLayoutId)
-        if (layoutSwitchRequestRef.current !== requestId) {
-          return
-        }
-        applyLayoutData(data)
-      } catch (error) {
-        if (layoutSwitchRequestRef.current !== requestId) {
-          return
-        }
         console.error('Failed to switch layout:', error)
-        setLayouts(previousLayouts)
-        layoutIdRef.current = previousSelectedLayoutId
+        setPendingActivationId(null)
       }
     },
-    [layouts, loadLayoutData, applyLayoutData, persistLayoutImmediate]
+    [activeLayoutId, canWrite, ownerUserId, workspaceId]
   )
 
   const handleRenameLayout = useCallback(
     async (layoutId: string, name: string) => {
+      if (!canWrite) return
       try {
-        const response = await fetch(`/api/workspaces/${workspaceId}/layout/${layoutId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name }),
-        })
-        if (!response.ok) {
-          throw new Error(`Failed to rename layout (${response.status})`)
-        }
-        const data = await loadLayoutData(layoutIdRef.current)
-        applyLayoutData(data)
+        await saveSavedEntityField(
+          'dashboard_layout',
+          layoutId,
+          workspaceId,
+          'name',
+          name,
+          ownerUserId
+        )
       } catch (error) {
         console.error('Failed to rename layout:', error)
       }
     },
-    [workspaceId, loadLayoutData, applyLayoutData]
+    [canWrite, ownerUserId, workspaceId]
   )
 
   const handleDeleteLayout = useCallback(
     async (layoutId: string) => {
+      if (!canWrite) return
       try {
-        const response = await fetch(`/api/workspaces/${workspaceId}/layout/${layoutId}`, {
-          method: 'DELETE',
-        })
-        if (!response.ok) {
-          throw new Error(`Failed to delete layout (${response.status})`)
-        }
-        setLayouts((current) => current.filter((layout) => layout.id !== layoutId))
+        await deleteDashboardLayoutAction(workspaceId, layoutId)
       } catch (error) {
         console.error('Failed to delete layout:', error)
       }
     },
-    [workspaceId]
+    [canWrite, workspaceId]
   )
 
   const handleReorderLayouts = useCallback(
-    (nextLayouts: LayoutTab[]) => {
-      const ordered = sortLayouts(nextLayouts)
-      setLayouts(ordered)
-      const layoutOrder = ordered.map((layout) => layout.id)
-
-      fetch(`/api/workspaces/${workspaceId}/layout`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layoutOrder }),
-      }).catch((error) => {
+    (layoutId: string, targetIndex: number) => {
+      if (!canWrite) return
+      saveSavedEntityField(
+        'dashboard_layout',
+        layoutId,
+        workspaceId,
+        'sortOrder',
+        targetIndex,
+        ownerUserId
+      ).catch((error) => {
         console.error('Failed to reorder layouts:', error)
       })
     },
-    [workspaceId, sortLayouts]
+    [canWrite, ownerUserId, workspaceId]
   )
 
   const handleAddLayout = useCallback(async () => {
+    if (!canWrite) return
     if (isCreatingLayoutRef.current) {
       return
     }
@@ -725,28 +567,14 @@ export function DashboardClient({
     setIsCreatingLayout(true)
 
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/layout/new`, { method: 'POST' })
-      if (!response.ok) {
-        throw new Error(`Failed to create layout (${response.status})`)
-      }
-
-      const { layout: createdLayout } = (await response.json()) as {
-        layout?: LayoutTab
-      }
-      if (!createdLayout?.id) {
-        throw new Error('Invalid create layout response')
-      }
-
-      setLayouts((current) =>
-        sortLayouts([...current.filter((layout) => layout.id !== createdLayout.id), createdLayout])
-      )
+      await createDashboardLayoutAction(workspaceId)
     } catch (error) {
       console.error('Failed to create layout:', error)
     } finally {
       isCreatingLayoutRef.current = false
       setIsCreatingLayout(false)
     }
-  }, [workspaceId, sortLayouts])
+  }, [canWrite, workspaceId])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
@@ -856,7 +684,7 @@ export function DashboardClient({
   const headerCenterContent = (
     <LayoutTabs
       layouts={layouts}
-      isBusy={isCreatingLayout}
+      isBusy={isCreatingLayout || pendingActivationId !== null}
       onSelect={handleSelectLayout}
       onReorder={handleReorderLayouts}
       onCreate={handleAddLayout}
@@ -869,640 +697,48 @@ export function DashboardClient({
     <>
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
       <div className='h-full min-h-0 w-full min-w-0 overflow-hidden'>
-        <DashboardNode
-          node={tree}
-          persistGroup={persistGroup}
-          widgetContext={widgetContext}
-          updatePairColor={handlePairColorChange}
-          updateWidget={handleWidgetChange}
-          updateWidgetParams={handleWidgetParamsChange}
-          availableWidth={100}
-          availableHeight={100}
-          splitPanelVertical={handleSplitPanelVertical}
-          splitPanelHorizontal={handleSplitPanelHorizontal}
-          closePanel={handleClosePanel}
-        />
+        <WidgetConfigRuntimeProvider
+          context={widgetContext}
+          layout={rawTree}
+          colorPairs={colorPairs}
+          canWrite={canEditContent}
+          onDocumentMutation={mutateLayoutDocument}
+        >
+          <DashboardRuntimeTree
+            node={tree}
+            persistGroup={canEditContent ? persistGroup : undefined}
+            widgetContext={widgetContext}
+            availableWidth={100}
+            availableHeight={100}
+            canEditContent={canEditContent}
+            splitPanelVertical={canEditContent ? handleSplitPanelVertical : undefined}
+            splitPanelHorizontal={canEditContent ? handleSplitPanelHorizontal : undefined}
+            closePanel={canEditContent ? handleClosePanel : undefined}
+          />
+        </WidgetConfigRuntimeProvider>
       </div>
     </>
   )
 }
 
-function updateGroupSizes(node: LayoutNode, groupId: string, sizes: number[]): LayoutNode {
-  if (node.type === 'panel') {
-    return node
-  }
-
-  if (node.id === groupId) {
-    if (arePanelSizesEqual(node.sizes, sizes)) {
-      return node
-    }
-
-    return {
-      ...node,
-      sizes: [...sizes],
-    }
-  }
-
-  const updatedChildren = node.children.map((child) => updateGroupSizes(child, groupId, sizes))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function arePanelSizesEqual(a: number[] | undefined, b: number[] | undefined): boolean {
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  if (a.length !== b.length) return false
-
-  for (let index = 0; index < a.length; index += 1) {
-    if (Math.abs(a[index] - b[index]) > 0.01) {
-      return false
-    }
-  }
-
-  return true
-}
-
-function updatePanelPairColor(node: LayoutNode, panelId: string, color: PairColor): LayoutNode {
-  if (node.type === 'panel') {
-    if (node.id !== panelId) {
-      return node
-    }
-
-    const currentPairColor = isPairColor(node.widget?.pairColor) ? node.widget.pairColor : 'gray'
-    if (currentPairColor === color) {
-      return node
-    }
-    // When switching to a linked color pair, drop stale params that belong to the previous color.
-    // Linked color pairs should derive params from the shared pair store instead of the widget state.
-    const nextParams = resolveWidgetParamsForPairColorChange(node.widget, color)
-
-    return {
-      ...node,
-      widget: node.widget
-        ? { ...node.widget, pairColor: color, params: nextParams }
-        : { key: 'empty', pairColor: color, params: nextParams },
-    }
-  }
-
-  const updatedChildren = node.children.map((child) => updatePanelPairColor(child, panelId, color))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function updatePanelWidget(node: LayoutNode, panelId: string, widgetKey: string): LayoutNode {
-  if (node.type === 'panel') {
-    if (node.id !== panelId) {
-      return node
-    }
-
-    if (node.widget?.key === widgetKey) {
-      return node
-    }
-
-    const pairColor = node.widget?.pairColor ?? 'gray'
-    const previousParams = node.widget?.params ?? null
-    const nextParams = pairColor === 'gray' ? previousParams : null
-
-    return {
-      ...node,
-      widget: {
-        key: widgetKey,
-        pairColor: pairColor,
-        params: nextParams,
-      },
-    }
-  }
-
-  const updatedChildren = node.children.map((child) => updatePanelWidget(child, panelId, widgetKey))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false
-  }
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
-
-function areWidgetParamValuesEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true
-
-  const aIsArray = Array.isArray(a)
-  const bIsArray = Array.isArray(b)
-  if (aIsArray || bIsArray) {
-    if (!aIsArray || !bIsArray) return false
-    if (a.length !== b.length) return false
-    for (let index = 0; index < a.length; index += 1) {
-      if (!areWidgetParamValuesEqual(a[index], b[index])) {
-        return false
-      }
-    }
-    return true
-  }
-
-  const aIsRecord = isPlainRecord(a)
-  const bIsRecord = isPlainRecord(b)
-  if (aIsRecord || bIsRecord) {
-    if (!aIsRecord || !bIsRecord) return false
-
-    const aKeys = Object.keys(a)
-    const bKeys = Object.keys(b)
-    if (aKeys.length !== bKeys.length) return false
-
-    for (const key of aKeys) {
-      if (!(key in b)) return false
-      if (!areWidgetParamValuesEqual(a[key], b[key])) {
-        return false
-      }
-    }
-    return true
-  }
-
-  return false
-}
-
-function areWidgetParamsEqual(
-  a: Record<string, unknown> | null,
-  b: Record<string, unknown> | null
-): boolean {
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  return areWidgetParamValuesEqual(a, b)
-}
-
-function updatePanelWidgetParams(
-  node: LayoutNode,
-  panelId: string,
-  params: Record<string, unknown> | null
-): LayoutNode {
-  if (node.type === 'panel') {
-    if (node.id !== panelId) {
-      return node
-    }
-
-    const existingParams = node.widget?.params ?? null
-    const nextParams = params ?? null
-
-    if (areWidgetParamsEqual(existingParams, nextParams)) {
-      return node
-    }
-
-    return {
-      ...node,
-      widget: node.widget
-        ? { ...node.widget, params: nextParams }
-        : { key: 'empty', pairColor: 'gray', params: nextParams },
-    }
-  }
-
-  const updatedChildren = node.children.map((child) =>
-    updatePanelWidgetParams(child, panelId, params)
-  )
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function applyColorPairsToLayout(
-  node: LayoutNode,
-  colorPairs: PersistedColorPairsState
-): LayoutNode {
-  if (!hasLinkedColorPairs(colorPairs)) {
-    return node
-  }
-
-  const pairMap = new Map<LinkedPairColor, PersistedColorPair>()
-
-  for (const pair of colorPairs.pairs ?? []) {
-    if (pair?.color) {
-      pairMap.set(pair.color, pair)
-    }
-  }
-
-  if (pairMap.size === 0) {
-    return node
-  }
-
-  if (node.type === 'panel') {
-    const nextWidget = applyPairDataToWidget(node.widget, pairMap)
-    if (nextWidget === node.widget) {
-      return node
-    }
-
-    return {
-      ...node,
-      widget: nextWidget,
-    }
-  }
-
-  const updatedChildren = node.children.map((child) => applyColorPairsToLayout(child, colorPairs))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function applyPairDataToWidget(
-  widget: WidgetInstance,
-  pairMap: Map<LinkedPairColor, PersistedColorPair>
-): WidgetInstance {
-  if (!widget) return widget
-
-  const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  if (pairColor === 'gray') {
-    return widget
-  }
-
-  const pairData = pairMap.get(pairColor)
-  if (!pairData) {
-    return widget
-  }
-
-  const baseParams =
-    widget.params && typeof widget.params === 'object' && !Array.isArray(widget.params)
-      ? { ...(widget.params as Record<string, unknown>) }
-      : {}
-
-  const pairKeys = [
-    'workflowId',
-    'listing',
-    'indicatorId',
-    'mcpServerId',
-    'customToolId',
-    'skillId',
-  ] as const
-
-  const hasPairData = pairKeys.some((k) => pairData[k] != null)
-  const hasPairParams = pairKeys.some((k) => k in baseParams)
-
-  if (!hasPairData && !hasPairParams) {
-    return widget
-  }
-
-  for (const key of pairKeys) {
-    baseParams[key] = pairData[key] ?? undefined
-  }
-
-  const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
-
-  if (areWidgetParamsEqual(widget.params ?? null, nextParams)) {
-    return widget
-  }
-
-  return {
-    ...widget,
-    params: nextParams,
-  }
-}
-
-function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
-  const currentContexts = usePairColorStore.getState().contexts
-  const nextContexts: Record<PairColor, PairColorContext> = { ...currentContexts }
-
-  PAIR_COLORS.forEach((color) => {
-    if (color === 'gray') return
-    nextContexts[color] = {}
-  })
-
-  for (const pair of colorPairs.pairs ?? []) {
-    if (!pair || !pair.color) continue
-    nextContexts[pair.color] = {
-      ...normalizePairColorContext({
-        workflowId: pair.workflowId ?? undefined,
-        watchlistId: pair.watchlistId ?? null,
-        listing: pair.listing ?? null,
-        indicatorId: pair.indicatorId ?? null,
-        mcpServerId: pair.mcpServerId ?? null,
-        customToolId: pair.customToolId ?? null,
-        skillId: pair.skillId ?? null,
-      }),
-    }
-  }
-
-  usePairColorStore.setState({ contexts: nextContexts })
-}
-
-function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState {
-  const colorsInUse = collectPairColors(layout)
-  const { contexts } = usePairColorStore.getState()
-  const pairs: PersistedColorPair[] = []
-
-  colorsInUse.forEach((color) => {
-    if (color === 'gray') return
-    const context = contexts[color]
-    const workflowId = normalizeOptionalString(context?.workflowId)
-    const watchlistId = normalizeOptionalString(context?.watchlistId)
-    const listing = getListingIdentity(context?.listing)
-    const indicatorId = normalizeOptionalString(context?.indicatorId)
-    const mcpServerId = normalizeOptionalString(context?.mcpServerId)
-    const customToolId = normalizeOptionalString(context?.customToolId)
-    const skillId = normalizeOptionalString(context?.skillId)
-
-    pairs.push({
-      color,
-      workflowId,
-      watchlistId,
-      listing,
-      indicatorId,
-      mcpServerId,
-      customToolId,
-      skillId,
-    })
-  })
-
-  return { pairs }
-}
-
-function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
-  if (!colorPairs || !Array.isArray(colorPairs.pairs)) return false
-  return colorPairs.pairs.some((pair) => {
-    if (!pair?.color) {
-      return false
-    }
-
-    return Object.keys(normalizePairColorContext(pair)).length > 0
-  })
-}
-
-function getListingIdentity(listing?: ListingInputValue | null): ListingIdentity | null {
-  if (!listing) return null
-  const identity = toListingValueObject(listing)
-  return identity ?? null
-}
-
-function collectPairColors(node: LayoutNode, set: Set<PairColor> = new Set()): Set<PairColor> {
-  if (node.type === 'panel') {
-    const color = node.widget?.pairColor
-    if (isPairColor(color) && color !== 'gray') {
-      set.add(color)
-    }
-    return set
-  }
-
-  node.children.forEach((child) => collectPairColors(child, set))
-  return set
-}
-
-function cleanupUnusedPairContexts(layout: LayoutNode) {
-  const colorsInUse = collectPairColors(layout)
-  const { contexts, resetContext } = usePairColorStore.getState()
-
-  PAIR_COLORS.forEach((color) => {
-    if (color === 'gray') return
-    if (colorsInUse.has(color)) return
-    const context = contexts[color]
-    if (Object.keys(normalizePairColorContext(context)).length > 0) {
-      resetContext(color)
-    }
-  })
-}
-
-function seedPairContextForColorSwitch(
-  previousColor: PairColor | undefined,
-  nextColor: PairColor,
-  currentWidget: WidgetInstance
+function DashboardRuntimeTree(
+  props: Omit<
+    DashboardNodeProps,
+    'updatePairColor' | 'updateWidget' | 'updateWidgetParamsPatch'
+  > & { canEditContent: boolean }
 ) {
-  if (nextColor === 'gray' || nextColor === previousColor) {
-    return
-  }
+  const { canEditContent, ...nodeProps } = props
+  const { changeWidgetPairColor, changeWidgetKey, patchWidgetParams } =
+    useWidgetConfigRuntimeActions()
 
-  const { contexts, setContext } = usePairColorStore.getState()
-  const target = normalizePairColorContext(contexts[nextColor])
-  const source =
-    previousColor && previousColor !== 'gray'
-      ? normalizePairColorContext(contexts[previousColor])
-      : normalizePairColorContext(currentWidget?.params ?? null)
-  const nextContext: PairColorContext = {}
-
-  if (source.workflowId && !target.workflowId) {
-    nextContext.workflowId = source.workflowId
-  }
-  if (source.watchlistId && !target.watchlistId) {
-    nextContext.watchlistId = source.watchlistId
-  }
-  if (source.listing && !target.listing) {
-    nextContext.listing = source.listing
-  }
-  if (source.indicatorId && !target.indicatorId) {
-    nextContext.indicatorId = source.indicatorId
-  }
-  if (source.mcpServerId && !target.mcpServerId) {
-    nextContext.mcpServerId = source.mcpServerId
-  }
-  if (source.customToolId && !target.customToolId) {
-    nextContext.customToolId = source.customToolId
-  }
-  if (source.skillId && !target.skillId) {
-    nextContext.skillId = source.skillId
-  }
-
-  if (Object.keys(nextContext).length === 0) {
-    return
-  }
-
-  setContext(nextColor, nextContext)
-}
-
-function findPanelWidget(node: LayoutNode, panelId: string): WidgetInstance {
-  if (node.type === 'panel') {
-    return node.id === panelId ? node.widget : null
-  }
-
-  for (const child of node.children) {
-    const widget = findPanelWidget(child, panelId)
-    if (widget) {
-      return widget
-    }
-  }
-
-  return null
-}
-
-function findParentGroupId(
-  node: LayoutNode,
-  childId: string,
-  parentId: string | null = null
-): string | null {
-  if (node.type === 'panel') {
-    return node.id === childId ? parentId : null
-  }
-
-  for (const child of node.children) {
-    const found = findParentGroupId(child, childId, node.id)
-    if (found) {
-      return found
-    }
-  }
-
-  return null
-}
-
-function splitPanelIntoVerticalGroup(node: LayoutNode, panelId: string): LayoutNode {
-  return splitPanelIntoGroup(node, panelId, 'vertical')
-}
-
-function splitPanelIntoHorizontalGroup(node: LayoutNode, panelId: string): LayoutNode {
-  return splitPanelIntoGroup(node, panelId, 'horizontal')
-}
-
-function splitPanelIntoGroup(
-  node: LayoutNode,
-  panelId: string,
-  direction: 'vertical' | 'horizontal'
-): LayoutNode {
-  if (node.type === 'panel') {
-    if (node.id !== panelId) {
-      return node
-    }
-
-    return {
-      id: createLayoutNodeId(),
-      type: 'group',
-      direction,
-      sizes: [50.0, 50.0],
-      children: [
-        {
-          id: createLayoutNodeId(),
-          type: 'panel',
-          widget: duplicateWidgetInstance(node.widget),
-        },
-        {
-          id: createLayoutNodeId(),
-          type: 'panel',
-          widget: duplicateWidgetInstance(node.widget),
-        },
-      ],
-    }
-  }
-
-  const updatedChildren = node.children.map((child) =>
-    splitPanelIntoGroup(child, panelId, direction)
+  return (
+    <DashboardNode
+      {...nodeProps}
+      updatePairColor={canEditContent ? changeWidgetPairColor : undefined}
+      updateWidget={canEditContent ? changeWidgetKey : undefined}
+      updateWidgetParamsPatch={canEditContent ? patchWidgetParams : undefined}
+    />
   )
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function closePanelGroup(node: LayoutNode, panelId: string): LayoutNode {
-  if (node.type === 'panel') {
-    return node
-  }
-
-  const directIndex = node.children.findIndex(
-    (child) => child.type === 'panel' && child.id === panelId
-  )
-
-  if (directIndex !== -1) {
-    const remainingChildren = node.children.filter((_, index) => index !== directIndex)
-
-    if (remainingChildren.length === 0) {
-      return node
-    }
-
-    if (remainingChildren.length === 1) {
-      const survivor = remainingChildren[0]
-
-      if (survivor.type === 'panel') {
-        return {
-          id: createLayoutNodeId(),
-          type: 'panel',
-          widget: duplicateWidgetInstance(survivor.widget),
-        }
-      }
-
-      return {
-        ...survivor,
-        id: createLayoutNodeId(),
-      }
-    }
-
-    const nextSizes = normalizeRemainingSizes(node.sizes, directIndex, remainingChildren.length)
-
-    return {
-      ...node,
-      id: createLayoutNodeId(),
-      children: remainingChildren,
-      sizes: nextSizes,
-    }
-  }
-
-  const updatedChildren = node.children.map((child) => closePanelGroup(child, panelId))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-
-  if (!hasChanged) {
-    return node
-  }
-
-  return {
-    ...node,
-    children: updatedChildren,
-  }
-}
-
-function duplicateWidgetInstance(widget: WidgetInstance): WidgetInstance {
-  if (!widget) {
-    return {
-      key: 'empty',
-      pairColor: 'gray',
-      params: null,
-    }
-  }
-
-  return {
-    key: widget.key,
-    pairColor: widget.pairColor ?? 'gray',
-    params: widget.params ? { ...widget.params } : null,
-  }
-}
-
-function sortLayouts(layouts: LayoutTab[]): LayoutTab[] {
-  return [...layouts].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 }
 
 function DropdownSection({
@@ -1550,24 +786,4 @@ function DropdownSection({
       </div>
     </section>
   )
-}
-
-function normalizeRemainingSizes(
-  sizes: number[],
-  removedIndex: number,
-  nextLength: number
-): number[] {
-  if (nextLength === 0) {
-    return []
-  }
-
-  const remaining = sizes.filter((_, index) => index !== removedIndex)
-  const total = remaining.reduce((sum, value) => sum + value, 0)
-
-  if (total <= 0) {
-    const equalSize = 100 / nextLength
-    return new Array(nextLength).fill(equalSize)
-  }
-
-  return remaining.map((value) => (value / total) * 100)
 }

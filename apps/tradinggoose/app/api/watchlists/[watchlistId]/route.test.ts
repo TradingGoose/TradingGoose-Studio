@@ -41,7 +41,7 @@ describe('Watchlist by id API route', () => {
 
   it('reads a watchlist via GET', async () => {
     mockGetWatchlist.mockResolvedValue({
-      id: 'workspace-1',
+      id: 'watchlist-1',
       workspaceId: 'workspace-1',
       name: 'Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: true },
@@ -52,20 +52,20 @@ describe('Watchlist by id API route', () => {
 
     const { GET } = await import('@/app/api/watchlists/[watchlistId]/route')
     const request = new NextRequest(
-      new URL('http://localhost:3000/api/watchlists/workspace-1?workspaceId=workspace-1'),
+      new URL('http://localhost:3000/api/watchlists/watchlist-1?workspaceId=workspace-1'),
       {
         method: 'GET',
       }
     )
 
     const response = await GET(request, {
-      params: Promise.resolve({ watchlistId: 'workspace-1' }),
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
 
     expect(response.status).toBe(200)
     expect(payload.watchlist).toMatchObject({
-      id: 'workspace-1',
+      id: 'watchlist-1',
       workspaceId: 'workspace-1',
       name: 'Watchlist',
       items: [],
@@ -75,7 +75,8 @@ describe('Watchlist by id API route', () => {
       {
         workspaceId: 'workspace-1',
       },
-      'workspace-1'
+      'watchlist-1'
     )
   })
+
 })

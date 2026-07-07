@@ -71,6 +71,7 @@ describe('applyEntityStateInSocketServer', () => {
     })
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',
+      ownerUserId: null,
       fields: {
         name: 'Draft Watchlist',
         settings: { showLogo: true, showTicker: true, showDescription: false },
@@ -85,9 +86,7 @@ describe('applyEntityStateInSocketServer', () => {
     ['array fields', { success: true, fields: [] }],
     ['primitive fields', { success: true, fields: 'not-an-object' }],
   ])('rejects malformed success responses with %s', async (_label, payload) => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify(payload), { status: 200 })
-    )
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }))
 
     const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
 

@@ -14,7 +14,7 @@ import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('YjsSnapshotBridge')
 
-export interface YjsSnapshotResponse {
+interface YjsSnapshotResponse {
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
@@ -151,15 +151,17 @@ export async function applyWorkflowPatchInSocketServer(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  ownerUserId?: string | null
 ): Promise<Record<string, unknown>> {
   const response = await postJsonToSocketServerWithResponse<{
     success?: unknown
     fields?: unknown
-  }>(
-    `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
-    { entityKind, fields }
-  )
+  }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
+    entityKind,
+    fields,
+    ownerUserId: ownerUserId ?? null,
+  })
   if (
     response.success !== true ||
     !response.fields ||
@@ -192,9 +194,10 @@ export async function applyYjsUpdateInSocketServer(
  */
 export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null
 ): Promise<void> {
-  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
   const params = new URLSearchParams(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   )

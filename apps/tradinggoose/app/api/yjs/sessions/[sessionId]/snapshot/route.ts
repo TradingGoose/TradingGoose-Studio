@@ -2,7 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import {
   buildReviewTargetDescriptorFromEnvelope,
+  buildYjsTransportEnvelope,
   parseYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
@@ -53,6 +55,7 @@ async function authorizeYjsSnapshotRequest(
       draftSessionId: descriptor.draftSessionId,
       reviewSessionId: descriptor.reviewSessionId,
       workspaceId: descriptor.workspaceId,
+      ownerUserId: descriptor.ownerUserId ?? null,
       yjsSessionId: descriptor.yjsSessionId,
     },
     accessMode
@@ -118,9 +121,13 @@ export async function POST(
       return NextResponse.json({ error: 'updateBase64 is required' }, { status: 400 })
     }
 
+    const params = new URLSearchParams({
+      ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
+      accessMode: 'write',
+    })
     await applyYjsUpdateInSocketServer(
       descriptor.yjsSessionId,
-      request.nextUrl.search,
+      `?${params.toString()}`,
       updateBase64
     )
 

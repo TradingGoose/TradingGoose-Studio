@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { getEntityListMembers } from '@/lib/yjs/entity-session'
-import { reseedEntityListSessionFromDb } from './bootstrap-review-target'
+import {
+  readSavedEntityListFieldsForExecution,
+  reseedEntityListSessionFromDb,
+} from './bootstrap-review-target'
 
-const { readEntityListMembersFromDb } = vi.hoisted(() => ({
+const { readEntityListMembersFromDb, readSavedEntityFieldsFromDb } = vi.hoisted(() => ({
   readEntityListMembersFromDb: vi.fn(),
+  readSavedEntityFieldsFromDb: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   readEntityListMembersFromDb,
-  readSavedEntityFieldsFromDb: vi.fn(),
+  readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId: vi.fn(),
 }))
 
@@ -29,6 +33,7 @@ async function flushMicrotasks() {
 describe('reseedEntityListSessionFromDb', () => {
   beforeEach(() => {
     readEntityListMembersFromDb.mockReset()
+    readSavedEntityFieldsFromDb.mockReset()
   })
 
   it('serializes destructive full reseeds for the same list document', async () => {
@@ -57,7 +62,7 @@ describe('reseedEntityListSessionFromDb', () => {
       ])
       await second
 
-      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual([
+      expect(getEntityListMembers(doc, 'workflow').map((member) => member.entityId)).toEqual([
         'workflow-1',
         'workflow-2',
       ])
@@ -80,9 +85,36 @@ describe('reseedEntityListSessionFromDb', () => {
       await second
 
       expect(readEntityListMembersFromDb).toHaveBeenCalledTimes(2)
-      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual(['workflow-2'])
+      expect(getEntityListMembers(doc, 'workflow').map((member) => member.entityId)).toEqual([
+        'workflow-2',
+      ])
     } finally {
       doc.destroy()
     }
+  })
+
+  it('preserves dashboard layout list metadata for deployed execution reads', async () => {
+    readEntityListMembersFromDb.mockResolvedValueOnce([
+      {
+        id: 'layout-1',
+        name: 'Layout 1',
+        sortOrder: 2,
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ])
+    readSavedEntityFieldsFromDb.mockResolvedValueOnce({ name: 'Layout 1' })
+
+    await expect(
+      readSavedEntityListFieldsForExecution('dashboard_layout', 'workspace-1', true, 'user-1')
+    ).resolves.toEqual([
+      expect.objectContaining({
+        entityId: 'layout-1',
+        entityName: 'Layout 1',
+        sortOrder: 2,
+        isActive: true,
+        fields: { name: 'Layout 1' },
+      }),
+    ])
   })
 })

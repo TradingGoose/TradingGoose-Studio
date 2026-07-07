@@ -20,11 +20,14 @@
  *   - knowledge_base: name, description, chunkingConfig
  *   - mcp_server:   name, description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
+ *   - watchlist:    name, settings, items
+ *   - dashboard_layout: name, layout, colorPairs, isActive, sortOrder
  */
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
+import { normalizeDashboardLayoutEntityFields } from '@/lib/yjs/entity-state'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -36,7 +39,7 @@ export function getFieldsMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap('fields')
 }
 
-export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
+function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap('metadata')
 }
 
@@ -50,6 +53,8 @@ export interface EntityListMember {
   createdAt?: string
   updatedAt?: string
   connectionStatus?: string
+  isActive?: boolean
+  sortOrder?: number
 }
 
 function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
@@ -61,6 +66,8 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   createdAt?: string
   updatedAt?: string
   connectionStatus?: string
+  isActive?: boolean
+  sortOrder?: number
   deleted?: boolean
 }> {
   return doc.getMap('members')
@@ -78,6 +85,8 @@ export function replaceEntityListSessionMembers(
     createdAt?: string
     updatedAt?: string
     connectionStatus?: string
+    isActive?: boolean
+    sortOrder?: number
   }>
 ): void {
   doc.transact(() => {
@@ -98,6 +107,8 @@ export function replaceEntityListSessionMembers(
         ...(typeof member.connectionStatus === 'string'
           ? { connectionStatus: member.connectionStatus }
           : {}),
+        ...(typeof member.isActive === 'boolean' ? { isActive: member.isActive } : {}),
+        ...(typeof member.sortOrder === 'number' ? { sortOrder: member.sortOrder } : {}),
       }
       const current = listMembers.get(member.id)
       if (
@@ -109,7 +120,9 @@ export function replaceEntityListSessionMembers(
         current?.color !== next.color ||
         current?.createdAt !== next.createdAt ||
         current?.updatedAt !== next.updatedAt ||
-        current?.connectionStatus !== next.connectionStatus
+        current?.connectionStatus !== next.connectionStatus ||
+        current?.isActive !== next.isActive ||
+        current?.sortOrder !== next.sortOrder
       ) {
         listMembers.set(member.id, next)
       }
@@ -117,7 +130,7 @@ export function replaceEntityListSessionMembers(
   }, YJS_ORIGINS.SYSTEM)
 }
 
-export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
+export function getEntityListMembers(doc: Y.Doc, entityKind: ReviewEntityKind): EntityListMember[] {
   const entries: EntityListMember[] = []
   getEntityListMembersMap(doc).forEach((value, entityId) => {
     if (value?.deleted) return
@@ -133,9 +146,18 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
       ...(typeof value?.connectionStatus === 'string'
         ? { connectionStatus: value.connectionStatus }
         : {}),
+      ...(typeof value?.isActive === 'boolean' ? { isActive: value.isActive } : {}),
+      ...(typeof value?.sortOrder === 'number' ? { sortOrder: value.sortOrder } : {}),
     })
   })
   entries.sort((a, b) => {
+    if (entityKind === 'dashboard_layout') {
+      return (
+        (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+        (Date.parse(a.createdAt ?? '') || 0) - (Date.parse(b.createdAt ?? '') || 0) ||
+        a.entityId.localeCompare(b.entityId)
+      )
+    }
     const nameOrder = a.entityName.localeCompare(b.entityName)
     return nameOrder || a.entityId.localeCompare(b.entityId)
   })
@@ -147,18 +169,40 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
  * the entity doc is bootstrapped and used as the authoritative scope when
  * materializing the doc back to its canonical DB row.
  */
-export const ENTITY_METADATA_WORKSPACE_ID_KEY = 'workspaceId'
+const ENTITY_METADATA_WORKSPACE_ID_KEY = 'workspaceId'
+const ENTITY_METADATA_OWNER_USER_ID_KEY = 'ownerUserId'
 
 export function getEntityWorkspaceId(doc: Y.Doc): string | null {
   const value = getEntityMetadataMap(doc).get(ENTITY_METADATA_WORKSPACE_ID_KEY)
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+export function getEntityOwnerUserId(doc: Y.Doc): string | null {
+  const value = getEntityMetadataMap(doc).get(ENTITY_METADATA_OWNER_USER_ID_KEY)
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/**
+ * Writes (or clears) the owner scope on an entity doc's metadata map. The only
+ * canonical writer for `ownerUserId` metadata — callers must not hand-roll the
+ * metadata key.
+ */
+export function setEntityOwnerUserId(
+  metadata: Y.Map<any>,
+  ownerUserId: string | null | undefined
+): void {
+  if (ownerUserId) {
+    metadata.set(ENTITY_METADATA_OWNER_USER_ID_KEY, ownerUserId)
+  } else {
+    metadata.delete(ENTITY_METADATA_OWNER_USER_ID_KEY)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Seed options
 // ---------------------------------------------------------------------------
 
-export interface EntitySessionSeedOptions {
+interface EntitySessionSeedOptions {
   entityKind: ReviewEntityKind
   payload: Record<string, any>
 }
@@ -242,6 +286,16 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         fields.set('items', watchlist.items)
         break
       }
+
+      case 'dashboard_layout': {
+        const layout = normalizeDashboardLayoutEntityFields(payload)
+        fields.set('name', layout.name)
+        fields.set('layout', layout.layout)
+        fields.set('colorPairs', layout.colorPairs)
+        fields.set('isActive', layout.isActive)
+        fields.set('sortOrder', layout.sortOrder)
+        break
+      }
     }
   }, YJS_ORIGINS.SYSTEM)
 }
@@ -305,12 +359,20 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
         settings: fields.get('settings'),
         items: fields.get('items'),
       })
+    case 'dashboard_layout':
+      return normalizeDashboardLayoutEntityFields({
+        name: fields.get('name'),
+        layout: fields.get('layout'),
+        colorPairs: fields.get('colorPairs'),
+        isActive: fields.get('isActive'),
+        sortOrder: fields.get('sortOrder'),
+      })
   }
 
   return result
 }
 
-export function ensureEntityTextField(doc: Y.Doc, key: string, initialValue = ''): Y.Text {
+function ensureEntityTextField(doc: Y.Doc, key: string, initialValue = ''): Y.Text {
   const fields = getFieldsMap(doc)
   const existing = fields.get(key)
   if (existing instanceof Y.Text) {

@@ -10,9 +10,15 @@ import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import { materializeDashboardLayoutFields } from '@/lib/dashboard-layouts/operations'
 import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/document'
-import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import {
+  getEntityFields,
+  getEntityOwnerUserId,
+  getEntityWorkspaceId,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -71,11 +77,12 @@ function normalizeSavedEntityFields(
   }
 }
 
-export async function persistSavedEntityState(
+async function persistSavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null
 ): Promise<Record<string, unknown>> {
   const now = new Date()
   let persisted: Array<{ id: string }>
@@ -182,10 +189,19 @@ export async function persistSavedEntityState(
           throw new SavedEntityPersistenceError(error.status, error.message)
         }
         if (isUniqueConstraintViolation(error)) {
-          throw new SavedEntityPersistenceError(409, 'Watchlist contains a duplicate name or listing')
+          throw new SavedEntityPersistenceError(
+            409,
+            'Watchlist contains a duplicate name or listing'
+          )
         }
         throw error
       }
+    case 'dashboard_layout': {
+      if (!ownerUserId) {
+        throw new SavedEntityPersistenceError(400, 'Dashboard layout ownerUserId is required')
+      }
+      return materializeDashboardLayoutFields({ workspaceId, ownerUserId }, entityId, fields)
+    }
   }
 
   if (persisted.length === 0) {
@@ -201,11 +217,17 @@ export async function persistSavedEntityState(
 export async function applySavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  ownerUserId?: string | null
 ): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    return await applyEntityStateInSocketServer(
+      entityId,
+      entityKind,
+      normalizedFields,
+      ownerUserId ?? null
+    )
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -227,7 +249,16 @@ export async function saveSavedEntityYjsDocToDb(
   entityId: string,
   doc: Y.Doc
 ): Promise<Record<string, unknown>> {
-  const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
+  let entityFields: Record<string, unknown>
+  try {
+    entityFields = getEntityFields(doc, entityKind)
+  } catch (error) {
+    throw new SavedEntityPersistenceError(
+      400,
+      error instanceof Error ? error.message : 'Invalid saved entity fields'
+    )
+  }
+  const yjsFields = normalizeSavedEntityFields(entityKind, entityFields)
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
     throw new SavedEntityPersistenceError(
@@ -235,7 +266,14 @@ export async function saveSavedEntityYjsDocToDb(
       `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
     )
   }
-  const persistedFields = await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
+  const ownerUserId = getEntityOwnerUserId(doc)
+  const persistedFields = await persistSavedEntityState(
+    entityKind,
+    entityId,
+    yjsFields,
+    workspaceId,
+    ownerUserId
+  )
   seedEntitySession(doc, { entityKind, payload: persistedFields })
   return persistedFields
 }

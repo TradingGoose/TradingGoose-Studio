@@ -1,26 +1,14 @@
-import { randomUUID } from 'crypto'
-import { db } from '@tradinggoose/db'
-import { layoutMap } from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
-import { hydrateDashboardListingData } from '@/lib/listing/hydrate-ui'
+import { readActiveDashboardLayoutProjection } from '@/lib/dashboard-layouts/operations'
+import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
-import {
-  createDefaultColorPairsState,
-  createDefaultLayoutState,
-  serializeLayout,
-} from '@/widgets/layout'
 
 export default async function WorkspaceDashboardPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>
-  searchParams?: Promise<{ layoutId?: string }>
 }) {
   const { workspaceId } = await params
-  const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const requestedLayoutId = resolvedSearchParams?.layoutId
   const session = await getSession()
 
   if (!session?.user?.id) {
@@ -28,85 +16,33 @@ export default async function WorkspaceDashboardPage({
   }
 
   const userId = session.user.id
+  const access = await getCachedWorkspaceAccess(workspaceId, userId)
 
-  const layouts = await db
-    .select()
-    .from(layoutMap)
-    .where(and(eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
-    .orderBy(asc(layoutMap.sort_order), asc(layoutMap.createdAt))
-
-  let allLayouts = layouts
-
-  if (!allLayouts.length) {
-    const defaultLayout = createDefaultLayoutState()
-    const defaultColorPairs = createDefaultColorPairsState()
-    const [inserted] = await db
-      .insert(layoutMap)
-      .values({
-        id: randomUUID(),
-        workspaceId,
-        userId,
-        name: 'Default Layout',
-        sort_order: 0,
-        layout: serializeLayout(defaultLayout),
-        color_pair: defaultColorPairs,
-        isActive: true,
-      })
-      .returning()
-
-    allLayouts = [inserted]
+  if (!access.exists || !access.hasAccess) {
+    return <div />
   }
 
-  const activeLayout =
-    (requestedLayoutId ? allLayouts.find((layout) => layout.id === requestedLayoutId) : null) ??
-    allLayouts.find((layout) => layout.isActive) ??
-    allLayouts[0]
+  const scope = { workspaceId, ownerUserId: userId }
+  const projection = await readActiveDashboardLayoutProjection(scope)
 
-  if (requestedLayoutId && activeLayout && !activeLayout.isActive) {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(layoutMap)
-        .set({ isActive: false })
-        .where(and(eq(layoutMap.workspaceId, workspaceId), eq(layoutMap.userId, userId)))
-
-      await tx
-        .update(layoutMap)
-        .set({ isActive: true })
-        .where(
-          and(
-            eq(layoutMap.id, activeLayout.id),
-            eq(layoutMap.workspaceId, workspaceId),
-            eq(layoutMap.userId, userId)
-          )
-        )
-    })
-
-    allLayouts = allLayouts.map((layout) => ({
-      ...layout,
-      isActive: layout.id === activeLayout?.id,
-    }))
+  if (!projection.activeLayout) {
+    return <div />
   }
 
-  const layoutTabs = allLayouts.map((layout) => ({
-    id: layout.id,
-    name: layout.name,
-    sortOrder: layout.sort_order ?? 0,
-    isActive: !!layout.isActive,
-  }))
-
-  const { layout: hydratedLayout, colorPairs: hydratedColorPairs } =
-    await hydrateDashboardListingData(activeLayout?.layout, activeLayout?.color_pair)
+  const activeLayout = projection.activeLayout
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
       <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
         <DashboardClient
-          key={`${workspaceId}:${activeLayout.id}`}
-          initialState={hydratedLayout}
+          initialState={activeLayout.layout}
           workspaceId={workspaceId}
+          ownerUserId={userId}
           layoutId={activeLayout.id}
-          initialLayouts={layoutTabs}
-          initialColorPairs={hydratedColorPairs}
+          initialLayoutName={activeLayout.name}
+          initialLayouts={projection.layouts}
+          initialColorPairs={activeLayout.colorPairs}
+          canWrite={access.canWrite}
         />
       </div>
     </div>

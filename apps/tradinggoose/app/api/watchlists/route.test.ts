@@ -105,4 +105,5 @@ describe('Watchlists API route', () => {
     })
     expect(mockGetWatchlist).not.toHaveBeenCalled()
   })
+
 })

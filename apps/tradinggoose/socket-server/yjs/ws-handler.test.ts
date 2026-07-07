@@ -39,6 +39,16 @@ function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'
   } as IncomingMessage
 }
 
+function createDashboardRequest(
+  sessionId: string,
+  accessMode: 'read' | 'write' = 'write'
+): IncomingMessage {
+  return {
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=dashboard_layout&entityId=${encodeURIComponent(sessionId)}&workspaceId=workspace-1&ownerUserId=user-1`,
+    headers: { host: 'localhost:3000' },
+  } as IncomingMessage
+}
+
 function createReviewSessionRequest(sessionId: string): IncomingMessage {
   return {
     url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=write&targetKind=review_session&sessionId=${encodeURIComponent(sessionId)}&reviewSessionId=${encodeURIComponent(sessionId)}&workspaceId=workspace-3&entityKind=skill&draftSessionId=draft-1`,
@@ -249,23 +259,107 @@ describe('handleYjsUpgrade', () => {
     expect(socket.destroy).not.toHaveBeenCalled()
   })
 
-  it('rejects read-mode websocket upgrades before opening mutation transport', async () => {
+  it('rejects non-dashboard read-mode websocket upgrades after target authentication', async () => {
     const sessionId = 'workflow-read'
     const request = createRequest(sessionId, 'read')
     const socket = createSocket()
     const wss = createWebSocketServer()
 
+    mockAuthenticateYjsConnection.mockResolvedValue({
+      userId: 'user-1',
+      userName: 'User One',
+      envelope: {
+        targetKind: 'entity',
+        sessionId,
+        reviewSessionId: null,
+        workspaceId: 'workspace-1',
+        ownerUserId: null,
+        entityKind: 'workflow',
+        entityId: sessionId,
+        draftSessionId: null,
+      },
+    })
+
     const { handleYjsUpgrade } = await loadModule()
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(mockAuthenticateYjsConnection).not.toHaveBeenCalled()
+    expect(mockAuthenticateYjsConnection).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
     expect(wss.handleUpgrade).not.toHaveBeenCalled()
     expect(socket.write).toHaveBeenCalledWith(
       expect.stringContaining('403 Yjs websocket requires write access')
     )
     expect(socket.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {
+    const sessionId = 'layout-read'
+    const request = createDashboardRequest(sessionId, 'read')
+    const socket = createSocket()
+    const wss = createWebSocketServer()
+
+    mockAuthenticateYjsConnection.mockResolvedValue({
+      userId: 'user-1',
+      userName: 'User One',
+      envelope: {
+        targetKind: 'entity',
+        sessionId,
+        reviewSessionId: null,
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_layout',
+        entityId: sessionId,
+        draftSessionId: null,
+      },
+    })
+    mockVerifyReviewTargetAccess.mockResolvedValue({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: true,
+    })
+    mockGetExistingDocument.mockResolvedValue(null)
+    const bootstrapState = new Uint8Array([1, 2])
+    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
+      descriptor: {
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_layout',
+        entityId: sessionId,
+        draftSessionId: null,
+        reviewSessionId: null,
+        yjsSessionId: sessionId,
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: true,
+      },
+      state: bootstrapState,
+    })
+
+    const { handleYjsUpgrade } = await loadModule()
+    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
+    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
+    expect(mockSetupWSConnection).toHaveBeenCalledWith(
+      expect.anything(),
+      request,
+      expect.objectContaining({
+        bootstrapState,
+        docId: sessionId,
+        accessMode: 'read',
+        gc: true,
+        onDocumentIdle: undefined,
+        onDocumentUpdate: undefined,
+      })
+    )
+    expect(socket.write).not.toHaveBeenCalled()
+    expect(socket.destroy).not.toHaveBeenCalled()
   })
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {

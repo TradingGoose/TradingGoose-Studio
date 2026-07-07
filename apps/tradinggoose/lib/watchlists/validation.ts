@@ -6,7 +6,6 @@ import type {
   WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
   WatchlistDocumentListingInputItem,
-  WatchlistDocumentListInputItem,
   WatchlistDocumentSectionInputItem,
 } from '@/lib/watchlists/types'
 import type { WatchlistItem, WatchlistSettings } from '@/lib/watchlists/types'
@@ -111,20 +110,11 @@ const normalizeWatchlistDocumentInputItem = (value: unknown): WatchlistDocumentI
     return normalizeWatchlistDocumentListingInputItem(value)
   }
 
-  if (type !== 'list' && type !== 'section') return null
+  if (type !== 'section') return null
   if (!hasOnlyKeys(value, containerItemKeys)) return null
 
   const label = normalizeString(value.label)
   if (!label) return null
-
-  if (type === 'list') {
-    return {
-      ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
-      type: 'list',
-      parentId: normalizeNullableParentId(value.parentId),
-      label,
-    } satisfies WatchlistDocumentListInputItem
-  }
 
   return {
     ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
@@ -140,18 +130,6 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
   if (!id) return null
 
   const type = normalizeString(value.type)
-  if (type === 'list') {
-    if (!hasOnlyKeys(value, containerItemKeys)) return null
-    const label = normalizeString(value.label)
-    if (!label) return null
-    return {
-      id,
-      type: 'list',
-      parentId: null,
-      label,
-    }
-  }
-
   if (type === 'section') {
     if (!hasOnlyKeys(value, containerItemKeys)) return null
     const label = normalizeString(value.label)
@@ -245,30 +223,27 @@ function assertNoDuplicateListings(items: Array<{
 function assertValidParentTree(
   items: Array<{ id?: string; type: string; parentId?: string | null }>
 ) {
-  const containerTypes = new Map<string, 'list' | 'section'>()
+  const sectionIds = new Set<string>()
   const containerParents = new Map<string, string | null>()
 
   for (const item of items) {
-    if ((item.type !== 'list' && item.type !== 'section') || !item.id) continue
-    containerTypes.set(item.id, item.type)
+    if (item.type !== 'section' || !item.id) continue
+    sectionIds.add(item.id)
     containerParents.set(item.id, item.parentId ?? null)
   }
 
   for (const item of items) {
     const parentId = item.parentId ?? null
-    if (item.type === 'list' && parentId) {
-      throw new WatchlistDocumentError('Watchlist list parentId must be null')
-    }
     if (!parentId) continue
-    if (!containerTypes.has(parentId)) {
-      throw new WatchlistDocumentError('Watchlist item parentId must reference a list or section')
+    if (!sectionIds.has(parentId)) {
+      throw new WatchlistDocumentError('Watchlist item parentId must reference a section')
     }
-    if ((item.type === 'list' || item.type === 'section') && item.id === parentId) {
+    if (item.type === 'section' && item.id === parentId) {
       throw new WatchlistDocumentError('Watchlist container cannot reference itself as parent')
     }
   }
 
-  for (const containerId of containerTypes.keys()) {
+  for (const containerId of sectionIds) {
     const visited = new Set<string>()
     let currentParentId = containerParents.get(containerId) ?? null
 

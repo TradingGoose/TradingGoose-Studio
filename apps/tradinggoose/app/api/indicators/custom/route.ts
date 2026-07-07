@@ -6,6 +6,10 @@ import { z } from 'zod'
 import { createIndicators, listIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import {
+  assertCanDeleteWorkspaceEntityDocument,
+  WorkspaceEntityDocumentDeletionError,
+} from '@/lib/workspaces/entity-documents'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -248,6 +252,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
+    await assertCanDeleteWorkspaceEntityDocument({
+      entityKind: 'indicator',
+      workspaceId,
+    })
+
     await db
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
@@ -258,6 +267,9 @@ export async function DELETE(request: NextRequest) {
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
+    if (error instanceof WorkspaceEntityDocumentDeletionError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     logger.error(`[${requestId}] Error deleting indicator`, error)
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }

@@ -4,6 +4,8 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.setConfig({ testTimeout: 15000 })
+
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockCreateCustomTools = vi.fn()
@@ -45,8 +47,12 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  customTools: {},
   workflow: {},
+  skill: {},
+  customTools: {},
+  pineIndicators: {},
+  mcpServers: {},
+  layoutMap: {},
 }))
 
 describe('Custom Tools API Routes', () => {

@@ -9,6 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
+import { assertCanDeleteWorkspaceEntityDocument } from '@/lib/workspaces/entity-documents'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
@@ -72,6 +73,11 @@ export async function deleteSkill(params: {
   if (!existingSkill) {
     return false
   }
+
+  await assertCanDeleteWorkspaceEntityDocument({
+    entityKind: 'skill',
+    workspaceId: params.workspaceId,
+  })
 
   await db
     .delete(skill)

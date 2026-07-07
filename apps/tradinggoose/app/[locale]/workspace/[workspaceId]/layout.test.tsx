@@ -7,7 +7,7 @@ const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
 })
 const mockGetSession = vi.fn()
-const mockCheckWorkspaceAccess = vi.fn()
+const mockGetCachedWorkspaceAccess = vi.fn()
 const mockHeaders = vi.fn()
 
 vi.mock('@/i18n/navigation', () => ({
@@ -38,7 +38,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
-  checkWorkspaceAccess: (...args: unknown[]) => mockCheckWorkspaceAccess(...args),
+  getCachedWorkspaceAccess: (...args: unknown[]) => mockGetCachedWorkspaceAccess(...args),
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
@@ -89,7 +89,7 @@ describe('Workspace layout access guard', () => {
       '/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
-    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mockGetCachedWorkspaceAccess).not.toHaveBeenCalled()
   })
 
   it('routes invalid session cookies through reauth cleanup', async () => {
@@ -115,7 +115,7 @@ describe('Workspace layout access guard', () => {
     expect(mockRedirect).toHaveBeenCalledWith(
       '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
-    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mockGetCachedWorkspaceAccess).not.toHaveBeenCalled()
   })
 
   it('redirects to the localized workspace root when the user cannot access the workspace', async () => {
@@ -124,7 +124,7 @@ describe('Workspace layout access guard', () => {
         id: 'user-1',
       },
     })
-    mockCheckWorkspaceAccess.mockResolvedValue({
+    mockGetCachedWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: false,
       canWrite: false,
@@ -140,7 +140,7 @@ describe('Workspace layout access guard', () => {
       })
     ).rejects.toThrow('redirect:/en/workspace')
 
-    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
+    expect(mockGetCachedWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
     expect(mockRedirect).toHaveBeenCalledWith('/en/workspace')
   })
 
@@ -150,7 +150,7 @@ describe('Workspace layout access guard', () => {
         id: 'user-1',
       },
     })
-    mockCheckWorkspaceAccess.mockResolvedValue({
+    mockGetCachedWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
       canWrite: true,

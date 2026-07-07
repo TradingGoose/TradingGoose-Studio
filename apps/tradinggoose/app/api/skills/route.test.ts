@@ -26,20 +26,24 @@ vi.mock('@/lib/skills/operations', () => ({
   deleteSkill: mockDeleteSkill,
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([{ id: 'skill-1' }]),
-        }),
-      }),
-    }),
+vi.mock('@/lib/yjs/entity-state', () => ({
+  SavedEntityRealtimeRequiredError: class SavedEntityRealtimeRequiredError extends Error {
+    status = 409
+
+    responseBody() {
+      return { error: this.message }
+    }
   },
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  skill: {},
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  SavedEntityPersistenceError: class SavedEntityPersistenceError extends Error {
+    status = 500
+
+    responseBody() {
+      return { error: this.message }
+    }
+  },
 }))
 
 describe('Skills API Routes', () => {

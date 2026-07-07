@@ -1,5 +1,7 @@
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/validation'
+import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
@@ -7,6 +9,20 @@ export type SavedEntityRow = {
   id: string
   workspaceId: string | null
   [key: string]: any
+}
+
+type DashboardLayoutEntityFields = {
+  name: string
+  layout: LayoutNode
+  colorPairs: PersistedColorPairsState
+  isActive: boolean
+  sortOrder: number
+}
+
+export function normalizeDashboardLayoutEntityFields(
+  fields: Record<string, unknown> | null | undefined
+): DashboardLayoutEntityFields {
+  return normalizeEntityFields('dashboard_layout', fields) as DashboardLayoutEntityFields
 }
 
 export class SavedEntityRealtimeRequiredError extends Error {
@@ -76,5 +92,13 @@ export function savedEntityRowToFields(
       }
     case 'watchlist':
       return normalizePersistedWatchlistDocumentFields(row)
+    case 'dashboard_layout':
+      return normalizeDashboardLayoutEntityFields({
+        name: row.name,
+        layout: row.layout,
+        colorPairs: row.color_pair,
+        isActive: row.isActive,
+        sortOrder: row.sort_order,
+      })
   }
 }

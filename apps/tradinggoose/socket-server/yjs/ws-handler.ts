@@ -6,10 +6,12 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
 } from '@/lib/copilot/review-sessions/identity'
+import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import { saveSavedEntityYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
 import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
@@ -29,7 +31,7 @@ interface YjsIncomingMessage extends IncomingMessage {
   yjsAccessMode?: ReviewAccessMode
 }
 
-async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void> {
+async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void> {
   if (isEntityListSessionId(docId)) {
     return
   }
@@ -43,8 +45,14 @@ async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void>
     return
   }
 
-  if (metadata.get('entityKind') === 'workflow') {
+  const entityKind = metadata.get('entityKind')
+  if (entityKind === 'workflow') {
     await saveWorkflowYjsDocToDb(docId, doc)
+    return
+  }
+
+  if (entityKind === 'dashboard_layout') {
+    await saveSavedEntityYjsDocToDb('dashboard_layout', docId, doc)
   }
 }
 
@@ -108,6 +116,7 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+  assertAccessModeAllowed(accessMode, descriptor)
   const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
 
   const access = await verifyReviewTargetAccess(
@@ -118,6 +127,7 @@ async function authenticateAndPrepareUpgrade(
       draftSessionId: descriptor.draftSessionId,
       reviewSessionId: descriptor.reviewSessionId,
       workspaceId: descriptor.workspaceId,
+      ownerUserId: descriptor.ownerUserId ?? null,
       yjsSessionId: descriptor.yjsSessionId,
     },
     accessMode
@@ -136,7 +146,8 @@ async function authenticateAndPrepareUpgrade(
     : isListTarget
       ? await createEntityListBootstrapUpdate(
           descriptor.entityKind,
-          descriptor.workspaceId as string
+          descriptor.workspaceId as string,
+          descriptor.ownerUserId ?? null
         )
       : descriptor.entityId
         ? await createSavedReviewTargetBootstrapUpdate(descriptor)
@@ -157,7 +168,9 @@ async function authenticateAndPrepareUpgrade(
     resolvedSessionId: pathSessionId,
     accessMode,
     persistLiveUpdates:
-      descriptor.entityKind === 'workflow' && descriptor.entityId === pathSessionId,
+      accessMode === 'write' &&
+      (descriptor.entityKind === 'workflow' || descriptor.entityKind === 'dashboard_layout') &&
+      descriptor.entityId === pathSessionId,
   }
 }
 
@@ -167,17 +180,31 @@ function parseAccessMode(url: URL, sessionId: string): ReviewAccessMode {
     throw new YjsAuthError(409, 'Invalid or missing access mode')
   }
 
-  // Entity-list documents are read-only over the socket (membership is written
-  // only by server-side create/delete); every other target requires write.
-  if (isEntityListSessionId(sessionId)) {
+  return accessMode
+}
+
+function assertAccessModeAllowed(
+  accessMode: ReviewAccessMode,
+  descriptor: ReviewTargetDescriptor
+): void {
+  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+  if (isListTarget) {
     if (accessMode !== 'read') {
       throw new YjsAuthError(403, 'Entity-list websocket is read-only')
     }
-  } else if (accessMode !== 'write') {
-    throw new YjsAuthError(403, 'Yjs websocket requires write access')
+    return
   }
 
-  return accessMode
+  if (
+    descriptor.entityKind === 'dashboard_layout' &&
+    descriptor.entityId === descriptor.yjsSessionId
+  ) {
+    return
+  }
+
+  if (accessMode !== 'write') {
+    throw new YjsAuthError(403, 'Yjs websocket requires write access')
+  }
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {
@@ -201,8 +228,8 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         accessMode: yjsReq.yjsAccessMode,
         gc: true,
         bootstrapState: yjsReq.yjsBootstrapState,
-        onDocumentIdle: persistWorkflowDocument,
-        onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistWorkflowDocument : undefined,
+        onDocumentIdle: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
+        onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
         onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
       })
     } catch (error) {

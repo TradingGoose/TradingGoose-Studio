@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { permissions, type permissionTypeEnum, user, workspace } from '@tradinggoose/db/schema'
 import { and, eq, or, type SQLWrapper } from 'drizzle-orm'
+import { cache } from 'react'
 
 export type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
@@ -11,6 +12,20 @@ export interface WorkspaceAccess {
   hasAccess: boolean
   canWrite: boolean
   workspace: WorkspaceRecord | null
+}
+
+const permissionOrder: Record<PermissionType, number> = { admin: 3, write: 2, read: 1 }
+
+function resolveHighestPermission(
+  rows: Array<{ permissionType: PermissionType }>
+): PermissionType | null {
+  if (rows.length === 0) return null
+
+  return rows.reduce((highest, current) =>
+    permissionOrder[current.permissionType] > permissionOrder[highest.permissionType]
+      ? current
+      : highest
+  ).permissionType
 }
 
 async function selectWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
@@ -36,7 +51,7 @@ export async function checkWorkspaceAccess(
     return { exists: true, hasAccess: true, canWrite: true, workspace: ws }
   }
 
-  const [permissionRow] = await db
+  const permissionRows = await db
     .select({ permissionType: permissions.permissionType })
     .from(permissions)
     .where(
@@ -46,17 +61,22 @@ export async function checkWorkspaceAccess(
         eq(permissions.entityId, workspaceId)
       )
     )
-    .limit(1)
 
-  if (!permissionRow) {
+  const permission = resolveHighestPermission(permissionRows)
+
+  if (!permission) {
     return { exists: true, hasAccess: false, canWrite: false, workspace: ws }
   }
 
-  const canWrite =
-    permissionRow.permissionType === 'write' || permissionRow.permissionType === 'admin'
+  const canWrite = permission === 'write' || permission === 'admin'
 
   return { exists: true, hasAccess: true, canWrite, workspace: ws }
 }
+
+export const getCachedWorkspaceAccess = cache(
+  async (workspaceId: string, userId: string): Promise<WorkspaceAccess> =>
+    checkWorkspaceAccess(workspaceId, userId)
+)
 
 export function buildWorkspaceAccessScope(userId: string, workspaceIdColumn: SQLWrapper) {
   return {
@@ -120,14 +140,7 @@ export async function getUserEntityPermissions(
     return null
   }
 
-  const permissionOrder: Record<PermissionType, number> = { admin: 3, write: 2, read: 1 }
-  const highestPermission = result.reduce((highest, current) => {
-    return permissionOrder[current.permissionType] > permissionOrder[highest.permissionType]
-      ? current
-      : highest
-  })
-
-  return highestPermission.permissionType
+  return resolveHighestPermission(result)
 }
 
 /**

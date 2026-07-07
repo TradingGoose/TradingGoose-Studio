@@ -1077,18 +1077,21 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   ])
 
   const handleReorderViews = useCallback(
-    async (nextLayouts: LayoutTab[]) => {
-      const nextRows = nextLayouts
-        .map((layout, index) => {
-          const current = activeModeRows.find((row) => row.id === layout.id)
-          return current
-            ? {
-                ...current,
-                sortOrder: layout.sortOrder ?? index,
-              }
-            : null
-        })
-        .filter((row): row is MonitorViewRow => Boolean(row))
+    async (viewId: string, targetIndex: number) => {
+      const sourceIndex = activeModeRows.findIndex((row) => row.id === viewId)
+      if (sourceIndex === -1) return
+
+      const orderedRows = [...activeModeRows]
+      const [movedRow] = orderedRows.splice(sourceIndex, 1)
+      orderedRows.splice(
+        Math.max(0, Math.min(targetIndex, orderedRows.length)),
+        0,
+        movedRow
+      )
+      const nextRows = orderedRows.map((row, index) => ({
+        ...row,
+        sortOrder: index,
+      }))
       const previousRows = viewRows
 
       setViewRows((current) => replaceRowsInModeSlots(current, activeMode, nextRows))

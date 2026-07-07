@@ -36,6 +36,7 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
+  inArray: vi.fn((left: unknown, right: unknown[]) => ({ kind: 'inArray', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
 }))
 
@@ -93,10 +94,15 @@ describe('watchlist operations', () => {
     const insertedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const updatedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const deletedRows: Array<{ table: unknown; condition: unknown }> = []
+    const selectResults = [
+      [rootRow],
+      [
+        { id: rootRow.id, parentId: null },
+        { id: 'old-section', parentId: rootRow.id },
+      ],
+    ]
     const tx: any = {
-      select: vi.fn(() => {
-        throw new Error('Unexpected select call')
-      }),
+      select: vi.fn(() => createQueryChain(selectResults.shift() ?? [], whereCalls)),
       delete: vi.fn((table: unknown) => ({
         where: vi.fn(async (condition: unknown) => {
           deletedRows.push({ table, condition })
@@ -111,7 +117,12 @@ describe('watchlist operations', () => {
         chain.where = vi.fn((condition: unknown) => {
           whereCalls.push({ condition })
           return {
-            returning: vi.fn(async () => [{ id: 'updated-row' }]),
+            returning: vi.fn(async () => [
+              {
+                ...rootRow,
+                ...updatedRows[updatedRows.length - 1]?.values,
+              },
+            ]),
           }
         })
         return chain
@@ -144,7 +155,7 @@ describe('watchlist operations', () => {
       })),
     }
 
-    const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'workspace-1', {
+    const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', {
       name: 'Growth',
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
@@ -173,6 +184,12 @@ describe('watchlist operations', () => {
         (condition) => condition.left === 'watchlist_item.workspace_id'
       )
     ).toMatchObject({ right: 'workspace-1' })
+    expect(
+      findCondition(
+        deletedRows[0]?.condition,
+        (condition) => condition.left === 'watchlist_item.watchlist_id'
+      )
+    ).toMatchObject({ right: 'watchlist-1' })
     expect(
       findCondition(
         deletedRows[0]?.condition,
@@ -206,7 +223,7 @@ describe('watchlist operations', () => {
       values: {
         workspaceId: 'workspace-1',
         userId: null,
-        parentId: null,
+        parentId: 'watchlist-1',
         name: 'Semiconductors',
         sortOrder: 0,
       },
@@ -216,12 +233,20 @@ describe('watchlist operations', () => {
       values: {
         workspaceId: 'workspace-1',
         userId: null,
-        watchlistId: null,
+        watchlistId: 'watchlist-1',
         containerId: 'section-new',
         sortOrder: 0,
       },
     })
-    expect(updatedRows).toEqual([])
+    expect(updatedRows).toEqual([
+      {
+        table: expect.objectContaining({ id: 'watchlist_table.id' }),
+        values: expect.objectContaining({
+          name: 'Growth',
+          settings: { showLogo: true, showTicker: true, showDescription: false },
+        }),
+      },
+    ])
     expect(fields.items).toEqual([
       { id: 'section-new', type: 'section', parentId: null, label: 'Semiconductors' },
       {

@@ -272,6 +272,36 @@ describe('Permission Utils', () => {
       expect(result.canWrite).toBe(true)
     })
 
+    it('should grant write access when duplicate workspace permission rows include write', async () => {
+      let callCount = 0
+      mockDb.select.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return createMockChain([
+            {
+              id: 'workspace123',
+              name: 'Workspace 123',
+              ownerId: 'owner-1',
+              billingOwnerType: 'user' as const,
+              billingOwnerUserId: 'owner-1',
+              billingOwnerOrganizationId: null,
+              allowPersonalApiKeys: true,
+            },
+          ])
+        }
+        return createMockChain([
+          { permissionType: 'read' as PermissionType },
+          { permissionType: 'write' as PermissionType },
+        ])
+      })
+
+      const result = await checkWorkspaceAccess('workspace123', 'writer-1')
+
+      expect(result.exists).toBe(true)
+      expect(result.hasAccess).toBe(true)
+      expect(result.canWrite).toBe(true)
+    })
+
     it('should deny access when the user is not a member', async () => {
       let callCount = 0
       mockDb.select.mockImplementation(() => {
