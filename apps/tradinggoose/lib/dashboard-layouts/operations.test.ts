@@ -10,29 +10,41 @@ import {
 const m = vi.hoisted(() => {
   const selectRows = vi.fn()
   const insertRows = vi.fn()
+  const select = vi.fn(() => ({
+    from: vi.fn(() => ({
+      where: vi.fn(() => ({
+        orderBy: vi.fn(() => selectRows()),
+        limit: vi.fn(() => selectRows()),
+      })),
+    })),
+  }))
+  const txExecute = vi.fn(() => Promise.resolve())
   const txUpdate = vi.fn(() => ({
     set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) })),
   }))
   const txInsert = vi.fn(() => ({
     values: vi.fn(() => ({ returning: vi.fn(() => insertRows()) })),
   }))
+  const txDelete = vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) }))
   return {
     selectRows,
     insertRows,
+    txDelete,
+    txExecute,
     txInsert,
+    txUpdate,
     validateLayoutRefs: vi.fn(),
     db: {
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => selectRows()),
-            limit: vi.fn(() => selectRows()),
-          })),
-        })),
-      })),
+      select,
       delete: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) })),
       transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({ update: txUpdate, insert: txInsert })
+        callback({
+          delete: txDelete,
+          execute: txExecute,
+          insert: txInsert,
+          select,
+          update: txUpdate,
+        })
       ),
     },
     bridge: {
@@ -70,6 +82,7 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn((field) => field),
   eq: vi.fn(),
   isNull: vi.fn(),
+  sql: vi.fn(),
 }))
 
 vi.mock('@/lib/copilot/entity-documents', () => ({
@@ -133,6 +146,7 @@ describe('dashboard layout operations', () => {
       sortOrder: 3,
       isActive: false,
     })
+    expect(m.txExecute).toHaveBeenCalled()
     expect(m.txInsert).toHaveBeenCalled()
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
       'dashboard_layout',
@@ -142,7 +156,7 @@ describe('dashboard layout operations', () => {
   })
 
   it('ensures a default active layout for an owner scope without layouts', async () => {
-    m.selectRows.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    m.selectRows.mockResolvedValueOnce([])
     m.insertRows.mockResolvedValueOnce([
       row({ id: 'layout-new', name: 'Default Layout', sort_order: 0, isActive: true }),
     ])
@@ -155,6 +169,16 @@ describe('dashboard layout operations', () => {
     })
     expect(result.layouts).toEqual([expect.objectContaining({ id: 'layout-new' })])
     expect(m.txInsert).toHaveBeenCalled()
+  })
+
+  it('returns the layout found inside the owner lock without inserting', async () => {
+    m.selectRows.mockResolvedValueOnce([row({ id: 'layout-existing' })])
+
+    const result = await ensureActiveDashboardLayoutProjection(scope)
+
+    expect(result.activeLayout).toMatchObject({ id: 'layout-existing' })
+    expect(m.txExecute).toHaveBeenCalled()
+    expect(m.txInsert).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -191,7 +215,7 @@ describe('dashboard layout operations', () => {
       'Cannot delete active layout'
     )
 
-    expect(m.db.delete).not.toHaveBeenCalled()
+    expect(m.txDelete).not.toHaveBeenCalled()
     expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
@@ -206,7 +230,7 @@ describe('dashboard layout operations', () => {
 
     await deleteDashboardLayout(scope, 'layout-inactive')
 
-    expect(m.db.delete).toHaveBeenCalled()
+    expect(m.txDelete).toHaveBeenCalled()
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
       'dashboard_layout',
       'workspace-1',
@@ -224,7 +248,7 @@ describe('dashboard layout operations', () => {
       'Cannot delete the last dashboard layout in this workspace'
     )
 
-    expect(m.db.delete).not.toHaveBeenCalled()
+    expect(m.txDelete).not.toHaveBeenCalled()
     expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
@@ -245,7 +269,7 @@ describe('dashboard layout operations', () => {
 
     expect(m.validateLayoutRefs).toHaveBeenCalled()
     expect(m.validateLayoutRefs.mock.invocationCallOrder[0]).toBeLessThan(
-      m.db.transaction.mock.invocationCallOrder[0]
+      m.txUpdate.mock.invocationCallOrder[0]
     )
     expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
       'layout-a',

@@ -1,13 +1,7 @@
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/validation'
-import {
-  type LayoutNode,
-  normalizeColorPairsState,
-  normalizeDashboardLayout,
-  type PersistedColorPairsState,
-} from '@/widgets/layout'
-import { isWidgetKey, sanitizeWidgetParams } from '@/widgets/widget-contracts'
+import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
@@ -28,12 +22,7 @@ type DashboardLayoutEntityFields = {
 export function normalizeDashboardLayoutEntityFields(
   fields: Record<string, unknown> | null | undefined
 ): DashboardLayoutEntityFields {
-  const source = fields ?? {}
-  return normalizeEntityFields('dashboard_layout', {
-    ...source,
-    layout: normalizePersistedDashboardLayout(source.layout),
-    colorPairs: normalizeColorPairsState(source.colorPairs),
-  }) as DashboardLayoutEntityFields
+  return normalizeEntityFields('dashboard_layout', fields ?? {}) as DashboardLayoutEntityFields
 }
 
 export class SavedEntityRealtimeRequiredError extends Error {
@@ -48,23 +37,6 @@ export class SavedEntityRealtimeRequiredError extends Error {
 
   responseBody() {
     return { error: this.message, code: this.code, retryable: this.retryable }
-  }
-}
-
-function normalizePersistedDashboardLayout(value: unknown): LayoutNode {
-  const layout = normalizeDashboardLayout(value)
-  if (layout.type === 'group') {
-    return { ...layout, children: layout.children.map(normalizePersistedDashboardLayout) }
-  }
-  const widget = layout.widget
-  if (!widget || !isWidgetKey(widget.key)) return layout
-  try {
-    return {
-      ...layout,
-      widget: { ...widget, params: sanitizeWidgetParams(widget.key, widget.params) },
-    }
-  } catch {
-    return { ...layout, widget: { ...widget, params: null } }
   }
 }
 
