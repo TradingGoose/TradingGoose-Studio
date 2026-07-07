@@ -1,8 +1,6 @@
 import type { McpTransport } from '@/lib/mcp/types'
-import { readEntitySelectionState, resolveEntityId } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
-
-export { readEntitySelectionState }
+import { resolveEntityId } from '@/widgets/widget-contracts'
 
 export interface McpServerFormData {
   name: string
@@ -26,10 +24,5 @@ export const createDefaultMcpServerFormData = (): McpServerFormData => ({
   env: {},
 })
 
-export const resolveMcpServerId = ({
-  params,
-  pairContext,
-}: {
-  params?: Record<string, unknown> | null
-  pairContext?: { mcpServerId?: string | null } | null
-}) => resolveEntityId('mcpServerId', { params, pairContext })
+export const resolveMcpServerId = ({ params }: { params?: Record<string, unknown> | null }) =>
+  resolveEntityId('mcpServerId', { params })

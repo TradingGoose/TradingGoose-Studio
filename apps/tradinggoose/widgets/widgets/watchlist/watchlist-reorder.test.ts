@@ -22,13 +22,6 @@ const listing = (id: string, parentId: string | null = null): WatchlistItem => (
   },
 })
 
-const list = (id: string, label = id): WatchlistItem => ({
-  id,
-  type: 'list',
-  parentId: null,
-  label,
-})
-
 const section = (id: string, label = id, parentId: string | null = null): WatchlistItem => ({
   id,
   type: 'section',
@@ -89,9 +82,9 @@ describe('watchlist reorder helpers', () => {
   it('moves a section under another container without rewriting descendant parents', () => {
     const items = [
       listing('a'),
-      list('l1'),
-      listing('b', 'l1'),
-      listing('c', 'l1'),
+      section('s1'),
+      listing('b', 's1'),
+      listing('c', 's1'),
       section('s2'),
       listing('d', 's2'),
     ]
@@ -99,23 +92,11 @@ describe('watchlist reorder helpers', () => {
     const next = moveWatchlistItem(
       items,
       createWatchlistContainerSortableId('s2'),
-      createWatchlistContainerSortableId('l1')
+      createWatchlistContainerSortableId('s1')
     )
 
-    expect(next?.find((item) => item.id === 's2')?.parentId).toBe('l1')
+    expect(next?.find((item) => item.id === 's2')?.parentId).toBe('s1')
     expect(next?.find((item) => item.id === 'd')?.parentId).toBe('s2')
-  })
-
-  it('does not move a root list under another container', () => {
-    const items = [list('l1'), section('s1', 's1', 'l1'), list('l2')]
-
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistContainerSortableId('l2'),
-        createWatchlistContainerSortableId('l1')
-      )
-    ).toBeNull()
   })
 
   it('resolves a container drag over child rows to the target container block', () => {

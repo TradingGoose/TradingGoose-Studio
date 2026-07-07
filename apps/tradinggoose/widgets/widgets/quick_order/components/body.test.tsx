@@ -208,7 +208,7 @@ const renderBody = async (
   container: HTMLDivElement,
   root: Root,
   params: Record<string, unknown>,
-  onWidgetParamsChange = vi.fn()
+  onWidgetParamsPatch = vi.fn()
 ) => {
   await act(async () => {
     root.render(
@@ -217,7 +217,7 @@ const renderBody = async (
         widget={{ key: 'quick_order' } as any}
         panelId='panel-1'
         params={params}
-        onWidgetParamsChange={onWidgetParamsChange}
+        onWidgetParamsPatch={onWidgetParamsPatch}
       />
     )
   })
@@ -493,7 +493,11 @@ describe('QuickOrderWidgetBody', () => {
       },
       onInvalidProviderChange
     )
-    expect(onInvalidProviderChange).toHaveBeenCalledWith({ side: 'buy' })
+    expect(onInvalidProviderChange).toHaveBeenCalledWith({
+      provider: null,
+      serviceId: null,
+      portfolioIdentity: null,
+    })
 
     await act(async () => {
       root.unmount()
@@ -520,8 +524,7 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
       serviceId: 'alpaca-live',
-      provider: 'alpaca',
-      side: 'buy',
+      portfolioIdentity: null,
     })
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
@@ -666,7 +669,7 @@ describe('QuickOrderWidgetBody', () => {
           widget={{ key: 'quick_order' } as any}
           panelId='panel-1'
           params={{ provider: 'alpaca', portfolioIdentity, side: 'buy' }}
-          onWidgetParamsChange={vi.fn()}
+          onWidgetParamsPatch={vi.fn()}
         />
       )
     })

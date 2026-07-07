@@ -12,11 +12,11 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { indicatorListWidgetContract } from '@/widgets/widgets/list_indicator/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
@@ -43,26 +43,15 @@ const IndicatorListHeaderRight = ({
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
   const importMutation = useImportIndicators()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('indicator', workspaceId)
 
   const selectIndicator = useCallback(
     (createdIndicatorId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
-        return
-      }
-
-      emitIndicatorSelectionChange({
-        indicatorId: createdIndicatorId,
-        panelId,
-        widgetKey: 'list_indicator',
-      })
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, 'list_indicator', { indicatorId: createdIndicatorId })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions, panelId]
   )
   const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 
@@ -173,11 +162,8 @@ const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
 }
 
 export const listIndicatorWidget: DashboardWidgetDefinition = {
-  key: 'list_indicator',
-  title: 'Indicator List',
+  contract: indicatorListWidgetContract,
   icon: ListChecks,
-  category: 'list',
-  description: 'Browse and manage custom indicators for the workspace.',
   component: (props) => <ListIndicatorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {

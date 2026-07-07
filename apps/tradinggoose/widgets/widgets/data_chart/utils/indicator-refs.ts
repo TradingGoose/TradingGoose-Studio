@@ -1,4 +1,4 @@
-import type { DataChartViewParams, IndicatorRef } from '@/widgets/widgets/data_chart/types'
+import type { DataChartViewParams, IndicatorRef } from '@/widgets/widgets/data_chart/contract'
 
 export const buildIndicatorRefs = (
   ids: string[],

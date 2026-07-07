@@ -1,16 +1,19 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
+import type {
+  QuickOrderSide,
+  QuickOrderWidgetParams,
+} from '@/widgets/widgets/quick_order/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitQuickOrderParamsChange } from '@/widgets/utils/quick-order-params'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import {
   getQuickOrderMarketProviderOptions,
   getQuickOrderProviderAvailabilityIds,
@@ -18,13 +21,20 @@ import {
   resolveQuickOrderMarketProviderId,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
-import type { QuickOrderSide, QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 type HeaderControlProps = {
   workspaceId?: string
   panelId?: string
   widgetKey: string
   params: QuickOrderWidgetParams | null
+}
+
+const usePatchQuickOrderParams = (panelId: string | undefined, widgetKey: string) => {
+  const actions = useWidgetConfigRuntimeActions()
+  return (params: Record<string, unknown>) => {
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey, params)
+  }
 }
 
 export function QuickOrderHeaderControls({
@@ -45,6 +55,7 @@ export function QuickOrderHeaderControls({
   const marketProviderOptions = useMemo(() => getQuickOrderMarketProviderOptions(), [])
   const providerId = resolveQuickOrderProviderId(params?.provider, providerAvailabilityQuery.data)
   const marketProviderId = resolveQuickOrderMarketProviderId(params, marketProviderOptions)
+  const patchParams = usePatchQuickOrderParams(panelId, widgetKey)
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
@@ -57,27 +68,19 @@ export function QuickOrderHeaderControls({
         options={marketProviderOptions}
         onChange={(nextProvider) => {
           if (!nextProvider || nextProvider === marketProviderId) return
-          emitQuickOrderParamsChange({
-            params: {
-              marketProvider: nextProvider,
-              marketProviderParams: null,
-              marketAuth: null,
-            },
-            panelId,
-            widgetKey,
+          patchParams({
+            marketProvider: nextProvider,
+            marketProviderParams: null,
+            marketAuth: null,
           })
         }}
         providerParams={params?.marketProviderParams}
         authParams={params?.marketAuth}
         workspaceId={workspaceId}
         onSettingsSave={({ providerParams, auth }) => {
-          emitQuickOrderParamsChange({
-            params: {
-              marketProviderParams: providerParams,
-              marketAuth: auth,
-            },
-            panelId,
-            widgetKey,
+          patchParams({
+            marketProviderParams: providerParams,
+            marketAuth: auth,
           })
         }}
       />
@@ -92,24 +95,16 @@ export function QuickOrderHeaderControls({
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
 
-            emitQuickOrderParamsChange({
-              params: {
-                provider: nextProvider,
-                serviceId: null,
-                portfolioIdentity: null,
-              },
-              panelId,
-              widgetKey,
+            patchParams({
+              provider: nextProvider,
+              serviceId: null,
+              portfolioIdentity: null,
             })
           }}
           onAccountSelect={({ serviceId, portfolioIdentity }) => {
-            emitQuickOrderParamsChange({
-              params: {
-                portfolioIdentity,
-                ...(serviceId ? { serviceId } : {}),
-              },
-              panelId,
-              widgetKey,
+            patchParams({
+              portfolioIdentity,
+              ...(serviceId ? { serviceId } : {}),
             })
           }}
         />
@@ -121,6 +116,7 @@ export function QuickOrderHeaderControls({
 function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.quickOrder.header
+  const patchParams = usePatchQuickOrderParams(panelId, widgetKey)
   const side = params?.side === 'sell' ? 'sell' : 'buy'
   const sides: Array<{ id: QuickOrderSide; label: string }> = [
     { id: 'buy', label: copy.buy },
@@ -141,11 +137,7 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
             className='h-5 min-w-14 rounded-xs px-3 text-sm'
             onClick={() => {
               if (option.id === side) return
-              emitQuickOrderParamsChange({
-                params: { side: option.id },
-                panelId,
-                widgetKey,
-              })
+              patchParams({ side: option.id })
             }}
           >
             {option.label}

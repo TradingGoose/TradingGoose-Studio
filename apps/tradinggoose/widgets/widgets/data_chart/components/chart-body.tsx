@@ -8,14 +8,16 @@ import type { InputMetaMap } from '@/lib/indicators/types'
 import { useSocket } from '@/contexts/socket-context'
 import { useIndicators } from '@/hooks/queries/indicators'
 import type { MarketSessionWindow } from '@/providers/market/types'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useDataChartParamsPersistence } from '@/widgets/utils/chart-params'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
+import {
+  formatDataChartIntervalLabel,
+  useWorkspaceWidgetsCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
 import { useChartDefaults } from '@/widgets/widgets/data_chart/hooks/use-chart-defaults'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
@@ -29,17 +31,11 @@ import { useListingState } from '@/widgets/widgets/data_chart/hooks/use-listing-
 import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
-import {
-  formatDataChartIntervalLabel,
-  useWorkspaceWidgetsCopy,
-} from '@/widgets/widgets/data_chart/copy'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type {
   DataChartDataContext,
-  DataChartWidgetParams,
-  dataChartWidgetParams,
   IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import {
@@ -53,31 +49,20 @@ const LEFT_OVERLAY_GAP_PX = 3
 const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
 const DRAW_TRACE_STORAGE_KEY = 'tg:data-chart:draw-trace'
 
-export const DataChartWidgetBody = ({
-  params,
-  context,
-  pairColor = 'gray',
-  panelId,
-  widget,
-  onWidgetParamsChange,
-}: WidgetComponentProps) => {
+export const DataChartWidgetBody = ({ params, context, panelId, widget }: WidgetComponentProps) => {
   const locale = useLocale()
   const widgetsCopy = useWorkspaceWidgetsCopy()
   const copy = widgetsCopy.dataChart
   const workspaceId = context?.workspaceId ?? null
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const pairContext = usePairColorContext(resolvedPairColor)
-  useDataChartParamsPersistence({ onWidgetParamsChange, panelId, widget, params })
 
   const dataParams = useMemo(() => {
     if (!params || typeof params !== 'object') return {}
-    return params as dataChartWidgetParams
+    return params as DataChartWidgetParams
   }, [params])
   const widgetKey = widget?.key ?? 'data_chart'
 
   const providerId = dataParams.data?.provider
-  const listingValue =
-    resolvedPairColor !== 'gray' ? (pairContext.listing ?? null) : (dataParams.listing ?? null)
+  const listingValue = dataParams.listing ?? null
   const seriesWindow = useMemo(
     () => resolveSeriesWindow(dataParams as DataChartWidgetParams, providerId),
     [providerId, dataParams.view?.interval, dataParams.view?.rangePresetId]
@@ -175,8 +160,6 @@ export const DataChartWidgetBody = ({
     dataParams: dataParams as DataChartWidgetParams,
     providerId,
     seriesWindow,
-    onWidgetParamsChange,
-    resolvedPairColor,
     panelId,
     widgetKey,
   })
@@ -398,7 +381,11 @@ export const DataChartWidgetBody = ({
       const isHidden = hiddenIndicators.has(indicatorId)
       entry.plots.forEach((plot) => {
         if (typeof (plot.series as { applyOptions?: unknown }).applyOptions === 'function') {
-          ;(plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
+          ;(
+            plot.series as {
+              applyOptions: (options: { visible: boolean }) => void
+            }
+          ).applyOptions({
             visible: !isHidden,
           })
         }

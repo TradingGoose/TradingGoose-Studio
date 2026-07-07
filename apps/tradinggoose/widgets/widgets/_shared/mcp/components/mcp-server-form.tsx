@@ -69,10 +69,7 @@ export function McpServerForm({
             return [line, '']
           }
 
-          return [
-            line.slice(0, separatorIndex).trim(),
-            line.slice(separatorIndex + 1).trim(),
-          ]
+          return [line.slice(0, separatorIndex).trim(), line.slice(separatorIndex + 1).trim()]
         })
         .filter(([key]) => key.length > 0)
     )

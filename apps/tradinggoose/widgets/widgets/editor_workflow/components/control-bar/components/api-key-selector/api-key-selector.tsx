@@ -28,8 +28,8 @@ import {
 } from '@/components/ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ApiKeySelector')
 
@@ -206,17 +206,17 @@ export function ApiKeySelector({
                 return deployedApiKeyDisplay
               })()}
             </pre>
-              {(() => {
-                const match = deployedApiKeyDisplay.match(/^(.*?)\s+\(([^)]+)\)$/)
-                if (match) {
-                  const type = match[2]
-                  return (
-                    <div className='ml-2 flex-shrink-0'>
-                      <span className='inline-flex items-center rounded-md bg-muted px-2 py-1 font-medium text-muted-foreground text-xs capitalize'>
-                        {getTypeLabel(type)}
-                      </span>
-                    </div>
-                  )
+            {(() => {
+              const match = deployedApiKeyDisplay.match(/^(.*?)\s+\(([^)]+)\)$/)
+              if (match) {
+                const type = match[2]
+                return (
+                  <div className='ml-2 flex-shrink-0'>
+                    <span className='inline-flex items-center rounded-md bg-muted px-2 py-1 font-medium text-muted-foreground text-xs capitalize'>
+                      {getTypeLabel(type)}
+                    </span>
+                  </div>
+                )
               }
               return null
             })()}

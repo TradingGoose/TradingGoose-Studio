@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { resolveNextSectionName } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 import { resolveMarketProviderSettingsDefinitions } from '@/lib/market/market-provider-settings'
+import { resolveNextSectionName } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 describe('watchlist header naming helpers', () => {
   it('resolves the next available section number from existing sections only', () => {

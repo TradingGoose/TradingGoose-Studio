@@ -1,16 +1,14 @@
 'use client'
 
 import { CandlestickChart } from 'lucide-react'
+import { dataChartWidgetContract } from '@/widgets/widgets/data_chart/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { DataChartWidgetBody } from '@/widgets/widgets/data_chart/components/chart-body'
 import { renderDataChartHeader } from '@/widgets/widgets/data_chart/components/header'
 
 export const dataChartWidget: DashboardWidgetDefinition = {
-  key: 'data_chart',
-  title: 'Data Chart',
+  contract: dataChartWidgetContract,
   icon: CandlestickChart,
-  category: 'trading',
-  description: 'Visualize OHLCV market data.',
   component: (props) => <DataChartWidgetBody {...props} />,
   renderHeader: renderDataChartHeader,
 }

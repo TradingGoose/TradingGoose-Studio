@@ -14,7 +14,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useLocale } from 'next-intl'
 import {
   type DragOverEvent,
   KeyboardSensor,
@@ -26,6 +25,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
@@ -50,19 +50,18 @@ import {
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import type { LocaleCode } from '@/i18n/utils'
 import type {
-  WatchlistItem,
   WatchlistContainerItem,
+  WatchlistItem,
   WatchlistListingItem,
   WatchlistRecord,
 } from '@/lib/watchlists/types'
+import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
-  createWatchlistListingSortableId,
   createWatchlistContainerSortableId,
+  createWatchlistListingSortableId,
   moveWatchlistItem,
   resolveEffectiveDropTarget,
   WATCHLIST_ROOT_SORTABLE_ID,
@@ -75,7 +74,6 @@ import {
 
 type WatchlistTableProps = {
   watchlist: WatchlistRecord | null
-  rootParentId?: string | null
   quotes: Record<string, MarketQuoteSnapshot>
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
@@ -148,7 +146,6 @@ const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARE
 
 export const WatchlistTable = ({
   watchlist,
-  rootParentId = null,
   quotes,
   providerId,
   onUpdateItemListing,
@@ -189,8 +186,6 @@ export const WatchlistTable = ({
         continue
       }
 
-      if (item.type === 'list') continue
-
       const key = parentKey(item.parentId)
       rowsByParent.set(key, [...(rowsByParent.get(key) ?? []), item])
     }
@@ -219,15 +214,15 @@ export const WatchlistTable = ({
       return output
     }
 
-    const containers = buildContainers(rootParentId, 0)
+    const containers = buildContainers(null, 0)
     const allContainers = flattenContainers(containers)
 
     return {
-      rootRows: buildRows(rootParentId, 0),
+      rootRows: buildRows(null, 0),
       containers,
       allContainers,
     }
-  }, [rootParentId, watchlist])
+  }, [watchlist])
 
   const listingRows = useMemo(
     () => [
@@ -289,10 +284,8 @@ export const WatchlistTable = ({
 
     const exists =
       watchlist?.items.some(
-        (item) =>
-          (item.type === 'list' || item.type === 'section') && item.id === activeContainerId
-      ) ??
-      false
+        (item) => item.type === 'section' && item.id === activeContainerId
+      ) ?? false
     if (!exists) {
       setActiveContainerId(null)
     }
@@ -449,12 +442,7 @@ export const WatchlistTable = ({
   const commitDrop = async (activeSortableId: string, overSortableId: string) => {
     if (!watchlist || !dragEnabled) return
 
-    const nextItems = moveWatchlistItem(
-      watchlist.items,
-      activeSortableId,
-      overSortableId,
-      rootParentId
-    )
+    const nextItems = moveWatchlistItem(watchlist.items, activeSortableId, overSortableId)
     if (!nextItems) return
 
     await onReorderItems(nextItems)
@@ -471,9 +459,7 @@ export const WatchlistTable = ({
       return
     }
 
-    setDropTarget(
-      resolveEffectiveDropTarget(watchlist.items, String(active.id), String(over.id), rootParentId)
-    )
+    setDropTarget(resolveEffectiveDropTarget(watchlist.items, String(active.id), String(over.id)))
   }
 
   const resetDragState = () => {
@@ -757,9 +743,7 @@ export const WatchlistTable = ({
             <td colSpan={COLUMN_COUNT} className='p-0'>
               <div
                 className='flex items-center gap-2 px-3 py-2'
-                style={
-                  container.depth > 0 ? { paddingLeft: 12 + container.depth * 16 } : undefined
-                }
+                style={container.depth > 0 ? { paddingLeft: 12 + container.depth * 16 } : undefined}
               >
                 <Button
                   type='button'

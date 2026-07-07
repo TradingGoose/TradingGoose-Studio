@@ -14,14 +14,8 @@ describe('workflow editor event bus scoping', () => {
     const scopedListener = vi.fn()
     const otherScopeListener = vi.fn()
 
-    subscribeRemoveFromSubflow(
-      { channelId: 'channel-a', workflowId: 'wf-1' },
-      scopedListener
-    )
-    subscribeRemoveFromSubflow(
-      { channelId: 'channel-b', workflowId: 'wf-1' },
-      otherScopeListener
-    )
+    subscribeRemoveFromSubflow({ channelId: 'channel-a', workflowId: 'wf-1' }, scopedListener)
+    subscribeRemoveFromSubflow({ channelId: 'channel-b', workflowId: 'wf-1' }, otherScopeListener)
 
     emitRemoveFromSubflow({
       blockId: 'block-1',

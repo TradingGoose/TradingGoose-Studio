@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
@@ -9,16 +9,14 @@ import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
-import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
-import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
+import type {
+  HeatmapWatchlistSizeMetric,
+  HeatmapWidgetParams,
+} from '@/widgets/widgets/heatmap/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitHeatmapParamsChange,
-  useHeatmapParamsPersistence,
-} from '@/widgets/utils/heatmap-params'
-import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
@@ -35,10 +33,6 @@ import {
   resolvePortfolioHeatmapListings,
   resolveWatchlistHeatmapListings,
 } from '@/widgets/widgets/heatmap/components/source-items'
-import type {
-  HeatmapWatchlistSizeMetric,
-  HeatmapWidgetParams,
-} from '@/widgets/widgets/heatmap/types'
 
 const HeatmapMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
@@ -68,7 +62,7 @@ export function HeatmapWidgetBody({
   widget,
   params,
   pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.heatmap.body
@@ -80,24 +74,20 @@ export function HeatmapWidgetBody({
   const marketProviderId = resolveHeatmapMarketProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
-  const watchlistDocument = useWatchlistYjsDocument({
-    workspaceId,
-    watchlistId: workspaceId,
-  })
-
-  useHeatmapParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params: params && typeof params === 'object' ? (params as Record<string, unknown>) : null,
-  })
+  const patchWidgetParams = useCallback(
+    (nextParams: Record<string, unknown>) => {
+      onWidgetParamsPatch?.(nextParams)
+    },
+    [onWidgetParamsPatch]
+  )
+  const watchlistDocument = useSelectedWatchlistYjsDocument({ workspaceId })
 
   useEffect(() => {
     const nextParams: Record<string, unknown> = {}
     if (!widgetParams?.sourceMode) nextParams.sourceMode = sourceMode
     if (Object.keys(nextParams).length === 0) return
-    emitHeatmapParamsChange({ params: nextParams, panelId, widgetKey })
-  }, [panelId, sourceMode, widgetKey, widgetParams])
+    patchWidgetParams(nextParams)
+  }, [patchWidgetParams, sourceMode, widgetParams])
 
   const watchlistDocumentsLoading =
     sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocument.isLoading
@@ -137,16 +127,12 @@ export function HeatmapWidgetBody({
 
   useEffect(() => {
     if (!hasInvalidPersistedTradingProvider) return
-    emitHeatmapParamsChange({
-      params: {
-        tradingProvider: null,
-        serviceId: null,
-        portfolioIdentity: null,
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      tradingProvider: null,
+      serviceId: null,
+      portfolioIdentity: null,
     })
-  }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
+  }, [hasInvalidPersistedTradingProvider, patchWidgetParams])
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
@@ -156,7 +142,7 @@ export function HeatmapWidgetBody({
       enabled: sourceMode === 'portfolio' && isTradingProviderReady,
       panelId,
       widgetKey,
-      emitParamsChange: emitHeatmapParamsChange,
+      emitParamsChange: ({ params }) => patchWidgetParams(params),
     })
 
   const snapshotQuery = usePortfolioDetail({
@@ -218,13 +204,12 @@ export function HeatmapWidgetBody({
     listings: cappedListings,
     enabled: cappedListings.length > 0,
   })
-  const setPairContext = useSetPairColorContext()
   const handleListingSelect = useCallback(
     (listing: ListingIdentity) => {
       if (pairColor === 'gray') return
-      setPairContext(pairColor, { listing })
+      patchWidgetParams({ listing })
     },
-    [pairColor, setPairContext]
+    [pairColor, patchWidgetParams]
   )
   const chartItems = useMemo(
     () =>

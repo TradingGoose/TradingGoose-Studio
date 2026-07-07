@@ -1,6 +1,7 @@
 'use client'
 
 import { SquareFunction } from 'lucide-react'
+import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
   IndicatorEditorExportButton,
@@ -12,11 +13,8 @@ import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/ed
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
 export const editorIndicatorWidget: DashboardWidgetDefinition = {
-  key: 'editor_indicator',
-  title: 'Indicator Editor',
+  contract: indicatorEditorWidgetContract,
   icon: SquareFunction,
-  category: 'editor',
-  description: 'Edit PineTS indicators in one workspace.',
   component: (props) => <EditorIndicatorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =

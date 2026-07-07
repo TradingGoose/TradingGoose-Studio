@@ -3,20 +3,17 @@
 import type { MutableRefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { IChartApi, IPaneApi, ISeriesApi } from 'lightweight-charts'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import type { DataChartWidgetParams, DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
 import {
   normalizeManualOwnerSnapshot,
   serializeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/snapshot'
+} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import { startManualToolForSelection as startManualToolForSelectionCore } from '@/widgets/widgets/data_chart/drawings/start-manual-tool-for-selection'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import { useManualLineToolsAdapter } from '@/widgets/widgets/data_chart/drawings/use-adapter'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { usePointerPaneTracking } from '@/widgets/widgets/data_chart/hooks/use-pointer-pane-tracking'
-import type {
-  DataChartWidgetParams,
-  DrawToolsRef,
-  IndicatorRuntimeEntry,
-} from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 import {
   DEFAULT_MANUAL_DRAW_TOOLS,
   normalizeDrawToolsRefs,
@@ -62,6 +59,7 @@ export const useManualDrawToolsController = ({
 }: UseManualDrawToolsControllerArgs) => {
   const [activeDrawToolsId, setActiveDrawToolsId] = useState<string | null>(null)
   const [transientDrawTools, setTransientDrawTools] = useState<DrawToolsRef[]>([])
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const drawToolsBootstrapScopeRef = useRef<string | null>(null)
   const drawToolsBootstrapDoneRef = useRef(false)
   const pointerPaneIndexRef = useRef<number | null>(null)
@@ -125,17 +123,13 @@ export const useManualDrawToolsController = ({
       drawToolsBootstrapDoneRef.current = true
     }
 
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...currentView,
-          drawTools: nextDrawTools,
-        },
+    patchWidgetParams({
+      view: {
+        ...currentView,
+        drawTools: nextDrawTools,
       },
-      panelId,
-      widgetKey,
     })
-  }, [view, panelId, widgetKey, drawToolsScopeKey])
+  }, [view, patchWidgetParams, drawToolsScopeKey])
 
   useEffect(() => {
     if (effectiveDrawTools.length === 0) {
@@ -238,20 +232,15 @@ export const useManualDrawToolsController = ({
       return
     }
 
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...currentView,
-          drawTools: nextDrawTools,
-        },
+    patchWidgetParams({
+      view: {
+        ...currentView,
+        drawTools: nextDrawTools,
       },
-      panelId,
-      widgetKey,
     })
   }, [
     view,
-    panelId,
-    widgetKey,
+    patchWidgetParams,
     manualLineToolsRevision,
     toManualOwnerId,
     getOwnerSnapshot,
@@ -313,18 +302,14 @@ export const useManualDrawToolsController = ({
         return
       }
 
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            ...currentView,
-            drawTools: nextDrawTools,
-          },
+      patchWidgetParams({
+        view: {
+          ...currentView,
+          drawTools: nextDrawTools,
         },
-        panelId,
-        widgetKey,
       })
     },
-    [view, panelId, widgetKey]
+    [view, patchWidgetParams]
   )
 
   const startManualToolForSelection = useCallback(

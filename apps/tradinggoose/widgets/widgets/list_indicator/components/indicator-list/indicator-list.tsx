@@ -9,16 +9,12 @@ import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
-import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'
 
@@ -31,7 +27,7 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 export function IndicatorList({
   context,
   params,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
@@ -44,22 +40,6 @@ export function IndicatorList({
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-
-  useIndicatorSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'list_indicator',
-    onIndicatorSelect: (indicatorId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === indicatorId) return
-      setPairContext(resolvedPairColor, { indicatorId })
-    },
-  })
 
   const listIndicators = useMemo<IndicatorDefinition[]>(
     () =>
@@ -76,50 +56,25 @@ export function IndicatorList({
     [members, workspaceId]
   )
 
-  const requestedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : getIndicatorIdFromParams(params)
+  const requestedIndicatorId = getIndicatorIdFromParams(params)
   const selectedIndicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
     entityIds: listIndicators.map((indicator) => indicator.id),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   usePersistResolvedEntityId({
     entityId: selectedIndicatorId,
     entityIdKey: 'indicatorId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.indicatorId !== indicatorId) {
-          setPairContext(resolvedPairColor, { indicatorId })
-        }
-        return
-      }
-
-      if (onWidgetParamsChange) {
-        const currentParams =
-          params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-        onWidgetParamsChange({
-          ...currentParams,
-          indicatorId,
-        })
-      }
+      onWidgetParamsPatch?.({ indicatorId })
     },
-    [
-      isLinkedToColorPair,
-      pairContext?.indicatorId,
-      resolvedPairColor,
-      setPairContext,
-      onWidgetParamsChange,
-      params,
-      panelId,
-    ]
+    [onWidgetParamsPatch]
   )
 
   const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)

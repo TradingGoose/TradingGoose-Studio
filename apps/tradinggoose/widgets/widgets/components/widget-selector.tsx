@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useSelectorMessages, useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   widgetHeaderControlClassName,
@@ -18,8 +17,9 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import { useSelectorMessages, useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
-import type { DashboardWidgetDefinition } from '@/widgets/types'
+import type { DashboardWidgetCatalogDefinition } from '@/widgets/types'
 
 export interface WidgetSelectorProps {
   currentKey?: string | null
@@ -27,7 +27,7 @@ export interface WidgetSelectorProps {
   disabled?: boolean
   renderTrigger?: (options: {
     disabled: boolean
-    currentDefinition?: DashboardWidgetDefinition
+    currentDefinition?: DashboardWidgetCatalogDefinition
   }) => ReactElement
 }
 
@@ -55,7 +55,7 @@ export function WidgetSelectorComponent({
         .filter((category) => category.widgets.length > 0),
     [categories]
   )
-  const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(
+  const currentDefinition: DashboardWidgetCatalogDefinition | undefined = useMemo(
     () => getWidgetDefinition(currentKey ?? 'empty') ?? getWidgetDefinition('empty'),
     [currentKey]
   )

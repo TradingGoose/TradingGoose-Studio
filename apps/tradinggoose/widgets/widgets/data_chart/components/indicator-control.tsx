@@ -14,10 +14,10 @@ import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { cn } from '@/lib/utils'
 import {
+  type DataChartCopy,
   formatDataChartCompileFailed,
   getDataChartIndicatorMetadataLabel,
   useDataChartCopy,
-  type DataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import type { IndicatorPlotValue } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
 
@@ -39,7 +39,8 @@ const controlButtonClass =
 
 const formatInputValue = (copy: DataChartCopy, value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toString()
-  if (typeof value === 'boolean') return value ? copy.indicator.trueValue : copy.indicator.falseValue
+  if (typeof value === 'boolean')
+    return value ? copy.indicator.trueValue : copy.indicator.falseValue
   if (typeof value === 'string') return value
   if (value == null) return copy.indicator.emptyValue
   try {
@@ -227,9 +228,7 @@ export const IndicatorControl = ({
                 <div className='max-h-48 overflow-auto rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-[12px] text-destructive whitespace-pre-wrap break-words'>
                   {errorMessage}
                 </div>
-                <p className='mt-3 text-xs text-muted-foreground'>
-                  {copy.indicator.errorGuidance}
-                </p>
+                <p className='mt-3 text-xs text-muted-foreground'>{copy.indicator.errorGuidance}</p>
               </div>
             </DialogContent>
           </Dialog>

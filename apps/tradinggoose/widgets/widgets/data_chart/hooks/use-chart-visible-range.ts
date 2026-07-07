@@ -3,13 +3,14 @@
 import type { MutableRefObject } from 'react'
 import { useEffect, useRef } from 'react'
 import type { IChartApi } from 'lightweight-charts'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import type { DataChartDataContext, dataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
+import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 
 type UseChartVisibleRangeArgs = {
   chartRef: MutableRefObject<IChartApi | null>
   dataContext: DataChartDataContext
-  params: dataChartWidgetParams
+  params: DataChartWidgetParams
   chartReady: number
   interval?: string | null
   panelId?: string
@@ -62,10 +63,16 @@ export const useChartVisibleRange = ({
   )
   const pendingRef = useRef<RangeMs | null>(null)
   const flushTimerRef = useRef<number | null>(null)
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParamsRef = useRef(patchWidgetParams)
 
   useEffect(() => {
     viewRef.current = params.view
   }, [params.view])
+
+  useEffect(() => {
+    patchWidgetParamsRef.current = patchWidgetParams
+  }, [patchWidgetParams])
 
   useEffect(() => {
     const chart = chartRef.current
@@ -97,11 +104,7 @@ export const useChartVisibleRange = ({
         nextView.interval = interval
       }
 
-      emitDataChartParamsChange({
-        params: { view: nextView },
-        panelId,
-        widgetKey,
-      })
+      patchWidgetParamsRef.current({ view: nextView })
     }
 
     const scheduleFlush = () => {

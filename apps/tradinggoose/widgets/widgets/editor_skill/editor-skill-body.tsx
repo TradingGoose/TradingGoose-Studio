@@ -4,19 +4,12 @@ import { useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
-import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
-import {
-  getSkillIdFromParams,
-  SKILL_EDITOR_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
+import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
 
@@ -28,19 +21,16 @@ export function EditorSkillWidgetBody({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: EditorSkillWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const exportRef = useRef<() => void>(() => {})
   const saveRef = useRef<() => void>(() => {})
 
   const paramsSkillId = getSkillIdFromParams(params)
-  const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
+  const requestedSkillId = paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
   const hasRequestedSkill = normalizedRequestedSkillId.length > 0
   const {
@@ -54,29 +44,15 @@ export function EditorSkillWidgetBody({
   const skillId = resolveEntityIdFromList({
     requestedEntityId: requestedSkillId,
     entityIds: skillMembers.map((member) => member.entityId),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   usePersistResolvedEntityId({
     entityId: skillId,
     entityIdKey: 'skillId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
-  })
-
-  useSkillSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: SKILL_EDITOR_WIDGET_KEY,
-    onSkillSelect: (nextSkillId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.skillId === nextSkillId) return
-      setPairContext(resolvedPairColor, { skillId: nextSkillId })
-    },
   })
 
   useSkillEditorActions({
@@ -119,7 +95,7 @@ export function EditorSkillWidgetBody({
   if (!skillId) {
     return (
       <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedSkillSelected : copy.selectSkillToEdit}
+        message={resolvedPairColor !== 'gray' ? copy.noSharedSkillSelected : copy.selectSkillToEdit}
       />
     )
   }

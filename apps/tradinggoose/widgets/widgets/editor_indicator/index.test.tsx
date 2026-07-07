@@ -22,6 +22,11 @@ vi.mock('@/widgets/widgets/components/pine-indicator-dropdown', () => ({
   IndicatorDropdown: () => <div>indicator-dropdown</div>,
 }))
 
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetPairContext: () => ({}),
+  useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
+}))
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }

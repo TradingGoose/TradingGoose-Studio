@@ -9,10 +9,7 @@ import {
   type ListingOption,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import {
-  buildListingDisplay,
-  getFlagData,
-} from '@/widgets/widgets/data_chart/utils/listing-utils'
+import { buildListingDisplay, getFlagData } from '@/widgets/widgets/data_chart/utils/listing-utils'
 
 type UseListingStateArgs = {
   listingValue: ListingInputValue
@@ -71,7 +68,10 @@ export const useListingState = ({
   )
 
   useEffect(() => {
-    if (listingIdentity && !areListingIdentitiesEqual(listingIdentityRef.current, listingIdentity)) {
+    if (
+      listingIdentity &&
+      !areListingIdentitiesEqual(listingIdentityRef.current, listingIdentity)
+    ) {
       listingIdentityRef.current = listingIdentity
     }
 

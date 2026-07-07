@@ -9,20 +9,12 @@ import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
-import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
-import {
-  normalizeSkillName,
-  resolveSkillId,
-  SKILL_LIST_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
+import { normalizeSkillName, resolveSkillId } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 export const SkillListMessage = WidgetStateMessage
@@ -30,7 +22,7 @@ export const SkillListMessage = WidgetStateMessage
 export function SkillList({
   context,
   params,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
@@ -42,22 +34,6 @@ export function SkillList({
   const { members, isLoading, error } = useEntityList('skill', workspaceId)
   const deleteMutation = useDeleteSkill()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-
-  useSkillSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: SKILL_LIST_WIDGET_KEY,
-    onSkillSelect: (skillId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.skillId === skillId) return
-      setPairContext(resolvedPairColor, { skillId })
-    },
-  })
 
   const listSkills = useMemo<SkillDefinition[]>(
     () =>
@@ -76,48 +52,25 @@ export function SkillList({
 
   const requestedSkillId = resolveSkillId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
   const selectedSkillId = resolveEntityIdFromList({
     requestedEntityId: requestedSkillId,
     entityIds: listSkills.map((skill) => skill.id),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   usePersistResolvedEntityId({
     entityId: selectedSkillId,
     entityIdKey: 'skillId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
   const handleSelect = useCallback(
     (skillId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.skillId !== skillId) {
-          setPairContext(resolvedPairColor, { skillId })
-        }
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        skillId,
-      })
+      onWidgetParamsPatch?.({ skillId })
     },
-    [
-      isLinkedToColorPair,
-      onWidgetParamsChange,
-      pairContext?.skillId,
-      panelId,
-      params,
-      resolvedPairColor,
-      setPairContext,
-    ]
+    [onWidgetParamsPatch]
   )
 
   const handleDelete = useCallback(

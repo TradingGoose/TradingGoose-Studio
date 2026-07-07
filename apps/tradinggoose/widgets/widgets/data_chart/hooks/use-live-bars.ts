@@ -5,6 +5,7 @@ import type { ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketBar } from '@/providers/market/types'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 import {
   buildIndexMaps,
   intervalToMs,
@@ -14,7 +15,7 @@ import {
   mergeBarsMs,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
-import type { DataChartCandleType, DataChartDataContext } from '@/widgets/widgets/data_chart/types'
+import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 
 type MarketLiveProvider = 'alpaca' | 'finnhub'
 

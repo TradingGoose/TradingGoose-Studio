@@ -1,3 +1,6 @@
+import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { getEntityListMembers } from '@/lib/yjs/entity-session'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 import type { WorkspaceEntityItem } from './types'
 
@@ -10,10 +13,38 @@ const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(item
 
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
+const readDashboardLayoutSortOrder = (item: WorkspaceEntityItem) =>
+  typeof item.sortOrder === 'number' && Number.isFinite(item.sortOrder)
+    ? item.sortOrder
+    : Number.MAX_SAFE_INTEGER
+
+const readDashboardLayoutCreatedAt = (item: WorkspaceEntityItem) => {
+  const createdAt = toTrimmedString(item.createdAt)
+  if (!createdAt) return Number.MAX_SAFE_INTEGER
+  const time = new Date(createdAt).getTime()
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER
+}
+
+const sortDashboardLayoutMentionItems = (items: WorkspaceEntityItem[]) =>
+  [...items].sort((left, right) => {
+    const orderDelta = readDashboardLayoutSortOrder(left) - readDashboardLayoutSortOrder(right)
+    if (orderDelta !== 0) return orderDelta
+
+    const createdDelta = readDashboardLayoutCreatedAt(left) - readDashboardLayoutCreatedAt(right)
+    if (createdDelta !== 0) return createdDelta
+
+    return left.id.localeCompare(right.id)
+  })
+
 export async function loadWorkspaceEntityMentionItems(
   entityKind: CopilotWorkspaceEntityKind,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null
 ): Promise<WorkspaceEntityItem[]> {
+  if (entityKind === 'dashboard_layout') {
+    return loadDashboardLayoutMentionItems(workspaceId, ownerUserId)
+  }
+
   let path = ''
 
   switch (entityKind) {
@@ -99,8 +130,41 @@ export async function loadWorkspaceEntityMentionItems(
           entityKind,
           id: item.id,
           name: toTrimmedString(item.name),
+          ownerUserId: toTrimmedString(data?.ownerUserId) || undefined,
           createdAt: toTrimmedString(item.createdAt) || undefined,
           updatedAt: toTrimmedString(item.updatedAt) || undefined,
         }))
+  }
+}
+
+async function loadDashboardLayoutMentionItems(
+  workspaceId: string,
+  ownerUserId?: string | null
+): Promise<WorkspaceEntityItem[]> {
+  const ownerId = toTrimmedString(ownerUserId)
+  if (!ownerId) return []
+
+  const result = await bootstrapYjsProvider(
+    buildEntityListDescriptor('dashboard_layout', workspaceId, { ownerUserId: ownerId }),
+    undefined,
+    'read'
+  )
+  try {
+    return sortDashboardLayoutMentionItems(
+      getEntityListMembers(result.doc, 'dashboard_layout').map((item) => ({
+        entityKind: 'dashboard_layout',
+        id: item.entityId,
+        name: toTrimmedString(item.entityName),
+        ownerUserId: ownerId,
+        sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : undefined,
+        isActive: item.isActive === true,
+        createdAt: toTrimmedString(item.createdAt) || undefined,
+        updatedAt: toTrimmedString(item.updatedAt) || undefined,
+      }))
+    )
+  } finally {
+    result.provider.disconnect()
+    result.provider.destroy()
+    result.doc.destroy()
   }
 }

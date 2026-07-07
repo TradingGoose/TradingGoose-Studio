@@ -51,9 +51,12 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   useWorkflowBlocks: () => mockBlocks,
 }))
 
-vi.mock('@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus', () => ({
-  emitRemoveFromSubflow: vi.fn(),
-}))
+vi.mock(
+  '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus',
+  () => ({
+    emitRemoveFromSubflow: vi.fn(),
+  })
+)
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,

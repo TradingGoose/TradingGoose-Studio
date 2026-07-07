@@ -33,18 +33,13 @@ import {
   useImportCustomTools,
 } from '@/hooks/queries/custom-tools'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { customToolListWidgetContract } from '@/widgets/widgets/list_custom_tool/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import {
-  emitCustomToolSelectionChange,
-  useCustomToolSelectionPersistence,
-} from '@/widgets/utils/custom-tool-selection'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
   CUSTOM_TOOL_LIST_WIDGET_KEY,
@@ -195,26 +190,17 @@ function CustomToolListHeaderRight({
   const permissions = useUserPermissionsContext()
   const createToolMutation = useCreateCustomTool()
   const importMutation = useImportCustomTools()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('custom_tool', workspaceId)
 
   const selectTool = useCallback(
     (createdToolId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { customToolId: createdToolId })
-        return
-      }
-
-      emitCustomToolSelectionChange({
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, CUSTOM_TOOL_LIST_WIDGET_KEY, {
         customToolId: createdToolId,
-        panelId,
-        widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
       })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions, panelId]
   )
   const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
@@ -307,7 +293,7 @@ function ListCustomToolWidgetBodyInner({
   context,
   params,
   pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
   panelId,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
@@ -316,9 +302,6 @@ function ListCustomToolWidgetBodyInner({
   const { members, isLoading, error } = useEntityList('custom_tool', workspaceId)
   const deleteToolMutation = useDeleteCustomTool()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const [deletingToolIds, setDeletingToolIds] = useState<Set<string>>(new Set())
 
   const tools = useMemo(
@@ -340,61 +323,25 @@ function ListCustomToolWidgetBodyInner({
 
   const requestedToolId = resolveCustomToolId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
   const selectedToolId = resolveEntityIdFromList({
     requestedEntityId: requestedToolId,
     entityIds: tools.map((tool) => tool.id),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   usePersistResolvedEntityId({
     entityId: selectedToolId,
     entityIdKey: 'customToolId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
-  })
-
-  useCustomToolSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
-    onCustomToolSelect: (customToolId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
-    },
   })
 
   const syncSelection = useCallback(
     (customToolId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.customToolId !== customToolId) {
-          setPairContext(resolvedPairColor, { customToolId })
-        }
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        customToolId,
-      })
+      onWidgetParamsPatch?.({ customToolId })
     },
-    [
-      isLinkedToColorPair,
-      onWidgetParamsChange,
-      pairContext?.customToolId,
-      panelId,
-      params,
-      resolvedPairColor,
-      setPairContext,
-    ]
+    [onWidgetParamsPatch]
   )
 
   const handleDeleteTool = useCallback(
@@ -478,11 +425,8 @@ const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
 }
 
 export const listCustomToolWidget: DashboardWidgetDefinition = {
-  key: CUSTOM_TOOL_LIST_WIDGET_KEY,
-  title: 'Custom Tool List',
+  contract: customToolListWidgetContract,
   icon: Wrench,
-  category: 'list',
-  description: 'Browse and manage workspace custom tools.',
   component: (props) => <ListCustomToolWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => ({
     right: (

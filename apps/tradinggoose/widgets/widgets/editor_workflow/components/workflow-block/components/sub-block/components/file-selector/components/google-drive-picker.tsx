@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, FileIcon, FolderIcon, RefreshCw, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { GoogleDocsIcon, GoogleSheetsIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,6 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleDrivePicker')

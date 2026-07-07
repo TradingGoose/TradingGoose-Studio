@@ -7,14 +7,12 @@ import {
   useWorkflowDropdownMessages,
   useWorkflowEditorMessages,
 } from '@/i18n/workspace-widget-hooks'
+import { workflowEditorWidgetContract } from '@/widgets/widgets/editor_workflow/contract'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
@@ -38,7 +36,7 @@ const WorkflowEditorWidgetBody = ({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
   const copy = useWorkflowEditorMessages()
@@ -61,18 +59,10 @@ const WorkflowEditorWidgetBody = ({
     params,
     fallbackWidgetKey: 'editor_workflow',
   })
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    pairColor: resolvedPairColor,
-    params,
-    scopeKey: widgetKey,
-  })
   usePersistResolvedEntityId({
     entityId: resolvedWorkflowId,
     entityIdKey: 'workflowId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
@@ -193,7 +183,7 @@ const WorkflowEditorHeaderSelector = ({
   widget,
   panelId,
 }: WorkflowEditorHeaderSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget: widget as WidgetComponentProps['widget'],
@@ -201,23 +191,17 @@ const WorkflowEditorHeaderSelector = ({
     params: widget?.params ?? null,
     fallbackWidgetKey: 'editor_workflow',
   })
+  const actions = useWidgetConfigRuntimeActions()
+  const widgetKey = widget?.key ?? 'editor_workflow'
 
   const handleWorkflowChange = (workflowId: string) => {
-    if (resolvedPairColor !== 'gray') {
-      return
-    }
-
-    emitWorkflowSelectionChange({
-      panelId,
-      workflowId,
-      widgetKey: widget?.key ?? 'editor_workflow',
-    })
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey, { workflowId })
   }
 
   return (
     <WorkflowDropdown
       workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
       value={resolvedWorkflowId}
       onChange={handleWorkflowChange}
     />
@@ -237,11 +221,8 @@ const WorkflowEditorHeaderControls = ({
 }
 
 export const workflowEditorWidget: DashboardWidgetDefinition = {
-  key: 'editor_workflow',
-  title: 'Workflow Editor',
+  contract: workflowEditorWidgetContract,
   icon: Workflow,
-  category: 'editor',
-  description: 'Canvas interface to build and edit workflows.',
   component: (props) => <WorkflowEditorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const widgetKey = widget?.key ?? 'editor_workflow'

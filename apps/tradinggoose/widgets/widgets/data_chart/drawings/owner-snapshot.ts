@@ -1,4 +1,7 @@
-import type { LineToolExport, LineToolPoint } from '@/widgets/widgets/data_chart/plugins/core'
+export type ManualOwnerLineToolPoint = {
+  timestamp: number
+  price: number
+}
 
 export type ManualOwnerSnapshotToolOptions = {
   visible?: false
@@ -10,7 +13,7 @@ export type ManualOwnerSnapshotToolOptions = {
 export type ManualOwnerSnapshotTool = {
   id: string
   toolType: string
-  points: LineToolPoint[]
+  points: ManualOwnerLineToolPoint[]
   options?: ManualOwnerSnapshotToolOptions
 }
 
@@ -21,14 +24,14 @@ export type ManualOwnerSnapshot = {
 export type ManualOwnerImportTool = {
   id: string
   toolType: string
-  points: LineToolPoint[]
+  points: ManualOwnerLineToolPoint[]
   options: Record<string, unknown>
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const normalizePoint = (value: unknown): LineToolPoint | null => {
+const normalizePoint = (value: unknown): ManualOwnerLineToolPoint | null => {
   if (!isRecord(value)) return null
   const rawTimestamp = Number(value.timestamp)
   const timestamp =
@@ -63,7 +66,7 @@ const normalizeTool = (value: unknown): ManualOwnerSnapshotTool | null => {
   if (!Array.isArray(value.points)) return null
   const points = value.points
     .map((point) => normalizePoint(point))
-    .filter((point): point is LineToolPoint => point !== null)
+    .filter((point): point is ManualOwnerLineToolPoint => point !== null)
   if (points.length === 0) return null
 
   const options = normalizeOptions(value.options)
@@ -84,7 +87,7 @@ export const serializeManualOwnerSnapshot = (snapshot: ManualOwnerSnapshot | und
   snapshot ? JSON.stringify(snapshot) : ''
 
 export const encodeManualOwnerSnapshot = (
-  tools: Array<LineToolExport<any>>
+  tools: readonly unknown[]
 ): ManualOwnerSnapshot | null => {
   const normalized = tools
     .map((tool) => normalizeTool(tool))

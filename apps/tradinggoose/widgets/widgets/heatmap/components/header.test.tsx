@@ -10,7 +10,7 @@ import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { renderHeatmapHeader } from '@/widgets/widgets/heatmap/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockEmitHeatmapParamsChange = vi.fn()
+const mockPatchWidgetParams = vi.fn()
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: {
     serviceId?: string | null
@@ -42,8 +42,10 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/widgets/utils/heatmap-params', () => ({
-  emitHeatmapParamsChange: (...args: unknown[]) => mockEmitHeatmapParamsChange(...args),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -162,11 +164,11 @@ describe('HeatmapHeaderControls', () => {
       )
     })
 
-    expect(mockEmitHeatmapParamsChange).not.toHaveBeenCalledWith(
+    expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
     expect(mockUseOAuthProviderAvailability).not.toHaveBeenCalled()
@@ -226,10 +228,8 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: { sourceMode: 'portfolio' },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+      sourceMode: 'portfolio',
     })
   })
 
@@ -255,10 +255,8 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: { watchlistSizeMetric: 'volume' },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+      watchlistSizeMetric: 'volume',
     })
   })
 
@@ -284,13 +282,9 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: {
-        serviceId: selectedPortfolioIdentity.serviceId,
-        portfolioIdentity: selectedPortfolioIdentity,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+      serviceId: selectedPortfolioIdentity.serviceId,
+      portfolioIdentity: selectedPortfolioIdentity,
     })
   })
 })

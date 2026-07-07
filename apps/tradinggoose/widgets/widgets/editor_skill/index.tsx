@@ -1,11 +1,9 @@
 'use client'
 
 import { ToolCase } from 'lucide-react'
+import { skillEditorWidgetContract } from '@/widgets/widgets/editor_skill/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import {
-  getSkillIdFromParams,
-  SKILL_EDITOR_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
+import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import {
   SkillEditorExportButton,
   SkillEditorSaveButton,
@@ -14,11 +12,8 @@ import {
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
 
 export const editorSkillWidget: DashboardWidgetDefinition = {
-  key: SKILL_EDITOR_WIDGET_KEY,
-  title: 'Skill Editor',
+  contract: skillEditorWidgetContract,
   icon: ToolCase,
-  category: 'editor',
-  description: 'Edit workspace skills.',
   component: (props) => <EditorSkillWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =

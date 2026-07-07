@@ -1,15 +1,15 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useLocale } from 'next-intl'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
+import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getPortfolioSnapshotMarketProviderOptions,
@@ -18,13 +18,20 @@ import {
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
-import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
 type HeaderControlProps = {
   workspaceId?: string
   panelId?: string
   widgetKey: string
   params: PortfolioSnapshotWidgetParams | null
+}
+
+const usePatchPortfolioSnapshotParams = (panelId: string | undefined, widgetKey: string) => {
+  const actions = useWidgetConfigRuntimeActions()
+  return (params: Record<string, unknown>) => {
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey, params)
+  }
 }
 
 export function PortfolioSnapshotHeaderControls({
@@ -45,6 +52,7 @@ export function PortfolioSnapshotHeaderControls({
   const marketProviderOptions = useMemo(() => getPortfolioSnapshotMarketProviderOptions(), [])
   const providerId = resolvePortfolioSnapshotProviderId(params, providerOptions)
   const marketProviderId = resolvePortfolioSnapshotMarketProviderId(params, marketProviderOptions)
+  const patchParams = usePatchPortfolioSnapshotParams(panelId, widgetKey)
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
@@ -57,29 +65,21 @@ export function PortfolioSnapshotHeaderControls({
         options={marketProviderOptions}
         onChange={(nextProvider) => {
           if (!nextProvider || nextProvider === marketProviderId) return
-          emitPortfolioSnapshotParamsChange({
-            params: {
-              marketProvider: nextProvider,
-              marketProviderParams: null,
-              marketAuth: null,
-              runtime: { refreshAt: Date.now() },
-            },
-            panelId,
-            widgetKey,
+          patchParams({
+            marketProvider: nextProvider,
+            marketProviderParams: null,
+            marketAuth: null,
+            runtime: { refreshAt: Date.now() },
           })
         }}
         providerParams={params?.marketProviderParams}
         authParams={params?.marketAuth}
         workspaceId={workspaceId}
         onSettingsSave={({ providerParams, auth }) => {
-          emitPortfolioSnapshotParamsChange({
-            params: {
-              marketProviderParams: providerParams,
-              marketAuth: auth,
-              runtime: { refreshAt: Date.now() },
-            },
-            panelId,
-            widgetKey,
+          patchParams({
+            marketProviderParams: providerParams,
+            marketAuth: auth,
+            runtime: { refreshAt: Date.now() },
           })
         }}
       />
@@ -94,25 +94,17 @@ export function PortfolioSnapshotHeaderControls({
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
 
-            emitPortfolioSnapshotParamsChange({
-              params: {
-                provider: nextProvider,
-                serviceId: null,
-                portfolioIdentity: null,
-                selectedWindow: null,
-              },
-              panelId,
-              widgetKey,
+            patchParams({
+              provider: nextProvider,
+              serviceId: null,
+              portfolioIdentity: null,
+              selectedWindow: null,
             })
           }}
           onAccountSelect={({ serviceId, portfolioIdentity }) => {
-            emitPortfolioSnapshotParamsChange({
-              params: {
-                portfolioIdentity,
-                ...(serviceId ? { serviceId } : {}),
-              },
-              panelId,
-              widgetKey,
+            patchParams({
+              portfolioIdentity,
+              ...(serviceId ? { serviceId } : {}),
             })
           }}
         />
@@ -125,6 +117,7 @@ function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderC
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
+  const patchParams = usePatchPortfolioSnapshotParams(panelId, widgetKey)
 
   return (
     <WidgetHeaderRefreshButton
@@ -132,14 +125,10 @@ function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderC
       disabled={!providerId}
       onClick={() => {
         if (!providerId) return
-        emitPortfolioSnapshotParamsChange({
-          params: {
-            runtime: {
-              refreshAt: Date.now(),
-            },
+        patchParams({
+          runtime: {
+            refreshAt: Date.now(),
           },
-          panelId,
-          widgetKey,
         })
       }}
     />

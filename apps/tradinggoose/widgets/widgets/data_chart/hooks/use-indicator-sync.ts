@@ -30,13 +30,13 @@ import type {
 } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
+import type { IndicatorRef } from '@/widgets/widgets/data_chart/contract'
 import {
-  formatDataChartIndicatorPlotFallback,
   type DataChartCopy,
+  formatDataChartIndicatorPlotFallback,
 } from '@/widgets/widgets/data_chart/copy'
 import type {
   DataChartDataContext,
-  IndicatorRef,
   IndicatorRuntimeEntry,
   IndicatorRuntimePlot,
 } from '@/widgets/widgets/data_chart/types'

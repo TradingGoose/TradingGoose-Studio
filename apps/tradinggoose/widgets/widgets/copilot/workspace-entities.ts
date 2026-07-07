@@ -1,5 +1,6 @@
 import {
   ENTITY_KIND_CUSTOM_TOOL,
+  ENTITY_KIND_DASHBOARD_LAYOUT,
   ENTITY_KIND_INDICATOR,
   ENTITY_KIND_MCP_SERVER,
   ENTITY_KIND_SKILL,
@@ -9,14 +10,21 @@ import {
 } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
+import type { PairColorContext } from '@/widgets/color-pairs'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
-  idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId' | 'watchlistId'
+  idField:
+    | 'workflowId'
+    | 'skillId'
+    | 'indicatorId'
+    | 'customToolId'
+    | 'mcpServerId'
+    | 'watchlistId'
+    | 'dashboardLayoutId'
 }
 
-export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
+export const COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS = [
   {
     entityKind: ENTITY_KIND_WORKFLOW,
     idField: 'workflowId',
@@ -43,31 +51,43 @@ export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
   },
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
 
+export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
+  ...COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS,
+  {
+    entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
+    idField: 'dashboardLayoutId',
+  },
+] as const satisfies readonly CopilotWorkspaceEntityConfig[]
+
 export type CopilotWorkspaceEntityKind =
-  (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]['entityKind']
+  (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]['entityKind']
+export type CopilotPairContextEntityKind =
+  (typeof COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS)[number]['entityKind']
 type CopilotWorkspaceEntityContextDetails = {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string | null
   workspaceId: string | null
+  ownerUserId: string | null
   current: boolean
 }
 
 const COPILOT_WORKSPACE_ENTITY_KIND_SET = new Set<string>(
-  COPILOT_WORKSPACE_ENTITY_CONFIGS.map((config) => config.entityKind)
+  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)
 )
 
 const COPILOT_WORKSPACE_ENTITY_CONFIG_BY_KIND = new Map<
   CopilotWorkspaceEntityKind,
-  (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]
->(COPILOT_WORKSPACE_ENTITY_CONFIGS.map((config) => [config.entityKind, config]))
+  (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]
+>(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => [config.entityKind, config]))
 
-export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_CONFIGS.map(
-  (config) => config.entityKind
-) as CopilotWorkspaceEntityKind[]
+export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS =
+  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map(
+    (config) => config.entityKind
+  ) as CopilotWorkspaceEntityKind[]
 
 export function getCopilotWorkspaceEntityConfig(
   entityKind: CopilotWorkspaceEntityKind
-): (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number] {
+): (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number] {
   const config = COPILOT_WORKSPACE_ENTITY_CONFIG_BY_KIND.get(entityKind)
 
   if (!config) {
@@ -113,6 +133,8 @@ export function readCopilotWorkspaceEntityContext(
     entityId: getCopilotWorkspaceEntityIdFromContext(context),
     workspaceId:
       'workspaceId' in context ? (normalizeOptionalString(context.workspaceId) ?? null) : null,
+    ownerUserId:
+      'ownerUserId' in context ? (normalizeOptionalString(context.ownerUserId) ?? null) : null,
     current: context.kind.startsWith('current_'),
   }
 }
@@ -135,13 +157,11 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
     case 'current_mcp_server':
       return normalizeOptionalString(context.mcpServerId) ?? null
     case 'watchlist':
-      return normalizeOptionalString(context.watchlistId) ?? null
     case 'current_watchlist':
-      return (
-        normalizeOptionalString(context.workspaceId) ??
-        normalizeOptionalString(context.watchlistId) ??
-        null
-      )
+      return normalizeOptionalString(context.watchlistId) ?? null
+    case 'dashboard_layout':
+    case 'current_dashboard_layout':
+      return normalizeOptionalString(context.dashboardLayoutId) ?? null
     default:
       return null
   }
@@ -149,7 +169,7 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
 
 export function getCopilotWorkspaceEntityIdFromPairContext(
   pairContext: PairColorContext | null | undefined,
-  entityKind: CopilotWorkspaceEntityKind
+  entityKind: CopilotPairContextEntityKind
 ): string | null {
   if (!pairContext) {
     return null
@@ -167,7 +187,7 @@ export function getCopilotWorkspaceEntityIdFromPairContext(
     case ENTITY_KIND_MCP_SERVER:
       return normalizeOptionalString(pairContext.mcpServerId) ?? null
     case ENTITY_KIND_WATCHLIST:
-      return null
+      return normalizeOptionalString(pairContext.watchlistId) ?? null
   }
 }
 
@@ -175,20 +195,27 @@ export function buildCopilotWorkspaceEntityContext({
   entityKind,
   entityId,
   workspaceId,
+  ownerUserId,
   label,
   current = false,
 }: {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string
   workspaceId?: string | null
+  ownerUserId?: string | null
   label: string
   current?: boolean
 }): ChatContext {
   const config = getCopilotWorkspaceEntityConfig(entityKind)
   const resolvedLabel = label.trim()
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
+  const normalizedOwnerUserId = normalizeOptionalString(ownerUserId)
+  if (entityKind === ENTITY_KIND_DASHBOARD_LAYOUT && !normalizedOwnerUserId) {
+    throw new Error('Dashboard layout context requires ownerUserId')
+  }
   const baseContext = {
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
+    ...(entityKind === ENTITY_KIND_DASHBOARD_LAYOUT ? { ownerUserId: normalizedOwnerUserId } : {}),
     label: resolvedLabel,
   }
 
@@ -228,6 +255,12 @@ export function buildCopilotWorkspaceEntityContext({
         kind: current ? 'current_watchlist' : 'watchlist',
         ...baseContext,
         watchlistId: entityId,
+      }
+    case 'dashboardLayoutId':
+      return {
+        kind: current ? 'current_dashboard_layout' : 'dashboard_layout',
+        ...baseContext,
+        dashboardLayoutId: entityId,
       }
   }
 }

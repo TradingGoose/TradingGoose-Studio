@@ -5,12 +5,11 @@
  * This file registers the LineToolTriangle with the core line tools plugin.
  */
 
-import { ILineToolsPlugin } from '../core';
-import { LineToolTriangle } from './model/LineToolTriangle';
+import type { ILineToolsPlugin } from '../core'
+import { LineToolTriangle } from './model/LineToolTriangle'
 
 // Define the name under which this specific tool will be registered
-const TRIANGLE_NAME = 'Triangle';
-
+const TRIANGLE_NAME = 'Triangle'
 
 /**
  * Registers the Triangle tool with the provided Core Plugin instance.
@@ -23,13 +22,17 @@ const TRIANGLE_NAME = 'Triangle';
  * registerTrianglePlugin(corePlugin);
  * ```
  */
-export function registerTrianglePlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
-	// 1. Register the Triangle Tool
-	corePlugin.registerLineTool(TRIANGLE_NAME, LineToolTriangle);
+export function registerTrianglePlugin<HorzScaleItem>(
+  corePlugin: ILineToolsPlugin & {
+    registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void
+  }
+): void {
+  // 1. Register the Triangle Tool
+  corePlugin.registerLineTool(TRIANGLE_NAME, LineToolTriangle)
 }
 
 // Export the class itself for direct use/type referencing if necessary
-export { LineToolTriangle };
+export { LineToolTriangle }
 
 // Export the registration function as the primary way to use the plugin
-export default registerTrianglePlugin;
+export default registerTrianglePlugin

@@ -12,25 +12,25 @@ import {
   evolveMockMarketBar,
   generateMockMarketSeries,
 } from '@/lib/market/mock-series'
-import type { WidgetInstance } from '@/widgets/layout'
-import {
-  emitDataChartParamsChange,
-  useDataChartParamsPersistence,
-} from '@/widgets/utils/chart-params'
+import { createDefaultColorPairsState, type PersistedColorPairsState } from '@/widgets/color-pairs'
+import type { LayoutNode, WidgetInstance } from '@/widgets/layout'
+import { normalizeDashboardLayout } from '@/widgets/layout'
+import type { WidgetRuntimeContext } from '@/widgets/types'
+import { useWidgetLocalParams, WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from '@/widgets/widgets/data_chart/components/chart-controls'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
+import type { DataChartWidgetParams, IndicatorRef } from '@/widgets/widgets/data_chart/contract'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
 import { useChartLegend } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { useIndicatorControls } from '@/widgets/widgets/data_chart/hooks/use-indicator-controls'
 import { useIndicatorLegend } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
 import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import type {
   DataChartDataContext,
-  DataChartWidgetParams,
-  IndicatorRef,
   IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import { DEFAULT_MANUAL_DRAW_TOOLS } from '@/widgets/widgets/data_chart/utils/draw-tools'
@@ -197,7 +197,64 @@ function MarketHeaderChartControls({
   )
 }
 
+type LandingMarketPreviewDocument = {
+  layout: LayoutNode
+  colorPairs: PersistedColorPairsState
+}
+
+const LANDING_MARKET_RUNTIME_CONTEXT: WidgetRuntimeContext = {}
+
+const buildInitialPreviewDocument = (): LandingMarketPreviewDocument => ({
+  layout: normalizeDashboardLayout({
+    id: LANDING_MARKET_PANEL_ID,
+    type: 'panel',
+    widget: {
+      key: LANDING_MARKET_WIDGET.key,
+      pairColor: 'gray',
+      params: buildInitialMarketParams() as Record<string, unknown>,
+    },
+  }),
+  colorPairs: createDefaultColorPairsState(),
+})
+
+/**
+ * Hosts a local, in-memory widget config runtime so the shared data-chart
+ * controls persist params through the canonical mutation engine instead of a
+ * dashboard Yjs document. Mutations only touch this preview's React state.
+ */
 export function MarketPreview() {
+  const [previewDocument, setPreviewDocument] = React.useState<LandingMarketPreviewDocument>(
+    buildInitialPreviewDocument
+  )
+
+  const handleDocumentMutation = React.useCallback(
+    (compute: (current: LandingMarketPreviewDocument) => LandingMarketPreviewDocument | null) => {
+      setPreviewDocument((current) => {
+        try {
+          return compute(current) ?? current
+        } catch (error) {
+          console.warn('[landing/market-preview] Ignored invalid widget params mutation', error)
+          return current
+        }
+      })
+    },
+    []
+  )
+
+  return (
+    <WidgetConfigRuntimeProvider
+      context={LANDING_MARKET_RUNTIME_CONTEXT}
+      layout={previewDocument.layout}
+      colorPairs={previewDocument.colorPairs}
+      canWrite
+      onDocumentMutation={handleDocumentMutation}
+    >
+      <MarketPreviewContent />
+    </WidgetConfigRuntimeProvider>
+  )
+}
+
+function MarketPreviewContent() {
   const initialBucketOpenTime = React.useMemo(() => getLiveBucketOpenTime(Date.now()), [])
   const mockBars = React.useMemo(
     () => buildSeedMarketBars(initialBucketOpenTime),
@@ -208,8 +265,8 @@ export function MarketPreview() {
   const isBackfillingRef = React.useRef(false)
   const pendingBackfillRangeRef = React.useRef<{ from: number; to: number } | null>(null)
   const [browserTimezone, setBrowserTimezone] = React.useState('UTC')
-  const [marketParams, setMarketParams] =
-    React.useState<DataChartWidgetParams>(buildInitialMarketParams)
+  const localParams = useWidgetLocalParams(LANDING_MARKET_PANEL_ID, 'data_chart')
+  const marketParams = (localParams ?? {}) as DataChartWidgetParams
   const [indicatorStates, setIndicatorStates] = React.useState<
     Record<string, IndicatorExecutionState>
   >({})
@@ -221,19 +278,10 @@ export function MarketPreview() {
   const legendContainerRef = React.useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = React.useState(0)
 
-  const handleWidgetParamsChange = React.useCallback(
-    (nextParams: Record<string, unknown> | null) => {
-      if (nextParams) setMarketParams(nextParams as DataChartWidgetParams)
-    },
-    []
+  const patchWidgetParams = useDataChartParamsPatch(
+    LANDING_MARKET_PANEL_ID,
+    LANDING_MARKET_WIDGET.key
   )
-
-  useDataChartParamsPersistence({
-    onWidgetParamsChange: handleWidgetParamsChange,
-    panelId: LANDING_MARKET_PANEL_ID,
-    widget: LANDING_MARKET_WIDGET,
-    params: marketParams as Record<string, unknown>,
-  })
 
   const {
     chartRef,
@@ -653,17 +701,13 @@ export function MarketPreview() {
 
   const handleIndicatorSelectionChange = React.useCallback(
     (nextIds: string[]) => {
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            pineIndicators: buildIndicatorRefs(nextIds, selectedIndicatorRefs),
-          },
+      patchWidgetParams({
+        view: {
+          pineIndicators: buildIndicatorRefs(nextIds, selectedIndicatorRefs),
         },
-        panelId: LANDING_MARKET_PANEL_ID,
-        widgetKey: LANDING_MARKET_WIDGET.key,
       })
     },
-    [selectedIndicatorRefs]
+    [patchWidgetParams, selectedIndicatorRefs]
   )
 
   const renderedIndicators = React.useMemo(

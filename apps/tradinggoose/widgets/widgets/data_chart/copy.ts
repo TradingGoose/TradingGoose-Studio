@@ -1,16 +1,15 @@
 'use client'
 
-import { formatTemplate } from '@/i18n/utils'
 import type { Messages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
+
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { MarketRangeUnit } from '@/providers/market/types'
-import type {
-  DrawToolActionType,
-} from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
+import type { DrawToolActionType } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
-import type { DataChartCandleType } from '@/widgets/widgets/data_chart/types'
 
 export type WorkspaceWidgetsCopy = WorkspaceWidgetsMessages
 export type DataChartCopy = WorkspaceWidgetsCopy['dataChart']
@@ -79,10 +78,7 @@ export function getDataChartRangePresetLabel(copy: DataChartCopy, presetId: stri
   return getRecordValue(copy.footer.range.presets, presetId) ?? presetId
 }
 
-export function getDataChartCandleTypeLabel(
-  copy: DataChartCopy,
-  candleType: DataChartCandleType
-) {
+export function getDataChartCandleTypeLabel(copy: DataChartCopy, candleType: DataChartCandleType) {
   return getRecordValue(copy.controls.candleTypes, candleType) ?? candleType
 }
 

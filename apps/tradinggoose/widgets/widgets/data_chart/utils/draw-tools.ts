@@ -1,5 +1,5 @@
-import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
-import type { DrawToolsRef } from '@/widgets/widgets/data_chart/types'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
+import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 
 export const DEFAULT_MANUAL_DRAW_TOOLS: DrawToolsRef[] = [{ id: 'manual-main', pane: 'price' }]
 

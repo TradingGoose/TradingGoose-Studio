@@ -5,11 +5,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
-  type WatchlistWidgetUpdateEventDetail,
-} from '@/widgets/events'
 import { WatchlistHeaderLeftControls } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
+
+const mockPatchWidgetParams = vi.fn()
 
 vi.mock('@/components/market-selector/provider-controls', () => ({
   MarketProviderControls: (props: {
@@ -44,6 +42,12 @@ vi.mock('@/components/market-selector/provider-controls', () => ({
 vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
+}))
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -108,12 +112,6 @@ describe('WatchlistHeaderLeftControls', () => {
   })
 
   it('saves provider credentials and forces an immediate refresh', async () => {
-    const emittedParams: WatchlistWidgetUpdateEventDetail[] = []
-    const listener = (event: Event) => {
-      emittedParams.push((event as CustomEvent<WatchlistWidgetUpdateEventDetail>).detail)
-    }
-    window.addEventListener(WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT, listener)
-
     await act(async () => {
       root.render(
         <WatchlistHeaderLeftControls
@@ -137,18 +135,12 @@ describe('WatchlistHeaderLeftControls', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    window.removeEventListener(WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT, listener)
-    expect(emittedParams).toHaveLength(1)
-    expect(emittedParams[0]).toEqual({
-      params: {
-        providerParams: { feed: 'iex' },
-        auth: { apiKey: '{{ ALPACA_API_KEY }}' },
-        runtime: {
-          refreshAt: expect.any(Number),
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-7', 'watchlist-widget', {
+      providerParams: { feed: 'iex' },
+      auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+      runtime: {
+        refreshAt: expect.any(Number),
       },
-      panelId: 'panel-7',
-      widgetKey: 'watchlist-widget',
     })
   })
 })

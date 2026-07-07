@@ -1,112 +1,28 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import {
-  WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
-  type WatchlistWidgetUpdateEventDetail,
-} from '@/widgets/events'
-import type { WidgetInstance } from '@/widgets/layout'
+import { useEffect } from 'react'
+import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityId } from '@/widgets/utils/entity-selection'
-import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/utils/watchlist-params'
-import { useWatchlistSelectionPersistence } from '@/widgets/utils/watchlist-selection'
-import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import { resolveEntityId } from '@/widgets/widget-contracts'
 import {
   providerOptions,
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
-import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
 
 const resolveProviderId = (params: WatchlistWidgetParams | null) => {
   return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
-interface UseWatchlistParamsPersistenceOptions {
-  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
-  panelId?: string
-  widget?: WidgetInstance | null
-  params?: Record<string, unknown> | null
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const areValuesEqual = (left: unknown, right: unknown): boolean => {
-  if (Object.is(left, right)) return true
-
-  if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right)) return false
-    if (left.length !== right.length) return false
-    return left.every((value, index) => areValuesEqual(value, right[index]))
-  }
-
-  if (isRecord(left) || isRecord(right)) {
-    if (!isRecord(left) || !isRecord(right)) return false
-    const leftKeys = Object.keys(left)
-    const rightKeys = Object.keys(right)
-    if (leftKeys.length !== rightKeys.length) return false
-    return leftKeys.every((key) => key in right && areValuesEqual(left[key], right[key]))
-  }
-
-  return false
-}
-
-function useWatchlistParamsPersistence({
-  onWidgetParamsChange,
-  panelId,
-  widget,
-  params,
-}: UseWatchlistParamsPersistenceOptions) {
-  const latestParamsRef = useRef<Record<string, unknown> | null>(sanitizeWatchlistParams(params))
-
-  useEffect(() => {
-    latestParamsRef.current = sanitizeWatchlistParams(params)
-  }, [params])
-
-  useEffect(() => {
-    if (!onWidgetParamsChange) return
-
-    const handleParamsUpdate = (event: Event) => {
-      const detail = (event as CustomEvent<WatchlistWidgetUpdateEventDetail>).detail
-      if (!detail?.params || !isRecord(detail.params)) return
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) return
-
-      const currentParams = latestParamsRef.current
-      const nextParams = mergeWatchlistParams(currentParams, detail.params)
-
-      if (areValuesEqual(currentParams, nextParams)) return
-
-      latestParamsRef.current = nextParams
-      onWidgetParamsChange(nextParams)
-    }
-
-    window.addEventListener(
-      WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
-      handleParamsUpdate as EventListener
-    )
-
-    return () => {
-      window.removeEventListener(
-        WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
-        handleParamsUpdate as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, panelId, widget?.key])
-}
-
 export function useWatchlistWidgetState({
   context,
-  panelId,
   pairColor = 'gray',
   widget,
   params,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
-  const widgetKey = widget?.key ?? 'watchlist'
   const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const widgetParams =
@@ -114,50 +30,22 @@ export function useWatchlistWidgetState({
   const providerId = resolveProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const paramsRecord =
     params && typeof params === 'object' ? (params as Record<string, unknown>) : null
-
-  useWatchlistParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params: paramsRecord,
-  })
-
-  useWatchlistSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    pairColor: resolvedPairColor,
-    params: paramsRecord,
-    scopeKey: widgetKey,
-    onWatchlistSelect: (watchlistId) => {
-      setPairContext(resolvedPairColor, { watchlistId })
-    },
-  })
 
   useEffect(() => {
     if (!providerId) return
     if (widgetParams?.provider) return
-    onWidgetParamsChange?.(mergeWatchlistParams(paramsRecord, { provider: providerId }))
-  }, [providerId, widgetParams?.provider, onWidgetParamsChange, paramsRecord])
+    onWidgetParamsPatch?.({ provider: providerId })
+  }, [providerId, widgetParams?.provider, onWidgetParamsPatch])
 
-  const selectedDocument = useWatchlistYjsDocument({
-    workspaceId,
-    watchlistId: workspaceId,
-  })
   const requestedWatchlistId = resolveEntityId('watchlistId', {
-    params: resolvedPairColor === 'gray' ? paramsRecord : null,
-    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
+    params: paramsRecord,
   })
-  const selectedList = useMemo(
-    () =>
-      selectedDocument.items.find(
-        (item) => item.type === 'list' && item.id === requestedWatchlistId
-      ) ?? null,
-    [requestedWatchlistId, selectedDocument.items]
-  )
+  const selectedDocument = useSelectedWatchlistYjsDocument({
+    workspaceId,
+    watchlistId: requestedWatchlistId,
+  })
 
   return {
     workspaceId,
@@ -166,13 +54,9 @@ export function useWatchlistWidgetState({
     widgetParams,
     providerId,
     refreshAt,
-    pairContext,
-    setPairContext,
     isLoading: selectedDocument.isLoading,
     error: selectedDocument.error,
     selectedDocument,
     selectedWatchlist: selectedDocument.record,
-    selectedListId: selectedList?.id ?? null,
-    selectedList,
   }
 }

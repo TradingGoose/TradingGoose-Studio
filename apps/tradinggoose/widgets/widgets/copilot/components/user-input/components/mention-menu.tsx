@@ -9,6 +9,7 @@ import {
   Box,
   Check,
   ChevronRight,
+  Grid2x2,
   LibraryBig,
   ListChecks,
   type LucideIcon,
@@ -134,6 +135,7 @@ const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<CopilotWorkspaceEntityKind, Luc
   custom_tool: Wrench,
   mcp_server: Server,
   watchlist: ListChecks,
+  dashboard_layout: Grid2x2,
 }
 
 const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
@@ -184,6 +186,12 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
   watchlist: (entity, label) => (
     <>
       {renderEntityBadge({ icon: ListChecks, entityId: entity.id })}
+      <span className='truncate'>{label}</span>
+    </>
+  ),
+  dashboard_layout: (entity, label) => (
+    <>
+      {renderEntityBadge({ icon: Grid2x2, entityId: entity.id })}
       <span className='truncate'>{label}</span>
     </>
   ),

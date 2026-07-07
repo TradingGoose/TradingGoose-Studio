@@ -9,22 +9,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { LocaleCode } from '@/i18n/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import {
-  emitCustomToolSelectionChange,
-  useCustomToolSelectionPersistence,
-} from '@/widgets/utils/custom-tool-selection'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   resolveCustomToolId,
@@ -101,24 +96,19 @@ function EditorCustomToolWidgetBody({
   context,
   params,
   pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
   panelId,
   widget,
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const exportRef = useRef<() => void>(() => {})
   const saveRef = useRef<() => void>(() => {})
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
 
   const paramsCustomToolId = resolveCustomToolId({ params })
-  const requestedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : paramsCustomToolId
+  const requestedCustomToolId = paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
   const hasRequestedCustomTool = normalizedRequestedCustomToolId.length > 0
   const {
@@ -132,20 +122,7 @@ function EditorCustomToolWidgetBody({
   const selectedToolId = resolveEntityIdFromList({
     requestedEntityId: requestedCustomToolId,
     entityIds: customToolMembers.map((member) => member.entityId),
-    useDefaultEntity: !isLinkedToColorPair,
-  })
-
-  useCustomToolSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-    onCustomToolSelect: (customToolId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
-    },
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   const syncActiveSection = useCallback(
@@ -168,8 +145,7 @@ function EditorCustomToolWidgetBody({
   usePersistResolvedEntityId({
     entityId: selectedToolId,
     entityIdKey: 'customToolId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
@@ -223,7 +199,9 @@ function EditorCustomToolWidgetBody({
     return (
       <WidgetStateMessage
         message={
-          isLinkedToColorPair ? copy.body.noSharedCustomToolSelected : copy.body.noCustomToolsYet
+          resolvedPairColor !== 'gray'
+            ? copy.body.noSharedCustomToolSelected
+            : copy.body.noCustomToolsYet
         }
       />
     )
@@ -268,27 +246,13 @@ function CustomToolEditorSelector({
 }: CustomToolEditorSelectorProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
 
-  const selectedToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext })
-    : resolveCustomToolId({ params })
+  const selectedToolId = resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
-    if (isLinkedToColorPair) {
-      if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
-      return
-    }
-
-    emitCustomToolSelectionChange({
-      customToolId,
-      panelId,
-      widgetKey: widgetKey ?? CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-    })
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey ?? CUSTOM_TOOL_EDITOR_WIDGET_KEY, { customToolId })
   }
 
   return (
@@ -320,13 +284,8 @@ function CustomToolEditorSectionSwitch({
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
-  const customToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext })
-    : resolveCustomToolId({ params })
+  const customToolId = resolveCustomToolId({ params })
   const isDisabled = !customToolId || !panelId
 
   useCustomToolEditorActions({
@@ -390,13 +349,7 @@ function CustomToolEditorSaveButton({
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : (customToolId ?? null)
+  const resolvedCustomToolId = customToolId ?? null
   const saveDisabled = !workspaceId || !resolvedCustomToolId || !panelId
 
   return (
@@ -442,13 +395,7 @@ function CustomToolEditorExportButton({
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : (customToolId ?? null)
+  const resolvedCustomToolId = customToolId ?? null
   const exportDisabled = !workspaceId || !resolvedCustomToolId || !panelId
 
   return (
@@ -480,11 +427,8 @@ function CustomToolEditorExportButton({
 }
 
 export const editorCustomToolWidget: DashboardWidgetDefinition = {
-  key: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-  title: 'Custom Tool Editor',
+  contract: customToolEditorWidgetContract,
   icon: SquareTerminal,
-  category: 'editor',
-  description: 'Edit workspace custom tools.',
   component: (props) => <EditorCustomToolWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const customToolId =

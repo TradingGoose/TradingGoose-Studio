@@ -23,7 +23,7 @@ import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type { MarketInterval } from '@/providers/market/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
   formatDataChartNormalizationTooltip,
@@ -34,9 +34,9 @@ import {
   getDataChartRangePresetLabel,
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { addRangeToDate, DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
 import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
 
@@ -54,6 +54,7 @@ const DataChartTimezoneDropdown = ({
   widgetKey,
 }: DataChartTimezoneDropdownProps) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -174,12 +175,8 @@ const DataChartTimezoneDropdown = ({
     } else {
       nextView.timezone = undefined
     }
-    emitDataChartParamsChange({
-      params: {
-        view: nextView,
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      view: nextView,
     })
   }
 
@@ -306,6 +303,7 @@ const DataChartMarketSessionDropdown = ({
   widgetKey,
 }: DataChartMarketSessionDropdownProps) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const selectedSession = params.view?.marketSession === 'extended' ? 'extended' : 'regular'
   const sessionLabel =
     selectedSession === 'extended' ? copy.footer.session.extended : copy.footer.session.regular
@@ -315,12 +313,8 @@ const DataChartMarketSessionDropdown = ({
   const handleSessionSelect = (nextValue: 'regular' | 'extended') => {
     const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
     nextView.marketSession = nextValue
-    emitDataChartParamsChange({
-      params: {
-        view: nextView,
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      view: nextView,
     })
   }
 
@@ -373,6 +367,7 @@ const DataChartNormalizationDropdown = ({
   widgetKey,
 }: DataChartNormalizationDropdownProps) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const providerId = typeof params.data?.provider === 'string' ? params.data?.provider.trim() : ''
   const supportedModes = useMemo(() => {
     if (!providerId) return []
@@ -398,15 +393,11 @@ const DataChartNormalizationDropdown = ({
     if (nextMode) {
       nextProviderParams.normalization_mode = nextMode
     }
-    emitDataChartParamsChange({
-      params: {
-        data: {
-          ...(params.data ?? {}),
-          providerParams: nextProviderParams,
-        },
+    patchWidgetParams({
+      data: {
+        ...(params.data ?? {}),
+        providerParams: nextProviderParams,
       },
-      panelId,
-      widgetKey,
     })
   }
 
@@ -477,6 +468,7 @@ export const DataChartFooter = ({
   exchangeTimezone?: string | null
 }) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const availablePresets = DEFAULT_RANGE_PRESETS.filter(
     (preset) => !preset.interval || allowedIntervals.includes(preset.interval)
   )
@@ -517,13 +509,9 @@ export const DataChartFooter = ({
       nextView.interval = interval
     }
 
-    emitDataChartParamsChange({
-      params: {
-        data: nextData,
-        view: nextView,
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      data: nextData,
+      view: nextView,
     })
   }
 

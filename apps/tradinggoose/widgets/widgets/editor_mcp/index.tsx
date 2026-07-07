@@ -1,14 +1,15 @@
 'use client'
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
-import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useMessages } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { mcpEditorWidgetContract } from '@/widgets/widgets/editor_mcp/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
-import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
-import { readEntitySelectionState, resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { readEntitySelectionState } from '@/widgets/widget-contracts'
+import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
@@ -26,29 +27,16 @@ const McpEditorSelector = ({
   pairColor?: PairColor
   widgetKey?: string
 }) => {
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const copy = useMessages().workspace.widgets.mcpEditor
 
   const resolvedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
 
   const handleServerChange = (nextServerId: string | null) => {
-    if (isLinkedToColorPair) {
-      if (pairContext?.mcpServerId === nextServerId) return
-      setPairContext(resolvedPairColor, { mcpServerId: nextServerId })
-      return
-    }
-
-    emitMcpSelectionChange({
-      serverId: nextServerId,
-      panelId,
-      widgetKey: widgetKey ?? 'editor_mcp',
-    })
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey ?? 'editor_mcp', { mcpServerId: nextServerId })
   }
 
   return (
@@ -75,12 +63,9 @@ const McpEditorHeaderActions = ({
   pairColor?: PairColor
   widgetKey?: string
 }) => {
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const pairContext = usePairColorContext(resolvedPairColor)
   const copy = useMessages().workspace.widgets.mcpEditor
   const selectionState = readEntitySelectionState({
     params,
-    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
     entityIdKey: 'mcpServerId',
   })
   const hasSelection = !!selectionState.selectedEntityId
@@ -140,11 +125,8 @@ const McpEditorHeaderActions = ({
 }
 
 export const editorMcpWidget: DashboardWidgetDefinition = {
-  key: 'editor_mcp',
-  title: 'MCP Editor',
+  contract: mcpEditorWidgetContract,
   icon: Server,
-  category: 'editor',
-  description: 'Inspect, edit, test, and refresh a selected MCP server.',
   component: (props) => <EditorMcpWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/utils/watchlist-params'
+import { mergeWatchlistParams, sanitizeWatchlistParams } from '@/widgets/widgets/watchlist/contract'
 
 describe('sanitizeWatchlistParams', () => {
   it('preserves raw and env-var market auth', () => {
@@ -35,9 +35,7 @@ describe('sanitizeWatchlistParams', () => {
           watchlistId: 'watchlist-1',
           runtime: {
             refreshAt: 200,
-            ignored: 'value',
           },
-          ignored: true,
         }
       )
     ).toEqual({

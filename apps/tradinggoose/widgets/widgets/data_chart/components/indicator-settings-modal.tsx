@@ -4,9 +4,9 @@ import { X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import {
+  type DataChartCopy,
   getDataChartIndicatorMetadataLabel,
   useDataChartCopy,
-  type DataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
 
 type IndicatorSettingsMeta = {
@@ -26,7 +26,8 @@ type IndicatorSettingsModalProps = {
 const resolveDraftValue = (copy: DataChartCopy, value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   if (typeof value === 'string') return value
-  if (typeof value === 'boolean') return value ? copy.indicator.trueValue : copy.indicator.falseValue
+  if (typeof value === 'boolean')
+    return value ? copy.indicator.trueValue : copy.indicator.falseValue
   return ''
 }
 

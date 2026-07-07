@@ -4,7 +4,7 @@ import { buildCopilotContextIdentityKey } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
-  COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../workspace-entities'
 import { MENTION_OPTIONS } from './constants'
@@ -214,7 +214,7 @@ export function buildAggregatedMentionItems(
       id: value.id,
       value,
     })),
-    ...COPILOT_WORKSPACE_ENTITY_CONFIGS.flatMap((config) =>
+    ...COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.flatMap((config) =>
       filterWorkspaceEntities(sources.workspaceEntities[config.entityKind], query, mentionCopy).map(
         (value) => ({
           type: config.entityKind,

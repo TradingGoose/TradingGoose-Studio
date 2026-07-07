@@ -12,9 +12,10 @@ import type {
   MarketSeriesRequest,
   MarketSessionWindow,
 } from '@/providers/market/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
+import type { DataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import { useChartRescale } from '@/widgets/widgets/data_chart/hooks/use-chart-rescale'
 import { useLiveBars } from '@/widgets/widgets/data_chart/hooks/use-live-bars'
-import type { DataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
   buildIndexMaps,
   DEFAULT_BAR_COUNT,
@@ -29,10 +30,7 @@ import {
   coerceProviderParams,
   sanitizeNormalizationMode,
 } from '@/widgets/widgets/data_chart/series-window'
-import type {
-  DataChartDataContext,
-  dataChartWidgetParams,
-} from '@/widgets/widgets/data_chart/types'
+import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import { resolveProviderErrorMessage } from '@/widgets/widgets/data_chart/utils/chart-errors'
 import { DEFAULT_RIGHT_OFFSET } from '@/widgets/widgets/data_chart/utils/chart-styles'
 import {
@@ -81,7 +79,7 @@ type UseChartDataLoaderArgs = {
   providerId?: string | null
   listing: ListingIdentity | null
   seriesWindow: SeriesWindow
-  dataParams: dataChartWidgetParams
+  dataParams: DataChartWidgetParams
   dataContext: DataChartDataContext
   onDataLoaded?: () => void
   onDataUpdated?: () => void

@@ -1,12 +1,20 @@
+import type { Messages } from 'next-intl'
 import type {
+  DashboardWidgetCatalogDefinition,
   DashboardWidgetDefinition,
+  DashboardWidgetRegistryDefinition,
   WidgetCategoryDefinition,
   WidgetCategoryGroup,
 } from '@/widgets/types'
+import {
+  assertWidgetContractCoverage,
+  isWidgetKey,
+  type WidgetKey,
+} from '@/widgets/widget-contracts'
 import { copilotWidget } from '@/widgets/widgets/copilot'
-import type { Messages } from 'next-intl'
 
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
+
 import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
@@ -14,6 +22,7 @@ import { editorMcpWidget } from '@/widgets/widgets/editor_mcp'
 import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
 import { workflowEditorWidget } from '@/widgets/widgets/editor_workflow'
 import { emptyWidget } from '@/widgets/widgets/empty'
+import { heatmapWidget } from '@/widgets/widgets/heatmap'
 import { listCustomToolWidget } from '@/widgets/widgets/list_custom_tool'
 import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 import { listMcpWidget } from '@/widgets/widgets/list_mcp'
@@ -21,7 +30,6 @@ import { listSkillWidget } from '@/widgets/widgets/list_skill'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { portfolioSnapshotWidget } from '@/widgets/widgets/portfolio_snapshot'
 import { quickOrderWidget } from '@/widgets/widgets/quick_order'
-import { heatmapWidget } from '@/widgets/widgets/heatmap'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
@@ -34,43 +42,81 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   { key: 'utility', title: 'Utils' },
 ]
 
-const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
+const widgetRegistry: Record<string, DashboardWidgetRegistryDefinition> = {
   empty: emptyWidget,
-  data_chart: dataChartWidget,
-  workflow_list: workflowListWidget,
-  editor_workflow: workflowEditorWidget,
-  workflow_chat: chatWidget,
-  workflow_console: workflowConsoleWidget,
-  copilot: copilotWidget,
-  list_indicator: listIndicatorWidget,
-  list_mcp: listMcpWidget,
-  editor_indicator: editorIndicatorWidget,
-  editor_mcp: editorMcpWidget,
-  list_custom_tool: listCustomToolWidget,
-  editor_custom_tool: editorCustomToolWidget,
-  list_skill: listSkillWidget,
-  editor_skill: editorSkillWidget,
-  workflow_variables: workflowVariablesWidget,
-  watchlist: watchlistWidget,
-  portfolio_snapshot: portfolioSnapshotWidget,
-  quick_order: quickOrderWidget,
-  heatmap: heatmapWidget,
+  [dataChartWidget.contract.key]: dataChartWidget,
+  [workflowListWidget.contract.key]: workflowListWidget,
+  [workflowEditorWidget.contract.key]: workflowEditorWidget,
+  [chatWidget.contract.key]: chatWidget,
+  [workflowConsoleWidget.contract.key]: workflowConsoleWidget,
+  [copilotWidget.contract.key]: copilotWidget,
+  [listIndicatorWidget.contract.key]: listIndicatorWidget,
+  [listMcpWidget.contract.key]: listMcpWidget,
+  [editorIndicatorWidget.contract.key]: editorIndicatorWidget,
+  [editorMcpWidget.contract.key]: editorMcpWidget,
+  [listCustomToolWidget.contract.key]: listCustomToolWidget,
+  [editorCustomToolWidget.contract.key]: editorCustomToolWidget,
+  [listSkillWidget.contract.key]: listSkillWidget,
+  [editorSkillWidget.contract.key]: editorSkillWidget,
+  [workflowVariablesWidget.contract.key]: workflowVariablesWidget,
+  [watchlistWidget.contract.key]: watchlistWidget,
+  [portfolioSnapshotWidget.contract.key]: portfolioSnapshotWidget,
+  [quickOrderWidget.contract.key]: quickOrderWidget,
+  [heatmapWidget.contract.key]: heatmapWidget,
 }
 
 function getLocalizedWidgetTitle(
   widgetsCopy: WorkspaceWidgetsMessages,
-  widget: DashboardWidgetDefinition
+  widget: DashboardWidgetCatalogDefinition
 ) {
   const widgetTitle = widgetsCopy.titles[widget.key as keyof typeof widgetsCopy.titles]
   return widgetTitle ?? widget.title
 }
 
-export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>
-  widgetRegistry[key]
+const isPersistedWidgetDefinition = (
+  widget: DashboardWidgetRegistryDefinition
+): widget is DashboardWidgetDefinition => 'contract' in widget
 
-export const getAllWidgets = (): DashboardWidgetDefinition[] => Object.values(widgetRegistry)
+assertWidgetContractCoverage(
+  Object.values(widgetRegistry)
+    .filter(isPersistedWidgetDefinition)
+    .map((widget) => widget.contract.key)
+)
 
-export const getWidgetCategories = (widgetsCopy: WorkspaceWidgetsMessages): WidgetCategoryGroup[] => {
+const emptyWidgetDefinition: DashboardWidgetCatalogDefinition = {
+  ...emptyWidget,
+  title: 'Empty',
+  category: 'utility',
+  description: 'No widget selected.',
+}
+
+function withContractMetadata(
+  widget: DashboardWidgetRegistryDefinition
+): DashboardWidgetCatalogDefinition {
+  if (!isPersistedWidgetDefinition(widget)) {
+    return emptyWidgetDefinition
+  }
+  const { contract, ...definition } = widget
+  return {
+    ...definition,
+    key: contract.key,
+    title: contract.title,
+    category: contract.category,
+    description: contract.description,
+  }
+}
+
+export const getWidgetDefinition = (key: string): DashboardWidgetCatalogDefinition | undefined => {
+  const widget = widgetRegistry[key]
+  return widget ? withContractMetadata(widget) : undefined
+}
+
+export const getAllWidgets = (): DashboardWidgetCatalogDefinition[] =>
+  Object.values(widgetRegistry).filter(isPersistedWidgetDefinition).map(withContractMetadata)
+
+export const getWidgetCategories = (
+  widgetsCopy: WorkspaceWidgetsMessages
+): WidgetCategoryGroup[] => {
   const categoryMap = widgetCategoryConfig.reduce<Record<string, WidgetCategoryGroup>>(
     (acc, category) => {
       acc[category.key] = {
@@ -83,7 +129,7 @@ export const getWidgetCategories = (widgetsCopy: WorkspaceWidgetsMessages): Widg
     {}
   )
 
-  for (const widget of Object.values(widgetRegistry)) {
+  for (const widget of getAllWidgets()) {
     const category = categoryMap[widget.category]
     if (category) {
       category.widgets.push({
@@ -96,5 +142,4 @@ export const getWidgetCategories = (widgetsCopy: WorkspaceWidgetsMessages): Widg
   return widgetCategoryConfig.map((category) => categoryMap[category.key])
 }
 
-export const isValidWidgetKey = (key: string): key is keyof typeof widgetRegistry =>
-  key in widgetRegistry
+export const isValidWidgetKey = (key: string): key is WidgetKey => isWidgetKey(key)

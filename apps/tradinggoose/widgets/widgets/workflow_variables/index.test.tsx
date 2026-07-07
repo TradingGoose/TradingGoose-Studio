@@ -32,11 +32,6 @@ vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
   useWorkflowWidgetState: () => mockWorkflowWidgetState,
 }))
 
-vi.mock('@/widgets/utils/workflow-selection', () => ({
-  emitWorkflowSelectionChange: vi.fn(),
-  useWorkflowSelectionPersistence: vi.fn(),
-}))
-
 vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
   WorkflowDropdown: () => <div>workflow-dropdown</div>,
 }))
@@ -82,14 +77,11 @@ describe('workflowVariablesWidget', () => {
     mockWorkflowWidgetState.loadError = 'unableToLoadWorkflows'
 
     const markup = renderToStaticMarkup(
-      createElement(
-        workflowVariablesWidget.component,
-        {
-          context: { workspaceId: 'ws-1' },
-          widget: { key: 'workflow_variables' },
-          panelId: 'panel-1',
-        } as any
-      )
+      createElement(workflowVariablesWidget.component, {
+        context: { workspaceId: 'ws-1' },
+        widget: { key: 'workflow_variables' },
+        panelId: 'panel-1',
+      } as any)
     )
 
     expect(markup).toContain(

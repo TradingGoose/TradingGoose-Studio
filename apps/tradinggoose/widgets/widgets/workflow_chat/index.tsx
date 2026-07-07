@@ -11,14 +11,12 @@ import {
 } from '@/components/widget-header-control'
 import { useWorkflowChatMessages, useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
+import { workflowChatWidgetContract } from '@/widgets/widgets/workflow_chat/contract'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
@@ -29,40 +27,24 @@ const ChatWidgetBody = ({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) => {
   const copy = useWorkflowChatMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
-  const widgetKey = widget?.key ?? 'workflow_chat'
-  const {
-    channelId,
-    resolvedPairColor,
-    resolvedWorkflowId,
-    hasLoadedWorkflows,
-    loadError,
-    isLoading,
-    workflowIds,
-  } = useWorkflowWidgetState({
-    workspaceId,
-    pairColor,
-    widget,
-    panelId,
-    params,
-    fallbackWidgetKey: 'workflow-chat',
-  })
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    pairColor: resolvedPairColor,
-    params,
-    scopeKey: widgetKey,
-  })
+  const { channelId, resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+    useWorkflowWidgetState({
+      workspaceId,
+      pairColor,
+      widget,
+      panelId,
+      params,
+      fallbackWidgetKey: 'workflow-chat',
+    })
   usePersistResolvedEntityId({
     entityId: resolvedWorkflowId,
     entityIdKey: 'workflowId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
@@ -191,7 +173,7 @@ const ChatWorkflowHeaderSelector = ({
   widget,
   panelId,
 }: ChatWorkflowHeaderSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
@@ -199,26 +181,20 @@ const ChatWorkflowHeaderSelector = ({
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-chat',
   })
+  const actions = useWidgetConfigRuntimeActions()
+  const widgetKey = widget?.key ?? 'workflow_chat'
 
   const handleWorkflowChange = useCallback(
     (workflowId: string) => {
-      if (resolvedPairColor !== 'gray') {
-        return
-      }
-
-      emitWorkflowSelectionChange({
-        panelId,
-        workflowId,
-        widgetKey: widget?.key ?? 'workflow_chat',
-      })
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, widgetKey, { workflowId })
     },
-    [panelId, resolvedPairColor, widget?.key]
+    [actions, panelId, widgetKey]
   )
 
   return (
     <WorkflowDropdown
       workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
       value={resolvedWorkflowId}
       onChange={handleWorkflowChange}
       triggerClassName='w-auto min-w-[240px]'
@@ -281,11 +257,8 @@ function ClearChatButton({
 }
 
 export const chatWidget: DashboardWidgetDefinition = {
-  key: 'workflow_chat',
-  title: 'Workflow Chat',
+  contract: workflowChatWidgetContract,
   icon: MessageCircle,
-  category: 'utility',
-  description: 'Chat interface to interact with workflow blocks.',
   component: (props) => <ChatWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {

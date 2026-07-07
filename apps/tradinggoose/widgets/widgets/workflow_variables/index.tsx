@@ -7,15 +7,13 @@ import {
   useWorkflowDropdownMessages,
   useWorkflowVariablesMessages,
 } from '@/i18n/workspace-widget-hooks'
+import { workflowVariablesWidgetContract } from '@/widgets/widgets/workflow_variables/contract'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
@@ -31,42 +29,25 @@ const WorkflowVariablesWidgetBody = ({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) => {
   const copy = useWorkflowVariablesMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
-  const widgetKey = widget?.key ?? 'workflow_variables'
-  const {
-    channelId,
-    resolvedPairColor,
-    resolvedWorkflowId,
-    hasLoadedWorkflows,
-    loadError,
-    isLoading,
-    workflowIds,
-  } = useWorkflowWidgetState({
-    workspaceId,
-    pairColor,
-    widget,
-    panelId,
-    params,
-    fallbackWidgetKey: 'workflow-variables',
-  })
-
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    pairColor: resolvedPairColor,
-    params,
-    scopeKey: widgetKey,
-  })
+  const { channelId, resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+    useWorkflowWidgetState({
+      workspaceId,
+      pairColor,
+      widget,
+      panelId,
+      params,
+      fallbackWidgetKey: 'workflow-variables',
+    })
 
   usePersistResolvedEntityId({
     entityId: resolvedWorkflowId,
     entityIdKey: 'workflowId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
@@ -170,7 +151,7 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
   widget,
   panelId,
 }: WorkflowVariablesHeaderWorkflowSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
@@ -178,26 +159,20 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-variables',
   })
+  const actions = useWidgetConfigRuntimeActions()
+  const widgetKey = widget?.key ?? 'workflow_variables'
 
   const handleWorkflowChange = useCallback(
     (workflowId: string) => {
-      if (resolvedPairColor !== 'gray') {
-        return
-      }
-
-      emitWorkflowSelectionChange({
-        panelId,
-        workflowId,
-        widgetKey: widget?.key ?? 'workflow_variables',
-      })
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, widgetKey, { workflowId })
     },
-    [panelId, resolvedPairColor, widget?.key]
+    [actions, panelId, widgetKey]
   )
 
   return (
     <WorkflowDropdown
       workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
       value={resolvedWorkflowId}
       onChange={handleWorkflowChange}
       triggerClassName='w-auto min-w-[240px]'
@@ -206,11 +181,8 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
 }
 
 export const workflowVariablesWidget: DashboardWidgetDefinition = {
-  key: 'workflow_variables',
-  title: 'Workflow Variables',
+  contract: workflowVariablesWidgetContract,
   icon: Braces,
-  category: 'utility',
-  description: 'Inspect and edit variables for a selected workflow.',
   component: (props) => <WorkflowVariablesWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {

@@ -4,12 +4,12 @@ import { useMemo } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ListingOption } from '@/lib/listing/identity'
+import { formatDataChartFlagAlt, useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
   buildListingDisplay,
   getFlagData,
   getListingFallback,
 } from '@/widgets/widgets/data_chart/utils/listing-utils'
-import { formatDataChartFlagAlt, useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 
 export const ListingOverlay = ({
   listing,
@@ -79,10 +79,7 @@ export const ListingOverlay = ({
         {listingType === 'default' && flagImageUrl ? (
           <img
             src={flagImageUrl}
-            alt={formatDataChartFlagAlt(
-              copy.listingOverlay.flagAlt,
-              listing?.countryCode ?? ''
-            )}
+            alt={formatDataChartFlagAlt(copy.listingOverlay.flagAlt, listing?.countryCode ?? '')}
             className='h-3.5 w-3.5'
             loading='lazy'
           />

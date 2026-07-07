@@ -25,17 +25,11 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
-import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
-import {
-  formatWorkflowTemplate,
-  type WorkflowToolbarCopy,
-} from '@/i18n/workflow-inspector-core'
 import {
   getBlocksForSidebar,
   getTriggersForSidebar,
@@ -43,10 +37,13 @@ import {
 } from '@/lib/workflows/trigger-utils'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
-import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
+import { formatWorkflowTemplate, type WorkflowToolbarCopy } from '@/i18n/workflow-inspector-core'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
 import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block'
 import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block'
+import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
+import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -118,8 +115,7 @@ function useToolbarList(
     const triggerBlocks = isTriggerMode
       ? filtered
           .filter(
-            (block) =>
-              block.config.category === 'triggers' || hasTriggerCapability(block.config)
+            (block) => block.config.category === 'triggers' || hasTriggerCapability(block.config)
           )
           .sort((a, b) => a.name.localeCompare(b.name))
       : []

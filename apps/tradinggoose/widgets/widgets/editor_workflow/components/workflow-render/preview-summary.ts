@@ -1,7 +1,7 @@
 import {
   buildListingDisplayOption,
-  toListingValueObject,
   type ListingOption,
+  toListingValueObject,
 } from '@/lib/listing/identity'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'

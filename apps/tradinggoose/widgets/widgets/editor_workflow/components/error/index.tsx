@@ -18,12 +18,7 @@ interface ErrorUIProps {
   fullScreen?: boolean
 }
 
-export function ErrorUI({
-  title,
-  message,
-  onReset,
-  fullScreen = false,
-}: ErrorUIProps) {
+export function ErrorUI({ title, message, onReset, fullScreen = false }: ErrorUIProps) {
   const copy = useWorkflowEditorCopy().error
   const resolvedTitle = title ?? copy.title
   const resolvedMessage = message ?? copy.message
@@ -99,13 +94,7 @@ export function NextError({ error, reset }: NextErrorProps) {
   }, [error])
   const copy = useWorkflowEditorCopy().error
 
-  return (
-    <ErrorUI
-      title={copy.applicationTitle}
-      message={copy.applicationMessage}
-      onReset={reset}
-    />
-  )
+  return <ErrorUI title={copy.applicationTitle} message={copy.applicationMessage} onReset={reset} />
 }
 
 // ======== Next.js Global Error Page Component ========

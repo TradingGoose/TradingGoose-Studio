@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface UseBufferedStringValueOptions {
   externalValue: string | null | undefined

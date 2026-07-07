@@ -1,8 +1,8 @@
 'use client'
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { IPaneApi } from 'lightweight-charts'
+import { createPortal } from 'react-dom'
 
 const resolvePaneHost = (pane: IPaneApi<any> | null): HTMLElement | null => {
   if (!pane) return null

@@ -1,16 +1,11 @@
 'use client'
 
 import { Download, Save } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { useMessages } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useLocale, useMessages } from 'next-intl'
 import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
-import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
-import {
-  readEntitySelectionState,
-  SKILL_EDITOR_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
 
@@ -33,24 +28,13 @@ export function SkillEditorSelector({
 }: SkillEditorSelectorProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-
-  const resolvedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : (skillId ?? null)
+  const actions = useWidgetConfigRuntimeActions()
+  const resolvedSkillId = skillId ?? null
 
   const handleSkillChange = (nextSkillId: string | null) => {
-    if (isLinkedToColorPair) {
-      if (pairContext?.skillId === nextSkillId) return
-      setPairContext(resolvedPairColor, { skillId: nextSkillId })
-      return
-    }
-
-    emitSkillSelectionChange({
+    if (!panelId) return
+    actions.patchWidgetParams(panelId, widgetKey ?? SKILL_EDITOR_WIDGET_KEY, {
       skillId: nextSkillId,
-      panelId,
-      widgetKey: widgetKey ?? SKILL_EDITOR_WIDGET_KEY,
     })
   }
 
@@ -83,11 +67,7 @@ export function SkillEditorExportButton({
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : (skillId ?? null)
+  const resolvedSkillId = skillId ?? null
   const exportDisabled = !workspaceId || !resolvedSkillId
 
   return (
@@ -111,15 +91,7 @@ export function SkillEditorSaveButton({
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const selectionState = readEntitySelectionState({
-    params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
-    entityIdKey: 'skillId',
-  })
-  const resolvedSkillId = selectionState.selectedEntityId ?? skillId ?? null
+  const resolvedSkillId = skillId ?? null
   const disabled = !workspaceId || !resolvedSkillId
 
   return (

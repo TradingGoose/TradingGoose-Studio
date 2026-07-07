@@ -1,4 +1,4 @@
-import { memo, useMemo, type SyntheticEvent } from 'react'
+import { memo, type SyntheticEvent, useMemo } from 'react'
 import {
   ArrowLeftRight,
   ArrowUpDown,
@@ -15,10 +15,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { emitRemoveFromSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
@@ -68,8 +68,11 @@ export const ActionBar = memo(
     isScheduleDisabled = false,
     onScheduleToggle,
   }: ActionBarProps) {
-    const { actionBarCopy: copy, getLocalizedBlockLongDescription, getToolbarDisabledReason } =
-      useWorkflowI18n()
+    const {
+      actionBarCopy: copy,
+      getLocalizedBlockLongDescription,
+      getToolbarDisabledReason,
+    } = useWorkflowI18n()
     const {
       collaborativeRemoveBlock,
       collaborativeToggleBlockEnabled,
@@ -80,21 +83,28 @@ export const ActionBar = memo(
 
     // Optimized: derive all block data from Yjs blocks
     const blocks = useWorkflowBlocks()
-    const { isEnabled, horizontalHandles, parentId, parentType, isLocked, isParentLocked, isParentDisabled } =
-      useMemo(() => {
-        const block = blocks[blockId]
-        const pid = block?.data?.parentId
-        const parentBlock = pid ? blocks[pid] : undefined
-        return {
-          isEnabled: block?.enabled ?? true,
-          horizontalHandles: block?.horizontalHandles ?? true,
-          parentId: pid,
-          parentType: parentBlock?.type,
-          isLocked: block?.locked ?? false,
-          isParentLocked: parentBlock?.locked ?? false,
-          isParentDisabled: parentBlock ? !parentBlock.enabled : false,
-        }
-      }, [blocks, blockId])
+    const {
+      isEnabled,
+      horizontalHandles,
+      parentId,
+      parentType,
+      isLocked,
+      isParentLocked,
+      isParentDisabled,
+    } = useMemo(() => {
+      const block = blocks[blockId]
+      const pid = block?.data?.parentId
+      const parentBlock = pid ? blocks[pid] : undefined
+      return {
+        isEnabled: block?.enabled ?? true,
+        horizontalHandles: block?.horizontalHandles ?? true,
+        parentId: pid,
+        parentType: parentBlock?.type,
+        isLocked: block?.locked ?? false,
+        isParentLocked: parentBlock?.locked ?? false,
+        isParentDisabled: parentBlock ? !parentBlock.enabled : false,
+      }
+    }, [blocks, blockId])
 
     const userPermissions = useUserPermissionsContext()
 
@@ -106,9 +116,7 @@ export const ActionBar = memo(
 
     const getTooltipMessage = (defaultMessage: string) => {
       if (disabled) {
-        return userPermissions.isOfflineMode
-          ? getToolbarDisabledReason(true)
-          : copy.readOnlyMode
+        return userPermissions.isOfflineMode ? getToolbarDisabledReason(true) : copy.readOnlyMode
       }
       return defaultMessage
     }
@@ -240,7 +248,9 @@ export const ActionBar = memo(
               <Copy className='h-2 w-2' />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.duplicateBlock)}</TooltipContent>
+          <TooltipContent side={tooltipSide}>
+            {getLockedTooltip(copy.duplicateBlock)}
+          </TooltipContent>
         </Tooltip>
 
         {showScheduleBadge && (
@@ -361,7 +371,9 @@ export const ActionBar = memo(
                 <LogOut className='h-2 w-2' />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.removeFromSubflow)}</TooltipContent>
+            <TooltipContent side={tooltipSide}>
+              {getLockedTooltip(copy.removeFromSubflow)}
+            </TooltipContent>
           </Tooltip>
         )}
 

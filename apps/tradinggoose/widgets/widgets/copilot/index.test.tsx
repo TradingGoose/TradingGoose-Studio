@@ -89,7 +89,6 @@ describe('copilotWidget', () => {
                 workflowId: 'wf-stale',
               },
             },
-            onWidgetParamsChange: vi.fn(),
           })}
         </>
       )
@@ -119,7 +118,6 @@ describe('copilotWidget', () => {
               pairColor: 'red',
               params: null,
             },
-            onWidgetParamsChange: vi.fn(),
           })}
         </>
       )
@@ -147,7 +145,6 @@ describe('copilotWidget', () => {
               pairColor: 'gray',
               params: null,
             },
-            onWidgetParamsChange: vi.fn(),
           })}
         </>
       )
@@ -176,7 +173,6 @@ describe('copilotWidget', () => {
               pairColor: 'gray',
               params: null,
             },
-            onWidgetParamsChange: vi.fn(),
           })}
         </>
       )

@@ -18,12 +18,12 @@ vi.mock('@/widgets/widgets/components/custom-tool-dropdown', () => ({
   CustomToolDropdown: () => <div>custom-tool-dropdown</div>,
 }))
 
-vi.mock('@/stores/dashboard/pair-store', async () => {
-  const actual = await vi.importActual<any>('@/stores/dashboard/pair-store')
+vi.mock('@/widgets/widget-config-runtime', async () => {
+  const actual = await vi.importActual<any>('@/widgets/widget-config-runtime')
   return {
     ...actual,
-    usePairColorContext: () => null,
-    useSetPairColorContext: () => vi.fn(),
+    useWidgetPairContext: () => null,
+    useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
   }
 })
 

@@ -1,12 +1,10 @@
 'use client'
 
 import { Check, Download, Save } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { useMessages } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useLocale, useMessages } from 'next-intl'
 import type { PairColor } from '@/widgets/pair-colors'
 import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
-import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 
@@ -27,29 +25,13 @@ export function IndicatorEditorSelector({
 }: IndicatorEditorSelectorProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : (indicatorId ?? null)
+  const actions = useWidgetConfigRuntimeActions()
+  const resolvedIndicatorId = indicatorId ?? null
 
   const handleIndicatorChange = (ids: string[]) => {
     const nextId = ids[0] ?? null
-    if (isLinkedToColorPair) {
-      if (pairContext?.indicatorId === nextId) return
-      setPairContext(resolvedPairColor, { indicatorId: nextId })
-      return
-    }
-    if (!widgetKey) return
-
-    emitIndicatorSelectionChange({
-      indicatorId: nextId,
-      panelId,
-      widgetKey,
-    })
+    if (!panelId || !widgetKey) return
+    actions.patchWidgetParams(panelId, widgetKey, { indicatorId: nextId })
   }
 
   return (
@@ -81,13 +63,7 @@ export function IndicatorEditorExportButton({
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : (indicatorId ?? null)
+  const resolvedIndicatorId = indicatorId ?? null
   const exportDisabled = !workspaceId || !resolvedIndicatorId
 
   return (
@@ -110,13 +86,7 @@ export function IndicatorEditorSaveButton({
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : (indicatorId ?? null)
+  const resolvedIndicatorId = indicatorId ?? null
   const saveDisabled = !workspaceId || !resolvedIndicatorId
 
   return (
@@ -140,13 +110,7 @@ export function IndicatorEditorVerifyButton({
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : (indicatorId ?? null)
+  const resolvedIndicatorId = indicatorId ?? null
   const verifyDisabled = !workspaceId || !resolvedIndicatorId
 
   return (

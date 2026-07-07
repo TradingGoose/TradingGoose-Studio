@@ -12,11 +12,11 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { skillListWidgetContract } from '@/widgets/widgets/list_skill/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { SKILL_LIST_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
@@ -37,26 +37,15 @@ const SkillListHeaderRight = ({
   const permissions = useUserPermissionsContext()
   const createSkillMutation = useCreateSkill()
   const importMutation = useImportSkills()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('skill', workspaceId)
 
   const selectSkill = useCallback(
     (createdSkillId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { skillId: createdSkillId })
-        return
-      }
-
-      emitSkillSelectionChange({
-        skillId: createdSkillId,
-        panelId,
-        widgetKey: SKILL_LIST_WIDGET_KEY,
-      })
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, SKILL_LIST_WIDGET_KEY, { skillId: createdSkillId })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions, panelId]
   )
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 
@@ -168,11 +157,8 @@ const ListSkillWidgetBody = (props: WidgetComponentProps) => {
 }
 
 export const listSkillWidget: DashboardWidgetDefinition = {
-  key: 'list_skill',
-  title: 'Skill List',
+  contract: skillListWidgetContract,
   icon: ToolCase,
-  category: 'list',
-  description: 'Browse and manage workspace skills.',
   component: (props) => <ListSkillWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {

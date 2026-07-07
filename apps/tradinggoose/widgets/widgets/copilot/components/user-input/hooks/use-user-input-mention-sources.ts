@@ -33,6 +33,7 @@ const logger = createLogger('CopilotUserInputMentionSources')
 
 interface UseUserInputMentionSourcesOptions {
   workspaceId: string
+  ownerUserId?: string | null
 }
 
 const createEmptyWorkspaceEntities = (): Record<
@@ -45,6 +46,7 @@ const createEmptyWorkspaceEntities = (): Record<
   custom_tool: [],
   mcp_server: [],
   watchlist: [],
+  dashboard_layout: [],
 })
 
 const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind, boolean> => ({
@@ -54,11 +56,15 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
   custom_tool: false,
   mcp_server: false,
   watchlist: false,
+  dashboard_layout: false,
 })
 
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
-export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionSourcesOptions) {
+export function useUserInputMentionSources({
+  workspaceId,
+  ownerUserId,
+}: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
   const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
@@ -136,7 +142,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
       try {
         setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: true }))
-        const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId)
+        const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId, ownerUserId)
         setWorkspaceEntities((prev) => ({ ...prev, [entityKind]: mapped }))
       } catch (error) {
         logger.error(`Failed to load ${entityKind} mention sources`, error)
@@ -144,7 +150,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: false }))
       }
     },
-    [workspaceEntities, workspaceEntityLoading, workspaceId]
+    [ownerUserId, workspaceEntities, workspaceEntityLoading, workspaceId]
   )
 
   const ensureKnowledgeLoaded = useCallback(async () => {
@@ -370,6 +376,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     custom_tool: workspaceEntityLoading.custom_tool,
     mcp_server: workspaceEntityLoading.mcp_server,
     watchlist: workspaceEntityLoading.watchlist,
+    dashboard_layout: workspaceEntityLoading.dashboard_layout,
     workflow_blocks: isLoadingWorkflowBlocks,
     blocks: isLoadingBlocks,
     knowledge: isLoadingKnowledge,

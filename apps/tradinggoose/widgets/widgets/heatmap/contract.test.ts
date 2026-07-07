@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeHeatmapParams } from '@/widgets/utils/heatmap-params'
+import { sanitizeHeatmapParams } from '@/widgets/widgets/heatmap/contract'
 
 const portfolioIdentity = {
   providerId: 'alpaca',

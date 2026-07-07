@@ -1,114 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  closeDashboardLayoutPanelGroup,
+  findDashboardLayoutParentGroupId,
+  type LayoutNode,
   normalizeColorPairsState,
   normalizeDashboardLayout,
-  resolveWidgetParamsForPairColorChange,
   serializeLayout,
+  splitDashboardLayoutPanelIntoVerticalGroup,
+  updateDashboardLayoutGroupSizes,
 } from '@/widgets/layout'
-
-describe('resolveWidgetParamsForPairColorChange', () => {
-  it('preserves full data chart params when switching to a linked color', () => {
-    const params = {
-      listing: {
-        listing_id: 'btc-usd',
-        base_id: 'btc',
-        quote_id: 'usd',
-        listing_type: 'spot',
-      },
-      data: {
-        provider: 'alpaca',
-        providerParams: { apiKey: 'key' },
-      },
-      view: {
-        interval: '1h',
-        marketSession: 'regular',
-      },
-    }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'data_chart',
-          pairColor: 'gray',
-          params,
-        },
-        'red'
-      )
-    ).toBe(params)
-  })
-
-  it('preserves data chart params when switching between linked colors', () => {
-    const params = {
-      data: {
-        provider: 'polygon',
-      },
-      view: {
-        interval: '15m',
-      },
-    }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'data_chart',
-          pairColor: 'blue',
-          params,
-        },
-        'green'
-      )
-    ).toBe(params)
-  })
-
-  it('preserves heatmap params when switching to a linked color', () => {
-    const params = {
-      sourceMode: 'portfolio',
-      marketProvider: 'polygon',
-      tradingProvider: 'alpaca',
-      serviceId: 'cred-1',
-      accountId: 'acct-1',
-      marketProviderParams: { feed: 'sip' },
-    }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'heatmap',
-          pairColor: 'gray',
-          params,
-        },
-        'red'
-      )
-    ).toBe(params)
-  })
-
-  it('clears pair-context-owned widget params when switching to a linked color', () => {
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'editor_workflow',
-          pairColor: 'gray',
-          params: { workflowId: 'wf-local' },
-        },
-        'red'
-      )
-    ).toBeNull()
-  })
-
-  it('preserves existing params when switching back to gray', () => {
-    const params = { workflowId: 'wf-1' }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'watchlist',
-          pairColor: 'red',
-          params,
-        },
-        'gray'
-      )
-    ).toBe(params)
-  })
-})
 
 describe('normalizeColorPairsState', () => {
   it('ignores unsupported color-pair fields', () => {
@@ -127,11 +27,6 @@ describe('normalizeColorPairsState', () => {
         {
           color: 'blue',
           workflowId: 'wf-1',
-          listing: null,
-          indicatorId: undefined,
-          mcpServerId: undefined,
-          customToolId: undefined,
-          skillId: undefined,
         },
       ],
     })
@@ -171,7 +66,6 @@ describe('normalizeColorPairsState', () => {
     expect(listing).not.toHaveProperty('accountId')
     expect(listing).not.toHaveProperty('providerParams')
   })
-
 })
 
 describe('normalizeDashboardLayout', () => {
@@ -229,6 +123,77 @@ describe('normalizeDashboardLayout', () => {
       key: 'copilot',
       pairColor: 'blue',
       params: null,
+    })
+  })
+})
+
+describe('dashboard layout tree operations', () => {
+  const layout = (): LayoutNode => ({
+    id: 'root',
+    type: 'group',
+    direction: 'horizontal',
+    sizes: [40, 60],
+    children: [
+      {
+        id: 'panel-a',
+        type: 'panel',
+        widget: {
+          key: 'watchlist',
+          pairColor: 'blue',
+          params: { watchlistId: 'watchlist-1' },
+        },
+      },
+      {
+        id: 'panel-b',
+        type: 'panel',
+        widget: {
+          key: 'heatmap',
+          pairColor: 'red',
+          params: { listing: { listing_id: 'BTC-USD', listing_type: 'crypto' } },
+        },
+      },
+    ],
+  })
+
+  it('updates group sizes without replacing unchanged layout nodes', () => {
+    const current = layout()
+
+    expect(updateDashboardLayoutGroupSizes(current, 'root', [40, 60])).toBe(current)
+    expect(updateDashboardLayoutGroupSizes(current, 'root', [35, 65])).toMatchObject({
+      id: 'root',
+      sizes: [35, 65],
+    })
+  })
+
+  it('splits a panel into a new group and duplicates the source widget config', () => {
+    const next = splitDashboardLayoutPanelIntoVerticalGroup(layout(), 'panel-a')
+
+    expect(findDashboardLayoutParentGroupId(next, 'panel-b')).toBe('root')
+    expect(next.type).toBe('group')
+    if (next.type !== 'group') throw new Error('Expected root group')
+    const splitNode = next.children[0]
+    expect(splitNode.type).toBe('group')
+    if (splitNode.type !== 'group') throw new Error('Expected split group')
+    expect(splitNode.direction).toBe('vertical')
+    expect(splitNode.children).toHaveLength(2)
+    expect(splitNode.children[0]).toMatchObject({
+      type: 'panel',
+      widget: {
+        key: 'watchlist',
+        pairColor: 'blue',
+        params: { watchlistId: 'watchlist-1' },
+      },
+    })
+  })
+
+  it('closes a panel and normalizes sibling sizes', () => {
+    const next = closeDashboardLayoutPanelGroup(layout(), 'panel-a')
+
+    expect(next.type).toBe('panel')
+    if (next.type !== 'panel') throw new Error('Expected survivor panel')
+    expect(next.widget).toMatchObject({
+      key: 'heatmap',
+      pairColor: 'red',
     })
   })
 })

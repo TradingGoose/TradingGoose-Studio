@@ -78,11 +78,6 @@ vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
   WorkflowDropdown: () => <div data-testid='workflow-dropdown'>workflow-dropdown</div>,
 }))
 
-vi.mock('@/widgets/utils/workflow-selection', () => ({
-  emitWorkflowSelectionChange: vi.fn(),
-  useWorkflowSelectionPersistence: vi.fn(),
-}))
-
 vi.mock('./components', () => ({
   OutputSelect: () => <div data-testid='output-select'>output-select</div>,
 }))

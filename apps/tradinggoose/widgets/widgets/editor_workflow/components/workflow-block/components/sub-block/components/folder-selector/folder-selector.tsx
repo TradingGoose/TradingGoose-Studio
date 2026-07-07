@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { GmailIcon, OutlookIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type Credential, getProviderIdFromServiceId, getServiceIdFromScopes } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('FolderSelector')
 

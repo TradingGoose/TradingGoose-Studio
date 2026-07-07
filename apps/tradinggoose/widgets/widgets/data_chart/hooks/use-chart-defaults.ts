@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import type { PairColor } from '@/widgets/pair-colors'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 
 type SeriesWindow = ReturnType<
   typeof import('@/widgets/widgets/data_chart/series-window').resolveSeriesWindow
@@ -13,8 +12,6 @@ type UseChartDefaultsArgs = {
   dataParams: DataChartWidgetParams
   providerId?: string | null
   seriesWindow: SeriesWindow
-  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
-  resolvedPairColor: PairColor
   panelId?: string
   widgetKey?: string
 }
@@ -23,13 +20,11 @@ export const useChartDefaults = ({
   dataParams,
   providerId,
   seriesWindow,
-  onWidgetParamsChange,
-  resolvedPairColor,
   panelId,
   widgetKey,
 }: UseChartDefaultsArgs) => {
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
   const shouldPersistDefaults = useMemo(() => {
-    if (!onWidgetParamsChange) return false
     if (!providerId) return false
     const currentData = dataParams.data ?? {}
     const currentDataRecord = currentData as Record<string, unknown>
@@ -42,10 +37,10 @@ export const useChartDefaults = ({
       (seriesWindow.interval && seriesWindow.interval !== currentView.interval) ||
       !currentView.marketSession
     )
-  }, [dataParams.data, dataParams.view, onWidgetParamsChange, providerId, seriesWindow.interval])
+  }, [dataParams.data, dataParams.view, providerId, seriesWindow.interval])
 
   useEffect(() => {
-    if (!onWidgetParamsChange || !shouldPersistDefaults) return
+    if (!shouldPersistDefaults) return
 
     const {
       window: _window,
@@ -67,22 +62,6 @@ export const useChartDefaults = ({
       view: nextView as DataChartWidgetParams['view'],
     }
 
-    const nextPayload =
-      resolvedPairColor !== 'gray'
-        ? (({ listing: _listing, ...rest }) => rest)(nextParams)
-        : nextParams
-
-    emitDataChartParamsChange({
-      params: nextPayload as Record<string, unknown>,
-      panelId,
-      widgetKey,
-    })
-  }, [
-    dataParams,
-    panelId,
-    resolvedPairColor,
-    seriesWindow.interval,
-    shouldPersistDefaults,
-    widgetKey,
-  ])
+    patchWidgetParams(nextParams as Record<string, unknown>)
+  }, [dataParams, patchWidgetParams, seriesWindow.interval, shouldPersistDefaults])
 }

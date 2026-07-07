@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
+import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
@@ -34,6 +35,9 @@ const CopilotWidgetBody = ({
   widget,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
+  const layoutId = context?.dashboardLayoutId ?? null
+  const ownerUserId = context?.dashboardLayoutOwnerUserId ?? null
+  const layoutName = context?.dashboardLayoutName ?? null
   const { channelId, resolvedPairColor } = resolveCopilotWidgetScope({
     pairColor,
     panelId,
@@ -66,6 +70,9 @@ const CopilotWidgetBody = ({
         panelWidth={panelWidth || defaultPanelWidth}
         channelId={channelId}
         pairColor={resolvedPairColor}
+        layoutId={layoutId}
+        ownerUserId={ownerUserId}
+        layoutName={layoutName}
       />
     </div>
   )
@@ -78,11 +85,8 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
 )
 
 export const copilotWidget: DashboardWidgetDefinition = {
-  key: 'copilot',
-  title: 'Copilot',
+  contract: copilotWidgetContract,
   icon: BotMessageSquare,
-  category: 'utility',
-  description: 'AI copilot experience across workflows and workspace tools.',
   component: (props) => <CopilotWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const workspaceId = context?.workspaceId

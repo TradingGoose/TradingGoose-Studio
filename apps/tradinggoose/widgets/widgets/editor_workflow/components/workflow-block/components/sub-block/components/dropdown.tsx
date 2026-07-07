@@ -202,7 +202,8 @@ export function Dropdown({
         )
         .map((member) => ({
           id: member.entityId,
-          label: member.entityName || `${entityListKind ?? 'Entity'} ${member.entityId.slice(0, 8)}`,
+          label:
+            member.entityName || `${entityListKind ?? 'Entity'} ${member.entityId.slice(0, 8)}`,
           searchLabel: [member.entityName, member.entityDescription].filter(Boolean).join(' '),
         })),
     [entityListKind, resolvedConfig.excludeCurrentEntity, resolvedWorkflowId, entityListMembers]
@@ -216,13 +217,7 @@ export function Dropdown({
       return normalizedFetchedOptions
     }
     return evaluatedOptions ?? []
-  }, [
-    entityListKind,
-    entityListOptions,
-    fetchOptions,
-    normalizedFetchedOptions,
-    evaluatedOptions,
-  ])
+  }, [entityListKind, entityListOptions, fetchOptions, normalizedFetchedOptions, evaluatedOptions])
 
   const getOptionValue = (
     option:

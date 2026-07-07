@@ -1,5 +1,6 @@
 'use client'
 
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { DataChartChartControls } from '@/widgets/widgets/data_chart/components/chart-controls'
@@ -9,10 +10,6 @@ import {
   DataChartRefreshControl,
 } from '@/widgets/widgets/data_chart/components/provider-controls'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
-import type {
-  DataChartWidgetParams,
-  dataChartWidgetParams,
-} from '@/widgets/widgets/data_chart/types'
 
 export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = ({
   widget,
@@ -22,7 +19,7 @@ export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = 
   const widgetKey = widget?.key ?? 'data_chart'
   const dataParams =
     widget?.params && typeof widget.params === 'object'
-      ? (widget.params as dataChartWidgetParams)
+      ? (widget.params as DataChartWidgetParams)
       : {}
   const resolvedPairColor = (widget?.pairColor ?? 'gray') as PairColor
   const seriesWindow = resolveSeriesWindow(dataParams, dataParams.data?.provider)

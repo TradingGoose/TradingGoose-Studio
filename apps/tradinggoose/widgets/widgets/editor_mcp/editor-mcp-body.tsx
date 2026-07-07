@@ -11,15 +11,11 @@ import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
-import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   createDefaultMcpServerFormData,
@@ -128,14 +124,11 @@ export function EditorMcpWidgetBody({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const [saveError, setSaveError] = useState<string | null>(null)
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
   const initializedServerIdRef = useRef<string | null>(null)
@@ -150,7 +143,6 @@ export function EditorMcpWidgetBody({
 
   const requestedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
   const requestedServerMember = requestedServerId
     ? serverMembers.find((member) => member.entityId === requestedServerId)
@@ -158,7 +150,7 @@ export function EditorMcpWidgetBody({
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: serverMembers.map((member) => member.entityId),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   const selectedServerStatus = selectedServerId
@@ -174,8 +166,7 @@ export function EditorMcpWidgetBody({
   usePersistResolvedEntityId({
     entityId: selectedServerId,
     entityIdKey: 'mcpServerId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
   })
 
@@ -198,27 +189,9 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
   }, [clearTestResult, defaultFormData, formDataState, selectedServerId, serverSession.doc])
 
-  useMcpSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'editor_mcp',
-    onServerSelect: (serverId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
-    },
-  })
-
   const handleClose = useCallback(() => {
-    if (isLinkedToColorPair) {
-      setPairContext(resolvedPairColor, { mcpServerId: null })
-      return
-    }
-
-    onWidgetParamsChange?.(null)
-  }, [isLinkedToColorPair, onWidgetParamsChange, resolvedPairColor, setPairContext])
+    onWidgetParamsPatch?.({ mcpServerId: null })
+  }, [onWidgetParamsPatch])
 
   const handleResetForm = useCallback(() => {
     setFormDataState(initialFormDataRef.current)
@@ -338,7 +311,9 @@ export function EditorMcpWidgetBody({
   if (!selectedServerId) {
     return (
       <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
+        message={
+          resolvedPairColor !== 'gray' ? copy.noSharedMcpServerSelected : copy.selectServerToEdit
+        }
       />
     )
   }

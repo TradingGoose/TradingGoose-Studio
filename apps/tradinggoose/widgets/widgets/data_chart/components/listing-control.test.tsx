@@ -57,8 +57,14 @@ vi.mock('@/components/widget-header-control', () => ({
     ['trigger', className].filter(Boolean).join(' '),
 }))
 
-vi.mock('@/widgets/utils/chart-params', () => ({
-  emitDataChartParamsChange: vi.fn(),
+const patchWidgetParamsMock = vi.fn()
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetPairContext: () => ({}),
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: Parameters<typeof patchWidgetParamsMock>) =>
+      patchWidgetParamsMock(...args),
+  }),
 }))
 
 describe('DataChartListingControl', () => {
@@ -70,6 +76,7 @@ describe('DataChartListingControl', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     fetchListingsMock.mockReset()
     fetchListingsMock.mockResolvedValue([])
+    patchWidgetParamsMock.mockReset()
     useListingSelectorStore.setState({ instances: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -134,5 +141,25 @@ describe('DataChartListingControl', () => {
     expect(instance?.query).toBe('M')
     expect(instance?.selectedListingValue).toBeNull()
     expect(instance?.selectedListing).toBeNull()
+  })
+
+  it('does not emit compat patches for legacy string listings (contract sanitization owns them)', async () => {
+    await act(async () => {
+      root.render(
+        <DataChartListingControl
+          widgetKey='listing-control-test'
+          panelId='panel-1'
+          params={{
+            listing: 'AAPL' as never,
+            data: {
+              provider: 'alpaca',
+            },
+          }}
+          pairColor='gray'
+        />
+      )
+    })
+
+    expect(patchWidgetParamsMock).not.toHaveBeenCalled()
   })
 })

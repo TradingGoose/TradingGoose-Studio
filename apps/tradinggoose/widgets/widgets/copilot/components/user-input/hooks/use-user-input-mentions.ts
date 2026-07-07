@@ -316,6 +316,7 @@ export function useUserInputMentions({
         entityKind: item.entityKind,
         entityId: item.id,
         workspaceId,
+        ownerUserId: item.ownerUserId,
         label,
       }),
       insertion

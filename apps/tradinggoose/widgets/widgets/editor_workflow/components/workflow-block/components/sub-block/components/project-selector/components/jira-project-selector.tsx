@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { JiraIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -23,9 +23,8 @@ import {
   type OAuthProvider,
 } from '@/lib/oauth'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('JiraProjectSelector')
 

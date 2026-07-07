@@ -87,6 +87,9 @@ export interface WorkspaceEntityItem {
   entityKind: CopilotWorkspaceEntityKind
   id: string
   name: string
+  ownerUserId?: string
+  sortOrder?: number
+  isActive?: boolean
   createdAt?: string
   updatedAt?: string
   color?: string

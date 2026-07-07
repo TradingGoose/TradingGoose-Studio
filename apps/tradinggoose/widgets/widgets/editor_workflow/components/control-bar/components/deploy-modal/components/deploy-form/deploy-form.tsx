@@ -5,11 +5,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form'
-import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 import {
   type ApiKey,
   ApiKeySelector,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
+import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const createDeployFormSchema = (selectApiKeyValidation: string) =>
   z.object({

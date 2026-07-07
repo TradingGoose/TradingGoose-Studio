@@ -100,31 +100,31 @@ describe('trigger-editing-layout', () => {
     ],
   }
 
-  it.each([
-    { locale: 'es' as const },
-    { locale: 'zh' as const },
-  ])('localizes trigger rows through the shared trigger-edit layout for $locale', ({ locale }) => {
-    const inspectorCopy = getWorkflowInspectorCopy(locale)
-    const layout = buildTriggerEditingLayout({
-      inspectorCopy,
-      blockType: 'agent',
-      blockConfig: regularBlockConfig,
-      blockState: {
-        subBlocks: {},
-      },
-      shouldDisableWrite: false,
-    })
-    const expectedSubBlocks = regularBlockConfig.subBlocks.map((subBlock) =>
-      localizeWorkflowSubBlockConfigWithCopy(inspectorCopy, subBlock, 'agent')
-    )
+  it.each([{ locale: 'es' as const }, { locale: 'zh' as const }])(
+    'localizes trigger rows through the shared trigger-edit layout for $locale',
+    ({ locale }) => {
+      const inspectorCopy = getWorkflowInspectorCopy(locale)
+      const layout = buildTriggerEditingLayout({
+        inspectorCopy,
+        blockType: 'agent',
+        blockConfig: regularBlockConfig,
+        blockState: {
+          subBlocks: {},
+        },
+        shouldDisableWrite: false,
+      })
+      const expectedSubBlocks = regularBlockConfig.subBlocks.map((subBlock) =>
+        localizeWorkflowSubBlockConfigWithCopy(inspectorCopy, subBlock, 'agent')
+      )
 
-    expect(layout.regularRows.flat().map((subBlock) => subBlock.title)).toEqual(
-      expectedSubBlocks.map((subBlock) => subBlock.title)
-    )
-    expect(layout.regularRows.flat().map((subBlock) => subBlock.placeholder)).toEqual(
-      expectedSubBlocks.map((subBlock) => subBlock.placeholder)
-    )
-  })
+      expect(layout.regularRows.flat().map((subBlock) => subBlock.title)).toEqual(
+        expectedSubBlocks.map((subBlock) => subBlock.title)
+      )
+      expect(layout.regularRows.flat().map((subBlock) => subBlock.placeholder)).toEqual(
+        expectedSubBlocks.map((subBlock) => subBlock.placeholder)
+      )
+    }
+  )
 
   it('removes the trigger mode selector from deploy rows while keeping the active mode fields', () => {
     const layout = buildTriggerEditingLayout({
@@ -140,12 +140,10 @@ describe('trigger-editing-layout', () => {
       shouldDisableWrite: false,
     })
 
-    expect(removeTriggerModeSelectorFromRows(layout.regularRows).flat().map((subBlock) => subBlock.id)).toEqual([
-      'systemPrompt',
-      'userPrompt',
-      'model',
-      'apiKey',
-      'responseFormat',
-    ])
+    expect(
+      removeTriggerModeSelectorFromRows(layout.regularRows)
+        .flat()
+        .map((subBlock) => subBlock.id)
+    ).toEqual(['systemPrompt', 'userPrompt', 'model', 'apiKey', 'responseFormat'])
   })
 })

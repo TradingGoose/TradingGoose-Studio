@@ -5,12 +5,10 @@ import { useCallback, useMemo, useState } from 'react'
 import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type { InputMetaMap } from '@/lib/indicators/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import type { IndicatorPlotValue } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
-import type {
-  DataChartWidgetParams,
-  IndicatorRuntimeEntry,
-} from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 import { resolveRuntimePaneIndex } from '@/widgets/widgets/data_chart/utils/indicator-runtime'
 
 type IndicatorMetaEntry = { name: string; inputMeta?: InputMetaMap | null }
@@ -59,18 +57,15 @@ export const useIndicatorControls = ({
 }: UseIndicatorControlsArgs) => {
   const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
+  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
 
   const updateView = useCallback(
     (nextView: DataChartWidgetParams['view']) => {
-      emitDataChartParamsChange({
-        params: {
-          view: nextView,
-        },
-        panelId,
-        widgetKey,
+      patchWidgetParams({
+        view: nextView,
       })
     },
-    [panelId, widgetKey]
+    [patchWidgetParams]
   )
 
   const handleToggleHidden = useCallback(

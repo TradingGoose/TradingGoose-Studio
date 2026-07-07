@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCopilotWorkspaceEntityContext,
+  COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS,
+  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
   getCopilotWorkspaceEntityIdFromPairContext,
   getCopilotWorkspaceEntityKindFromContext,
   matchesCopilotWorkspaceEntityContext,
@@ -8,6 +10,15 @@ import {
 } from './workspace-entities'
 
 describe('workspace-entities', () => {
+  it('keeps dashboard layouts mentionable but out of pair-context entity configs', () => {
+    expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
+      'dashboard_layout'
+    )
+    expect(COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
+      'dashboard_layout'
+    )
+  })
+
   it('builds current workflow context from centralized metadata', () => {
     expect(
       buildCopilotWorkspaceEntityContext({
@@ -105,6 +116,7 @@ describe('workspace-entities', () => {
       entityKind: 'workflow',
       entityId: 'workflow-1',
       workspaceId: 'workspace-1',
+      ownerUserId: null,
       current: false,
     })
 
@@ -117,9 +129,26 @@ describe('workspace-entities', () => {
       })
     ).toEqual({
       entityKind: 'watchlist',
-      entityId: 'workspace-1',
+      entityId: 'watchlist-1',
       workspaceId: 'workspace-1',
+      ownerUserId: null,
       current: true,
+    })
+
+    expect(
+      readCopilotWorkspaceEntityContext({
+        kind: 'dashboard_layout',
+        dashboardLayoutId: 'layout-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        label: 'Trading Desk',
+      })
+    ).toEqual({
+      entityKind: 'dashboard_layout',
+      entityId: 'layout-1',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      current: false,
     })
   })
 
@@ -154,6 +183,6 @@ describe('workspace-entities', () => {
         },
         'watchlist'
       )
-    ).toBeNull()
+    ).toBe('watchlist-1')
   })
 })

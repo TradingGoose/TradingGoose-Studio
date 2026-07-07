@@ -4,15 +4,11 @@ import { useCallback, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
-import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
@@ -25,19 +21,14 @@ export function EditorIndicatorWidgetBody({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: EditorIndicatorWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
 
   const paramsIndicatorId = getIndicatorIdFromParams(params)
-  const requestedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : paramsIndicatorId
+  const requestedIndicatorId = paramsIndicatorId
 
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
   const hasRequestedIndicator = normalizedRequestedIndicatorId.length > 0
@@ -52,29 +43,15 @@ export function EditorIndicatorWidgetBody({
   const indicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
     entityIds: indicatorMembers.map((member) => member.entityId),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   usePersistResolvedEntityId({
     entityId: indicatorId,
     entityIdKey: 'indicatorId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
-  })
-
-  useIndicatorSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'editor_indicator',
-    onIndicatorSelect: (nextId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === nextId) return
-      setPairContext(resolvedPairColor, { indicatorId: nextId })
-    },
   })
 
   const codeExportRef = useRef<() => void>(() => {})
@@ -134,7 +111,9 @@ export function EditorIndicatorWidgetBody({
   if (!indicatorId) {
     return (
       <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit}
+        message={
+          resolvedPairColor !== 'gray' ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit
+        }
       />
     )
   }

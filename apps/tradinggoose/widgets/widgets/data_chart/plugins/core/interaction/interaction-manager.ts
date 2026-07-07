@@ -1,30 +1,27 @@
 // /src/interaction/interaction-manager.ts
 
-import {
+import type {
+  Coordinate,
   IChartApiBase,
+  IHorzScaleBehavior,
+  IPaneApi,
   ISeriesApi,
   MouseEventParams,
   SeriesType,
-  IHorzScaleBehavior,
-  Coordinate,
-  IPaneApi,
-  TouchMouseEventData,
 } from 'lightweight-charts'
-import { LineToolsCorePlugin } from '../core-plugin'
-import { BaseLineTool } from '../model/base-line-tool'
-import { ToolRegistry } from '../model/tool-registry'
+import type { LineToolPoint } from '../api/public-api'
+import type { LineToolsCorePlugin } from '../core-plugin'
+import type { BaseLineTool } from '../model/base-line-tool'
+import type { ToolRegistry } from '../model/tool-registry'
 import {
-  LineToolPartialOptionsMap,
-  LineToolType,
-  InteractionPhase,
-  HitTestType,
-  HitTestResult,
-  SnapAxis,
   FinalizationMethod,
+  InteractionPhase,
+  type LineToolPartialOptionsMap,
+  type LineToolType,
   PaneCursorType,
+  type SnapAxis,
 } from '../types'
-import { Point, interpolateTimeFromLogicalIndex } from '../utils/geometry'
-import { LineToolPoint } from '../api/public-api'
+import { interpolateTimeFromLogicalIndex, Point } from '../utils/geometry'
 import { ensureNotNull } from '../utils/helpers'
 
 /**
@@ -57,7 +54,7 @@ export class InteractionManager<HorzScaleItem> {
   private _hoveredTool: BaseLineTool<HorzScaleItem> | null = null
 
   // Interaction State (Editing)
-  private _isEditing: boolean = false
+  private _isEditing = false
   private _draggedTool: BaseLineTool<HorzScaleItem> | null = null
   private _draggedPointIndex: number | null = null
   private _originalDragPoints: LineToolPoint[] | null = null
@@ -67,16 +64,16 @@ export class InteractionManager<HorzScaleItem> {
   private _activeDragCursor: PaneCursorType | null = null
 
   // Interaction State (Creation - Raw DOM Listeners)
-  private _isCreationGesture: boolean = false
+  private _isCreationGesture = false
   private _creationTool: BaseLineTool<HorzScaleItem> | null = null
   private _mouseDownPoint: Point | null = null
-  private _mouseDownTime: number = 0
-  private _isDrag: boolean = false
-  private _isShiftKeyDown: boolean = false
-  private _isDestroyed: boolean = false
-  private _lastPointerDownTs: number = 0
-  private _lastPointerMoveTs: number = 0
-  private _lastPointerUpTs: number = 0
+  private _mouseDownTime = 0
+  private _isDrag = false
+  private _isShiftKeyDown = false
+  private _isDestroyed = false
+  private _lastPointerDownTs = 0
+  private _lastPointerMoveTs = 0
+  private _lastPointerUpTs = 0
 
   // Stable bound handlers ensure deterministic unsubscribe during plugin destroy.
   private readonly _boundHandleMouseDown = (event: MouseEvent): void => {
@@ -852,14 +849,13 @@ export class InteractionManager<HorzScaleItem> {
 
           // Exit the function here: tool creation complete
           return
-        } else {
-          // Point conversion failed (e.g., clicked far off-screen). Cancel creation.
-          this.detachTool(tool)
-          this._tools.delete(tool.id())
-          this.setCurrentToolCreating(null)
-          this._resetCreationGestureStateOnly()
-          return
         }
+        // Point conversion failed (e.g., clicked far off-screen). Cancel creation.
+        this.detachTool(tool)
+        this._tools.delete(tool.id())
+        this.setCurrentToolCreating(null)
+        this._resetCreationGestureStateOnly()
+        return
       }
 
       // Downgrade Accidental Drag to Click for fixed-point tools placing a subsequent point.
@@ -1005,7 +1001,6 @@ export class InteractionManager<HorzScaleItem> {
           this._finalizeToolCreation(tool)
           // --- FIX: Return immediately after finalization ---
           return
-        } else {
         }
       } else if (this._isDrag) {
         // Case B: Commit Click-and-Drag Creation
@@ -1384,9 +1379,7 @@ export class InteractionManager<HorzScaleItem> {
    * @returns An object containing the hit tool, the hit point index, and the suggested cursor type, or `null` if no tool was hit.
    * @private
    */
-  private _hitTest(
-    point: Point
-  ): {
+  private _hitTest(point: Point): {
     tool: BaseLineTool<HorzScaleItem>
     pointIndex: number | null
     suggestedCursor: PaneCursorType | null

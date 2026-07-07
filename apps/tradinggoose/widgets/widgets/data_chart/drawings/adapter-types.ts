@@ -1,9 +1,10 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type { ILineToolsPlugin, LineToolExport } from '@/widgets/widgets/data_chart/plugins/core'
-import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 export type OwnerId = string
 export type SeriesAttachmentKey = string

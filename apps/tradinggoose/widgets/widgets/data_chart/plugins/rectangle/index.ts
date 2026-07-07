@@ -6,12 +6,12 @@
  */
 
 // Import the main LineToolRectangle class
-import { LineToolRectangle } from './model/LineToolRectangle';
-import { LineToolRectanglePaneView } from './views/LineToolRectanglePaneView';
+import { LineToolRectangle } from './model/LineToolRectangle'
+import { LineToolRectanglePaneView } from './views/LineToolRectanglePaneView'
 
 // Re-export the LineToolRectangle class to make it available
 // for external modules (like the core line tools plugin)
-export { LineToolRectangle, LineToolRectanglePaneView };
+export { LineToolRectangle, LineToolRectanglePaneView }
 
 // Optionally, if you wanted to provide a factory function for this specific tool,
 // you might do it here. But for registration with the core plugin, exporting the class is sufficient.

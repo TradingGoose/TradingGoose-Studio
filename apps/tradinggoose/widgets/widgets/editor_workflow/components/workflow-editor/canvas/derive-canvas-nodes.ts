@@ -20,7 +20,10 @@ interface DeriveCanvasNodesParams {
   onMissingBlockConfig?: (block: BlockState) => void
 }
 
-function getSafeBlockPosition(block: Pick<BlockState, 'id' | 'position'>): { x: number; y: number } {
+function getSafeBlockPosition(block: Pick<BlockState, 'id' | 'position'>): {
+  x: number
+  y: number
+} {
   if (
     block.position &&
     typeof block.position.x === 'number' &&

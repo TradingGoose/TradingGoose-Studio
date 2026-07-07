@@ -37,16 +37,14 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { mcpListWidgetContract } from '@/widgets/widgets/list_mcp/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
-import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const buildDefaultMcpServer = (name: string) => ({
@@ -144,26 +142,15 @@ const ListMcpHeaderRightContent = ({
 }) => {
   const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('mcp_server', workspaceId)
 
   const selectServer = useCallback(
     (serverId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { mcpServerId: serverId })
-        return
-      }
-
-      emitMcpSelectionChange({
-        serverId,
-        panelId,
-        widgetKey: 'list_mcp',
-      })
+      if (!panelId) return
+      actions.patchWidgetParams(panelId, 'list_mcp', { mcpServerId: serverId })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions, panelId]
   )
   const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
@@ -217,7 +204,7 @@ const ListMcpWidgetContent = ({
   context,
   params,
   pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
@@ -227,9 +214,6 @@ const ListMcpWidgetContent = ({
   const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
   const { refreshTools } = useMcpTools(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
 
   const workspaceServers = useMemo<McpServerListEntry[]>(
     () =>
@@ -249,62 +233,25 @@ const ListMcpWidgetContent = ({
 
   const requestedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: workspaceServers.map((server) => server.id),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: resolvedPairColor === 'gray',
   })
 
   usePersistResolvedEntityId({
     entityId: selectedServerId,
     entityIdKey: 'mcpServerId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
+    onWidgetParamsPatch,
     params,
-  })
-
-  useMcpSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'list_mcp',
-    onServerSelect: (serverId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
-    },
   })
 
   const handleSelectServer = useCallback(
     (serverId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.mcpServerId !== serverId) {
-          setPairContext(resolvedPairColor, { mcpServerId: serverId })
-        }
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        mcpServerId: serverId,
-      })
+      onWidgetParamsPatch?.({ mcpServerId: serverId })
     },
-    [
-      isLinkedToColorPair,
-      onWidgetParamsChange,
-      panelId,
-      pairContext?.mcpServerId,
-      pairContext,
-      params,
-      resolvedPairColor,
-      setPairContext,
-    ]
+    [onWidgetParamsPatch]
   )
 
   const handleRenameServer = useCallback(
@@ -623,11 +570,8 @@ const McpServerListItem = ({
 }
 
 export const listMcpWidget: DashboardWidgetDefinition = {
-  key: 'list_mcp',
-  title: 'MCP List',
+  contract: mcpListWidgetContract,
   icon: Server,
-  category: 'list',
-  description: 'Browse and manage MCP servers for the workspace.',
   component: (props: WidgetComponentProps) => {
     const copy = useMessages().workspace.widgets.mcpList
     const workspaceId = props.context?.workspaceId ?? null

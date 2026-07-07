@@ -1,3 +1,4 @@
+import type { Edge, Node } from '@xyflow/react'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import type { WorkflowCanvasNodeData } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
@@ -8,7 +9,6 @@ import {
   getNodeHierarchy,
   resizeContainerNodes,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/node-position-utils'
-import type { Edge, Node } from '@xyflow/react'
 
 type BlocksById = Record<string, BlockState>
 type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
@@ -52,18 +52,10 @@ interface BuildContainerEdgesParams {
 
 function getNodeRect(node: WorkflowCanvasNode, absolutePosition: { x: number; y: number }) {
   const width =
-    node.type === 'subflowNode'
-      ? (node.data?.width ?? 500)
-      : node.type === 'condition'
-        ? 250
-        : 350
+    node.type === 'subflowNode' ? (node.data?.width ?? 500) : node.type === 'condition' ? 250 : 350
 
   const height =
-    node.type === 'subflowNode'
-      ? (node.data?.height ?? 300)
-      : node.type === 'condition'
-        ? 150
-        : 100
+    node.type === 'subflowNode' ? (node.data?.height ?? 300) : node.type === 'condition' ? 150 : 100
 
   return {
     left: absolutePosition.x,
@@ -88,7 +80,10 @@ export function applyContainerHighlight(containerId: string, getNodes: GetNodes)
 
   const containerNode = getNodes().find((node) => node.id === containerId)
 
-  if (containerNode?.type === 'subflowNode' && (containerNode.data as { kind?: string })?.kind === 'loop') {
+  if (
+    containerNode?.type === 'subflowNode' &&
+    (containerNode.data as { kind?: string })?.kind === 'loop'
+  ) {
     containerElement.classList.add('loop-node-drag-over')
   } else if (
     containerNode?.type === 'subflowNode' &&
@@ -135,7 +130,9 @@ export function updateNodeParentForCanvas({
 
   let resolvedAffectedEdges = affectedEdges ?? []
   if (!resolvedAffectedEdges.length && !newParentId && oldParentId) {
-    resolvedAffectedEdges = edgesForDisplay.filter((edge) => edge.source === nodeId || edge.target === nodeId)
+    resolvedAffectedEdges = edgesForDisplay.filter(
+      (edge) => edge.source === nodeId || edge.target === nodeId
+    )
   }
 
   const oldPosition = { ...node.position }

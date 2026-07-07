@@ -1,11 +1,11 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { Terminal } from './terminal/terminal'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { Terminal } from './terminal/terminal'
 
 interface WorkflowConsoleAppProps {
   workspaceId: string
@@ -26,19 +26,15 @@ const WorkflowConsoleApp = ({
 
   const user = session.data?.user
     ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
+        id: session.data.user.id,
+        name: session.data.user.name ?? undefined,
+        email: session.data.user.email,
+      }
     : undefined
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-      >
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}

@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { MicrosoftExcelIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -25,9 +25,8 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import type { PlannerTask } from '@/tools/microsoft_planner/types'
 
 const logger = createLogger('MicrosoftFileSelector')
@@ -891,11 +890,11 @@ export function MicrosoftFileSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           {getProviderIcon(provider)}
-                        <span>
-                          {formatTemplate(copy.connectProviderAccount, {
-                            providerName: getProviderName(provider),
-                          })}
-                        </span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: getProviderName(provider),
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>

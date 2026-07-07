@@ -19,6 +19,11 @@ vi.mock('@/widgets/widgets/components/skill-dropdown', () => ({
   SkillDropdown: () => <div>skill-dropdown</div>,
 }))
 
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetPairContext: () => ({}),
+  useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
+}))
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }

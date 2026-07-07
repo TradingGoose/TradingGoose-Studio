@@ -15,6 +15,7 @@ import type {
   TradingProviderId,
 } from '@/providers/trading/types'
 import { resolveTradingListingAssetClass } from '@/providers/trading/utils'
+import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/contract'
 import {
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
@@ -24,7 +25,6 @@ import {
   getSeriesMarketProviderOptions,
   resolveConfiguredSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
-import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 export const QUICK_ORDER_WIDGET_KEY = 'quick_order'
 

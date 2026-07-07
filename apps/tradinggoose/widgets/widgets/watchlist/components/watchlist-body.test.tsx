@@ -6,9 +6,6 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import { usePairColorStore } from '@/stores/dashboard/pair-store'
-import { WATCHLIST_WIDGET_SELECT_EVENT } from '@/widgets/events'
-import { PAIR_COLORS } from '@/widgets/pair-colors'
 import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watchlist-body'
 
 const mockWatchlistTable = vi.fn()
@@ -28,7 +25,7 @@ const selectedListing: ListingIdentity = {
 }
 
 const watchlist = {
-  id: 'workspace-1',
+  id: 'watchlist-1',
   workspaceId: 'workspace-1',
   name: 'Watchlist',
   items: [
@@ -45,8 +42,9 @@ const watchlist = {
 let currentWatchlists: any[] = [watchlist]
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
-  useWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
-    const record = currentWatchlists.find((entry) => entry.id === watchlistId) ?? null
+  useSelectedWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
+    const selectedId = watchlistId ?? currentWatchlists[0]?.id ?? null
+    const record = currentWatchlists.find((entry) => entry.id === selectedId) ?? null
     return {
       record,
       name: record?.name ?? '',
@@ -58,6 +56,13 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       save: mockSaveWatchlistDocument,
       isLoading: false,
       error: null,
+      members: currentWatchlists.map((entry) => ({
+        entityId: entry.id,
+        entityName: entry.name,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+      })),
+      selectedWatchlistId: selectedId,
     }
   },
 }))
@@ -94,18 +99,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const resetPairStore = () => {
-  usePairColorStore.setState({
-    contexts: PAIR_COLORS.reduce<Record<(typeof PAIR_COLORS)[number], Record<string, never>>>(
-      (acc, color) => {
-        acc[color] = {}
-        return acc
-      },
-      {} as Record<(typeof PAIR_COLORS)[number], Record<string, never>>
-    ),
-  })
-}
-
 describe('WatchlistWidgetBody', () => {
   let container: HTMLDivElement
   let root: Root
@@ -114,7 +107,6 @@ describe('WatchlistWidgetBody', () => {
     vi.clearAllMocks()
     mockSaveWatchlistDocument.mockResolvedValue(undefined)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    resetPairStore()
     currentWatchlists = [watchlist]
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -128,7 +120,9 @@ describe('WatchlistWidgetBody', () => {
     container.remove()
   })
 
-  it('writes selected listings into pairStore when the widget is linked', async () => {
+  it('writes selected listings through the widget params patch callback when linked', async () => {
+    const onWidgetParamsPatch = vi.fn()
+
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
@@ -137,6 +131,7 @@ describe('WatchlistWidgetBody', () => {
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
         />
       )
     })
@@ -156,7 +151,21 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(usePairColorStore.getState().contexts.red.listing).toEqual(selectedListing)
+    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='red'
+          widget={{ key: 'watchlist', pairColor: 'red' } as any}
+          params={{ provider: 'alpaca', listing: selectedListing }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
+        />
+      )
+    })
+
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         isLinkedSelection: true,
@@ -165,7 +174,9 @@ describe('WatchlistWidgetBody', () => {
     )
   })
 
-  it('keeps pairStore untouched when the widget is unlinked', async () => {
+  it('ignores listing selection when the widget is unlinked', async () => {
+    const onWidgetParamsPatch = vi.fn()
+
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
@@ -174,6 +185,7 @@ describe('WatchlistWidgetBody', () => {
           pairColor='gray'
           widget={{ key: 'watchlist', pairColor: 'gray' } as any}
           params={{ provider: 'alpaca' }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
         />
       )
     })
@@ -186,7 +198,7 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(usePairColorStore.getState().contexts.gray.listing).toBeUndefined()
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         isLinkedSelection: false,
@@ -196,6 +208,8 @@ describe('WatchlistWidgetBody', () => {
   })
 
   it('does not auto-claim the first watchlist when the widget is linked without a pair watchlist', async () => {
+    const onWidgetParamsPatch = vi.fn()
+
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
@@ -204,11 +218,12 @@ describe('WatchlistWidgetBody', () => {
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
         />
       )
     })
 
-    expect(usePairColorStore.getState().contexts.red.watchlistId).toBeUndefined()
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockWatchlistTable).toHaveBeenCalledWith(
       expect.objectContaining({
         watchlist,
@@ -219,47 +234,8 @@ describe('WatchlistWidgetBody', () => {
     expect(container.textContent).not.toContain('Create a watchlist to get started.')
   })
 
-  it('clears local watchlist params when the implicit root list is selected', async () => {
-    const onWidgetParamsChange = vi.fn()
-
-    await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{ provider: 'alpaca', watchlistId: 'list-1' }}
-          onWidgetParamsChange={onWidgetParamsChange}
-        />
-      )
-    })
-
-    await act(async () => {
-      window.dispatchEvent(
-        new CustomEvent(WATCHLIST_WIDGET_SELECT_EVENT, {
-          detail: {
-            watchlistId: null,
-            panelId: 'panel-1',
-            widgetKey: 'watchlist',
-          },
-        })
-      )
-    })
-
-    expect(onWidgetParamsChange).toHaveBeenCalledWith({ provider: 'alpaca' })
-  })
-
-  it('clears linked selections from pairStore when the widget deselects the current item', async () => {
-    usePairColorStore.setState((state) => ({
-      contexts: {
-        ...state.contexts,
-        red: {
-          ...state.contexts.red,
-          listing: selectedListing,
-        },
-      },
-    }))
+  it('clears linked selections through the widget params patch callback', async () => {
+    const onWidgetParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
@@ -268,7 +244,8 @@ describe('WatchlistWidgetBody', () => {
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca' }}
+          params={{ provider: 'alpaca', listing: selectedListing }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
         />
       )
     })
@@ -288,7 +265,21 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(usePairColorStore.getState().contexts.red.listing).toBeUndefined()
+    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: null })
+
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='red'
+          widget={{ key: 'watchlist', pairColor: 'red' } as any}
+          params={{ provider: 'alpaca', listing: null }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
+        />
+      )
+    })
+
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         isLinkedSelection: true,

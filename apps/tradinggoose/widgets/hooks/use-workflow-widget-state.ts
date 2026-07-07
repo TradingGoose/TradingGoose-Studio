@@ -2,11 +2,10 @@
 
 import { useMemo } from 'react'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
-import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/widget-contracts'
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
@@ -14,7 +13,6 @@ type UseWorkflowWidgetStateOptions = Pick<
 > & {
   workspaceId?: string
   fallbackWidgetKey: string
-  usePairWorkflowContext?: boolean
 }
 
 type UseWorkflowWidgetStateResult = {
@@ -27,8 +25,6 @@ type UseWorkflowWidgetStateResult = {
   workflowIds: string[]
 }
 
-const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
-
 export const useWorkflowWidgetState = ({
   workspaceId,
   pairColor,
@@ -36,7 +32,6 @@ export const useWorkflowWidgetState = ({
   panelId,
   params,
   fallbackWidgetKey,
-  usePairWorkflowContext = true,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
   const { resolvedPairColor, channelId } = resolveWidgetChannel({
     pairColor,
@@ -44,10 +39,6 @@ export const useWorkflowWidgetState = ({
     panelId,
     fallbackWidgetKey,
   })
-  const shouldUsePairWorkflowContext = usePairWorkflowContext && resolvedPairColor !== 'gray'
-  const pairContext = usePairColorStore((state) =>
-    shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
-  )
   const {
     members,
     isLoading: isListLoading,
@@ -55,8 +46,7 @@ export const useWorkflowWidgetState = ({
   } = useEntityList('workflow', workspaceId)
 
   const storedWorkflowId = resolveEntityId('workflowId', {
-    params: shouldUsePairWorkflowContext ? null : params,
-    pairContext: shouldUsePairWorkflowContext ? pairContext : null,
+    params,
   })
 
   const workflowIds = useMemo(
@@ -76,7 +66,7 @@ export const useWorkflowWidgetState = ({
     return resolveEntityIdFromList({
       requestedEntityId: storedWorkflowId,
       entityIds: workflowIds,
-      useDefaultEntity: !shouldUsePairWorkflowContext,
+      useDefaultEntity: resolvedPairColor === 'gray',
     })
   }, [
     workflowIds,
@@ -85,7 +75,7 @@ export const useWorkflowWidgetState = ({
     hasWorkflowMembers,
     listError,
     isListLoading,
-    shouldUsePairWorkflowContext,
+    resolvedPairColor,
   ])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null

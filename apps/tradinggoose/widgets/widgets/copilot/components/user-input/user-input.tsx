@@ -10,10 +10,10 @@ import {
 } from 'react'
 import { AtSign, Loader2, Paperclip, Send, X } from 'lucide-react'
 import { Button, Textarea } from '@/components/ui'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 import { AccessLevelSelector } from './components/access-level-selector'
@@ -72,7 +72,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const { contextUsage, createNewChat } = useCopilotStore()
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
 
     const {
       attachedFiles,
@@ -87,6 +87,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     } = useUserInputAttachments({ userId: session?.user?.id })
     const { ensureSubmenuLoaded, mentionLoading, mentionSources } = useUserInputMentionSources({
       workspaceId,
+      ownerUserId: session?.user?.id,
     })
     const {
       aggregatedActive,
@@ -434,7 +435,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}

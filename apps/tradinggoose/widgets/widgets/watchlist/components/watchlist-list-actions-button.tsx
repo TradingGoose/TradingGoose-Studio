@@ -2,10 +2,9 @@
 
 import type { ReactNode } from 'react'
 import { Download, FileUp, FolderPlus, ListPlus, Plus } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,

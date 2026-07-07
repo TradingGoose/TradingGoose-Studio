@@ -54,13 +54,13 @@ vi.mock('@/stores/copilot/store', () => ({
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/stores/dashboard/pair-store', async () => {
-  const actual = await vi.importActual<typeof import('@/stores/dashboard/pair-store')>(
-    '@/stores/dashboard/pair-store'
+vi.mock('@/widgets/widget-config-runtime', async () => {
+  const actual = await vi.importActual<typeof import('@/widgets/widget-config-runtime')>(
+    '@/widgets/widget-config-runtime'
   )
   return {
     ...actual,
-    usePairColorContext: () => mockPairContext,
+    useWidgetPairContext: () => mockPairContext,
   }
 })
 

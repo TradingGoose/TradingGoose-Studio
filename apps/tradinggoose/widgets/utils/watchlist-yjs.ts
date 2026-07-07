@@ -5,10 +5,12 @@ import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
 import {
+  useEntityList,
   useSavedEntityYjsSession,
   useYjsField,
   useYjsStringField,
 } from '@/lib/yjs/use-entity-fields'
+import { resolveEntityIdFromList } from '@/widgets/widget-entity-selection'
 
 export function useWatchlistYjsDocument(args: {
   workspaceId: string | null | undefined
@@ -54,5 +56,33 @@ export function useWatchlistYjsDocument(args: {
     save,
     isLoading,
     error,
+  }
+}
+
+export function useSelectedWatchlistYjsDocument(args: {
+  workspaceId: string | null | undefined
+  watchlistId?: string | null | undefined
+}) {
+  const { workspaceId, watchlistId } = args
+  const watchlistList = useEntityList('watchlist', workspaceId)
+  const selectedWatchlistId = resolveEntityIdFromList({
+    requestedEntityId: watchlistId,
+    entityIds: watchlistList.members.map((member) => member.entityId),
+  })
+  const member =
+    watchlistList.members.find((entry) => entry.entityId === selectedWatchlistId) ?? null
+  const document = useWatchlistYjsDocument({
+    workspaceId,
+    watchlistId: selectedWatchlistId,
+    member,
+  })
+
+  return {
+    ...document,
+    members: watchlistList.members,
+    member,
+    selectedWatchlistId,
+    isLoading: watchlistList.isLoading || document.isLoading,
+    error: watchlistList.error ?? document.error,
   }
 }

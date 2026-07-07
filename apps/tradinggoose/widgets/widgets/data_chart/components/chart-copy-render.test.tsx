@@ -3,8 +3,8 @@
  */
 
 import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getPublicCopy } from '@/i18n/public-copy'
@@ -52,10 +52,7 @@ describe('data chart localized component copy', () => {
   it('renders chart control labels in the active locale', async () => {
     await act(async () => {
       renderWithLocale(
-        <DataChartCandleTypeDropdown
-          params={{ view: { candleType: 'area' } }}
-          candleType='area'
-        />
+        <DataChartCandleTypeDropdown params={{ view: { candleType: 'area' } }} candleType='area' />
       )
     })
 

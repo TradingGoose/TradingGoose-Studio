@@ -6,6 +6,7 @@ import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
+import { useDashboardWidgetRenderConfig } from '@/widgets/widget-config-runtime'
 import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
 import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
 import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
@@ -23,7 +24,7 @@ interface WidgetSurfaceProps {
   onPanelSplit?: () => void
   onPanelSplitHorizontal?: () => void
   onPanelClose?: () => void
-  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
+  onWidgetParamsPatch?: (params: Record<string, unknown>) => void
 }
 
 function WidgetSurfaceComponent({
@@ -36,20 +37,23 @@ function WidgetSurfaceComponent({
   onPanelSplit,
   onPanelSplitHorizontal,
   onPanelClose,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetSurfaceProps) {
   const widgetKey = widget?.key ?? 'empty'
+  const renderWidget = useDashboardWidgetRenderConfig(widget, panelId)
   const emptyDefinition = getWidgetDefinition('empty')
   const definition = getWidgetDefinition(widgetKey) ?? emptyDefinition
-  const pairColor = isPairColor(widget?.pairColor) ? widget?.pairColor : 'gray'
+  const pairColor = isPairColor(renderWidget?.pairColor) ? renderWidget?.pairColor : 'gray'
   const WidgetComponent = definition?.component ?? emptyDefinition?.component
   type RuntimeWidgetComponent = (
-    props: WidgetComponentProps & { onWidgetChange?: (widgetKey: string) => void }
+    props: WidgetComponentProps & {
+      onWidgetChange?: (widgetKey: string) => void
+    }
   ) => ReactNode
   const RenderWidgetComponent = WidgetComponent as RuntimeWidgetComponent
   const registryHeader =
-    definition?.renderHeader?.({ widget, context, panelId }) ??
-    emptyDefinition?.renderHeader?.({ widget, context, panelId })
+    definition?.renderHeader?.({ widget: renderWidget, context, panelId }) ??
+    emptyDefinition?.renderHeader?.({ widget: renderWidget, context, panelId })
   const headerScrollRef = useRef<HTMLDivElement>(null)
 
   const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
@@ -134,13 +138,13 @@ function WidgetSurfaceComponent({
         <div className='flex flex-1 flex-col overflow-hidden'>
           {WidgetComponent ? (
             <RenderWidgetComponent
-              params={widget?.params ?? null}
+              params={renderWidget?.params ?? null}
               context={context}
               pairColor={pairColor}
               panelId={panelId}
-              widget={widget}
+              widget={renderWidget}
               onWidgetChange={onWidgetChange}
-              onWidgetParamsChange={onWidgetParamsChange}
+              onWidgetParamsPatch={onWidgetParamsPatch}
             />
           ) : null}
         </div>
@@ -176,13 +180,16 @@ function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
     sameWidget &&
     prev.panelId === next.panelId &&
     prev.context?.workspaceId === next.context?.workspaceId &&
+    prev.context?.dashboardLayoutOwnerUserId === next.context?.dashboardLayoutOwnerUserId &&
+    prev.context?.dashboardLayoutId === next.context?.dashboardLayoutId &&
+    prev.context?.dashboardLayoutName === next.context?.dashboardLayoutName &&
     prev.header === next.header &&
     prev.onPairColorChange === next.onPairColorChange &&
     prev.onWidgetChange === next.onWidgetChange &&
     prev.onPanelSplit === next.onPanelSplit &&
     prev.onPanelSplitHorizontal === next.onPanelSplitHorizontal &&
     prev.onPanelClose === next.onPanelClose &&
-    prev.onWidgetParamsChange === next.onWidgetParamsChange
+    prev.onWidgetParamsPatch === next.onWidgetParamsPatch
   )
 }
 

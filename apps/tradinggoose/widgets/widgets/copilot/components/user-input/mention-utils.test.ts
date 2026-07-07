@@ -25,6 +25,7 @@ const createMentionSources = (): MentionSources => ({
     custom_tool: [{ entityKind: 'custom_tool', id: 'tool-1', name: 'Slack Alerts' }],
     mcp_server: [],
     watchlist: [{ entityKind: 'watchlist', id: 'watchlist-1', name: 'Growth' }],
+    dashboard_layout: [{ entityKind: 'dashboard_layout', id: 'layout-1', name: 'Trading Desk' }],
   },
   knowledgeBases: [],
   blocksList: [],

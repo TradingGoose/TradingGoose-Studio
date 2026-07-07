@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderQuickOrderHeader } from '@/widgets/widgets/quick_order/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockEmitQuickOrderParamsChange = vi.fn()
+const mockPatchWidgetParams = vi.fn()
 type MockMarketProviderControlsProps = {
   value?: string | null
   workspaceId?: string
@@ -84,8 +84,10 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/widgets/utils/quick-order-params', () => ({
-  emitQuickOrderParamsChange: (...args: unknown[]) => mockEmitQuickOrderParamsChange(...args),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 vi.mock('@/components/market-selector/provider-controls', () => ({
@@ -230,28 +232,18 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProvider: 'finnhub',
-        marketProviderParams: null,
-        marketAuth: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+      marketProvider: 'finnhub',
+      marketProviderParams: null,
+      marketAuth: null,
     })
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        provider: 'tradier',
-        portfolioIdentity: null,
-        serviceId: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+      provider: 'tradier',
+      portfolioIdentity: null,
+      serviceId: null,
     })
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: { side: 'sell' },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+      side: 'sell',
     })
   })
 
@@ -274,13 +266,9 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProviderParams: { region: 'US' },
-        marketAuth: { apiKey: 'market-key' },
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+      marketProviderParams: { region: 'US' },
+      marketAuth: { apiKey: 'market-key' },
     })
   })
 
@@ -304,11 +292,11 @@ describe('QuickOrderHeaderControls', () => {
         authParams: undefined,
       })
     )
-    expect(mockEmitQuickOrderParamsChange).not.toHaveBeenCalledWith(
+    expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
   })
@@ -369,17 +357,13 @@ describe('QuickOrderHeaderControls', () => {
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        portfolioIdentity: {
-          providerId: 'alpaca',
-          credentialId: 'oauth-account-1',
-          serviceId: 'alpaca-live',
-          accountId: 'acct-1',
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+      portfolioIdentity: {
+        providerId: 'alpaca',
+        credentialId: 'oauth-account-1',
+        serviceId: 'alpaca-live',
+        accountId: 'acct-1',
       },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
     })
   })
 })
