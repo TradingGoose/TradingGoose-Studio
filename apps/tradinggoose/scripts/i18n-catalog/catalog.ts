@@ -271,7 +271,7 @@ function toSuggestedPathKey(candidate: HardcodedCandidate) {
 
 export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
   const catalogs = loadLocaleCatalogs(options.projectRoot)
-  const englishCatalogIndex = buildCatalogIndex(catalogs.en)
+  const englishCatalogIndex = buildCatalogIndex(catalogs[defaultLocale])
   const hasGlobalScan = Boolean(options.globalScanResult)
 
   const globalCoverageSummary = options.globalScanResult
@@ -286,9 +286,10 @@ export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
   const ownedNamespaces =
     options.scanResult.mode === 'route' ? options.scanResult.ownedNamespaces : []
   const catalogValueIndex = buildCatalogValueIndex(englishCatalogIndex, ownedNamespaces)
+  const usedKeySet = globalCoverageSummary ? new Set(globalCoverageSummary.usedKeys) : null
   const orphanedKeys = hasGlobalScan
     ? [...englishCatalogIndex.leafMap.keys()]
-        .filter((pathKey) => !globalCoverageSummary!.usedKeys.includes(pathKey))
+        .filter((pathKey) => !usedKeySet!.has(pathKey))
         .filter((pathKey) => isOwnedPath(pathKey, ownedNamespaces))
         .sort()
     : null
