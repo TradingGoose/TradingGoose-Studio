@@ -34,9 +34,13 @@ class MockYjsAuthError extends Error {
   }
 }
 
-function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'): IncomingMessage {
+function createRequest(
+  sessionId: string,
+  accessMode: 'read' | 'write' = 'write',
+  entityKind = 'workflow'
+): IncomingMessage {
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=${entityKind}&entityId=${encodeURIComponent(sessionId)}`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -269,9 +273,9 @@ describe('handleYjsUpgrade', () => {
     expect(socket.destroy).not.toHaveBeenCalled()
   })
 
-  it('rejects non-dashboard read-mode websocket upgrades after target authentication', async () => {
-    const sessionId = 'workflow-read'
-    const request = createRequest(sessionId, 'read')
+  it('allows saved entity read-mode websocket upgrades after target authorization', async () => {
+    const sessionId = 'watchlist-read'
+    const request = createRequest(sessionId, 'read', 'watchlist')
     const socket = createSocket()
     const wss = createWebSocketServer()
 
@@ -284,23 +288,38 @@ describe('handleYjsUpgrade', () => {
         reviewSessionId: null,
         workspaceId: 'workspace-1',
         ownerUserId: null,
-        entityKind: 'workflow',
+        entityKind: 'watchlist',
         entityId: sessionId,
         draftSessionId: null,
       },
+    })
+    mockVerifyReviewTargetAccess.mockResolvedValue({ hasAccess: true, userPermission: 'read' })
+    mockGetExistingDocument.mockResolvedValue(null)
+    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
+      descriptor: {
+        entityKind: 'watchlist',
+        entityId: sessionId,
+        yjsSessionId: sessionId,
+      },
+      runtime: { docState: 'active' },
+      state: new Uint8Array([3, 4]),
     })
 
     const { handleYjsUpgrade } = await loadModule()
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(mockAuthenticateYjsConnection).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(
-      expect.stringContaining('403 Yjs websocket requires write access')
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
+    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
+    expect(mockSetupWSConnection).toHaveBeenCalledWith(
+      expect.anything(),
+      request,
+      expect.objectContaining({
+        docId: sessionId,
+        accessMode: 'read',
+        onDocumentUpdate: undefined,
+      })
     )
-    expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
   it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {

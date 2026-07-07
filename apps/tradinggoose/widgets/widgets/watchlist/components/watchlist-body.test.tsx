@@ -40,10 +40,17 @@ const watchlist = {
   updatedAt: '2026-03-13T00:00:00.000Z',
 }
 let currentWatchlists: any[] = [watchlist]
+let lastSelectedWatchlistArgs:
+  | { watchlistId?: string | null; accessMode?: 'read' | 'write' }
+  | undefined
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
-  useSelectedWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
-    const selectedId = watchlistId ?? currentWatchlists[0]?.id ?? null
+  useSelectedWatchlistYjsDocument: (args: {
+    watchlistId?: string | null
+    accessMode?: 'read' | 'write'
+  }) => {
+    lastSelectedWatchlistArgs = args
+    const selectedId = args.watchlistId ?? currentWatchlists[0]?.id ?? null
     const record = currentWatchlists.find((entry) => entry.id === selectedId) ?? null
     return {
       record,
@@ -108,6 +115,7 @@ describe('WatchlistWidgetBody', () => {
     mockSaveWatchlistDocument.mockResolvedValue(undefined)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     currentWatchlists = [watchlist]
+    lastSelectedWatchlistArgs = undefined
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -174,13 +182,13 @@ describe('WatchlistWidgetBody', () => {
     )
   })
 
-  it('ignores listing selection when the widget is unlinked', async () => {
+  it('uses a read Yjs session and ignores listing selection when read-only', async () => {
     const onWidgetParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
-          context={{ workspaceId: 'workspace-1' }}
+          context={{ workspaceId: 'workspace-1', canWrite: false }}
           panelId='panel-1'
           pairColor='gray'
           widget={{ key: 'watchlist', pairColor: 'gray' } as any}
@@ -189,6 +197,8 @@ describe('WatchlistWidgetBody', () => {
         />
       )
     })
+
+    expect(lastSelectedWatchlistArgs).toMatchObject({ accessMode: 'read' })
 
     const button = Array.from(container.querySelectorAll('button')).find(
       (entry) => entry.textContent === 'select-listing'
@@ -203,6 +213,7 @@ describe('WatchlistWidgetBody', () => {
       expect.objectContaining({
         isLinkedSelection: false,
         selectedListing: null,
+        onSelectListing: undefined,
       })
     )
   })

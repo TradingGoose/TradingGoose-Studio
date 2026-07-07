@@ -41,7 +41,6 @@ import { cn } from '@/lib/utils'
 import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
-import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/contract'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
@@ -53,11 +52,13 @@ import {
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
+import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/contract'
 
 type WatchlistHeaderControlsSlotProps = {
   workspaceId?: string
   panelId?: string
   widget?: WidgetInstance | null
+  canWrite?: boolean
 }
 
 const resolveProviderId = (params: WatchlistWidgetParams | null | undefined) => {
@@ -160,13 +161,14 @@ export const WatchlistHeaderLeftControls = ({
   workspaceId,
   panelId,
   widget,
+  canWrite = true,
 }: WatchlistHeaderControlsSlotProps) => {
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
   const actions = useWidgetConfigRuntimeActions()
   const patchWidgetParams = (nextParams: Record<string, unknown>) => {
-    if (!panelId) return
+    if (!canWrite || !panelId) return
     actions.patchWidgetParams(panelId, widgetKey, nextParams)
   }
 
@@ -197,7 +199,7 @@ export const WatchlistHeaderLeftControls = ({
       value={providerId}
       options={providerOptions}
       onChange={handleProviderChange}
-      disabled={!workspaceId}
+      disabled={!workspaceId || !canWrite}
       providerParams={params?.providerParams}
       authParams={params?.auth}
       workspaceId={workspaceId}
@@ -210,6 +212,7 @@ export const WatchlistHeaderCenterControls = ({
   workspaceId,
   panelId,
   widget,
+  canWrite = true,
 }: WatchlistHeaderControlsSlotProps) => {
   const copy = useMessages().workspace.widgets.watchlist.header
   const widgetKey = widget?.key ?? 'watchlist'
@@ -221,6 +224,7 @@ export const WatchlistHeaderCenterControls = ({
   const selectedDocument = useSelectedWatchlistYjsDocument({
     workspaceId,
     watchlistId: requestedWatchlistId,
+    accessMode: canWrite ? 'write' : 'read',
   })
   const selectedWatchlist = selectedDocument.record
   const selectorInstanceId = useMemo(
@@ -282,7 +286,7 @@ export const WatchlistHeaderCenterControls = ({
   }
 
   const handleAddListing = async () => {
-    if (!workspaceId || !selectedWatchlist || !pendingListing || isAddingListing) {
+    if (!canWrite || !workspaceId || !selectedWatchlist || !pendingListing || isAddingListing) {
       return
     }
 
@@ -305,7 +309,12 @@ export const WatchlistHeaderCenterControls = ({
   }
 
   const addListingDisabled =
-    !workspaceId || !providerId || !selectedWatchlist || !pendingListing || isAddingListing
+    !canWrite ||
+    !workspaceId ||
+    !providerId ||
+    !selectedWatchlist ||
+    !pendingListing ||
+    isAddingListing
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -340,6 +349,7 @@ export const WatchlistHeaderRightControls = ({
   workspaceId,
   panelId,
   widget,
+  canWrite = true,
 }: WatchlistHeaderControlsSlotProps) => {
   const copy = useMessages().workspace.widgets.watchlist
   const [listDropdownOpen, setListDropdownOpen] = useState(false)
@@ -360,6 +370,7 @@ export const WatchlistHeaderRightControls = ({
   const selectedDocument = useSelectedWatchlistYjsDocument({
     workspaceId,
     watchlistId: requestedWatchlistId,
+    accessMode: canWrite ? 'write' : 'read',
   })
   const selectedWatchlist = selectedDocument.record
   const [pendingAction, setPendingAction] = useState<string | null>(null)
@@ -376,11 +387,11 @@ export const WatchlistHeaderRightControls = ({
   const selectedOptionColor = selectedOption ? resolveWatchlistListColor(selectedOption) : null
 
   const hasSelectedWatchlist = Boolean(selectedWatchlist)
-  const canManageContainers = hasSelectedWatchlist
+  const canManageContainers = canWrite && hasSelectedWatchlist
   const isMutating = Boolean(pendingAction)
 
   const handleSelectList = (watchlistId: string) => {
-    if (!panelId) return
+    if (!canWrite || !panelId) return
     actions.patchWidgetParams(panelId, widgetKey, { watchlistId })
   }
 
@@ -407,7 +418,7 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const handleCreateList = async () => {
-    if (!workspaceId || pendingAction) {
+    if (!canWrite || !workspaceId || pendingAction) {
       return
     }
 
@@ -438,7 +449,7 @@ export const WatchlistHeaderRightControls = ({
 
   const handleConfirmRemoveList = async () => {
     const watchlistId = listToDelete?.watchlistId
-    if (!workspaceId || !watchlistId || pendingAction) return
+    if (!canWrite || !workspaceId || !watchlistId || pendingAction) return
 
     try {
       setPendingAction('delete-list')
@@ -463,12 +474,12 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const commitListRename = async () => {
-    if (!editingListId) {
-      cancelListRename()
-      return
-    }
-
-    if (!selectedWatchlist || editingListId !== selectedWatchlist.id) {
+    if (
+      !canWrite ||
+      !editingListId ||
+      !selectedWatchlist ||
+      editingListId !== selectedWatchlist.id
+    ) {
       cancelListRename()
       return
     }
@@ -517,12 +528,12 @@ export const WatchlistHeaderRightControls = ({
   }, [editingListId, selectedWatchlist?.id])
 
   const handleImportClick = () => {
-    fileInputRef.current?.click()
+    if (canWrite) fileInputRef.current?.click()
   }
 
   const handleImportChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !workspaceId || !selectedWatchlist || pendingAction) {
+    if (!canWrite || !file || !workspaceId || !selectedWatchlist || pendingAction) {
       event.target.value = ''
       return
     }
@@ -587,7 +598,7 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const handleCreateSection = async () => {
-    if (!workspaceId || !selectedWatchlist || pendingAction) {
+    if (!canWrite || !workspaceId || !selectedWatchlist || pendingAction) {
       return
     }
 
@@ -611,8 +622,7 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const handleRefreshData = () => {
-    if (!providerId) return
-    if (!panelId) return
+    if (!canWrite || !providerId || !panelId) return
     actions.patchWidgetParams(panelId, widgetKey, {
       runtime: {
         refreshAt: Date.now(),
@@ -635,7 +645,7 @@ export const WatchlistHeaderRightControls = ({
                   <DropdownMenuTrigger asChild>
                     <button
                       type='button'
-                      disabled={!workspaceId || !selectedWatchlist}
+                      disabled={!workspaceId || !selectedWatchlist || !canWrite}
                       className={widgetHeaderControlClassName(
                         'group flex min-w-[240px] items-center justify-between gap-1'
                       )}
@@ -730,7 +740,7 @@ export const WatchlistHeaderRightControls = ({
                               : 'text-muted-foreground group-hover/list:text-foreground'
                           )}
                           maxLength={100}
-                          disabled={pendingAction === 'rename-list'}
+                          disabled={!canWrite || pendingAction === 'rename-list'}
                           autoComplete='off'
                           autoCorrect='off'
                           autoCapitalize='off'
@@ -795,7 +805,7 @@ export const WatchlistHeaderRightControls = ({
                               startRenameList(option)
                             }}
                             aria-label={copy.header.renameList}
-                            disabled={isMutating}
+                            disabled={!canWrite || isMutating}
                           >
                             <Pencil className='!h-3.5 !w-3.5' />
                           </button>
@@ -817,7 +827,7 @@ export const WatchlistHeaderRightControls = ({
                             setListToDelete(option)
                           }}
                           aria-label={copy.header.deleteList}
-                          disabled={isMutating || listOptions.length <= 1}
+                          disabled={!canWrite || isMutating || listOptions.length <= 1}
                         >
                           <Trash2 className='!h-3.5 !w-3.5' />
                         </button>
@@ -833,12 +843,12 @@ export const WatchlistHeaderRightControls = ({
           open={listActionsOpen}
           onOpenChange={setListActionsOpen}
           disabled={!workspaceId}
-          createListDisabled={!workspaceId || isMutating}
+          createListDisabled={!canWrite || !workspaceId || isMutating}
           createSectionDisabled={!workspaceId || !canManageContainers || isMutating}
           onCreateList={() => {
             void handleCreateList()
           }}
-          importDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
+          importDisabled={!canWrite || !workspaceId || !hasSelectedWatchlist || isMutating}
           exportDisabled={!workspaceId || !hasSelectedWatchlist || isMutating}
           onCreateSection={() => {
             void handleCreateSection()
@@ -852,7 +862,7 @@ export const WatchlistHeaderRightControls = ({
         <WidgetHeaderRefreshButton
           label={copy.header.refresh}
           onClick={handleRefreshData}
-          disabled={!workspaceId || !providerId}
+          disabled={!canWrite || !workspaceId || !providerId}
         />
 
         <input
@@ -878,11 +888,11 @@ export const WatchlistHeaderRightControls = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pendingAction === 'delete-list'}>
+            <AlertDialogCancel disabled={!canWrite || pendingAction === 'delete-list'}>
               {copy.header.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={pendingAction === 'delete-list'}
+              disabled={!canWrite || pendingAction === 'delete-list'}
               onClick={(event) => {
                 event.preventDefault()
                 void handleConfirmRemoveList()
@@ -907,6 +917,7 @@ export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = 
       workspaceId={context?.workspaceId}
       panelId={panelId}
       widget={widget}
+      canWrite={context?.canWrite !== false}
     />
   ),
   center: (
@@ -914,6 +925,7 @@ export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = 
       workspaceId={context?.workspaceId}
       panelId={panelId}
       widget={widget}
+      canWrite={context?.canWrite !== false}
     />
   ),
   right: (
@@ -921,6 +933,7 @@ export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = 
       workspaceId={context?.workspaceId}
       panelId={panelId}
       widget={widget}
+      canWrite={context?.canWrite !== false}
     />
   ),
 })

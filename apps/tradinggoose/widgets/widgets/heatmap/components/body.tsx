@@ -67,6 +67,7 @@ export function HeatmapWidgetBody({
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
+  const canWrite = context?.canWrite !== false
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
   const sourceMode = resolveHeatmapSourceMode(widgetParams)
@@ -76,11 +77,15 @@ export function HeatmapWidgetBody({
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
   const patchWidgetParams = useCallback(
     (nextParams: Record<string, unknown>) => {
+      if (!canWrite) return
       onWidgetParamsPatch?.(nextParams)
     },
-    [onWidgetParamsPatch]
+    [canWrite, onWidgetParamsPatch]
   )
-  const watchlistDocument = useSelectedWatchlistYjsDocument({ workspaceId })
+  const watchlistDocument = useSelectedWatchlistYjsDocument({
+    workspaceId,
+    accessMode: canWrite ? 'write' : 'read',
+  })
 
   const watchlistDocumentsLoading =
     sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocument.isLoading
@@ -344,7 +349,7 @@ export function HeatmapWidgetBody({
           errorMessage={quoteErrorMessage}
           isLoading={quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data}
           items={chartItems}
-          onListingSelect={pairColor === 'gray' ? undefined : handleListingSelect}
+          onListingSelect={canWrite && pairColor !== 'gray' ? handleListingSelect : undefined}
           totalCount={totalCount}
         />
       </div>

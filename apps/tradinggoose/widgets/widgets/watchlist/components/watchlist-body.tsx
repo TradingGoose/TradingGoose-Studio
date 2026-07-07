@@ -33,6 +33,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const copy = useMessages().workspace.widgets.watchlist.body
   const {
     workspaceId,
+    canWrite,
     isLinkedToColorPair,
     widgetParams,
     providerId,
@@ -65,17 +66,18 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     enabled: Boolean(providerId && selectedWatchlist),
   })
 
-  const isMutating = false
+  const isMutating = !canWrite
 
   const persistItems = async (
     updater: (items: typeof selectedDocument.items) => typeof selectedDocument.items
   ) => {
-    if (!workspaceId || !selectedWatchlist) return
+    if (!workspaceId || !selectedWatchlist || !canWrite) return
     selectedDocument.setItems(updater(selectedDocument.items))
     await selectedDocument.save()
   }
 
   const handleUpdateItemListing = async (itemId: string, listing: ListingIdentity) => {
+    if (!canWrite) return false
     try {
       await persistItems((items) =>
         items.map((item) =>
@@ -99,9 +101,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const handleRenameContainer = async (containerId: string, label: string) => {
     await persistItems((items) =>
       items.map((item) =>
-        item.type === 'section' && item.id === containerId
-          ? { ...item, label }
-          : item
+        item.type === 'section' && item.id === containerId ? { ...item, label } : item
       )
     )
   }
@@ -113,6 +113,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
 
   const handleSelectListing = useCallback(
     (listing: ListingIdentity | null) => {
+      if (!canWrite) return
       if (!isLinkedToColorPair) return
       if (listing == null) {
         if (selectedListing == null) return
@@ -122,7 +123,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       if (areListingIdentitiesEqual(selectedListing, listing)) return
       props.onWidgetParamsPatch?.({ listing })
     },
-    [isLinkedToColorPair, props.onWidgetParamsPatch, selectedListing]
+    [canWrite, isLinkedToColorPair, props.onWidgetParamsPatch, selectedListing]
   )
 
   if (!workspaceId) {
@@ -147,7 +148,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   }
 
   return (
-      <WatchlistTable
+    <WatchlistTable
       watchlist={selectedWatchlist}
       quotes={quotes}
       providerId={providerId}
@@ -159,7 +160,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       isMutating={isMutating}
       selectedListing={selectedListing}
       isLinkedSelection={isLinkedToColorPair}
-      onSelectListing={handleSelectListing}
+      onSelectListing={canWrite ? handleSelectListing : undefined}
     />
   )
 }

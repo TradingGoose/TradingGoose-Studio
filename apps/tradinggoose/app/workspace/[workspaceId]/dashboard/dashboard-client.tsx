@@ -396,8 +396,9 @@ export function DashboardClient({
       dashboardLayoutId: activeLayoutId ?? undefined,
       dashboardLayoutName: layoutDocument.name,
       dashboardLayoutOwnerUserId: ownerUserId,
+      canWrite,
     }),
-    [activeLayoutId, layoutDocument.name, ownerUserId, workspaceId]
+    [activeLayoutId, canWrite, layoutDocument.name, ownerUserId, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(

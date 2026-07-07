@@ -183,6 +183,7 @@ function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
     prev.context?.dashboardLayoutOwnerUserId === next.context?.dashboardLayoutOwnerUserId &&
     prev.context?.dashboardLayoutId === next.context?.dashboardLayoutId &&
     prev.context?.dashboardLayoutName === next.context?.dashboardLayoutName &&
+    prev.context?.canWrite === next.context?.canWrite &&
     prev.header === next.header &&
     prev.onPairColorChange === next.onPairColorChange &&
     prev.onWidgetChange === next.onWidgetChange &&

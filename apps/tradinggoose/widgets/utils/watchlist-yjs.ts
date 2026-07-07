@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
@@ -18,12 +19,15 @@ export function useWatchlistYjsDocument(args: {
   workspaceId: string | null | undefined
   watchlistId: string | null | undefined
   member?: EntityListMember | null
+  accessMode?: ReviewAccessMode
 }) {
-  const { workspaceId, watchlistId, member } = args
+  const { workspaceId, watchlistId, member, accessMode = 'write' } = args
   const { doc, save, isLoading, error } = useSavedEntityYjsSession(
     'watchlist',
     watchlistId,
-    workspaceId
+    workspaceId,
+    null,
+    accessMode
   )
   const [name, setName] = useYjsStringField(doc, 'name', member?.entityName ?? 'Watchlist')
   const [settings, setSettings] = useYjsField<WatchlistSettings>(
@@ -64,8 +68,9 @@ export function useWatchlistYjsDocument(args: {
 export function useSelectedWatchlistYjsDocument(args: {
   workspaceId: string | null | undefined
   watchlistId?: string | null | undefined
+  accessMode?: ReviewAccessMode
 }) {
-  const { workspaceId, watchlistId } = args
+  const { workspaceId, watchlistId, accessMode } = args
   const watchlistList = useEntityList('watchlist', workspaceId)
   const selectedWatchlistId = resolveEntityIdFromList({
     requestedEntityId: watchlistId,
@@ -78,6 +83,7 @@ export function useSelectedWatchlistYjsDocument(args: {
     workspaceId,
     watchlistId: selectedWatchlistId,
     member,
+    accessMode,
   })
 
   return {

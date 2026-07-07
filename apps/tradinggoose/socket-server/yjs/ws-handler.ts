@@ -213,18 +213,6 @@ function assertAccessModeAllowed(
     if (accessMode !== 'read') {
       throw new YjsAuthError(403, 'Entity-list websocket is read-only')
     }
-    return
-  }
-
-  if (
-    descriptor.entityKind === 'dashboard_layout' &&
-    descriptor.entityId === descriptor.yjsSessionId
-  ) {
-    return
-  }
-
-  if (accessMode !== 'write') {
-    throw new YjsAuthError(403, 'Yjs websocket requires write access')
   }
 }
 

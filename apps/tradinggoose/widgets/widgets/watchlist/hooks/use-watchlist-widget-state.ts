@@ -21,6 +21,7 @@ export function useWatchlistWidgetState({
   params,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
+  const canWrite = context?.canWrite !== false
   const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const widgetParams =
@@ -37,10 +38,12 @@ export function useWatchlistWidgetState({
   const selectedDocument = useSelectedWatchlistYjsDocument({
     workspaceId,
     watchlistId: requestedWatchlistId,
+    accessMode: canWrite ? 'write' : 'read',
   })
 
   return {
     workspaceId,
+    canWrite,
     resolvedPairColor,
     isLinkedToColorPair,
     widgetParams,

@@ -256,6 +256,7 @@ vi.mock('@/widgets/widget-surface', async () => {
         dashboardLayoutId?: string
         dashboardLayoutName?: string
         dashboardLayoutOwnerUserId?: string
+        canWrite?: boolean
       }
       panelId?: string
       onPairColorChange?: (color: PairColor) => void
@@ -276,6 +277,7 @@ vi.mock('@/widgets/widget-surface', async () => {
             data-dashboard-layout-id={context?.dashboardLayoutId ?? ''}
             data-dashboard-layout-name={context?.dashboardLayoutName ?? ''}
             data-dashboard-layout-owner-user-id={context?.dashboardLayoutOwnerUserId ?? ''}
+            data-can-write={String(context?.canWrite ?? '')}
           />
           <button
             type='button'
@@ -403,6 +405,7 @@ describe('DashboardClient', () => {
       dashboardLayoutId: 'layout-a',
       dashboardLayoutName: 'Layout A',
       dashboardLayoutOwnerUserId: 'user-a',
+      canWrite: true,
     })
 
     await act(async () => {
@@ -424,6 +427,7 @@ describe('DashboardClient', () => {
       dashboardLayoutId: 'layout-b',
       dashboardLayoutName: 'Layout B',
       dashboardLayoutOwnerUserId: 'user-b',
+      canWrite: true,
     })
   })
 
@@ -934,6 +938,7 @@ function readWidgetRuntimeContext(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutId: element.dataset.dashboardLayoutId ?? '',
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
+    canWrite: element.dataset.canWrite === 'true',
   }
 }
 
