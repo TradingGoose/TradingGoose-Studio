@@ -10,6 +10,7 @@ import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
@@ -89,9 +90,8 @@ function prepareNewMcpServerFields(fields: Record<string, unknown>): Record<stri
 
 async function createMcpServerEntity(
   fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
+  { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const created = await mcpService.createWorkspaceServer({ userId, workspaceId, fields })
 
   return {

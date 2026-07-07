@@ -6,6 +6,7 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
@@ -18,9 +19,8 @@ import {
 
 async function createCustomToolEntity(
   fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
+  { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const rows = await createCustomTools({
     userId,
     workspaceId,

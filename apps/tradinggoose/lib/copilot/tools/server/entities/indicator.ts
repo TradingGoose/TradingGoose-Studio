@@ -9,6 +9,7 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
   type EntityServerTool,
@@ -52,9 +53,8 @@ async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndica
 
 async function createIndicatorEntity(
   fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
+  { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const rows = await createIndicators({
     userId,
     workspaceId,

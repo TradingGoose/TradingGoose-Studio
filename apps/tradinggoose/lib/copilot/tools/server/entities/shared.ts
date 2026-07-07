@@ -65,10 +65,11 @@ export type EntityCreateResult = {
   entityId: string
   fields: Record<string, unknown>
 }
+export type EntityCreateContext = ServerToolExecutionContext & { workspaceId: string }
 
 type CreateEntityFromDocument = (
   fields: Record<string, unknown>,
-  context: ServerToolExecutionContext | undefined
+  context: EntityCreateContext
 ) => Promise<EntityCreateResult>
 
 type ApplyEntityDocument = (input: {
@@ -288,7 +289,12 @@ export async function executeCreateEntityDocumentMutation(
   }
 
   const scopedContext = withWorkspaceArgContext(context, args)
-  const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'write')
+  const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'write')
+  const createContext: EntityCreateContext = {
+    ...(scopedContext ?? {}),
+    userId,
+    workspaceId,
+  }
   const parsedFields = parseEntityMutationDocument(kind, args)
   const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
 
@@ -311,7 +317,7 @@ export async function executeCreateEntityDocumentMutation(
   if (context?.acceptedReviewBaseStateHash) {
     assertAcceptedServerToolReviewBase(context, await hashCreateEntityReviewBase(kind, workspaceId))
   }
-  const created = await create(fields, scopedContext)
+  const created = await create(fields, createContext)
   return {
     success: true,
     workspaceId,
