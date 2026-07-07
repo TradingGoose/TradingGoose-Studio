@@ -8,18 +8,17 @@ describe('workflow editor event bus scoping', () => {
     vi.resetModules()
   })
 
-  it('routes remove-from-subflow only to matching channel/workflow scope', async () => {
+  it('routes remove-from-subflow only to matching workflow scope', async () => {
     const { subscribeRemoveFromSubflow, emitRemoveFromSubflow } = await import(MODULE_PATH)
 
     const scopedListener = vi.fn()
     const otherScopeListener = vi.fn()
 
-    subscribeRemoveFromSubflow({ channelId: 'channel-a', workflowId: 'wf-1' }, scopedListener)
-    subscribeRemoveFromSubflow({ channelId: 'channel-b', workflowId: 'wf-1' }, otherScopeListener)
+    subscribeRemoveFromSubflow({ workflowId: 'wf-1' }, scopedListener)
+    subscribeRemoveFromSubflow({ workflowId: 'wf-2' }, otherScopeListener)
 
     emitRemoveFromSubflow({
       blockId: 'block-1',
-      channelId: 'channel-a',
       workflowId: 'wf-1',
     })
 
@@ -27,20 +26,19 @@ describe('workflow editor event bus scoping', () => {
     expect(otherScopeListener).not.toHaveBeenCalled()
   })
 
-  it('routes update-subblock-value only to matching workflow on same channel', async () => {
+  it('routes update-subblock-value only to matching workflow', async () => {
     const { subscribeUpdateSubBlockValue, emitUpdateSubBlockValue } = await import(MODULE_PATH)
 
     const wf1Listener = vi.fn()
     const wf2Listener = vi.fn()
 
-    subscribeUpdateSubBlockValue({ channelId: 'channel-a', workflowId: 'wf-1' }, wf1Listener)
-    subscribeUpdateSubBlockValue({ channelId: 'channel-a', workflowId: 'wf-2' }, wf2Listener)
+    subscribeUpdateSubBlockValue({ workflowId: 'wf-1' }, wf1Listener)
+    subscribeUpdateSubBlockValue({ workflowId: 'wf-2' }, wf2Listener)
 
     emitUpdateSubBlockValue({
       blockId: 'block-7',
       subBlockId: 'prompt',
       value: 'updated',
-      channelId: 'channel-a',
       workflowId: 'wf-2',
     })
 
@@ -61,8 +59,8 @@ describe('workflow editor event bus scoping', () => {
     const parentScoped = vi.fn()
     const parentOther = vi.fn()
 
-    const scopeA = { channelId: 'channel-a', workflowId: 'wf-1' }
-    const scopeB = { channelId: 'channel-b', workflowId: 'wf-1' }
+    const scopeA = { workflowId: 'wf-1' }
+    const scopeB = { workflowId: 'wf-2' }
 
     subscribeWorkflowRecordMove(scopeA, moveScoped)
     subscribeWorkflowRecordMove(scopeB, moveOther)
@@ -97,8 +95,8 @@ describe('workflow editor event bus scoping', () => {
 
     const scopeAListener = vi.fn()
     const scopeBListener = vi.fn()
-    const scopeA = { channelId: 'channel-a', workflowId: 'wf-1' }
-    const scopeB = { channelId: 'channel-a', workflowId: 'wf-2' }
+    const scopeA = { workflowId: 'wf-1' }
+    const scopeB = { workflowId: 'wf-2' }
 
     subscribeSkipEdgeRecording(scopeA, scopeAListener)
     subscribeSkipEdgeRecording(scopeB, scopeBListener)
@@ -115,16 +113,12 @@ describe('workflow editor event bus scoping', () => {
 
     const listener = vi.fn()
 
-    const unsubscribe = subscribeRemoveFromSubflow(
-      { channelId: 'channel-a', workflowId: 'wf-1' },
-      listener
-    )
+    const unsubscribe = subscribeRemoveFromSubflow({ workflowId: 'wf-1' }, listener)
 
     unsubscribe()
 
     emitRemoveFromSubflow({
       blockId: 'block-1',
-      channelId: 'channel-a',
       workflowId: 'wf-1',
     })
 

@@ -9,8 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
 
 type DocumentMutationResult = {
-  layout: LayoutNode
-  colorPairs: PersistedColorPairsState
+  layout?: LayoutNode
+  colorPairs?: PersistedColorPairsState
 } | null
 
 function createDocumentMutationHarness(initial: {
@@ -28,16 +28,6 @@ function createDocumentMutationHarness(initial: {
   }
   return { results, onDocumentMutation }
 }
-
-const workflowRegistrySync = vi.fn()
-
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: {
-    getState: () => ({
-      syncLinkedWorkflowChannelsFromColorPairs: workflowRegistrySync,
-    }),
-  },
-}))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useEntityList: (kind: string) => ({
@@ -66,7 +56,7 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
                   createdAt: '2026-01-01T00:00:00.000Z',
                 },
               ]
-          : [],
+            : [],
     isLoading: false,
     error: null,
   }),
@@ -83,6 +73,7 @@ function defineRawBunDomGlobal(key: string, value: unknown) {
 }
 
 function installRawBunDom() {
+  defineRawBunDomGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   if (typeof document !== 'undefined') return
 
   rawBunDom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -95,7 +86,6 @@ function installRawBunDom() {
   defineRawBunDomGlobal('Event', rawBunDom.window.Event)
   defineRawBunDomGlobal('CustomEvent', rawBunDom.window.CustomEvent)
   defineRawBunDomGlobal('navigator', rawBunDom.window.navigator)
-  defineRawBunDomGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 }
 
 const layout = (): LayoutNode => ({
@@ -156,7 +146,6 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    workflowRegistrySync.mockClear()
   })
 
   afterEach(() => {
@@ -210,7 +199,6 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
       })
     })
     expect(results.at(-1)).toEqual({
-      layout: layout(),
       colorPairs: {
         pairs: [{ color: 'red', workflowId: 'workflow-authorized' }],
       },
@@ -364,7 +352,6 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
       })
     })
     expect(results.at(-1)).toEqual({
-      layout: watchlistLayout(),
       colorPairs: {
         pairs: [{ color: 'red', watchlistId: 'watchlist-visible' }],
       },

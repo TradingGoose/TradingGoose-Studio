@@ -345,10 +345,10 @@ describe('copilot runtime tool manifest', () => {
     expect(editLayoutSchema?.properties?.isActive).toMatchObject({ const: true })
     expect(editLayoutPanelNode?.additionalProperties).toBe(false)
     expect(editLayoutPanelNode?.required).toContain('type')
-    expect(editLayoutPanelNode?.properties?.widget?.properties?.key?.enum).toContain('data_chart')
-    expect(editLayoutPanelNode?.properties?.widget?.properties?.key?.enum).not.toContain(
-      'unknown_widget'
-    )
+    expect(editLayoutPanelNode?.properties?.widget?.properties?.key).toMatchObject({
+      type: 'string',
+      minLength: 1,
+    })
     expect(editLayoutGroupNode?.additionalProperties).toBe(false)
     expect(editLayoutGroupNode?.required).toEqual(
       expect.arrayContaining(['type', 'direction', 'children'])

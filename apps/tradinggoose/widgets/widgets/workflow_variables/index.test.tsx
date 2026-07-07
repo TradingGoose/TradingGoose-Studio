@@ -19,7 +19,6 @@ vi.mock('@/components/ui/loading-agent', () => ({
 }))
 
 let mockWorkflowWidgetState: any = {
-  channelId: 'workflow-variables-panel-1',
   resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
@@ -47,19 +46,9 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: (
-    selector: (state: { getActiveWorkflowId: (channelId: string) => string | null }) => unknown
-  ) =>
-    selector({
-      getActiveWorkflowId: () => 'wf-1',
-    }),
-}))
-
 describe('workflowVariablesWidget', () => {
   beforeEach(() => {
     mockWorkflowWidgetState = {
-      channelId: 'workflow-variables-panel-1',
       resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,

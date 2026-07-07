@@ -12,6 +12,8 @@ import {
 } from '@/lib/yjs/use-entity-fields'
 import { resolveEntityIdFromList } from '@/widgets/widget-entity-selection'
 
+const EMPTY_WATCHLIST_ITEMS: WatchlistItem[] = []
+
 export function useWatchlistYjsDocument(args: {
   workspaceId: string | null | undefined
   watchlistId: string | null | undefined
@@ -29,7 +31,7 @@ export function useWatchlistYjsDocument(args: {
     'settings',
     DEFAULT_WATCHLIST_SETTINGS
   )
-  const [items, setItems] = useYjsField<WatchlistItem[]>(doc, 'items', [])
+  const [items, setItems] = useYjsField<WatchlistItem[]>(doc, 'items', EMPTY_WATCHLIST_ITEMS)
 
   const record = useMemo<WatchlistRecord | null>(() => {
     if (!workspaceId || !watchlistId) return null
@@ -68,6 +70,7 @@ export function useSelectedWatchlistYjsDocument(args: {
   const selectedWatchlistId = resolveEntityIdFromList({
     requestedEntityId: watchlistId,
     entityIds: watchlistList.members.map((member) => member.entityId),
+    useDefaultEntity: false,
   })
   const member =
     watchlistList.members.find((entry) => entry.entityId === selectedWatchlistId) ?? null

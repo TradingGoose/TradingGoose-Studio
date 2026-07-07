@@ -85,11 +85,11 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-            id: indicator.id,
-            name: indicator.name,
-            source: 'default' as const,
-            color: getEntityIconColor(indicator.id),
-          }))
+          id: indicator.id,
+          name: indicator.name,
+          source: 'default' as const,
+          color: getEntityIconColor(indicator.id),
+        }))
         : [],
     [includeDefaults]
   )
@@ -339,7 +339,7 @@ export function IndicatorDropdown({
             </TooltipTrigger>
             <TooltipContent side='top'>{tooltipText}</TooltipContent>
           </Tooltip>
-          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 flex'>
+          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-1.5 flex'>
             {isLoading ? (
               <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
             ) : (

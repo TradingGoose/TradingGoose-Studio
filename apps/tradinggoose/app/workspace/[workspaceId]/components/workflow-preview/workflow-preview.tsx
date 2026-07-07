@@ -15,9 +15,6 @@ interface WorkflowPreviewProps {
   defaultZoom?: number
   fitPadding?: number
   onNodeClick?: (blockId: string, mousePosition: { x: number; y: number }) => void
-  workspaceId?: string
-  workflowId?: string
-  channelId?: string
 }
 
 export function WorkflowPreview({

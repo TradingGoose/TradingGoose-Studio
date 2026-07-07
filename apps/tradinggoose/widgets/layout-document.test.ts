@@ -4,6 +4,7 @@ import {
   type DashboardLayoutDocumentFields,
   DashboardLayoutDocumentSchema,
   DashboardLayoutStructureDocumentSchema,
+  initializeDashboardLayoutLinkedParams,
   normalizeDashboardLayoutDocumentFields,
   resolveEffectiveDashboardLayout,
 } from '@/widgets/layout-document'
@@ -19,12 +20,20 @@ const baseFields = (): DashboardLayoutDocumentFields => ({
       {
         id: 'panel-a',
         type: 'panel',
-        widget: { key: 'editor_workflow', pairColor: 'red', params: { workflowId: 'wf-a' } },
+        widget: {
+          key: 'editor_workflow',
+          pairColor: 'red',
+          params: { workflowId: 'wf-a' },
+        },
       },
       {
         id: 'panel-b',
         type: 'panel',
-        widget: { key: 'watchlist', pairColor: 'gray', params: { watchlistId: 'watchlist-a' } },
+        widget: {
+          key: 'watchlist',
+          pairColor: 'gray',
+          params: { watchlistId: 'watchlist-a' },
+        },
       },
     ],
   },
@@ -87,13 +96,6 @@ const currencyListing = {
 describe('normalizeDashboardLayoutDocumentFields', () => {
   it.each([
     [
-      'unknown widget keys',
-      withFields({
-        layout: panel('panel-unknown', { key: 'unknown_widget', pairColor: 'gray', params: null }),
-      }),
-      'Unknown widget key "unknown_widget"',
-    ],
-    [
       'unsupported widget params',
       withFields({
         layout: panel('panel-a', {
@@ -101,7 +103,12 @@ describe('normalizeDashboardLayoutDocumentFields', () => {
           pairColor: 'gray',
           params: {
             workflowId: 'wf-a',
-            listing: { listing_type: 'default', listing_id: 'AAPL', base_id: '', quote_id: '' },
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
           },
         }),
       }),
@@ -152,7 +159,9 @@ describe('normalizeDashboardLayoutDocumentFields', () => {
     [
       'group sizes not matching children',
       withFields({
-        layout: rootGroup([panel('panel-a', null), panel('panel-b', null)], { sizes: [50] }),
+        layout: rootGroup([panel('panel-a', null), panel('panel-b', null)], {
+          sizes: [50],
+        }),
       }),
       'layout.sizes must contain one positive size per child',
     ],
@@ -163,6 +172,15 @@ describe('normalizeDashboardLayoutDocumentFields', () => {
     ],
   ])('rejects %s', (_name, fields, message) => {
     expect(() => normalizeDashboardLayoutDocumentFields(fields)).toThrow(message)
+  })
+
+  it('preserves unknown persisted widget keys for runtime empty rendering', () => {
+    const layout = panel('panel-unknown', {
+      key: 'unknown_widget',
+      pairColor: 'gray',
+      params: null,
+    })
+    expect(normalizeDashboardLayoutDocumentFields(withFields({ layout })).layout).toEqual(layout)
   })
 
   it('uses the canonical listing identity schema for crypto and currency color-pair listings', () => {
@@ -186,15 +204,99 @@ describe('normalizeDashboardLayoutDocumentFields', () => {
   })
 })
 
+describe('initializeDashboardLayoutLinkedParams', () => {
+  it('changes one color-store widget without clearing another color store using the same entity', () => {
+    const next = initializeDashboardLayoutLinkedParams(
+      {
+        name: 'Base Layout',
+        layout: rootGroup([
+          panel('red-panel', {
+            key: 'editor_indicator',
+            pairColor: 'red',
+            params: null,
+          }),
+          panel('blue-panel', {
+            key: 'editor_workflow',
+            pairColor: 'blue',
+            params: null,
+          }),
+        ]) as DashboardLayoutDocumentFields['layout'],
+        colorPairs: {
+          pairs: [
+            { color: 'red', indicatorId: 'indicator-a' },
+            { color: 'blue', indicatorId: 'indicator-a' },
+          ],
+        },
+        isActive: true,
+        sortOrder: 0,
+      },
+      { workflowId: 'workflow-default' }
+    )
+
+    expect(next.colorPairs).toEqual({
+      pairs: [
+        {
+          color: 'blue',
+          indicatorId: 'indicator-a',
+          workflowId: 'workflow-default',
+        },
+        { color: 'red', indicatorId: 'indicator-a' },
+      ],
+    })
+    expect(next.layout).toMatchObject({
+      children: [
+        {
+          id: 'red-panel',
+          widget: { key: 'editor_indicator', pairColor: 'red', params: null },
+        },
+        {
+          id: 'blue-panel',
+          widget: { key: 'editor_workflow', pairColor: 'blue', params: null },
+        },
+      ],
+    })
+  })
+
+  it('initializes gray widget params locally instead of writing color pairs', () => {
+    const next = initializeDashboardLayoutLinkedParams(
+      {
+        name: 'Base Layout',
+        layout: panel('gray-panel', {
+          key: 'editor_workflow',
+          pairColor: 'gray',
+          params: null,
+        }) as DashboardLayoutDocumentFields['layout'],
+        colorPairs: { pairs: [] },
+        isActive: true,
+        sortOrder: 0,
+      },
+      { workflowId: 'workflow-default' }
+    )
+
+    expect(next.colorPairs).toEqual({ pairs: [] })
+    expect(next.layout).toMatchObject({
+      widget: {
+        key: 'editor_workflow',
+        pairColor: 'gray',
+        params: { workflowId: 'workflow-default' },
+      },
+    })
+  })
+})
+
 describe('exported document schemas', () => {
   it.each([
     ['a valid full document', baseFields(), true],
     [
       'unknown widget keys',
       withFields({
-        layout: panel('panel-unknown', { key: 'unknown_widget', pairColor: 'gray', params: null }),
+        layout: panel('panel-unknown', {
+          key: 'unknown_widget',
+          pairColor: 'gray',
+          params: null,
+        }),
       }),
-      false,
+      true,
     ],
     [
       'layout nodes without a type',
@@ -208,7 +310,12 @@ describe('exported document schemas', () => {
   it.each([
     [
       'a valid structure document',
-      { layout: retainedPanelStructure(), name: 'Next', sortOrder: 1, isActive: true },
+      {
+        layout: retainedPanelStructure(),
+        name: 'Next',
+        sortOrder: 1,
+        isActive: true,
+      },
       true,
     ],
     [
@@ -221,7 +328,7 @@ describe('exported document schemas', () => {
       { layout: { id: 'panel-missing-type', widget: { key: 'heatmap' } } },
       false,
     ],
-    ['unknown widget keys', { layout: { type: 'panel', widget: { key: 'not_a_widget' } } }, false],
+    ['unknown widget keys', { layout: { type: 'panel', widget: { key: 'not_a_widget' } } }, true],
     ['isActive false', { layout: retainedPanelStructure(), isActive: false }, false],
     [
       'node-level metadata',
@@ -255,20 +362,31 @@ describe('applyLayoutEditDocument', () => {
     expect(next.name).toBe('Renamed Layout')
     expect(next.sortOrder).toBe(0)
     expect(next.isActive).toBe(true)
-    expect(next.colorPairs).toEqual({ pairs: [{ color: 'red', workflowId: 'wf-linked' }] })
+    expect(next.colorPairs).toEqual({
+      pairs: [{ color: 'red', workflowId: 'wf-linked' }],
+    })
     expect(next.layout).toMatchObject({
       type: 'group',
       direction: 'vertical',
       children: [
         {
           id: 'panel-a',
-          widget: { key: 'editor_workflow', pairColor: 'red', params: { workflowId: 'wf-a' } },
+          widget: {
+            key: 'editor_workflow',
+            pairColor: 'red',
+            params: { workflowId: 'wf-a' },
+          },
         },
       ],
     })
   })
 
-  it.each<{ name: string; doc: Record<string, unknown>; removed?: string[]; error: string }>([
+  it.each<{
+    name: string
+    doc: Record<string, unknown>
+    removed?: string[]
+    error: string
+  }>([
     {
       name: 'omitted panels without explicit removal intent',
       doc: { layout: { id: 'panel-a', type: 'panel' } },
@@ -281,7 +399,10 @@ describe('applyLayoutEditDocument', () => {
     },
     {
       name: 'colorPair edits through the structure document',
-      doc: { colorPair: { red: { workflowId: 'wf-a' } }, layout: baseFields().layout },
+      doc: {
+        colorPair: { red: { workflowId: 'wf-a' } },
+        layout: baseFields().layout,
+      },
       error: 'edit_layout cannot modify colorPair',
     },
     {
@@ -317,7 +438,13 @@ describe('applyLayoutEditDocument', () => {
     },
     {
       name: 'singular colorPair payloads on panel nodes',
-      doc: { layout: { id: 'panel-a', type: 'panel', colorPair: { red: { workflowId: 'wf-a' } } } },
+      doc: {
+        layout: {
+          id: 'panel-a',
+          type: 'panel',
+          colorPair: { red: { workflowId: 'wf-a' } },
+        },
+      },
       removed: ['panel-b'],
       error: 'edit_layout only accepts colorPair at supported top-level fields',
     },
@@ -337,7 +464,10 @@ describe('applyLayoutEditDocument', () => {
       doc: {
         layout: rootGroup([
           { id: 'panel-a', type: 'panel' },
-          panel(undefined, { key: 'heatmap', colorPair: { red: { workflowId: 'wf-a' } } }),
+          panel(undefined, {
+            key: 'heatmap',
+            colorPair: { red: { workflowId: 'wf-a' } },
+          }),
         ]),
       },
       removed: ['panel-b'],
@@ -430,7 +560,7 @@ describe('applyLayoutEditDocument', () => {
     expect(() => applyLayoutEditDocument(baseFields(), JSON.stringify(doc), removed)).toThrow(error)
   })
 
-  it('creates new target-widget panels with server-generated ids and defaults', () => {
+  it('creates new target-widget panels with server-generated ids and supplied keys', () => {
     const next = applyLayoutEditDocument(
       baseFields(),
       JSON.stringify({
@@ -449,24 +579,34 @@ describe('applyLayoutEditDocument', () => {
     if (!newPanel || newPanel.type !== 'panel') return
     expect(newPanel.id).not.toBe('panel-a')
     expect(newPanel.id).not.toBe('panel-b')
-    expect(newPanel.widget).toEqual({ key: 'heatmap', pairColor: 'gray', params: null })
+    expect(newPanel.widget).toEqual({
+      key: 'heatmap',
+      pairColor: 'gray',
+      params: null,
+    })
   })
 
-  it('removes linked color-pair fields unsupported by retained panels', () => {
+  it('preserves color-store fields when retained panels do not use them', () => {
     const next = applyLayoutEditDocument(
       baseFields(),
       JSON.stringify({ layout: { id: 'panel-b', type: 'panel' } }),
       ['panel-a']
     )
 
-    expect(next.colorPairs).toEqual({ pairs: [] })
+    expect(next.colorPairs).toEqual({
+      pairs: [{ color: 'red', workflowId: 'wf-linked' }],
+    })
   })
 
   it('preserves canonical listing identities in color-pair state', () => {
     const next = applyLayoutEditDocument(
       {
         ...baseFields(),
-        layout: panel('panel-a', { key: 'data_chart', pairColor: 'red', params: null }) as any,
+        layout: panel('panel-a', {
+          key: 'data_chart',
+          pairColor: 'red',
+          params: null,
+        }) as any,
         colorPairs: {
           pairs: [
             {
@@ -496,7 +636,11 @@ describe('applyLayoutEditDocument', () => {
 describe('resolveEffectiveDashboardLayout', () => {
   it('preserves hydrated linked listing display fields in effective layout only', () => {
     const effective = resolveEffectiveDashboardLayout(
-      panel('panel-chart', { key: 'data_chart', pairColor: 'red', params: null }),
+      panel('panel-chart', {
+        key: 'data_chart',
+        pairColor: 'red',
+        params: null,
+      }),
       {
         pairs: [
           {
@@ -518,7 +662,9 @@ describe('resolveEffectiveDashboardLayout', () => {
       type: 'panel',
       widget: {
         key: 'data_chart',
-        params: { listing: { listing_id: 'AAPL', base: 'Apple', name: 'Apple Inc.' } },
+        params: {
+          listing: { listing_id: 'AAPL', base: 'Apple', name: 'Apple Inc.' },
+        },
       },
     })
   })

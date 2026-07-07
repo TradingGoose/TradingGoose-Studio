@@ -7,14 +7,13 @@ import {
   useWorkflowDropdownMessages,
   useWorkflowVariablesMessages,
 } from '@/i18n/workspace-widget-hooks'
-import { workflowVariablesWidgetContract } from '@/widgets/widgets/workflow_variables/contract'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { workflowVariablesWidgetContract } from '@/widgets/widgets/workflow_variables/contract'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
@@ -29,27 +28,17 @@ const WorkflowVariablesWidgetBody = ({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsPatch,
 }: WidgetComponentProps) => {
   const copy = useWorkflowVariablesMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
-  const { channelId, resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+  const { resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
     useWorkflowWidgetState({
       workspaceId,
       pairColor,
       widget,
-      panelId,
       params,
-      fallbackWidgetKey: 'workflow-variables',
     })
-
-  usePersistResolvedEntityId({
-    entityId: resolvedWorkflowId,
-    entityIdKey: 'workflowId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
@@ -80,7 +69,6 @@ const WorkflowVariablesWidgetBody = ({
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
-        channelId={channelId}
         panelId={panelId}
       />
     </div>
@@ -99,13 +87,11 @@ const WorkflowVariablesHeaderActions = ({
   panelId,
 }: WorkflowVariablesHeaderActionsProps) => {
   const copy = useWorkflowVariablesMessages()
-  const { channelId, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-variables',
   })
 
   const isDisabled = !workspaceId || !resolvedWorkflowId
@@ -115,10 +101,10 @@ const WorkflowVariablesHeaderActions = ({
 
     window.dispatchEvent(
       new CustomEvent(WORKFLOW_VARIABLES_ADD_EVENT, {
-        detail: { panelId, channelId },
+        detail: { panelId, workflowId: resolvedWorkflowId },
       })
     )
-  }, [isDisabled, panelId, channelId, resolvedWorkflowId])
+  }, [isDisabled, panelId, resolvedWorkflowId])
 
   return (
     <Tooltip>
@@ -155,9 +141,7 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-variables',
   })
   const actions = useWidgetConfigRuntimeActions()
   const widgetKey = widget?.key ?? 'workflow_variables'

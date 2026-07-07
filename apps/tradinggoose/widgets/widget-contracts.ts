@@ -163,6 +163,11 @@ export function resolveEffectiveWidgetParams(
   if (!widget) return null
   const widgetKey = assertWidgetKey(widget.key)
   const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  if (pairColor === 'gray') {
+    return getWidgetContract(widgetKey).sanitizeLocalParams(widget.params, {
+      strictUnknown: false,
+    }).params
+  }
   return getWidgetContract(widgetKey).resolveEffectiveParams(
     widget,
     readPairColorContext(colorPairs, pairColor)

@@ -174,7 +174,6 @@ export function ListingSelectorInput({
     setListingOptionsError(undefined)
 
     fetchOptions(blockId, subBlockId, {
-      channelId: routeContext?.channelId ?? '',
       workflowId: routeContext?.workflowId ?? null,
       workspaceId: routeContext?.workspaceId,
       contextValues,
@@ -201,7 +200,6 @@ export function ListingSelectorInput({
     fetchOptions,
     blockId,
     subBlockId,
-    routeContext?.channelId,
     routeContext?.workflowId,
     routeContext?.workspaceId,
     contextValuesSignature,

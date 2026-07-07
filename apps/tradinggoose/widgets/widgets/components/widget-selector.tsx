@@ -98,8 +98,10 @@ export function WidgetSelectorComponent({
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
+          <span className='inline-flex' data-disabled={triggerDisabled ? true : undefined}>
+            <DropdownMenuTrigger asChild disabled={triggerDisabled}>
+              {triggerElement}
+            </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>

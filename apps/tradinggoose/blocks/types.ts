@@ -130,7 +130,6 @@ export interface ParamConfig {
 }
 
 export interface BlockOptionLoaderContext {
-  channelId: string
   workflowId: string | null
   workspaceId?: string
   contextValues?: Record<string, unknown>

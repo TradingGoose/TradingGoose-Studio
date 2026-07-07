@@ -25,14 +25,11 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useExecutionStore } from '@/stores/execution/store'
+import { selectWorkflowExecutionState, useExecutionStore } from '@/stores/execution/store'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
-import {
-  useWorkflowChannelId,
-  useWorkflowId,
-} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
@@ -199,7 +196,6 @@ export const WorkflowBlock = memo(
     // Read block properties from Yjs doc
     const yjsMutations = useWorkflowMutations()
     const currentYjsBlock = currentBlock
-    const workflowChannelId = useWorkflowChannelId()
 
     // Derive block properties from Yjs blocks
     const {
@@ -292,11 +288,13 @@ export const WorkflowBlock = memo(
     // Workflow store actions - use Yjs mutations
     const updateBlockLayoutMetrics = yjsMutations.updateBlockLayoutMetrics
 
-    // Execution store
-    const isActiveBlock = useExecutionStore((state) => state.activeBlockIds.has(id))
-    const isActive = dataIsActive || isActiveBlock
-
     const currentWorkflowId = useWorkflowId()
+
+    // Execution store
+    const isActiveBlock = useExecutionStore((state) =>
+      selectWorkflowExecutionState(state, currentWorkflowId).activeBlockIds.has(id)
+    )
+    const isActive = dataIsActive || isActiveBlock
 
     // Check if this is a webhook-capable trigger block
     const isWebhookTriggerBlock = type === 'generic_webhook'
@@ -418,7 +416,7 @@ export const WorkflowBlock = memo(
       }
 
       const unsubscribeScheduleUpdated = subscribeScheduleUpdated(
-        { channelId: workflowChannelId, workflowId: currentWorkflowId },
+        { workflowId: currentWorkflowId },
         handleScheduleUpdate
       )
 
@@ -426,7 +424,7 @@ export const WorkflowBlock = memo(
       return () => {
         unsubscribeScheduleUpdated()
       }
-    }, [type, currentWorkflowId, workflowChannelId, id, fetchScheduleInfo])
+    }, [type, currentWorkflowId, id, fetchScheduleInfo])
 
     // Update node internals when handles change
     useEffect(() => {
@@ -777,7 +775,6 @@ export const WorkflowBlock = memo(
                   blockId={id}
                   blockType={type}
                   workflowId={currentWorkflowId}
-                  channelId={workflowChannelId}
                   disabled={!userPermissions.canEdit || isReadOnlyBlock}
                   showWebhookIndicator={showWebhookIndicator}
                   showScheduleBadge={shouldShowScheduleBadge}

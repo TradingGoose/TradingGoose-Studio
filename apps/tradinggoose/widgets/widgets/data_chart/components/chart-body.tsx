@@ -8,18 +8,17 @@ import type { InputMetaMap } from '@/lib/indicators/types'
 import { useSocket } from '@/contexts/socket-context'
 import { useIndicators } from '@/hooks/queries/indicators'
 import type { MarketSessionWindow } from '@/providers/market/types'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
   useWorkspaceWidgetsCopy,
 } from '@/widgets/widgets/data_chart/copy'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
-import { useChartDefaults } from '@/widgets/widgets/data_chart/hooks/use-chart-defaults'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
 import { useChartLegend } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
 import { useChartStyles } from '@/widgets/widgets/data_chart/hooks/use-chart-styles'
@@ -155,14 +154,6 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     },
     [panelId, widgetKey, chartResetKey]
   )
-
-  useChartDefaults({
-    dataParams: dataParams as DataChartWidgetParams,
-    providerId,
-    seriesWindow,
-    panelId,
-    widgetKey,
-  })
 
   const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval ?? null)
   dataContext.intervalMs = intervalMs

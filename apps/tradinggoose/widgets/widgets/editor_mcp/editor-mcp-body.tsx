@@ -13,7 +13,6 @@ import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
@@ -150,7 +149,7 @@ export function EditorMcpWidgetBody({
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: serverMembers.map((member) => member.entityId),
-    useDefaultEntity: resolvedPairColor === 'gray',
+    useDefaultEntity: false,
   })
 
   const selectedServerStatus = selectedServerId
@@ -162,13 +161,6 @@ export function EditorMcpWidgetBody({
     serverSession.doc,
     defaultFormData
   )
-
-  usePersistResolvedEntityId({
-    entityId: selectedServerId,
-    entityIdKey: 'mcpServerId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   useEffect(() => {
     if (!selectedServerId || !serverSession.doc) {

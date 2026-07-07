@@ -1,7 +1,6 @@
 type Listener<T> = (payload: T) => void
 
 export type WorkflowEventScope = {
-  channelId: string
   workflowId: string
 }
 
@@ -59,7 +58,7 @@ const emit = <T>(listeners: Set<Listener<T>>, payload: T) => {
 }
 
 const isMatchingScope = (scope: WorkflowEventScope, payload: WorkflowEventScope) => {
-  return scope.channelId === payload.channelId && scope.workflowId === payload.workflowId
+  return scope.workflowId === payload.workflowId
 }
 
 export const subscribeWorkflowRecordMove = (

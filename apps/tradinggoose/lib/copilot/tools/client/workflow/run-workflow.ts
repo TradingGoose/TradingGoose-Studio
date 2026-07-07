@@ -8,7 +8,7 @@ import {
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useExecutionStore } from '@/stores/execution/store'
+import { selectWorkflowExecutionState, useExecutionStore } from '@/stores/execution/store'
 
 interface RunWorkflowArgs {
   entityId: string
@@ -57,18 +57,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
         argKeys: args ? Object.keys(args) : [],
       })
 
-      // prevent concurrent execution
-      const { isExecuting, setIsExecuting } = useExecutionStore.getState()
-      if (isExecuting) {
-        logger.debug('Execution prevented: already executing')
-        this.setState(ClientToolCallState.error)
-        await this.markToolComplete(
-          409,
-          'The workflow is already in the middle of an execution. Try again later'
-        )
-        return
-      }
-
       let activeWorkflowId: string
       try {
         activeWorkflowId = requireCopilotEntityId(params)
@@ -79,6 +67,20 @@ export class RunWorkflowClientTool extends BaseClientTool {
         return
       }
       logger.debug('Using target workflow', { workflowId: activeWorkflowId })
+
+      // prevent concurrent execution for this workflow
+      const executionStore = useExecutionStore.getState()
+      const { isExecuting } = selectWorkflowExecutionState(executionStore, activeWorkflowId)
+      const { setIsExecuting } = executionStore
+      if (isExecuting) {
+        logger.debug('Execution prevented: already executing')
+        this.setState(ClientToolCallState.error)
+        await this.markToolComplete(
+          409,
+          'The workflow is already in the middle of an execution. Try again later'
+        )
+        return
+      }
 
       if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
         logger.debug('Execution prevented: no trigger block selected')
@@ -109,7 +111,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
 
       let shouldClearExecution = false
       try {
-        setIsExecuting(true)
+        setIsExecuting(activeWorkflowId, true)
         shouldClearExecution = true
         logger.debug('Set isExecuting(true) and switching state to executing')
         this.setState(ClientToolCallState.executing)
@@ -175,7 +177,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
         await this.markToolComplete(status, failedDependency ? undefined : message)
       } finally {
         if (shouldClearExecution) {
-          setIsExecuting(false)
+          setIsExecuting(activeWorkflowId, false)
         }
       }
     }, WORKFLOW_EXECUTION_TIMEOUT_MS)

@@ -3,7 +3,7 @@ import { defineEntityWidgetContract } from '@/widgets/widget-contract-types'
 export const workflowVariablesWidgetContract = defineEntityWidgetContract(
   'workflow_variables',
   'Workflow Variables',
-  'editor',
+  'utility',
   'Edit selected workflow variables.',
   'workflowId',
   'workflow-id',

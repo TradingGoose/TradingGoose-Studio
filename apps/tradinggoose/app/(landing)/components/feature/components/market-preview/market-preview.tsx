@@ -228,10 +228,15 @@ export function MarketPreview() {
   )
 
   const handleDocumentMutation = React.useCallback(
-    (compute: (current: LandingMarketPreviewDocument) => LandingMarketPreviewDocument | null) => {
+    (
+      compute: (
+        current: LandingMarketPreviewDocument
+      ) => Partial<LandingMarketPreviewDocument> | null
+    ) => {
       setPreviewDocument((current) => {
         try {
-          return compute(current) ?? current
+          const next = compute(current)
+          return next ? { ...current, ...next } : current
         } catch (error) {
           console.warn('[landing/market-preview] Ignored invalid widget params mutation', error)
           return current

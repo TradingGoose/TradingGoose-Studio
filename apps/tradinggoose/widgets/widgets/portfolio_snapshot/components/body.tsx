@@ -18,7 +18,6 @@ import { formatTemplate } from '@/i18n/utils'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
-import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { PortfolioSnapshotPerformanceChart } from '@/widgets/widgets/portfolio_snapshot/components/performance-chart'
@@ -31,6 +30,7 @@ import {
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
+import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 
 const PortfolioMessage = ({ message }: { message: string }) => (
   <Empty className='h-full min-h-[180px] rounded-none border-0 bg-transparent p-4'>
@@ -195,13 +195,6 @@ export function PortfolioSnapshotWidgetBody({
   const marketProviderName =
     marketProviderOptions.find((option) => option.id === marketProviderId)?.name ?? marketProviderId
   const hasSelectedProvider = Boolean(providerId)
-  const hasValidPersistedProvider =
-    Boolean(widgetParams?.provider) && widgetParams?.provider === providerId
-  const hasInvalidPersistedProvider =
-    !providerAvailabilityQuery.isLoading &&
-    !providerAvailabilityQuery.error &&
-    Boolean(widgetParams?.provider) &&
-    !hasSelectedProvider
   const providerDefinition = hasSelectedProvider ? getTradingProviderDefinition(providerId) : null
   const supportedWindows = useMemo(
     () => (hasSelectedProvider ? getPortfolioSnapshotSupportedWindows(providerId) : []),
@@ -226,38 +219,10 @@ export function PortfolioSnapshotWidgetBody({
     [onWidgetParamsPatch]
   )
 
-  useEffect(() => {
-    if (!hasInvalidPersistedProvider) return
-    patchWidgetParams({
-      provider: null,
-      serviceId: null,
-      portfolioIdentity: null,
-      selectedWindow: null,
-    })
-  }, [hasInvalidPersistedProvider, patchWidgetParams])
-
   const selectedWindow =
     widgetParams?.selectedWindow && supportedWindows.includes(widgetParams.selectedWindow)
       ? widgetParams.selectedWindow
       : defaultWindow
-
-  useEffect(() => {
-    if (providerAvailabilityQuery.isLoading) return
-    if (providerAvailabilityQuery.error) return
-    if (!hasSelectedProvider) return
-    if (!hasValidPersistedProvider) return
-    if (!selectedWindow) return
-    if (widgetParams?.selectedWindow === selectedWindow) return
-    patchWidgetParams({ selectedWindow })
-  }, [
-    hasSelectedProvider,
-    hasValidPersistedProvider,
-    patchWidgetParams,
-    providerAvailabilityQuery.error,
-    providerAvailabilityQuery.isLoading,
-    selectedWindow,
-    widgetParams?.selectedWindow,
-  ])
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
@@ -265,9 +230,6 @@ export function PortfolioSnapshotWidgetBody({
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,
       enabled: isProviderReady,
-      panelId,
-      widgetKey,
-      emitParamsChange: ({ params }) => patchWidgetParams(params),
     })
 
   const snapshotQuery = usePortfolioDetail({

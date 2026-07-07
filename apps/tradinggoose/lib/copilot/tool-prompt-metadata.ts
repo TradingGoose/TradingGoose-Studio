@@ -360,6 +360,12 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'list',
     entityKind: 'dashboard_layout',
   },
+  create_layout: {
+    description:
+      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` to change topology and `edit_widget` to add or configure widgets.',
+    kind: 'create',
+    entityKind: 'dashboard_layout',
+  },
   read_layout: {
     description: `Return one user-owned dashboard layout by exact \`entityId\` as an editable document payload with \`entityDocument\`, \`effectiveLayout\`, and \`documentFormat\`. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
     kind: 'read',

@@ -16,12 +16,11 @@ export type WorkflowUIConfig = WorkflowCanvasUIConfig
 
 interface WorkflowProps {
   ui?: WorkflowCanvasUIConfig
-  channelId?: string
   toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
 }
 
-const Workflow = React.memo(({ ui, channelId, toolbarScopeId, viewportBounds }: WorkflowProps) => {
+const Workflow = React.memo(({ ui, toolbarScopeId, viewportBounds }: WorkflowProps) => {
   const layoutUI = useWorkflowUIConfig()
   const copy = useWorkflowEditorCopy()
   const workflowSession = useWorkflowSession()
@@ -46,7 +45,6 @@ const Workflow = React.memo(({ ui, channelId, toolbarScopeId, viewportBounds }: 
     <ReactFlowProvider>
       <ErrorBoundary fallback={<WidgetStateMessage message={copy.unableToLoadWorkflows} />}>
         <WorkflowCanvas
-          channelId={channelId}
           toolbarScopeId={toolbarScopeId}
           ui={mergedUI}
           viewportBounds={viewportBounds}

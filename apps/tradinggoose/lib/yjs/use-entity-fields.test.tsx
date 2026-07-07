@@ -154,7 +154,8 @@ describe('useEntityList read-session lifecycle', () => {
       .mockResolvedValueOnce(fresh)
 
     const captured = await renderList('workspace-first-open')
-    expect(captured.current?.error).toBe('offline')
+    expect(captured.current?.isLoading).toBe(true)
+    expect(captured.current?.error).toBeNull()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)
@@ -205,9 +206,15 @@ describe('useEntityList read-session lifecycle', () => {
     await act(async () => {
       root!.unmount()
     })
+    expect(stale.provider.destroy).not.toHaveBeenCalled()
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(2_499)
+    })
+    expect(stale.provider.destroy).not.toHaveBeenCalled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
     })
     expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(1)
+    expect(stale.provider.destroy).toHaveBeenCalledTimes(1)
   })
 })

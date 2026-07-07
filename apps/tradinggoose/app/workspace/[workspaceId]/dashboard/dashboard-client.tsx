@@ -56,7 +56,6 @@ import {
   useWidgetConfigRuntimeActions,
   WidgetConfigRuntimeProvider,
 } from '@/widgets/widget-config-runtime'
-import { pruneDashboardColorPairsForLayout } from '@/widgets/widget-contracts'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 interface DashboardClientProps {
@@ -114,32 +113,61 @@ const DashboardNode = memo(function DashboardNode({
   splitPanelHorizontal,
   closePanel,
 }: DashboardNodeProps) {
+  const panelId = node.type === 'panel' ? node.id : null
+  const panelWidgetKey = node.type === 'panel' ? node.widget?.key : undefined
+  const handlePairColorChange = useCallback(
+    (color: PairColor) => {
+      if (!panelId || !updatePairColor) return
+      updatePairColor(panelId, color)
+    },
+    [panelId, updatePairColor]
+  )
+  const handleWidgetChange = useCallback(
+    (key: string) => {
+      if (!panelId || !updateWidget) return
+      updateWidget(panelId, key)
+    },
+    [panelId, updateWidget]
+  )
+  const handleWidgetParamsPatch = useCallback(
+    (params: Record<string, unknown>) => {
+      if (!panelId || !panelWidgetKey || !updateWidgetParamsPatch) return
+      updateWidgetParamsPatch(panelId, panelWidgetKey, params)
+    },
+    [panelId, panelWidgetKey, updateWidgetParamsPatch]
+  )
+  const handlePanelSplitVertical = useCallback(() => {
+    if (!panelId || !splitPanelVertical) return
+    splitPanelVertical(panelId)
+  }, [panelId, splitPanelVertical])
+  const handlePanelSplitHorizontal = useCallback(() => {
+    if (!panelId || !splitPanelHorizontal) return
+    splitPanelHorizontal(panelId)
+  }, [panelId, splitPanelHorizontal])
+  const handlePanelClose = useCallback(() => {
+    if (!panelId || !closePanel) return
+    closePanel(panelId)
+  }, [closePanel, panelId])
+
   if (node.type === 'panel') {
     const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
     const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
-    const panelWidgetKey = node.widget?.key
 
     return (
       <WidgetSurface
         widget={node.widget}
         context={widgetContext}
         panelId={node.id}
-        onPairColorChange={updatePairColor ? (color) => updatePairColor(node.id, color) : undefined}
-        onWidgetChange={updateWidget ? (key) => updateWidget(node.id, key) : undefined}
+        onPairColorChange={updatePairColor ? handlePairColorChange : undefined}
+        onWidgetChange={updateWidget ? handleWidgetChange : undefined}
         onWidgetParamsPatch={
-          updateWidgetParamsPatch && panelWidgetKey
-            ? (params) => updateWidgetParamsPatch(node.id, panelWidgetKey, params)
-            : undefined
+          updateWidgetParamsPatch && panelWidgetKey ? handleWidgetParamsPatch : undefined
         }
-        onPanelSplit={
-          splitPanelVertical && canSplitVertical ? () => splitPanelVertical(node.id) : undefined
-        }
+        onPanelSplit={splitPanelVertical && canSplitVertical ? handlePanelSplitVertical : undefined}
         onPanelSplitHorizontal={
-          splitPanelHorizontal && canSplitHorizontal
-            ? () => splitPanelHorizontal(node.id)
-            : undefined
+          splitPanelHorizontal && canSplitHorizontal ? handlePanelSplitHorizontal : undefined
         }
-        onPanelClose={closePanel ? () => closePanel(node.id) : undefined}
+        onPanelClose={closePanel ? handlePanelClose : undefined}
       />
     )
   }
@@ -148,7 +176,6 @@ const DashboardNode = memo(function DashboardNode({
     <ResizablePanelGroup
       key={node.id}
       direction={node.direction}
-      layout={node.sizes}
       onLayout={persistGroup ? (sizes) => persistGroup(node.id, sizes) : undefined}
       className='h-full w-full'
     >
@@ -208,6 +235,7 @@ export function DashboardClient({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const searchParamsString = searchParams.toString()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -215,19 +243,42 @@ export function DashboardClient({
   const searchContainerRef = useRef<HTMLDivElement | null>(null)
   const docsLoadedRef = useRef(false)
   const docsLoadingRef = useRef(false)
+  const layoutListCacheRef = useRef<{
+    scopeKey: string
+    layouts: LayoutTab[]
+  } | null>(null)
   const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
+  const layoutListScopeKey = `${workspaceId}:${ownerUserId}`
+  if (layoutListCacheRef.current?.scopeKey !== layoutListScopeKey) {
+    layoutListCacheRef.current = {
+      scopeKey: layoutListScopeKey,
+      layouts: initialLayouts,
+    }
+  }
+  const hasLiveLayouts = dashboardLayoutList.layouts.length > 0
+  const canUseLiveLayoutList = !dashboardLayoutList.isLoading && hasLiveLayouts
+  useEffect(() => {
+    if (!canUseLiveLayoutList) return
+    layoutListCacheRef.current = {
+      scopeKey: layoutListScopeKey,
+      layouts: dashboardLayoutList.layouts,
+    }
+  }, [canUseLiveLayoutList, dashboardLayoutList.layouts, layoutListScopeKey])
   const layouts = useMemo(
-    () => (dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts),
-    [dashboardLayoutList.isLoading, dashboardLayoutList.layouts, initialLayouts]
+    () =>
+      canUseLiveLayoutList
+        ? dashboardLayoutList.layouts
+        : (layoutListCacheRef.current?.layouts ?? initialLayouts),
+    [canUseLiveLayoutList, dashboardLayoutList.layouts, initialLayouts]
   )
   const listActiveLayout = useMemo(
     () => layouts.find((layout) => layout.isActive) ?? null,
     [layouts]
   )
-  const activeLayoutId = listActiveLayout?.id ?? (dashboardLayoutList.isLoading ? layoutId : null)
+  const activeLayoutId = listActiveLayout?.id ?? layoutId
   const emptyInitialLayout = useMemo(() => createDefaultLayoutState(), [])
   const emptyInitialColorPairs = useMemo(() => createDefaultColorPairsState(), [])
   const activeInitialLayout = activeLayoutId === layoutId ? initialState : emptyInitialLayout
@@ -250,7 +301,6 @@ export function DashboardClient({
   })
   const rawTree = layoutDocument.layout
   const colorPairs = layoutDocument.colorPairs
-  const tree = layoutDocument.effectiveLayout
   const mutateLayoutDocument = layoutDocument.mutateLayoutDocument
   const canEditContent = canWrite && layoutDocument.isProviderReady && Boolean(activeLayoutId)
 
@@ -265,14 +315,13 @@ export function DashboardClient({
   }, [activeLayoutId, pendingActivationId])
 
   useEffect(() => {
-    if (dashboardLayoutList.isLoading || !listActiveLayout?.id) return
-    if (searchParams.get('layoutId') === listActiveLayout.id) return
+    const nextParams = new URLSearchParams(searchParamsString)
+    if (!nextParams.has('layoutId')) return
 
-    const nextParams = new URLSearchParams(searchParams.toString())
-    nextParams.set('layoutId', listActiveLayout.id)
+    nextParams.delete('layoutId')
     const query = nextParams.toString()
     router.replace(`${pathname}${query ? `?${query}` : ''}`)
-  }, [dashboardLayoutList.isLoading, listActiveLayout?.id, pathname, router, searchParams])
+  }, [pathname, router, searchParamsString])
 
   useEffect(() => {
     let isMounted = true
@@ -475,10 +524,7 @@ export function DashboardClient({
       mutateLayoutDocument((current) => {
         const next = closeDashboardLayoutPanelGroup(current.layout, panelId)
         if (next === current.layout) return null
-        return {
-          layout: next,
-          colorPairs: pruneDashboardColorPairsForLayout(next, current.colorPairs),
-        }
+        return { layout: next }
       })
     },
     [canEditContent, mutateLayoutDocument]
@@ -705,7 +751,7 @@ export function DashboardClient({
           onDocumentMutation={mutateLayoutDocument}
         >
           <DashboardRuntimeTree
-            node={tree}
+            node={rawTree}
             persistGroup={canEditContent ? persistGroup : undefined}
             widgetContext={widgetContext}
             availableWidth={100}

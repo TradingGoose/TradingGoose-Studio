@@ -15,7 +15,7 @@ import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
 import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
-import { useExecutionStore } from '@/stores/execution/store'
+import { selectWorkflowExecutionState, useExecutionStore } from '@/stores/execution/store'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ChatMessage } from '..'
 
@@ -59,8 +59,10 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   // Scroll state
   const [isNearBottom, setIsNearBottom] = useState(true)
 
-  // Use the execution store state to track if a workflow is executing
-  const { isExecuting } = useExecutionStore()
+  // Use the execution store state to track if this workflow is executing
+  const isExecuting = useExecutionStore(
+    (state) => selectWorkflowExecutionState(state, currentWorkflowId).isExecuting
+  )
 
   // Get workflow execution functionality
   const { isWorkflowSessionReady, handleRunWorkflow } = useWorkflowExecution()

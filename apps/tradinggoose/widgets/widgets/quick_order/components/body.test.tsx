@@ -481,7 +481,7 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
-  it('clears invalid providers and stale portfolio identities', async () => {
+  it('normalizes invalid providers and stale portfolio identities for reads', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
       container,
@@ -493,10 +493,12 @@ describe('QuickOrderWidgetBody', () => {
       },
       onInvalidProviderChange
     )
-    expect(onInvalidProviderChange).toHaveBeenCalledWith({
-      provider: null,
-      serviceId: null,
-      portfolioIdentity: null,
+    expect(onInvalidProviderChange).not.toHaveBeenCalled()
+    expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
+      provider: undefined,
+      serviceId: undefined,
+      portfolioIdentity: undefined,
     })
 
     await act(async () => {
@@ -522,10 +524,7 @@ describe('QuickOrderWidgetBody', () => {
       },
       onIncompleteAccountOptionsChange
     )
-    expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
-      serviceId: 'alpaca-live',
-      portfolioIdentity: null,
-    })
+    expect(onIncompleteAccountOptionsChange).not.toHaveBeenCalled()
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',

@@ -17,6 +17,7 @@ const ExecuteSchema = z
   .object({
     toolName: z.string().min(1),
     payload: z.unknown().optional(),
+    accessLevel: z.enum(['limited', 'full']).optional(),
     reviewAction: z.enum(['accept']).optional(),
     reviewToken: z.string().optional(),
     context: z
@@ -81,10 +82,14 @@ export async function POST(req: NextRequest) {
     }
     if (contextEntityKind === 'dashboard_layout') {
       if (contextEntityId?.includes('dashboard_layout:')) {
-        return createBadRequestResponse('dashboard_layout contextEntityId must be the raw layout id')
+        return createBadRequestResponse(
+          'dashboard_layout contextEntityId must be the raw layout id'
+        )
       }
       if (contextOwnerUserId && contextOwnerUserId !== userId) {
-        return createBadRequestResponse('dashboard_layout context requires authenticated ownerUserId')
+        return createBadRequestResponse(
+          'dashboard_layout context requires authenticated ownerUserId'
+        )
       }
       if (
         reviewAction !== 'accept' &&
@@ -151,7 +156,8 @@ export async function POST(req: NextRequest) {
 
     const executionContext = {
       userId,
-      accessLevel: 'limited' as const,
+      accessLevel:
+        reviewAction === 'accept' ? ('limited' as const) : (parsedBody.accessLevel ?? 'limited'),
       ...executionContextInput,
       signal: req.signal,
     }

@@ -95,14 +95,7 @@ describe('ActionBar', () => {
     host.addEventListener('click', parentClick)
 
     await act(async () => {
-      root.render(
-        <ActionBar
-          blockId='block_1'
-          blockType='agent'
-          workflowId='workflow_1'
-          channelId='channel_1'
-        />
-      )
+      root.render(<ActionBar blockId='block_1' blockType='agent' workflowId='workflow_1' />)
     })
 
     const enableButton = container.querySelector('button')

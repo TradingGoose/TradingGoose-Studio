@@ -24,13 +24,11 @@ export function WorkflowWidgetControlBar({
   panelId,
 }: WorkflowWidgetControlBarProps) {
   const copy = useWorkflowEditorCopy()
-  const { channelId, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'editor_workflow',
   })
 
   if (!workspaceId || !resolvedWorkflowId) {
@@ -41,11 +39,7 @@ export function WorkflowWidgetControlBar({
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
         <WorkflowSessionProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
-          <WorkflowRouteProvider
-            workspaceId={workspaceId}
-            workflowId={resolvedWorkflowId}
-            channelId={channelId}
-          >
+          <WorkflowRouteProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
             <ControlBar
               variant='widget'
               className='inline-flex items-center gap-1 whitespace-nowrap'

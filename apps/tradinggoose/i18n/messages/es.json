@@ -2617,9 +2617,7 @@
       },
       "empty": {
         "noWidgetSelected": "No se ha seleccionado ningún widget",
-        "emptyWidget": "Widget vacío",
         "noWidgetDescription": "Elige un widget de la galería para empezar a usar este panel.",
-        "emptyWidgetDescription": "Este widget está vacío por ahora; elige otro para continuar.",
         "chooseWidget": "Elegir widget",
         "surfaceTitle": "Superficie vacía",
         "surfaceDescription": "Estado de marcador de posición cuando el panel no tiene un widget asignado."

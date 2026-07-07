@@ -76,8 +76,6 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
         timeout = null
       }
       provider.off('sync', handleSync)
-      provider.off('connection-close', handleConnectionFailure)
-      provider.off('connection-error', handleConnectionFailure)
       error ? reject(error) : resolve()
     }
 
@@ -87,14 +85,12 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
       }
     }
 
-    const handleConnectionFailure = () => {
+    const handleSyncTimeout = () => {
       finish(new Error('Failed to establish authorized Yjs sync'))
     }
 
-    timeout = setTimeout(handleConnectionFailure, SYNC_TIMEOUT_MS)
+    timeout = setTimeout(handleSyncTimeout, SYNC_TIMEOUT_MS)
     provider.on('sync', handleSync)
-    provider.on('connection-close', handleConnectionFailure)
-    provider.on('connection-error', handleConnectionFailure)
 
     if (provider.synced) {
       finish()

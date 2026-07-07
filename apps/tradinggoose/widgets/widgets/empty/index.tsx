@@ -26,8 +26,6 @@ const EmptyHeaderLabel = () => {
 const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
   const copy = useWorkspaceWidgetsMessages().empty
 
-  const isEmptyWidget = widget?.key && widget.key !== 'empty'
-
   return (
     <Empty className='p-6'>
       <EmptyHeader>
@@ -38,10 +36,8 @@ const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
             </AvatarFallback>
           </Avatar>
         </EmptyMedia>
-        <EmptyTitle>{isEmptyWidget ? copy.emptyWidget : copy.noWidgetSelected}</EmptyTitle>
-        <EmptyDescription>
-          {isEmptyWidget ? copy.emptyWidgetDescription : copy.noWidgetDescription}
-        </EmptyDescription>
+        <EmptyTitle>{copy.noWidgetSelected}</EmptyTitle>
+        <EmptyDescription>{copy.noWidgetDescription}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <WidgetSelector

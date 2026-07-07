@@ -42,7 +42,6 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
   useOptionalWorkflowRoute: () => ({
     workspaceId: 'workspace-1',
     workflowId: 'workflow-1',
-    channelId: 'channel-1',
   }),
 }))
 

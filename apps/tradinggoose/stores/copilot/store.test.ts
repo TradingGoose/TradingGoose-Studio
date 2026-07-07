@@ -3131,6 +3131,7 @@ describe('copilot tool user action delegation', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_widget',
+      accessLevel: 'full',
       payload: {
         entityId: 'layout-1',
         panelId: 'panel-1',
@@ -3292,6 +3293,7 @@ describe('copilot tool user action delegation', () => {
       })
       expect(parseJsonRequestBody(executeRequest)).toEqual({
         toolName: 'make_api_request',
+        accessLevel: 'full',
         payload: {
           url: 'https://example.com/data',
           method: 'GET',

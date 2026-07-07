@@ -4,6 +4,8 @@ import {
   type LinkedPairColor,
   normalizePairColorContext,
   type PersistedColorPair,
+  readPairColorContext,
+  upsertPairColorContext,
 } from '@/widgets/color-pairs'
 import {
   createLayoutNodeId,
@@ -15,12 +17,11 @@ import {
 } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
-  getDefaultWidgetInstance,
+  getWidgetContract,
   isWidgetKey,
-  pruneDashboardColorPairsForLayout,
   resolveEffectiveWidgetParams,
   sanitizeWidgetInstance as sanitizeContractWidgetInstance,
-  WIDGET_KEYS,
+  type WidgetReferenceParamField,
 } from '@/widgets/widget-contracts'
 
 export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v1' as const
@@ -36,11 +37,14 @@ export type DashboardLayoutDocumentFields = {
 }
 
 export type DashboardLayoutValidationIssue = { path: string; message: string }
+export type DashboardLayoutDefaultReferenceParams = Partial<
+  Record<WidgetReferenceParamField, string>
+>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const WidgetKeySchema = z.enum(WIDGET_KEYS)
+const PersistedWidgetKeySchema = z.string().trim().min(1)
 const PairColorSchema = z.enum(PAIR_COLORS as [PairColor, ...PairColor[]])
 const LinkedPairColorSchema = z.enum(
   PAIR_COLORS.filter((color): color is LinkedPairColor => color !== 'gray') as [
@@ -51,7 +55,7 @@ const LinkedPairColorSchema = z.enum(
 
 const DashboardLayoutWidgetInstanceSchema = z
   .object({
-    key: WidgetKeySchema,
+    key: PersistedWidgetKeySchema,
     pairColor: PairColorSchema.optional(),
     params: z.record(z.unknown()).nullable().optional(),
   })
@@ -113,7 +117,7 @@ const DashboardLayoutStructurePanelNodeSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
     type: z.literal('panel'),
-    widget: z.object({ key: WidgetKeySchema }).strict().optional(),
+    widget: z.object({ key: PersistedWidgetKeySchema }).strict().optional(),
   })
   .strict()
 
@@ -176,7 +180,11 @@ export type DashboardLayoutReviewDiff = {
   removedPanelCount: number
   retainedPanelCount: number
   changedPanelCount: number
-  groupSizeChanges: Array<{ groupId: string; before: number[]; after: number[] }>
+  groupSizeChanges: Array<{
+    groupId: string
+    before: number[]
+    after: number[]
+  }>
   topologyChanged: boolean
   metadataChanges: Array<{
     field: 'name' | 'sortOrder' | 'isActive'
@@ -212,6 +220,163 @@ export function normalizeDashboardLayoutDocumentFields(
   }
 }
 
+export function initializeDashboardLayoutLinkedParams(
+  fields: Partial<DashboardLayoutDocumentFields> & {
+    layout?: LayoutNode | unknown
+    colorPairs?: PersistedColorPairsState | unknown
+  },
+  defaultReferences: DashboardLayoutDefaultReferenceParams = {}
+): DashboardLayoutDocumentFields {
+  const normalized = normalizeDashboardLayoutDocumentFields(fields)
+  const localLinkedByColor = collectLocalLinkedParamsByColor(normalized.layout)
+  let colorPairs = normalized.colorPairs
+  const layout = initializeLinkedParamsInLayout(
+    normalized.layout,
+    colorPairs,
+    localLinkedByColor,
+    defaultReferences,
+    (nextColorPairs) => {
+      colorPairs = nextColorPairs
+    }
+  )
+
+  return {
+    ...normalized,
+    layout,
+    colorPairs,
+  }
+}
+
+export function dashboardLayoutNeedsDefaultReferenceParams(layout: LayoutNode): boolean {
+  if (layout.type !== 'panel') {
+    return layout.children.some(dashboardLayoutNeedsDefaultReferenceParams)
+  }
+  const widget = layout.widget
+  if (!widget || !isWidgetKey(widget.key) || isRecordWithKeys(widget.params)) return false
+  return getWidgetContract(widget.key).linkedParamFields.some(isReferenceParamField)
+}
+
+function isRecordWithKeys(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && Object.keys(value).length > 0
+}
+
+function collectLocalLinkedParamsByColor(
+  node: LayoutNode,
+  collected = new Map<LinkedPairColor, Record<string, unknown>>()
+): Map<LinkedPairColor, Record<string, unknown>> {
+  if (node.type !== 'panel') {
+    node.children.forEach((child) => collectLocalLinkedParamsByColor(child, collected))
+    return collected
+  }
+
+  const widget = node.widget
+  if (!widget || !isWidgetKey(widget.key) || !isPairColor(widget.pairColor)) return collected
+  if (widget.pairColor === 'gray' || !isRecord(widget.params)) return collected
+
+  const values = collected.get(widget.pairColor) ?? {}
+  for (const field of getWidgetContract(widget.key).linkedParamFields) {
+    if (values[field] != null) continue
+    const value = widget.params[field]
+    if (value != null) values[field] = value
+  }
+  if (Object.keys(values).length > 0) collected.set(widget.pairColor, values)
+  return collected
+}
+
+function initializeLinkedParamsInLayout(
+  node: LayoutNode,
+  colorPairs: PersistedColorPairsState,
+  localLinkedByColor: ReadonlyMap<LinkedPairColor, Record<string, unknown>>,
+  defaultReferences: DashboardLayoutDefaultReferenceParams,
+  setColorPairs: (colorPairs: PersistedColorPairsState) => void
+): LayoutNode {
+  if (node.type !== 'panel') {
+    const children = node.children.map((child) =>
+      initializeLinkedParamsInLayout(
+        child,
+        colorPairs,
+        localLinkedByColor,
+        defaultReferences,
+        (nextColorPairs) => {
+          colorPairs = nextColorPairs
+          setColorPairs(nextColorPairs)
+        }
+      )
+    )
+    return children.some((child, index) => child !== node.children[index])
+      ? { ...node, children }
+      : node
+  }
+
+  const widget = node.widget
+  if (!widget || !isWidgetKey(widget.key)) return node
+
+  const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const linkedFields = getWidgetContract(widget.key).linkedParamFields
+  if (linkedFields.length === 0) return node
+
+  if (pairColor === 'gray') {
+    if (isRecordWithKeys(widget.params)) return node
+    const params = readDefaultLinkedParams(linkedFields, defaultReferences)
+    return params ? { ...node, widget: { ...widget, pairColor, params } } : node
+  }
+
+  let nextColorPairs = colorPairs
+  const sharedContext = readPairColorContext(nextColorPairs, pairColor)
+  const localContext = localLinkedByColor.get(pairColor) ?? {}
+  const widgetParamsAreEmpty = !isRecordWithKeys(widget.params)
+
+  for (const field of linkedFields) {
+    if (sharedContext[field as keyof typeof sharedContext] != null) continue
+    const localValue = localContext[field]
+    const defaultValue =
+      widgetParamsAreEmpty && isReferenceParamField(field) ? defaultReferences[field] : undefined
+    const nextValue = localValue ?? defaultValue
+    if (nextValue != null) {
+      nextColorPairs = upsertPairColorContext(nextColorPairs, pairColor, {
+        [field]: nextValue,
+      })
+    }
+  }
+
+  if (nextColorPairs !== colorPairs) {
+    setColorPairs(nextColorPairs)
+  }
+
+  const localParams = getWidgetContract(widget.key).resolveParamsForPairColorChange(
+    widget,
+    pairColor,
+    nextColorPairs
+  ).params
+  return localParams === widget.params
+    ? node
+    : { ...node, widget: { ...widget, params: localParams } }
+}
+
+function readDefaultLinkedParams(
+  linkedFields: readonly string[],
+  defaultReferences: DashboardLayoutDefaultReferenceParams
+): Record<string, unknown> | null {
+  const params: Record<string, unknown> = {}
+  for (const field of linkedFields) {
+    if (!isReferenceParamField(field)) continue
+    const value = defaultReferences[field]
+    if (value) params[field] = value
+  }
+  return Object.keys(params).length > 0 ? params : null
+}
+
+function isReferenceParamField(field: string): field is WidgetReferenceParamField {
+  return (
+    field === 'workflowId' ||
+    field === 'watchlistId' ||
+    field === 'indicatorId' ||
+    field === 'mcpServerId' ||
+    field === 'customToolId' ||
+    field === 'skillId'
+  )
+}
+
 function normalizeDocumentLayout(layout: unknown, path = 'layout'): LayoutNode {
   if (!isRecord(layout)) throw new Error(`${path} must be a layout node object`)
   if (typeof layout.id !== 'string' || !layout.id.trim())
@@ -219,7 +384,11 @@ function normalizeDocumentLayout(layout: unknown, path = 'layout'): LayoutNode {
   const id = layout.id.trim()
 
   if (layout.type === 'panel') {
-    return { id, type: 'panel', widget: normalizeDocumentWidget(layout.widget, `${path}.widget`) }
+    return {
+      id,
+      type: 'panel',
+      widget: normalizeDocumentWidget(layout.widget, `${path}.widget`),
+    }
   }
   if (layout.type !== 'group' || !Array.isArray(layout.children)) {
     throw new Error(`${path}.type must be "panel" or "group"`)
@@ -247,13 +416,20 @@ function normalizeDocumentWidget(widget: unknown, path: string): WidgetInstance 
   if (!isRecord(widget)) throw new Error(`${path} must be a widget object`)
   const key = typeof widget.key === 'string' ? widget.key.trim() : ''
   if (!key) throw new Error(`${path}.key must be a non-empty widget key`)
-  if (!isWidgetKey(key)) throw new Error(`Unknown widget key "${key}"`)
   if (!isPairColor(widget.pairColor))
     throw new Error(`${path}.pairColor must be a valid pair color`)
   if (!Object.hasOwn(widget, 'params')) throw new Error(`${path}.params is required`)
+  const params = widget.params ?? null
+  if (params !== null && !isRecord(params)) {
+    throw new Error(`${path}.params must be an object or null`)
+  }
+
+  if (!isWidgetKey(key)) {
+    return { key, pairColor: widget.pairColor, params }
+  }
 
   return sanitizeContractWidgetInstance(
-    { key, pairColor: widget.pairColor, params: widget.params },
+    { key, pairColor: widget.pairColor, params },
     { strict: true }
   )
 }
@@ -450,7 +626,7 @@ export function applyLayoutEditDocument(
     ...currentFields,
     name,
     layout: submittedLayout,
-    colorPairs: pruneDashboardColorPairsForLayout(submittedLayout, currentFields.colorPairs),
+    colorPairs: normalizeColorPairsState(currentFields.colorPairs),
     isActive: raw.isActive === true ? true : currentFields.isActive,
     sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : currentFields.sortOrder,
   }
@@ -519,10 +695,11 @@ function reconcileStructureNode(
 
   if (value.type === 'panel') {
     if (!submittedId) {
+      const widgetKey = readNewTargetWidgetKey(value.widget, `${path}.widget`)
       return {
         id: createLayoutNodeId(),
         type: 'panel',
-        widget: getDefaultWidgetInstance(readNewTargetWidgetKey(value.widget, `${path}.widget`)),
+        widget: { key: widgetKey, pairColor: 'gray', params: null },
       }
     }
     const currentWidget = context.currentWidgets.get(submittedId)
@@ -621,9 +798,6 @@ function validateRetainedPanelWidget(
     failDashboardLayout(`${path}.key`, `${path}.key must be a non-empty widget key when provided`)
   }
   const key = rawKey.trim()
-  if (!isWidgetKey(key)) {
-    failDashboardLayout(`${path}.key`, `Unknown widget key "${key}" in edit_layout entityDocument`)
-  }
   if (!currentWidget?.key) {
     failDashboardLayout(
       `${path}.key`,
@@ -640,16 +814,16 @@ function validateRetainedPanelWidget(
 
 function readNewTargetWidgetKey(rawWidget: unknown, path: string) {
   if (!isRecord(rawWidget)) {
-    failDashboardLayout(path, `${path} with a valid key is required for new target-widget panels`)
+    failDashboardLayout(
+      path,
+      `${path} with a non-empty key is required for new target-widget panels`
+    )
   }
   const rawKey = rawWidget.key
   if (typeof rawKey !== 'string' || !rawKey.trim()) {
     failDashboardLayout(`${path}.key`, `${path}.key is required for new target-widget panels`)
   }
   const key = rawKey.trim()
-  if (!isWidgetKey(key)) {
-    failDashboardLayout(`${path}.key`, `Unknown widget key "${key}" in edit_layout entityDocument`)
-  }
   return key
 }
 
@@ -699,7 +873,10 @@ function normalizeColorPairsForEffectiveProjection(
     if (!canonicalPair) continue
     projectedPairs.push(
       toListingValueObject(rawPair.listing)
-        ? { ...canonicalPair, listing: rawPair.listing as PersistedColorPair['listing'] }
+        ? {
+            ...canonicalPair,
+            listing: rawPair.listing as PersistedColorPair['listing'],
+          }
         : canonicalPair
     )
   }
@@ -726,6 +903,7 @@ function applyPairDataToWidget(
   pairMap: ReadonlyMap<LinkedPairColor, PersistedColorPair>
 ): WidgetInstance {
   if (!widget) return widget
+  if (!isWidgetKey(widget.key)) return widget
 
   const pairColor: PairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
   if (pairColor === 'gray') return widget

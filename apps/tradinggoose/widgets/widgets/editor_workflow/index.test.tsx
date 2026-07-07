@@ -18,7 +18,6 @@ vi.mock('@/components/ui/loading-agent', () => ({
 }))
 
 let mockWorkflowWidgetState: any = {
-  channelId: 'editor-workflow-panel-1',
   resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
@@ -55,7 +54,6 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-editor-app', () =
 describe('workflowEditorWidget', () => {
   beforeEach(() => {
     mockWorkflowWidgetState = {
-      channelId: 'editor-workflow-panel-1',
       resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,

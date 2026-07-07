@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useLocale, useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
@@ -11,10 +11,6 @@ import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-ava
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
 import type { LocaleCode } from '@/i18n/utils'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
-import type {
-  HeatmapWatchlistSizeMetric,
-  HeatmapWidgetParams,
-} from '@/widgets/widgets/heatmap/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
@@ -33,6 +29,10 @@ import {
   resolvePortfolioHeatmapListings,
   resolveWatchlistHeatmapListings,
 } from '@/widgets/widgets/heatmap/components/source-items'
+import type {
+  HeatmapWatchlistSizeMetric,
+  HeatmapWidgetParams,
+} from '@/widgets/widgets/heatmap/contract'
 
 const HeatmapMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
@@ -82,13 +82,6 @@ export function HeatmapWidgetBody({
   )
   const watchlistDocument = useSelectedWatchlistYjsDocument({ workspaceId })
 
-  useEffect(() => {
-    const nextParams: Record<string, unknown> = {}
-    if (!widgetParams?.sourceMode) nextParams.sourceMode = sourceMode
-    if (Object.keys(nextParams).length === 0) return
-    patchWidgetParams(nextParams)
-  }, [patchWidgetParams, sourceMode, widgetParams])
-
   const watchlistDocumentsLoading =
     sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocument.isLoading
   const watchlistDocumentError =
@@ -113,26 +106,11 @@ export function HeatmapWidgetBody({
   )
   const tradingProviderId = resolveHeatmapTradingProviderId(widgetParams, tradingProviderOptions)
   const hasSelectedTradingProvider = Boolean(tradingProviderId)
-  const hasInvalidPersistedTradingProvider =
-    sourceMode === 'portfolio' &&
-    !providerAvailabilityQuery.isLoading &&
-    !providerAvailabilityQuery.error &&
-    Boolean(widgetParams?.tradingProvider) &&
-    !hasSelectedTradingProvider
   const isTradingProviderReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     hasSelectedTradingProvider &&
     tradingProviderOptions.length > 0
-
-  useEffect(() => {
-    if (!hasInvalidPersistedTradingProvider) return
-    patchWidgetParams({
-      tradingProvider: null,
-      serviceId: null,
-      portfolioIdentity: null,
-    })
-  }, [hasInvalidPersistedTradingProvider, patchWidgetParams])
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
@@ -140,9 +118,6 @@ export function HeatmapWidgetBody({
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,
       enabled: sourceMode === 'portfolio' && isTradingProviderReady,
-      panelId,
-      widgetKey,
-      emitParamsChange: ({ params }) => patchWidgetParams(params),
     })
 
   const snapshotQuery = usePortfolioDetail({

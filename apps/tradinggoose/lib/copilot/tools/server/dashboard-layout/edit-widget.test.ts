@@ -59,17 +59,17 @@ describe('edit_widget server tool', () => {
     fx.resetDashboardToolMocks(toolMocks)
   })
 
-  it('applies edit_widget with stale linked color-pair fields pruned', async () => {
+  it('applies edit_widget without pruning the independent color store', async () => {
     const result = await execute({ pairColor: 'gray' })
 
     expect(toolMocks.applyLive).toHaveBeenCalledWith(
       toolMocks.scope,
       'layout-1',
-      expect.objectContaining({ colorPairs: { pairs: [] } })
+      expect.objectContaining({
+        colorPairs: { pairs: [{ color: 'red', listing: fx.AAPL_LISTING }] },
+      })
     )
-    expect(result.colorPairDiff).toEqual([
-      { color: 'red', before: { listing: fx.AAPL_LISTING }, after: {}, changedFields: ['listing'] },
-    ])
+    expect(result.colorPairDiff).toEqual([])
   })
 
   it('patches public edit_widget params without replacing unrelated quick-order params', async () => {

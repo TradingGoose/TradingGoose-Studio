@@ -20,7 +20,6 @@ type ContextTurnProvenance = {
   explicit: boolean
 }
 
-
 function applyContextTurnProvenance(
   provenance: CopilotToolExecutionProvenance,
   context: ContextTurnProvenance
@@ -43,12 +42,10 @@ function applyContextTurnProvenance(
 }
 
 function readDashboardLayoutContext(
-  context: ContextTurnProvenance,
-  authenticatedUserId: string | null
+  context: ContextTurnProvenance
 ): CopilotToolExecutionProvenance['dashboardLayoutContext'] | null {
   if (context.contextEntityKind !== 'dashboard_layout') return null
   if (!context.contextEntityId || !context.workspaceId || !context.ownerUserId) return null
-  if (!authenticatedUserId || context.ownerUserId !== authenticatedUserId) return null
 
   return {
     entityId: context.contextEntityId,
@@ -77,11 +74,10 @@ export function buildTurnProvenanceFromContexts(
   workspaceId: string | null | undefined,
   liveWorkflowId: string | null | undefined,
   reviewTarget: CopilotLiveContext['reviewTarget'],
-  authenticatedUserId?: string | null
+  _authenticatedUserId?: string | null
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedLiveWorkflowId = normalizeOptionalString(liveWorkflowId)
-  const normalizedAuthenticatedUserId = normalizeOptionalString(authenticatedUserId) ?? null
   const provenance: CopilotToolExecutionProvenance = {
     ...(normalizedLiveWorkflowId
       ? {
@@ -96,10 +92,7 @@ export function buildTurnProvenanceFromContexts(
   for (const context of contexts ?? []) {
     const entityContext = getContextTurnProvenance(context)
     if (entityContext) {
-      const dashboardLayoutContext = readDashboardLayoutContext(
-        entityContext,
-        normalizedAuthenticatedUserId
-      )
+      const dashboardLayoutContext = readDashboardLayoutContext(entityContext)
       if (dashboardLayoutContext && !provenance.dashboardLayoutContext) {
         provenance.dashboardLayoutContext = dashboardLayoutContext
       }
@@ -129,16 +122,19 @@ export function withPinnedToolExecutionProvenance(
   }
 
   const dashboardLayoutContext =
-    toolCall.provenance?.dashboardLayoutContext ??
-    baseProvenance?.dashboardLayoutContext
-  const mergedProvenance = {
-    ...(baseProvenance ?? {}),
-    ...(toolCall.provenance ?? {}),
+    toolCall.provenance?.dashboardLayoutContext ?? baseProvenance?.dashboardLayoutContext
+  const { dashboardLayoutContext: _baseDashboardLayoutContext, ...baseProvenanceRest } =
+    baseProvenance ?? {}
+  const { dashboardLayoutContext: _toolDashboardLayoutContext, ...toolProvenanceRest } =
+    toolCall.provenance ?? {}
+  let mergedProvenance = {
+    ...baseProvenanceRest,
+    ...toolProvenanceRest,
   }
-  delete mergedProvenance.dashboardLayoutContext
 
   if (mergedProvenance.contextEntityKind !== 'dashboard_layout') {
-    delete mergedProvenance.ownerUserId
+    const { ownerUserId: _ownerUserId, ...withoutOwnerScope } = mergedProvenance
+    mergedProvenance = withoutOwnerScope
   }
 
   if (dashboardLayoutContext && DASHBOARD_LAYOUT_TOOL_NAMES.has(toolCall.name)) {

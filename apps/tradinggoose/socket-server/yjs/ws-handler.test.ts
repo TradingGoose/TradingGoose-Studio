@@ -21,6 +21,8 @@ const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
+const mockAttachDashboardLayoutLiveProjection = vi.fn()
+const mockProjectDashboardLayoutLiveState = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -88,6 +90,9 @@ beforeEach(() => {
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
   mockSetupWSConnection.mockReset()
+  mockAttachDashboardLayoutLiveProjection.mockReset()
+  mockProjectDashboardLayoutLiveState.mockReset()
+  mockProjectDashboardLayoutLiveState.mockResolvedValue(undefined)
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -118,6 +123,11 @@ beforeEach(() => {
 
   vi.doMock('@/lib/yjs/server/apply-entity-state', () => ({
     saveSavedEntityYjsDocToDb: vi.fn(),
+  }))
+
+  vi.doMock('@/lib/yjs/server/dashboard-layout-live-projection', () => ({
+    attachDashboardLayoutLiveProjection: mockAttachDashboardLayoutLiveProjection,
+    projectDashboardLayoutLiveState: mockProjectDashboardLayoutLiveState,
   }))
 
   vi.doMock('./upstream-utils', () => ({

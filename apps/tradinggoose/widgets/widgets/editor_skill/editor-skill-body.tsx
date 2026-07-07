@@ -6,7 +6,6 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
@@ -21,7 +20,6 @@ export function EditorSkillWidgetBody({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsPatch,
 }: EditorSkillWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
@@ -44,16 +42,9 @@ export function EditorSkillWidgetBody({
   const skillId = resolveEntityIdFromList({
     requestedEntityId: requestedSkillId,
     entityIds: skillMembers.map((member) => member.entityId),
-    useDefaultEntity: resolvedPairColor === 'gray',
+    useDefaultEntity: false,
   })
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
-
-  usePersistResolvedEntityId({
-    entityId: skillId,
-    entityIdKey: 'skillId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   useSkillEditorActions({
     panelId,

@@ -25,9 +25,6 @@ const hydratedColorPairs = {
   ],
 }
 
-let resolvedListingsData: Record<string, unknown> | undefined
-let resolvedListingsInput: Record<string, unknown> | undefined
-
 function installRawBunDom() {
   if (typeof document !== 'undefined') return
 
@@ -50,21 +47,12 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useYjsStringField: (_doc: unknown, _field: string, initial: string) => [initial, vi.fn()],
 }))
 
-vi.mock('@/hooks/queries/listing-resolution', () => ({
-  useResolvedListings: (input: Record<string, unknown>) => {
-    resolvedListingsInput = input
-    return { data: resolvedListingsData }
-  },
-}))
-
-describe('useDashboardLayoutDocument projection hydration', () => {
+describe('useDashboardLayoutDocument live fields', () => {
   let container: HTMLDivElement | null
   let root: Root | null
 
   beforeEach(() => {
     installRawBunDom()
-    resolvedListingsData = undefined
-    resolvedListingsInput = undefined
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -77,7 +65,7 @@ describe('useDashboardLayoutDocument projection hydration', () => {
     container = null
   })
 
-  it('uses hydrated SSR color pairs while the provider is not ready', async () => {
+  it('returns raw layout and canonical color-store state while the provider is not ready', async () => {
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
 
@@ -98,10 +86,9 @@ describe('useDashboardLayoutDocument projection hydration', () => {
       root?.render(<Capture />)
     })
 
-    expect(resolvedListingsInput).toMatchObject({ enabled: false })
-    expect(latest?.effectiveLayout).toMatchObject({
-      type: 'panel',
-      widget: { params: { listing: { listing_id: 'AAPL', base: 'Apple', name: 'Apple Inc.' } } },
+    expect(latest?.layout).toEqual(layout)
+    expect(latest?.colorPairs).toEqual({
+      pairs: [{ color: 'red', listing }],
     })
   })
 })

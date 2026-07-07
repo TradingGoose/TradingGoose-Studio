@@ -11,42 +11,26 @@ import {
 } from '@/components/widget-header-control'
 import { useWorkflowChatMessages, useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
-import { workflowChatWidgetContract } from '@/widgets/widgets/workflow_chat/contract'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { workflowChatWidgetContract } from '@/widgets/widgets/workflow_chat/contract'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
-const ChatWidgetBody = ({
-  params,
-  context,
-  pairColor = 'gray',
-  panelId,
-  widget,
-  onWidgetParamsPatch,
-}: WidgetComponentProps) => {
+const ChatWidgetBody = ({ params, context, pairColor = 'gray', widget }: WidgetComponentProps) => {
   const copy = useWorkflowChatMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
-  const { channelId, resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+  const { resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
     useWorkflowWidgetState({
       workspaceId,
       pairColor,
       widget,
-      panelId,
       params,
-      fallbackWidgetKey: 'workflow-chat',
     })
-  usePersistResolvedEntityId({
-    entityId: resolvedWorkflowId,
-    entityIdKey: 'workflowId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
@@ -74,11 +58,7 @@ const ChatWidgetBody = ({
 
   return (
     <div className='flex h-full w-full overflow-hidden bg-background'>
-      <WorkflowChatApp
-        workspaceId={workspaceId}
-        workflowId={resolvedWorkflowId}
-        channelId={channelId}
-      />
+      <WorkflowChatApp workspaceId={workspaceId} workflowId={resolvedWorkflowId} />
     </div>
   )
 }
@@ -92,23 +72,19 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
 function ChatOutputsHeader({
   workspaceId,
   widget,
-  panelId,
   triggerClassName,
 }: {
   workspaceId?: string
   widget?: WidgetInstance | null
-  panelId?: string
   triggerClassName?: string
 }) {
   const copy = useWorkflowChatMessages()
   const { selectedWorkflowOutputs, setSelectedWorkflowOutput } = useChatStore()
-  const { channelId, resolvedWorkflowId: workflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId: workflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-chat',
   })
 
   const selectedOutputs = useMemo(() => {
@@ -144,11 +120,7 @@ function ChatOutputsHeader({
         <TooltipTrigger asChild>
           <div className='min-w-[220px]'>
             {workspaceId && workflowId ? (
-              <WorkflowChatSessionProviders
-                workspaceId={workspaceId}
-                workflowId={workflowId}
-                channelId={channelId}
-              >
+              <WorkflowChatSessionProviders workspaceId={workspaceId} workflowId={workflowId}>
                 {outputSelect}
               </WorkflowChatSessionProviders>
             ) : (
@@ -177,9 +149,7 @@ const ChatWorkflowHeaderSelector = ({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-chat',
   })
   const actions = useWidgetConfigRuntimeActions()
   const widgetKey = widget?.key ?? 'workflow_chat'
@@ -216,9 +186,7 @@ function ClearChatButton({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
     widget,
-    panelId,
     params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-chat',
   })
   const clearChat = useChatStore((state) => state.clearChat)
   const hasMessages = useChatStore(
@@ -267,7 +235,6 @@ export const chatWidget: DashboardWidgetDefinition = {
           <ChatOutputsHeader
             workspaceId={context?.workspaceId}
             widget={widget}
-            panelId={panelId}
             triggerClassName={widgetHeaderControlClassName('flex items-center gap-1 min-w-[240px]')}
           />
         </div>

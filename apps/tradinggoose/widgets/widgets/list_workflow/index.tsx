@@ -12,7 +12,6 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -29,7 +28,6 @@ const WidgetMessage = ({ message }: { message: string }) => (
 const WorkflowListWidgetBody = ({
   context,
   params,
-  panelId,
   pairColor = 'gray',
   widget,
   onWidgetParamsPatch,
@@ -37,25 +35,15 @@ const WorkflowListWidgetBody = ({
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.workflowList
   const widgetParams = params ?? widget?.params ?? null
-  const widgetKey = widget?.key ?? 'list_workflow'
-  const { channelId, resolvedWorkflowId: selectedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId: selectedWorkflowId } = useWorkflowWidgetState({
     workspaceId: workspaceId ?? undefined,
     pairColor,
     widget,
-    panelId,
     params: widgetParams,
-    fallbackWidgetKey: 'list_workflow',
   })
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
-
-  usePersistResolvedEntityId({
-    entityId: selectedWorkflowId,
-    entityIdKey: 'workflowId',
-    onWidgetParamsPatch,
-    params: widgetParams,
-  })
 
   // Workflows list newest-first; the projection's canonical name order is a
   // deterministic base, not the workflow list's presentation order.
@@ -142,7 +130,6 @@ const WorkflowListWidgetBody = ({
       <WorkflowRouteProvider
         workspaceId={workspaceId}
         workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
-        channelId={channelId}
       >
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree

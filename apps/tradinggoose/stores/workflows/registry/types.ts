@@ -1,5 +1,3 @@
-import type { PersistedColorPairsState } from '@/widgets/layout'
-
 export interface DeploymentStatus {
   isDeployed: boolean
   deployedAt?: Date
@@ -61,7 +59,6 @@ export interface WorkflowRegistryActions {
   setActiveWorkflow: (params: { workflowId: string; channelId?: string }) => Promise<void>
   switchToWorkspace: (id: string) => Promise<void>
   loadWorkflows: (params: { workspaceId: string; channelId?: string }) => Promise<void>
-  syncLinkedWorkflowChannelsFromColorPairs: (colorPairs: PersistedColorPairsState | unknown) => void
   removeWorkflow: (id: string, options?: { skipApi?: boolean }) => Promise<void>
   updateWorkflow: (
     id: string,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTradingServices } from '@/components/trading-selector/services'
 import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import {
@@ -9,34 +9,21 @@ import {
   toPortfolioValueObject,
 } from '@/providers/trading/portfolio-identity'
 
-type EmitPortfolioParamsChange = (input: {
-  params: Record<string, unknown>
-  panelId?: string
-  widgetKey?: string
-}) => void
-
 export function usePortfolioIdentitySelection({
   providerId,
   serviceId,
   portfolioIdentity,
   enabled,
-  panelId,
-  widgetKey,
-  emitParamsChange,
 }: {
   providerId?: string | null
   serviceId?: string | null
   portfolioIdentity?: PortfolioIdentity | null
   enabled: boolean
-  panelId?: string
-  widgetKey: string
-  emitParamsChange: EmitPortfolioParamsChange
 }) {
   const selectedPortfolioIdentity = useMemo(
     () => toPortfolioValueObject(portfolioIdentity),
     [portfolioIdentity]
   )
-  const hasSelectedPortfolioIdentity = portfolioIdentity !== undefined && portfolioIdentity !== null
   const requestedServiceId = serviceId ?? selectedPortfolioIdentity?.serviceId
   const services = useTradingServices({
     providerId,
@@ -61,32 +48,6 @@ export function usePortfolioIdentitySelection({
   const activePortfolioIdentity = activeServiceId
     ? (resolvedPortfolioIdentity ?? undefined)
     : undefined
-
-  useEffect(() => {
-    if (!enabled || !hasResolvedPortfolioIdentities) return
-    if (!activeServiceId) return
-    if (selectedPortfolioIdentity && resolvedPortfolioIdentity) return
-    if (!hasSelectedPortfolioIdentity) return
-
-    emitParamsChange({
-      params: {
-        serviceId: activeServiceId,
-        portfolioIdentity: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    activeServiceId,
-    emitParamsChange,
-    enabled,
-    hasResolvedPortfolioIdentities,
-    hasSelectedPortfolioIdentity,
-    panelId,
-    resolvedPortfolioIdentity,
-    selectedPortfolioIdentity,
-    widgetKey,
-  ])
 
   return {
     accountsQuery,

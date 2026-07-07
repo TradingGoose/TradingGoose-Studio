@@ -6,7 +6,6 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
@@ -21,7 +20,6 @@ export function EditorIndicatorWidgetBody({
   pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsPatch,
 }: EditorIndicatorWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
@@ -43,16 +41,9 @@ export function EditorIndicatorWidgetBody({
   const indicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
     entityIds: indicatorMembers.map((member) => member.entityId),
-    useDefaultEntity: resolvedPairColor === 'gray',
+    useDefaultEntity: false,
   })
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
-
-  usePersistResolvedEntityId({
-    entityId: indicatorId,
-    entityIdKey: 'indicatorId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   const codeExportRef = useRef<() => void>(() => {})
   const codeSaveRef = useRef<() => void>(() => {})

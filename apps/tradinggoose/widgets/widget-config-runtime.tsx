@@ -1,11 +1,19 @@
 'use client'
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { getListingIdentityKey } from '@/lib/listing/identity'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
   normalizeColorPairsState,
   normalizeListingIdentity,
@@ -31,13 +39,33 @@ import {
   type WidgetConfigMutationPatch,
 } from '@/widgets/widget-mutations'
 
-type PairColorRuntimeState = {
+type WidgetConfigRuntimeSnapshot = {
   context: WidgetRuntimeContext
   layout: LayoutNode
   colorPairs: PersistedColorPairsState
   contexts: Record<PairColor, PairColorContext>
   applyWidgetPatch: (panelId: string, patch: WidgetConfigMutationPatch) => void
 }
+
+type PanelRuntimeState = {
+  localWidget: WidgetInstance
+  renderWidget: WidgetInstance
+}
+
+type WidgetConfigRuntimeStore = {
+  setSnapshotForRender: (next: WidgetConfigRuntimeSnapshot) => void
+  flushPendingSnapshot: () => void
+  getSnapshot: () => WidgetConfigRuntimeSnapshot
+  subscribeColor: (color: PairColor, listener: () => void) => () => void
+  subscribePanel: (panelId: string, listener: () => void) => () => void
+  getPairContext: (color: PairColor) => PairColorContext
+  getPanelWidget: (panelId: string) => WidgetInstance
+  getPanelRenderConfig: (panelId: string, fallback: WidgetInstance) => WidgetInstance
+  getWidgetLocalParams: (panelId: string, widgetKey: WidgetKey) => Record<string, unknown> | null
+  applyWidgetPatch: (panelId: string, patch: WidgetConfigMutationPatch) => void
+}
+
+const EMPTY_PAIR_CONTEXT: PairColorContext = {}
 
 const buildContexts = (colorPairs: PersistedColorPairsState): Record<PairColor, PairColorContext> =>
   PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
@@ -48,7 +76,7 @@ const buildContexts = (colorPairs: PersistedColorPairsState): Record<PairColor, 
     {} as Record<PairColor, PairColorContext>
   )
 
-const PairColorContextValue = createContext<PairColorRuntimeState | null>(null)
+const PairColorContextValue = createContext<WidgetConfigRuntimeStore | null>(null)
 
 export function WidgetConfigRuntimeProvider({
   children,
@@ -65,8 +93,8 @@ export function WidgetConfigRuntimeProvider({
   canWrite: boolean
   onDocumentMutation: (
     compute: (current: { layout: LayoutNode; colorPairs: PersistedColorPairsState }) => {
-      layout: LayoutNode
-      colorPairs: PersistedColorPairsState
+      layout?: LayoutNode
+      colorPairs?: PersistedColorPairsState
     } | null
   ) => void
 }) {
@@ -104,9 +132,6 @@ export function WidgetConfigRuntimeProvider({
       workflowList.members,
     ]
   )
-  useEffect(() => {
-    useWorkflowRegistry.getState().syncLinkedWorkflowChannelsFromColorPairs(normalizedColorPairs)
-  }, [normalizedColorPairs])
   const applyWidgetPatch = useCallback(
     (panelId: string, patch: WidgetConfigMutationPatch) => {
       if (!canWrite) return
@@ -136,12 +161,19 @@ export function WidgetConfigRuntimeProvider({
           referenceValidationScope,
           referenceValidation,
         })
-        return { layout: next.layout, colorPairs: next.colorPairs }
+        const mutation: { layout?: LayoutNode; colorPairs?: PersistedColorPairsState } = {}
+        if (!areJsonValuesEqual(current.layout, next.layout)) {
+          mutation.layout = next.layout
+        }
+        if (!areJsonValuesEqual(current.colorPairs, next.colorPairs)) {
+          mutation.colorPairs = next.colorPairs
+        }
+        return Object.keys(mutation).length > 0 ? mutation : null
       })
     },
     [authorizedReferences, canWrite, context, onDocumentMutation]
   )
-  const value = useMemo<PairColorRuntimeState>(
+  const snapshot = useMemo<WidgetConfigRuntimeSnapshot>(
     () => ({
       context,
       layout: normalizedLayout,
@@ -151,42 +183,182 @@ export function WidgetConfigRuntimeProvider({
     }),
     [applyWidgetPatch, context, normalizedColorPairs, normalizedLayout]
   )
+  const storeRef = useRef<WidgetConfigRuntimeStore | null>(null)
+  if (!storeRef.current) {
+    storeRef.current = createWidgetConfigRuntimeStore(snapshot)
+  } else {
+    storeRef.current.setSnapshotForRender(snapshot)
+  }
 
-  return <PairColorContextValue.Provider value={value}>{children}</PairColorContextValue.Provider>
+  useEffect(() => {
+    storeRef.current?.flushPendingSnapshot()
+  }, [snapshot])
+
+  return (
+    <PairColorContextValue.Provider value={storeRef.current}>
+      {children}
+    </PairColorContextValue.Provider>
+  )
 }
 
-function usePairRuntimeState(): PairColorRuntimeState {
-  const state = useContext(PairColorContextValue)
-  if (!state) {
+function createWidgetConfigRuntimeStore(
+  initial: WidgetConfigRuntimeSnapshot
+): WidgetConfigRuntimeStore {
+  let snapshot = initial
+  let pendingPrevious: WidgetConfigRuntimeSnapshot | null = null
+  let pendingNext: WidgetConfigRuntimeSnapshot | null = null
+  const colorListeners = new Map<PairColor, Set<() => void>>()
+  const panelListeners = new Map<string, Set<() => void>>()
+
+  const subscribeColor = (color: PairColor, listener: () => void) => {
+    const listeners = colorListeners.get(color) ?? new Set<() => void>()
+    listeners.add(listener)
+    colorListeners.set(color, listeners)
+    return () => {
+      listeners.delete(listener)
+      if (listeners.size === 0) colorListeners.delete(color)
+    }
+  }
+
+  const subscribePanel = (panelId: string, listener: () => void) => {
+    const listeners = panelListeners.get(panelId) ?? new Set<() => void>()
+    listeners.add(listener)
+    panelListeners.set(panelId, listeners)
+    return () => {
+      listeners.delete(listener)
+      if (listeners.size === 0) panelListeners.delete(panelId)
+    }
+  }
+
+  const emit = (listeners: Set<() => void> | undefined) => {
+    if (!listeners) return
+    for (const listener of listeners) listener()
+  }
+
+  const flushPendingSnapshot = () => {
+    if (!pendingPrevious || !pendingNext) return
+    const previous = pendingPrevious
+    const next = pendingNext
+    pendingPrevious = null
+    pendingNext = null
+
+    for (const color of colorListeners.keys()) {
+      if (!areJsonValuesEqual(previous.contexts[color], next.contexts[color])) {
+        emit(colorListeners.get(color))
+      }
+    }
+
+    for (const panelId of panelListeners.keys()) {
+      const before = readPanelRuntimeState(previous, panelId)
+      const after = readPanelRuntimeState(next, panelId)
+      if (!arePanelRuntimeStatesEqual(before, after)) {
+        emit(panelListeners.get(panelId))
+      }
+    }
+  }
+
+  return {
+    setSnapshotForRender: (next) => {
+      if (!pendingPrevious) pendingPrevious = snapshot
+      pendingNext = next
+      snapshot = next
+    },
+    flushPendingSnapshot,
+    getSnapshot: () => snapshot,
+    subscribeColor,
+    subscribePanel,
+    getPairContext: (color) => snapshot.contexts[color] ?? EMPTY_PAIR_CONTEXT,
+    getPanelWidget: (panelId) => findLayoutPanelWidget(snapshot.layout, panelId),
+    getPanelRenderConfig: (panelId, fallback) => readPanelRenderWidget(snapshot, panelId, fallback),
+    getWidgetLocalParams: (panelId, widgetKey) => {
+      const widget = findLayoutPanelWidget(snapshot.layout, panelId)
+      return widget?.key === widgetKey ? (widget.params ?? null) : null
+    },
+    applyWidgetPatch: (panelId, patch) => snapshot.applyWidgetPatch(panelId, patch),
+  }
+}
+
+function readPanelRuntimeState(
+  snapshot: WidgetConfigRuntimeSnapshot,
+  panelId: string
+): PanelRuntimeState {
+  return {
+    localWidget: findLayoutPanelWidget(snapshot.layout, panelId),
+    renderWidget: readPanelRenderWidget(snapshot, panelId, null),
+  }
+}
+
+function readPanelRenderWidget(
+  snapshot: WidgetConfigRuntimeSnapshot,
+  panelId: string,
+  fallback: WidgetInstance
+): WidgetInstance {
+  const current = findLayoutPanelWidget(snapshot.layout, panelId) ?? fallback
+  if (!current || !isWidgetKey(current.key)) return current
+  return {
+    ...current,
+    params: resolveEffectiveWidgetParams(current, snapshot.colorPairs),
+  }
+}
+
+function arePanelRuntimeStatesEqual(left: PanelRuntimeState, right: PanelRuntimeState): boolean {
+  return (
+    areWidgetInstancesEqual(left.localWidget, right.localWidget) &&
+    areWidgetInstancesEqual(left.renderWidget, right.renderWidget)
+  )
+}
+
+function areWidgetInstancesEqual(left: WidgetInstance, right: WidgetInstance): boolean {
+  if (left === right) return true
+  if (!left || !right) return left === right
+  return (
+    left.key === right.key &&
+    left.pairColor === right.pairColor &&
+    areJsonValuesEqual(left.params ?? null, right.params ?? null)
+  )
+}
+
+function areJsonValuesEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
+}
+
+function usePairRuntimeStore(): WidgetConfigRuntimeStore {
+  const store = useContext(PairColorContextValue)
+  if (!store) {
     throw new Error('Widget config runtime hooks must be used inside WidgetConfigRuntimeProvider')
   }
-  return state
+  return store
 }
 
 export const useWidgetPairContext = (color: PairColor) => {
-  const state = usePairRuntimeState()
-  return state.contexts[color]
+  const store = usePairRuntimeStore()
+  const subscribe = useCallback(
+    (listener: () => void) => store.subscribeColor(color, listener),
+    [color, store]
+  )
+  const extract = useCallback(() => store.getPairContext(color), [color, store])
+  return useYjsSubscription(subscribe, extract, EMPTY_PAIR_CONTEXT, areJsonValuesEqual)
 }
 
 export const useWidgetConfigRuntimeActions = () => {
-  const state = usePairRuntimeState()
+  const store = usePairRuntimeStore()
   return useMemo(
     () => ({
       changeWidgetPairColor: (panelId: string, pairColor: PairColor) => {
-        const widget = findLayoutPanelWidget(state.layout, panelId)
+        const widget = store.getPanelWidget(panelId)
         if (!widget || !isWidgetKey(widget.key)) return
-        state.applyWidgetPatch(panelId, { pairColor })
+        store.applyWidgetPatch(panelId, { pairColor })
       },
       changeWidgetKey: (panelId: string, widgetKey: string) =>
-        state.applyWidgetPatch(panelId, { widgetKey }),
+        store.applyWidgetPatch(panelId, { widgetKey }),
       patchWidgetParams: (panelId: string, widgetKey: string, params: Record<string, unknown>) =>
-        state.applyWidgetPatch(panelId, {
+        store.applyWidgetPatch(panelId, {
           widgetKey,
           params,
           paramsMode: 'patch',
         }),
     }),
-    [state]
+    [store]
   )
 }
 
@@ -196,45 +368,48 @@ export const useWidgetConfigRuntimeActions = () => {
  * Returns `null` when no provider is mounted; callers must no-op persistence.
  */
 export const useWidgetConfigRuntimeActionsOptional = () => {
-  const state = useContext(PairColorContextValue)
-  const applyWidgetPatch = state?.applyWidgetPatch ?? null
+  const store = useContext(PairColorContextValue)
   return useMemo(() => {
-    if (!applyWidgetPatch) return null
+    if (!store) return null
     return {
       patchWidgetParams: (panelId: string, widgetKey: string, params: Record<string, unknown>) =>
-        applyWidgetPatch(panelId, {
+        store.applyWidgetPatch(panelId, {
           widgetKey,
           params,
           paramsMode: 'patch',
         }),
     }
-  }, [applyWidgetPatch])
+  }, [store])
 }
 
 export const useWidgetLocalParams = (panelId: string, widgetKey: WidgetKey) => {
-  const state = usePairRuntimeState()
-  const widget = findLayoutPanelWidget(state.layout, panelId)
-  return widget?.key === widgetKey ? (widget.params ?? null) : null
+  const store = usePairRuntimeStore()
+  const subscribe = useCallback(
+    (listener: () => void) => store.subscribePanel(panelId, listener),
+    [panelId, store]
+  )
+  const extract = useCallback(
+    () => store.getWidgetLocalParams(panelId, widgetKey),
+    [panelId, store, widgetKey]
+  )
+  return useYjsSubscription(subscribe, extract, null, areJsonValuesEqual)
 }
 
 export const useDashboardWidgetRenderConfig = (
   widget: WidgetInstance,
   panelId?: string
 ): WidgetInstance => {
-  const state = useContext(PairColorContextValue)
-  if (!state || !panelId || !widget || !isWidgetKey(widget.key)) {
-    return widget
-  }
-
-  const current = findLayoutPanelWidget(state.layout, panelId)
-  if (!current || current.key !== widget.key || !isWidgetKey(current.key)) {
-    return widget
-  }
-
-  return {
-    ...current,
-    params: resolveEffectiveWidgetParams(current, state.colorPairs),
-  }
+  const store = useContext(PairColorContextValue)
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      store && panelId ? store.subscribePanel(panelId, listener) : () => {},
+    [panelId, store]
+  )
+  const extract = useCallback(() => {
+    if (!store || !panelId || !widget || !isWidgetKey(widget.key)) return widget
+    return store.getPanelRenderConfig(panelId, widget)
+  }, [panelId, store, widget])
+  return useYjsSubscription(subscribe, extract, widget, areWidgetInstancesEqual)
 }
 
 function assertReferencesAuthorizedForRuntimeMutation(

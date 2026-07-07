@@ -244,7 +244,6 @@ const DashboardLayoutPreviewNode = React.memo(function DashboardLayoutPreviewNod
     <ResizablePanelGroup
       key={node.id}
       direction={node.direction}
-      layout={node.sizes}
       onLayout={(sizes) => ctx.persistGroupSizes?.(node.id, sizes)}
       className='h-full w-full'
     >

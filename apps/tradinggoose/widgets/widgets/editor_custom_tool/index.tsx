@@ -9,15 +9,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { LocaleCode } from '@/i18n/utils'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import {
@@ -25,6 +22,7 @@ import {
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
+import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
   CustomToolEditor,
   type CustomToolEditorSection,
@@ -122,7 +120,7 @@ function EditorCustomToolWidgetBody({
   const selectedToolId = resolveEntityIdFromList({
     requestedEntityId: requestedCustomToolId,
     entityIds: customToolMembers.map((member) => member.entityId),
-    useDefaultEntity: resolvedPairColor === 'gray',
+    useDefaultEntity: false,
   })
 
   const syncActiveSection = useCallback(
@@ -141,13 +139,6 @@ function EditorCustomToolWidgetBody({
   )
 
   const customToolSession = useSavedEntityYjsSession('custom_tool', selectedToolId, workspaceId)
-
-  usePersistResolvedEntityId({
-    entityId: selectedToolId,
-    entityIdKey: 'customToolId',
-    onWidgetParamsPatch,
-    params,
-  })
 
   useEffect(() => {
     if (!selectedToolId) {
@@ -208,11 +199,7 @@ function EditorCustomToolWidgetBody({
   }
 
   return (
-    <WorkflowRouteProvider
-      workspaceId={workspaceId}
-      workflowId='dashboard-custom-tool-editor'
-      channelId={DEFAULT_WORKFLOW_CHANNEL_ID}
-    >
+    <WorkflowRouteProvider workspaceId={workspaceId} workflowId='dashboard-custom-tool-editor'>
       <div className='flex h-full w-full flex-col overflow-hidden'>
         <CustomToolEditor
           activeSection={activeSection}

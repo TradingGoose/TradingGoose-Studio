@@ -26,7 +26,6 @@ interface ActionBarProps {
   blockId: string
   blockType: string
   workflowId: string
-  channelId: string
   disabled?: boolean
   showWebhookIndicator?: boolean
   showScheduleBadge?: boolean
@@ -60,7 +59,6 @@ export const ActionBar = memo(
     blockId,
     blockType,
     workflowId,
-    channelId,
     disabled = false,
     showWebhookIndicator = false,
     showScheduleBadge = false,
@@ -358,7 +356,6 @@ export const ActionBar = memo(
                     emitRemoveFromSubflow({
                       blockId,
                       workflowId,
-                      channelId,
                     })
                   }
                 }}
@@ -429,7 +426,6 @@ export const ActionBar = memo(
       prevProps.blockId === nextProps.blockId &&
       prevProps.blockType === nextProps.blockType &&
       prevProps.workflowId === nextProps.workflowId &&
-      prevProps.channelId === nextProps.channelId &&
       prevProps.disabled === nextProps.disabled &&
       prevProps.showWebhookIndicator === nextProps.showWebhookIndicator &&
       prevProps.showScheduleBadge === nextProps.showScheduleBadge &&

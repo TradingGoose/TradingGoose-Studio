@@ -100,6 +100,7 @@ const COPILOT_TOOL_IDS = [
   'read_watchlist',
   'edit_watchlist',
   'list_layouts',
+  'create_layout',
   'read_layout',
   'edit_layout',
   'edit_widget',
@@ -287,6 +288,13 @@ const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const EditWatchlistArgs = buildEntityDocumentMutationArgs(WATCHLIST_DOCUMENT_FORMAT)
+const CreateDashboardLayoutArgs = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    workspaceId: RequiredId,
+  })
+  .strict()
+  .describe('Create a new inactive dashboard layout shell in the current workspace.')
 const DashboardLayoutTargetArgs = EntityTargetArgs.strict()
 const EditDashboardLayoutArgs = EntityTargetArgs.extend({
   entityDocument: z
@@ -540,6 +548,7 @@ export const ToolArgSchemas = {
   read_watchlist: EntityTargetArgs,
   edit_watchlist: EditWatchlistArgs,
   list_layouts: WorkspaceTargetArgs.strict(),
+  create_layout: CreateDashboardLayoutArgs,
   read_layout: DashboardLayoutTargetArgs,
   edit_layout: EditDashboardLayoutArgs,
   edit_widget: EditDashboardWidgetArgs,
@@ -839,6 +848,15 @@ const DashboardLayoutDocumentEnvelope = z.object({
   documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT),
   entityDocument: z.string(),
   effectiveLayout: z.any().optional(),
+})
+
+const DashboardLayoutCreateMutationResult = DocumentDiffReviewMetadata.extend({
+  success: z.boolean(),
+  entityKind: z.literal('dashboard_layout'),
+  entityId: z.string().optional(),
+  entityName: z.string().optional(),
+  workspaceId: z.string(),
+  ownerUserId: z.string(),
 })
 
 const DashboardLayoutMutationResult = EditEntityDocumentResultBase.merge(
@@ -1209,6 +1227,7 @@ export const ToolResultSchemas = {
   list_layouts: GenericEntityListResult.extend({
     entityKind: z.literal('dashboard_layout'),
   }),
+  create_layout: DashboardLayoutCreateMutationResult,
   read_layout: DashboardLayoutDocumentEnvelope,
   edit_layout: DashboardLayoutEditMutationResult,
   edit_widget: DashboardLayoutMutationResult,

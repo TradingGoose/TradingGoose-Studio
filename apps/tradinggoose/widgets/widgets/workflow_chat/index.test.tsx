@@ -12,7 +12,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 let mockWorkflowWidgetState: any = {
-  channelId: 'workflow-chat-panel-1',
   resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
@@ -49,21 +48,6 @@ vi.mock('@/stores/chat/store', () => ({
   useChatStore: () => mockChatStore,
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: (
-    selector: (state: { getActiveWorkflowId: (channelId: string) => string | null }) => unknown
-  ) =>
-    selector({
-      getActiveWorkflowId: () => 'wf-1',
-    }),
-}))
-
-vi.mock('@/widgets/hooks/use-widget-channel', () => ({
-  resolveWidgetChannel: () => ({
-    channelId: 'workflow-chat-panel-1',
-  }),
-}))
-
 vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
   useWorkflowWidgetState: () => mockWorkflowWidgetState,
 }))
@@ -88,19 +72,16 @@ vi.mock('./components/workflow-chat-app', () => ({
   WorkflowChatSessionProviders: ({
     workspaceId,
     workflowId,
-    channelId,
     children,
   }: {
     workspaceId: string
     workflowId: string
-    channelId: string
     children: React.ReactNode
   }) => (
     <div
       data-testid='workflow-chat-session-providers'
       data-workspace-id={workspaceId}
       data-workflow-id={workflowId}
-      data-channel-id={channelId}
     >
       {children}
     </div>
@@ -117,7 +98,6 @@ describe('chatWidget header', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockWorkflowWidgetState = {
-      channelId: 'workflow-chat-panel-1',
       resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
@@ -160,7 +140,6 @@ describe('chatWidget header', () => {
     expect(provider).not.toBeNull()
     expect(provider?.getAttribute('data-workspace-id')).toBe('ws-1')
     expect(provider?.getAttribute('data-workflow-id')).toBe('wf-1')
-    expect(provider?.getAttribute('data-channel-id')).toBe('workflow-chat-panel-1')
     expect(container.querySelector('[data-testid="output-select"]')).not.toBeNull()
   })
 })

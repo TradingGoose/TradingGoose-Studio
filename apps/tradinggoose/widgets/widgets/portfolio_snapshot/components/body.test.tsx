@@ -217,7 +217,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('clears the saved account when the saved service has disconnected', async () => {
+  it('derives the connected service and ignores a stale saved account', async () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
       credentialId: 'oauth-account-paper',
@@ -264,13 +264,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
       serviceId: 'alpaca-paper',
       portfolioIdentity: undefined,
     })
-    expect(mockOnWidgetParamsPatch).toHaveBeenCalledWith({
-      serviceId: 'alpaca-paper',
-      portfolioIdentity: null,
-    })
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
-  it('clears provider-scoped state when it normalizes an invalid provider', async () => {
+  it('normalizes an invalid provider for reads without passively patching params', async () => {
     const params = {
       provider: 'unsupported-provider',
       portfolioIdentity: selectedPortfolioIdentity,
@@ -288,12 +285,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockOnWidgetParamsPatch).toHaveBeenCalledWith({
-      provider: null,
-      portfolioIdentity: null,
-      serviceId: null,
-      selectedWindow: null,
-    })
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
@@ -303,7 +295,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Select a trading provider to get started.')
   })
 
-  it('falls back to the provider-supported window list', async () => {
+  it('falls back to the provider-supported window list without passively patching params', async () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -319,7 +311,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockOnWidgetParamsPatch).toHaveBeenCalledWith({ selectedWindow: '1D' })
+    expect(mockUsePortfolioPerformance).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedWindow: '1D' })
+    )
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
   it('renders performance windows from the selected trading provider', async () => {

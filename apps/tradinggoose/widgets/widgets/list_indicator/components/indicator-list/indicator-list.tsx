@@ -10,9 +10,7 @@ import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
@@ -29,7 +27,6 @@ export function IndicatorList({
   params,
   onWidgetParamsPatch,
   panelId,
-  pairColor = 'gray',
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
@@ -39,8 +36,6 @@ export function IndicatorList({
   const { members, isLoading, error } = useEntityList('indicator', workspaceId)
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-
   const listIndicators = useMemo<IndicatorDefinition[]>(
     () =>
       workspaceId
@@ -60,14 +55,7 @@ export function IndicatorList({
   const selectedIndicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
     entityIds: listIndicators.map((indicator) => indicator.id),
-    useDefaultEntity: resolvedPairColor === 'gray',
-  })
-
-  usePersistResolvedEntityId({
-    entityId: selectedIndicatorId,
-    entityIdKey: 'indicatorId',
-    onWidgetParamsPatch,
-    params,
+    useDefaultEntity: false,
   })
 
   const handleSelect = useCallback(

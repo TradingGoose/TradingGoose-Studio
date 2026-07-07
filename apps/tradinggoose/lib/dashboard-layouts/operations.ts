@@ -1,7 +1,15 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { layoutMap } from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
+import {
+  customTools,
+  layoutMap,
+  mcpServers,
+  pineIndicators,
+  skill,
+  watchlistTable,
+  workflow,
+} from '@tradinggoose/db/schema'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { validateDashboardLayoutWidgetReferences } from '@/lib/copilot/tools/server/widgets/widget-reference-validation'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
@@ -10,6 +18,7 @@ import {
   WorkspaceEntityDocumentDeletionError,
 } from '@/lib/workspaces/entity-documents'
 import {
+  applyEntityStateInSocketServer,
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
@@ -20,8 +29,12 @@ import {
   type PersistedColorPairsState,
   serializeLayout,
 } from '@/widgets/layout'
-import { normalizeDashboardLayoutDocumentFields } from '@/widgets/layout-document'
-import { pruneDashboardColorPairsForLayout } from '@/widgets/widget-contracts'
+import {
+  dashboardLayoutNeedsDefaultReferenceParams,
+  type DashboardLayoutDefaultReferenceParams,
+  initializeDashboardLayoutLinkedParams,
+  normalizeDashboardLayoutDocumentFields,
+} from '@/widgets/layout-document'
 
 export type DashboardLayoutOwnerScope = {
   workspaceId: string
@@ -103,6 +116,65 @@ async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<void
   )
 }
 
+export async function readDefaultDashboardLayoutReferenceParams(
+  workspaceId: string
+): Promise<DashboardLayoutDefaultReferenceParams> {
+  const [workflowRow, watchlistRow, indicatorRow, mcpServerRow, customToolRow, skillRow] =
+    await Promise.all([
+      db
+        .select({ id: workflow.id })
+        .from(workflow)
+        .where(eq(workflow.workspaceId, workspaceId))
+        .orderBy(asc(workflow.name), asc(workflow.id))
+        .limit(1),
+      db
+        .select({ id: watchlistTable.id })
+        .from(watchlistTable)
+        .where(
+          and(
+            eq(watchlistTable.workspaceId, workspaceId),
+            isNull(watchlistTable.userId),
+            isNull(watchlistTable.parentId)
+          )
+        )
+        .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.name), asc(watchlistTable.id))
+        .limit(1),
+      db
+        .select({ id: pineIndicators.id })
+        .from(pineIndicators)
+        .where(eq(pineIndicators.workspaceId, workspaceId))
+        .orderBy(asc(pineIndicators.name), asc(pineIndicators.id))
+        .limit(1),
+      db
+        .select({ id: mcpServers.id })
+        .from(mcpServers)
+        .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+        .orderBy(asc(mcpServers.name), asc(mcpServers.id))
+        .limit(1),
+      db
+        .select({ id: customTools.id })
+        .from(customTools)
+        .where(eq(customTools.workspaceId, workspaceId))
+        .orderBy(asc(customTools.title), asc(customTools.id))
+        .limit(1),
+      db
+        .select({ id: skill.id })
+        .from(skill)
+        .where(eq(skill.workspaceId, workspaceId))
+        .orderBy(asc(skill.name), asc(skill.id))
+        .limit(1),
+    ])
+
+  return {
+    ...(workflowRow[0]?.id ? { workflowId: workflowRow[0].id } : {}),
+    ...(watchlistRow[0]?.id ? { watchlistId: String(watchlistRow[0].id) } : {}),
+    ...(indicatorRow[0]?.id ? { indicatorId: String(indicatorRow[0].id) } : {}),
+    ...(mcpServerRow[0]?.id ? { mcpServerId: mcpServerRow[0].id } : {}),
+    ...(customToolRow[0]?.id ? { customToolId: customToolRow[0].id } : {}),
+    ...(skillRow[0]?.id ? { skillId: skillRow[0].id } : {}),
+  }
+}
+
 async function readDashboardLayoutRows(scope: DashboardLayoutOwnerScope): Promise<LayoutRow[]> {
   return db
     .select()
@@ -171,13 +243,12 @@ export async function readActiveDashboardLayoutProjection(scope: DashboardLayout
 }
 
 async function hydrateLayoutRow(row: LayoutRow): Promise<DashboardLayoutProjection> {
-  const projection = await buildDashboardLayoutReadProjection({
-    name: row.name,
-    layout: row.layout as unknown as LayoutNode,
-    colorPairs: row.color_pair as unknown as PersistedColorPairsState,
-    isActive: row.isActive,
-    sortOrder: readLayoutSortOrder(row),
-  })
+  const fields = layoutRowToFields(row)
+  const defaultReferences = dashboardLayoutNeedsDefaultReferenceParams(fields.layout)
+    ? await readDefaultDashboardLayoutReferenceParams(row.workspaceId)
+    : {}
+  const initialized = initializeDashboardLayoutLinkedParams(fields, defaultReferences)
+  const projection = await buildDashboardLayoutReadProjection(initialized)
   return {
     ...toLayoutTab(row),
     layout: projection.hydratedLayout,
@@ -204,24 +275,27 @@ export async function materializeDashboardLayoutFields(
   layoutId: string,
   fields: Partial<DashboardLayoutFields>
 ): Promise<DashboardLayoutFields> {
-  await applyDashboardLayoutOperation(scope, layoutId, (currentRow) => {
-    const current = layoutRowToFields(currentRow)
-    const normalized = normalizeDashboardLayoutDocumentFields(
-      normalizeEntityFields('dashboard_layout', {
-        ...current,
-        ...fields,
-      }) as DashboardLayoutFields
-    )
-    return {
-      name: normalized.name,
-      // A live doc can request activation but can never deactivate a layout.
-      isActive: current.isActive || normalized.isActive,
-      sortOrder: normalized.sortOrder,
-      content: {
-        layout: normalized.layout,
-        colorPairs: pruneDashboardColorPairsForLayout(normalized.layout, normalized.colorPairs),
-      },
-    }
+  const current = await readDashboardLayoutFields(scope, layoutId)
+  const normalized = normalizeDashboardLayoutDocumentFields(
+    normalizeEntityFields('dashboard_layout', {
+      ...current,
+      ...fields,
+    }) as DashboardLayoutFields
+  )
+  const defaultReferences = dashboardLayoutNeedsDefaultReferenceParams(normalized.layout)
+    ? await readDefaultDashboardLayoutReferenceParams(scope.workspaceId)
+    : {}
+  const initialized = initializeDashboardLayoutLinkedParams(normalized, defaultReferences)
+
+  await applyDashboardLayoutOperation(scope, layoutId, {
+    name: initialized.name,
+    // A live doc can request activation but can never deactivate a layout.
+    isActive: current.isActive || initialized.isActive,
+    sortOrder: initialized.sortOrder,
+    content: {
+      layout: initialized.layout,
+      colorPairs: initialized.colorPairs,
+    },
   })
   return readDashboardLayoutFields(scope, layoutId)
 }
@@ -240,9 +314,9 @@ type DashboardLayoutOperationInput = {
  * Canonical dashboard layout metadata transaction: every metadata mutation
  * (name/isActive/sortOrder, plus content on the Yjs materialization path)
  * validates, reorders with a dense 0..n-1 reindex, sets/clears activation
- * across sibling rows, then refreshes the list session. Sibling layout docs
- * whose metadata changed are discarded so subscribers rebootstrap from the
- * persisted Yjs materialization instead of receiving out-of-band patches.
+ * across sibling rows, then refreshes the list session. Layout metadata is
+ * projected back into already-open layout docs so tab edits do not force Yjs
+ * document reloads.
  * `input` may be a resolver so a caller can derive its effective
  * input from the freshly-read target row (the fields path normalizes it).
  */
@@ -324,23 +398,37 @@ async function applyDashboardLayoutOperation(
   })
 
   await refreshLayoutList(scope)
-  const nameChanged = name !== currentRow.name
-  const staleSiblingSessionIds = new Set<string>()
+  const metadataPatches: Array<Promise<void>> = []
   for (const [index, row] of nextOrder.entries()) {
+    const isTarget = row.id === layoutId
+    const nextName = isTarget ? name : row.name
+    const nextIsActive = shouldActivate ? isTarget : row.isActive
+    const nextSortOrder = index
     const changed =
-      (row.id === layoutId && nameChanged) ||
-      shouldActivate ||
-      (shouldReorder && readLayoutSortOrder(row) !== index)
-    if (changed && row.id !== layoutId) {
-      staleSiblingSessionIds.add(row.id)
+      nextName !== row.name ||
+      nextIsActive !== row.isActive ||
+      readLayoutSortOrder(row) !== nextSortOrder
+
+    if (changed) {
+      metadataPatches.push(
+        applyEntityStateInSocketServer(
+          row.id,
+          'dashboard_layout',
+          {
+            ...layoutRowToFields(row),
+            name: nextName,
+            isActive: nextIsActive,
+            sortOrder: nextSortOrder,
+          },
+          scope.ownerUserId
+        )
+          .then(() => undefined)
+          .catch(() => undefined)
+      )
     }
   }
 
-  await Promise.all(
-    [...staleSiblingSessionIds].map((sessionId) =>
-      deleteYjsSessionInSocketServer(sessionId).catch(() => undefined)
-    )
-  )
+  await Promise.all(metadataPatches)
 }
 
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {

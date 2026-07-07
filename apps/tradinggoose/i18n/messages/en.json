@@ -2617,9 +2617,7 @@
       },
       "empty": {
         "noWidgetSelected": "No widget selected",
-        "emptyWidget": "Empty Widget",
         "noWidgetDescription": "Pick a widget from the gallery to start using this panel.",
-        "emptyWidgetDescription": "This widget is currently empty, choose another widget to continue.",
         "chooseWidget": "Choose Widget",
         "surfaceTitle": "Empty Surface",
         "surfaceDescription": "Placeholder state shown when the panel does not have a widget assigned."

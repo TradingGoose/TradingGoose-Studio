@@ -24,7 +24,7 @@ const dashboardClientMocks = vi.hoisted(() => ({
   deleteDashboardLayoutAction: vi.fn(() => Promise.resolve()),
 }))
 let mockPathname = '/workspace/ws-a/dashboard'
-let mockSearchParams = 'layoutId=layout-a&panel=left'
+let mockSearchParams = 'panel=left'
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockDashboardLayoutList: {
@@ -236,7 +236,9 @@ vi.mock('@/components/ui/resizable', () => ({
 }))
 
 vi.mock('@/widgets/widget-surface', async () => {
-  const { useWidgetPairContext } = await import('@/widgets/widget-config-runtime')
+  const { useDashboardWidgetRenderConfig, useWidgetPairContext } = await import(
+    '@/widgets/widget-config-runtime'
+  )
 
   return {
     WidgetSurface: ({
@@ -258,7 +260,8 @@ vi.mock('@/widgets/widget-surface', async () => {
       panelId?: string
       onPairColorChange?: (color: PairColor) => void
     }) => {
-      const pairColor = (widget?.pairColor ?? 'gray') as PairColor
+      const renderWidget = useDashboardWidgetRenderConfig(widget as any, panelId)
+      const pairColor = (renderWidget?.pairColor ?? 'gray') as PairColor
       const pairContext = useWidgetPairContext(pairColor)
 
       return (
@@ -267,8 +270,8 @@ vi.mock('@/widgets/widget-surface', async () => {
             data-testid={`widget-surface-${panelId ?? 'panel'}`}
             data-pair-color={pairColor}
             data-pair-context={JSON.stringify(pairContext)}
-            data-workflow-id={String(widget?.params?.workflowId ?? '')}
-            data-watchlist-id={String(widget?.params?.watchlistId ?? '')}
+            data-workflow-id={String(renderWidget?.params?.workflowId ?? '')}
+            data-watchlist-id={String(renderWidget?.params?.watchlistId ?? '')}
             data-workspace-id={context?.workspaceId ?? ''}
             data-dashboard-layout-id={context?.dashboardLayoutId ?? ''}
             data-dashboard-layout-name={context?.dashboardLayoutName ?? ''}
@@ -304,7 +307,7 @@ describe('DashboardClient', () => {
     mockPush.mockReset()
     mockReplace.mockReset()
     mockPathname = '/workspace/ws-a/dashboard'
-    mockSearchParams = 'layoutId=layout-a&panel=left'
+    mockSearchParams = 'panel=left'
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockDashboardLayoutList = null
@@ -424,7 +427,7 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('keeps dashboard content controls inactive until the layout Yjs document is ready', async () => {
+  it('disables writable dashboard controls until the Yjs document is ready', async () => {
     mockDashboardLayoutProviderReady = false
 
     await act(async () => {
@@ -475,9 +478,14 @@ describe('DashboardClient', () => {
       )
     })
 
-    expect(switchToRedButton.disabled).toBe(false)
+    const readySwitchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
+    if (!(readySwitchToRedButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected ready pair color switch button to be rendered')
+    }
+
+    expect(readySwitchToRedButton.disabled).toBe(false)
     await act(async () => {
-      switchToRedButton.click()
+      readySwitchToRedButton.click()
     })
     expect(mockMutateLayoutDocument).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -721,7 +729,7 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('updates the URL only after the layout list reports the selected active layout', async () => {
+  it('does not write selected layout identity into the dashboard URL', async () => {
     mockDashboardLayoutList = {
       layouts: createLayouts('layout-a'),
       isLoading: false,
@@ -783,12 +791,11 @@ describe('DashboardClient', () => {
       )
     })
 
-    expect(mockReplace).toHaveBeenCalledWith(
-      '/workspace/ws-a/dashboard?layoutId=layout-b&panel=left'
-    )
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 
-  it('updates the URL when an external layout-list activation changes the active layout', async () => {
+  it('removes stale layout identity from the dashboard URL', async () => {
+    mockSearchParams = 'layoutId=layout-b&panel=left'
     mockDashboardLayoutList = {
       layouts: createLayouts('layout-b'),
       isLoading: false,
@@ -810,9 +817,7 @@ describe('DashboardClient', () => {
       )
     })
 
-    expect(mockReplace).toHaveBeenCalledWith(
-      '/workspace/ws-a/dashboard?layoutId=layout-b&panel=left'
-    )
+    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-a/dashboard?panel=left')
   })
 
   it('passes dashboard list order to layout tabs without consumer-side sorting', async () => {

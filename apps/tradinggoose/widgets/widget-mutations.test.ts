@@ -120,6 +120,54 @@ describe('applyWidgetConfigMutation', () => {
     expect(JSON.stringify(effective)).toContain('"listing_id":"AAPL"')
   })
 
+  it('changes one color-store widget without clearing another color store using the same entity', () => {
+    const layout: LayoutNode = {
+      id: 'root',
+      type: 'group',
+      direction: 'horizontal',
+      sizes: [50, 50],
+      children: [
+        {
+          id: 'red-panel',
+          type: 'panel',
+          widget: { key: 'editor_indicator', pairColor: 'red', params: null },
+        },
+        {
+          id: 'blue-panel',
+          type: 'panel',
+          widget: { key: 'editor_indicator', pairColor: 'blue', params: null },
+        },
+      ],
+    }
+
+    const result = applyProven({
+      layout,
+      colorPairs: {
+        pairs: [
+          { color: 'red', indicatorId: 'indicator-a' },
+          { color: 'blue', indicatorId: 'indicator-a' },
+        ],
+      },
+      panelId: 'blue-panel',
+      patch: {
+        widgetKey: 'editor_workflow',
+        params: { workflowId: 'workflow-1' },
+      },
+    })
+
+    expect(result.widget).toEqual({
+      key: 'editor_workflow',
+      pairColor: 'blue',
+      params: null,
+    })
+    expect(result.colorPairs).toEqual({
+      pairs: [
+        { color: 'blue', indicatorId: 'indicator-a', workflowId: 'workflow-1' },
+        { color: 'red', indicatorId: 'indicator-a' },
+      ],
+    })
+  })
+
   it('rejects unsupported widget params before persistence', () => {
     expect(() => apply({ patch: { params: { listing, invented: true } } })).toThrow(
       'params.invented: Widget "data_chart" does not support this field'
@@ -258,16 +306,18 @@ describe('applyWidgetConfigMutation', () => {
     )
   })
 
-  it('removes linked fields no retained widget supports after pair-color changes', () => {
+  it('preserves color-store fields after pair-color changes', () => {
     const result = apply({
       colorPairs: { pairs: [{ color: 'red', listing: normalizedListing }] },
       patch: { pairColor: 'gray' },
     })
 
-    expect(result.colorPairs).toEqual({ pairs: [] })
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'red', listing: normalizedListing }],
+    })
   })
 
-  it('carries only the switching widget contract linked fields between pair colors', () => {
+  it('carries switching widget fields without pruning source color store', () => {
     const over: Partial<MutationInput> = {
       layout: group(
         panel('chart-panel', 'data_chart', 'red'),
@@ -294,7 +344,14 @@ describe('applyWidgetConfigMutation', () => {
       },
     ])
     expect(applyProven(over).colorPairs).toEqual({
-      pairs: [{ color: 'blue', listing: normalizedListing }],
+      pairs: [
+        { color: 'blue', listing: normalizedListing },
+        {
+          color: 'red',
+          workflowId: 'workflow-red',
+          listing: normalizedListing,
+        },
+      ],
     })
   })
 
@@ -316,7 +373,10 @@ describe('applyWidgetConfigMutation', () => {
     ])
     expect(() => apply(over)).toThrow('validation scope is required')
     expect(applyProven(over).colorPairs).toEqual({
-      pairs: [{ color: 'blue', workflowId: 'workflow-red' }],
+      pairs: [
+        { color: 'blue', workflowId: 'workflow-red' },
+        { color: 'red', workflowId: 'workflow-red' },
+      ],
     })
   })
 
@@ -340,7 +400,10 @@ describe('applyWidgetConfigMutation', () => {
       },
     ])
     expect(applyProven(overridePatch).colorPairs).toEqual({
-      pairs: [{ color: 'blue', workflowId: 'workflow-blue' }],
+      pairs: [
+        { color: 'blue', workflowId: 'workflow-blue' },
+        { color: 'red', workflowId: 'workflow-red' },
+      ],
     })
 
     const deletePatch: Partial<MutationInput> = {
@@ -351,7 +414,9 @@ describe('applyWidgetConfigMutation', () => {
     }
 
     expect(plan(deletePatch).references).toEqual([])
-    expect(apply(deletePatch).colorPairs).toEqual({ pairs: [] })
+    expect(apply(deletePatch).colorPairs).toEqual({
+      pairs: [{ color: 'red', workflowId: 'workflow-red' }],
+    })
   })
 
   it('rejects unknown panel ids', () => {
@@ -372,7 +437,9 @@ describe('applyWidgetConfigMutation', () => {
       params: { data: { provider: 'alpaca' } },
     })
     expect(result.widget).toBeNull()
-    expect(result.colorPairs).toEqual({ pairs: [] })
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'red', listing: normalizedListing }],
+    })
     expect(result.changedPaths).toContain('widget.key')
   })
 

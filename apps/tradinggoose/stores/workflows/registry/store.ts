@@ -12,7 +12,6 @@ import type {
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
-import { normalizeColorPairsState } from '@/widgets/layout'
 
 const logger = createLogger('WorkflowRegistry')
 
@@ -295,52 +294,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       getPrimaryLoadedChannelForWorkflow: (workflowId: string) => {
         const loadedChannels = get().getLoadedChannelsForWorkflow(workflowId)
         return loadedChannels[0] ?? null
-      },
-
-      syncLinkedWorkflowChannelsFromColorPairs: (colorPairs) => {
-        const normalized = normalizeColorPairsState(colorPairs)
-        set((state) => {
-          const nextActiveWorkflowIds = { ...state.activeWorkflowIds }
-          const nextLoadedWorkflowIds = { ...state.loadedWorkflowIds }
-          const nextHydrationByChannel = { ...state.hydrationByChannel }
-          const linkedChannels = new Set<string>()
-
-          for (const pair of normalized.pairs) {
-            const channelKey = `pair-${pair.color}`
-            linkedChannels.add(channelKey)
-            const workflowId = pair.workflowId?.trim()
-
-            if (!workflowId) {
-              delete nextActiveWorkflowIds[channelKey]
-              delete nextLoadedWorkflowIds[channelKey]
-              delete nextHydrationByChannel[channelKey]
-              continue
-            }
-
-            nextActiveWorkflowIds[channelKey] = workflowId
-            nextLoadedWorkflowIds[channelKey] = true
-            const currentHydration = nextHydrationByChannel[channelKey]
-            nextHydrationByChannel[channelKey] =
-              currentHydration?.workflowId === workflowId
-                ? currentHydration
-                : createMetadataReadyHydrationState(currentHydration?.workspaceId ?? null, workflowId)
-          }
-
-          for (const channelKey of Object.keys(nextActiveWorkflowIds)) {
-            if (!channelKey.startsWith('pair-') || linkedChannels.has(channelKey)) {
-              continue
-            }
-            delete nextActiveWorkflowIds[channelKey]
-            delete nextLoadedWorkflowIds[channelKey]
-            delete nextHydrationByChannel[channelKey]
-          }
-
-          return {
-            activeWorkflowIds: nextActiveWorkflowIds,
-            loadedWorkflowIds: nextLoadedWorkflowIds,
-            hydrationByChannel: nextHydrationByChannel,
-          }
-        })
       },
 
       loadWorkflows: async ({

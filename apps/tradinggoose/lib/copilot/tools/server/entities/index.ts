@@ -6,6 +6,7 @@ export {
   renameCustomToolServerTool,
 } from './custom-tool'
 export {
+  createLayoutServerTool,
   listLayoutsServerTool,
   readLayoutServerTool,
 } from './dashboard-layout'
@@ -37,9 +38,9 @@ export {
 } from './watchlist'
 export {
   createWorkflowServerTool,
-  editWorkflowVariableServerTool,
   editWorkflowBlockServerTool,
   editWorkflowServerTool,
+  editWorkflowVariableServerTool,
   listWorkflowsServerTool,
   readWorkflowServerTool,
   renameWorkflowServerTool,

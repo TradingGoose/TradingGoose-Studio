@@ -60,16 +60,9 @@ export const useManualDrawToolsController = ({
   const [activeDrawToolsId, setActiveDrawToolsId] = useState<string | null>(null)
   const [transientDrawTools, setTransientDrawTools] = useState<DrawToolsRef[]>([])
   const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
-  const drawToolsBootstrapScopeRef = useRef<string | null>(null)
-  const drawToolsBootstrapDoneRef = useRef(false)
   const pointerPaneIndexRef = useRef<number | null>(null)
   const pendingManualToolTypeRef = useRef<ManualToolType | null>(null)
   const pendingManualToolPaneLockRef = useRef<number | null>(null)
-
-  const drawToolsScopeKey = useMemo(
-    () => `${panelId ?? 'panel'}:${widgetKey}:${chartResetKey}`,
-    [chartResetKey, panelId, widgetKey]
-  )
 
   const normalizedDrawTools = useMemo(
     () => normalizeDrawToolsRefs(view?.drawTools),
@@ -100,36 +93,6 @@ export const useManualDrawToolsController = ({
       setTransientDrawTools(next)
     }
   }, [resolvedDrawTools, transientDrawTools])
-
-  useEffect(() => {
-    if (drawToolsBootstrapScopeRef.current === drawToolsScopeKey) return
-    drawToolsBootstrapScopeRef.current = drawToolsScopeKey
-    drawToolsBootstrapDoneRef.current = false
-  }, [drawToolsScopeKey])
-
-  useEffect(() => {
-    const currentView = view ?? {}
-    const rawDrawTools = Array.isArray(currentView.drawTools) ? currentView.drawTools : []
-    const normalized = normalizeDrawToolsRefs(rawDrawTools)
-    const needsBootstrap = normalized.length === 0
-    const nextDrawTools = needsBootstrap ? DEFAULT_MANUAL_DRAW_TOOLS : normalized
-
-    const currentSerialized = JSON.stringify(rawDrawTools)
-    const nextSerialized = JSON.stringify(nextDrawTools)
-    if (currentSerialized === nextSerialized) return
-
-    if (needsBootstrap) {
-      if (drawToolsBootstrapDoneRef.current) return
-      drawToolsBootstrapDoneRef.current = true
-    }
-
-    patchWidgetParams({
-      view: {
-        ...currentView,
-        drawTools: nextDrawTools,
-      },
-    })
-  }, [view, patchWidgetParams, drawToolsScopeKey])
 
   useEffect(() => {
     if (effectiveDrawTools.length === 0) {
@@ -228,9 +191,7 @@ export const useManualDrawToolsController = ({
 
     const currentSerialized = JSON.stringify(rawDrawTools)
     const nextSerialized = JSON.stringify(nextDrawTools)
-    if (currentSerialized === nextSerialized) {
-      return
-    }
+    if (currentSerialized === nextSerialized) return
 
     patchWidgetParams({
       view: {

@@ -3,7 +3,6 @@
 import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { Terminal } from './terminal/terminal'
 
@@ -12,7 +11,6 @@ interface WorkflowConsoleAppProps {
   workflowId: string
   panelWidth: number
   panelId?: string
-  channelId?: string
 }
 
 const WorkflowConsoleApp = ({
@@ -20,7 +18,6 @@ const WorkflowConsoleApp = ({
   workflowId,
   panelWidth,
   panelId,
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
 }: WorkflowConsoleAppProps) => {
   const session = useSession()
 
@@ -35,11 +32,7 @@ const WorkflowConsoleApp = ({
   return (
     <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-        <WorkflowRouteProvider
-          workspaceId={workspaceId}
-          workflowId={workflowId}
-          channelId={channelId}
-        >
+        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
           <div className='flex h-full w-full flex-col overflow-hidden'>
             <Terminal
               panelWidth={panelWidth}

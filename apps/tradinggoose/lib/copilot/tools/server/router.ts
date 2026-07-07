@@ -17,6 +17,7 @@ import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/s
 import {
   createCustomToolServerTool,
   createIndicatorServerTool,
+  createLayoutServerTool,
   createMcpServerServerTool,
   createSkillServerTool,
   createWorkflowServerTool,
@@ -133,6 +134,7 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [readWatchlistServerTool.name]: readWatchlistServerTool,
   [editWatchlistServerTool.name]: editWatchlistServerTool,
   [listLayoutsServerTool.name]: listLayoutsServerTool,
+  [createLayoutServerTool.name]: createLayoutServerTool,
   [readLayoutServerTool.name]: readLayoutServerTool,
   [editLayoutServerTool.name]: editLayoutServerTool,
   [editWidgetServerTool.name]: editWidgetServerTool,
@@ -227,6 +229,7 @@ const mcpServerToolIds = [
   readWatchlistServerTool.name,
   editWatchlistServerTool.name,
   listLayoutsServerTool.name,
+  createLayoutServerTool.name,
   readLayoutServerTool.name,
   editLayoutServerTool.name,
   editWidgetServerTool.name,

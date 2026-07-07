@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
-import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
@@ -10,6 +8,7 @@ import {
   providerOptions,
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
+import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/contract'
 
 const resolveProviderId = (params: WatchlistWidgetParams | null) => {
   return resolveSeriesMarketProviderId(params?.provider, providerOptions)
@@ -20,7 +19,6 @@ export function useWatchlistWidgetState({
   pairColor = 'gray',
   widget,
   params,
-  onWidgetParamsPatch,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
@@ -32,12 +30,6 @@ export function useWatchlistWidgetState({
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
   const paramsRecord =
     params && typeof params === 'object' ? (params as Record<string, unknown>) : null
-
-  useEffect(() => {
-    if (!providerId) return
-    if (widgetParams?.provider) return
-    onWidgetParamsPatch?.({ provider: providerId })
-  }, [providerId, widgetParams?.provider, onWidgetParamsPatch])
 
   const requestedWatchlistId = resolveEntityId('watchlistId', {
     params: paramsRecord,

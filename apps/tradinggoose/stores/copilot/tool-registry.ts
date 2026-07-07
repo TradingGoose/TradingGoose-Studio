@@ -120,6 +120,7 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   read_watchlist: serverTool('read_watchlist'),
   edit_watchlist: serverTool('edit_watchlist', true),
   list_layouts: serverTool('list_layouts'),
+  create_layout: serverTool('create_layout', true),
   read_layout: serverTool('read_layout'),
   edit_layout: serverTool('edit_layout', true),
   edit_widget: serverTool('edit_widget', true),
@@ -169,6 +170,7 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.create_mcp_server,
   CopilotTool.list_watchlists,
   CopilotTool.list_layouts,
+  CopilotTool.create_layout,
 ])
 
 const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([

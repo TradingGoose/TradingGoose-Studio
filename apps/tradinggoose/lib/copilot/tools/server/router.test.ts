@@ -162,6 +162,7 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
 vi.mock('@/lib/copilot/tools/server/entities', () => ({
   createCustomToolServerTool: entityTool('create_custom_tool'),
   createIndicatorServerTool: entityTool('create_indicator'),
+  createLayoutServerTool: entityTool('create_layout'),
   createMcpServerServerTool: entityTool('create_mcp_server'),
   createSkillServerTool: entityTool('create_skill'),
   createWorkflowServerTool: entityTool('create_workflow'),

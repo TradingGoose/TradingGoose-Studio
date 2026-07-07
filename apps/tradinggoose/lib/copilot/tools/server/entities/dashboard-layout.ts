@@ -1,5 +1,12 @@
 import { ENTITY_KIND_DASHBOARD_LAYOUT } from '@/lib/copilot/review-sessions/types'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
+  shouldStageServerToolMutationForReview,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
+import { createDashboardLayout } from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
@@ -18,9 +25,10 @@ import {
  * present, and checks workspace access. Dashboard layouts stay owner-scoped, so
  * the authenticated user is always the owner of the listed rows.
  */
-async function verifyDashboardLayoutListScope(
+async function verifyDashboardLayoutWorkspaceScope(
   args: { workspaceId: string },
-  context: ServerToolExecutionContext | undefined
+  context: ServerToolExecutionContext | undefined,
+  accessMode: 'read' | 'write'
 ): Promise<{ workspaceId: string; ownerUserId: string }> {
   const userId = requireUserId(context)
   const workspaceId = args.workspaceId.trim()
@@ -30,17 +38,37 @@ async function verifyDashboardLayoutListScope(
   }
 
   const access = await checkWorkspaceAccess(workspaceId, userId)
-  if (!access.exists || !access.hasAccess) {
+  if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
     throw new Error('Access denied: You do not have permission to use this dashboard layout')
   }
 
   return { workspaceId, ownerUserId: userId }
 }
 
+async function hashDashboardLayoutCreateReviewBase(
+  workspaceId: string,
+  ownerUserId: string
+): Promise<string> {
+  return hashServerToolReviewBase({
+    kind: ENTITY_KIND_DASHBOARD_LAYOUT,
+    workspaceId,
+    ownerUserId,
+    entities: await buildSavedEntityListInfo(
+      ENTITY_KIND_DASHBOARD_LAYOUT,
+      workspaceId,
+      ownerUserId
+    ),
+  })
+}
+
 export const listLayoutsServerTool: EntityServerTool<{ workspaceId: string }> = {
   name: 'list_layouts',
   async execute(args, context) {
-    const { workspaceId, ownerUserId } = await verifyDashboardLayoutListScope(args, context)
+    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(
+      args,
+      context,
+      'read'
+    )
     const entities = await buildSavedEntityListInfo(
       ENTITY_KIND_DASHBOARD_LAYOUT,
       workspaceId,
@@ -51,6 +79,50 @@ export const listLayoutsServerTool: EntityServerTool<{ workspaceId: string }> = 
       entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
       entities,
       count: entities.length,
+    }
+  },
+}
+
+export const createLayoutServerTool: EntityServerTool<{
+  name?: string
+  workspaceId?: string
+}> = {
+  name: 'create_layout',
+  async execute(args, context) {
+    const scopedContext = withWorkspaceArgContext(context, args)
+    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(
+      { workspaceId: scopedContext?.workspaceId ?? '' },
+      scopedContext,
+      'write'
+    )
+    const name = args.name?.trim() || 'New layout'
+    const reviewBaseStateHash = await hashDashboardLayoutCreateReviewBase(workspaceId, ownerUserId)
+
+    if (shouldStageServerToolMutationForReview(context)) {
+      return {
+        requiresReview: true,
+        success: true,
+        entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
+        entityName: name,
+        workspaceId,
+        ownerUserId,
+        reviewBaseStateHash,
+      }
+    }
+
+    if (context?.acceptedReviewBaseStateHash) {
+      assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
+    }
+
+    const created = await createDashboardLayout({ workspaceId, ownerUserId }, { name })
+
+    return {
+      success: true,
+      entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
+      entityId: created.id,
+      entityName: created.name,
+      workspaceId,
+      ownerUserId,
     }
   },
 }

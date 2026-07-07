@@ -4,27 +4,23 @@ import { type ReactNode, useState } from 'react'
 import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { Chat } from './chat/chat'
 
 interface WorkflowChatAppProps {
   workspaceId: string
   workflowId: string
-  channelId?: string
 }
 
 interface WorkflowChatSessionProvidersProps {
   workspaceId: string
   workflowId: string
-  channelId?: string
   children: ReactNode
 }
 
 const WorkflowChatSessionProviders = ({
   workspaceId,
   workflowId,
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   children,
 }: WorkflowChatSessionProvidersProps) => {
   const session = useSession()
@@ -39,11 +35,7 @@ const WorkflowChatSessionProviders = ({
   return (
     <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-        <WorkflowRouteProvider
-          workspaceId={workspaceId}
-          workflowId={workflowId}
-          channelId={channelId}
-        >
+        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
           {children}
         </WorkflowRouteProvider>
       </WorkflowSessionProvider>
@@ -51,19 +43,11 @@ const WorkflowChatSessionProviders = ({
   )
 }
 
-const WorkflowChatApp = ({
-  workspaceId,
-  workflowId,
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-}: WorkflowChatAppProps) => {
+const WorkflowChatApp = ({ workspaceId, workflowId }: WorkflowChatAppProps) => {
   const [chatMessage, setChatMessage] = useState('')
 
   return (
-    <WorkflowChatSessionProviders
-      workspaceId={workspaceId}
-      workflowId={workflowId}
-      channelId={channelId}
-    >
+    <WorkflowChatSessionProviders workspaceId={workspaceId} workflowId={workflowId}>
       <div className='flex h-full w-full flex-col overflow-y-auto'>
         <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} hideScrollbar={false} />
       </div>

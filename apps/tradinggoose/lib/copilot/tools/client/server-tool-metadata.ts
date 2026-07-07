@@ -560,6 +560,7 @@ export const SERVER_TOOL_METADATA = {
   read_watchlist: createEntityReadMetadata('watchlist'),
   edit_watchlist: createEntityMutationMetadata('watchlist', 'edit', ListChecks),
   list_layouts: createEntityListMetadata('dashboard layouts', Grid2x2),
+  create_layout: createEntityMutationMetadata('dashboard layout', 'create', Grid2x2),
   read_layout: createEntityReadMetadata('dashboard layout'),
   edit_layout: createEntityMutationMetadata('dashboard layout', 'edit', Grid2x2),
   edit_widget: createEntityMutationMetadata('dashboard widget', 'edit', Blocks),

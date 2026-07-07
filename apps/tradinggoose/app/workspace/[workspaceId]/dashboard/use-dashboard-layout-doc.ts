@@ -1,28 +1,21 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import {
-  applyResolvedDashboardListings,
-  collectDashboardListingIdentities,
-} from '@/lib/listing/hydrate-ui'
-import { getListingIdentityKey } from '@/lib/listing/identity'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
 import { getFieldsMap } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   useEntityList,
   useSavedEntityYjsSession,
-  useYjsField,
   useYjsStringField,
 } from '@/lib/yjs/use-entity-fields'
-import { useResolvedListings } from '@/hooks/queries/listing-resolution'
+import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import {
   type LayoutNode,
   normalizeColorPairsState,
   normalizeDashboardLayout,
   type PersistedColorPairsState,
 } from '@/widgets/layout'
-import { resolveEffectiveDashboardLayout } from '@/widgets/layout-document'
 
 export type DashboardLayoutListEntry = {
   id: string
@@ -76,6 +69,16 @@ type DashboardLayoutContentMutation = {
   colorPairs?: PersistedColorPairsState
 }
 
+function areDashboardLayoutContentSnapshotsEqual(
+  left: DashboardLayoutContentSnapshot,
+  right: DashboardLayoutContentSnapshot
+): boolean {
+  return (
+    JSON.stringify(left.layout) === JSON.stringify(right.layout) &&
+    JSON.stringify(left.colorPairs) === JSON.stringify(right.colorPairs)
+  )
+}
+
 export function useDashboardLayoutDocument(input: {
   workspaceId: string | null | undefined
   ownerUserId: string | null | undefined
@@ -93,15 +96,53 @@ export function useDashboardLayoutDocument(input: {
     input.canWrite ? 'write' : 'read'
   )
   const [name] = useYjsStringField(doc, 'name', input.initialName)
-  const [layoutValue] = useYjsField<LayoutNode>(doc, 'layout', input.initialLayout)
-  const [colorPairsValue] = useYjsField<PersistedColorPairsState>(
-    doc,
-    'colorPairs',
-    normalizeColorPairsState(input.initialColorPairs)
+  const initialLayout = useMemo(
+    () => normalizeDashboardLayout(input.initialLayout),
+    [input.initialLayout]
+  )
+  const initialColorPairs = useMemo(
+    () => normalizeColorPairsState(input.initialColorPairs),
+    [input.initialColorPairs]
+  )
+  const fallbackContent = useMemo(
+    () => ({
+      layout: initialLayout,
+      colorPairs: initialColorPairs,
+    }),
+    [initialColorPairs, initialLayout]
   )
 
-  const layout = useMemo(() => normalizeDashboardLayout(layoutValue), [layoutValue])
-  const colorPairs = useMemo(() => normalizeColorPairsState(colorPairsValue), [colorPairsValue])
+  const subscribeContent = useMemo(() => {
+    if (!doc) return (cb: () => void) => () => {}
+    const fields = getFieldsMap(doc)
+    return (cb: () => void) => {
+      const handler = (event: { keysChanged: Set<string> }) => {
+        if (event.keysChanged.has('layout') || event.keysChanged.has('colorPairs')) {
+          cb()
+        }
+      }
+      fields.observe(handler)
+      return () => fields.unobserve(handler)
+    }
+  }, [doc])
+
+  const extractContent = useCallback((): DashboardLayoutContentSnapshot => {
+    if (!doc) return fallbackContent
+    const fields = getFieldsMap(doc)
+    return {
+      layout: normalizeDashboardLayout(fields.has('layout') ? fields.get('layout') : initialLayout),
+      colorPairs: normalizeColorPairsState(
+        fields.has('colorPairs') ? fields.get('colorPairs') : initialColorPairs
+      ),
+    }
+  }, [doc, fallbackContent, initialColorPairs, initialLayout])
+
+  const { layout, colorPairs } = useYjsSubscription(
+    subscribeContent,
+    extractContent,
+    fallbackContent,
+    areDashboardLayoutContentSnapshotsEqual
+  )
 
   const mutateLayoutDocument = useCallback(
     (
@@ -132,51 +173,6 @@ export function useDashboardLayoutDocument(input: {
   )
 
   const isProviderReady = Boolean(doc)
-  const listingIdentities = useMemo(
-    () => collectDashboardListingIdentities(layout, colorPairs),
-    [colorPairs, layout]
-  )
-  const currentListingIdentityKey = useMemo(
-    () => listingIdentities.map(getListingIdentityKey).join('\u0000'),
-    [listingIdentities]
-  )
-  const initialListingIdentityKey = useMemo(
-    () =>
-      collectDashboardListingIdentities(input.initialLayout, input.initialColorPairs)
-        .map(getListingIdentityKey)
-        .join('\u0000'),
-    [input.initialColorPairs, input.initialLayout]
-  )
-  const resolvedListings = useResolvedListings({
-    listings: listingIdentities,
-    enabled: isProviderReady,
-  })
-  const hydrated = useMemo(() => {
-    if (resolvedListings.data) {
-      return applyResolvedDashboardListings(layout, colorPairs, resolvedListings.data)
-    }
-    if (currentListingIdentityKey === initialListingIdentityKey) {
-      return {
-        layout: input.initialLayout,
-        colorPairs: input.initialColorPairs as PersistedColorPairsState,
-      }
-    }
-    return applyResolvedDashboardListings(layout, colorPairs, {})
-  }, [
-    colorPairs,
-    currentListingIdentityKey,
-    initialListingIdentityKey,
-    input.initialColorPairs,
-    input.initialLayout,
-    layout,
-    resolvedListings.data,
-  ])
-  const hydratedLayout = hydrated.layout
-  const hydratedColorPairs = hydrated.colorPairs
-  const effectiveLayout = useMemo(
-    () => resolveEffectiveDashboardLayout(hydratedLayout, hydratedColorPairs),
-    [hydratedColorPairs, hydratedLayout]
-  )
 
   return {
     isProviderReady,
@@ -184,6 +180,5 @@ export function useDashboardLayoutDocument(input: {
     layout,
     colorPairs,
     mutateLayoutDocument,
-    effectiveLayout,
   }
 }

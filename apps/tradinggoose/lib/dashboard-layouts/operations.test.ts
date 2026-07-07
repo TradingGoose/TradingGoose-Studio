@@ -35,6 +35,7 @@ const m = vi.hoisted(() => {
       ),
     },
     bridge: {
+      applyEntityStateInSocketServer: vi.fn(() => Promise.resolve({})),
       deleteYjsSessionInSocketServer: vi.fn(() => Promise.resolve()),
       refreshEntityListSession: vi.fn(() => Promise.resolve()),
     },
@@ -211,8 +212,9 @@ describe('dashboard layout operations', () => {
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
 
-  it('validates references before mutation and discards stale sibling layout sessions', async () => {
+  it('validates references before mutation and projects sibling metadata into live sessions', async () => {
     m.selectRows
+      .mockResolvedValueOnce([row({ id: 'layout-b', isActive: false, sort_order: 1 })])
       .mockResolvedValueOnce([
         row({ id: 'layout-a', isActive: true, sort_order: 0 }),
         row({ id: 'layout-b', isActive: false, sort_order: 1 }),
@@ -228,33 +230,38 @@ describe('dashboard layout operations', () => {
     expect(m.validateLayoutRefs.mock.invocationCallOrder[0]).toBeLessThan(
       m.db.transaction.mock.invocationCallOrder[0]
     )
-    expect(m.bridge.deleteYjsSessionInSocketServer).toHaveBeenCalledWith('layout-a')
+    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'layout-a',
+      'dashboard_layout',
+      expect.objectContaining({ isActive: false, sortOrder: 1 }),
+      'user-1'
+    )
+    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'layout-b',
+      'dashboard_layout',
+      expect.objectContaining({ isActive: true, sortOrder: 0 }),
+      'user-1'
+    )
+    expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-a')
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-b')
   })
 
-  it.each([
-    {
-      label: 'unknown persisted widget keys',
-      widget: { key: 'unknown_widget', pairColor: 'gray', params: null },
-      error: 'Unknown widget key "unknown_widget"',
-    },
-    {
-      label: 'unsupported persisted widget params',
-      widget: {
-        key: 'editor_workflow',
-        pairColor: 'gray',
-        params: { workflowId: 'workflow-1', listing: { listing_id: 'AAPL' } },
-      },
-      error: 'params.listing: Widget "editor_workflow" does not support this field',
-    },
-  ])('rejects $label before database updates', async ({ widget, error }) => {
+  it('rejects unsupported persisted params for known widget contracts before database updates', async () => {
     m.selectRows.mockResolvedValueOnce([row()])
 
     await expect(
       materializeDashboardLayoutFields(scope, 'layout-1', {
-        layout: { id: 'panel-1', type: 'panel', widget },
+        layout: {
+          id: 'panel-1',
+          type: 'panel',
+          widget: {
+            key: 'editor_workflow',
+            pairColor: 'gray',
+            params: { workflowId: 'workflow-1', listing: { listing_id: 'AAPL' } },
+          },
+        },
       } as any)
-    ).rejects.toThrow(error)
+    ).rejects.toThrow('params.listing: Widget "editor_workflow" does not support this field')
 
     expect(m.db.transaction).not.toHaveBeenCalled()
   })

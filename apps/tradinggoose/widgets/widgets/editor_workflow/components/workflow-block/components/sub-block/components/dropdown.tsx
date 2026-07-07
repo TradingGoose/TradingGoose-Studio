@@ -14,7 +14,6 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -97,7 +96,6 @@ export function Dropdown({
   }
 
   const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const resolvedWorkflowId = routeContext?.workflowId ?? null
   const allBlocks = useWorkflowBlocks()
   const entityListKind = resolvedConfig.entityListKind ?? null
@@ -143,7 +141,6 @@ export function Dropdown({
     try {
       const resolvedContextValues = contextValues ?? blockContextValues
       const options = await fetchOptions(blockId, subBlockId, {
-        channelId: resolvedChannelId,
         workflowId: resolvedWorkflowId ?? null,
         workspaceId: routeContext?.workspaceId,
         contextValues: resolvedContextValues as Record<string, unknown> | undefined,
@@ -164,7 +161,6 @@ export function Dropdown({
     finalDisabled,
     contextValues,
     blockContextValues,
-    resolvedChannelId,
     resolvedWorkflowId,
     routeContext?.workspaceId,
   ])

@@ -33,10 +33,8 @@ import {
   useImportCustomTools,
 } from '@/hooks/queries/custom-tools'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
-import { customToolListWidgetContract } from '@/widgets/widgets/list_custom_tool/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
@@ -46,6 +44,7 @@ import {
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
+import { customToolListWidgetContract } from '@/widgets/widgets/list_custom_tool/contract'
 
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'
 
@@ -292,7 +291,6 @@ const ListCustomToolHeaderRight = ({
 function ListCustomToolWidgetBodyInner({
   context,
   params,
-  pairColor = 'gray',
   onWidgetParamsPatch,
   panelId,
 }: WidgetComponentProps) {
@@ -301,7 +299,6 @@ function ListCustomToolWidgetBodyInner({
   const permissions = useUserPermissionsContext()
   const { members, isLoading, error } = useEntityList('custom_tool', workspaceId)
   const deleteToolMutation = useDeleteCustomTool()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const [deletingToolIds, setDeletingToolIds] = useState<Set<string>>(new Set())
 
   const tools = useMemo(
@@ -327,14 +324,7 @@ function ListCustomToolWidgetBodyInner({
   const selectedToolId = resolveEntityIdFromList({
     requestedEntityId: requestedToolId,
     entityIds: tools.map((tool) => tool.id),
-    useDefaultEntity: resolvedPairColor === 'gray',
-  })
-
-  usePersistResolvedEntityId({
-    entityId: selectedToolId,
-    entityIdKey: 'customToolId',
-    onWidgetParamsPatch,
-    params,
+    useDefaultEntity: false,
   })
 
   const syncSelection = useCallback(

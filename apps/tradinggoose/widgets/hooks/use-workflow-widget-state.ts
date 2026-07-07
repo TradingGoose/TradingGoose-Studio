@@ -2,22 +2,19 @@
 
 import { useMemo } from 'react'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
-import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
-import type { PairColor } from '@/widgets/pair-colors'
+import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/widget-contracts'
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
-  'params' | 'pairColor' | 'panelId' | 'widget'
+  'params' | 'pairColor' | 'widget'
 > & {
   workspaceId?: string
-  fallbackWidgetKey: string
 }
 
 type UseWorkflowWidgetStateResult = {
   resolvedPairColor: PairColor
-  channelId: string
   resolvedWorkflowId: string | null
   hasLoadedWorkflows: boolean
   loadError: 'unableToLoadWorkflows' | null
@@ -29,16 +26,10 @@ export const useWorkflowWidgetState = ({
   workspaceId,
   pairColor,
   widget,
-  panelId,
   params,
-  fallbackWidgetKey,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
-  const { resolvedPairColor, channelId } = resolveWidgetChannel({
-    pairColor,
-    widget,
-    panelId,
-    fallbackWidgetKey,
-  })
+  const widgetPairColor = isPairColor(widget?.pairColor) ? widget.pairColor : null
+  const resolvedPairColor = widgetPairColor ?? (isPairColor(pairColor) ? pairColor : 'gray')
   const {
     members,
     isLoading: isListLoading,
@@ -66,7 +57,7 @@ export const useWorkflowWidgetState = ({
     return resolveEntityIdFromList({
       requestedEntityId: storedWorkflowId,
       entityIds: workflowIds,
-      useDefaultEntity: resolvedPairColor === 'gray',
+      useDefaultEntity: false,
     })
   }, [
     workflowIds,
@@ -75,14 +66,12 @@ export const useWorkflowWidgetState = ({
     hasWorkflowMembers,
     listError,
     isListLoading,
-    resolvedPairColor,
   ])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
   return {
     resolvedPairColor,
-    channelId,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,

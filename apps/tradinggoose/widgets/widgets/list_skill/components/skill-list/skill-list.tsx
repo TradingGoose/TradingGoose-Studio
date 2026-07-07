@@ -9,9 +9,7 @@ import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import { normalizeSkillName, resolveSkillId } from '@/widgets/widgets/_shared/skill/utils'
@@ -24,7 +22,6 @@ export function SkillList({
   params,
   onWidgetParamsPatch,
   panelId,
-  pairColor = 'gray',
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.skillList
   const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
@@ -33,8 +30,6 @@ export function SkillList({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { members, isLoading, error } = useEntityList('skill', workspaceId)
   const deleteMutation = useDeleteSkill()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-
   const listSkills = useMemo<SkillDefinition[]>(
     () =>
       workspaceId
@@ -56,14 +51,7 @@ export function SkillList({
   const selectedSkillId = resolveEntityIdFromList({
     requestedEntityId: requestedSkillId,
     entityIds: listSkills.map((skill) => skill.id),
-    useDefaultEntity: resolvedPairColor === 'gray',
-  })
-
-  usePersistResolvedEntityId({
-    entityId: selectedSkillId,
-    entityIdKey: 'skillId',
-    onWidgetParamsPatch,
-    params,
+    useDefaultEntity: false,
   })
 
   const handleSelect = useCallback(

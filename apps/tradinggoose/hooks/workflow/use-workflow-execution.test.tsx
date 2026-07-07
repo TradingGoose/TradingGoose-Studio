@@ -21,13 +21,32 @@ const mockConsoleState = vi.hoisted(() => ({
 }))
 
 const mockExecutionState = vi.hoisted(() => ({
-  isExecuting: false,
+  byWorkflowId: {
+    'workflow-1': {
+      isExecuting: false,
+      isDebugging: false,
+      pendingBlocks: [],
+      activeBlockIds: new Set<string>(),
+      autoPanDisabled: false,
+    },
+  },
   setIsExecuting: vi.fn(),
   setIsDebugging: vi.fn(),
   setPendingBlocks: vi.fn(),
   setActiveBlocks: vi.fn(),
-  activeBlockIds: new Set<string>(),
+  resetWorkflowExecution: vi.fn(),
 }))
+
+const mockSelectWorkflowExecutionState = vi.hoisted(
+  () => (state: typeof mockExecutionState, workflowId: string) =>
+    state.byWorkflowId[workflowId as keyof typeof state.byWorkflowId] ?? {
+      isExecuting: false,
+      isDebugging: false,
+      pendingBlocks: [],
+      activeBlockIds: new Set<string>(),
+      autoPanDisabled: false,
+    }
+)
 
 vi.mock('@/lib/workflows/queued-execution-client', () => ({
   runQueuedWorkflowExecution: mockRunQueuedWorkflowExecution,
@@ -51,8 +70,11 @@ vi.mock('@/stores/console/store', () => {
 })
 
 vi.mock('@/stores/execution/store', () => {
-  const useExecutionStore = vi.fn(() => mockExecutionState)
+  const useExecutionStore = vi.fn((selector?: (state: typeof mockExecutionState) => unknown) =>
+    typeof selector === 'function' ? selector(mockExecutionState) : mockExecutionState
+  )
   return {
+    selectWorkflowExecutionState: mockSelectWorkflowExecutionState,
     useExecutionStore: Object.assign(useExecutionStore, {
       getState: vi.fn(() => mockExecutionState),
     }),
@@ -63,7 +85,6 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
   useWorkflowRoute: vi.fn(() => ({
     workflowId: 'workflow-1',
     workspaceId: 'workspace-1',
-    channelId: 'channel-1',
   })),
 }))
 

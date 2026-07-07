@@ -1,27 +1,58 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import {
+  createInitialWorkflowExecutionState,
   type ExecutionActions,
   type ExecutionState,
   initialState,
   type PanToBlockCallback,
   type SetPanToBlockCallback,
+  type WorkflowExecutionState,
 } from '@/stores/execution/types'
 
-// Global callback for panning to active blocks
-let panToBlockCallback: PanToBlockCallback | null = null
+const panToBlockCallbacks = new Map<string, PanToBlockCallback>()
+const EMPTY_WORKFLOW_EXECUTION_STATE = createInitialWorkflowExecutionState()
 
-export const setPanToBlockCallback: SetPanToBlockCallback = (callback) => {
-  panToBlockCallback = callback
+export const setPanToBlockCallback: SetPanToBlockCallback = (workflowId, callback) => {
+  if (!workflowId) return
+  if (callback) {
+    panToBlockCallbacks.set(workflowId, callback)
+    return
+  }
+  panToBlockCallbacks.delete(workflowId)
+}
+
+export function selectWorkflowExecutionState(
+  state: ExecutionState,
+  workflowId: string | null | undefined
+): WorkflowExecutionState {
+  if (!workflowId) {
+    return EMPTY_WORKFLOW_EXECUTION_STATE
+  }
+  return state.byWorkflowId[workflowId] ?? EMPTY_WORKFLOW_EXECUTION_STATE
 }
 
 export const useExecutionStore = create<ExecutionState & ExecutionActions>()((set, get) => ({
   ...initialState,
 
-  setActiveBlocks: (blockIds) => {
-    set({ activeBlockIds: new Set(blockIds) })
+  setActiveBlocks: (workflowId, blockIds) => {
+    if (!workflowId) return
+
+    set((state) => {
+      const current = selectWorkflowExecutionState(state, workflowId)
+      return {
+        byWorkflowId: {
+          ...state.byWorkflowId,
+          [workflowId]: {
+            ...current,
+            activeBlockIds: new Set(blockIds),
+          },
+        },
+      }
+    })
 
     // Auto-pan is always enabled by default unless the execution session disables it.
-    const { autoPanDisabled } = get()
+    const { autoPanDisabled } = selectWorkflowExecutionState(get(), workflowId)
+    const panToBlockCallback = panToBlockCallbacks.get(workflowId)
 
     if (panToBlockCallback && !autoPanDisabled && blockIds.size > 0) {
       const firstActiveBlockId = Array.from(blockIds)[0]
@@ -29,11 +60,25 @@ export const useExecutionStore = create<ExecutionState & ExecutionActions>()((se
     }
   },
 
-  setPendingBlocks: (pendingBlocks) => {
-    set({ pendingBlocks })
+  setPendingBlocks: (workflowId, pendingBlocks) => {
+    if (!workflowId) return
+
+    set((state) => {
+      const current = selectWorkflowExecutionState(state, workflowId)
+      return {
+        byWorkflowId: {
+          ...state.byWorkflowId,
+          [workflowId]: {
+            ...current,
+            pendingBlocks,
+          },
+        },
+      }
+    })
 
     // Auto-pan is always enabled by default unless the execution session disables it.
-    const { isDebugging, autoPanDisabled } = get()
+    const { isDebugging, autoPanDisabled } = selectWorkflowExecutionState(get(), workflowId)
+    const panToBlockCallback = panToBlockCallbacks.get(workflowId)
 
     if (panToBlockCallback && !autoPanDisabled && pendingBlocks.length > 0 && isDebugging) {
       const firstPendingBlockId = pendingBlocks[0]
@@ -41,14 +86,64 @@ export const useExecutionStore = create<ExecutionState & ExecutionActions>()((se
     }
   },
 
-  setIsExecuting: (isExecuting) => {
-    set({ isExecuting })
-    // Reset auto-pan disabled state when starting execution
-    if (isExecuting) {
-      set({ autoPanDisabled: false })
-    }
+  setIsExecuting: (workflowId, isExecuting) => {
+    if (!workflowId) return
+
+    set((state) => {
+      const current = selectWorkflowExecutionState(state, workflowId)
+      return {
+        byWorkflowId: {
+          ...state.byWorkflowId,
+          [workflowId]: {
+            ...current,
+            isExecuting,
+            autoPanDisabled: isExecuting ? false : current.autoPanDisabled,
+          },
+        },
+      }
+    })
   },
-  setIsDebugging: (isDebugging) => set({ isDebugging }),
-  setAutoPanDisabled: (disabled) => set({ autoPanDisabled: disabled }),
+
+  setIsDebugging: (workflowId, isDebugging) => {
+    if (!workflowId) return
+    set((state) => {
+      const current = selectWorkflowExecutionState(state, workflowId)
+      return {
+        byWorkflowId: {
+          ...state.byWorkflowId,
+          [workflowId]: {
+            ...current,
+            isDebugging,
+          },
+        },
+      }
+    })
+  },
+
+  setAutoPanDisabled: (workflowId, disabled) => {
+    if (!workflowId) return
+    set((state) => {
+      const current = selectWorkflowExecutionState(state, workflowId)
+      return {
+        byWorkflowId: {
+          ...state.byWorkflowId,
+          [workflowId]: {
+            ...current,
+            autoPanDisabled: disabled,
+          },
+        },
+      }
+    })
+  },
+
+  resetWorkflowExecution: (workflowId) => {
+    if (!workflowId) return
+    set((state) => ({
+      byWorkflowId: {
+        ...state.byWorkflowId,
+        [workflowId]: createInitialWorkflowExecutionState(),
+      },
+    }))
+  },
   reset: () => set(initialState),
 }))

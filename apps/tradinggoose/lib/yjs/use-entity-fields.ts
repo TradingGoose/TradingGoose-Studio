@@ -47,10 +47,14 @@ type SharedYjsSessionEntry = {
   error: string | null
   refCount: number
   initPromise: Promise<void> | null
+  destroyTimeout: ReturnType<typeof setTimeout> | null
+  failedInitialOpenCount: number
   listeners: Set<() => void>
 }
 
 const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
+const EMPTY_ENTITY_LIST_MEMBERS: EntityListMember[] = []
+const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
 
 function closeYjsSession(result: YjsProviderBootstrapResult): void {
   result.provider.disconnect()
@@ -88,6 +92,13 @@ function readSharedYjsSessionEntry(entry: SharedYjsSessionEntry): SavedEntityYjs
   }
 }
 
+function areSavedEntityYjsSessionStatesEqual(
+  left: SavedEntityYjsSessionState,
+  right: SavedEntityYjsSessionState
+): boolean {
+  return left.key === right.key && left.result === right.result && left.error === right.error
+}
+
 function emitSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
   for (const listener of entry.listeners) {
     listener()
@@ -96,7 +107,10 @@ function emitSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
 
 function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
   const current = sharedYjsSessionEntries.get(sessionKey)
-  if (current) return current
+  if (current) {
+    cancelSharedYjsSessionDestroy(current)
+    return current
+  }
 
   const entry: SharedYjsSessionEntry = {
     key: sessionKey,
@@ -104,10 +118,18 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
     error: null,
     refCount: 0,
     initPromise: null,
+    destroyTimeout: null,
+    failedInitialOpenCount: 0,
     listeners: new Set(),
   }
   sharedYjsSessionEntries.set(sessionKey, entry)
   return entry
+}
+
+function cancelSharedYjsSessionDestroy(entry: SharedYjsSessionEntry): void {
+  if (!entry.destroyTimeout) return
+  clearTimeout(entry.destroyTimeout)
+  entry.destroyTimeout = null
 }
 
 function initializeSharedYjsSessionEntry(
@@ -135,6 +157,7 @@ function initializeSharedYjsSessionEntry(
 
       entry.result = next
       entry.error = null
+      entry.failedInitialOpenCount = 0
       if (next.accessMode === 'read') {
         attachReadSessionReopen(entry, next, openSession, errorMessage)
       }
@@ -145,7 +168,13 @@ function initializeSharedYjsSessionEntry(
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      entry.error = nextError instanceof Error ? nextError.message : errorMessage
+      const message = nextError instanceof Error ? nextError.message : errorMessage
+      if (staleResult) {
+        entry.error = message
+        return
+      }
+      entry.failedInitialOpenCount += 1
+      entry.error = entry.failedInitialOpenCount >= 3 ? message : null
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
@@ -197,12 +226,18 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
   entry.refCount = Math.max(0, entry.refCount - 1)
   if (entry.refCount > 0) return
 
-  sharedYjsSessionEntries.delete(entry.key)
-  if (entry.result) {
-    closeYjsSession(entry.result)
-    entry.result = null
-  }
-  entry.listeners.clear()
+  cancelSharedYjsSessionDestroy(entry)
+  entry.destroyTimeout = setTimeout(() => {
+    if (entry.refCount > 0 || sharedYjsSessionEntries.get(entry.key) !== entry) return
+
+    sharedYjsSessionEntries.delete(entry.key)
+    entry.destroyTimeout = null
+    if (entry.result) {
+      closeYjsSession(entry.result)
+      entry.result = null
+    }
+    entry.listeners.clear()
+  }, SHARED_SESSION_DESTROY_GRACE_MS)
 }
 
 function invalidateSavedEntityQueries(
@@ -251,14 +286,18 @@ function useYjsSession(
 
   useEffect(() => {
     if (!sessionKey || !openSession) {
-      setState({ key: sessionKey, result: null, error: null })
+      const next = { key: sessionKey, result: null, error: null }
+      setState((current) => (areSavedEntityYjsSessionStatesEqual(current, next) ? current : next))
       return
     }
 
     const entry = getSharedYjsSessionEntry(sessionKey)
     entry.refCount += 1
 
-    const syncState = () => setState(readSharedYjsSessionEntry(entry))
+    const syncState = () => {
+      const next = readSharedYjsSessionEntry(entry)
+      setState((current) => (areSavedEntityYjsSessionStatesEqual(current, next) ? current : next))
+    }
     entry.listeners.add(syncState)
     syncState()
     initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
@@ -391,10 +430,14 @@ export function useEntityList(
   }, [doc])
 
   const extract = useCallback(
-    () => (doc ? getEntityListMembers(doc, entityKind) : []),
+    () => (doc ? getEntityListMembers(doc, entityKind) : EMPTY_ENTITY_LIST_MEMBERS),
     [doc, entityKind]
   )
-  const members = useYjsSubscription<EntityListMember[]>(subscribe, extract, [])
+  const members = useYjsSubscription<EntityListMember[]>(
+    subscribe,
+    extract,
+    EMPTY_ENTITY_LIST_MEMBERS
+  )
 
   return {
     members,

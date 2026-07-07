@@ -6,9 +6,12 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
 } from '@/lib/copilot/review-sessions/identity'
-import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
+import type {
+  ReviewAccessMode,
+  ReviewEntityKind,
+  ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import { saveSavedEntityYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
@@ -17,8 +20,12 @@ import {
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  attachDashboardLayoutLiveProjection,
+  projectDashboardLayoutLiveState,
+} from '@/lib/yjs/server/dashboard-layout-live-projection'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, peekDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -29,6 +36,7 @@ interface YjsIncomingMessage extends IncomingMessage {
   yjsBootstrapState?: Uint8Array
   yjsPersistLiveUpdates?: boolean
   yjsAccessMode?: ReviewAccessMode
+  yjsEntityKind?: ReviewEntityKind
 }
 
 async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void> {
@@ -52,6 +60,7 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
   }
 
   if (entityKind === 'dashboard_layout') {
+    await projectDashboardLayoutLiveState(doc)
     await saveSavedEntityYjsDocToDb('dashboard_layout', docId, doc)
   }
 }
@@ -74,19 +83,29 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ accessMode, bootstrapState, userId, resolvedSessionId, persistLiveUpdates }) => {
-      const yjsReq = request as YjsIncomingMessage
-      yjsReq.yjsSessionId = resolvedSessionId
-      yjsReq.yjsUserId = userId
-      yjsReq.yjsBootstrapState = bootstrapState
-      yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
-      yjsReq.yjsAccessMode = accessMode
+    .then(
+      ({
+        accessMode,
+        bootstrapState,
+        userId,
+        resolvedSessionId,
+        persistLiveUpdates,
+        entityKind,
+      }) => {
+        const yjsReq = request as YjsIncomingMessage
+        yjsReq.yjsSessionId = resolvedSessionId
+        yjsReq.yjsUserId = userId
+        yjsReq.yjsBootstrapState = bootstrapState
+        yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
+        yjsReq.yjsAccessMode = accessMode
+        yjsReq.yjsEntityKind = entityKind
 
-      ensureConnectionHandler(wss)
-      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-        wss.emit('connection', ws, request)
-      })
-    })
+        ensureConnectionHandler(wss)
+        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+          wss.emit('connection', ws, request)
+        })
+      }
+    )
     .catch((error) => {
       if (error instanceof YjsAuthError) {
         rejectUpgrade(socket, error.code, error.message)
@@ -107,6 +126,7 @@ async function authenticateAndPrepareUpgrade(
   resolvedSessionId: string
   persistLiveUpdates: boolean
   accessMode: ReviewAccessMode
+  entityKind: ReviewEntityKind
 }> {
   const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
@@ -167,6 +187,7 @@ async function authenticateAndPrepareUpgrade(
     userId,
     resolvedSessionId: pathSessionId,
     accessMode,
+    entityKind: descriptor.entityKind,
     persistLiveUpdates:
       accessMode === 'write' &&
       (descriptor.entityKind === 'workflow' || descriptor.entityKind === 'dashboard_layout') &&
@@ -232,6 +253,10 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
         onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
       })
+      if (yjsReq.yjsPersistLiveUpdates && yjsReq.yjsEntityKind === 'dashboard_layout') {
+        const doc = peekDocument(docId)
+        if (doc) attachDashboardLayoutLiveProjection(doc)
+      }
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
       ws.close(4409, 'Failed to attach Yjs session')

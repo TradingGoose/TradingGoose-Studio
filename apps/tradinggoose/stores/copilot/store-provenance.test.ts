@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
-import { buildTurnProvenanceFromContexts, withPinnedToolExecutionProvenance } from './store-provenance'
+import {
+  buildTurnProvenanceFromContexts,
+  withPinnedToolExecutionProvenance,
+} from './store-provenance'
 
 describe('buildTurnProvenanceFromContexts', () => {
   it('derives workflow scope from an explicit workflow mention when no live workflow is pinned', () => {
@@ -164,7 +167,7 @@ describe('buildTurnProvenanceFromContexts', () => {
 
     expect(provenance).toEqual({
       contextEntityKind: 'watchlist',
-      contextEntityId: 'workspace-1',
+      contextEntityId: 'watchlist-current',
       workspaceId: 'workspace-1',
       dashboardLayoutContext: {
         entityId: 'layout-current',
@@ -184,7 +187,7 @@ describe('buildTurnProvenanceFromContexts', () => {
       ).provenance
     ).toEqual({
       contextEntityKind: 'watchlist',
-      contextEntityId: 'workspace-1',
+      contextEntityId: 'watchlist-current',
       workspaceId: 'workspace-1',
     })
 
@@ -205,7 +208,7 @@ describe('buildTurnProvenanceFromContexts', () => {
     })
   })
 
-  it('ignores dashboard layout scope for a different owner', () => {
+  it('keeps dashboard layout scope for server-side ownership validation', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [
@@ -225,6 +228,11 @@ describe('buildTurnProvenanceFromContexts', () => {
       )
     ).toEqual({
       workspaceId: 'workspace-1',
+      dashboardLayoutContext: {
+        entityId: 'layout-other',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-2',
+      },
     })
   })
 })

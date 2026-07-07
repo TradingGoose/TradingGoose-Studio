@@ -14,10 +14,7 @@ import {
   emitScheduleUpdated,
   subscribeScheduleUpdated,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
-import {
-  useWorkflowChannelId,
-  useWorkflowId,
-} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ScheduleConfig')
@@ -64,7 +61,6 @@ export function ScheduleConfig({
   const [resolvedUtcOffset, setResolvedUtcOffset] = useState<string | null>(null)
 
   const workflowId = useWorkflowId()
-  const channelId = useWorkflowChannelId()
   const workflowDoc = useWorkflowDoc()
 
   // Get schedule fields from the block state
@@ -151,7 +147,7 @@ export function ScheduleConfig({
   // Separate effect for event listener to avoid removing/re-adding on every dependency change
   useEffect(() => {
     const unsubscribeScheduleUpdated = subscribeScheduleUpdated(
-      { channelId, workflowId },
+      { workflowId },
       ({ workflowId: updatedWorkflowId, blockId: updatedBlockId }) => {
         if (updatedWorkflowId === workflowId && updatedBlockId === blockId) {
           logger.debug('Schedule update event received in schedule-config, refetching')
@@ -163,7 +159,7 @@ export function ScheduleConfig({
     return () => {
       unsubscribeScheduleUpdated()
     }
-  }, [channelId, workflowId, blockId, fetchSchedule])
+  }, [workflowId, blockId, fetchSchedule])
 
   // Format the schedule information for display
   const getScheduleInfo = () => {
@@ -317,8 +313,8 @@ export function ScheduleConfig({
 
       // 6. Dispatch custom event to notify parent workflow-block component to refetch schedule info
       // This ensures the badge updates immediately after saving
-      emitScheduleUpdated({ channelId, workflowId, blockId })
-      logger.debug('Published schedule update', { channelId, workflowId, blockId })
+      emitScheduleUpdated({ workflowId, blockId })
+      logger.debug('Published schedule update', { workflowId, blockId })
 
       // 6. Update the schedule status and trigger a workflow update
       // Note: Global schedule status is managed at a higher level
@@ -337,7 +333,7 @@ export function ScheduleConfig({
     } finally {
       setIsSaving(false)
     }
-  }, [workflowId, blockId, fetchSchedule, channelId, validateScheduleValues, disabled])
+  }, [workflowId, blockId, fetchSchedule, validateScheduleValues, disabled])
 
   const handleDeleteSchedule = useCallback(async (): Promise<boolean> => {
     if (!scheduleData.id || disabled) return false
@@ -383,8 +379,8 @@ export function ScheduleConfig({
       setError(null)
 
       // Dispatch custom event to notify parent workflow-block component
-      emitScheduleUpdated({ channelId, workflowId, blockId })
-      logger.debug('Published schedule update after delete', { channelId, workflowId, blockId })
+      emitScheduleUpdated({ workflowId, blockId })
+      logger.debug('Published schedule update after delete', { workflowId, blockId })
 
       return true
     } catch (error) {
@@ -398,7 +394,6 @@ export function ScheduleConfig({
     scheduleData.id,
     disabled,
     workflowId,
-    channelId,
     blockId,
     setCronExpression,
     setDailyTime,

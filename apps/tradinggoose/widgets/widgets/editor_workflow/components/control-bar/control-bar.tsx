@@ -97,7 +97,7 @@ export function ControlBar({
 }: ControlBarProps) {
   const copy = useWorkflowEditorCopy()
   const { data: session } = useSession()
-  const { workflowId, channelId } = useWorkflowRoute()
+  const { workflowId } = useWorkflowRoute()
   const activeWorkflowId = workflowId
   const activeWorkflowIdRef = useRef(activeWorkflowId)
   activeWorkflowIdRef.current = activeWorkflowId

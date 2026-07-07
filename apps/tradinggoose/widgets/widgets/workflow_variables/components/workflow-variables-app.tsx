@@ -5,7 +5,6 @@ import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { Variables } from '@/widgets/widgets/workflow_variables/components/variables/variables'
@@ -13,16 +12,10 @@ import { Variables } from '@/widgets/widgets/workflow_variables/components/varia
 interface WorkflowVariablesAppProps {
   workspaceId: string
   workflowId: string
-  channelId?: string
   panelId?: string
 }
 
-const WorkflowVariablesApp = ({
-  workspaceId,
-  workflowId,
-  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-  panelId,
-}: WorkflowVariablesAppProps) => {
+const WorkflowVariablesApp = ({ workspaceId, workflowId, panelId }: WorkflowVariablesAppProps) => {
   const session = useSession()
 
   const user = session.data?.user
@@ -36,16 +29,8 @@ const WorkflowVariablesApp = ({
   return (
     <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-        <WorkflowRouteProvider
-          workspaceId={workspaceId}
-          workflowId={workflowId}
-          channelId={channelId}
-        >
-          <WorkflowVariablesAppContent
-            workflowId={workflowId}
-            channelId={channelId}
-            panelId={panelId}
-          />
+        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
+          <WorkflowVariablesAppContent workflowId={workflowId} panelId={panelId} />
         </WorkflowRouteProvider>
       </WorkflowSessionProvider>
     </Providers>
@@ -54,11 +39,9 @@ const WorkflowVariablesApp = ({
 
 const WorkflowVariablesAppContent = ({
   workflowId,
-  channelId,
   panelId,
 }: {
   workflowId: string
-  channelId: string
   panelId?: string
 }) => {
   const { collaborativeAddVariable } = useWorkflowEditorActions()
@@ -79,7 +62,7 @@ const WorkflowVariablesAppContent = ({
       const detail = (event as CustomEvent<any>).detail
       if (!detail) return
       if (panelId && detail.panelId && detail.panelId !== panelId) return
-      if (detail.channelId && detail.channelId !== channelId) return
+      if (detail.workflowId && detail.workflowId !== workflowId) return
       handleAddVariable()
     }
 
@@ -87,7 +70,7 @@ const WorkflowVariablesAppContent = ({
     return () => {
       window.removeEventListener(WORKFLOW_VARIABLES_ADD_EVENT, handleEvent as EventListener)
     }
-  }, [channelId, panelId, handleAddVariable])
+  }, [workflowId, panelId, handleAddVariable])
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden px-3 py-2'>

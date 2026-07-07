@@ -15,7 +15,6 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { useParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -386,12 +385,6 @@ export function FrozenCanvas({
 
   const [pinnedBlockId, setPinnedBlockId] = useState<string | null>(null)
 
-  const params = useParams()
-  const workspaceIdFromParams = params.workspaceId
-  const workspaceId = Array.isArray(workspaceIdFromParams)
-    ? workspaceIdFromParams[0]
-    : workspaceIdFromParams
-
   // Process traceSpans to create blockExecutions map
   useEffect(() => {
     if (traceSpans && Array.isArray(traceSpans)) {
@@ -581,8 +574,6 @@ export function FrozenCanvas({
       <div style={{ height, width }} className={cn('frozen-canvas-mode h-full w-full', className)}>
         <WorkflowPreview
           workflowState={data.workflowState}
-          workspaceId={workspaceId ?? undefined}
-          workflowId={data.workflowId}
           showSubBlocks={true}
           isPannable={true}
           defaultZoom={0.8}

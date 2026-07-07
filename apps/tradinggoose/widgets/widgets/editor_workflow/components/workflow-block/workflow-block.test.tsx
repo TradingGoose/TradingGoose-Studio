@@ -84,7 +84,15 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
 }))
 
 vi.mock('@/stores/execution/store', () => ({
-  useExecutionStore: () => false,
+  selectWorkflowExecutionState: () => ({
+    activeBlockIds: new Set<string>(),
+    isExecuting: false,
+    isDebugging: false,
+    pendingBlocks: [],
+    autoPanDisabled: false,
+  }),
+  useExecutionStore: (selector?: (state: any) => unknown) =>
+    typeof selector === 'function' ? selector({ byWorkflowId: {} }) : false,
 }))
 
 vi.mock(
@@ -119,7 +127,6 @@ vi.mock(
 )
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
-  useWorkflowChannelId: () => 'channel-1',
   useWorkflowId: () => 'workflow-1',
 }))
 

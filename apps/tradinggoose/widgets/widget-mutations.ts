@@ -10,6 +10,7 @@ import type {
   PersistedColorPairsState,
   WidgetInstance,
 } from '@/widgets/layout'
+import { normalizeColorPairsState } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
   collectWidgetReferenceCandidates,
@@ -19,7 +20,6 @@ import {
   isWidgetKey,
   mergeWidgetParams,
   normalizeWidgetColorPairPatch,
-  pruneDashboardColorPairsForLayout,
   resolveEffectiveWidgetParams,
   sanitizeWidgetInstance,
   sanitizeWidgetParams,
@@ -280,7 +280,10 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
       : isWidgetKey(input.patch.widgetKey)
         ? input.patch.widgetKey
         : failWidgetConfig('widgetKey', `Unknown widget key "${String(input.patch.widgetKey)}"`)
-  const nextPairColor = resolveNextPairColor(input.patch.pairColor, currentPairColor)
+  const nextPairColor = resolveNextPairColor({
+    pairColor: input.patch.pairColor,
+    defaultPairColor: currentPairColor,
+  })
   const { nextParams, widgetParams } = guardWidgetConfig('params', () => {
     const nextParams = sanitizeWidgetParams(
       nextKey,
@@ -363,7 +366,7 @@ export function applyWidgetConfigMutation(
         pairPatch,
       })
     : input.colorPairs
-  const colorPairs = pruneDashboardColorPairsForLayout(layout, unprunedColorPairs)
+  const colorPairs = normalizeColorPairsState(unprunedColorPairs)
 
   return {
     ...plan,
@@ -382,8 +385,14 @@ export function applyWidgetConfigMutation(
   }
 }
 
-function resolveNextPairColor(pairColor: unknown, currentPairColor: PairColor): PairColor {
-  if (pairColor === undefined) return currentPairColor
+function resolveNextPairColor({
+  pairColor,
+  defaultPairColor,
+}: {
+  pairColor: unknown
+  defaultPairColor: PairColor
+}): PairColor {
+  if (pairColor === undefined) return defaultPairColor
   if (!isPairColor(pairColor)) {
     failWidgetConfig('pairColor', `Unknown pairColor "${String(pairColor)}"`)
   }

@@ -37,15 +37,14 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { mcpListWidgetContract } from '@/widgets/widgets/list_mcp/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import { mcpListWidgetContract } from '@/widgets/widgets/list_mcp/contract'
 
 const buildDefaultMcpServer = (name: string) => ({
   ...MCP_SERVER_DEFAULTS,
@@ -203,7 +202,6 @@ const ListMcpHeaderRight = ({
 const ListMcpWidgetContent = ({
   context,
   params,
-  pairColor = 'gray',
   onWidgetParamsPatch,
   panelId,
 }: WidgetComponentProps) => {
@@ -213,7 +211,6 @@ const ListMcpWidgetContent = ({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
   const { refreshTools } = useMcpTools(workspaceId ?? '')
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
 
   const workspaceServers = useMemo<McpServerListEntry[]>(
     () =>
@@ -237,14 +234,7 @@ const ListMcpWidgetContent = ({
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: workspaceServers.map((server) => server.id),
-    useDefaultEntity: resolvedPairColor === 'gray',
-  })
-
-  usePersistResolvedEntityId({
-    entityId: selectedServerId,
-    entityIdKey: 'mcpServerId',
-    onWidgetParamsPatch,
-    params,
+    useDefaultEntity: false,
   })
 
   const handleSelectServer = useCallback(

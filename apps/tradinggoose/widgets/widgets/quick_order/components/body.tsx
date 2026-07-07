@@ -37,7 +37,6 @@ import {
   resolveTradingListingAssetClass,
 } from '@/providers/trading/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
-import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/contract'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import {
@@ -51,6 +50,7 @@ import {
   resolveQuickOrderOrderType,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
+import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/contract'
 
 type QuickOrderBodyParams = QuickOrderWidgetParams | null
 type OrderAttemptIdempotency = { fingerprint: string; key: string }
@@ -274,9 +274,6 @@ export function QuickOrderWidgetBody({
       serviceId: quickOrderParams?.serviceId,
       portfolioIdentity: quickOrderParams?.portfolioIdentity,
       enabled: areProviderOptionsReady && hasSelectedProvider,
-      panelId,
-      widgetKey,
-      emitParamsChange: ({ params }) => patchWidgetParams(params),
     })
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
@@ -439,15 +436,6 @@ export function QuickOrderWidgetBody({
     copy: copy.body,
     orderFieldLabels,
   })
-
-  useEffect(() => {
-    if (!areProviderOptionsReady || !quickOrderParams?.provider || providerId) return
-    patchWidgetParams({
-      provider: null,
-      serviceId: null,
-      portfolioIdentity: null,
-    })
-  }, [areProviderOptionsReady, patchWidgetParams, providerId, quickOrderParams?.provider])
 
   useEffect(() => {
     if (previousProviderRef.current === providerId) return
