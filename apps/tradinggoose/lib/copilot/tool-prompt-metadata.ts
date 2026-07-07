@@ -12,7 +12,7 @@ const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
-  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "section"` or `type: "listing"` entries. Root sections and root listings use `parentId: null`; listings under a section use that section id. Each listing item must use a canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
+  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "section"` or `type: "listing"` entries. Root sections and root listings use `parentId: null`; listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
   'Use full `tg-dashboard-layout-document-v1` JSON with exactly `name`, `layout`, `colorPairs`, `isActive`, and `sortOrder`. `layout` is the dashboard split/panel tree. `colorPairs` is the shared per-layout pair color context map; change it when widget pair-color shared params change. Use `list_widgets` and `get_widgets_metadata` before adding or replacing widgets.'
 const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
@@ -112,7 +112,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   search_listing: {
     description:
-      'Search companies, tickers, crypto pairs, and currencies and return only canonical `listingIdentity` objects. Takes only `query`; use returned identities exactly in watchlists or other documents that store listing identities.',
+      'Search companies, tickers, crypto pairs, and currencies and return canonical listing identity objects. Takes only `query`; in watchlist listing items, put the returned object under the `listing` key.',
     kind: 'search',
     entityKind: 'listing',
   },
@@ -349,9 +349,19 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'read',
     entityKind: 'watchlist',
   },
+  create_watchlist: {
+    description: `Create a new watchlist in the current workspace from a full watchlist document and return the created document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'create',
+    entityKind: 'watchlist',
+  },
   edit_watchlist: {
     description: `Update the target watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
+    entityKind: 'watchlist',
+  },
+  rename_watchlist: {
+    description: `Rename the target watchlist by sending a full watchlist document with the updated \`name\`, then return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'rename',
     entityKind: 'watchlist',
   },
   list_layouts: {

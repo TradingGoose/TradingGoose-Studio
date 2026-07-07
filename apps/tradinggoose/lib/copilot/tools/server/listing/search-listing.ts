@@ -37,7 +37,7 @@ export const searchListingServerTool: BaseServerTool<
         body: {
           code: 'search_listing_backend_failed',
           error: 'Listing search failed while querying the market listing search service.',
-          hint: 'Retry with the company name, ticker, or pair symbol. Use the returned listingIdentity exactly in saved entity documents.',
+          hint: 'Retry with the company name, ticker, or pair symbol. In watchlist listing items, put the returned object under the listing key.',
           retryable: true,
         },
       })

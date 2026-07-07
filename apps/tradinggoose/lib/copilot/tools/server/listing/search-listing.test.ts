@@ -46,6 +46,7 @@ describe('searchListingServerTool', () => {
       status: 502,
       code: 'search_listing_backend_failed',
       retryable: true,
+      hint: expect.stringContaining('under the listing key'),
     })
   })
 })

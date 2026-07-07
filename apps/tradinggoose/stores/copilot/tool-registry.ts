@@ -118,7 +118,9 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   rename_mcp_server: serverTool('rename_mcp_server', true),
   list_watchlists: serverTool('list_watchlists'),
   read_watchlist: serverTool('read_watchlist'),
+  create_watchlist: serverTool('create_watchlist', true),
   edit_watchlist: serverTool('edit_watchlist', true),
+  rename_watchlist: serverTool('rename_watchlist', true),
   list_layouts: serverTool('list_layouts'),
   create_layout: serverTool('create_layout', true),
   read_layout: serverTool('read_layout'),
@@ -169,6 +171,7 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.list_mcp_servers,
   CopilotTool.create_mcp_server,
   CopilotTool.list_watchlists,
+  CopilotTool.create_watchlist,
   CopilotTool.list_layouts,
   CopilotTool.create_layout,
 ])

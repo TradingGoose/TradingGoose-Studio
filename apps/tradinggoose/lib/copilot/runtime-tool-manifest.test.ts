@@ -368,6 +368,8 @@ describe('copilot runtime tool manifest', () => {
         'edit_indicator',
         'create_mcp_server',
         'edit_mcp_server',
+        'create_watchlist',
+        'rename_watchlist',
         'create_workflow',
         'list_layouts',
         'read_layout',
@@ -381,6 +383,12 @@ describe('copilot runtime tool manifest', () => {
         'rename_skill',
       ])
     )
-    expect(toolNames).not.toEqual(expect.arrayContaining(['list_layout', 'read_widget_meta']))
+    const editWatchlist = manifest.tools.find((tool) => tool.name === 'edit_watchlist')
+    const createWatchlist = manifest.tools.find((tool) => tool.name === 'create_watchlist')
+    const renameWatchlist = manifest.tools.find((tool) => tool.name === 'rename_watchlist')
+    expect(createWatchlist).toMatchObject({ kind: 'create', entityKind: 'watchlist' })
+    expect(renameWatchlist).toMatchObject({ kind: 'rename', entityKind: 'watchlist' })
+    expect(editWatchlist?.description).not.toContain('listingIdentity')
+    expect(editWatchlist?.description).toContain('`listing`')
   })
 })

@@ -9,7 +9,10 @@ import {
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/document'
-import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import {
+  normalizeWatchlistDocumentFields,
+  WatchlistDocumentError,
+} from '@/lib/watchlists/validation'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import { assertCanDeleteWorkspaceEntityDocument } from '@/lib/workspaces/entity-documents'
 import {
@@ -108,36 +111,62 @@ export async function createWatchlist(
     throw new WatchlistOperationError('Watchlist name is required', 400)
   }
 
+  const created = await createWatchlistFromDocument(scope, {
+    name,
+    settings: DEFAULT_WATCHLIST_SETTINGS,
+    items: [],
+  })
+  return getWatchlist(scope, created.id)
+}
+
+export async function createWatchlistFromDocument(
+  scope: WatchlistScope,
+  rawFields: Record<string, unknown>
+): Promise<{ id: string; fields: WatchlistDocumentFields }> {
+  const fields = normalizeWatchlistDocumentFields(rawFields)
+
   try {
-    const watchlistId = await db.transaction(async (tx) => {
+    const created = await db.transaction(async (tx) => {
       const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-      if (roots.some((root) => root.name === name)) {
-        throw new WatchlistDocumentError(`A watchlist with the name "${name}" already exists`, 409)
+      if (roots.some((root) => root.name === fields.name)) {
+        throw new WatchlistDocumentError(
+          `A watchlist with the name "${fields.name}" already exists`,
+          409
+        )
       }
 
       const sortOrder =
         roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
-      const [created] = await tx
+      const [createdRoot] = await tx
         .insert(watchlistTable)
         .values({
           id: crypto.randomUUID(),
           workspaceId: scope.workspaceId,
           userId: null,
           parentId: null,
-          name,
+          name: fields.name,
           sortOrder,
-          settings: DEFAULT_WATCHLIST_SETTINGS,
+          settings: fields.settings,
         })
         .returning({ id: watchlistTable.id })
 
-      if (!created) {
+      if (!createdRoot) {
         throw new WatchlistDocumentError('Failed to create watchlist', 500)
       }
-      return created.id
+
+      return {
+        id: createdRoot.id,
+        fields: await materializeWatchlistDocumentInTx(
+          tx,
+          scope.workspaceId,
+          createdRoot.id,
+          fields
+        ),
+      }
     })
 
     await refreshEntityListSession('watchlist', scope.workspaceId)
-    return getWatchlist(scope, watchlistId)
+    return created
   } catch (error) {
     mapDocumentError(error)
   }

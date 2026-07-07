@@ -1,9 +1,11 @@
 import { ENTITY_KIND_WATCHLIST } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { createWatchlistFromDocument } from '@/lib/watchlists/operations'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
   type EntityServerTool,
+  executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
   readSavedEntityDocumentFields,
   requireEntityId,
@@ -43,12 +45,39 @@ export const readWatchlistServerTool: EntityServerTool = {
   },
 }
 
+export const createWatchlistServerTool: EntityServerTool = {
+  name: 'create_watchlist',
+  execute(args, context) {
+    return executeCreateEntityDocumentMutation(
+      ENTITY_KIND_WATCHLIST,
+      args,
+      context,
+      async (fields, { workspaceId }) => {
+        const created = await createWatchlistFromDocument({ workspaceId }, fields)
+        return { entityId: created.id, fields: created.fields }
+      }
+    )
+  },
+}
+
 export const editWatchlistServerTool: EntityServerTool = {
   name: 'edit_watchlist',
   execute(args, context) {
     return executeUpdateEntityDocumentMutation(
       ENTITY_KIND_WATCHLIST,
       'edit_watchlist',
+      args,
+      context
+    )
+  },
+}
+
+export const renameWatchlistServerTool: EntityServerTool = {
+  name: 'rename_watchlist',
+  execute(args, context) {
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_WATCHLIST,
+      'rename_watchlist',
       args,
       context
     )

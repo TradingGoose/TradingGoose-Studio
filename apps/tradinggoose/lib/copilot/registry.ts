@@ -98,7 +98,9 @@ const COPILOT_TOOL_IDS = [
   'rename_mcp_server',
   'list_watchlists',
   'read_watchlist',
+  'create_watchlist',
   'edit_watchlist',
+  'rename_watchlist',
   'list_layouts',
   'create_layout',
   'read_layout',
@@ -288,6 +290,7 @@ const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const EditWatchlistArgs = buildEntityDocumentMutationArgs(WATCHLIST_DOCUMENT_FORMAT)
+const CreateWatchlistArgs = buildEntityDocumentCreateArgs(WATCHLIST_DOCUMENT_FORMAT)
 const CreateDashboardLayoutArgs = z
   .object({
     name: z.string().trim().min(1).optional(),
@@ -546,7 +549,9 @@ export const ToolArgSchemas = {
 
   list_watchlists: WorkspaceTargetArgs.strict(),
   read_watchlist: EntityTargetArgs,
+  create_watchlist: CreateWatchlistArgs,
   edit_watchlist: EditWatchlistArgs,
+  rename_watchlist: EditWatchlistArgs,
   list_layouts: WorkspaceTargetArgs.strict(),
   create_layout: CreateDashboardLayoutArgs,
   read_layout: DashboardLayoutTargetArgs,
@@ -1223,7 +1228,9 @@ export const ToolResultSchemas = {
   read_watchlist: WatchlistDocumentEnvelope.extend({
     entityKind: z.literal('watchlist'),
   }),
+  create_watchlist: WatchlistDocumentMutationResult,
   edit_watchlist: WatchlistDocumentMutationResult,
+  rename_watchlist: WatchlistDocumentMutationResult,
   list_layouts: GenericEntityListResult.extend({
     entityKind: z.literal('dashboard_layout'),
   }),
