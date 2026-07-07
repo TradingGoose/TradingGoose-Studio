@@ -34,6 +34,7 @@ describe('Workspace permissions PATCH route', () => {
         enumValues: ['admin', 'write', 'read'] as const,
       },
       permissions: {
+        id: 'permissions.id',
         entityId: 'permissions.entityId',
         entityType: 'permissions.entityType',
         userId: 'permissions.userId',

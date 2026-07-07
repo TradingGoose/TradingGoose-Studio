@@ -140,7 +140,7 @@ describe('watchlist operations', () => {
               }
               return [
                 {
-                  id: 'item-new',
+                  id: `item-new-${insertedRows.filter((row) => (row.table as any).id === 'watchlist_item.id').length}`,
                   watchlistId: values.watchlistId,
                   containerId: values.containerId,
                   listing: values.listing,
@@ -159,6 +159,16 @@ describe('watchlist operations', () => {
       name: 'Growth',
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
+        {
+          type: 'listing',
+          parentId: null,
+          listing: {
+            listing_id: 'SPY',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
         {
           id: 'section-1',
           type: 'section',
@@ -225,10 +235,20 @@ describe('watchlist operations', () => {
         userId: null,
         parentId: 'watchlist-1',
         name: 'Semiconductors',
-        sortOrder: 0,
+        sortOrder: 1,
       },
     })
     expect(insertedRows[1]).toMatchObject({
+      table: expect.objectContaining({ id: 'watchlist_item.id' }),
+      values: {
+        workspaceId: 'workspace-1',
+        userId: null,
+        watchlistId: 'watchlist-1',
+        containerId: 'watchlist-1',
+        sortOrder: 0,
+      },
+    })
+    expect(insertedRows[2]).toMatchObject({
       table: expect.objectContaining({ id: 'watchlist_item.id' }),
       values: {
         workspaceId: 'workspace-1',
@@ -248,9 +268,20 @@ describe('watchlist operations', () => {
       },
     ])
     expect(fields.items).toEqual([
+      {
+        id: 'item-new-1',
+        type: 'listing',
+        parentId: null,
+        listing: {
+          listing_id: 'SPY',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
       { id: 'section-new', type: 'section', parentId: null, label: 'Semiconductors' },
       {
-        id: 'item-new',
+        id: 'item-new-2',
         type: 'listing',
         parentId: 'section-new',
         listing: {

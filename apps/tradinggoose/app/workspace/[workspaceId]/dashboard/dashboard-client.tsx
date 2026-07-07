@@ -66,7 +66,7 @@ interface DashboardClientProps {
   initialLayoutName: string
   initialLayouts: LayoutTab[]
   initialColorPairs: PersistedColorPairsState | unknown
-  canWrite: boolean
+  workspaceCanWrite: boolean
 }
 
 interface DashboardNodeProps {
@@ -226,7 +226,7 @@ export function DashboardClient({
   initialLayoutName,
   initialLayouts,
   initialColorPairs,
-  canWrite,
+  workspaceCanWrite,
 }: DashboardClientProps) {
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const [pendingActivationId, setPendingActivationId] = useState<string | null>(null)
@@ -294,7 +294,6 @@ export function DashboardClient({
     workspaceId,
     ownerUserId,
     layoutId: activeLayoutId,
-    canWrite,
     initialName: activeInitialName,
     initialLayout: activeInitialLayout,
     initialColorPairs: activeInitialColorPairs,
@@ -302,7 +301,7 @@ export function DashboardClient({
   const rawTree = layoutDocument.layout
   const colorPairs = layoutDocument.colorPairs
   const mutateLayoutDocument = layoutDocument.mutateLayoutDocument
-  const canEditContent = canWrite && layoutDocument.isProviderReady && Boolean(activeLayoutId)
+  const canEditContent = layoutDocument.isProviderReady && Boolean(activeLayoutId)
 
   useEffect(() => {
     skipLayoutRef.current.clear()
@@ -396,9 +395,9 @@ export function DashboardClient({
       dashboardLayoutId: activeLayoutId ?? undefined,
       dashboardLayoutName: layoutDocument.name,
       dashboardLayoutOwnerUserId: ownerUserId,
-      canWrite,
+      canWrite: workspaceCanWrite,
     }),
-    [activeLayoutId, canWrite, layoutDocument.name, ownerUserId, workspaceId]
+    [activeLayoutId, layoutDocument.name, ownerUserId, workspaceCanWrite, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -537,9 +536,6 @@ export function DashboardClient({
       setPendingActivationId(nextLayoutId)
 
       try {
-        if (!canWrite) {
-          throw new Error('Write access is required to switch the active layout')
-        }
         await saveSavedEntityField(
           'dashboard_layout',
           nextLayoutId,
@@ -553,12 +549,11 @@ export function DashboardClient({
         setPendingActivationId(null)
       }
     },
-    [activeLayoutId, canWrite, ownerUserId, workspaceId]
+    [activeLayoutId, ownerUserId, workspaceId]
   )
 
   const handleRenameLayout = useCallback(
     async (layoutId: string, name: string) => {
-      if (!canWrite) return
       try {
         await saveSavedEntityField(
           'dashboard_layout',
@@ -572,24 +567,22 @@ export function DashboardClient({
         console.error('Failed to rename layout:', error)
       }
     },
-    [canWrite, ownerUserId, workspaceId]
+    [ownerUserId, workspaceId]
   )
 
   const handleDeleteLayout = useCallback(
     async (layoutId: string) => {
-      if (!canWrite) return
       try {
         await deleteDashboardLayoutAction(workspaceId, layoutId)
       } catch (error) {
         console.error('Failed to delete layout:', error)
       }
     },
-    [canWrite, workspaceId]
+    [workspaceId]
   )
 
   const handleReorderLayouts = useCallback(
     (layoutId: string, targetIndex: number) => {
-      if (!canWrite) return
       saveSavedEntityField(
         'dashboard_layout',
         layoutId,
@@ -601,11 +594,10 @@ export function DashboardClient({
         console.error('Failed to reorder layouts:', error)
       })
     },
-    [canWrite, ownerUserId, workspaceId]
+    [ownerUserId, workspaceId]
   )
 
   const handleAddLayout = useCallback(async () => {
-    if (!canWrite) return
     if (isCreatingLayoutRef.current) {
       return
     }
@@ -621,7 +613,7 @@ export function DashboardClient({
       isCreatingLayoutRef.current = false
       setIsCreatingLayout(false)
     }
-  }, [canWrite, workspaceId])
+  }, [workspaceId])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>

@@ -34,6 +34,11 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workspace.id',
     ownerId: 'workspace.owner_id',
   },
+  layoutMap: {
+    id: 'layout_map.id',
+    workspaceId: 'layout_map.workspace_id',
+    userId: 'layout_map.user_id',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -145,6 +150,31 @@ describe('review session permissions', () => {
     expect(result).toEqual({
       hasAccess: true,
       userPermission: 'write',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('allows dashboard layout write-mode targets with workspace read access', async () => {
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ workspaceId: 'workspace-1', userId: 'user-1' }]))
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
+
+    const result = await verifyReviewTargetAccess(
+      'user-1',
+      {
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      },
+      'write'
+    )
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'read',
       workspaceId: 'workspace-1',
       isOwner: false,
     })

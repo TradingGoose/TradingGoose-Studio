@@ -28,6 +28,15 @@ export const WatchlistBlock: BlockConfig = {
       value: () => 'readLists',
       required: true,
     },
+    {
+      id: 'watchlistId',
+      title: 'Watchlist',
+      type: 'dropdown',
+      layout: 'full',
+      entityListKind: 'watchlist',
+      required: { field: 'operation', value: 'readListItems' },
+      condition: { field: 'operation', value: 'readListItems' },
+    },
   ],
   tools: {
     access: Object.values(WATCHLIST_TOOL_IDS),

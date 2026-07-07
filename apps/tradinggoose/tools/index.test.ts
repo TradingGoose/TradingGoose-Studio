@@ -43,6 +43,13 @@ vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
 }))
 
+const yjsMocks = vi.hoisted(() => ({
+  readSavedEntityFieldsForExecution: vi.fn(),
+  readSavedEntityListFieldsForExecution: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => yjsMocks)
+
 // Helper function to create mock ExecutionContext
 const createMockExecutionContext = (overrides?: Partial<ExecutionContext>): ExecutionContext => ({
   workflowId: 'test-workflow',
@@ -102,6 +109,37 @@ describe('Tools Registry', () => {
         error: `Tool not found: ${toolId}`,
       })
     }
+  })
+
+  it('reads the requested watchlist instead of the first available list', async () => {
+    yjsMocks.readSavedEntityListFieldsForExecution.mockResolvedValueOnce([
+      {
+        entityId: 'watchlist-a',
+        fields: {
+          name: 'First',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [],
+        },
+      },
+      {
+        entityId: 'watchlist-b',
+        fields: {
+          name: 'Second',
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [],
+        },
+      },
+    ])
+
+    await expect(
+      executeTool('watchlist_read_list_items', {
+        watchlistId: 'watchlist-b',
+        _context: { workspaceId: 'workspace-456' },
+      })
+    ).resolves.toMatchObject({
+      success: true,
+      output: { watchlist: { id: 'watchlist-b', name: 'Second' } },
+    })
   })
 })
 
@@ -192,6 +230,10 @@ describe('executeTool Function', () => {
         Promise.resolve([]).then(resolve, reject),
     }))
     dbMocks.limit.mockImplementation(() => Promise.resolve([]))
+    yjsMocks.readSavedEntityFieldsForExecution.mockRejectedValue(
+      new Error('Saved entity was not found')
+    )
+    yjsMocks.readSavedEntityListFieldsForExecution.mockResolvedValue([])
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -518,14 +560,12 @@ describe('executeTool Function', () => {
         description: 'Research the market before acting',
       },
     ])
-    dbMocks.limit.mockResolvedValueOnce([
-      {
-        id: 'skill-1',
-        name: 'market-research',
-        description: 'Research the market before acting',
-        content: 'Investigate the market and summarize the setup.',
-      },
-    ])
+    yjsMocks.readSavedEntityFieldsForExecution.mockResolvedValueOnce({
+      id: 'skill-1',
+      name: 'market-research',
+      description: 'Research the market before acting',
+      content: 'Investigate the market and summarize the setup.',
+    })
 
     global.fetch = Object.assign(
       vi.fn().mockResolvedValue({

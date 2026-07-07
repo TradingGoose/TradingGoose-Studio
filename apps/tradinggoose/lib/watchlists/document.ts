@@ -21,6 +21,9 @@ type WatchlistItemRow = typeof watchlistItem.$inferSelect
 export type WatchlistDocumentTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type WatchlistContainerInputItem = Extract<WatchlistDocumentInputItem, { type: 'section' }>
 type WatchlistContainerItem = Extract<WatchlistItem, { type: 'section' }>
+type WatchlistSiblingRow =
+  | { type: 'section'; row: WatchlistContainerRow }
+  | { type: 'listing'; row: WatchlistItemRow }
 export type WatchlistRootRow = WatchlistContainerRow & { settings: WatchlistSettings }
 
 const ensureFound = <T>(row: T | undefined, message = 'Watchlist not found'): T => {
@@ -130,11 +133,10 @@ const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => 
 const ROOT_PARENT_KEY = '__root__'
 const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARENT_KEY
 
-const sortContainerRows = (left: WatchlistContainerRow, right: WatchlistContainerRow) =>
-  left.sortOrder - right.sortOrder || left.createdAt.getTime() - right.createdAt.getTime()
-
-const sortItemRows = (left: WatchlistItemRow, right: WatchlistItemRow) =>
-  left.sortOrder - right.sortOrder || left.createdAt.getTime() - right.createdAt.getTime()
+const sortSiblingRows = (left: WatchlistSiblingRow, right: WatchlistSiblingRow) =>
+  left.row.sortOrder - right.row.sortOrder ||
+  left.row.createdAt.getTime() - right.row.createdAt.getTime() ||
+  left.row.id.localeCompare(right.row.id)
 
 const groupRowsByParent = <T extends { parentId?: string | null; containerId?: string | null }>(
   rows: T[],
@@ -154,19 +156,28 @@ export const composeWatchlistDocumentFromRows = (
   rootId: string
 ): WatchlistItem[] => {
   const output: WatchlistItem[] = []
-  const containersByParent = groupRowsByParent(containers, (container) => container.parentId)
-  const itemsByParent = groupRowsByParent(items, (item) => item.containerId)
+  const siblingsByParent = new Map<string, WatchlistSiblingRow[]>()
+  const pushSibling = (parentId: string | null | undefined, sibling: WatchlistSiblingRow) => {
+    const key = parentKey(parentId)
+    siblingsByParent.set(key, [...(siblingsByParent.get(key) ?? []), sibling])
+  }
 
-  containersByParent.forEach((rows) => rows.sort(sortContainerRows))
-  itemsByParent.forEach((rows) => rows.sort(sortItemRows))
+  for (const container of containers) {
+    pushSibling(container.parentId, { type: 'section', row: container })
+  }
+  for (const item of items) {
+    pushSibling(item.containerId, { type: 'listing', row: item })
+  }
+  siblingsByParent.forEach((rows) => rows.sort(sortSiblingRows))
 
   const appendChildren = (parentId: string | null) => {
-    for (const row of itemsByParent.get(parentKey(parentId)) ?? []) {
-      output.push(mapListingRow(row, rootId))
-    }
-
-    for (const container of containersByParent.get(parentKey(parentId)) ?? []) {
-      readContainerKind(container)
+    for (const sibling of siblingsByParent.get(parentKey(parentId)) ?? []) {
+      if (sibling.type === 'listing') {
+        output.push(mapListingRow(sibling.row, rootId))
+        continue
+      }
+      const container = sibling.row
+      readContainerKind(sibling.row)
       output.push({
         id: container.id,
         type: 'section',
@@ -329,24 +340,22 @@ export async function materializeWatchlistDocumentInTx(
     const submittedContainerIds = new Set(
       fields.items
         .filter(
-          (item): item is WatchlistContainerInputItem =>
-            item.type === 'section' && Boolean(item.id)
+          (item): item is WatchlistContainerInputItem => item.type === 'section' && Boolean(item.id)
         )
         .map((item) => item.id as string)
     )
     const persistedContainerIds = new Map<string, string>()
-    const persistedContainers = new Map<
-      WatchlistDocumentInputItem,
-      WatchlistContainerItem
-    >()
-    const containerSortOrders = new Map<string, number>()
-    const listingSortOrders = new Map<string, number>()
-    const nextSortOrder = (orders: Map<string, number>, parentId: string | null) => {
-      const key = parentKey(parentId)
-      const next = orders.get(key) ?? 0
-      orders.set(key, next + 1)
-      return next
+    const persistedContainers = new Map<WatchlistDocumentInputItem, WatchlistContainerItem>()
+    const siblingSortOrders = new Map<WatchlistDocumentInputItem, number>()
+    const nextSiblingSortOrders = new Map<string, number>()
+    for (const item of fields.items) {
+      const key = parentKey(item.parentId ?? null)
+      const next = nextSiblingSortOrders.get(key) ?? 0
+      nextSiblingSortOrders.set(key, next + 1)
+      siblingSortOrders.set(item, next)
     }
+    const submittedSortOrder = (item: WatchlistDocumentInputItem) =>
+      siblingSortOrders.get(item) ?? 0
 
     const pendingContainers = fields.items.filter(
       (item): item is WatchlistContainerInputItem => item.type === 'section'
@@ -373,7 +382,7 @@ export async function materializeWatchlistDocumentInTx(
           workspaceId,
           item,
           dbParentId,
-          nextSortOrder(containerSortOrders, parentId)
+          submittedSortOrder(item)
         )
         if (item.id) {
           persistedContainerIds.set(item.id, persistedId)
@@ -411,7 +420,7 @@ export async function materializeWatchlistDocumentInTx(
         root.id,
         item,
         dbContainerId,
-        nextSortOrder(listingSortOrders, containerId)
+        submittedSortOrder(item)
       )
       persistedItems.push({
         id: persistedId,

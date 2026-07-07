@@ -51,9 +51,14 @@ function WidgetSurfaceComponent({
     }
   ) => ReactNode
   const RenderWidgetComponent = WidgetComponent as RuntimeWidgetComponent
+  const headerContext = {
+    widget: renderWidget,
+    context,
+    panelId,
+    canEditWidgetParams: Boolean(onWidgetParamsPatch),
+  }
   const registryHeader =
-    definition?.renderHeader?.({ widget: renderWidget, context, panelId }) ??
-    emptyDefinition?.renderHeader?.({ widget: renderWidget, context, panelId })
+    definition?.renderHeader?.(headerContext) ?? emptyDefinition?.renderHeader?.(headerContext)
   const headerScrollRef = useRef<HTMLDivElement>(null)
 
   const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {

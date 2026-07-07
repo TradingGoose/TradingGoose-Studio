@@ -27,8 +27,7 @@ import {
  */
 async function verifyDashboardLayoutWorkspaceScope(
   args: { workspaceId: string },
-  context: ServerToolExecutionContext | undefined,
-  accessMode: 'read' | 'write'
+  context: ServerToolExecutionContext | undefined
 ): Promise<{ workspaceId: string; ownerUserId: string }> {
   const userId = requireUserId(context)
   const workspaceId = args.workspaceId.trim()
@@ -38,7 +37,7 @@ async function verifyDashboardLayoutWorkspaceScope(
   }
 
   const access = await checkWorkspaceAccess(workspaceId, userId)
-  if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
+  if (!access.exists || !access.hasAccess) {
     throw new Error('Access denied: You do not have permission to use this dashboard layout')
   }
 
@@ -64,11 +63,7 @@ async function hashDashboardLayoutCreateReviewBase(
 export const listLayoutsServerTool: EntityServerTool<{ workspaceId: string }> = {
   name: 'list_layouts',
   async execute(args, context) {
-    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(
-      args,
-      context,
-      'read'
-    )
+    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(args, context)
     const entities = await buildSavedEntityListInfo(
       ENTITY_KIND_DASHBOARD_LAYOUT,
       workspaceId,
@@ -92,8 +87,7 @@ export const createLayoutServerTool: EntityServerTool<{
     const scopedContext = withWorkspaceArgContext(context, args)
     const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(
       { workspaceId: scopedContext?.workspaceId ?? '' },
-      scopedContext,
-      'write'
+      scopedContext
     )
     const name = args.name?.trim() || 'New layout'
     const reviewBaseStateHash = await hashDashboardLayoutCreateReviewBase(workspaceId, ownerUserId)

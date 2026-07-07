@@ -85,6 +85,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'yahoo-finance' },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })
@@ -104,6 +105,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'alpaca' },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })
@@ -123,6 +125,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'alpaca', providerParams: { feed: 'sip' } },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
   const txInsertMock = vi.fn()
+  const provisionDashboardLayoutForWorkspaceUserInTxMock = vi.fn()
   let txInsertValues: Array<{ table: unknown; values: Record<string, unknown> }> = []
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
@@ -111,6 +112,11 @@ describe('Workspaces API Route', () => {
             : { userId: workspace.billingOwnerUserId }),
         },
       })),
+    }))
+
+    vi.doMock('@/lib/dashboard-layouts/operations', () => ({
+      provisionDashboardLayoutForWorkspaceUserInTx:
+        provisionDashboardLayoutForWorkspaceUserInTxMock,
     }))
   })
 
@@ -243,5 +249,12 @@ describe('Workspaces API Route', () => {
     ])
     expect(documentValues[1]).toMatchObject({ userId: null, parentId: null })
     expect(documentValues[5]).toMatchObject({ createdBy: 'user-1', enabled: false })
+    expect(provisionDashboardLayoutForWorkspaceUserInTxMock).toHaveBeenCalledWith(
+      expect.objectContaining({ insert: txInsertMock }),
+      {
+        workspaceId: workspaceInsert.id,
+        ownerUserId: 'user-1',
+      }
+    )
   })
 })

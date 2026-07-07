@@ -13,7 +13,9 @@ export type WatchlistScopedParams = {
   }
 }
 
-export type WatchlistReadListItemsParams = WatchlistScopedParams
+export type WatchlistReadListItemsParams = WatchlistScopedParams & {
+  watchlistId: string
+}
 
 export type WatchlistListItemsOutput = {
   watchlist: WatchlistRecord
@@ -48,6 +50,12 @@ const noopRequest = {
   url: 'direct://watchlist',
   method: 'GET' as const,
   headers: () => ({}),
+}
+
+const watchlistIdParam = {
+  type: 'string' as const,
+  required: true,
+  description: 'Root watchlist id to read.',
 }
 
 const watchlistListItemsOutputs = {
@@ -88,7 +96,7 @@ export const watchlistReadListItemsTool: ToolConfig<
   description: 'Read one watchlist with ordered listings and section/category items.',
   version: '1.0.0',
   execution: workspaceReadExecution,
-  params: {},
+  params: { watchlistId: watchlistIdParam },
   request: noopRequest,
   outputs: watchlistListItemsOutputs,
 }

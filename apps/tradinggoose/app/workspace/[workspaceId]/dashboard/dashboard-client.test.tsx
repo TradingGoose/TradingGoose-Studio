@@ -34,6 +34,9 @@ let mockDashboardLayoutList: {
 } | null = null
 let mockDashboardLayoutProviderReady = true
 const mockMutateLayoutDocument = vi.fn()
+const dashboardPermissions = {
+  workspaceCanWrite: true,
+} as const
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockSearchParams),
@@ -348,7 +351,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -372,7 +375,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout B'
           initialLayouts={createLayouts('layout-b')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -396,7 +399,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -418,7 +421,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout B'
           initialLayouts={createLayouts('layout-b')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -444,7 +447,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -477,7 +480,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -514,7 +517,7 @@ describe('DashboardClient', () => {
             initialColorPairs={{
               pairs: [{ color: 'red', workflowId: 'wf-red' }],
             }}
-            canWrite
+            {...dashboardPermissions}
           />
         </>
       )
@@ -588,7 +591,7 @@ describe('DashboardClient', () => {
               },
             ],
           }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -638,7 +641,7 @@ describe('DashboardClient', () => {
               },
             ],
           }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -669,7 +672,7 @@ describe('DashboardClient', () => {
           initialColorPairs={{
             pairs: [{ color: 'red', watchlistId: 'watchlist-pair' }],
           }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -697,7 +700,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -750,7 +753,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -790,7 +793,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -816,7 +819,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })
@@ -854,7 +857,7 @@ describe('DashboardClient', () => {
           initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
           initialColorPairs={{ pairs: [] }}
-          canWrite
+          {...dashboardPermissions}
         />
       )
     })

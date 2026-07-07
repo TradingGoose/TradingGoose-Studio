@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import {
-  permissions,
   user,
   type WorkspaceInvitationStatus,
   workspace,
@@ -14,6 +13,7 @@ import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { checkWorkspaceAccess, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
 
 function getRedirectLocale(req: NextRequest) {
@@ -129,14 +129,10 @@ export async function GET(
       }
 
       await db.transaction(async (tx) => {
-        await tx.insert(permissions).values({
-          id: randomUUID(),
-          entityType: 'workspace' as const,
-          entityId: invitation.workspaceId,
+        await grantWorkspaceAccessInTx(tx, {
+          workspaceId: invitation.workspaceId,
           userId: session.user.id,
           permissionType: invitation.permissions || 'read',
-          createdAt: new Date(),
-          updatedAt: new Date(),
         })
 
         await tx

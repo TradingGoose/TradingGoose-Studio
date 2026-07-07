@@ -44,6 +44,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     selectedWatchlist,
   } = useWatchlistWidgetState(props)
 
+  const canEditWidgetParams = Boolean(props.onWidgetParamsPatch)
   const viewItems = selectedWatchlist?.items ?? []
   const quoteItems = useMemo(
     () =>
@@ -113,7 +114,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
 
   const handleSelectListing = useCallback(
     (listing: ListingIdentity | null) => {
-      if (!canWrite) return
+      if (!canEditWidgetParams) return
       if (!isLinkedToColorPair) return
       if (listing == null) {
         if (selectedListing == null) return
@@ -123,7 +124,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       if (areListingIdentitiesEqual(selectedListing, listing)) return
       props.onWidgetParamsPatch?.({ listing })
     },
-    [canWrite, isLinkedToColorPair, props.onWidgetParamsPatch, selectedListing]
+    [canEditWidgetParams, isLinkedToColorPair, props.onWidgetParamsPatch, selectedListing]
   )
 
   if (!workspaceId) {
@@ -160,7 +161,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       isMutating={isMutating}
       selectedListing={selectedListing}
       isLinkedSelection={isLinkedToColorPair}
-      onSelectListing={canWrite ? handleSelectListing : undefined}
+      onSelectListing={canEditWidgetParams && isLinkedToColorPair ? handleSelectListing : undefined}
     />
   )
 }

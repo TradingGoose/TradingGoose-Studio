@@ -151,7 +151,9 @@ async function executeWatchlistTool(
     return { success: true, output: { watchlists } }
   }
 
-  const watchlist = watchlists[0]
+  const watchlistId = typeof params.watchlistId === 'string' ? params.watchlistId.trim() : ''
+  if (!watchlistId) throw new Error('watchlistId is required')
+  const watchlist = watchlists.find((entry) => entry.id === watchlistId)
   if (!watchlist) throw new Error('Watchlist not found')
   const listings = watchlist.items.filter((item) => item.type === 'listing')
   const sections = watchlist.items.filter((item) => item.type === 'section')

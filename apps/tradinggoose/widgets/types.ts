@@ -41,6 +41,7 @@ export interface WidgetHeaderContext {
   widget: WidgetInstance
   context?: WidgetRuntimeContext
   panelId?: string
+  canEditWidgetParams?: boolean
 }
 
 export type WidgetHeaderRenderer = (options: WidgetHeaderContext) => WidgetHeaderSlots | undefined

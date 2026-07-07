@@ -218,6 +218,35 @@ describe('WatchlistWidgetBody', () => {
     )
   })
 
+  it('uses a read Yjs session but writes linked selection through widget params when workspace read-only', async () => {
+    const onWidgetParamsPatch = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1', canWrite: false }}
+          panelId='panel-1'
+          pairColor='red'
+          widget={{ key: 'watchlist', pairColor: 'red' } as any}
+          params={{ provider: 'alpaca' }}
+          onWidgetParamsPatch={onWidgetParamsPatch}
+        />
+      )
+    })
+
+    expect(lastSelectedWatchlistArgs).toMatchObject({ accessMode: 'read' })
+
+    const button = Array.from(container.querySelectorAll('button')).find(
+      (entry) => entry.textContent === 'select-listing'
+    )
+
+    await act(async () => {
+      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+  })
+
   it('does not auto-claim the first watchlist when the widget is linked without a pair watchlist', async () => {
     const onWidgetParamsPatch = vi.fn()
 

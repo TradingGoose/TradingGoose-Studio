@@ -20,7 +20,13 @@ describe('WatchlistBlock', () => {
 
   it('does not expose listing mutation inputs', () => {
     expect(WatchlistBlock.inputs).toEqual({})
-    expect(WatchlistBlock.subBlocks.some((subBlock) => subBlock.id === 'watchlistId')).toBe(false)
+    const watchlistIdSubBlock = WatchlistBlock.subBlocks.find(
+      (subBlock) => subBlock.id === 'watchlistId'
+    )
+    expect(watchlistIdSubBlock).toMatchObject({
+      entityListKind: 'watchlist',
+      condition: { field: 'operation', value: 'readListItems' },
+    })
     expect(WatchlistBlock.subBlocks.some((subBlock) => subBlock.id === 'listing')).toBe(false)
     expect(WatchlistBlock.description).not.toMatch(/add|remove/i)
     expect(WatchlistBlock.longDescription).not.toMatch(/add|remove/i)

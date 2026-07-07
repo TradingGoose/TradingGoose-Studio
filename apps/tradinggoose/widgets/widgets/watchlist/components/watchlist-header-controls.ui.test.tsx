@@ -192,6 +192,7 @@ describe('watchlist header controls', () => {
             key: 'watchlist-widget',
             params: { provider: 'alpaca' },
           })}
+          canMutateWatchlist
         />
       )
     })
@@ -258,6 +259,7 @@ describe('watchlist header controls', () => {
             key: 'watchlist-widget',
             params: { provider: 'alpaca' },
           })}
+          canMutateWatchlist
         />
       )
     })
@@ -309,6 +311,8 @@ describe('watchlist header controls', () => {
           workspaceId='workspace-1'
           panelId='panel-1'
           widget={createWidget({ key: 'watchlist', params: {} })}
+          canEditWidgetParams
+          canMutateWatchlist
         />
       )
     })
@@ -335,6 +339,40 @@ describe('watchlist header controls', () => {
     ])
   })
 
+  it('allows widget-param updates while keeping watchlist mutations disabled', async () => {
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-4'
+          widget={createWidget({ key: 'watchlist-widget', params: { provider: 'alpaca' } })}
+          canEditWidgetParams
+          canMutateWatchlist={false}
+        />
+      )
+    })
+
+    const button = (label: string) =>
+      Array.from(container.querySelectorAll('button')).find((candidate) =>
+        candidate.textContent?.includes(label)
+      )
+    const refreshButton = button('Refresh')
+
+    expect(button('Create List')?.hasAttribute('disabled')).toBe(true)
+    expect(button('Import')?.hasAttribute('disabled')).toBe(true)
+    expect(refreshButton?.hasAttribute('disabled')).toBe(false)
+
+    await act(async () => {
+      refreshButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-4', 'watchlist-widget', {
+      runtime: { refreshAt: expect.any(Number) },
+    })
+    expect(mockSetWatchlistItems).not.toHaveBeenCalled()
+    expect(mockSaveWatchlistDocument).not.toHaveBeenCalled()
+  })
+
   it('imports watchlist files into the selected watchlist document', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -348,6 +386,8 @@ describe('watchlist header controls', () => {
           workspaceId='workspace-1'
           panelId='panel-4'
           widget={createWidget({ key: 'watchlist-widget', params: {} })}
+          canEditWidgetParams
+          canMutateWatchlist
         />
       )
     })
@@ -443,6 +483,7 @@ describe('watchlist header controls', () => {
           workspaceId='workspace-1'
           panelId='panel-4'
           widget={createWidget({ key: 'watchlist-widget', params: {} })}
+          canEditWidgetParams
         />
       )
     })

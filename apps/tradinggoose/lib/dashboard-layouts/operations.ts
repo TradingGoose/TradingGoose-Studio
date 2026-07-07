@@ -228,25 +228,19 @@ export async function readActiveDashboardLayoutProjection(scope: DashboardLayout
   }
 }
 
-export async function ensureActiveDashboardLayoutProjection(
+export async function provisionDashboardLayoutForWorkspaceUserInTx(
+  tx: DashboardLayoutWriteStore,
   scope: DashboardLayoutOwnerScope
-): Promise<{ activeLayout: DashboardLayoutProjection; layouts: DashboardLayoutTab[] }> {
-  const result = await withDashboardLayoutOwnerLock(scope, async (tx) => {
-    const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
-    const active = orderedRows.find((row) => row.isActive) ?? orderedRows[0]
-    if (active) {
-      return { active, layouts: orderedRows.map(toLayoutTab), created: false }
-    }
+): Promise<boolean> {
+  await lockDashboardLayoutOwner(tx, scope)
+  const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
+  if (orderedRows.length > 0) return false
 
-    const created = await insertDashboardLayoutRow(tx, scope, [], {
-      name: 'Default Layout',
-      isActive: true,
-    })
-    return { active: created.row, layouts: [toLayoutTab(created.row)], created: true }
+  await insertDashboardLayoutRow(tx, scope, [], {
+    name: 'Default Layout',
+    isActive: true,
   })
-
-  if (result.created) await refreshLayoutList(scope)
-  return { activeLayout: await hydrateLayoutRow(result.active), layouts: result.layouts }
+  return true
 }
 
 async function withDashboardLayoutOwnerLock<T>(
@@ -254,11 +248,18 @@ async function withDashboardLayoutOwnerLock<T>(
   callback: (tx: DashboardLayoutWriteStore) => Promise<T>
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(${DASHBOARD_LAYOUT_OWNER_LOCK_NAMESPACE}, hashtext(${`${scope.workspaceId}:${scope.ownerUserId}`}))`
-    )
+    await lockDashboardLayoutOwner(tx, scope)
     return callback(tx)
   })
+}
+
+async function lockDashboardLayoutOwner(
+  tx: Pick<typeof db, 'execute'>,
+  scope: DashboardLayoutOwnerScope
+) {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${DASHBOARD_LAYOUT_OWNER_LOCK_NAMESPACE}, hashtext(${`${scope.workspaceId}:${scope.ownerUserId}`}))`
+  )
 }
 
 async function insertDashboardLayoutRow(

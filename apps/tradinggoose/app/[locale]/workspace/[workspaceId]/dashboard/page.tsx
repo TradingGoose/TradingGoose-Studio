@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth'
-import { ensureActiveDashboardLayoutProjection } from '@/lib/dashboard-layouts/operations'
+import { readActiveDashboardLayoutProjection } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 
@@ -23,8 +23,11 @@ export default async function WorkspaceDashboardPage({
   }
 
   const scope = { workspaceId, ownerUserId: userId }
-  const projection = await ensureActiveDashboardLayoutProjection(scope)
+  const projection = await readActiveDashboardLayoutProjection(scope)
   const activeLayout = projection.activeLayout
+  if (!activeLayout) {
+    throw new Error(`Dashboard layout is not provisioned for workspace ${workspaceId}`)
+  }
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
@@ -37,7 +40,7 @@ export default async function WorkspaceDashboardPage({
           initialLayoutName={activeLayout.name}
           initialLayouts={projection.layouts}
           initialColorPairs={activeLayout.colorPairs}
-          canWrite={access.canWrite}
+          workspaceCanWrite={access.canWrite}
         />
       </div>
     </div>

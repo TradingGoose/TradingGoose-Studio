@@ -83,7 +83,6 @@ export function useDashboardLayoutDocument(input: {
   workspaceId: string | null | undefined
   ownerUserId: string | null | undefined
   layoutId: string | null | undefined
-  canWrite: boolean
   initialName: string
   initialLayout: LayoutNode
   initialColorPairs: PersistedColorPairsState | unknown
@@ -93,7 +92,7 @@ export function useDashboardLayoutDocument(input: {
     input.layoutId,
     input.workspaceId,
     input.ownerUserId,
-    input.canWrite ? 'write' : 'read'
+    'write'
   )
   const [name] = useYjsStringField(doc, 'name', input.initialName)
   const initialLayout = useMemo(

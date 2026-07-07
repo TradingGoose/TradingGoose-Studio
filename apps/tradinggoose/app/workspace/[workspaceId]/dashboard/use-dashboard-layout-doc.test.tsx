@@ -74,7 +74,6 @@ describe('useDashboardLayoutDocument live fields', () => {
         workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
         layoutId: 'layout-1',
-        canWrite: true,
         initialName: 'Layout',
         initialLayout: layout,
         initialColorPairs: hydratedColorPairs,

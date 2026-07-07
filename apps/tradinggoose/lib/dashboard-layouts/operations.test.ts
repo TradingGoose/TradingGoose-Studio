@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createDashboardLayout,
   deleteDashboardLayout,
-  ensureActiveDashboardLayoutProjection,
   materializeDashboardLayoutFields,
+  provisionDashboardLayoutForWorkspaceUserInTx,
   readActiveDashboardLayoutProjection,
 } from '@/lib/dashboard-layouts/operations'
 
@@ -155,30 +155,26 @@ describe('dashboard layout operations', () => {
     )
   })
 
-  it('ensures a default active layout for an owner scope without layouts', async () => {
+  it('provisions a default active layout inside an owner transaction', async () => {
     m.selectRows.mockResolvedValueOnce([])
     m.insertRows.mockResolvedValueOnce([
       row({ id: 'layout-new', name: 'Default Layout', sort_order: 0, isActive: true }),
     ])
 
-    const result = await ensureActiveDashboardLayoutProjection(scope)
+    const created = await provisionDashboardLayoutForWorkspaceUserInTx(
+      {
+        delete: m.txDelete,
+        execute: m.txExecute,
+        insert: m.txInsert,
+        select: m.db.select,
+        update: m.txUpdate,
+      } as any,
+      scope
+    )
 
-    expect(result.activeLayout).toMatchObject({
-      id: 'layout-new',
-      isActive: true,
-    })
-    expect(result.layouts).toEqual([expect.objectContaining({ id: 'layout-new' })])
-    expect(m.txInsert).toHaveBeenCalled()
-  })
-
-  it('returns the layout found inside the owner lock without inserting', async () => {
-    m.selectRows.mockResolvedValueOnce([row({ id: 'layout-existing' })])
-
-    const result = await ensureActiveDashboardLayoutProjection(scope)
-
-    expect(result.activeLayout).toMatchObject({ id: 'layout-existing' })
+    expect(created).toBe(true)
     expect(m.txExecute).toHaveBeenCalled()
-    expect(m.txInsert).not.toHaveBeenCalled()
+    expect(m.txInsert).toHaveBeenCalled()
   })
 
   it.each([

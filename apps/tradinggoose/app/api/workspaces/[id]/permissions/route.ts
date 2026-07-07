@@ -161,8 +161,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       throw error
     }
 
+    const memberRows = await db
+      .select({ userId: permissions.userId })
+      .from(permissions)
+      .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
+    const memberIds = new Set(memberRows.map((row) => row.userId))
+    const missingMember = body.updates.find((update) => !memberIds.has(update.userId))
+    if (missingMember) {
+      return NextResponse.json({ error: 'Workspace member not found' }, { status: 400 })
+    }
+
     await db.transaction(async (tx) => {
       for (const update of body.updates) {
+        const now = new Date()
         await tx
           .delete(permissions)
           .where(
@@ -179,8 +190,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           entityType: 'workspace' as const,
           entityId: workspaceId,
           permissionType: update.permissions,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: now,
+          updatedAt: now,
         })
       }
     })

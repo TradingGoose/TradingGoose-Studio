@@ -9,10 +9,11 @@ import {
   workflow,
   workspace,
 } from '@tradinggoose/db/schema'
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { getStableVibrantColor } from '@/lib/colors'
-import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { provisionDashboardLayoutForWorkspaceUserInTx } from '@/lib/dashboard-layouts/operations'
+import { buildWorkspaceAccessScope, type PermissionType } from '@/lib/permissions/utils'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 
@@ -75,6 +76,10 @@ export async function createDefaultWorkspaceForUser(userId: string, userName?: s
     const workspaceDetails = buildWorkspaceRecord(userId, name)
     await tx.insert(workspace).values(workspaceDetails)
     await insertDefaultWorkspaceEntityDocuments(tx, workspaceDetails.id, userId)
+    await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+      workspaceId: workspaceDetails.id,
+      ownerUserId: userId,
+    })
     return toOwnedWorkspaceApiRecord(workspaceDetails)
   })
 }
@@ -108,8 +113,43 @@ export async function createWorkspace(userId: string, name: string) {
   await db.transaction(async (tx) => {
     await tx.insert(workspace).values(workspaceDetails)
     await insertDefaultWorkspaceEntityDocuments(tx, workspaceDetails.id, userId)
+    await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+      workspaceId: workspaceDetails.id,
+      ownerUserId: userId,
+    })
   })
   return toOwnedWorkspaceApiRecord(workspaceDetails)
+}
+
+export async function grantWorkspaceAccessInTx(
+  tx: Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>,
+  input: { workspaceId: string; userId: string; permissionType: PermissionType }
+) {
+  const now = new Date()
+  await tx
+    .delete(permissions)
+    .where(
+      and(
+        eq(permissions.userId, input.userId),
+        eq(permissions.entityType, 'workspace'),
+        eq(permissions.entityId, input.workspaceId)
+      )
+    )
+
+  await tx.insert(permissions).values({
+    id: crypto.randomUUID(),
+    userId: input.userId,
+    entityType: 'workspace' as const,
+    entityId: input.workspaceId,
+    permissionType: input.permissionType,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+    workspaceId: input.workspaceId,
+    ownerUserId: input.userId,
+  })
 }
 
 async function insertDefaultWorkspaceEntityDocuments(

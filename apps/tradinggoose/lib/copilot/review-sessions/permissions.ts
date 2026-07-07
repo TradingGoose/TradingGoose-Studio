@@ -256,7 +256,7 @@ async function verifySavedEntityTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkspaceAccess(userId, layout.workspaceId, accessMode)
+    return verifyWorkspaceAccess(userId, layout.workspaceId, 'read')
   }
 
   const workspaceId = await resolveEntityWorkspaceId(
@@ -322,7 +322,11 @@ export async function verifyReviewTargetAccess(
         return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
       }
     }
-    return verifyWorkspaceAccess(userId, reviewTarget.workspaceId, accessMode)
+    return verifyWorkspaceAccess(
+      userId,
+      reviewTarget.workspaceId,
+      reviewTarget.entityKind === 'dashboard_layout' ? 'read' : accessMode
+    )
   }
 
   if (reviewTarget.entityKind === 'workflow') {

@@ -275,7 +275,29 @@ describe('WatchlistTable section interactions', () => {
 
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {
     await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+      root.render(
+        <WatchlistTable
+          {...(createTableProps({
+            watchlist: {
+              ...watchlist,
+              items: [
+                { id: 'section-1', type: 'section', parentId: null, label: 'Section 1' },
+                {
+                  id: 'root-listing',
+                  type: 'listing',
+                  parentId: null,
+                  listing: {
+                    listing_id: 'ROOT',
+                    base_id: '',
+                    quote_id: '',
+                    listing_type: 'default',
+                  },
+                },
+              ],
+            },
+          }) as any)}
+        />
+      )
     })
 
     const wrapper = container.firstElementChild as HTMLElement | null
@@ -284,9 +306,12 @@ describe('WatchlistTable section interactions', () => {
       row.textContent?.includes('Section 1')
     )
     const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.textContent?.includes('BTC')
+      row.textContent?.includes('ROOT')
     )
     const marketListingRow = container.querySelector('[data-testid="market-listing-row"]')
+    const bodyRows = Array.from(container.querySelectorAll('tbody tr')).map(
+      (row) => row.textContent ?? ''
+    )
 
     expect(container.textContent).toContain('Symbol')
     expect(container.textContent).toContain('Asset')
@@ -302,6 +327,9 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
+    expect(bodyRows.findIndex((row) => row.includes('Section 1'))).toBeLessThan(
+      bodyRows.findIndex((row) => row.includes('ROOT'))
+    )
   })
 
   it('formats watchlist item numbers with two decimal digits', async () => {
