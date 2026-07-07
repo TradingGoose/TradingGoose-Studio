@@ -164,9 +164,7 @@ export function collectDashboardLayoutReferenceCandidates(
     }
     const widget = node.widget
     if (!widget) return
-    if (!isWidgetKey(widget.key)) {
-      failWidgetConfig('widget.key', `Unknown widget key "${String(widget.key)}"`)
-    }
+    if (!isWidgetKey(widget.key)) return
 
     const references = collectWidgetReferenceCandidates(widget.key, widget.params)
     const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
@@ -262,10 +260,7 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     }
   }
   let currentKey: WidgetKey | null = null
-  if (current) {
-    if (!isWidgetKey(current.key)) {
-      failWidgetConfig('widgetKey', `Unknown widget key "${String(current.key)}"`)
-    }
+  if (current && isWidgetKey(current.key)) {
     currentKey = current.key
   }
   const currentPairColor = current && isPairColor(current.pairColor) ? current.pairColor : 'gray'
@@ -481,7 +476,8 @@ function buildCarriedPairContext(input: {
   if (
     input.nextPairColor === 'gray' ||
     input.nextPairColor === input.beforePairColor ||
-    !input.beforeWidget
+    !input.beforeWidget ||
+    !isWidgetKey(input.beforeWidget.key)
   ) {
     return {}
   }

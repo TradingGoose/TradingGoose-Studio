@@ -458,21 +458,37 @@ describe('applyWidgetConfigMutation', () => {
     )
   })
 
-  it('rejects unknown persisted widget keys during reference collection', () => {
-    expect(() =>
+  it('skips non-contract persisted widget keys during reference collection', () => {
+    expect(
       collectDashboardLayoutReferenceCandidates(unknownWidgetLayout(), {
         pairs: [],
       })
-    ).toThrow('Unknown widget key "unknown_widget"')
+    ).toEqual([])
+    expect(
+      collectDashboardLayoutReferenceCandidates(panel('panel-empty-widget', 'empty', 'gray'), {
+        pairs: [],
+      })
+    ).toEqual([])
   })
 
-  it.each<MutationInput['patch']>([
-    { params: { data: { provider: 'alpaca' } } },
-    { widgetKey: 'watchlist' },
-  ])('rejects mutations against unknown current widget keys (%j)', (patch) => {
-    expect(() => apply({ layout: unknownWidgetLayout(), panelId: 'panel-unknown', patch })).toThrow(
-      'Unknown widget key "unknown_widget"'
-    )
+  it('requires a canonical target widget key before editing unknown current widget keys', () => {
+    expect(() =>
+      apply({
+        layout: unknownWidgetLayout(),
+        panelId: 'panel-unknown',
+        patch: { params: { data: { provider: 'alpaca' } } },
+      })
+    ).toThrow('A target widgetKey is required for empty panel "panel-unknown"')
+  })
+
+  it('replaces unknown current widget keys when a canonical target widget key is supplied', () => {
+    const result = apply({
+      layout: unknownWidgetLayout(),
+      panelId: 'panel-unknown',
+      patch: { widgetKey: 'watchlist' },
+    })
+
+    expect(result.widget).toEqual(getDefaultWidgetInstance('watchlist'))
   })
 
   it('requires scoped reference validation proof before applying entity references', () => {
