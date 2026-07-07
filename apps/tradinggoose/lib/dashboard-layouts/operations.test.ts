@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createDashboardLayout,
   deleteDashboardLayout,
+  ensureActiveDashboardLayoutProjection,
   materializeDashboardLayoutFields,
   readActiveDashboardLayoutProjection,
 } from '@/lib/dashboard-layouts/operations'
@@ -138,6 +139,22 @@ describe('dashboard layout operations', () => {
       'workspace-1',
       'user-1'
     )
+  })
+
+  it('ensures a default active layout for an owner scope without layouts', async () => {
+    m.selectRows.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    m.insertRows.mockResolvedValueOnce([
+      row({ id: 'layout-new', name: 'Default Layout', sort_order: 0, isActive: true }),
+    ])
+
+    const result = await ensureActiveDashboardLayoutProjection(scope)
+
+    expect(result.activeLayout).toMatchObject({
+      id: 'layout-new',
+      isActive: true,
+    })
+    expect(result.layouts).toEqual([expect.objectContaining({ id: 'layout-new' })])
+    expect(m.txInsert).toHaveBeenCalled()
   })
 
   it.each([

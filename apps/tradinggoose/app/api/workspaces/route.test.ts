@@ -219,7 +219,6 @@ describe('Workspaces API Route', () => {
     expect(transactionMock).toHaveBeenCalledTimes(1)
     expect(txInsertValues.map((entry) => entry.table)).toEqual([
       schema.workspace,
-      schema.layoutMap,
       schema.workflow,
       schema.watchlistTable,
       schema.skill,
@@ -232,10 +231,9 @@ describe('Workspaces API Route', () => {
     const documentValues = txInsertValues.slice(1).map((entry) => entry.values)
 
     expect(documentValues.map((values) => values.workspaceId)).toEqual(
-      Array(7).fill(workspaceInsert.id)
+      Array(6).fill(workspaceInsert.id)
     )
     expect(documentValues.map((values) => values.name ?? values.title)).toEqual([
-      'Default Layout',
       'Default Workflow',
       'Watchlist',
       'New Skill',
@@ -243,8 +241,7 @@ describe('Workspaces API Route', () => {
       'New Indicator',
       'New MCP Server',
     ])
-    expect(documentValues[0]).toMatchObject({ userId: 'user-1', isActive: true })
-    expect(documentValues[2]).toMatchObject({ userId: null, parentId: null })
-    expect(documentValues[6]).toMatchObject({ createdBy: 'user-1', enabled: false })
+    expect(documentValues[1]).toMatchObject({ userId: null, parentId: null })
+    expect(documentValues[5]).toMatchObject({ createdBy: 'user-1', enabled: false })
   })
 })

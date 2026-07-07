@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth'
-import { readActiveDashboardLayoutProjection } from '@/lib/dashboard-layouts/operations'
+import { ensureActiveDashboardLayoutProjection } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 
@@ -23,12 +23,7 @@ export default async function WorkspaceDashboardPage({
   }
 
   const scope = { workspaceId, ownerUserId: userId }
-  const projection = await readActiveDashboardLayoutProjection(scope)
-
-  if (!projection.activeLayout) {
-    return <div />
-  }
-
+  const projection = await ensureActiveDashboardLayoutProjection(scope)
   const activeLayout = projection.activeLayout
 
   return (

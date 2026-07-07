@@ -1,7 +1,6 @@
 import { db } from '@tradinggoose/db'
 import {
   customTools,
-  layoutMap,
   mcpServers,
   permissions,
   pineIndicators,
@@ -16,11 +15,6 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
-import {
-  createDefaultColorPairsState,
-  createDefaultLayoutState,
-  serializeLayout,
-} from '@/widgets/layout'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
 const DEFAULT_WORKSPACE_BOOTSTRAP_LOCK_NAMESPACE = 1_904_202_615
@@ -126,17 +120,6 @@ async function insertDefaultWorkspaceEntityDocuments(
   const now = new Date()
   const workflowId = crypto.randomUUID()
   const indicatorId = crypto.randomUUID()
-
-  await tx.insert(layoutMap).values({
-    id: crypto.randomUUID(),
-    workspaceId,
-    userId,
-    name: 'Default Layout',
-    sort_order: 0,
-    layout: serializeLayout(createDefaultLayoutState()),
-    color_pair: createDefaultColorPairsState(),
-    isActive: true,
-  })
 
   await tx.insert(workflow).values({
     id: workflowId,

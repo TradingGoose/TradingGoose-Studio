@@ -30,8 +30,8 @@ import {
   serializeLayout,
 } from '@/widgets/layout'
 import {
-  dashboardLayoutNeedsDefaultReferenceParams,
   type DashboardLayoutDefaultReferenceParams,
+  dashboardLayoutNeedsDefaultReferenceParams,
   initializeDashboardLayoutLinkedParams,
   normalizeDashboardLayoutDocumentFields,
 } from '@/widgets/layout-document'
@@ -240,6 +240,21 @@ export async function readActiveDashboardLayoutProjection(scope: DashboardLayout
     activeLayout: active ? await hydrateLayoutRow(active) : null,
     layouts: orderedRows.map(toLayoutTab),
   }
+}
+
+export async function ensureActiveDashboardLayoutProjection(
+  scope: DashboardLayoutOwnerScope
+): Promise<{ activeLayout: DashboardLayoutProjection; layouts: DashboardLayoutTab[] }> {
+  const projection = await readActiveDashboardLayoutProjection(scope)
+  if (projection.activeLayout) {
+    return { activeLayout: projection.activeLayout, layouts: projection.layouts }
+  }
+
+  const activeLayout = await createDashboardLayout(scope, {
+    name: 'Default Layout',
+    isActive: true,
+  })
+  return { activeLayout, layouts: [activeLayout] }
 }
 
 async function hydrateLayoutRow(row: LayoutRow): Promise<DashboardLayoutProjection> {
