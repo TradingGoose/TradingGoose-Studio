@@ -23,7 +23,7 @@ import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 
-export type SavedEntityDocumentKind = EntityDocumentKind
+type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
   entityId?: string
   runtimeId?: string
@@ -35,14 +35,20 @@ export type EntityDocumentArgs = {
 /**
  * Canonical list_* entry. A list is a discovery surface — "what exists" — plus
  * the minimum state needed to know whether a listed item is usable.
+ * Owner-scoped lists (dashboard layouts) additionally carry ordering/lifecycle
+ * metadata because their list contract requires it.
  */
-export type EntityListEntry = {
+type EntityListEntry = {
   entityId: string
   entityName: string
   entityDescription?: string
   enabled?: boolean
   color?: string
   connectionStatus?: string
+  sortOrder?: number
+  isActive?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type CopilotIndicatorListEntry = {
@@ -60,18 +66,18 @@ export type EntityCreateResult = {
   fields: Record<string, unknown>
 }
 
-export type CreateEntityFromDocument = (
+type CreateEntityFromDocument = (
   fields: Record<string, unknown>,
   context: ServerToolExecutionContext | undefined
 ) => Promise<EntityCreateResult>
 
-export type ApplyEntityDocument = (input: {
+type ApplyEntityDocument = (input: {
   entityId: string
   fields: Record<string, unknown>
   workspaceId: string
 }) => Promise<Record<string, unknown>>
 
-export type PrepareEntityDocumentFields = (
+type PrepareEntityDocumentFields = (
   fields: Record<string, unknown>
 ) => Record<string, unknown>
 
@@ -82,6 +88,7 @@ const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
   knowledge_base: 'knowledge base',
   mcp_server: 'MCP server',
   watchlist: 'watchlist',
+  dashboard_layout: 'dashboard layout',
 }
 
 export function requireUserId(context?: ServerToolExecutionContext): string {
@@ -122,11 +129,17 @@ export async function verifySavedEntityContext(
   entityKind: SavedEntityDocumentKind,
   entityId: string,
   accessMode: 'read' | 'write'
-): Promise<{ userId: string; workspaceId: string }> {
+): Promise<{ userId: string; workspaceId: string; ownerUserId: string | null }> {
   const userId = requireUserId(context)
+  // Dashboard layouts are owner-scoped saved entities: the descriptor carries the
+  // authenticated user as owner and access verification enforces row ownership.
+  // Shared entity kinds keep a null owner scope.
+  const ownerUserId = entityKind === 'dashboard_layout' ? userId : null
   const access = await verifyReviewTargetAccess(
     userId,
-    buildSavedEntityDescriptor(entityKind, entityId, context?.workspaceId?.trim() ?? null),
+    buildSavedEntityDescriptor(entityKind, entityId, context?.workspaceId?.trim() ?? null, {
+      ownerUserId,
+    }),
     accessMode
   )
 
@@ -136,7 +149,7 @@ export async function verifySavedEntityContext(
     )
   }
 
-  return { userId, workspaceId: access.workspaceId }
+  return { userId, workspaceId: access.workspaceId, ownerUserId }
 }
 
 export function requireEntityId(args: EntityDocumentArgs, toolName: string): string {
@@ -194,21 +207,40 @@ export function buildReviewDocumentDiff(
 export async function readSavedEntityDocumentFields(
   kind: SavedEntityDocumentKind,
   entityId: string,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null
 ): Promise<Record<string, unknown>> {
-  return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
+  if (ownerUserId === undefined) {
+    return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
+  }
+  return readBootstrappedSavedEntityFields(
+    kind as SavedEntityKind,
+    entityId,
+    workspaceId,
+    ownerUserId
+  )
 }
 
 /**
  * Canonical read for every server-side saved-entity list_* tool: the workspace's
  * active rows. Live Yjs list sessions are the browser realtime projection; server
  * tools must not return a stale projection when that session is degraded.
+ *
+ * Owner-scoped lists (dashboard layouts) pass the authenticated user as
+ * `ownerUserId` and receive the owner list contract's ordering/lifecycle
+ * metadata. Shared entity kinds omit the owner scope and keep their entry
+ * shape unchanged.
  */
 export async function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null
 ): Promise<EntityListEntry[]> {
-  const members = await readEntityListMembersFromDb(entityKind, workspaceId)
+  const members =
+    ownerUserId === undefined
+      ? await readEntityListMembersFromDb(entityKind, workspaceId)
+      : await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
+  const includeOwnerListMetadata = ownerUserId != null
   return members.map((member) => ({
     entityId: member.id,
     entityName: member.name,
@@ -217,6 +249,18 @@ export async function buildSavedEntityListInfo(
     ...(typeof member.color === 'string' ? { color: member.color } : {}),
     ...(typeof member.connectionStatus === 'string'
       ? { connectionStatus: member.connectionStatus }
+      : {}),
+    ...(includeOwnerListMetadata && typeof member.sortOrder === 'number'
+      ? { sortOrder: member.sortOrder }
+      : {}),
+    ...(includeOwnerListMetadata && typeof member.isActive === 'boolean'
+      ? { isActive: member.isActive }
+      : {}),
+    ...(includeOwnerListMetadata && typeof member.createdAt === 'string'
+      ? { createdAt: member.createdAt }
+      : {}),
+    ...(includeOwnerListMetadata && typeof member.updatedAt === 'string'
+      ? { updatedAt: member.updatedAt }
       : {}),
   }))
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseEntityDocument, WATCHLIST_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import {
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  parseEntityDocument,
+  serializeEntityDocument,
+  WATCHLIST_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
 
 const watchlistDocument = {
   name: 'Growth',
@@ -36,5 +41,45 @@ describe('copilot entity documents', () => {
         })
       )
     ).toThrow(/settings/i)
+  })
+
+  it('round-trips dashboard layout documents with canonical crypto and currency listing identities', () => {
+    const cryptoListing = {
+      listing_type: 'crypto',
+      listing_id: '',
+      base_id: 'BTC',
+      quote_id: 'USD',
+    }
+    const currencyListing = {
+      listing_type: 'currency',
+      listing_id: '',
+      base_id: 'EUR',
+      quote_id: 'USD',
+    }
+    const document = {
+      name: 'Markets',
+      layout: {
+        id: 'panel-chart',
+        type: 'panel',
+        widget: {
+          key: 'data_chart',
+          pairColor: 'gray',
+          params: { listing: cryptoListing },
+        },
+      },
+      colorPairs: {
+        pairs: [{ color: 'red', listing: currencyListing }],
+      },
+      isActive: true,
+      sortOrder: 0,
+    }
+
+    expect(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).toBe('tg-dashboard-layout-document-v1')
+    expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
+
+    const serialized = JSON.parse(serializeEntityDocument('dashboard_layout', document))
+    expect(serialized).toEqual(document)
+    expect(serialized.layout.widget.params.listing.base).toBeUndefined()
+    expect(serialized.colorPairs.pairs[0].listing.quote).toBeUndefined()
   })
 })

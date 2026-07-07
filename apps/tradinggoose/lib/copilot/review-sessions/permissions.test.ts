@@ -101,9 +101,9 @@ describe('review session permissions', () => {
 
   it('derives saved entity workspace from the canonical entity', async () => {
     mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
-    mockDb.select.mockReturnValueOnce(
-      createMockChain([{ ownerId: 'owner-1', permissionType: 'read' }])
-    )
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
 
     const result = await verifyReviewTargetAccess(
       'collaborator-1',
@@ -119,6 +119,32 @@ describe('review session permissions', () => {
     expect(result).toEqual({
       hasAccess: true,
       userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('uses the highest workspace permission when review access rows are duplicated', async () => {
+    mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(
+        createMockChain([{ permissionType: 'read' }, { permissionType: 'write' }])
+      )
+
+    const result = await verifyReviewTargetAccess(
+      'collaborator-1',
+      {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        workspaceId: 'workspace-1',
+      },
+      'write'
+    )
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'write',
       workspaceId: 'workspace-1',
       isOwner: false,
     })

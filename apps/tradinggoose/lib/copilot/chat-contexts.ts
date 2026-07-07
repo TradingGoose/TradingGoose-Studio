@@ -1,20 +1,21 @@
 import type { ChatContext } from '@/stores/copilot/types'
-import {
-  COPILOT_WORKSPACE_ENTITY_CONFIGS,
-  readCopilotWorkspaceEntityContext,
-} from '@/widgets/widgets/copilot/workspace-entities'
+import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>(
-  COPILOT_WORKSPACE_ENTITY_CONFIGS.map(
-    (config) => `current_${config.entityKind}` as ChatContext['kind']
-  )
-)
+const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>([
+  'current_workflow',
+  'current_skill',
+  'current_custom_tool',
+  'current_indicator',
+  'current_mcp_server',
+  'current_watchlist',
+  'current_dashboard_layout',
+])
 
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
 ): boolean => Boolean(context && HIDDEN_COPILOT_CONTEXT_KINDS.has(context.kind))
 
-export const extractExplicitCopilotContexts = (
+const extractExplicitCopilotContexts = (
   contexts: ChatContext[] | null | undefined
 ): ChatContext[] =>
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
@@ -27,6 +28,12 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
 
   const entityContext = readCopilotWorkspaceEntityContext(context)
   if (entityContext) {
+    if (entityContext.entityKind === 'dashboard_layout') {
+      if (!entityContext.ownerUserId || !entityContext.entityId) {
+        throw new Error('Dashboard layout context requires ownerUserId and dashboardLayoutId')
+      }
+      return `dashboard_layout:${entityContext.ownerUserId}:${entityContext.entityId}`
+    }
     return `${entityContext.entityKind}:${entityContext.entityId ?? getContextReviewIdentity()}`
   }
 
@@ -78,20 +85,4 @@ export const mergeCopilotContexts = ({
   )
 
   return [...explicit, ...implicit]
-}
-
-export const areCopilotContextsEqual = (
-  left: ChatContext[] | null | undefined,
-  right: ChatContext[] | null | undefined
-): boolean => {
-  const leftContexts = Array.isArray(left) ? left : []
-  const rightContexts = Array.isArray(right) ? right : []
-
-  if (leftContexts.length !== rightContexts.length) {
-    return false
-  }
-
-  return leftContexts.every(
-    (context, index) => JSON.stringify(context) === JSON.stringify(rightContexts[index])
-  )
 }

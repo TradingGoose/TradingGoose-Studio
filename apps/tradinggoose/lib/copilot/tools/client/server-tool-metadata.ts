@@ -19,8 +19,8 @@ import {
   Grid2x2,
   Key,
   KeyRound,
-  ListFilter,
   ListChecks,
+  ListFilter,
   Loader2,
   MinusCircle,
   Rocket,
@@ -559,6 +559,12 @@ export const SERVER_TOOL_METADATA = {
   list_watchlists: createEntityListMetadata('watchlists', ListChecks),
   read_watchlist: createEntityReadMetadata('watchlist'),
   edit_watchlist: createEntityMutationMetadata('watchlist', 'edit', ListChecks),
+  list_layouts: createEntityListMetadata('dashboard layouts', Grid2x2),
+  read_layout: createEntityReadMetadata('dashboard layout'),
+  edit_layout: createEntityMutationMetadata('dashboard layout', 'edit', Grid2x2),
+  edit_widget: createEntityMutationMetadata('dashboard widget', 'edit', Blocks),
+  list_widgets: createEntityListMetadata('dashboard widgets', Blocks),
+  get_widgets_metadata: createEntityReadMetadata('dashboard widget metadata'),
   list_gdrive_files: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },

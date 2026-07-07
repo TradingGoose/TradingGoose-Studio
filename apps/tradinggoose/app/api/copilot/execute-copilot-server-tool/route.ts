@@ -24,6 +24,7 @@ const ExecuteSchema = z
         contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
         contextEntityId: z.string().optional(),
         workspaceId: z.string().optional(),
+        ownerUserId: z.string().optional(),
       })
       .optional(),
   })
@@ -64,8 +65,35 @@ export async function POST(req: NextRequest) {
     }
     toolName = parsedBody.toolName
     const { payload, context, reviewAction, reviewToken } = parsedBody
+    const contextEntityKind = context?.contextEntityKind
+    const contextEntityId =
+      typeof context?.contextEntityId === 'string' ? context.contextEntityId.trim() : undefined
+    const contextWorkspaceId =
+      typeof context?.workspaceId === 'string' ? context.workspaceId.trim() : undefined
+    const contextOwnerUserId =
+      typeof context?.ownerUserId === 'string' ? context.ownerUserId.trim() : undefined
+
     if (reviewAction === 'accept' && !reviewToken) {
       return createBadRequestResponse('reviewToken is required to accept a server tool review')
+    }
+    if (contextOwnerUserId && contextEntityKind !== 'dashboard_layout') {
+      return createBadRequestResponse('ownerUserId is only valid for dashboard_layout context')
+    }
+    if (contextEntityKind === 'dashboard_layout') {
+      if (contextEntityId?.includes('dashboard_layout:')) {
+        return createBadRequestResponse('dashboard_layout contextEntityId must be the raw layout id')
+      }
+      if (contextOwnerUserId && contextOwnerUserId !== userId) {
+        return createBadRequestResponse('dashboard_layout context requires authenticated ownerUserId')
+      }
+      if (
+        reviewAction !== 'accept' &&
+        (!contextEntityId || !contextWorkspaceId || !contextOwnerUserId)
+      ) {
+        return createBadRequestResponse(
+          'dashboard_layout context requires contextEntityId, workspaceId, and authenticated ownerUserId'
+        )
+      }
     }
 
     const [
@@ -84,7 +112,16 @@ export async function POST(req: NextRequest) {
     const toolId = toolName
     const isWorkspaceAgnosticTool = isWorkspaceAgnosticServerTool(toolId)
     const payloadWorkspaceId = readPayloadWorkspaceId(payload)
-    const contextWorkspaceId = context?.workspaceId?.trim()
+    const normalizedContext = context
+      ? {
+          ...(contextEntityKind ? { contextEntityKind } : {}),
+          ...(contextEntityId ? { contextEntityId } : {}),
+          ...(contextWorkspaceId ? { workspaceId: contextWorkspaceId } : {}),
+          ...(reviewAction !== 'accept' && contextOwnerUserId
+            ? { ownerUserId: contextOwnerUserId }
+            : {}),
+        }
+      : undefined
 
     if (
       !isWorkspaceAgnosticTool &&
@@ -98,8 +135,8 @@ export async function POST(req: NextRequest) {
     const executionContextInput = isWorkspaceAgnosticTool
       ? undefined
       : payloadWorkspaceId && !contextWorkspaceId
-        ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
-        : context
+        ? { ...(normalizedContext ?? {}), workspaceId: payloadWorkspaceId }
+        : normalizedContext
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
     if (!isWorkspaceAgnosticTool && executionContextInput?.workspaceId) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
-import { buildTurnProvenanceFromContexts } from './store-provenance'
+import { buildTurnProvenanceFromContexts, withPinnedToolExecutionProvenance } from './store-provenance'
 
 describe('buildTurnProvenanceFromContexts', () => {
   it('derives workflow scope from an explicit workflow mention when no live workflow is pinned', () => {
@@ -107,6 +108,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         null,
         {
           workspaceId: 'workspace-review',
+          ownerUserId: null,
           entityKind: 'skill',
           entityId: 'skill-review',
           draftSessionId: null,
@@ -125,6 +127,7 @@ describe('buildTurnProvenanceFromContexts', () => {
     expect(
       buildTurnProvenanceFromContexts(undefined, null, null, {
         workspaceId: null,
+        ownerUserId: null,
         entityKind: 'skill',
         entityId: 'skill-review',
         draftSessionId: null,
@@ -132,5 +135,96 @@ describe('buildTurnProvenanceFromContexts', () => {
         yjsSessionId: 'review-1',
       })
     ).toBeUndefined()
+  })
+
+  it('keeps current watchlist provenance while dashboard tools use the dashboard scope', () => {
+    const provenance = buildTurnProvenanceFromContexts(
+      [
+        buildCopilotWorkspaceEntityContext({
+          entityKind: 'watchlist',
+          entityId: 'watchlist-current',
+          workspaceId: 'workspace-1',
+          label: 'Current Watchlist',
+          current: true,
+        }),
+        buildCopilotWorkspaceEntityContext({
+          entityKind: 'dashboard_layout',
+          entityId: 'layout-current',
+          workspaceId: 'workspace-1',
+          ownerUserId: 'user-1',
+          label: 'Current Dashboard',
+          current: true,
+        }),
+      ],
+      'workspace-1',
+      null,
+      null,
+      'user-1'
+    )
+
+    expect(provenance).toEqual({
+      contextEntityKind: 'watchlist',
+      contextEntityId: 'workspace-1',
+      workspaceId: 'workspace-1',
+      dashboardLayoutContext: {
+        entityId: 'layout-current',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      },
+    })
+
+    expect(
+      withPinnedToolExecutionProvenance(
+        {
+          id: 'tool-1',
+          name: 'read_watchlist',
+          state: ClientToolCallState.pending,
+        },
+        provenance
+      ).provenance
+    ).toEqual({
+      contextEntityKind: 'watchlist',
+      contextEntityId: 'workspace-1',
+      workspaceId: 'workspace-1',
+    })
+
+    expect(
+      withPinnedToolExecutionProvenance(
+        {
+          id: 'tool-2',
+          name: 'edit_widget',
+          state: ClientToolCallState.pending,
+        },
+        provenance
+      ).provenance
+    ).toEqual({
+      contextEntityKind: 'dashboard_layout',
+      contextEntityId: 'layout-current',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+    })
+  })
+
+  it('ignores dashboard layout scope for a different owner', () => {
+    expect(
+      buildTurnProvenanceFromContexts(
+        [
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'dashboard_layout',
+            entityId: 'layout-other',
+            workspaceId: 'workspace-1',
+            ownerUserId: 'user-2',
+            label: 'Other Dashboard',
+            current: true,
+          }),
+        ],
+        'workspace-1',
+        null,
+        null,
+        'user-1'
+      )
+    ).toEqual({
+      workspaceId: 'workspace-1',
+    })
   })
 })

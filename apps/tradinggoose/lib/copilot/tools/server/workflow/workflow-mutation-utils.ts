@@ -116,6 +116,7 @@ export async function loadBaseWorkflowState(
 
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: access.workspaceId ?? context?.workspaceId ?? null,
+    ownerUserId: null,
     entityKind: 'workflow',
     entityId: workflowId,
     draftSessionId: null,

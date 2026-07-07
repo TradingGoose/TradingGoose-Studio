@@ -4,6 +4,8 @@ import {
   buildCopilotServerToolErrorResponse,
   StructuredServerToolError,
 } from '@/lib/copilot/server-tool-errors'
+import { createDashboardLayoutValidationError } from '@/widgets/layout-document'
+import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 describe('copilot server tool errors', () => {
   it('returns container repair guidance for invalid canonical container edge handles', () => {
@@ -153,6 +155,53 @@ describe('copilot server tool errors', () => {
         expect.objectContaining({ path: 'method' }),
       ])
     )
+  })
+
+  it('returns a structured 422 payload for dashboard layout validation failures', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_layout',
+      createDashboardLayoutValidationError(
+        'entityDocument.layout.children[0].widget.params',
+        'edit_layout cannot set widget params; use edit_widget for widget config'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_dashboard_layout_edit',
+        retryable: true,
+        issues: [
+          {
+            path: 'entityDocument.layout.children[0].widget.params',
+            message: 'edit_layout cannot set widget params; use edit_widget for widget config',
+          },
+        ],
+      }),
+    })
+    expect(response.body.hint).toContain('tg-dashboard-layout-structure-v1')
+  })
+
+  it('returns a structured 422 payload for widget config validation failures', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_widget',
+      createWidgetConfigValidationError('colorPair.watchlistId', 'Unknown watchlist id')
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_widget_config',
+        retryable: true,
+        issues: [
+          {
+            path: 'colorPair.watchlistId',
+            message: 'Unknown watchlist id',
+          },
+        ],
+      }),
+    })
+    expect(response.body.hint).toContain('get_widgets_metadata')
   })
 
   it('passes through structured server tool errors without collapsing them to 500', () => {

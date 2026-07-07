@@ -182,6 +182,31 @@ describe('tool-registry', () => {
     })
   })
 
+  it('does not inject workspace context into widget catalog tools', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'list_widgets',
+      provenance: { workspaceId: 'workspace-1' },
+    })
+
+    expect(prepareCopilotToolArgs('list_widgets', {}, context)).toEqual({})
+    expect(prepareCopilotToolArgs('list_widgets', { category: 'trading' }, context)).toEqual({
+      category: 'trading',
+    })
+    expect(
+      prepareCopilotToolArgs('get_widgets_metadata', { widgetKeys: ['data_chart'] }, context)
+    ).toEqual({
+      widgetKeys: ['data_chart'],
+    })
+    expect(() =>
+      prepareCopilotToolArgs(
+        'get_widgets_metadata',
+        { widgetKeys: ['data_chart'], workspaceId: 'workspace-1' },
+        context
+      )
+    ).toThrow()
+  })
+
   it('does not inject workspace context into listing search', () => {
     const context = createExecutionContext({
       toolCallId,

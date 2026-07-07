@@ -12,6 +12,7 @@ export interface ServerToolExecutionContext {
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
+  ownerUserId?: string
   signal?: AbortSignal
 }
 

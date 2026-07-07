@@ -12,7 +12,11 @@ const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
-  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "list"`, `type: "section"`, or `type: "listing"` entries. Root lists, root sections, and root listings use `parentId: null`; listings directly under a list use that list id as `parentId`; listings under a section use that section id. Each listing item must use a canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
+  'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "section"` or `type: "listing"` entries. Root sections and root listings use `parentId: null`; listings under a section use that section id. Each listing item must use a canonical `listingIdentity`; use `search_listing` to resolve company names, tickers, and pairs before editing watchlists.'
+const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
+  'Use full `tg-dashboard-layout-document-v1` JSON with exactly `name`, `layout`, `colorPairs`, `isActive`, and `sortOrder`. `layout` is the dashboard split/panel tree. `colorPairs` is the shared per-layout pair color context map; change it when widget pair-color shared params change. Use `list_widgets` and `get_widgets_metadata` before adding or replacing widgets.'
+const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
+  'Use `tg-dashboard-layout-structure-v1` JSON for `edit_layout`: top-level `layout` plus optional top-level `name`, `sortOrder`, or `isActive: true`. Do not include `colorPairs`, detailed widget params, or pair-color payloads. Include omitted existing panel ids in `removedPanelIds`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -336,7 +340,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   list_watchlists: {
     description:
-      'List the current workspace watchlist document. Use the returned `entityId` to read or edit the workspace root watchlist.',
+      'List the current workspace watchlist documents. Use the returned `entityId` to read or edit that watchlist.',
     kind: 'list',
     entityKind: 'watchlist',
   },
@@ -346,9 +350,45 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'watchlist',
   },
   edit_watchlist: {
-    description: `Update the workspace root watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    description: `Update the target watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
     entityKind: 'watchlist',
+  },
+  list_layouts: {
+    description:
+      'List the current user-owned dashboard layouts in the current workspace. Use the returned `entityId` with `read_layout`, `edit_layout`, or `edit_widget`.',
+    kind: 'list',
+    entityKind: 'dashboard_layout',
+  },
+  read_layout: {
+    description: `Return one user-owned dashboard layout by exact \`entityId\` as an editable document payload with \`entityDocument\`, \`effectiveLayout\`, and \`documentFormat\`. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
+    kind: 'read',
+    entityKind: 'dashboard_layout',
+  },
+  edit_layout: {
+    description: `Update target dashboard topology or metadata from a full structure \`entityDocument\` and return the resulting layout document. Prefer \`edit_widget\` for one widget change. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE}`,
+    kind: 'edit',
+    entityKind: 'dashboard_layout',
+  },
+  edit_widget: {
+    description:
+      'Patch one widget panel in a dashboard layout by exact `entityId` and `panelId`. Use a canonical `widgetKey` from `list_widgets` to add or replace the widget, `params` for widget params, `pairColor` for the panel pair color, `colorPair` for shared per-layout pair-color params, and `removedWidgetPanelIds` containing the target panel id for widget removal.',
+    kind: 'edit',
+    entityKind: 'dashboard_layout',
+  },
+  list_widgets: {
+    description:
+      'List canonical dashboard widget catalog items, including widget keys, categories, editable fields, linked color-pair fields, and capability hints. Use before adding or replacing a dashboard widget.',
+    kind: 'inspect',
+    entityKind: 'dashboard_layout',
+    surfaceKind: 'dashboard_widget',
+  },
+  get_widgets_metadata: {
+    description:
+      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults, editable params, and pair-related fields.',
+    kind: 'inspect',
+    entityKind: 'dashboard_layout',
+    surfaceKind: 'dashboard_widget',
   },
   sleep: {
     description: 'Pause for a short duration.',

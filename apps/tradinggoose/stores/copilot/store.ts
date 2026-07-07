@@ -812,7 +812,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           resolvedContexts,
           liveContext.workspaceId,
           liveContext.workflowId,
-          liveContext.reviewTarget
+          liveContext.reviewTarget,
+          runtimeContext.authenticatedUserId
         )
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
@@ -1395,6 +1396,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : {}),
               ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
+              ...(provenance?.contextEntityKind === 'dashboard_layout' && provenance.ownerUserId
+                ? { ownerUserId: provenance.ownerUserId }
+                : {}),
             }
             const reviewResult = get().toolCallsById[id]?.result
             const reviewToken =

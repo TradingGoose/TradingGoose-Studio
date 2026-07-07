@@ -8,12 +8,16 @@ import {
   WATCHLIST_DOCUMENT_FORMAT,
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
-import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
+import {
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+} from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
@@ -29,10 +33,12 @@ import {
   ReadBlockOutputsResult,
   ReadBlockUpstreamReferencesInput,
   ReadBlockUpstreamReferencesResult,
+  WidgetCatalogItemSchema,
+  WidgetMetadataProfileSchema,
 } from './tools/shared/schemas'
 
 // Tool IDs supported by the Copilot runtime
-export const COPILOT_TOOL_IDS = [
+const COPILOT_TOOL_IDS = [
   'plan',
   'checkoff_todo',
   'mark_todo_in_progress',
@@ -93,6 +99,12 @@ export const COPILOT_TOOL_IDS = [
   'list_watchlists',
   'read_watchlist',
   'edit_watchlist',
+  'list_layouts',
+  'read_layout',
+  'edit_layout',
+  'edit_widget',
+  'list_widgets',
+  'get_widgets_metadata',
   'sleep',
   'read_block_outputs',
   'read_block_upstream_references',
@@ -106,16 +118,16 @@ export const CopilotTool = Object.fromEntries(COPILOT_TOOL_IDS.map((id) => [id, 
   [K in ToolId]: K
 }
 
-// Base SSE wrapper for tool_call events emitted by the LLM
-const ToolCallSSEBase = z.object({
-  type: z.literal('tool_call'),
-  data: z.object({
-    id: z.string(),
-    name: ToolIds,
-    arguments: z.record(z.any()),
-    partial: z.boolean().default(false),
-  }),
-})
+/**
+ * Tools whose execution provenance targets one owner-scoped dashboard layout.
+ * The copilot store applies the turn's dashboard-layout context to exactly
+ * these tools at pin time.
+ */
+export const DASHBOARD_LAYOUT_TOOL_NAMES: ReadonlySet<string> = new Set<ToolId>([
+  CopilotTool.read_layout,
+  CopilotTool.edit_layout,
+  CopilotTool.edit_widget,
+])
 
 // Reusable small schemas
 const BooleanOptional = z.boolean().optional()
@@ -123,9 +135,6 @@ const NumberOptional = z.number().optional()
 const RequiredId = z.string().trim().min(1)
 const CUSTOM_TOOL_DOCUMENT_ARGUMENT_DESCRIPTION =
   'Full `tg-custom-tool-document-v1` JSON document with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
-const OptionalEntityTargetArgs = z.object({
-  entityId: z.string().optional(),
-})
 const EntityTargetArgs = z.object({
   entityId: RequiredId,
 })
@@ -278,6 +287,50 @@ const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const EditWatchlistArgs = buildEntityDocumentMutationArgs(WATCHLIST_DOCUMENT_FORMAT)
+const DashboardLayoutTargetArgs = EntityTargetArgs.strict()
+const EditDashboardLayoutArgs = EntityTargetArgs.extend({
+  entityDocument: z
+    .string()
+    .min(1)
+    .describe(
+      'Full tg-dashboard-layout-structure-v1 JSON document with top-level layout and optional name, sortOrder, or isActive: true. This edits topology and metadata only; use edit_widget for widget params, pairColor, and colorPairs.'
+    ),
+  removedPanelIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe('Existing panel ids intentionally removed from the dashboard layout.'),
+  documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
+}).strict()
+const EditDashboardWidgetArgs = EntityTargetArgs.extend({
+  panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
+  widgetKey: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      'Canonical target widget key from list_widgets. Required when adding a widget to an empty panel or replacing the existing widget. Never use an empty placeholder.'
+    ),
+  pairColor: z.enum(['gray', 'red', 'orange', 'blue', 'green', 'purple']).optional(),
+  params: z.record(z.any()).nullable().optional(),
+  colorPair: z.record(z.any()).nullable().optional(),
+  removedWidgetPanelIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe(
+      'Explicit remove intent. To remove the target widget, include the target panelId here and omit widgetKey, pairColor, params, and colorPair.'
+    ),
+}).strict()
+const GetWidgetsMetadataArgs = z
+  .object({
+    widgetKeys: z.array(z.string().trim().min(1)).min(1),
+  })
+  .strict()
+const ListWidgetsArgs = z
+  .object({
+    category: z.enum(['editor', 'list', 'utility', 'trading']).optional(),
+  })
+  .strict()
 const EditWorkflowVariableArgs = EntityTargetArgs.extend({
   entityDocument: z
     .string()
@@ -486,6 +539,12 @@ export const ToolArgSchemas = {
   list_watchlists: WorkspaceTargetArgs.strict(),
   read_watchlist: EntityTargetArgs,
   edit_watchlist: EditWatchlistArgs,
+  list_layouts: WorkspaceTargetArgs.strict(),
+  read_layout: DashboardLayoutTargetArgs,
+  edit_layout: EditDashboardLayoutArgs,
+  edit_widget: EditDashboardWidgetArgs,
+  list_widgets: ListWidgetsArgs,
+  get_widgets_metadata: GetWidgetsMetadataArgs,
 
   sleep: z.object({
     seconds: z
@@ -507,160 +566,6 @@ export const ToolArgSchemas = {
 export const ServerToolArgSchemas = {
   ...ToolArgSchemas,
 } satisfies Record<ToolId, z.ZodTypeAny>
-
-// Tool-specific SSE schemas (tool_call with typed arguments)
-function toolCallSSEFor<TName extends ToolId, TArgs extends z.ZodTypeAny>(
-  name: TName,
-  argsSchema: TArgs
-) {
-  return ToolCallSSEBase.extend({
-    data: ToolCallSSEBase.shape.data.extend({
-      name: z.literal(name),
-      arguments: argsSchema,
-    }),
-  })
-}
-
-export const ToolSSESchemas = {
-  plan: toolCallSSEFor('plan', ToolArgSchemas.plan),
-  checkoff_todo: toolCallSSEFor('checkoff_todo', ToolArgSchemas.checkoff_todo),
-  mark_todo_in_progress: toolCallSSEFor(
-    'mark_todo_in_progress',
-    ToolArgSchemas.mark_todo_in_progress
-  ),
-  [CopilotTool.read_workflow]: toolCallSSEFor(
-    CopilotTool.read_workflow,
-    ToolArgSchemas.read_workflow
-  ),
-  create_workflow: toolCallSSEFor('create_workflow', ToolArgSchemas.create_workflow),
-  [CopilotTool.list_workflows]: toolCallSSEFor(
-    CopilotTool.list_workflows,
-    ToolArgSchemas.list_workflows
-  ),
-  [CopilotTool.edit_workflow_variable]: toolCallSSEFor(
-    CopilotTool.edit_workflow_variable,
-    ToolArgSchemas.edit_workflow_variable
-  ),
-  edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
-  edit_workflow_block: toolCallSSEFor('edit_workflow_block', ToolArgSchemas.edit_workflow_block),
-  rename_workflow: toolCallSSEFor('rename_workflow', ToolArgSchemas.rename_workflow),
-  run_workflow: toolCallSSEFor('run_workflow', ToolArgSchemas.run_workflow),
-  [CopilotTool.read_workflow_logs]: toolCallSSEFor(
-    CopilotTool.read_workflow_logs,
-    ToolArgSchemas.read_workflow_logs
-  ),
-  [CopilotTool.get_available_blocks]: toolCallSSEFor(
-    CopilotTool.get_available_blocks,
-    ToolArgSchemas.get_available_blocks
-  ),
-  [CopilotTool.get_blocks_metadata]: toolCallSSEFor(
-    CopilotTool.get_blocks_metadata,
-    ToolArgSchemas.get_blocks_metadata
-  ),
-  [CopilotTool.get_agent_accessory_catalog]: toolCallSSEFor(
-    CopilotTool.get_agent_accessory_catalog,
-    ToolArgSchemas.get_agent_accessory_catalog
-  ),
-  [CopilotTool.get_indicator_catalog]: toolCallSSEFor(
-    CopilotTool.get_indicator_catalog,
-    ToolArgSchemas.get_indicator_catalog
-  ),
-  [CopilotTool.get_indicator_metadata]: toolCallSSEFor(
-    CopilotTool.get_indicator_metadata,
-    ToolArgSchemas.get_indicator_metadata
-  ),
-  search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
-  search_listing: toolCallSSEFor('search_listing', ToolArgSchemas.search_listing),
-  search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
-  make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
-  [CopilotTool.read_environment_variables]: toolCallSSEFor(
-    CopilotTool.read_environment_variables,
-    ToolArgSchemas.read_environment_variables
-  ),
-  set_environment_variables: toolCallSSEFor(
-    'set_environment_variables',
-    ToolArgSchemas.set_environment_variables
-  ),
-  [CopilotTool.read_oauth_credentials]: toolCallSSEFor(
-    CopilotTool.read_oauth_credentials,
-    ToolArgSchemas.read_oauth_credentials
-  ),
-  [CopilotTool.read_credentials]: toolCallSSEFor(
-    CopilotTool.read_credentials,
-    ToolArgSchemas.read_credentials
-  ),
-  gdrive_request_access: toolCallSSEFor(
-    'gdrive_request_access',
-    ToolArgSchemas.gdrive_request_access
-  ),
-  list_gdrive_files: toolCallSSEFor('list_gdrive_files', ToolArgSchemas.list_gdrive_files),
-  read_gdrive_file: toolCallSSEFor('read_gdrive_file', ToolArgSchemas.read_gdrive_file),
-  oauth_request_access: toolCallSSEFor('oauth_request_access', ToolArgSchemas.oauth_request_access),
-  deploy_workflow: toolCallSSEFor('deploy_workflow', ToolArgSchemas.deploy_workflow),
-  check_deployment_status: toolCallSSEFor(
-    'check_deployment_status',
-    ToolArgSchemas.check_deployment_status
-  ),
-  list_knowledge_bases: toolCallSSEFor('list_knowledge_bases', ToolArgSchemas.list_knowledge_bases),
-  read_knowledge_base: toolCallSSEFor('read_knowledge_base', ToolArgSchemas.read_knowledge_base),
-  create_knowledge_base: toolCallSSEFor(
-    'create_knowledge_base',
-    ToolArgSchemas.create_knowledge_base
-  ),
-  edit_knowledge_base: toolCallSSEFor('edit_knowledge_base', ToolArgSchemas.edit_knowledge_base),
-  rename_knowledge_base: toolCallSSEFor(
-    'rename_knowledge_base',
-    ToolArgSchemas.rename_knowledge_base
-  ),
-  query_knowledge_base: toolCallSSEFor('query_knowledge_base', ToolArgSchemas.query_knowledge_base),
-  list_custom_tools: toolCallSSEFor('list_custom_tools', ToolArgSchemas.list_custom_tools),
-  [CopilotTool.read_custom_tool]: toolCallSSEFor(
-    CopilotTool.read_custom_tool,
-    ToolArgSchemas.read_custom_tool
-  ),
-  create_custom_tool: toolCallSSEFor('create_custom_tool', ToolArgSchemas.create_custom_tool),
-  edit_custom_tool: toolCallSSEFor('edit_custom_tool', ToolArgSchemas.edit_custom_tool),
-  rename_custom_tool: toolCallSSEFor('rename_custom_tool', ToolArgSchemas.rename_custom_tool),
-  list_monitors: toolCallSSEFor('list_monitors', ToolArgSchemas.list_monitors),
-  [CopilotTool.read_monitor]: toolCallSSEFor(CopilotTool.read_monitor, ToolArgSchemas.read_monitor),
-  edit_monitor: toolCallSSEFor('edit_monitor', ToolArgSchemas.edit_monitor),
-  [CopilotTool.list_indicators]: toolCallSSEFor(
-    CopilotTool.list_indicators,
-    ToolArgSchemas.list_indicators
-  ),
-  [CopilotTool.read_indicator]: toolCallSSEFor(
-    CopilotTool.read_indicator,
-    ToolArgSchemas.read_indicator
-  ),
-  create_indicator: toolCallSSEFor('create_indicator', ToolArgSchemas.create_indicator),
-  edit_indicator: toolCallSSEFor('edit_indicator', ToolArgSchemas.edit_indicator),
-  rename_indicator: toolCallSSEFor('rename_indicator', ToolArgSchemas.rename_indicator),
-  list_skills: toolCallSSEFor('list_skills', ToolArgSchemas.list_skills),
-  [CopilotTool.read_skill]: toolCallSSEFor(CopilotTool.read_skill, ToolArgSchemas.read_skill),
-  create_skill: toolCallSSEFor('create_skill', ToolArgSchemas.create_skill),
-  edit_skill: toolCallSSEFor('edit_skill', ToolArgSchemas.edit_skill),
-  rename_skill: toolCallSSEFor('rename_skill', ToolArgSchemas.rename_skill),
-  list_mcp_servers: toolCallSSEFor('list_mcp_servers', ToolArgSchemas.list_mcp_servers),
-  [CopilotTool.read_mcp_server]: toolCallSSEFor(
-    CopilotTool.read_mcp_server,
-    ToolArgSchemas.read_mcp_server
-  ),
-  create_mcp_server: toolCallSSEFor('create_mcp_server', ToolArgSchemas.create_mcp_server),
-  edit_mcp_server: toolCallSSEFor('edit_mcp_server', ToolArgSchemas.edit_mcp_server),
-  rename_mcp_server: toolCallSSEFor('rename_mcp_server', ToolArgSchemas.rename_mcp_server),
-  list_watchlists: toolCallSSEFor('list_watchlists', ToolArgSchemas.list_watchlists),
-  read_watchlist: toolCallSSEFor('read_watchlist', ToolArgSchemas.read_watchlist),
-  edit_watchlist: toolCallSSEFor('edit_watchlist', ToolArgSchemas.edit_watchlist),
-  sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
-  [CopilotTool.read_block_outputs]: toolCallSSEFor(
-    CopilotTool.read_block_outputs,
-    ToolArgSchemas.read_block_outputs
-  ),
-  [CopilotTool.read_block_upstream_references]: toolCallSSEFor(
-    CopilotTool.read_block_upstream_references,
-    ToolArgSchemas.read_block_upstream_references
-  ),
-} as const
 
 // Known result schemas per tool (what tool_result.result should conform to)
 const WorkflowTargetEnvelope = z.object({
@@ -739,10 +644,21 @@ const GenericEntityListEntry = z.object({
   entityName: z.string().optional(),
   entityDescription: z.string().optional(),
   enabled: z.boolean().optional(),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 })
 
 const GenericEntityListResult = z.object({
-  entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server', 'watchlist']),
+  entityKind: z.enum([
+    'skill',
+    'custom_tool',
+    'indicator',
+    'mcp_server',
+    'watchlist',
+    'dashboard_layout',
+  ]),
   entities: z.array(GenericEntityListEntry),
   count: z.number(),
 })
@@ -914,6 +830,75 @@ const WatchlistDocumentMutationResult = EditEntityDocumentResultBase.merge(
   })
 )
 
+const DashboardLayoutDocumentEnvelope = z.object({
+  entityKind: z.literal('dashboard_layout'),
+  entityId: z.string(),
+  entityName: z.string().optional(),
+  workspaceId: z.string(),
+  ownerUserId: z.string(),
+  documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+  effectiveLayout: z.any().optional(),
+})
+
+const DashboardLayoutMutationResult = EditEntityDocumentResultBase.merge(
+  DashboardLayoutDocumentEnvelope.extend({
+    panelId: z.string().optional(),
+    widget: z.any().optional(),
+    colorPairDiff: z
+      .array(
+        z.object({
+          color: z.enum(['red', 'orange', 'blue', 'green', 'purple']),
+          before: z.record(z.any()),
+          after: z.record(z.any()),
+          changedFields: z.array(z.string()),
+        })
+      )
+      .optional(),
+  })
+)
+
+const DashboardLayoutReviewDiffSchema = z.object({
+  before: z.any(),
+  after: z.any(),
+  addedPanelIds: z.array(z.string()),
+  removedPanelIds: z.array(z.string()),
+  retainedPanelIds: z.array(z.string()),
+  changedPanelIds: z.array(z.string()),
+  addedPanelCount: z.number(),
+  removedPanelCount: z.number(),
+  retainedPanelCount: z.number(),
+  changedPanelCount: z.number(),
+  groupSizeChanges: z.array(
+    z.object({
+      groupId: z.string(),
+      before: z.array(z.number()),
+      after: z.array(z.number()),
+    })
+  ),
+  topologyChanged: z.boolean(),
+  metadataChanges: z.array(
+    z.object({
+      field: z.enum(['name', 'sortOrder', 'isActive']),
+      before: z.union([z.string(), z.number(), z.boolean()]),
+      after: z.union([z.string(), z.number(), z.boolean()]),
+    })
+  ),
+})
+
+const DashboardLayoutEditMutationResult = DashboardLayoutDocumentEnvelope.extend({
+  success: z.boolean(),
+  layout: z.any(),
+  colorPairs: z.any(),
+  requiresReview: z.literal(true).optional(),
+  reviewBaseStateHash: z.string().optional(),
+  preview: z
+    .object({
+      layoutDiff: DashboardLayoutReviewDiffSchema,
+    })
+    .optional(),
+})
+
 const WorkflowPreviewEdge = z.object({
   source: z.string(),
   target: z.string(),
@@ -1028,7 +1013,9 @@ export const ToolResultSchemas = {
     message: z.any().optional(),
     data: z.any().optional(),
   }),
-  [CopilotTool.read_workflow_logs]: z.object({ entries: z.array(ExecutionEntry) }),
+  [CopilotTool.read_workflow_logs]: z.object({
+    entries: z.array(ExecutionEntry),
+  }),
   [CopilotTool.get_available_blocks]: GetAvailableBlocksResult,
   [CopilotTool.get_blocks_metadata]: GetBlocksMetadataResult,
   [CopilotTool.get_agent_accessory_catalog]: GetAgentAccessoryCatalogResult,
@@ -1060,7 +1047,11 @@ export const ToolResultSchemas = {
   set_environment_variables: EnvironmentVariablesMutationResult,
   [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
-      z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
+      z.object({
+        id: z.string(),
+        provider: z.string(),
+        isDefault: z.boolean().optional(),
+      })
     ),
     total: z.number().optional(),
   }),
@@ -1069,7 +1060,11 @@ export const ToolResultSchemas = {
       oauth: z.object({
         connected: z.object({
           credentials: z.array(
-            z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
+            z.object({
+              id: z.string(),
+              provider: z.string(),
+              isDefault: z.boolean().optional(),
+            })
           ),
           total: z.number(),
         }),
@@ -1098,7 +1093,11 @@ export const ToolResultSchemas = {
     z.object({
       oauth: z.object({
         credentials: z.array(
-          z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
+          z.object({
+            id: z.string(),
+            provider: z.string(),
+            isDefault: z.boolean().optional(),
+          })
         ),
         total: z.number(),
       }),
@@ -1207,6 +1206,19 @@ export const ToolResultSchemas = {
     entityKind: z.literal('watchlist'),
   }),
   edit_watchlist: WatchlistDocumentMutationResult,
+  list_layouts: GenericEntityListResult.extend({
+    entityKind: z.literal('dashboard_layout'),
+  }),
+  read_layout: DashboardLayoutDocumentEnvelope,
+  edit_layout: DashboardLayoutEditMutationResult,
+  edit_widget: DashboardLayoutMutationResult,
+  list_widgets: z.object({
+    widgets: z.array(WidgetCatalogItemSchema),
+    count: z.number(),
+  }),
+  get_widgets_metadata: z.object({
+    metadata: z.record(WidgetMetadataProfileSchema),
+  }),
   sleep: z.object({
     success: z.boolean(),
     seconds: z.number(),
@@ -1221,14 +1233,17 @@ export const ToolRegistry = Object.freeze(
   ToolIds.options.reduce(
     (acc, toolId) => {
       const args = ToolArgSchemas[toolId]
-      const sse = ToolSSESchemas[toolId]
       const result = ToolResultSchemas[toolId]
-      acc[toolId] = { id: toolId, args, sse, result }
+      acc[toolId] = { id: toolId, args, result }
       return acc
     },
     {} as Record<
       ToolId,
-      { id: ToolId; args: z.ZodTypeAny; sse: z.ZodTypeAny; result: z.ZodTypeAny }
+      {
+        id: ToolId
+        args: z.ZodTypeAny
+        result: z.ZodTypeAny
+      }
     >
   )
 )

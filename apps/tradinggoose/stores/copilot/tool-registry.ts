@@ -119,6 +119,12 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   list_watchlists: serverTool('list_watchlists'),
   read_watchlist: serverTool('read_watchlist'),
   edit_watchlist: serverTool('edit_watchlist', true),
+  list_layouts: serverTool('list_layouts'),
+  read_layout: serverTool('read_layout'),
+  edit_layout: serverTool('edit_layout', true),
+  edit_widget: serverTool('edit_widget', true),
+  list_widgets: serverTool('list_widgets'),
+  get_widgets_metadata: serverTool('get_widgets_metadata'),
   list_gdrive_files: serverTool('list_gdrive_files'),
   read_gdrive_file: serverTool('read_gdrive_file'),
   [CopilotTool.read_oauth_credentials]: serverTool(CopilotTool.read_oauth_credentials),
@@ -162,6 +168,7 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.list_mcp_servers,
   CopilotTool.create_mcp_server,
   CopilotTool.list_watchlists,
+  CopilotTool.list_layouts,
 ])
 
 const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([
@@ -185,6 +192,7 @@ export function createExecutionContext(params: {
     ...(contextEntityKind ? { contextEntityKind } : {}),
     ...(contextEntityId ? { contextEntityId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
+    ...(provenance.ownerUserId ? { ownerUserId: provenance.ownerUserId } : {}),
     log: (level, message, extra) => {
       try {
         logger[level](message, {

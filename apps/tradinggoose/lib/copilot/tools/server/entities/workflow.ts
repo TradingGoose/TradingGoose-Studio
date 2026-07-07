@@ -235,6 +235,7 @@ export async function loadWorkflowSnapshotForCopilot(
 
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: workspaceId ?? workflowRow.workspaceId,
+    ownerUserId: null,
     entityKind: ENTITY_KIND_WORKFLOW,
     entityId: workflowId,
     draftSessionId: null,

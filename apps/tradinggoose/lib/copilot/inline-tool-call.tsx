@@ -6,10 +6,12 @@ import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
+import { DashboardLayoutReviewPreview } from '@/lib/copilot/components/dashboard-layout-review-preview'
 import { parseEntityDocument, WATCHLIST_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/identity'
+import type { DashboardLayoutReviewDiff } from '@/widgets/layout-document'
 import type {
   WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
@@ -45,9 +47,14 @@ type WatchlistReviewPayload = {
   before: WatchlistDocumentInputFields | null
   after: WatchlistDocumentInputFields
 }
+type DashboardLayoutReviewPayload =
+  {
+    title: string
+    layoutDiff: DashboardLayoutReviewDiff
+  }
 type WatchlistReviewContainer = {
   id: string
-  type: 'list' | 'section'
+  type: 'section'
   label: string
   listings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
   containers: WatchlistReviewContainer[]
@@ -244,6 +251,7 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
     entityKind === 'mcp_server' ||
     entityKind === 'knowledge_base' ||
     entityKind === 'watchlist' ||
+    entityKind === 'dashboard_layout' ||
     entityKind === 'workflow'
   )
 }
@@ -271,6 +279,8 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
   const entityLabel =
     result?.entityKind === 'workflow' && toolCall.name === 'edit_workflow_variable'
       ? 'Workflow Variable'
+      : result?.entityKind === 'dashboard_layout' && toolCall.name === 'edit_widget'
+        ? 'Widget'
       : result?.entityKind === 'custom_tool'
         ? 'Custom Tool'
         : result?.entityKind === 'mcp_server'
@@ -281,6 +291,8 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
               ? 'Indicator'
               : result?.entityKind === 'skill'
                 ? 'Skill'
+                : result?.entityKind === 'dashboard_layout'
+                  ? 'Dashboard Layout'
                 : 'Entity'
   return {
     title:
@@ -288,6 +300,37 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
         ? `Applied ${entityLabel} Changes`
         : `Proposed ${entityLabel} Changes`,
     documentDiff,
+  }
+}
+
+function readDashboardLayoutReviewPayload(toolCall: CopilotToolCall): DashboardLayoutReviewPayload | null {
+  if (!isStagedPreviewState(toolCall.state)) return null
+  if (toolCall.name !== 'edit_layout') return null
+
+  const result =
+    toolCall.result && typeof toolCall.result === 'object'
+      ? (toolCall.result as Record<string, any>)
+      : null
+  if (result?.entityKind !== 'dashboard_layout') return null
+
+  const layoutDiff = result?.preview?.layoutDiff
+  if (
+    !layoutDiff ||
+    typeof layoutDiff !== 'object' ||
+    !layoutDiff.before ||
+    !layoutDiff.after ||
+    typeof layoutDiff.before !== 'object' ||
+    typeof layoutDiff.after !== 'object'
+  ) {
+    return null
+  }
+
+  return {
+    title:
+      toolCall.state === ClientToolCallState.success
+        ? 'Applied Dashboard Layout Changes'
+        : 'Proposed Dashboard Layout Changes',
+    layoutDiff: layoutDiff as DashboardLayoutReviewDiff,
   }
 }
 
@@ -365,15 +408,12 @@ function groupWatchlistReviewItems(items: WatchlistDocumentInputItem[]) {
   >()
   const containersByParent = new Map<
     string,
-    (
-      | Extract<WatchlistDocumentInputItem, { type: 'list' }>
-      | Extract<WatchlistDocumentInputItem, { type: 'section' }>
-    )[]
+    Extract<WatchlistDocumentInputItem, { type: 'section' }>[]
   >()
 
   for (const item of items) {
     const key = keyForParent(item.parentId)
-    if (item.type === 'list' || item.type === 'section') {
+    if (item.type === 'section') {
       containersByParent.set(key, [...(containersByParent.get(key) ?? []), item])
     } else {
       listingsByParent.set(key, [...(listingsByParent.get(key) ?? []), item])
@@ -503,6 +543,15 @@ function WatchlistReviewDiff({ payload }: { payload: WatchlistReviewPayload }) {
         <WatchlistReviewDocumentView label='Proposed' document={payload.after} />
       </div>
     </div>
+  )
+}
+
+function DashboardLayoutReviewDiff({ payload }: { payload: DashboardLayoutReviewPayload }) {
+  return (
+    <DashboardLayoutReviewPreview
+      title={payload.title}
+      layoutDiff={payload.layoutDiff}
+    />
   )
 }
 
@@ -665,7 +714,9 @@ export function InlineToolCall({
   const displayName = getDisplayName(toolCall)
   const params = toolCall.params ?? {}
   const watchlistReviewPayload = readWatchlistReviewPayload(toolCall)
-  const entityReviewPayload = watchlistReviewPayload ? null : readEntityReviewPayload(toolCall)
+  const dashboardReviewPayload = readDashboardLayoutReviewPayload(toolCall)
+  const entityReviewPayload =
+    watchlistReviewPayload || dashboardReviewPayload ? null : readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)
 
@@ -833,6 +884,11 @@ export function InlineToolCall({
       {watchlistReviewPayload ? (
         <div className='px-1'>
           <WatchlistReviewDiff payload={watchlistReviewPayload} />
+        </div>
+      ) : null}
+      {dashboardReviewPayload ? (
+        <div className='px-1'>
+          <DashboardLayoutReviewDiff payload={dashboardReviewPayload} />
         </div>
       ) : null}
       {entityReviewPayload ? (

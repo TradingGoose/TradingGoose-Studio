@@ -3,6 +3,12 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { WatchlistDocumentSchema } from '@/lib/watchlists/import-export'
+import {
+  DashboardLayoutDocumentSchema,
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  normalizeDashboardLayoutDocumentFields,
+} from '@/widgets/layout-document'
+export { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
 export const INDICATOR_DOCUMENT_FORMAT = 'tg-indicator-document-v1' as const
@@ -11,13 +17,14 @@ export const KNOWLEDGE_BASE_DOCUMENT_FORMAT = 'tg-knowledge-base-document-v1' as
 export const WORKFLOW_VARIABLE_DOCUMENT_FORMAT = 'tg-workflow-variable-document-v1' as const
 export const WATCHLIST_DOCUMENT_FORMAT = 'tg-watchlist-document-v1' as const
 
-export const ENTITY_DOCUMENT_FORMATS = {
+const ENTITY_DOCUMENT_FORMATS = {
   skill: SKILL_DOCUMENT_FORMAT,
   custom_tool: CUSTOM_TOOL_DOCUMENT_FORMAT,
   indicator: INDICATOR_DOCUMENT_FORMAT,
   mcp_server: MCP_SERVER_DOCUMENT_FORMAT,
   knowledge_base: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   watchlist: WATCHLIST_DOCUMENT_FORMAT,
+  dashboard_layout: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
 } as const
 
 export type EntityDocumentKind = keyof typeof ENTITY_DOCUMENT_FORMATS
@@ -84,16 +91,17 @@ const KnowledgeBaseDocumentSchema = z.object({
     }),
 })
 
-export const EntityDocumentSchemas = {
+const EntityDocumentSchemas = {
   skill: SkillDocumentSchema,
   custom_tool: CustomToolDocumentSchema,
   indicator: IndicatorDocumentSchema,
   mcp_server: McpServerDocumentSchema,
   knowledge_base: KnowledgeBaseDocumentSchema,
   watchlist: WatchlistDocumentSchema,
+  dashboard_layout: DashboardLayoutDocumentSchema,
 } as const
 
-export type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
+type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
   (typeof EntityDocumentSchemas)[K]
 >
 
@@ -208,6 +216,8 @@ export function normalizeEntityFields(
       }
     case 'watchlist':
       return normalizeWatchlistDocumentFields(source)
+    case 'dashboard_layout':
+      return normalizeDashboardLayoutDocumentFields(source)
   }
 }
 
@@ -270,6 +280,8 @@ export function getEntityDocumentName(
     case 'knowledge_base':
       return String(normalized.name ?? '')
     case 'watchlist':
+      return String(normalized.name ?? '')
+    case 'dashboard_layout':
       return String(normalized.name ?? '')
   }
 }

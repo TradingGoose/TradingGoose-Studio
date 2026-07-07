@@ -19,6 +19,7 @@ import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
@@ -30,7 +31,7 @@ import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-export type AgentContextType =
+type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
@@ -44,13 +45,15 @@ export type AgentContextType =
   | 'current_mcp_server'
   | 'watchlist'
   | 'current_watchlist'
+  | 'dashboard_layout'
+  | 'current_dashboard_layout'
   | 'blocks'
   | 'logs'
   | 'knowledge'
   | 'workflow_block'
   | 'docs'
 
-export interface AgentContext {
+interface AgentContext {
   type: AgentContextType
   tag: string
   content: string
@@ -79,6 +82,17 @@ export async function processContextsServer(
             userId,
             tag,
             kind: entityContext.current ? 'current_workflow' : 'workflow',
+          })
+        }
+
+        if (entityKind === 'dashboard_layout') {
+          return await processDashboardLayoutContext({
+            contextKind: entityContext.current ? 'current_dashboard_layout' : 'dashboard_layout',
+            entityId: entityContext.entityId,
+            userId,
+            ownerUserId: entityContext.ownerUserId,
+            workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
+            tag,
           })
         }
 
@@ -190,21 +204,19 @@ async function processEntityContext(params: {
     const fields = await readBootstrappedSavedEntityFields(
       params.entityKind,
       params.entityId,
-      access.workspaceId
+      access.workspaceId,
+      null
     )
+    const serialized = serializeEntityContext(params.entityKind, {
+      id: params.entityId,
+      workspaceId: access.workspaceId,
+      ...fields,
+    })
 
     return {
       type: params.contextKind,
       tag: params.tag,
-      content: JSON.stringify(
-        serializeEntityContext(params.entityKind, {
-          id: params.entityId,
-          workspaceId: access.workspaceId,
-          ...fields,
-        }),
-        null,
-        2
-      ),
+      content: JSON.stringify(serialized, null, 2),
     }
   } catch (error) {
     // Only a genuinely missing entity degrades to "no context"; realtime
@@ -212,6 +224,79 @@ async function processEntityContext(params: {
     if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
       logger.warn('Skipping missing copilot entity context', {
         entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+      })
+      return null
+    }
+    throw error
+  }
+}
+
+async function processDashboardLayoutContext(params: {
+  contextKind: 'dashboard_layout' | 'current_dashboard_layout'
+  entityId: string
+  userId: string
+  ownerUserId: string | null
+  workspaceId: string | null
+  tag: string
+}): Promise<AgentContext | null> {
+  if (!params.workspaceId || params.ownerUserId !== params.userId) {
+    logger.warn('Skipping dashboard layout context outside authenticated owner scope', {
+      entityId: params.entityId,
+      workspaceId: params.workspaceId,
+      userId: params.userId,
+      ownerUserId: params.ownerUserId,
+    })
+    return null
+  }
+
+  try {
+    const access = await verifyReviewTargetAccess(
+      params.userId,
+      buildSavedEntityDescriptor('dashboard_layout', params.entityId, params.workspaceId, {
+        ownerUserId: params.ownerUserId,
+      }),
+      'read'
+    )
+    if (!access.hasAccess || !access.workspaceId) {
+      logger.warn('Skipping unauthorized dashboard layout context', {
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+        userId: params.userId,
+      })
+      return null
+    }
+
+    const fields = await readBootstrappedSavedEntityFields(
+      'dashboard_layout',
+      params.entityId,
+      access.workspaceId,
+      params.ownerUserId
+    )
+    const projection = await buildDashboardLayoutReadProjection(fields)
+
+    return {
+      type: params.contextKind,
+      tag: params.tag,
+      content: JSON.stringify(
+        {
+          entityKind: 'dashboard_layout',
+          entityId: params.entityId,
+          entityName: projection.canonicalFields.name,
+          workspaceId: access.workspaceId,
+          ownerUserId: params.ownerUserId,
+          documentFormat: projection.documentFormat,
+          entityDocument: projection.entityDocument,
+          effectiveLayout: projection.effectiveLayout,
+        },
+        null,
+        2
+      ),
+    }
+  } catch (error) {
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+      logger.warn('Skipping missing dashboard layout context', {
         entityId: params.entityId,
         workspaceId: params.workspaceId,
       })
@@ -592,6 +677,7 @@ async function readCopilotWorkflowStateFromYjs(
   const workflowState = await readBootstrappedCopilotYjsDoc(
     {
       workspaceId: access.workspaceId ?? null,
+      ownerUserId: null,
       entityKind: 'workflow',
       entityId: workflowId,
       draftSessionId: null,

@@ -11,6 +11,8 @@ import {
   throwIfServerToolAborted,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { editLayoutServerTool } from '@/lib/copilot/tools/server/dashboard-layout/edit-layout'
+import { editWidgetServerTool } from '@/lib/copilot/tools/server/dashboard-layout/edit-widget'
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import {
   createCustomToolServerTool,
@@ -28,12 +30,14 @@ import {
   editWorkflowVariableServerTool,
   listCustomToolsServerTool,
   listIndicatorsServerTool,
+  listLayoutsServerTool,
   listMcpServersServerTool,
   listSkillsServerTool,
   listWatchlistsServerTool,
   listWorkflowsServerTool,
   readCustomToolServerTool,
   readIndicatorServerTool,
+  readLayoutServerTool,
   readMcpServerServerTool,
   readSkillServerTool,
   readWatchlistServerTool,
@@ -64,6 +68,8 @@ import { readCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-
 import { readEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/read-environment-variables'
 import { readOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
+import { getWidgetsMetadataServerTool } from '@/lib/copilot/tools/server/widgets/get-widgets-metadata'
+import { listWidgetsServerTool } from '@/lib/copilot/tools/server/widgets/list-widgets'
 import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
 import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/read-block-outputs'
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
@@ -126,6 +132,12 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [listWatchlistsServerTool.name]: listWatchlistsServerTool,
   [readWatchlistServerTool.name]: readWatchlistServerTool,
   [editWatchlistServerTool.name]: editWatchlistServerTool,
+  [listLayoutsServerTool.name]: listLayoutsServerTool,
+  [readLayoutServerTool.name]: readLayoutServerTool,
+  [editLayoutServerTool.name]: editLayoutServerTool,
+  [editWidgetServerTool.name]: editWidgetServerTool,
+  [listWidgetsServerTool.name]: listWidgetsServerTool,
+  [getWidgetsMetadataServerTool.name]: getWidgetsMetadataServerTool,
   [searchListingServerTool.name]: searchListingServerTool,
 }
 
@@ -214,6 +226,12 @@ const mcpServerToolIds = [
   listWatchlistsServerTool.name,
   readWatchlistServerTool.name,
   editWatchlistServerTool.name,
+  listLayoutsServerTool.name,
+  readLayoutServerTool.name,
+  editLayoutServerTool.name,
+  editWidgetServerTool.name,
+  listWidgetsServerTool.name,
+  getWidgetsMetadataServerTool.name,
   searchListingServerTool.name,
   CopilotTool.get_available_blocks,
   CopilotTool.get_blocks_metadata,
@@ -225,6 +243,8 @@ const mcpServerToolIds = [
 const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
   CopilotTool.search_documentation,
   CopilotTool.search_listing,
+  CopilotTool.list_widgets,
+  CopilotTool.get_widgets_metadata,
 ] as const satisfies readonly ToolId[]
 
 type WorkspaceAgnosticServerToolId = (typeof WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS)[number]

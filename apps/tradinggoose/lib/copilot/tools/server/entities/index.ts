@@ -6,6 +6,10 @@ export {
   renameCustomToolServerTool,
 } from './custom-tool'
 export {
+  listLayoutsServerTool,
+  readLayoutServerTool,
+} from './dashboard-layout'
+export {
   createIndicatorServerTool,
   editIndicatorServerTool,
   listIndicatorsServerTool,

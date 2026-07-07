@@ -1,5 +1,6 @@
 'use client'
 
+import { DASHBOARD_LAYOUT_TOOL_NAMES } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
@@ -15,8 +16,10 @@ type ContextTurnProvenance = {
   workspaceId?: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
+  ownerUserId?: string
   explicit: boolean
 }
+
 
 function applyContextTurnProvenance(
   provenance: CopilotToolExecutionProvenance,
@@ -26,12 +29,32 @@ function applyContextTurnProvenance(
   if (context.workspaceId && (explicit || !provenance.workspaceId)) {
     provenance.workspaceId = context.workspaceId
   }
-  if (context.contextEntityKind && context.contextEntityId && !provenance.contextEntityId) {
+  if (
+    context.contextEntityKind &&
+    context.contextEntityKind !== 'dashboard_layout' &&
+    context.contextEntityId &&
+    !provenance.contextEntityId
+  ) {
     provenance.contextEntityKind = context.contextEntityKind
     provenance.contextEntityId = context.contextEntityId
   }
 
   return Boolean(context.workspaceId || context.contextEntityId)
+}
+
+function readDashboardLayoutContext(
+  context: ContextTurnProvenance,
+  authenticatedUserId: string | null
+): CopilotToolExecutionProvenance['dashboardLayoutContext'] | null {
+  if (context.contextEntityKind !== 'dashboard_layout') return null
+  if (!context.contextEntityId || !context.workspaceId || !context.ownerUserId) return null
+  if (!authenticatedUserId || context.ownerUserId !== authenticatedUserId) return null
+
+  return {
+    entityId: context.contextEntityId,
+    workspaceId: context.workspaceId,
+    ownerUserId: context.ownerUserId,
+  }
 }
 
 function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance | null {
@@ -44,6 +67,7 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
     workspaceId: normalizeOptionalString(entityContext.workspaceId),
     contextEntityKind: entityContext.entityKind,
     contextEntityId: normalizeOptionalString(entityContext.entityId),
+    ownerUserId: normalizeOptionalString(entityContext.ownerUserId),
     explicit: !entityContext.current,
   }
 }
@@ -52,10 +76,12 @@ export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
   workspaceId: string | null | undefined,
   liveWorkflowId: string | null | undefined,
-  reviewTarget: CopilotLiveContext['reviewTarget']
+  reviewTarget: CopilotLiveContext['reviewTarget'],
+  authenticatedUserId?: string | null
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedLiveWorkflowId = normalizeOptionalString(liveWorkflowId)
+  const normalizedAuthenticatedUserId = normalizeOptionalString(authenticatedUserId) ?? null
   const provenance: CopilotToolExecutionProvenance = {
     ...(normalizedLiveWorkflowId
       ? {
@@ -70,6 +96,13 @@ export function buildTurnProvenanceFromContexts(
   for (const context of contexts ?? []) {
     const entityContext = getContextTurnProvenance(context)
     if (entityContext) {
+      const dashboardLayoutContext = readDashboardLayoutContext(
+        entityContext,
+        normalizedAuthenticatedUserId
+      )
+      if (dashboardLayoutContext && !provenance.dashboardLayoutContext) {
+        provenance.dashboardLayoutContext = dashboardLayoutContext
+      }
       hasContext = applyContextTurnProvenance(provenance, entityContext) || hasContext
     }
   }
@@ -91,13 +124,28 @@ export function withPinnedToolExecutionProvenance(
   toolCall: CopilotToolCall,
   baseProvenance?: CopilotToolExecutionProvenance
 ): CopilotToolCall {
+  if (!toolCall.provenance && !baseProvenance) {
+    return toolCall
+  }
+
+  const dashboardLayoutContext =
+    toolCall.provenance?.dashboardLayoutContext ??
+    baseProvenance?.dashboardLayoutContext
   const mergedProvenance = {
     ...(baseProvenance ?? {}),
     ...(toolCall.provenance ?? {}),
   }
+  delete mergedProvenance.dashboardLayoutContext
 
-  if (!toolCall.provenance && !baseProvenance) {
-    return toolCall
+  if (mergedProvenance.contextEntityKind !== 'dashboard_layout') {
+    delete mergedProvenance.ownerUserId
+  }
+
+  if (dashboardLayoutContext && DASHBOARD_LAYOUT_TOOL_NAMES.has(toolCall.name)) {
+    mergedProvenance.contextEntityKind = 'dashboard_layout'
+    mergedProvenance.contextEntityId = dashboardLayoutContext.entityId
+    mergedProvenance.workspaceId = dashboardLayoutContext.workspaceId
+    mergedProvenance.ownerUserId = dashboardLayoutContext.ownerUserId
   }
 
   return {

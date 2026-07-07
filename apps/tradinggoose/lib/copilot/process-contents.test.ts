@@ -205,6 +205,7 @@ describe('processContextsServer', () => {
         entityId: 'skill-1',
         draftSessionId: null,
         reviewSessionId: null,
+        ownerUserId: null,
         workspaceId: 'workspace-1',
         yjsSessionId: 'skill-1',
       },
@@ -213,7 +214,8 @@ describe('processContextsServer', () => {
     expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
       'skill',
       'skill-1',
-      'workspace-1'
+      'workspace-1',
+      null
     )
     expect(result).toEqual([
       {
@@ -272,6 +274,7 @@ describe('processContextsServer', () => {
         entityId: 'workspace-1',
         draftSessionId: null,
         reviewSessionId: null,
+        ownerUserId: null,
         workspaceId: 'workspace-1',
         yjsSessionId: 'workspace-1',
       },
@@ -280,7 +283,8 @@ describe('processContextsServer', () => {
     expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
       'watchlist',
       'workspace-1',
-      'workspace-1'
+      'workspace-1',
+      null
     )
     expect(result).toEqual([
       {
@@ -310,6 +314,93 @@ describe('processContextsServer', () => {
         ),
       },
     ])
+  })
+
+  it('hydrates current dashboard layout contexts through the read-layout projection shape', async () => {
+    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
+      name: 'Trading Desk',
+      layout: {
+        id: 'root',
+        type: 'panel',
+        widget: null,
+      },
+      colorPairs: { pairs: [] },
+      isActive: true,
+      sortOrder: 0,
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_dashboard_layout',
+          label: 'Current Layout',
+          workspaceId: 'workspace-1',
+          ownerUserId: 'user-1',
+          dashboardLayoutId: 'layout-1',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
+      'user-1',
+      {
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        draftSessionId: null,
+        reviewSessionId: null,
+        ownerUserId: 'user-1',
+        workspaceId: 'workspace-1',
+        yjsSessionId: 'layout-1',
+      },
+      'read'
+    )
+    expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
+      'dashboard_layout',
+      'layout-1',
+      'workspace-1',
+      'user-1'
+    )
+    expect(result).toHaveLength(1)
+    const content = JSON.parse(result[0]!.content)
+    expect(content).toMatchObject({
+      entityKind: 'dashboard_layout',
+      entityId: 'layout-1',
+      entityName: 'Trading Desk',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      documentFormat: 'tg-dashboard-layout-document-v1',
+    })
+    expect(content.entityDocument).toContain('"name": "Trading Desk"')
+    expect(content.effectiveLayout).toMatchObject({
+      id: 'root',
+      type: 'panel',
+      widget: null,
+    })
+    expect(content.canonicalFields).toBeUndefined()
+    expect(content.hydratedLayout).toBeUndefined()
+    expect(content.hydratedColorPairs).toBeUndefined()
+  })
+
+  it('skips dashboard layout contexts outside the authenticated owner scope', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'dashboard_layout',
+          label: 'Other Layout',
+          workspaceId: 'workspace-1',
+          ownerUserId: 'user-2',
+          dashboardLayoutId: 'layout-1',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
+    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
   })
 
   it('skips workspace entity contexts without read access', async () => {
@@ -379,6 +470,7 @@ describe('processContextsServer', () => {
       entityId: 'workflow-1',
       draftSessionId: null,
       reviewSessionId: null,
+      ownerUserId: null,
       yjsSessionId: 'workflow-1',
     })
     expect(mockSanitizeForCopilot).toHaveBeenCalledWith({

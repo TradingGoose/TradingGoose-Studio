@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { copilotReviewSessions, permissions, workspace } from '@tradinggoose/db/schema'
+import { copilotReviewSessions, layoutMap, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { isEntityListSessionId } from '@/lib/copilot/review-sessions/identity'
 import type {
@@ -28,11 +28,29 @@ interface ReviewTargetAccessInput {
   draftSessionId?: string | null
   reviewSessionId?: string | null
   workspaceId: string | null
+  ownerUserId?: string | null
   yjsSessionId?: string | null
 }
 
 export const canWriteWithPermission = (permission: PermissionType | null) =>
   permission === 'admin' || permission === 'write'
+
+const permissionOrder: Record<PermissionType, number> = { admin: 3, write: 2, read: 1 }
+
+function resolveHighestPermission(
+  rows: Array<{ permissionType: PermissionType | null }>
+): PermissionType | null {
+  const permissions = rows.filter(
+    (row): row is { permissionType: PermissionType } => row.permissionType !== null
+  )
+  if (permissions.length === 0) return null
+
+  return permissions.reduce((highest, current) =>
+    permissionOrder[current.permissionType] > permissionOrder[highest.permissionType]
+      ? current
+      : highest
+  ).permissionType
+}
 
 /**
  * Builds a ReviewAccessResult from ownership / permission information.
@@ -85,31 +103,35 @@ async function verifyWorkspaceAccess(
   accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   try {
-    const [workspaceAccess] = await db
+    const [workspaceRow] = await db
       .select({
         ownerId: workspace.ownerId,
-        permissionType: permissions.permissionType,
       })
       .from(workspace)
-      .leftJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workspace.id),
-          eq(permissions.userId, userId)
-        )
-      )
       .where(eq(workspace.id, workspaceId))
       .limit(1)
 
-    if (!workspaceAccess) {
+    if (!workspaceRow) {
       logger.warn('Attempt to access non-existent workspace', { userId, workspaceId })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
+    const permissionRows = await db
+      .select({
+        permissionType: permissions.permissionType,
+      })
+      .from(permissions)
+      .where(
+        and(
+          eq(permissions.entityType, 'workspace'),
+          eq(permissions.entityId, workspaceId),
+          eq(permissions.userId, userId)
+        )
+      )
+
     return buildAccessResult({
-      isOwner: workspaceAccess.ownerId === userId,
-      userPermission: workspaceAccess.permissionType ?? null,
+      isOwner: workspaceRow.ownerId === userId,
+      userPermission: resolveHighestPermission(permissionRows),
       workspaceId,
       accessMode,
     })
@@ -213,6 +235,30 @@ async function verifySavedEntityTargetAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
+  if (reviewTarget.entityKind === 'dashboard_layout') {
+    const ownerUserId = reviewTarget.ownerUserId ?? null
+    if (!ownerUserId || ownerUserId !== userId) {
+      logger.warn('Dashboard layout review target owner mismatch', { userId, reviewTarget })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+
+    const [layout] = await db
+      .select({ workspaceId: layoutMap.workspaceId, userId: layoutMap.userId })
+      .from(layoutMap)
+      .where(eq(layoutMap.id, reviewTarget.entityId))
+      .limit(1)
+    if (!layout || layout.userId !== ownerUserId) {
+      logger.warn('Dashboard layout review target not found', { userId, reviewTarget })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+    if (reviewTarget.workspaceId && reviewTarget.workspaceId !== layout.workspaceId) {
+      logger.warn('Dashboard layout workspace mismatch', { userId, reviewTarget })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+
+    return verifyWorkspaceAccess(userId, layout.workspaceId, accessMode)
+  }
+
   const workspaceId = await resolveEntityWorkspaceId(
     reviewTarget.entityKind as SavedEntityKind,
     reviewTarget.entityId
@@ -269,6 +315,12 @@ export async function verifyReviewTargetAccess(
     if (!reviewTarget.workspaceId) {
       logger.warn('Entity-list review target missing workspaceId', { userId, reviewTarget })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+    if (reviewTarget.entityKind === 'dashboard_layout') {
+      if (!reviewTarget.ownerUserId || reviewTarget.ownerUserId !== userId) {
+        logger.warn('Dashboard layout list target owner mismatch', { userId, reviewTarget })
+        return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+      }
     }
     return verifyWorkspaceAccess(userId, reviewTarget.workspaceId, accessMode)
   }

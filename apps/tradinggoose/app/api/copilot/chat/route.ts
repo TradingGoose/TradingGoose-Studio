@@ -627,6 +627,68 @@ const FileAttachmentSchema = z.object({
   size: z.number(),
 })
 
+const ChatContextSchema = z
+  .object({
+    kind: z.enum([
+      'past_chat',
+      'workflow',
+      'current_workflow',
+      'skill',
+      'current_skill',
+      'indicator',
+      'current_indicator',
+      'custom_tool',
+      'current_custom_tool',
+      'mcp_server',
+      'current_mcp_server',
+      'watchlist',
+      'current_watchlist',
+      'dashboard_layout',
+      'current_dashboard_layout',
+      'blocks',
+      'logs',
+      'workflow_block',
+      'knowledge',
+      'docs',
+    ]),
+    label: z.string(),
+    reviewSessionId: z.string().optional(),
+    workflowId: z.string().optional(),
+    skillId: z.string().optional(),
+    indicatorId: z.string().optional(),
+    customToolId: z.string().optional(),
+    mcpServerId: z.string().optional(),
+    watchlistId: z.string().optional(),
+    dashboardLayoutId: z.string().optional(),
+    ownerUserId: z.string().optional(),
+    workspaceId: z.string().optional(),
+    blockTypes: z.array(z.string()).optional(),
+    knowledgeId: z.string().optional(),
+    blockId: z.string().optional(),
+    executionId: z.string().optional(),
+    draftSessionId: z.string().optional(),
+  })
+  .superRefine((context, issue) => {
+    const isDashboardContext =
+      context.kind === 'dashboard_layout' || context.kind === 'current_dashboard_layout'
+    if (isDashboardContext) {
+      if (!context.dashboardLayoutId || !context.ownerUserId || !context.workspaceId) {
+        issue.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'dashboard_layout contexts require dashboardLayoutId, ownerUserId, and workspaceId',
+        })
+      }
+      return
+    }
+
+    if (context.ownerUserId) {
+      issue.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ownerUserId is only valid for dashboard_layout contexts',
+      })
+    }
+  })
+
 const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
@@ -638,47 +700,7 @@ const ChatMessageSchema = z.object({
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
   workspaceId: z.string().optional(),
-  contexts: z
-    .array(
-      z.object({
-        kind: z.enum([
-          'past_chat',
-          'workflow',
-          'current_workflow',
-          'skill',
-          'current_skill',
-          'indicator',
-          'current_indicator',
-          'custom_tool',
-          'current_custom_tool',
-          'mcp_server',
-          'current_mcp_server',
-          'watchlist',
-          'current_watchlist',
-          'blocks',
-          'logs',
-          'workflow_block',
-          'knowledge',
-          'docs',
-        ]),
-        label: z.string(),
-        reviewSessionId: z.string().optional(),
-        workflowId: z.string().optional(),
-        skillId: z.string().optional(),
-        indicatorId: z.string().optional(),
-        customToolId: z.string().optional(),
-        mcpServerId: z.string().optional(),
-        watchlistId: z.string().optional(),
-        workspaceId: z.string().optional(),
-        blockTypes: z.array(z.string()).optional(),
-        knowledgeId: z.string().optional(),
-        blockId: z.string().optional(),
-        executionId: z.string().optional(),
-        draftSessionId: z.string().optional(),
-        // For workflow_block, provide both workflowId and blockId
-      })
-    )
-    .optional(),
+  contexts: z.array(ChatContextSchema).optional(),
 })
 
 /** POST /api/copilot/chat */

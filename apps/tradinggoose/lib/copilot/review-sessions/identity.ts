@@ -14,6 +14,24 @@ const YJS_TARGET_KIND_SET = new Set<string>(YJS_TARGET_KINDS)
 const normalizeNullableString = (value: unknown): string | null =>
   normalizeOptionalString(value) ?? null
 
+function requireCanonicalOwnerScope(
+  entityKind: ReviewEntityKind,
+  ownerUserId: string | null,
+  label: string
+): string | null {
+  if (entityKind === 'dashboard_layout') {
+    if (!ownerUserId) {
+      throw new Error(`Dashboard layout ${label} requires ownerUserId`)
+    }
+    return ownerUserId
+  }
+
+  if (ownerUserId) {
+    throw new Error(`Shared ${label} cannot carry ownerUserId`)
+  }
+  return null
+}
+
 const requireReviewEntityKind = (value: string | undefined): ReviewEntityKind => {
   const normalized = normalizeOptionalString(value)
   if (!normalized || !REVIEW_ENTITY_KIND_SET.has(normalized)) {
@@ -42,10 +60,17 @@ const requireYjsTargetKind = (value: string | undefined): YjsTargetKind => {
 export function buildSavedEntityDescriptor(
   entityKind: SavedEntityKind,
   entityId: string,
-  workspaceId: string | null
+  workspaceId: string | null,
+  options?: { ownerUserId?: string | null }
 ): ReviewTargetDescriptor {
+  const normalizedOwnerUserId = requireCanonicalOwnerScope(
+    entityKind,
+    normalizeNullableString(options?.ownerUserId ?? null),
+    'entity descriptor'
+  )
   return {
     workspaceId,
+    ownerUserId: normalizedOwnerUserId,
     entityKind,
     entityId,
     draftSessionId: null,
@@ -56,7 +81,20 @@ export function buildSavedEntityDescriptor(
 
 const ENTITY_LIST_SESSION_PREFIX = 'list:'
 
-function buildEntityListSessionId(entityKind: ReviewEntityKind, workspaceId: string): string {
+function buildEntityListSessionId(
+  entityKind: ReviewEntityKind,
+  workspaceId: string,
+  ownerUserId?: string | null
+): string {
+  const normalizedOwnerUserId = requireCanonicalOwnerScope(
+    entityKind,
+    normalizeNullableString(ownerUserId),
+    'list session'
+  )
+  if (normalizedOwnerUserId) {
+    return `${ENTITY_LIST_SESSION_PREFIX}${entityKind}:${workspaceId}:user:${normalizedOwnerUserId}`
+  }
+
   return `${ENTITY_LIST_SESSION_PREFIX}${entityKind}:${workspaceId}`
 }
 
@@ -66,15 +104,22 @@ export function isEntityListSessionId(sessionId: string): boolean {
 
 export function buildEntityListDescriptor(
   entityKind: ReviewEntityKind,
-  workspaceId: string
+  workspaceId: string,
+  options?: { ownerUserId?: string | null }
 ): ReviewTargetDescriptor {
+  const normalizedOwnerUserId = requireCanonicalOwnerScope(
+    entityKind,
+    normalizeNullableString(options?.ownerUserId ?? null),
+    'list descriptor'
+  )
   return {
     workspaceId,
+    ownerUserId: normalizedOwnerUserId,
     entityKind,
     entityId: null,
     draftSessionId: null,
     reviewSessionId: null,
-    yjsSessionId: buildEntityListSessionId(entityKind, workspaceId),
+    yjsSessionId: buildEntityListSessionId(entityKind, workspaceId, normalizedOwnerUserId),
   }
 }
 
@@ -95,6 +140,7 @@ export function buildYjsTransportEnvelope(
     sessionId: descriptor.yjsSessionId,
     reviewSessionId: targetKind === 'review_session' ? descriptor.reviewSessionId : null,
     workspaceId: descriptor.workspaceId,
+    ownerUserId: descriptor.ownerUserId,
     entityKind: descriptor.entityKind,
     entityId: descriptor.entityId,
     draftSessionId: targetKind === 'review_session' ? descriptor.draftSessionId : null,
@@ -107,6 +153,12 @@ export function buildYjsTransportEnvelope(
 export function buildReviewTargetDescriptorFromEnvelope(
   envelope: YjsTransportEnvelope
 ): ReviewTargetDescriptor {
+  const ownerUserId = requireCanonicalOwnerScope(
+    envelope.entityKind,
+    envelope.ownerUserId,
+    `${envelope.targetKind} envelope`
+  )
+
   if (envelope.targetKind === 'entity_list') {
     if (!envelope.workspaceId) {
       throw new Error('Entity-list Yjs envelope requires workspaceId')
@@ -118,16 +170,20 @@ export function buildReviewTargetDescriptorFromEnvelope(
       )
     }
 
-    if (
-      envelope.sessionId !== buildEntityListSessionId(envelope.entityKind, envelope.workspaceId)
-    ) {
+    const expectedSessionId = buildEntityListSessionId(
+      envelope.entityKind,
+      envelope.workspaceId,
+      ownerUserId
+    )
+    if (envelope.sessionId !== expectedSessionId) {
       throw new Error(
-        'Entity-list Yjs envelope sessionId must equal list:{entityKind}:{workspaceId}'
+        'Entity-list Yjs envelope sessionId does not match its workspace and owner scope'
       )
     }
 
     return {
       workspaceId: envelope.workspaceId,
+      ownerUserId,
       entityKind: envelope.entityKind,
       entityId: null,
       draftSessionId: null,
@@ -155,6 +211,7 @@ export function buildReviewTargetDescriptorFromEnvelope(
 
     return {
       workspaceId: envelope.workspaceId ?? null,
+      ownerUserId,
       entityKind: envelope.entityKind,
       entityId: envelope.entityId,
       draftSessionId: null,
@@ -190,6 +247,7 @@ export function buildReviewTargetDescriptorFromEnvelope(
 
   return {
     workspaceId: envelope.workspaceId,
+    ownerUserId,
     entityKind: envelope.entityKind,
     entityId: envelope.entityId,
     draftSessionId: envelope.draftSessionId,
@@ -213,6 +271,7 @@ export function serializeYjsTransportEnvelope(
 
   if (envelope.reviewSessionId != null) result.reviewSessionId = envelope.reviewSessionId
   if (envelope.workspaceId != null) result.workspaceId = envelope.workspaceId
+  if (envelope.ownerUserId != null) result.ownerUserId = envelope.ownerUserId
   if (envelope.entityId != null) result.entityId = envelope.entityId
   if (envelope.draftSessionId != null) result.draftSessionId = envelope.draftSessionId
 
@@ -238,6 +297,7 @@ export function parseYjsTransportEnvelope(
       })(),
     reviewSessionId: normalizeNullableString(payload.reviewSessionId),
     workspaceId: normalizeNullableString(payload.workspaceId),
+    ownerUserId: normalizeNullableString(payload.ownerUserId),
     entityKind: requireReviewEntityKind(payload.entityKind),
     entityId: normalizeNullableString(payload.entityId),
     draftSessionId: normalizeNullableString(payload.draftSessionId),

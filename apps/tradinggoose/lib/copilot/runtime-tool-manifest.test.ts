@@ -316,6 +316,46 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
+    const editLayoutSchema = manifest.tools
+      .find((tool) => tool.name === 'edit_layout')
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
+      ?.schema as
+      | {
+          additionalProperties?: boolean
+          properties?: Record<string, any>
+          required?: string[]
+        }
+      | undefined
+    const editLayoutNodeOptions = editLayoutSchema?.properties?.layout?.anyOf as
+      | Array<{
+          properties?: Record<string, any>
+          required?: string[]
+          additionalProperties?: boolean
+        }>
+      | undefined
+    const editLayoutPanelNode = editLayoutNodeOptions?.find(
+      (option) => option.properties?.type?.const === 'panel'
+    )
+    const editLayoutGroupNode = editLayoutNodeOptions?.find(
+      (option) => option.properties?.type?.const === 'group'
+    )
+
+    expect(editLayoutSchema?.additionalProperties).toBe(false)
+    expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
+    expect(editLayoutSchema?.properties?.isActive).toMatchObject({ const: true })
+    expect(editLayoutPanelNode?.additionalProperties).toBe(false)
+    expect(editLayoutPanelNode?.required).toContain('type')
+    expect(editLayoutPanelNode?.properties?.widget?.properties?.key?.enum).toContain('data_chart')
+    expect(editLayoutPanelNode?.properties?.widget?.properties?.key?.enum).not.toContain(
+      'unknown_widget'
+    )
+    expect(editLayoutGroupNode?.additionalProperties).toBe(false)
+    expect(editLayoutGroupNode?.required).toEqual(
+      expect.arrayContaining(['type', 'direction', 'children'])
+    )
+    expect(editLayoutGroupNode?.properties?.children?.items).toEqual({
+      $ref: '#/properties/layout',
+    })
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',
@@ -329,11 +369,18 @@ describe('copilot runtime tool manifest', () => {
         'create_mcp_server',
         'edit_mcp_server',
         'create_workflow',
+        'list_layouts',
+        'read_layout',
+        'edit_layout',
+        'edit_widget',
+        'list_widgets',
+        'get_widgets_metadata',
         'get_agent_accessory_catalog',
         'get_indicator_catalog',
         'get_indicator_metadata',
         'rename_skill',
       ])
     )
+    expect(toolNames).not.toEqual(expect.arrayContaining(['list_layout', 'read_widget_meta']))
   })
 })

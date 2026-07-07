@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
@@ -13,6 +13,12 @@ import {
   MonitorDocumentSchema,
 } from '@/lib/copilot/monitor/monitor-documents'
 import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
+import {
+  DashboardLayoutDocumentSchema,
+  DashboardLayoutStructureDocumentSchema,
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+} from '@/widgets/layout-document'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 
@@ -24,7 +30,6 @@ type DocumentSemanticSpecDefinition = {
 
 function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
   const jsonSchema = zodToJsonSchema(schema, {
-    $refStrategy: 'none',
     target: 'jsonSchema7',
   })
 
@@ -36,7 +41,7 @@ function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
     }
   }
 
-  const { $schema, definitions, ...parameters } = jsonSchema as Record<string, unknown>
+  const { $schema, ...parameters } = jsonSchema as Record<string, unknown>
   return parameters
 }
 
@@ -76,6 +81,16 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     documentFormat: MONITOR_DOCUMENT_FORMAT,
     documentLabel: 'monitor',
     schema: toJsonSchemaRecord(MonitorDocumentSchema),
+  },
+  {
+    documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+    documentLabel: 'dashboard layout',
+    schema: toJsonSchemaRecord(DashboardLayoutDocumentSchema),
+  },
+  {
+    documentFormat: DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+    documentLabel: 'dashboard layout structure',
+    schema: toJsonSchemaRecord(DashboardLayoutStructureDocumentSchema),
   },
 ]
 

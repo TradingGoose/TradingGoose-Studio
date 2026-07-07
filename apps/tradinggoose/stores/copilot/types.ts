@@ -3,8 +3,6 @@ import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/rev
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
-export type ToolState = ClientToolCallState
-
 export interface CopilotToolCall {
   id: string
   name: string
@@ -55,10 +53,12 @@ type WorkspaceEntityContextIdFieldByKind = {
   custom_tool: 'customToolId'
   mcp_server: 'mcpServerId'
   watchlist: 'watchlistId'
+  dashboard_layout: 'dashboardLayoutId'
 }
 
 type WorkspaceEntityContextBase = {
   workspaceId?: string
+  ownerUserId?: string
   label: string
 }
 
@@ -116,12 +116,24 @@ export interface CopilotLiveContext {
 export interface CopilotSendRuntimeContext {
   liveContext: CopilotLiveContext
   implicitContexts: ChatContext[]
+  authenticatedUserId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
+  ownerUserId?: string
+  /**
+   * Owner-scoped dashboard layout context candidate. Carried per turn and
+   * applied to the canonical flat fields only for dashboard layout tools at
+   * pin time; never sent as a parallel identity contract.
+   */
+  dashboardLayoutContext?: {
+    entityId: string
+    workspaceId: string
+    ownerUserId: string
+  }
 }
 
 export interface CopilotState {
