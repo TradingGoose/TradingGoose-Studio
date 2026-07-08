@@ -8,7 +8,8 @@ const BANNED_IMPORT_PATTERNS = [
   'workflow-editor/panel/',
 ]
 
-const PREVIEW_DIR = 'widgets/widgets/editor_workflow/components/workflow-editor/preview'
+const PREVIEW_DIR =
+  'widgets/widgets/editor_workflow/components/workflow-editor/preview'
 
 const CUTOVER_SURFACE_FILES = [
   'app/workspace/[workspaceId]/components/workflow-preview/workflow-preview.tsx',

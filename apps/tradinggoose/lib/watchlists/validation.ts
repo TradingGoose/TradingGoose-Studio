@@ -7,8 +7,9 @@ import type {
   WatchlistDocumentInputItem,
   WatchlistDocumentListingInputItem,
   WatchlistDocumentSectionInputItem,
+  WatchlistItem,
+  WatchlistSettings,
 } from '@/lib/watchlists/types'
-import type { WatchlistItem, WatchlistSettings } from '@/lib/watchlists/types'
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -204,11 +205,13 @@ function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   }
 }
 
-function assertNoDuplicateListings(items: Array<{
-  type: string
-  parentId?: string | null
-  listing?: ListingIdentity
-}>): void {
+function assertNoDuplicateListings(
+  items: Array<{
+    type: string
+    parentId?: string | null
+    listing?: ListingIdentity
+  }>
+): void {
   const seen = new Set<string>()
   for (const item of items) {
     if (item.type !== 'listing' || !item.listing) continue

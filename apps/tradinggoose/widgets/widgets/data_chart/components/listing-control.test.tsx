@@ -143,7 +143,7 @@ describe('DataChartListingControl', () => {
     expect(instance?.selectedListing).toBeNull()
   })
 
-  it('does not emit compat patches for legacy string listings (contract sanitization owns them)', async () => {
+  it('does not emit patches for non-identity listing values', async () => {
     await act(async () => {
       root.render(
         <DataChartListingControl
