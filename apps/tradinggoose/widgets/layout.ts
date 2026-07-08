@@ -167,7 +167,7 @@ export function createDefaultLayoutState(): LayoutNode {
       {
         id: createLayoutNodeId(),
         type: 'panel',
-        widget: { key: 'empty', pairColor: 'gray', params: null },
+        widget: null,
       },
       {
         id: createLayoutNodeId(),
@@ -178,19 +178,19 @@ export function createDefaultLayoutState(): LayoutNode {
           {
             id: createLayoutNodeId(),
             type: 'panel',
-            widget: { key: 'empty', pairColor: 'gray', params: null },
+            widget: null,
           },
           {
             id: createLayoutNodeId(),
             type: 'panel',
-            widget: { key: 'empty', pairColor: 'gray', params: null },
+            widget: null,
           },
         ],
       },
       {
         id: createLayoutNodeId(),
         type: 'panel',
-        widget: { key: 'empty', pairColor: 'gray', params: null },
+        widget: null,
       },
     ],
   }
@@ -453,11 +453,7 @@ function splitDashboardLayoutPanelIntoGroup(
 
 function duplicateDashboardWidgetInstance(widget: WidgetInstance): WidgetInstance {
   if (!widget) {
-    return {
-      key: 'empty',
-      pairColor: 'gray',
-      params: null,
-    }
+    return null
   }
 
   return {

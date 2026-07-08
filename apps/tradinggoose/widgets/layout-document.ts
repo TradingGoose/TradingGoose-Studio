@@ -6,6 +6,7 @@ import {
   type PersistedColorPair,
 } from '@/widgets/color-pairs'
 import {
+  createLayoutNodeId,
   type LayoutNode,
   normalizeColorPairsState,
   normalizeDashboardLayout,
@@ -14,12 +15,17 @@ import {
 } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
+  getDefaultWidgetInstance,
   isWidgetKey,
+  pruneDashboardColorPairsForLayout,
   resolveEffectiveWidgetParams,
   sanitizeWidgetInstance as sanitizeContractWidgetInstance,
+  WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
 export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v1' as const
+export const DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT =
+  'tg-dashboard-layout-structure-v1' as const
 
 export type DashboardLayoutDocumentFields = {
   name: string
@@ -34,7 +40,7 @@ export type DashboardLayoutValidationIssue = { path: string; message: string }
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const PersistedWidgetKeySchema = z.string().trim().min(1)
+const WidgetKeySchema = z.enum(WIDGET_KEYS)
 const PairColorSchema = z.enum(PAIR_COLORS as [PairColor, ...PairColor[]])
 const LinkedPairColorSchema = z.enum(
   PAIR_COLORS.filter((color): color is LinkedPairColor => color !== 'gray') as [
@@ -45,9 +51,9 @@ const LinkedPairColorSchema = z.enum(
 
 const DashboardLayoutWidgetInstanceSchema = z
   .object({
-    key: PersistedWidgetKeySchema,
-    pairColor: PairColorSchema.optional(),
-    params: z.record(z.unknown()).nullable().optional(),
+    key: WidgetKeySchema,
+    pairColor: PairColorSchema,
+    params: z.record(z.unknown()).nullable(),
   })
   .strict()
   .nullable()
@@ -71,6 +77,45 @@ const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
     direction: z.enum(['horizontal', 'vertical']),
     sizes: z.array(z.number().finite().positive()),
     children: z.array(DashboardLayoutNodeSchema).min(1),
+  })
+  .strict()
+
+const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
+  z.union([
+    z
+      .object({
+        id: z.string().trim().min(1),
+        type: z.literal('panel'),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('panel'),
+        widget: z
+          .object({
+            key: WidgetKeySchema,
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().trim().min(1).optional(),
+        type: z.literal('group'),
+        direction: z.enum(['horizontal', 'vertical']),
+        sizes: z.array(z.number().finite().positive()),
+        children: z.array(DashboardLayoutStructureNodeSchema).min(1),
+      })
+      .strict(),
+  ])
+)
+
+export const DashboardLayoutStructureDocumentSchema = z
+  .object({
+    layout: DashboardLayoutStructureNodeSchema,
+    name: z.string().trim().min(1).optional(),
+    sortOrder: z.number().int().optional(),
+    isActive: z.literal(true).optional(),
   })
   .strict()
 
@@ -200,9 +245,8 @@ function normalizeDocumentWidget(widget: unknown, path: string): WidgetInstance 
   if (params !== null && !isRecord(params)) {
     throw new Error(`${path}.params must be an object or null`)
   }
-
   if (!isWidgetKey(key)) {
-    return { key, pairColor: widget.pairColor, params }
+    throw new Error(`${path}.key must be a canonical widget key`)
   }
 
   return sanitizeContractWidgetInstance(
@@ -251,7 +295,8 @@ export function serializeDashboardLayoutDocument(
 
 export function applyLayoutEditDocument(
   currentFields: DashboardLayoutDocumentFields,
-  entityDocument: string
+  entityDocument: string,
+  removedPanelIds: readonly string[] = []
 ): DashboardLayoutDocumentFields {
   let parsed: unknown
   try {
@@ -262,11 +307,99 @@ export function applyLayoutEditDocument(
   if (!isRecord(parsed))
     failDashboardLayout('entityDocument', 'entityDocument must be a JSON object')
 
-  const nextFields = normalizeDashboardLayoutDocumentFields(parsed)
-  return {
-    ...nextFields,
-    isActive: currentFields.isActive || nextFields.isActive,
+  const parsedStructure = DashboardLayoutStructureDocumentSchema.safeParse(parsed)
+  if (!parsedStructure.success) {
+    throw new DashboardLayoutValidationError(
+      parsedStructure.error.issues.map((issue) => {
+        let path = 'entityDocument'
+        for (const segment of issue.path) {
+          path = typeof segment === 'number' ? `${path}[${segment}]` : `${path}.${segment}`
+        }
+        return { path, message: issue.message }
+      })
+    )
   }
+
+  const currentPanelWidgets = new Map<string, WidgetInstance>()
+  const collectPanelWidgets = (node: LayoutNode) => {
+    if (node.type === 'panel') {
+      currentPanelWidgets.set(node.id, node.widget)
+      return
+    }
+    node.children.forEach(collectPanelWidgets)
+  }
+  collectPanelWidgets(currentFields.layout)
+
+  const removedPanels = new Set(removedPanelIds.map((id) => id.trim()))
+  if (removedPanels.has('') || removedPanels.size !== removedPanelIds.length) {
+    failDashboardLayout('removedPanelIds', 'removedPanelIds must be unique non-empty panel ids')
+  }
+  for (const id of removedPanels) {
+    if (!currentPanelWidgets.has(id)) {
+      failDashboardLayout('removedPanelIds', `Unknown removedPanelIds entry: ${id}`)
+    }
+  }
+
+  const retainedPanelIds = new Set<string>()
+  const seenIds = new Set<string>()
+  const materializeStructureNode = (node: any): LayoutNode => {
+    const id = 'id' in node && node.id ? node.id : createLayoutNodeId()
+    if (seenIds.has(id)) {
+      failDashboardLayout('entityDocument.layout.id', `Duplicate layout node id: ${id}`)
+    }
+    seenIds.add(id)
+
+    if (node.type === 'panel') {
+      if ('widget' in node) {
+        return { id, type: 'panel', widget: getDefaultWidgetInstance(node.widget.key) }
+      }
+      if (removedPanels.has(id)) {
+        failDashboardLayout(
+          'removedPanelIds',
+          `removedPanelIds still appear in edit_layout entityDocument: ${id}`
+        )
+      }
+      if (!currentPanelWidgets.has(id)) {
+        failDashboardLayout('entityDocument.layout.id', `Unknown existing panel id: ${id}`)
+      }
+      retainedPanelIds.add(id)
+      return {
+        id,
+        type: 'panel',
+        widget: currentPanelWidgets.get(id) ?? null,
+      }
+    }
+
+    const children = node.children.map(materializeStructureNode)
+    return {
+      id,
+      type: 'group',
+      direction: node.direction,
+      sizes: readCanonicalGroupSizes(node.sizes, children.length, 'entityDocument.layout.sizes'),
+      children,
+    }
+  }
+
+  const structureDocument = parsedStructure.data
+  const nextLayout = materializeStructureNode(structureDocument.layout)
+  const omittedPanelIds = [...currentPanelWidgets.keys()].filter(
+    (panelId) => !retainedPanelIds.has(panelId) && !removedPanels.has(panelId)
+  )
+  if (omittedPanelIds.length > 0) {
+    failDashboardLayout(
+      'removedPanelIds',
+      `Existing panel ids omitted from edit_layout entityDocument without removedPanelIds: ${omittedPanelIds.join(', ')}`
+    )
+  }
+
+  return normalizeDashboardLayoutDocumentFields({
+    ...currentFields,
+    name: structureDocument.name ?? currentFields.name,
+    sortOrder: structureDocument.sortOrder ?? currentFields.sortOrder,
+    isActive: currentFields.isActive || structureDocument.isActive === true,
+    layout: nextLayout,
+    colorPairs: pruneDashboardColorPairsForLayout(nextLayout, currentFields.colorPairs),
+  })
 }
 
 export function resolveEffectiveDashboardLayout(

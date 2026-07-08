@@ -82,4 +82,27 @@ describe('copilot entity documents', () => {
     expect(serialized.layout.widget.params.listing.base).toBeUndefined()
     expect(serialized.colorPairs.pairs[0].listing.quote).toBeUndefined()
   })
+
+  it('rejects non-canonical dashboard widget keys', () => {
+    expect(() =>
+      parseEntityDocument(
+        'dashboard_layout',
+        JSON.stringify({
+          name: 'Markets',
+          layout: {
+            id: 'panel-chart',
+            type: 'panel',
+            widget: {
+              key: 'unknown_widget',
+              pairColor: 'gray',
+              params: null,
+            },
+          },
+          colorPairs: { pairs: [] },
+          isActive: true,
+          sortOrder: 0,
+        })
+      )
+    ).toThrow('layout.widget.key must be a canonical widget key')
+  })
 })

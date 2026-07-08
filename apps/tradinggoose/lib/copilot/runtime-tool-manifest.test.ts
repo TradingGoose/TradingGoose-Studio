@@ -316,60 +316,27 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
-    const editLayoutSchema = manifest.tools
+    const editLayoutProperties =
+      (manifest.tools.find((tool) => tool.name === 'edit_layout')?.parameters?.properties as
+        | Record<string, any>
+        | undefined) ?? {}
+    expect(editLayoutProperties).toHaveProperty('removedPanelIds')
+    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v1')
+    const editLayoutSemanticValidator = manifest.tools
       .find((tool) => tool.name === 'edit_layout')
-      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
-      ?.schema as
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')
+    const editLayoutSchema = editLayoutSemanticValidator?.args?.schema as
       | {
-          additionalProperties?: boolean
-          properties?: Record<string, any>
+          properties?: Record<string, unknown>
           required?: string[]
         }
       | undefined
-    const editLayoutNodeOptions = editLayoutSchema?.properties?.layout?.anyOf as
-      | Array<{
-          properties?: Record<string, any>
-          required?: string[]
-          additionalProperties?: boolean
-        }>
-      | undefined
-    const editLayoutPanelNode = editLayoutNodeOptions?.find(
-      (option) => option.properties?.type?.const === 'panel'
-    )
-    const editLayoutGroupNode = editLayoutNodeOptions?.find(
-      (option) => option.properties?.type?.const === 'group'
-    )
-    const editLayoutPanelWidget = (
-      editLayoutPanelNode?.properties?.widget?.anyOf as
-        | Array<{
-            type?: string
-            properties?: Record<string, any>
-            required?: string[]
-            additionalProperties?: boolean
-          }>
-        | undefined
-    )?.find((option) => option.type === 'object')
-
-    expect(editLayoutSchema?.additionalProperties).toBe(false)
-    expect(editLayoutSchema?.properties).toHaveProperty('colorPairs')
-    expect(editLayoutSchema?.properties?.isActive).toMatchObject({ type: 'boolean' })
-    expect(editLayoutSchema?.required).toEqual(
-      expect.arrayContaining(['name', 'layout', 'colorPairs', 'isActive', 'sortOrder'])
-    )
-    expect(editLayoutPanelNode?.additionalProperties).toBe(false)
-    expect(editLayoutPanelNode?.required).toEqual(expect.arrayContaining(['id', 'type', 'widget']))
-    expect(editLayoutPanelWidget?.properties?.key).toMatchObject({
-      type: 'string',
-      minLength: 1,
-    })
-    expect(editLayoutPanelWidget?.required).toContain('key')
-    expect(editLayoutGroupNode?.additionalProperties).toBe(false)
-    expect(editLayoutGroupNode?.required).toEqual(
-      expect.arrayContaining(['id', 'type', 'direction', 'sizes', 'children'])
-    )
-    expect(editLayoutGroupNode?.properties?.children?.items).toEqual({
-      $ref: '#/properties/layout',
-    })
+    const editLayoutSchemaText = JSON.stringify(editLayoutSchema)
+    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v1')
+    expect(editLayoutSchema?.required).toEqual(['layout'])
+    expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
+    expect(editLayoutSchemaText).not.toContain('pairColor')
+    expect(editLayoutSchemaText).not.toContain('params')
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',

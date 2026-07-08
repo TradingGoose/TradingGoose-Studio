@@ -32,7 +32,6 @@ export type WidgetConfigMutationPatch = {
   params?: Record<string, unknown> | null
   paramsMode?: 'patch' | 'replace'
   colorPair?: Record<string, unknown> | null
-  removedWidgetPanelIds?: readonly string[]
 }
 
 export type WidgetConfigValidationIssue = {
@@ -80,14 +79,14 @@ function withWidgetConfigErrors<T>(path: string, run: () => T): T {
 export type PlannedWidgetConfigMutation = {
   panelId: string
   beforeWidget: WidgetInstance
-  afterWidget: WidgetInstance
+  afterWidget: NonNullable<WidgetInstance>
   carriedPairContext: PairColorContext
 }
 
 export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
   layout: LayoutNode
   colorPairs: PersistedColorPairsState
-  widget: WidgetInstance
+  widget: NonNullable<WidgetInstance>
   beforeEffectiveParams: Record<string, unknown> | null
   afterEffectiveParams: Record<string, unknown> | null
   colorPairDiff: Array<{
@@ -149,39 +148,6 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     failWidgetConfig('panelId', `Unknown dashboard panel id: ${input.panelId}`)
   }
   const current = panel.widget
-  const removedWidgetPanelIds = normalizeRemovedWidgetPanelIds(input.patch.removedWidgetPanelIds)
-  const removesTargetWidget = removedWidgetPanelIds.has(input.panelId)
-  if (removedWidgetPanelIds.size > 0 && !removesTargetWidget) {
-    failWidgetConfig('removedWidgetPanelIds', 'edit_widget can only remove the target panel widget')
-  }
-  if (removesTargetWidget) {
-    if (!current) {
-      failWidgetConfig(
-        'removedWidgetPanelIds',
-        `Panel "${input.panelId}" does not have a widget to remove`
-      )
-    }
-    if (
-      input.patch.widgetKey !== undefined ||
-      input.patch.pairColor !== undefined ||
-      input.patch.params !== undefined ||
-      input.patch.colorPair !== undefined
-    ) {
-      failWidgetConfig(
-        'removedWidgetPanelIds',
-        'Widget removal cannot be combined with widgetKey, pairColor, params, or colorPair edits'
-      )
-    }
-    return {
-      plan: {
-        panelId: input.panelId,
-        beforeWidget: current,
-        afterWidget: null,
-        carriedPairContext: {},
-      },
-      pairPatch: {},
-    }
-  }
   let currentKey: WidgetKey | null = null
   if (current && isWidgetKey(current.key)) {
     currentKey = current.key
@@ -256,20 +222,18 @@ export function applyWidgetConfigMutation(
 ): AppliedWidgetConfigMutation {
   const { plan, pairPatch } = computeWidgetConfigMutation(input)
   const widget = plan.afterWidget
-  if (widget && !isWidgetKey(widget.key)) {
+  if (!isWidgetKey(widget.key)) {
     failWidgetConfig('widgetKey', `Unknown widget key for panel "${input.panelId}"`)
   }
 
   const layout = updateLayoutPanelWidget(input.layout, input.panelId, widget)
-  const afterPairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  const unprunedColorPairs = widget
-    ? buildNextColorPairs({
-        colorPairs: input.colorPairs,
-        pairColor: afterPairColor,
-        colorPair: input.patch.colorPair,
-        pairPatch,
-      })
-    : input.colorPairs
+  const afterPairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const unprunedColorPairs = buildNextColorPairs({
+    colorPairs: input.colorPairs,
+    pairColor: afterPairColor,
+    colorPair: input.patch.colorPair,
+    pairPatch,
+  })
   const colorPairs = normalizeColorPairsState(unprunedColorPairs)
 
   return {
@@ -281,7 +245,7 @@ export function applyWidgetConfigMutation(
       plan.beforeWidget && isWidgetKey(plan.beforeWidget.key)
         ? resolveEffectiveWidgetParams(plan.beforeWidget, input.colorPairs)
         : null,
-    afterEffectiveParams: widget ? resolveEffectiveWidgetParams(widget, colorPairs) : null,
+    afterEffectiveParams: resolveEffectiveWidgetParams(widget, colorPairs),
     colorPairDiff: buildColorPairDiff(input.colorPairs, colorPairs),
     changedPaths: buildChangedPaths(plan.beforeWidget, widget, input.colorPairs, colorPairs),
     warnings: [],
@@ -301,19 +265,6 @@ function resolveNextPairColor({
     failWidgetConfig('pairColor', `Unknown pairColor "${String(pairColor)}"`)
   }
   return pairColor
-}
-
-function normalizeRemovedWidgetPanelIds(value: readonly string[] | undefined): Set<string> {
-  if (value === undefined) return new Set()
-  const ids = value.map((id) => (typeof id === 'string' ? id.trim() : ''))
-  const unique = new Set(ids)
-  if (unique.has('') || unique.size !== ids.length) {
-    failWidgetConfig(
-      'removedWidgetPanelIds',
-      'removedWidgetPanelIds must be unique non-empty panel ids'
-    )
-  }
-  return unique
 }
 
 function resolveMutationParams(

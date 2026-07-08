@@ -5,6 +5,8 @@ import { normalizeDashboardLayoutDocumentFields } from '@/widgets/layout-documen
 type LayoutArgs = { entityId: string }
 export type EditLayoutArgs = LayoutArgs & {
   entityDocument: string
+  documentFormat?: string
+  removedPanelIds?: string[]
 }
 export type EditWidgetArgs = LayoutArgs & {
   panelId: string
@@ -12,7 +14,6 @@ export type EditWidgetArgs = LayoutArgs & {
   pairColor?: string
   params?: Record<string, unknown> | null
   colorPair?: Record<string, unknown> | null
-  removedWidgetPanelIds?: string[]
 }
 
 /**

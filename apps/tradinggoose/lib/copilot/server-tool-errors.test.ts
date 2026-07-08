@@ -161,8 +161,8 @@ describe('copilot server tool errors', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_layout',
       createDashboardLayoutValidationError(
-        'entityDocument.colorPairs',
-        'dashboard layout document colorPairs must be an object'
+        'entityDocument.layout',
+        'edit_layout entityDocument requires layout'
       )
     )
 
@@ -173,13 +173,14 @@ describe('copilot server tool errors', () => {
         retryable: true,
         issues: [
           {
-            path: 'entityDocument.colorPairs',
-            message: 'dashboard layout document colorPairs must be an object',
+            path: 'entityDocument.layout',
+            message: 'edit_layout entityDocument requires layout',
           },
         ],
       }),
     })
-    expect(response.body.hint).toContain('tg-dashboard-layout-document-v1')
+    expect(response.body.hint).toContain('tg-dashboard-layout-structure-v1')
+    expect(response.body.hint).toContain('removedPanelIds')
   })
 
   it('returns a structured 422 payload for widget config validation failures', () => {

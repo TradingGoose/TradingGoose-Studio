@@ -281,37 +281,8 @@ describe('applyWidgetConfigMutation', () => {
     )
   })
 
-  it('removes widgets only through an explicit target remove list', () => {
-    const result = apply({
-      colorPairs: { pairs: [{ color: 'red', listing: normalizedListing }] },
-      patch: { removedWidgetPanelIds: ['chart-panel'] },
-    })
-
-    expect(result.beforeWidget).toEqual({
-      key: 'data_chart',
-      pairColor: 'red',
-      params: { data: { provider: 'alpaca' } },
-    })
-    expect(result.widget).toBeNull()
-    expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'red', listing: normalizedListing }],
-    })
-    expect(result.changedPaths).toContain('widget.key')
-  })
-
-  it('rejects placeholder-style widget removal and mixed remove edits', () => {
+  it('rejects empty as an edit_widget widget key', () => {
     expect(() => apply({ patch: { widgetKey: 'empty' } })).toThrow('Unknown widget key "empty"')
-    expect(() =>
-      apply({
-        patch: {
-          removedWidgetPanelIds: ['chart-panel'],
-          widgetKey: 'watchlist',
-        },
-      })
-    ).toThrow('Widget removal cannot be combined')
-    expect(() => apply({ patch: { removedWidgetPanelIds: ['order-panel'] } })).toThrow(
-      'edit_widget can only remove the target panel widget'
-    )
   })
 
   it('requires a canonical target widget key before editing unknown current widget keys', () => {

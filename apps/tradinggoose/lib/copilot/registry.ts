@@ -14,7 +14,10 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
-import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
+import {
+  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+} from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
@@ -296,7 +299,21 @@ const CreateDashboardLayoutArgs = z
   .strict()
   .describe('Create a new inactive dashboard layout shell in the current workspace.')
 const DashboardLayoutTargetArgs = EntityTargetArgs.strict()
-const EditDashboardLayoutArgs = buildEntityDocumentMutationArgs(DASHBOARD_LAYOUT_DOCUMENT_FORMAT)
+const EditDashboardLayoutArgs = EntityTargetArgs.extend({
+  entityDocument: z
+    .string()
+    .min(1)
+    .describe(
+      'Raw tg-dashboard-layout-structure-v1 JSON document for layout topology and optional top-level name, sortOrder, or isActive:true. Existing panels use only id/type and preserve widget config; new panels use widget.key only.'
+    ),
+  documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
+  removedPanelIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe(
+      'Existing panel ids intentionally removed by omitting them from the submitted layout structure.'
+    ),
+}).strict()
 const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
   widgetKey: z
@@ -310,12 +327,6 @@ const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   pairColor: z.enum(['gray', 'red', 'orange', 'blue', 'green', 'purple']).optional(),
   params: z.record(z.any()).nullable().optional(),
   colorPair: z.record(z.any()).nullable().optional(),
-  removedWidgetPanelIds: z
-    .array(z.string().trim().min(1))
-    .optional()
-    .describe(
-      'Explicit remove intent. To remove the target widget, include the target panelId here and omit widgetKey, pairColor, params, and colorPair.'
-    ),
 }).strict()
 const GetWidgetsMetadataArgs = z
   .object({

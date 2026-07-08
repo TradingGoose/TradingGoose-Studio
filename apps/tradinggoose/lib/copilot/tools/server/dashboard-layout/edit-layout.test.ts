@@ -14,14 +14,35 @@ vi.mock('@/lib/copilot/tools/server/dashboard-layout/shared', () =>
   fx.mockDashboardSharedModule(toolMocks)
 )
 
-const execute = async (document: Record<string, unknown>, context?: Record<string, unknown>) => {
+const execute = async (
+  document: Record<string, unknown>,
+  options: { removedPanelIds?: string[]; context?: Record<string, unknown> } = {}
+) => {
   const { editLayoutServerTool } = await import('./edit-layout')
   const args = {
     entityId: 'layout-1',
-    entityDocument: JSON.stringify({ ...fx.createDashboardLayoutTestFields(), ...document }),
+    entityDocument: JSON.stringify(document),
+    removedPanelIds: options.removedPanelIds,
   }
-  return editLayoutServerTool.execute(args, { ...fx.TEST_EXECUTION_CONTEXT, ...context } as any)
+  return editLayoutServerTool.execute(args, {
+    ...fx.TEST_EXECUTION_CONTEXT,
+    ...options.context,
+  } as any)
 }
+
+const currentStructure = (overrides: Record<string, unknown> = {}) => ({
+  layout: {
+    id: 'root',
+    type: 'group',
+    direction: 'horizontal',
+    sizes: [50, 50],
+    children: [
+      { id: 'chart-panel', type: 'panel' },
+      { id: 'order-panel', type: 'panel' },
+    ],
+  },
+  ...overrides,
+})
 
 describe('edit_layout server tool', () => {
   beforeEach(() => {
@@ -29,56 +50,70 @@ describe('edit_layout server tool', () => {
   })
 
   it('rejects edit_layout sortOrder out of range before staging review', async () => {
-    await expect(execute({ sortOrder: 2 })).rejects.toThrow('edit_layout sortOrder is out of range')
+    await expect(execute(currentStructure({ sortOrder: 2 }))).rejects.toThrow(
+      'edit_layout sortOrder is out of range'
+    )
 
     expect(toolMocks.shouldStage).not.toHaveBeenCalled()
     expect(toolMocks.applyLive).not.toHaveBeenCalled()
   })
 
-  it('applies full-document widget and color-pair edits', async () => {
-    const current = fx.createDashboardLayoutTestFields()
-    if (current.layout.type !== 'group') throw new Error('Expected test layout group')
-    const layout = {
-      ...current.layout,
-      children: current.layout.children.map((child) =>
-        child.type === 'panel' && child.id === 'chart-panel'
-          ? {
-              ...child,
-              widget: {
-                key: 'data_chart',
-                pairColor: 'red',
-                params: { data: { provider: 'polygon' } },
-              },
-            }
-          : child
-      ),
-    }
-
-    const result = await execute({
-      layout,
-      colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-1' }] },
-    })
+  it('applies raw structure edits while preserving retained widgets and initializing new widgets', async () => {
+    const result = await execute(
+      {
+        layout: {
+          id: 'root',
+          type: 'group',
+          direction: 'horizontal',
+          sizes: [50, 50],
+          children: [
+            { id: 'chart-panel', type: 'panel' },
+            { type: 'panel', widget: { key: 'watchlist' } },
+          ],
+        },
+        name: 'Reviewed Layout',
+      },
+      { removedPanelIds: ['order-panel'] }
+    )
 
     expect(toolMocks.applyLive).toHaveBeenCalledWith(
       toolMocks.scope,
       'layout-1',
-      expect.objectContaining({
-        layout,
-        colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-1' }] },
-      })
+      expect.objectContaining({ name: 'Reviewed Layout' })
     )
     expect(result.layout).toMatchObject({
       children: expect.arrayContaining([
-        expect.objectContaining({ widget: expect.objectContaining({ pairColor: 'red' }) }),
+        expect.objectContaining({
+          id: 'chart-panel',
+          widget: { key: 'data_chart', pairColor: 'red', params: { data: { provider: 'alpaca' } } },
+        }),
+        expect.objectContaining({ widget: expect.objectContaining({ key: 'watchlist' }) }),
       ]),
     })
-    expect(result.colorPairs).toEqual({ pairs: [{ color: 'red', workflowId: 'workflow-1' }] })
+  })
+
+  it('requires removedPanelIds for omitted existing panels', async () => {
+    await expect(
+      execute({
+        layout: {
+          id: 'root',
+          type: 'group',
+          direction: 'horizontal',
+          sizes: [100],
+          children: [{ id: 'chart-panel', type: 'panel' }],
+        },
+      })
+    ).rejects.toThrow(
+      'Existing panel ids omitted from edit_layout entityDocument without removedPanelIds'
+    )
   })
 
   it('stages edit_layout review without applying live fields', async () => {
     toolMocks.shouldStage.mockReturnValue(true)
 
-    const result = await execute({ name: 'Reviewed Layout' }, { accessLevel: 'limited' })
+    const result = await execute(currentStructure({ name: 'Reviewed Layout' }), {
+      context: { accessLevel: 'limited' },
+    })
 
     expect(result).toMatchObject({
       requiresReview: true,

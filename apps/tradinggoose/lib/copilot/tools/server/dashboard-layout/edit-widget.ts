@@ -37,7 +37,6 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       pairColor: args.pairColor,
       params: args.params,
       colorPair: args.colorPair,
-      removedWidgetPanelIds: args.removedWidgetPanelIds,
     }
     const next = applyWidgetConfigMutation({
       layout: current.layout,

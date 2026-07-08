@@ -14,7 +14,9 @@ const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
 const WATCHLIST_DOCUMENT_GUIDANCE =
   'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "section"` or `type: "listing"` entries. Root sections and root listings use `parentId: null`; listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
-  'Use full `tg-dashboard-layout-document-v1` JSON with exactly `name`, `layout`, `colorPairs`, `isActive`, and `sortOrder`. `layout` is the dashboard split/panel tree. `colorPairs` is the shared per-layout pair color context map; change it when widget pair-color shared params change. Use `list_widgets` and `get_widgets_metadata` before adding or replacing widgets.'
+  'Returns full `tg-dashboard-layout-document-v1` JSON with `name`, `layout`, `colorPairs`, `isActive`, and `sortOrder`. Use it to inspect current panel ids and effective widget state; do not submit this full persisted document to `edit_layout`.'
+const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
+  'Use raw `tg-dashboard-layout-structure-v1` JSON with top-level `layout` and optional `name`, `sortOrder`, or `isActive:true`. Existing panels use only `{ id, type: "panel" }` and preserve widget config. New panels use `{ type: "panel", widget: { key } }` only. Omitted existing panels must be listed in `removedPanelIds`. Detailed widget params and color-pair edits belong to `edit_widget`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -370,7 +372,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_layout: {
     description:
-      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` to replace the full layout document or `edit_widget` for one panel patch.',
+      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` for raw topology edits or `edit_widget` for one panel patch.',
     kind: 'create',
     entityKind: 'dashboard_layout',
   },
@@ -380,13 +382,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'dashboard_layout',
   },
   edit_layout: {
-    description: `Update the target dashboard layout from a full \`entityDocument\` and return the resulting layout document. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
+    description: `Update the target dashboard layout topology and layout metadata from one raw \`entityDocument\`, then return the resulting persisted layout document. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE}`,
     kind: 'edit',
     entityKind: 'dashboard_layout',
   },
   edit_widget: {
     description:
-      'Patch one widget panel in a dashboard layout by exact `entityId` and `panelId`. Use a canonical `widgetKey` from `list_widgets` to add or replace the widget, `params` for widget params, `pairColor` for the panel pair color, `colorPair` for shared per-layout pair-color params, and `removedWidgetPanelIds` containing the target panel id for widget removal.',
+      'Patch one widget panel in a dashboard layout by exact `entityId` and `panelId`. Use a canonical `widgetKey` from `list_widgets` to add or replace the widget, `params` for widget params, `pairColor` for the panel pair color, and `colorPair` for shared per-layout pair-color params. Remove widget slots only with `edit_layout.removedPanelIds` when omitting panels from the raw layout structure.',
     kind: 'edit',
     entityKind: 'dashboard_layout',
   },

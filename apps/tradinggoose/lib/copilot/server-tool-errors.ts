@@ -183,7 +183,7 @@ export function buildCopilotServerToolErrorResponse(
       body: {
         code: 'invalid_dashboard_layout_edit',
         error: error.message,
-        hint: 'Send one complete tg-dashboard-layout-document-v1 layout document with name, layout, colorPairs, isActive, and sortOrder.',
+        hint: 'Send one complete tg-dashboard-layout-structure-v1 layout document. Retain existing panels by id, add new panels with widget.key only, and list intentionally omitted existing panels in removedPanelIds.',
         retryable: true,
         issues: error.issues,
       },
@@ -196,7 +196,7 @@ export function buildCopilotServerToolErrorResponse(
       body: {
         code: 'invalid_widget_config',
         error: error.message,
-        hint: 'Use list_widgets and get_widgets_metadata for canonical widget keys, editable params, pair colors, linked color-pair fields, and removedWidgetPanelIds for explicit widget removal.',
+        hint: 'Use list_widgets and get_widgets_metadata for canonical widget keys, editable params, pair colors, and linked color-pair fields. Remove widget slots only through edit_layout removedPanelIds.',
         retryable: true,
         issues: error.issues,
       },

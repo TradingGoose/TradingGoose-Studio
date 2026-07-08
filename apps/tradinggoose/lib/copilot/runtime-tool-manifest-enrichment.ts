@@ -14,8 +14,8 @@ import {
 } from '@/lib/copilot/monitor/monitor-documents'
 import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 import {
-  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  DashboardLayoutDocumentSchema,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  DashboardLayoutStructureDocumentSchema,
 } from '@/widgets/layout-document'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
@@ -81,9 +81,9 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     schema: toJsonSchemaRecord(MonitorDocumentSchema),
   },
   {
-    documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-    documentLabel: 'dashboard layout',
-    schema: toJsonSchemaRecord(DashboardLayoutDocumentSchema),
+    documentFormat: DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+    documentLabel: 'dashboard layout structure',
+    schema: toJsonSchemaRecord(DashboardLayoutStructureDocumentSchema),
   },
 ]
 
