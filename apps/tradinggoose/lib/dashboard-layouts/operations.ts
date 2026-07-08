@@ -5,7 +5,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import {
-  assertCanDeleteWorkspaceEntityDocument,
+  guardWorkspaceEntityDocumentDeleteInTx,
   WorkspaceEntityDocumentDeletionError,
 } from '@/lib/workspaces/entity-documents'
 import {
@@ -442,11 +442,15 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
     }
 
     try {
-      await assertCanDeleteWorkspaceEntityDocument({
+      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
         entityKind: 'dashboard_layout',
+        entityId: layoutId,
         workspaceId: scope.workspaceId,
         ownerUserId: scope.ownerUserId,
       })
+      if (!canDelete) {
+        throw new DashboardLayoutOperationError(404, 'Layout not found')
+      }
     } catch (error) {
       if (error instanceof WorkspaceEntityDocumentDeletionError) {
         throw new DashboardLayoutOperationError(error.status, error.message)

@@ -11,7 +11,7 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import {
-  assertCanDeleteWorkspaceEntityDocument,
+  guardWorkspaceEntityDocumentDeleteInTx,
   WorkspaceEntityDocumentDeletionError,
 } from '@/lib/workspaces/entity-documents'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
@@ -221,25 +221,24 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const [existingTool] = await db
-      .select({ id: customTools.id })
-      .from(customTools)
-      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-      .limit(1)
-
-    if (!existingTool) {
+    const deleted = await db.transaction(async (tx) => {
+      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
+        entityKind: 'custom_tool',
+        entityId: toolId,
+        workspaceId,
+      })
+      if (!canDelete) {
+        return false
+      }
+      await tx
+        .delete(customTools)
+        .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
+      return true
+    })
+    if (!deleted) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
-
-    await assertCanDeleteWorkspaceEntityDocument({
-      entityKind: 'custom_tool',
-      workspaceId,
-    })
-
-    await db
-      .delete(customTools)
-      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
 
     await refreshEntityListSession('custom_tool', workspaceId)
     await Promise.allSettled([deleteYjsSessionInSocketServer(toolId)])

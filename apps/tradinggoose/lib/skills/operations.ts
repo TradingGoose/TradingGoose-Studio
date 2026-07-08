@@ -9,7 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { assertCanDeleteWorkspaceEntityDocument } from '@/lib/workspaces/entity-documents'
+import { guardWorkspaceEntityDocumentDeleteInTx } from '@/lib/workspaces/entity-documents'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
@@ -64,24 +64,24 @@ export async function deleteSkill(params: {
   skillId: string
   workspaceId: string
 }): Promise<boolean> {
-  const [existingSkill] = await db
-    .select({ id: skill.id })
-    .from(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    .limit(1)
-
-  if (!existingSkill) {
-    return false
-  }
-
-  await assertCanDeleteWorkspaceEntityDocument({
-    entityKind: 'skill',
-    workspaceId: params.workspaceId,
+  const deleted = await db.transaction(async (tx) => {
+    const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
+      entityKind: 'skill',
+      entityId: params.skillId,
+      workspaceId: params.workspaceId,
+    })
+    if (!canDelete) {
+      return false
+    }
+    await tx
+      .delete(skill)
+      .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+    return true
   })
 
-  await db
-    .delete(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+  if (!deleted) {
+    return false
+  }
 
   await refreshEntityListSession('skill', params.workspaceId)
   await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])

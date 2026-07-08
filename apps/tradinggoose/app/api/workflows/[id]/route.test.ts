@@ -22,7 +22,7 @@ describe('Workflow By ID API Route', () => {
   const mockRefreshWorkflowListForWorkflow = vi.fn()
   const mockRefreshWorkflowList = vi.fn()
   const mockDeleteYjsSession = vi.fn()
-  const mockAssertCanDeleteWorkspaceEntityDocument = vi.fn()
+  const mockGuardWorkspaceEntityDocumentDeleteInTx = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
   const mockDbUpdateSet = vi.fn()
@@ -76,7 +76,7 @@ describe('Workflow By ID API Route', () => {
     mockRefreshWorkflowListForWorkflow.mockReset()
     mockRefreshWorkflowList.mockReset()
     mockDeleteYjsSession.mockReset()
-    mockAssertCanDeleteWorkspaceEntityDocument.mockReset()
+    mockGuardWorkspaceEntityDocumentDeleteInTx.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
@@ -95,10 +95,10 @@ describe('Workflow By ID API Route', () => {
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
-    mockAssertCanDeleteWorkspaceEntityDocument.mockResolvedValue(undefined)
+    mockGuardWorkspaceEntityDocumentDeleteInTx.mockResolvedValue(true)
 
     vi.doMock('@/lib/workspaces/entity-documents', () => ({
-      assertCanDeleteWorkspaceEntityDocument: mockAssertCanDeleteWorkspaceEntityDocument,
+      guardWorkspaceEntityDocumentDeleteInTx: mockGuardWorkspaceEntityDocumentDeleteInTx,
       WorkspaceEntityDocumentDeletionError: class extends Error {
         status = 400
       },
@@ -512,11 +512,15 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
+      const tx = {
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([{ id: 'workflow-123' }]),
+        }),
+      }
+      const transaction = vi.fn(async (run) => run(tx))
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([{ id: 'workflow-123' }]),
-          }),
+          transaction,
         },
         workflow: {},
       }))
@@ -533,8 +537,10 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.success).toBe(true)
       expect(mockRefreshWorkflowList).toHaveBeenCalledWith('workspace-456')
-      expect(mockAssertCanDeleteWorkspaceEntityDocument).toHaveBeenCalledWith({
+      expect(transaction).toHaveBeenCalledOnce()
+      expect(mockGuardWorkspaceEntityDocumentDeleteInTx).toHaveBeenCalledWith(tx, {
         entityKind: 'workflow',
+        entityId: 'workflow-123',
         workspaceId: 'workspace-456',
       })
     })

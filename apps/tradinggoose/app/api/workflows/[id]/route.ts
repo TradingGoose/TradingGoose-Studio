@@ -16,7 +16,7 @@ import {
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import {
-  assertCanDeleteWorkspaceEntityDocument,
+  guardWorkspaceEntityDocumentDeleteInTx,
   WorkspaceEntityDocumentDeletionError,
 } from '@/lib/workspaces/entity-documents'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -249,14 +249,27 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    if (workflowData.workspaceId) {
-      await assertCanDeleteWorkspaceEntityDocument({
-        entityKind: 'workflow',
-        workspaceId: workflowData.workspaceId,
+    const workspaceId = workflowData.workspaceId
+    if (workspaceId) {
+      const deleted = await db.transaction(async (tx) => {
+        const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
+          entityKind: 'workflow',
+          entityId: workflowId,
+          workspaceId,
+        })
+        if (!canDelete) {
+          return false
+        }
+        await tx.delete(workflow).where(eq(workflow.id, workflowId))
+        return true
       })
+      if (!deleted) {
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+    } else {
+      await db.delete(workflow).where(eq(workflow.id, workflowId))
     }
 
-    await db.delete(workflow).where(eq(workflow.id, workflowId))
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
     }

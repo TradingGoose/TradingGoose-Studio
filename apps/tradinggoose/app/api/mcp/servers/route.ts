@@ -9,7 +9,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import {
-  assertCanDeleteWorkspaceEntityDocument,
+  guardWorkspaceEntityDocumentDeleteInTx,
   WorkspaceEntityDocumentDeletionError,
 } from '@/lib/workspaces/entity-documents'
 import {
@@ -167,20 +167,33 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await assertCanDeleteWorkspaceEntityDocument({
-        entityKind: 'mcp_server',
-        workspaceId,
-      })
-
-      await db
-        .delete(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
+      const deleted = await db.transaction(async (tx) => {
+        const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
+          entityKind: 'mcp_server',
+          entityId: serverId,
+          workspaceId,
+        })
+        if (!canDelete) {
+          return false
+        }
+        await tx
+          .delete(mcpServers)
+          .where(
+            and(
+              eq(mcpServers.id, serverId),
+              eq(mcpServers.workspaceId, workspaceId),
+              isNull(mcpServers.deletedAt)
+            )
           )
+        return true
+      })
+      if (!deleted) {
+        return createMcpErrorResponse(
+          new Error('Server not found or access denied'),
+          'Server not found',
+          404
         )
+      }
 
       await refreshEntityListSession('mcp_server', workspaceId)
       await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])

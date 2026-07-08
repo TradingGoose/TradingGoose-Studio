@@ -9,12 +9,12 @@ import {
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/document'
+import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
   normalizeWatchlistDocumentFields,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
-import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
-import { assertCanDeleteWorkspaceEntityDocument } from '@/lib/workspaces/entity-documents'
+import { guardWorkspaceEntityDocumentDeleteInTx } from '@/lib/workspaces/entity-documents'
 import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -135,8 +135,7 @@ export async function createWatchlistFromDocument(
         )
       }
 
-      const sortOrder =
-        roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
+      const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
       const [createdRoot] = await tx
         .insert(watchlistTable)
         .values({
@@ -187,23 +186,20 @@ export async function getWatchlist(
   }
 }
 
-export async function deleteWatchlist(scope: WatchlistScope, watchlistId: string): Promise<boolean> {
+export async function deleteWatchlist(
+  scope: WatchlistScope,
+  watchlistId: string
+): Promise<boolean> {
   try {
     const deleted = await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select({ id: watchlistTable.id })
-        .from(watchlistTable)
-        .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-        .limit(1)
-
-      if (!existing) {
-        return false
-      }
-
-      await assertCanDeleteWorkspaceEntityDocument({
+      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
         entityKind: 'watchlist',
+        entityId: watchlistId,
         workspaceId: scope.workspaceId,
       })
+      if (!canDelete) {
+        return false
+      }
 
       await tx.delete(watchlistTable).where(rootWatchlistWhere(scope.workspaceId, watchlistId))
       return true
