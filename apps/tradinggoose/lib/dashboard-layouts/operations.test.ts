@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createDashboardLayout,
   deleteDashboardLayout,
+  ensureDashboardLayoutProvisioned,
   materializeDashboardLayoutFields,
 } from '@/lib/dashboard-layouts/operations'
+import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
 
 const m = vi.hoisted(() => {
   const selectRows = vi.fn()
@@ -143,6 +145,28 @@ describe('dashboard layout operations', () => {
     )
   })
 
+  it('provisions missing owner layouts idempotently', async () => {
+    m.selectRows.mockResolvedValueOnce([])
+    m.insertRows.mockResolvedValueOnce([row({ id: 'layout-new', name: 'Default Layout' })])
+
+    await ensureDashboardLayoutProvisioned(scope)
+
+    expect(m.txInsert).toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
+      'dashboard_layout',
+      'workspace-1',
+      'user-1'
+    )
+
+    vi.clearAllMocks()
+    m.selectRows.mockResolvedValueOnce([row()])
+
+    await ensureDashboardLayoutProvisioned(scope)
+
+    expect(m.txInsert).not.toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
+  })
+
   it('rejects active layout deletion before database and socket side effects', async () => {
     m.selectRows.mockResolvedValueOnce([row({ id: 'layout-active', isActive: true })])
 
@@ -183,5 +207,41 @@ describe('dashboard layout operations', () => {
     )
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-a')
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-b')
+  })
+
+  it('fans out committed content when materialization also changes metadata', async () => {
+    const nextLayout: LayoutNode = {
+      id: 'panel-next',
+      type: 'panel',
+      widget: null,
+    }
+    const nextColorPairs: PersistedColorPairsState = {
+      pairs: [{ color: 'red', workflowId: 'workflow-1' }],
+    }
+    m.selectRows
+      .mockResolvedValueOnce([row()])
+      .mockResolvedValueOnce([row()])
+      .mockResolvedValueOnce([
+        row({ name: 'Renamed', layout: nextLayout, color_pair: nextColorPairs }),
+      ])
+
+    await materializeDashboardLayoutFields(scope, 'layout-1', {
+      name: 'Renamed',
+      layout: nextLayout,
+      colorPairs: nextColorPairs,
+      isActive: true,
+      sortOrder: 0,
+    })
+
+    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'layout-1',
+      'dashboard_layout',
+      expect.objectContaining({
+        name: 'Renamed',
+        layout: nextLayout,
+        colorPairs: nextColorPairs,
+      }),
+      'user-1'
+    )
   })
 })

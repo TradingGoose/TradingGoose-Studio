@@ -8,6 +8,7 @@ import WorkspaceDashboardPage from './page'
 const m = vi.hoisted(() => ({
   getSession: vi.fn(),
   access: vi.fn(),
+  ensureLayout: vi.fn(),
   readActive: vi.fn(),
   clientProps: null as Record<string, unknown> | null,
 }))
@@ -17,6 +18,7 @@ vi.mock('@/lib/auth', () => ({ getSession: m.getSession }))
 vi.mock('@/lib/permissions/utils', () => ({ getCachedWorkspaceAccess: m.access }))
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  ensureDashboardLayoutProvisioned: m.ensureLayout,
   readActiveDashboardLayoutProjection: m.readActive,
 }))
 
@@ -54,12 +56,17 @@ describe('WorkspaceDashboardPage', () => {
     m.clientProps = null
     m.getSession.mockResolvedValue({ user: { id: 'user-1' } })
     m.access.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
+    m.ensureLayout.mockResolvedValue(undefined)
     m.readActive.mockResolvedValue({ activeLayout, layouts: [activeLayout] })
   })
 
   it('renders the active layout for the current user scope', async () => {
     await renderPage()
 
+    expect(m.ensureLayout).toHaveBeenCalledWith(scope)
+    expect(m.ensureLayout.mock.invocationCallOrder[0]).toBeLessThan(
+      m.readActive.mock.invocationCallOrder[0]
+    )
     expect(m.readActive).toHaveBeenCalledWith(scope)
     expect(m.clientProps).toMatchObject({
       layoutId: 'layout-active',
@@ -83,6 +90,7 @@ describe('WorkspaceDashboardPage', () => {
 
     const markup = await renderPage()
 
+    expect(m.ensureLayout).not.toHaveBeenCalled()
     expect(m.readActive).not.toHaveBeenCalled()
     expect(markup).toBe('<div></div>')
     expect(m.clientProps).toBeNull()

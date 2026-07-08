@@ -170,6 +170,17 @@ export async function provisionDashboardLayoutForWorkspaceUserInTx(
   return true
 }
 
+export async function ensureDashboardLayoutProvisioned(
+  scope: DashboardLayoutOwnerScope
+): Promise<void> {
+  const provisioned = await db.transaction((tx) =>
+    provisionDashboardLayoutForWorkspaceUserInTx(tx, scope)
+  )
+  if (provisioned) {
+    await refreshLayoutList(scope)
+  }
+}
+
 async function withDashboardLayoutOwnerLock<T>(
   scope: DashboardLayoutOwnerScope,
   callback: (tx: DashboardLayoutWriteStore) => Promise<T>
@@ -285,10 +296,8 @@ type DashboardLayoutOperationInput = {
 }
 
 type DashboardLayoutMetadataPatch = {
-  row: LayoutRow
-  name: string
-  isActive: boolean
-  sortOrder: number
+  layoutId: string
+  fields: DashboardLayoutFields
 }
 
 /**
@@ -387,10 +396,19 @@ async function applyDashboardLayoutOperation(
         return changed
           ? [
               {
-                row,
-                name: nextName,
-                isActive: nextIsActive,
-                sortOrder: nextSortOrder,
+                layoutId: row.id,
+                fields: {
+                  ...layoutRowToFields(row),
+                  name: nextName,
+                  isActive: nextIsActive,
+                  sortOrder: nextSortOrder,
+                  ...(isTarget && content
+                    ? {
+                        layout: content.layout,
+                        colorPairs: content.colorPairs,
+                      }
+                    : {}),
+                },
               },
             ]
           : []
@@ -402,14 +420,9 @@ async function applyDashboardLayoutOperation(
   await Promise.all(
     metadataPatches.map((patch) =>
       applyEntityStateInSocketServer(
-        patch.row.id,
+        patch.layoutId,
         'dashboard_layout',
-        {
-          ...layoutRowToFields(patch.row),
-          name: patch.name,
-          isActive: patch.isActive,
-          sortOrder: patch.sortOrder,
-        },
+        patch.fields,
         scope.ownerUserId
       )
         .then(() => undefined)
