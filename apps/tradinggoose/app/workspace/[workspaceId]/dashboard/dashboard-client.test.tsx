@@ -102,7 +102,7 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
 vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', async () => {
   const React = await import('react')
   const { normalizeColorPairsState, normalizeDashboardLayout } = await import('@/widgets/layout')
-  const { resolveEffectiveDashboardLayout } = await import('@/widgets/layout-document')
+  const { resolveEffectiveDashboardLayout } = await import('@/widgets/widget-contracts')
 
   return {
     useDashboardLayoutList: (workspaceId: string) =>

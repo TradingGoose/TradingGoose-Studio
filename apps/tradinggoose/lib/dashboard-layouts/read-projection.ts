@@ -3,9 +3,9 @@ import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   type DashboardLayoutDocumentFields,
   normalizeDashboardLayoutDocumentFields,
-  resolveEffectiveDashboardLayout,
   serializeDashboardLayoutDocument,
 } from '@/widgets/layout-document'
+import { resolveEffectiveDashboardLayout } from '@/widgets/widget-contracts'
 
 export type DashboardLayoutReadProjection = {
   canonicalFields: DashboardLayoutDocumentFields
@@ -20,8 +20,15 @@ export async function buildDashboardLayoutReadProjection(
   fields: Partial<DashboardLayoutDocumentFields>
 ): Promise<DashboardLayoutReadProjection> {
   const canonicalFields = normalizeDashboardLayoutDocumentFields(fields)
-  const { layout: hydratedLayout, colorPairs: hydratedColorPairs } =
-    await hydrateDashboardListingData(canonicalFields.layout, canonicalFields.colorPairs)
+  const effectiveLayoutSource = resolveEffectiveDashboardLayout(
+    canonicalFields.layout,
+    canonicalFields.colorPairs
+  )
+  const [{ layout: hydratedLayout, colorPairs: hydratedColorPairs }, { layout: effectiveLayout }] =
+    await Promise.all([
+      hydrateDashboardListingData(canonicalFields.layout, canonicalFields.colorPairs),
+      hydrateDashboardListingData(effectiveLayoutSource, { pairs: [] }),
+    ])
 
   return {
     canonicalFields,
@@ -29,6 +36,6 @@ export async function buildDashboardLayoutReadProjection(
     entityDocument: serializeDashboardLayoutDocument(canonicalFields),
     hydratedLayout,
     hydratedColorPairs,
-    effectiveLayout: resolveEffectiveDashboardLayout(hydratedLayout, hydratedColorPairs),
+    effectiveLayout,
   }
 }

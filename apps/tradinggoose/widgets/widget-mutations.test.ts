@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { LayoutNode } from '@/widgets/layout'
-import { resolveEffectiveDashboardLayout } from '@/widgets/layout-document'
 import type { PairColor } from '@/widgets/pair-colors'
-import { getDefaultWidgetInstance, WIDGET_KEYS } from '@/widgets/widget-contracts'
+import {
+  getDefaultWidgetInstance,
+  resolveEffectiveDashboardLayout,
+  WIDGET_KEYS,
+} from '@/widgets/widget-contracts'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 
 const listing = {

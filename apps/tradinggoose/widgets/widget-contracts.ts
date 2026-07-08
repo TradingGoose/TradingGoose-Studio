@@ -6,7 +6,12 @@ import {
   type PersistedColorPairsState,
   readPairColorContext,
 } from '@/widgets/color-pairs'
-import { type LayoutNode, normalizeColorPairsState, type WidgetInstance } from '@/widgets/layout'
+import {
+  type LayoutNode,
+  normalizeColorPairsState,
+  normalizeDashboardLayout,
+  type WidgetInstance,
+} from '@/widgets/layout'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
   WIDGET_KEYS,
@@ -169,6 +174,37 @@ export function resolveEffectiveWidgetParams(
     widget,
     readPairColorContext(colorPairs, pairColor)
   ).params
+}
+
+export function resolveEffectiveDashboardLayout(
+  layout: LayoutNode | unknown,
+  colorPairs: PersistedColorPairsState | unknown
+): LayoutNode {
+  const normalizedLayout = normalizeDashboardLayout(layout)
+  const normalizedColorPairs = normalizeColorPairsState(colorPairs)
+  return resolveEffectiveDashboardLayoutNode(normalizedLayout, normalizedColorPairs)
+}
+
+function resolveEffectiveDashboardLayoutNode(
+  node: LayoutNode,
+  colorPairs: PersistedColorPairsState
+): LayoutNode {
+  if (node.type === 'panel') {
+    const widget = node.widget
+    if (!widget || !isWidgetKey(widget.key)) return node
+    return {
+      ...node,
+      widget: {
+        ...widget,
+        params: resolveEffectiveWidgetParams(widget, colorPairs),
+      },
+    }
+  }
+
+  return {
+    ...node,
+    children: node.children.map((child) => resolveEffectiveDashboardLayoutNode(child, colorPairs)),
+  }
 }
 
 export function normalizeWidgetColorPairPatch(

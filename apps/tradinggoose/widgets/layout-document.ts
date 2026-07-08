@@ -1,15 +1,10 @@
 import { z } from 'zod'
-import { ListingIdentitySchema, toListingValueObject } from '@/lib/listing/identity'
-import {
-  type LinkedPairColor,
-  normalizePairColorContext,
-  type PersistedColorPair,
-} from '@/widgets/color-pairs'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
+import type { LinkedPairColor } from '@/widgets/color-pairs'
 import {
   createLayoutNodeId,
   type LayoutNode,
   normalizeColorPairsState,
-  normalizeDashboardLayout,
   type PersistedColorPairsState,
   type WidgetInstance,
 } from '@/widgets/layout'
@@ -18,7 +13,6 @@ import {
   getDefaultWidgetInstance,
   isWidgetKey,
   pruneDashboardColorPairsForLayout,
-  resolveEffectiveWidgetParams,
   sanitizeWidgetInstance as sanitizeContractWidgetInstance,
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
@@ -400,90 +394,4 @@ export function applyLayoutEditDocument(
     layout: nextLayout,
     colorPairs: pruneDashboardColorPairsForLayout(nextLayout, currentFields.colorPairs),
   })
-}
-
-export function resolveEffectiveDashboardLayout(
-  layout: LayoutNode | unknown,
-  colorPairs: PersistedColorPairsState | unknown
-): LayoutNode {
-  const normalizedLayout = normalizeDashboardLayout(layout)
-  const pairs = normalizeColorPairsForEffectiveProjection(colorPairs).pairs
-  const hasLinkedPairs = pairs.some(
-    (pair) => Object.keys(normalizePairColorContext(pair)).length > 0
-  )
-  if (!hasLinkedPairs) return normalizedLayout
-
-  return applyPairMapToLayout(normalizedLayout, new Map(pairs.map((pair) => [pair.color, pair])))
-}
-
-function normalizeColorPairsForEffectiveProjection(
-  colorPairs: PersistedColorPairsState | unknown
-): PersistedColorPairsState {
-  const normalized = normalizeColorPairsState(colorPairs)
-  if (!isRecord(colorPairs) || !Array.isArray(colorPairs.pairs)) return normalized
-
-  const canonicalByColor = new Map(normalized.pairs.map((pair) => [pair.color, pair] as const))
-  const projectedPairs: PersistedColorPair[] = []
-  const seen = new Set<LinkedPairColor>()
-
-  for (const rawPair of colorPairs.pairs) {
-    if (!isRecord(rawPair)) continue
-    const color = rawPair.color
-    if (!isPairColor(color) || color === 'gray' || seen.has(color)) continue
-    seen.add(color)
-
-    const canonicalPair = canonicalByColor.get(color)
-    if (!canonicalPair) continue
-    projectedPairs.push(
-      toListingValueObject(rawPair.listing)
-        ? {
-            ...canonicalPair,
-            listing: rawPair.listing as PersistedColorPair['listing'],
-          }
-        : canonicalPair
-    )
-  }
-
-  return { pairs: projectedPairs }
-}
-
-function applyPairMapToLayout(
-  node: LayoutNode,
-  pairMap: ReadonlyMap<LinkedPairColor, PersistedColorPair>
-): LayoutNode {
-  if (node.type === 'panel') {
-    const nextWidget = applyPairDataToWidget(node.widget, pairMap)
-    return nextWidget === node.widget ? node : { ...node, widget: nextWidget }
-  }
-
-  const updatedChildren = node.children.map((child) => applyPairMapToLayout(child, pairMap))
-  const hasChanged = updatedChildren.some((child, index) => child !== node.children[index])
-  return hasChanged ? { ...node, children: updatedChildren } : node
-}
-
-function applyPairDataToWidget(
-  widget: WidgetInstance,
-  pairMap: ReadonlyMap<LinkedPairColor, PersistedColorPair>
-): WidgetInstance {
-  if (!widget) return widget
-  if (!isWidgetKey(widget.key)) return widget
-
-  const pairColor: PairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  if (pairColor === 'gray') return widget
-  const pairData = pairMap.get(pairColor)
-  if (!pairData) return widget
-
-  const baseParams = isRecord(widget.params) ? { ...widget.params } : {}
-  const effectiveParams = resolveEffectiveWidgetParams(
-    { ...widget, params: baseParams },
-    { pairs: [pairData] }
-  )
-  const projectedParams =
-    isRecord(effectiveParams) &&
-    'listing' in effectiveParams &&
-    toListingValueObject(pairData.listing)
-      ? { ...effectiveParams, listing: pairData.listing }
-      : effectiveParams
-
-  return { ...widget, params: projectedParams }
 }
