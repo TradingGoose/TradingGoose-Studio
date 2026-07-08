@@ -50,7 +50,9 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
     accessMode?: 'read' | 'write'
   }) => {
     lastSelectedWatchlistArgs = args
-    const selectedId = args.watchlistId ?? currentWatchlists[0]?.id ?? null
+    const selectedId = args.watchlistId
+      ? (currentWatchlists.find((entry) => entry.id === args.watchlistId)?.id ?? null)
+      : (currentWatchlists[0]?.id ?? null)
     const record = currentWatchlists.find((entry) => entry.id === selectedId) ?? null
     return {
       record,

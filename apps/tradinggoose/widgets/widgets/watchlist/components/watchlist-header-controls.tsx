@@ -388,8 +388,7 @@ export const WatchlistHeaderRightControls = ({
     }))
   }, [selectedDocument.members])
   const selectedOptionId = selectedDocument.selectedWatchlistId
-  const selectedOption =
-    listOptions.find((option) => option.id === selectedOptionId) ?? listOptions[0] ?? null
+  const selectedOption = listOptions.find((option) => option.id === selectedOptionId) ?? null
   const selectedOptionColor = selectedOption ? resolveWatchlistListColor(selectedOption) : null
 
   const hasSelectedWatchlist = Boolean(selectedWatchlist)

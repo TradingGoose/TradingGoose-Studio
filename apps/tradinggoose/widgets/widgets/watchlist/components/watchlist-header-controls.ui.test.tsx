@@ -36,7 +36,9 @@ const createWidget = (widget: NonNullable<WidgetInstance>): WidgetInstance => wi
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
   useSelectedWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
-    const selectedId = watchlistId ?? currentWatchlists[0]?.id ?? null
+    const selectedId = watchlistId
+      ? (currentWatchlists.find((watchlist) => watchlist.id === watchlistId)?.id ?? null)
+      : (currentWatchlists[0]?.id ?? null)
     const record = currentWatchlists.find((watchlist) => watchlist.id === selectedId) ?? null
     return {
       record,
@@ -295,5 +297,30 @@ describe('watchlist header controls', () => {
     })
     expect(mockSetWatchlistItems).not.toHaveBeenCalled()
     expect(mockSaveWatchlistDocument).not.toHaveBeenCalled()
+  })
+
+  it('does not fall back to the first watchlist when the widget references a stale watchlist id', async () => {
+    currentWatchlist = { ...rootWatchlist, name: 'Primary Watchlist' }
+    currentWatchlists = [currentWatchlist]
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-5'
+          widget={createWidget({ key: 'watchlist', params: { watchlistId: 'missing-watchlist' } })}
+          canEditWidgetParams
+          canMutateWatchlist
+        />
+      )
+    })
+
+    const watchlistButton = Array.from(container.querySelectorAll('button')).find((candidate) =>
+      candidate.textContent?.includes('Watchlist')
+    )
+
+    expect(watchlistButton?.textContent).toContain('Watchlist')
+    expect(watchlistButton?.textContent).not.toContain(currentWatchlist.name)
+    expect(watchlistButton?.hasAttribute('disabled')).toBe(true)
   })
 })

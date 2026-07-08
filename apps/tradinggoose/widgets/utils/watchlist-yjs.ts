@@ -75,7 +75,6 @@ export function useSelectedWatchlistYjsDocument(args: {
   const selectedWatchlistId = resolveEntityIdFromList({
     requestedEntityId: watchlistId,
     entityIds: watchlistList.members.map((member) => member.entityId),
-    useDefaultEntity: false,
   })
   const member =
     watchlistList.members.find((entry) => entry.entityId === selectedWatchlistId) ?? null
