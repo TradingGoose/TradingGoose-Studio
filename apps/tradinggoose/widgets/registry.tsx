@@ -6,11 +6,7 @@ import type {
   WidgetCategoryDefinition,
   WidgetCategoryGroup,
 } from '@/widgets/types'
-import {
-  assertWidgetContractCoverage,
-  isWidgetKey,
-  type WidgetKey,
-} from '@/widgets/widget-contracts'
+import { isWidgetKey, type WidgetKey } from '@/widgets/widget-contracts'
 import { copilotWidget } from '@/widgets/widgets/copilot'
 
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
@@ -76,12 +72,6 @@ function getLocalizedWidgetTitle(
 const isPersistedWidgetDefinition = (
   widget: DashboardWidgetRegistryDefinition
 ): widget is DashboardWidgetDefinition => 'contract' in widget
-
-assertWidgetContractCoverage(
-  Object.values(widgetRegistry)
-    .filter(isPersistedWidgetDefinition)
-    .map((widget) => widget.contract.key)
-)
 
 const emptyWidgetDefinition: DashboardWidgetCatalogDefinition = {
   ...emptyWidget,

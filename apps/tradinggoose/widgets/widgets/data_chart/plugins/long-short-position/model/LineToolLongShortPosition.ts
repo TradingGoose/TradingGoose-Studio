@@ -268,11 +268,11 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'LongShortPosition'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'LongShortPosition'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
-    const finalOptions = buildToolOptions(LongShortPositionOptionDefaults, options)
+    const finalOptions = buildToolOptions(LongShortPositionOptionDefaults, options ?? {})
 
     super(
       coreApi,
@@ -280,7 +280,7 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
       series,
       horzScaleBehavior,
       finalOptions,
-      points,
+      points ?? [],
       'LongShortPosition',
       3, // FIX: Pass 3 to super
       priceAxisLabelStackingManager
@@ -290,7 +290,6 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
     if (this._points.length >= 2) {
       this._clickCount = 2
 
-      // legacy/partial data (missing PT)
       // If we have Entry & Stop but no PT, generate the default 3R PT immediately.
       if (this._points.length < 3) {
         const p0 = this._points[0]
@@ -309,7 +308,7 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
         if (this._points.length >= 3) {
           const ptPrice = this._points[2].price
           // If PT is below Entry, it implies a Short position. Otherwise, default to Long.
-          this._isLong = ptPrice < entryPrice ? false : true
+          this._isLong = ptPrice >= entryPrice
         } else {
           // Fallback: Default to Long if no PT context is available
           this._isLong = true
@@ -663,10 +662,8 @@ export class LineToolLongShortPosition<HorzScaleItem> extends BaseLineTool<HorzS
   }
 
   /**
-   * Legacy/No-op method.
-   *
    * The core plugin handles ghosting via `setLastPoint`. This override exists to satisfy
-   * internal contracts or legacy patterns but performs no action.
+   * the base tool contract but performs no action.
    */
   public updatePreviewPoints(point: LineToolPoint): void {
     // No-op: Core handles ghosting.

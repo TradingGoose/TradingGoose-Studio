@@ -15,7 +15,6 @@ export const WidgetCatalogItemSchema = z.object({
   editable: z.boolean(),
   editableFields: z.array(z.string()),
   linkedParamFields: z.array(z.string()),
-  capabilities: z.array(z.string()),
 })
 
 type WidgetParamFieldContractValue = {
@@ -23,20 +22,14 @@ type WidgetParamFieldContractValue = {
   kind: string
   referenceKind?: string
   allowedValues?: string[]
-  description: string
-  children?: WidgetParamFieldContractValue[]
 }
 
-const WidgetParamFieldContractSchema: z.ZodType<WidgetParamFieldContractValue> = z.lazy(() =>
-  z.object({
-    field: z.string(),
-    kind: z.string(),
-    referenceKind: z.string().optional(),
-    allowedValues: z.array(z.string()).optional(),
-    description: z.string(),
-    children: z.array(WidgetParamFieldContractSchema).optional(),
-  })
-)
+const WidgetParamFieldContractSchema: z.ZodType<WidgetParamFieldContractValue> = z.object({
+  field: z.string(),
+  kind: z.string(),
+  referenceKind: z.string().optional(),
+  allowedValues: z.array(z.string()).optional(),
+})
 
 export const WidgetMetadataProfileSchema = z.object({
   widgetKey: z.string(),
@@ -48,14 +41,6 @@ export const WidgetMetadataProfileSchema = z.object({
   editableFields: z.array(z.string()),
   paramContract: z.array(WidgetParamFieldContractSchema),
   linkedParamFields: z.array(z.string()),
-  colorPairBehavior: z.object({
-    supportsLinkedPairs: z.boolean(),
-    grayKeepsParamsLocal: z.boolean(),
-    nonGrayLinkedFields: z.array(z.string()),
-  }),
-  examples: z.array(z.record(z.any())),
-  bestPractices: z.array(z.string()),
-  validationHints: z.array(z.string()),
 })
 
 // get_available_blocks

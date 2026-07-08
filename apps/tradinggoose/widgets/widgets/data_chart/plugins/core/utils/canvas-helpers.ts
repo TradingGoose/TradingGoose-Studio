@@ -109,22 +109,11 @@ export function computeDashPattern(ctx: CanvasRenderingContext2D, style: LineSty
 /**
  * Applies a specific dash pattern to the canvas rendering context.
  *
- * This low-level wrapper ensures compatibility across different browser implementations,
- * handling standard `setLineDash` as well as legacy vendor-prefixed properties
- * (`mozDash`, `webkitLineDash`) if necessary.
- *
  * @param ctx - The canvas rendering context to configure.
  * @param dashPattern - The array of numbers representing distances to alternately draw a line and a gap.
  */
 export function setLineDash(ctx: CanvasRenderingContext2D, dashPattern: number[]): void {
-  if (ctx.setLineDash) {
-    ctx.setLineDash(dashPattern)
-  } else {
-    // Fallback for older browsers (mozDash and webkitLineDash were non-standard)
-    // Note: We need to cast to any to access these non-standard properties.
-    ;(ctx as any).mozDash = dashPattern
-    ;(ctx as any).webkitLineDash = dashPattern
-  }
+  ctx.setLineDash(dashPattern)
 }
 
 /**
@@ -235,7 +224,12 @@ export function drawLine(
   y2: number,
   style: LineStyle
 ): void {
-  if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) {
+  if (
+    !Number.isFinite(x1) ||
+    !Number.isFinite(y1) ||
+    !Number.isFinite(x2) ||
+    !Number.isFinite(y2)
+  ) {
     return
   }
   if (style !== LineStyle.Solid) {
@@ -543,7 +537,7 @@ export function fillRectWithBorder(
   point1: Point,
   backgroundColor: string | undefined,
   borderColor: string | undefined,
-  borderWidth = 0,
+  borderWidth: number,
   borderStyle: LineStyle,
   radius: number | number[], // NEW PARAMETER
   borderAlign: 'outer' | 'center' | 'inner',

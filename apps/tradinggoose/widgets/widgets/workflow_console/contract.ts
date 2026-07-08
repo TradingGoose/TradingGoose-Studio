@@ -5,8 +5,5 @@ export const workflowConsoleWidgetContract = defineEntityWidgetContract(
   'Workflow Console',
   'utility',
   'Inspect workflow execution output.',
-  'workflowId',
-  'workflow-id',
-  'Use alongside workflow editor/chat for the same workflow.',
-  'workflowId must exist in the workspace.'
+  'workflowId'
 )

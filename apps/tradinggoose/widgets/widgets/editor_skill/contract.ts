@@ -5,8 +5,5 @@ export const skillEditorWidgetContract = defineEntityWidgetContract(
   'Skill Editor',
   'editor',
   'Edit a skill.',
-  'skillId',
-  'skill-id',
-  'Use with list_skill through a shared pair color.',
-  'skillId must exist in the workspace.'
+  'skillId'
 )

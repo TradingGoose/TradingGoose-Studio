@@ -47,7 +47,4 @@ export const quickOrderWidgetContract = defineWidgetContract({
       { ...(currentParams ?? {}), ...incomingParams },
       { strictUnknown: true }
     ),
-  examples: [{ widgetKey: 'quick_order', params: { side: 'buy' } }],
-  bestPractices: ['Keep order-entry and account details widget-local.'],
-  validationHints: ['side must be buy or sell when provided.'],
 })

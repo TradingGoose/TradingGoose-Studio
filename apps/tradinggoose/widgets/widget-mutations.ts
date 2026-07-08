@@ -13,7 +13,6 @@ import type {
 import { normalizeColorPairsState } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
-  collectWidgetReferenceCandidates,
   getDefaultWidgetInstance,
   getWidgetContract,
   isWidgetContractValidationError,
@@ -25,7 +24,6 @@ import {
   sanitizeWidgetParams,
   splitWidgetParamsForColorPair,
   type WidgetKey,
-  type WidgetReferenceParamField,
 } from '@/widgets/widget-contracts'
 
 export type WidgetConfigMutationPatch = {
@@ -69,7 +67,7 @@ function failWidgetConfig(path: string, message: string): never {
   throw createWidgetConfigValidationError(path, message)
 }
 
-function guardWidgetConfig<T>(path: string, run: () => T): T {
+function withWidgetConfigErrors<T>(path: string, run: () => T): T {
   try {
     return run()
   } catch (error) {
@@ -79,27 +77,11 @@ function guardWidgetConfig<T>(path: string, run: () => T): T {
   }
 }
 
-export type WidgetReferenceValidationCandidate = {
-  panelId: string
-  field: WidgetReferenceParamField
-  value: string
-  path: string
-}
-
-export type WidgetReferenceValidationResult = {
-  workspaceId: string
-  ownerUserId: string
-  panelId: string
-  widgetKey: WidgetKey
-  candidates: WidgetReferenceValidationCandidate[]
-}
-
 export type PlannedWidgetConfigMutation = {
   panelId: string
   beforeWidget: WidgetInstance
   afterWidget: WidgetInstance
   carriedPairContext: PairColorContext
-  references: WidgetReferenceValidationCandidate[]
 }
 
 export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
@@ -151,64 +133,6 @@ function updateLayoutPanelWidget(
     : node
 }
 
-export function collectDashboardLayoutReferenceCandidates(
-  layout: LayoutNode,
-  colorPairs: PersistedColorPairsState | unknown
-): WidgetReferenceValidationCandidate[] {
-  const candidates: WidgetReferenceValidationCandidate[] = []
-
-  const visit = (node: LayoutNode) => {
-    if (node.type !== 'panel') {
-      node.children.forEach(visit)
-      return
-    }
-    const widget = node.widget
-    if (!widget) return
-    if (!isWidgetKey(widget.key)) return
-
-    const references = collectWidgetReferenceCandidates(widget.key, widget.params)
-    const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-    if (pairColor !== 'gray') {
-      references.push(
-        ...collectWidgetReferenceCandidates(
-          widget.key,
-          readSupportedPairContextForWidget(widget.key, colorPairs, pairColor)
-        )
-      )
-    }
-
-    for (const reference of references) {
-      candidates.push({
-        panelId: node.id,
-        field: reference.field,
-        value: reference.value,
-        path: `${node.id}.${reference.path}`,
-      })
-    }
-  }
-
-  visit(layout)
-  return candidates
-}
-
-function readSupportedPairContextForWidget(
-  widgetKey: WidgetKey,
-  colorPairs: PersistedColorPairsState | unknown,
-  pairColor: PairColor
-): Record<string, unknown> {
-  const context = readPairColorContext(colorPairs, pairColor)
-  const supportedContext: Record<string, unknown> = {}
-
-  for (const field of getWidgetContract(widgetKey).linkedParamFields) {
-    const value = context[field as keyof PairColorContext]
-    if (value != null) {
-      supportedContext[field] = value
-    }
-  }
-
-  return supportedContext
-}
-
 type WidgetConfigMutationInput = {
   layout: LayoutNode
   colorPairs: PersistedColorPairsState
@@ -254,7 +178,6 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
         beforeWidget: current,
         afterWidget: null,
         carriedPairContext: {},
-        references: [],
       },
       pairPatch: {},
     }
@@ -279,7 +202,7 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     pairColor: input.patch.pairColor,
     defaultPairColor: currentPairColor,
   })
-  const { nextParams, widgetParams } = guardWidgetConfig('params', () => {
+  const { nextParams, widgetParams } = withWidgetConfigErrors('params', () => {
     const nextParams = sanitizeWidgetParams(
       nextKey,
       resolveMutationParams(current, nextKey, input.patch),
@@ -301,7 +224,7 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     nextPairColor,
     nextKey,
   })
-  const pairPatch = guardWidgetConfig('params', () =>
+  const pairPatch = withWidgetConfigErrors('params', () =>
     nextPairColor === 'gray' || input.patch.colorPair === null
       ? {}
       : buildFinalPairPatch({
@@ -311,9 +234,6 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
           colorPair: input.patch.colorPair,
           carriedPairContext,
         })
-  )
-  const references = guardWidgetConfig('params', () =>
-    collectReferenceCandidates(input.panelId, nextKey, widgetParams, pairPatch)
   )
 
   return {
@@ -326,26 +246,15 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
         params: widgetParams,
       },
       carriedPairContext,
-      references,
     },
     pairPatch,
   }
 }
 
-export function planWidgetConfigMutation(
-  input: WidgetConfigMutationInput
-): PlannedWidgetConfigMutation {
-  return computeWidgetConfigMutation(input).plan
-}
-
 export function applyWidgetConfigMutation(
-  input: WidgetConfigMutationInput & {
-    referenceValidationScope?: { workspaceId: string; ownerUserId: string }
-    referenceValidation?: WidgetReferenceValidationResult
-  }
+  input: WidgetConfigMutationInput
 ): AppliedWidgetConfigMutation {
   const { plan, pairPatch } = computeWidgetConfigMutation(input)
-  assertReferenceValidation(plan, input.referenceValidation, input.referenceValidationScope)
   const widget = plan.afterWidget
   if (widget && !isWidgetKey(widget.key)) {
     failWidgetConfig('widgetKey', `Unknown widget key for panel "${input.panelId}"`)
@@ -448,24 +357,6 @@ function buildNextColorPairs(input: {
     : input.colorPairs
 }
 
-function collectReferenceCandidates(
-  panelId: string,
-  widgetKey: WidgetKey,
-  params: Record<string, unknown> | null,
-  pairPatch: Record<string, unknown>
-): WidgetReferenceValidationCandidate[] {
-  const references = [
-    ...collectWidgetReferenceCandidates(widgetKey, params),
-    ...collectWidgetReferenceCandidates(widgetKey, pairPatch),
-  ]
-  return references.map((reference) => ({
-    panelId,
-    field: reference.field,
-    value: reference.value,
-    path: `${panelId}.${reference.path}`,
-  }))
-}
-
 function buildCarriedPairContext(input: {
   beforeWidget: WidgetInstance
   colorPairs: PersistedColorPairsState
@@ -518,48 +409,6 @@ function buildFinalPairPatch(input: {
   }
 }
 
-function assertReferenceValidation(
-  plan: PlannedWidgetConfigMutation,
-  proof: WidgetReferenceValidationResult | undefined,
-  scope: { workspaceId: string; ownerUserId: string } | undefined
-) {
-  if (plan.references.length === 0) return
-  if (!scope) {
-    failWidgetConfig(
-      'references',
-      'Widget reference validation scope is required before applying this mutation'
-    )
-  }
-  if (!proof) {
-    failWidgetConfig(
-      'references',
-      'Widget reference validation proof is required before applying this mutation'
-    )
-  }
-  if (proof.panelId !== plan.panelId || proof.widgetKey !== plan.afterWidget?.key) {
-    failWidgetConfig('references', 'Widget reference validation proof does not match this mutation')
-  }
-  if (proof.workspaceId !== scope.workspaceId || proof.ownerUserId !== scope.ownerUserId) {
-    failWidgetConfig(
-      'references',
-      'Widget reference validation proof scope does not match this mutation'
-    )
-  }
-
-  const proven = new Set(proof.candidates.map(serializeReferenceCandidate))
-  const missing = plan.references.filter(
-    (candidate) => !proven.has(serializeReferenceCandidate(candidate))
-  )
-  if (missing.length > 0) {
-    failWidgetConfig(
-      'references',
-      `Widget reference validation proof is missing: ${missing
-        .map((candidate) => `${candidate.path}=${candidate.value}`)
-        .join(', ')}`
-    )
-  }
-}
-
 function buildColorPairDiff(
   beforeColorPairs: PersistedColorPairsState,
   afterColorPairs: PersistedColorPairsState
@@ -581,10 +430,6 @@ function buildColorPairDiff(
       return changedFields.length > 0 ? [{ color, before, after, changedFields }] : []
     }
   )
-}
-
-function serializeReferenceCandidate(candidate: WidgetReferenceValidationCandidate): string {
-  return `${candidate.panelId}:${candidate.path}:${candidate.field}:${candidate.value}`
 }
 
 function areJsonValuesEqual(left: unknown, right: unknown): boolean {

@@ -16,8 +16,6 @@ import {
   type WidgetKey,
   type WidgetMetadataProfile,
   type WidgetParamField,
-  type WidgetReferenceParamCandidate,
-  type WidgetReferenceParamField,
 } from '@/widgets/widget-contract-types'
 import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { dataChartWidgetContract } from '@/widgets/widgets/data_chart/contract'
@@ -49,7 +47,6 @@ export type {
   WidgetParamFieldContract,
   WidgetParamMutationMode,
   WidgetParamsNormalizationOptions,
-  WidgetReferenceParamCandidate,
   WidgetReferenceParamField,
   WidgetSanitizeResult,
   WidgetValidationIssue,
@@ -174,26 +171,6 @@ export function resolveEffectiveWidgetParams(
   ).params
 }
 
-export function collectWidgetReferenceParams(
-  widgetKey: WidgetKey,
-  params: unknown
-): Partial<Record<WidgetReferenceParamField, string>> {
-  const references: Partial<Record<WidgetReferenceParamField, string>> = {}
-  for (const candidate of collectWidgetReferenceCandidates(widgetKey, params)) {
-    if (!(candidate.field in references)) {
-      references[candidate.field] = candidate.value
-    }
-  }
-  return references
-}
-
-export function collectWidgetReferenceCandidates(
-  widgetKey: WidgetKey,
-  params: unknown
-): WidgetReferenceParamCandidate[] {
-  return getWidgetContract(widgetKey).collectReferenceParams(params)
-}
-
 export function normalizeWidgetColorPairPatch(
   widgetKey: WidgetKey,
   value: Record<string, unknown> | null | undefined
@@ -295,22 +272,22 @@ export function listWidgetCatalogItems(
       editable: contract.editable,
       editableFields: [...contract.editableFields],
       linkedParamFields: [...contract.linkedParamFields],
-      capabilities: [...contract.bestPractices, ...contract.validationHints],
     }))
 }
 
 export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): WidgetMetadataProfile[] {
-  return widgetKeys.map((widgetKey) =>
-    getWidgetContract(assertWidgetKey(widgetKey)).buildMetadataProfile()
-  )
-}
-
-export function assertWidgetContractCoverage(reactWidgetKeys: readonly string[]) {
-  const reactKeys = new Set(reactWidgetKeys)
-  const missingReactDefinitions = WIDGET_KEYS.filter((key) => !reactKeys.has(key))
-  if (missingReactDefinitions.length > 0) {
-    throw new Error(
-      `Dashboard widget registry mismatch: missing React definitions [${missingReactDefinitions.join(', ')}]`
-    )
-  }
+  return widgetKeys.map((widgetKey) => {
+    const contract = getWidgetContract(assertWidgetKey(widgetKey))
+    return {
+      widgetKey: contract.key,
+      title: contract.title,
+      category: contract.category,
+      description: contract.description,
+      editable: contract.editable,
+      defaultParams: contract.defaultParams,
+      editableFields: [...contract.editableFields],
+      paramContract: contract.paramContract,
+      linkedParamFields: [...contract.linkedParamFields],
+    }
+  })
 }

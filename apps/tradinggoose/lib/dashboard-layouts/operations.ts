@@ -1,17 +1,8 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import {
-  customTools,
-  layoutMap,
-  mcpServers,
-  pineIndicators,
-  skill,
-  watchlistTable,
-  workflow,
-} from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { layoutMap } from '@tradinggoose/db/schema'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
-import { validateDashboardLayoutWidgetReferences } from '@/lib/copilot/tools/server/widgets/widget-reference-validation'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import {
   assertCanDeleteWorkspaceEntityDocument,
@@ -29,12 +20,7 @@ import {
   type PersistedColorPairsState,
   serializeLayout,
 } from '@/widgets/layout'
-import {
-  type DashboardLayoutDefaultReferenceParams,
-  dashboardLayoutNeedsDefaultReferenceParams,
-  initializeDashboardLayoutLinkedParams,
-  normalizeDashboardLayoutDocumentFields,
-} from '@/widgets/layout-document'
+import { normalizeDashboardLayoutDocumentFields } from '@/widgets/layout-document'
 
 export type DashboardLayoutOwnerScope = {
   workspaceId: string
@@ -121,65 +107,6 @@ async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<void
   await refreshEntityListSession('dashboard_layout', scope.workspaceId, scope.ownerUserId).catch(
     () => undefined
   )
-}
-
-export async function readDefaultDashboardLayoutReferenceParams(
-  workspaceId: string
-): Promise<DashboardLayoutDefaultReferenceParams> {
-  const [workflowRow, watchlistRow, indicatorRow, mcpServerRow, customToolRow, skillRow] =
-    await Promise.all([
-      db
-        .select({ id: workflow.id })
-        .from(workflow)
-        .where(eq(workflow.workspaceId, workspaceId))
-        .orderBy(asc(workflow.name), asc(workflow.id))
-        .limit(1),
-      db
-        .select({ id: watchlistTable.id })
-        .from(watchlistTable)
-        .where(
-          and(
-            eq(watchlistTable.workspaceId, workspaceId),
-            isNull(watchlistTable.userId),
-            isNull(watchlistTable.parentId)
-          )
-        )
-        .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.name), asc(watchlistTable.id))
-        .limit(1),
-      db
-        .select({ id: pineIndicators.id })
-        .from(pineIndicators)
-        .where(eq(pineIndicators.workspaceId, workspaceId))
-        .orderBy(asc(pineIndicators.name), asc(pineIndicators.id))
-        .limit(1),
-      db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-        .orderBy(asc(mcpServers.name), asc(mcpServers.id))
-        .limit(1),
-      db
-        .select({ id: customTools.id })
-        .from(customTools)
-        .where(eq(customTools.workspaceId, workspaceId))
-        .orderBy(asc(customTools.title), asc(customTools.id))
-        .limit(1),
-      db
-        .select({ id: skill.id })
-        .from(skill)
-        .where(eq(skill.workspaceId, workspaceId))
-        .orderBy(asc(skill.name), asc(skill.id))
-        .limit(1),
-    ])
-
-  return {
-    ...(workflowRow[0]?.id ? { workflowId: workflowRow[0].id } : {}),
-    ...(watchlistRow[0]?.id ? { watchlistId: String(watchlistRow[0].id) } : {}),
-    ...(indicatorRow[0]?.id ? { indicatorId: String(indicatorRow[0].id) } : {}),
-    ...(mcpServerRow[0]?.id ? { mcpServerId: mcpServerRow[0].id } : {}),
-    ...(customToolRow[0]?.id ? { customToolId: customToolRow[0].id } : {}),
-    ...(skillRow[0]?.id ? { skillId: skillRow[0].id } : {}),
-  }
 }
 
 async function readDashboardLayoutRows(
@@ -299,11 +226,7 @@ async function insertDashboardLayoutRow(
 
 async function hydrateLayoutRow(row: LayoutRow): Promise<DashboardLayoutProjection> {
   const fields = layoutRowToFields(row)
-  const defaultReferences = dashboardLayoutNeedsDefaultReferenceParams(fields.layout)
-    ? await readDefaultDashboardLayoutReferenceParams(row.workspaceId)
-    : {}
-  const initialized = initializeDashboardLayoutLinkedParams(fields, defaultReferences)
-  const projection = await buildDashboardLayoutReadProjection(initialized)
+  const projection = await buildDashboardLayoutReadProjection(fields)
   return {
     ...toLayoutTab(row),
     layout: projection.hydratedLayout,
@@ -337,19 +260,15 @@ export async function materializeDashboardLayoutFields(
       ...fields,
     }) as DashboardLayoutFields
   )
-  const defaultReferences = dashboardLayoutNeedsDefaultReferenceParams(normalized.layout)
-    ? await readDefaultDashboardLayoutReferenceParams(scope.workspaceId)
-    : {}
-  const initialized = initializeDashboardLayoutLinkedParams(normalized, defaultReferences)
 
   await applyDashboardLayoutOperation(scope, layoutId, {
-    name: initialized.name,
+    name: normalized.name,
     // A live doc can request activation but can never deactivate a layout.
-    isActive: current.isActive || initialized.isActive,
-    sortOrder: initialized.sortOrder,
+    isActive: current.isActive || normalized.isActive,
+    sortOrder: normalized.sortOrder,
     content: {
-      layout: initialized.layout,
-      colorPairs: initialized.colorPairs,
+      layout: normalized.layout,
+      colorPairs: normalized.colorPairs,
     },
   })
   return readDashboardLayoutFields(scope, layoutId)
@@ -414,9 +333,6 @@ async function applyDashboardLayoutOperation(
 
     const shouldActivate = resolved.isActive === true && !currentRow.isActive
     const content = resolved.content
-    if (content) {
-      await validateDashboardLayoutWidgetReferences(scope, content.layout, content.colorPairs)
-    }
 
     const nextOrder = [...orderedRows]
     if (shouldReorder) {

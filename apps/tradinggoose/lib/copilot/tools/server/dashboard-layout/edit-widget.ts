@@ -14,12 +14,11 @@ import {
   requireEntityId,
   verifySavedEntityContext,
 } from '@/lib/copilot/tools/server/entities/shared'
-import { validateWidgetReferenceCandidates } from '@/lib/copilot/tools/server/widgets/widget-reference-validation'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type { PersistedColorPairsState, WidgetInstance } from '@/widgets/layout'
 import { isPairColor } from '@/widgets/pair-colors'
-import { applyWidgetConfigMutation, planWidgetConfigMutation } from '@/widgets/widget-mutations'
+import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 
 export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
   name: CopilotTool.edit_widget,
@@ -40,20 +39,11 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       colorPair: args.colorPair,
       removedWidgetPanelIds: args.removedWidgetPanelIds,
     }
-    const plan = planWidgetConfigMutation({
-      layout: current.layout,
-      colorPairs: current.colorPairs,
-      panelId: args.panelId,
-      patch,
-    })
-    const referenceValidation = await validateWidgetReferenceCandidates(scope, plan)
     const next = applyWidgetConfigMutation({
       layout: current.layout,
       colorPairs: current.colorPairs,
       panelId: args.panelId,
       patch,
-      referenceValidationScope: scope,
-      referenceValidation,
     })
     const nextFields = {
       ...current,

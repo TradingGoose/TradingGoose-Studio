@@ -9,7 +9,4 @@ export const copilotWidgetContract = defineWidgetContract({
   editableFields: [],
   linkedParamFields: [],
   defaultParams: null,
-  examples: [{ widgetKey: 'copilot', params: null }],
-  bestPractices: ['Copilot widget params are intentionally not persisted.'],
-  validationHints: ['params are always serialized as null.'],
 })

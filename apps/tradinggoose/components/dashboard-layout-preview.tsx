@@ -10,8 +10,6 @@ import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-men
 const PANEL_MIN_SIZE = 10
 const MIN_SPLIT_SIZE = PANEL_MIN_SIZE * 2
 
-export type DashboardLayoutPreviewPanelDiffState = 'added' | 'removed' | 'changed'
-
 export type DashboardLayoutPreviewCopy = {
   headerAriaLabel: string
   sizeLabel: string
@@ -32,8 +30,7 @@ type PanelActionHandlers = {
 type PreviewContext = PanelActionHandlers & {
   copy: DashboardLayoutPreviewCopy
   locale?: LocaleCode
-  panelDiffs?: ReadonlyMap<string, DashboardLayoutPreviewPanelDiffState>
-  showPanelIds: boolean
+  showDimensions: boolean
   showWidgetKeys: boolean
 }
 
@@ -41,19 +38,9 @@ export type DashboardLayoutPreviewCanvasProps = PanelActionHandlers & {
   layout: LayoutNode
   copy: DashboardLayoutPreviewCopy
   locale?: LocaleCode
-  panelDiffs?: ReadonlyMap<string, DashboardLayoutPreviewPanelDiffState>
-  showPanelIds?: boolean
+  showDimensions?: boolean
   showWidgetKeys?: boolean
 }
-
-const PANEL_DIFF_CLASS: Record<DashboardLayoutPreviewPanelDiffState | 'unchanged', string> = {
-  added: 'border-emerald-500/70 bg-emerald-500/10',
-  removed: 'border-red-500/70 bg-red-500/10',
-  changed: 'border-amber-500/70 bg-amber-500/10',
-  unchanged: 'border-border bg-background',
-}
-
-const HEADER_CELL_CLASS = 'flex h-8 flex-grow basis-0 items-center gap-1 whitespace-nowrap'
 
 const formatPanelDimension = (value: number) => (value > 0 ? `${value}px` : '--')
 const clampPx = (value: number) => Math.max(0, Math.round(value))
@@ -82,7 +69,6 @@ function DashboardLayoutPanelSurface({
   const bodyRef = React.useRef<HTMLDivElement>(null)
   const [panelSize, setPanelSize] = React.useState({ width: 0, height: 0 })
   const { copy, splitPanelVertical, splitPanelHorizontal, closePanel } = ctx
-  const diffState = ctx.panelDiffs?.get(node.id)
   const onSplitVertical =
     splitPanelVertical && height >= MIN_SPLIT_SIZE ? () => splitPanelVertical(node.id) : undefined
   const onSplitHorizontal =
@@ -116,11 +102,7 @@ function DashboardLayoutPanelSurface({
 
   return (
     <div className='box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 basis-0 p-1'>
-      <Card
-        className={`flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border ${PANEL_DIFF_CLASS[diffState ?? 'unchanged']}`}
-        data-dashboard-panel-diff={diffState ?? ''}
-        data-dashboard-panel-id={node.id}
-      >
+      <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
         <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
             ref={headerScrollRef}
@@ -128,32 +110,19 @@ function DashboardLayoutPanelSurface({
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label={copy.headerAriaLabel}
           >
-            <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
-              <div className={`${HEADER_CELL_CLASS} justify-start pl-1 text-left`}>
-                {ctx.showPanelIds ? (
-                  <span className='min-w-0 truncate text-muted-foreground text-xs'>{node.id}</span>
-                ) : null}
-              </div>
-              <div className={`${HEADER_CELL_CLASS} justify-center text-center`}>
-                {ctx.showWidgetKeys && node.widget?.key ? (
-                  <span className='min-w-0 truncate text-muted-foreground text-xs'>
-                    {node.widget.key}
-                  </span>
-                ) : null}
-              </div>
-              <div className={`${HEADER_CELL_CLASS} justify-end pr-1 text-right`}>
-                {hasActions ? (
-                  <WidgetActionMenu
-                    onClose={onClose}
-                    onSplitHorizontal={onSplitHorizontal}
-                    onSplitVertical={onSplitVertical}
-                  />
-                ) : diffState ? (
-                  <span className='mr-1 rounded-sm border border-border/60 bg-background/70 px-1.5 py-0.5 text-[10px] text-muted-foreground uppercase'>
-                    {diffState}
-                  </span>
-                ) : null}
-              </div>
+            <div className='flex h-8 w-full flex-nowrap items-center justify-end py-0.5 pr-1 text-accent-foreground text-sm'>
+              {ctx.showWidgetKeys ? (
+                <span className='min-w-0 flex-1 truncate px-2 text-muted-foreground text-xs'>
+                  {node.widget?.key ?? 'empty'}
+                </span>
+              ) : null}
+              {hasActions ? (
+                <WidgetActionMenu
+                  onClose={onClose}
+                  onSplitHorizontal={onSplitHorizontal}
+                  onSplitVertical={onSplitVertical}
+                />
+              ) : null}
             </div>
           </div>
         </header>
@@ -161,26 +130,34 @@ function DashboardLayoutPanelSurface({
           ref={bodyRef}
           className='flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden px-4 py-6 text-center'
         >
-          <div className='space-y-1'>
-            <p className='font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
-              {copy.sizeLabel}
-            </p>
-            <p className='font-medium text-2xl text-foreground tabular-nums'>
-              {formatPanelDimension(panelSize.width)} × {formatPanelDimension(panelSize.height)}
-            </p>
-          </div>
-          <p className='text-muted-foreground text-xs tabular-nums'>
-            {formatTemplate(
-              '{width}% {widthLabel} · {height}% {heightLabel}',
-              {
-                height: Math.round(height),
-                heightLabel: copy.heightLabel,
-                width: Math.round(width),
-                widthLabel: copy.widthLabel,
-              },
-              ctx.locale
-            )}
-          </p>
+          {ctx.showDimensions ? (
+            <>
+              <div className='space-y-1'>
+                <p className='font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
+                  {copy.sizeLabel}
+                </p>
+                <p className='font-medium text-2xl text-foreground tabular-nums'>
+                  {formatPanelDimension(panelSize.width)} × {formatPanelDimension(panelSize.height)}
+                </p>
+              </div>
+              <p className='text-muted-foreground text-xs tabular-nums'>
+                {formatTemplate(
+                  '{width}% {widthLabel} · {height}% {heightLabel}',
+                  {
+                    height: Math.round(height),
+                    heightLabel: copy.heightLabel,
+                    width: Math.round(width),
+                    widthLabel: copy.widthLabel,
+                  },
+                  ctx.locale
+                )}
+              </p>
+            </>
+          ) : (
+            <div className='max-w-full truncate rounded-sm border border-border/60 bg-muted/40 px-2 py-1 font-medium text-muted-foreground text-xs'>
+              {node.widget?.key ?? 'empty'}
+            </div>
+          )}
         </div>
       </Card>
     </div>
@@ -206,8 +183,7 @@ const DashboardLayoutPreviewNode = React.memo(function DashboardLayoutPreviewNod
     const staticCtx: PreviewContext = {
       copy: ctx.copy,
       locale: ctx.locale,
-      panelDiffs: ctx.panelDiffs,
-      showPanelIds: ctx.showPanelIds,
+      showDimensions: ctx.showDimensions,
       showWidgetKeys: ctx.showWidgetKeys,
     }
 
@@ -277,16 +253,14 @@ export function DashboardLayoutPreviewCanvas({
   layout,
   copy,
   locale,
-  panelDiffs,
-  showPanelIds = false,
+  showDimensions = true,
   showWidgetKeys = false,
   ...handlers
 }: DashboardLayoutPreviewCanvasProps) {
   const ctx: PreviewContext = {
     copy,
     locale,
-    panelDiffs,
-    showPanelIds,
+    showDimensions,
     showWidgetKeys,
     ...handlers,
   }

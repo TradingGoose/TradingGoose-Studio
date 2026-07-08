@@ -53,19 +53,12 @@ describe('edit_layout server tool', () => {
       layout: { id: 'root', type: 'group' },
       colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
       preview: {
-        layoutDiff: {
-          addedPanelIds: [],
-          removedPanelIds: [],
-          retainedPanelIds: ['chart-panel', 'order-panel'],
-          addedPanelCount: 0,
-          removedPanelCount: 0,
-          retainedPanelCount: 2,
-          topologyChanged: false,
-          metadataChanges: [{ field: 'name', before: 'Layout 1', after: 'Reviewed Layout' }],
+        documentDiff: {
+          before: expect.stringContaining('"name": "Layout 1"'),
+          after: expect.stringContaining('"name":"Reviewed Layout"'),
         },
       },
     })
-    expect(Object.keys(result.preview)).toEqual(['layoutDiff'])
     expect(toolMocks.applyLive).not.toHaveBeenCalled()
   })
 })

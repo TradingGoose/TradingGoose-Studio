@@ -5,8 +5,5 @@ export const workflowVariablesWidgetContract = defineEntityWidgetContract(
   'Workflow Variables',
   'utility',
   'Edit selected workflow variables.',
-  'workflowId',
-  'workflow-id',
-  'Use the same workflowId as the workflow editor panel.',
-  'workflowId must exist in the workspace.'
+  'workflowId'
 )

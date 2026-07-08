@@ -45,7 +45,4 @@ export const watchlistWidgetContract = defineWidgetContract({
   defaultParams: null,
   sanitizeLocalParams: sanitizeWatchlistParams,
   mergeLocalParams: mergeWatchlistParams,
-  examples: [{ widgetKey: 'watchlist', params: { watchlistId: 'watchlist-id' } }],
-  bestPractices: ['Use watchlistId for the saved watchlist document and listing for row-level shared selection.'],
-  validationHints: ['watchlistId must be a saved watchlist document in the authenticated workspace.'],
 })

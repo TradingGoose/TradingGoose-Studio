@@ -4,8 +4,6 @@ import {
   type LinkedPairColor,
   normalizePairColorContext,
   type PersistedColorPair,
-  readPairColorContext,
-  upsertPairColorContext,
 } from '@/widgets/color-pairs'
 import {
   createLayoutNodeId,
@@ -17,11 +15,9 @@ import {
 } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
-  getWidgetContract,
   isWidgetKey,
   resolveEffectiveWidgetParams,
   sanitizeWidgetInstance as sanitizeContractWidgetInstance,
-  type WidgetReferenceParamField,
 } from '@/widgets/widget-contracts'
 
 export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v1' as const
@@ -37,9 +33,6 @@ export type DashboardLayoutDocumentFields = {
 }
 
 export type DashboardLayoutValidationIssue = { path: string; message: string }
-export type DashboardLayoutDefaultReferenceParams = Partial<
-  Record<WidgetReferenceParamField, string>
->
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -169,30 +162,6 @@ function failDashboardLayout(path: string, message: string): never {
   throw createDashboardLayoutValidationError(path, message)
 }
 
-export type DashboardLayoutReviewDiff = {
-  before: DashboardLayoutDocumentFields
-  after: DashboardLayoutDocumentFields
-  addedPanelIds: string[]
-  removedPanelIds: string[]
-  retainedPanelIds: string[]
-  changedPanelIds: string[]
-  addedPanelCount: number
-  removedPanelCount: number
-  retainedPanelCount: number
-  changedPanelCount: number
-  groupSizeChanges: Array<{
-    groupId: string
-    before: number[]
-    after: number[]
-  }>
-  topologyChanged: boolean
-  metadataChanges: Array<{
-    field: 'name' | 'sortOrder' | 'isActive'
-    before: string | number | boolean
-    after: string | number | boolean
-  }>
-}
-
 export function normalizeDashboardLayoutDocumentFields(
   fields: Partial<DashboardLayoutDocumentFields> & {
     layout?: LayoutNode | unknown
@@ -218,163 +187,6 @@ export function normalizeDashboardLayoutDocumentFields(
     isActive: fields.isActive,
     sortOrder: fields.sortOrder,
   }
-}
-
-export function initializeDashboardLayoutLinkedParams(
-  fields: Partial<DashboardLayoutDocumentFields> & {
-    layout?: LayoutNode | unknown
-    colorPairs?: PersistedColorPairsState | unknown
-  },
-  defaultReferences: DashboardLayoutDefaultReferenceParams = {}
-): DashboardLayoutDocumentFields {
-  const normalized = normalizeDashboardLayoutDocumentFields(fields)
-  const localLinkedByColor = collectLocalLinkedParamsByColor(normalized.layout)
-  let colorPairs = normalized.colorPairs
-  const layout = initializeLinkedParamsInLayout(
-    normalized.layout,
-    colorPairs,
-    localLinkedByColor,
-    defaultReferences,
-    (nextColorPairs) => {
-      colorPairs = nextColorPairs
-    }
-  )
-
-  return {
-    ...normalized,
-    layout,
-    colorPairs,
-  }
-}
-
-export function dashboardLayoutNeedsDefaultReferenceParams(layout: LayoutNode): boolean {
-  if (layout.type !== 'panel') {
-    return layout.children.some(dashboardLayoutNeedsDefaultReferenceParams)
-  }
-  const widget = layout.widget
-  if (!widget || !isWidgetKey(widget.key) || isRecordWithKeys(widget.params)) return false
-  return getWidgetContract(widget.key).linkedParamFields.some(isReferenceParamField)
-}
-
-function isRecordWithKeys(value: unknown): value is Record<string, unknown> {
-  return isRecord(value) && Object.keys(value).length > 0
-}
-
-function collectLocalLinkedParamsByColor(
-  node: LayoutNode,
-  collected = new Map<LinkedPairColor, Record<string, unknown>>()
-): Map<LinkedPairColor, Record<string, unknown>> {
-  if (node.type !== 'panel') {
-    node.children.forEach((child) => collectLocalLinkedParamsByColor(child, collected))
-    return collected
-  }
-
-  const widget = node.widget
-  if (!widget || !isWidgetKey(widget.key) || !isPairColor(widget.pairColor)) return collected
-  if (widget.pairColor === 'gray' || !isRecord(widget.params)) return collected
-
-  const values = collected.get(widget.pairColor) ?? {}
-  for (const field of getWidgetContract(widget.key).linkedParamFields) {
-    if (values[field] != null) continue
-    const value = widget.params[field]
-    if (value != null) values[field] = value
-  }
-  if (Object.keys(values).length > 0) collected.set(widget.pairColor, values)
-  return collected
-}
-
-function initializeLinkedParamsInLayout(
-  node: LayoutNode,
-  colorPairs: PersistedColorPairsState,
-  localLinkedByColor: ReadonlyMap<LinkedPairColor, Record<string, unknown>>,
-  defaultReferences: DashboardLayoutDefaultReferenceParams,
-  setColorPairs: (colorPairs: PersistedColorPairsState) => void
-): LayoutNode {
-  if (node.type !== 'panel') {
-    const children = node.children.map((child) =>
-      initializeLinkedParamsInLayout(
-        child,
-        colorPairs,
-        localLinkedByColor,
-        defaultReferences,
-        (nextColorPairs) => {
-          colorPairs = nextColorPairs
-          setColorPairs(nextColorPairs)
-        }
-      )
-    )
-    return children.some((child, index) => child !== node.children[index])
-      ? { ...node, children }
-      : node
-  }
-
-  const widget = node.widget
-  if (!widget || !isWidgetKey(widget.key)) return node
-
-  const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  const linkedFields = getWidgetContract(widget.key).linkedParamFields
-  if (linkedFields.length === 0) return node
-
-  if (pairColor === 'gray') {
-    if (isRecordWithKeys(widget.params)) return node
-    const params = readDefaultLinkedParams(linkedFields, defaultReferences)
-    return params ? { ...node, widget: { ...widget, pairColor, params } } : node
-  }
-
-  let nextColorPairs = colorPairs
-  const sharedContext = readPairColorContext(nextColorPairs, pairColor)
-  const localContext = localLinkedByColor.get(pairColor) ?? {}
-  const widgetParamsAreEmpty = !isRecordWithKeys(widget.params)
-
-  for (const field of linkedFields) {
-    if (sharedContext[field as keyof typeof sharedContext] != null) continue
-    const localValue = localContext[field]
-    const defaultValue =
-      widgetParamsAreEmpty && isReferenceParamField(field) ? defaultReferences[field] : undefined
-    const nextValue = localValue ?? defaultValue
-    if (nextValue != null) {
-      nextColorPairs = upsertPairColorContext(nextColorPairs, pairColor, {
-        [field]: nextValue,
-      })
-    }
-  }
-
-  if (nextColorPairs !== colorPairs) {
-    setColorPairs(nextColorPairs)
-  }
-
-  const localParams = getWidgetContract(widget.key).resolveParamsForPairColorChange(
-    widget,
-    pairColor,
-    nextColorPairs
-  ).params
-  return localParams === widget.params
-    ? node
-    : { ...node, widget: { ...widget, params: localParams } }
-}
-
-function readDefaultLinkedParams(
-  linkedFields: readonly string[],
-  defaultReferences: DashboardLayoutDefaultReferenceParams
-): Record<string, unknown> | null {
-  const params: Record<string, unknown> = {}
-  for (const field of linkedFields) {
-    if (!isReferenceParamField(field)) continue
-    const value = defaultReferences[field]
-    if (value) params[field] = value
-  }
-  return Object.keys(params).length > 0 ? params : null
-}
-
-function isReferenceParamField(field: string): field is WidgetReferenceParamField {
-  return (
-    field === 'workflowId' ||
-    field === 'watchlistId' ||
-    field === 'indicatorId' ||
-    field === 'mcpServerId' ||
-    field === 'customToolId' ||
-    field === 'skillId'
-  )
 }
 
 function normalizeDocumentLayout(layout: unknown, path = 'layout'): LayoutNode {
@@ -470,57 +282,6 @@ export function serializeDashboardLayoutDocument(
   }
 ): string {
   return JSON.stringify(normalizeDashboardLayoutDocumentFields(fields), null, 2)
-}
-
-export function buildDashboardLayoutReviewDiff(
-  beforeFields: DashboardLayoutDocumentFields,
-  afterFields: DashboardLayoutDocumentFields
-): DashboardLayoutReviewDiff {
-  const before = normalizeDashboardLayoutDocumentFields(beforeFields)
-  const after = normalizeDashboardLayoutDocumentFields(afterFields)
-  const beforePanels = collectPanelWidgets(before.layout)
-  const afterPanels = collectPanelWidgets(after.layout)
-  const addedPanelIds = [...afterPanels.keys()].filter((panelId) => !beforePanels.has(panelId))
-  const removedPanelIds = [...beforePanels.keys()].filter((panelId) => !afterPanels.has(panelId))
-  const retainedPanelIds = [...afterPanels.keys()].filter((panelId) => beforePanels.has(panelId))
-  const changedPanelIds = retainedPanelIds.filter(
-    (panelId) =>
-      JSON.stringify(beforePanels.get(panelId) ?? null) !==
-      JSON.stringify(afterPanels.get(panelId) ?? null)
-  )
-  const afterGroups = collectGroupSizes(after.layout)
-  const groupSizeChanges = [...collectGroupSizes(before.layout)].flatMap(
-    ([groupId, beforeSizes]) => {
-      const afterSizes = afterGroups.get(groupId)
-      return afterSizes && JSON.stringify(beforeSizes) !== JSON.stringify(afterSizes)
-        ? [{ groupId, before: beforeSizes, after: afterSizes }]
-        : []
-    }
-  )
-  const metadataChanges = (['name', 'sortOrder', 'isActive'] as const)
-    .filter((field) => before[field] !== after[field])
-    .map((field) => ({ field, before: before[field], after: after[field] }))
-
-  return {
-    before,
-    after,
-    addedPanelIds,
-    removedPanelIds,
-    retainedPanelIds,
-    changedPanelIds,
-    addedPanelCount: addedPanelIds.length,
-    removedPanelCount: removedPanelIds.length,
-    retainedPanelCount: retainedPanelIds.length,
-    changedPanelCount: changedPanelIds.length,
-    groupSizeChanges,
-    topologyChanged:
-      addedPanelIds.length > 0 ||
-      removedPanelIds.length > 0 ||
-      groupSizeChanges.length > 0 ||
-      JSON.stringify(readLayoutTopology(before.layout)) !==
-        JSON.stringify(readLayoutTopology(after.layout)),
-    metadataChanges,
-  }
 }
 
 export function applyLayoutEditDocument(
@@ -655,17 +416,6 @@ function collectGroupSizes(node: LayoutNode): Map<string, number[]> {
     if (candidate.type === 'group') groups.set(candidate.id, [...candidate.sizes])
   })
   return groups
-}
-
-function readLayoutTopology(node: LayoutNode): unknown {
-  return node.type === 'panel'
-    ? { type: 'panel', id: node.id }
-    : {
-        type: 'group',
-        id: node.id,
-        direction: node.direction,
-        children: node.children.map(readLayoutTopology),
-      }
 }
 
 type StructureReconcileContext = {

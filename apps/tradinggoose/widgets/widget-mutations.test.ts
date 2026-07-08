@@ -3,13 +3,7 @@ import type { LayoutNode } from '@/widgets/layout'
 import { resolveEffectiveDashboardLayout } from '@/widgets/layout-document'
 import type { PairColor } from '@/widgets/pair-colors'
 import { getDefaultWidgetInstance, WIDGET_KEYS } from '@/widgets/widget-contracts'
-import {
-  applyWidgetConfigMutation,
-  collectDashboardLayoutReferenceCandidates,
-  type PlannedWidgetConfigMutation,
-  planWidgetConfigMutation,
-  type WidgetReferenceValidationResult,
-} from '@/widgets/widget-mutations'
+import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 
 const listing = {
   listing_type: 'default',
@@ -23,14 +17,6 @@ const normalizedListing = {
   base_id: '',
   quote_id: '',
 } as const
-const portfolioIdentity = {
-  providerId: 'alpaca',
-  credentialId: 'oauth-account-1',
-  serviceId: 'alpaca-live',
-  accountId: 'account-1',
-}
-const scope = { workspaceId: 'workspace-1', ownerUserId: 'user-1' }
-
 const panel = (
   id: string,
   key: string,
@@ -65,13 +51,6 @@ const withDefaults = (over: Partial<MutationInput>): MutationInput => ({
 })
 
 const apply = (over: Partial<MutationInput>) => applyWidgetConfigMutation(withDefaults(over))
-const plan = (over: Partial<MutationInput>) => planWidgetConfigMutation(withDefaults(over))
-const applyProven = (over: Partial<MutationInput>) =>
-  applyWidgetConfigMutation({
-    ...withDefaults(over),
-    referenceValidationScope: scope,
-    referenceValidation: proofForPlan(plan(over)),
-  })
 
 describe('applyWidgetConfigMutation', () => {
   it.each(WIDGET_KEYS)('applies canonical defaults when changing to %s', (widgetKey) => {
@@ -95,7 +74,7 @@ describe('applyWidgetConfigMutation', () => {
   })
 
   it('splits non-gray linked params into shared colorPairs and keeps local params on the widget', () => {
-    const result = applyProven({
+    const result = apply({
       patch: { params: { listing, data: { provider: 'alpaca' } } },
     })
 
@@ -140,7 +119,7 @@ describe('applyWidgetConfigMutation', () => {
       ],
     }
 
-    const result = applyProven({
+    const result = apply({
       layout,
       colorPairs: {
         pairs: [
@@ -191,76 +170,6 @@ describe('applyWidgetConfigMutation', () => {
     expect(result.widget?.params).toEqual({ view: { interval: '1h' } })
   })
 
-  it('edits heatmap into a portfolio-backed trading account with market credentials', () => {
-    const result = apply({
-      layout: panel('heatmap-panel', 'heatmap', 'gray'),
-      panelId: 'heatmap-panel',
-      patch: {
-        params: {
-          sourceMode: 'portfolio',
-          marketProvider: 'alpaca',
-          marketAuth: {
-            apiKey: 'raw-key',
-            apiSecret: '{{ ALPACA_API_SECRET }}',
-          },
-          tradingProvider: 'alpaca',
-          serviceId: 'alpaca-live',
-          portfolioIdentity,
-        },
-      },
-    })
-
-    expect(result.widget?.params).toEqual({
-      sourceMode: 'portfolio',
-      marketProvider: 'alpaca',
-      marketAuth: {
-        apiKey: 'raw-key',
-        apiSecret: '{{ ALPACA_API_SECRET }}',
-      },
-      tradingProvider: 'alpaca',
-      serviceId: 'alpaca-live',
-      portfolioIdentity,
-    })
-  })
-
-  it('edits data-chart provider credentials and nested indicator refs through canonical params', () => {
-    const patch = {
-      params: {
-        data: {
-          provider: 'alpaca',
-          providerParams: { feed: 'iex' },
-          auth: { apiKey: 'raw-key', apiSecret: '{{ ALPACA_API_SECRET }}' },
-        },
-        view: {
-          interval: '1h',
-          pineIndicators: [{ id: 'indicator-1', inputs: { Length: 20 }, visible: true }],
-        },
-      },
-    }
-
-    expect(plan({ patch }).references).toEqual([
-      {
-        panelId: 'chart-panel',
-        path: 'chart-panel.view.pineIndicators[0].id',
-        field: 'indicatorId',
-        value: 'indicator-1',
-      },
-    ])
-
-    const result = applyProven({ patch })
-    expect(result.widget?.params).toEqual({
-      data: {
-        provider: 'alpaca',
-        providerParams: { feed: 'iex' },
-        auth: { apiKey: 'raw-key', apiSecret: '{{ ALPACA_API_SECRET }}' },
-      },
-      view: {
-        interval: '1h',
-        pineIndicators: [{ id: 'indicator-1', inputs: { Length: 20 }, visible: true }],
-      },
-    })
-  })
-
   it('rejects colorPair for gray widgets', () => {
     expect(() => apply({ patch: { pairColor: 'gray', colorPair: { listing } } })).toThrow(
       'colorPair requires a non-gray pairColor'
@@ -277,7 +186,7 @@ describe('applyWidgetConfigMutation', () => {
   })
 
   it('accepts identical linked field values submitted in both params and colorPair once', () => {
-    const result = applyProven({
+    const result = apply({
       patch: { params: { listing }, colorPair: { listing } },
     })
 
@@ -295,7 +204,7 @@ describe('applyWidgetConfigMutation', () => {
     }
 
     expect(() =>
-      plan({
+      apply({
         patch: {
           params: { listing },
           colorPair: { listing: conflictingListing },
@@ -304,17 +213,6 @@ describe('applyWidgetConfigMutation', () => {
     ).toThrow(
       'params.listing: Conflicting linked colorPair field "listing" submitted in params and colorPair; colorPair.listing: Conflicting linked colorPair field "listing" submitted in params and colorPair'
     )
-  })
-
-  it('preserves color-store fields after pair-color changes', () => {
-    const result = apply({
-      colorPairs: { pairs: [{ color: 'red', listing: normalizedListing }] },
-      patch: { pairColor: 'gray' },
-    })
-
-    expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'red', listing: normalizedListing }],
-    })
   })
 
   it('carries switching widget fields without pruning source color store', () => {
@@ -335,15 +233,7 @@ describe('applyWidgetConfigMutation', () => {
       patch: { pairColor: 'blue' },
     }
 
-    expect(plan(over).references).toEqual([
-      {
-        panelId: 'chart-panel',
-        path: 'chart-panel.listing',
-        field: 'listing',
-        value: 'default|AAPL||',
-      },
-    ])
-    expect(applyProven(over).colorPairs).toEqual({
+    expect(apply(over).colorPairs).toEqual({
       pairs: [
         { color: 'blue', listing: normalizedListing },
         {
@@ -355,32 +245,7 @@ describe('applyWidgetConfigMutation', () => {
     })
   })
 
-  it('requires validation proof for workflow ids carried during pair-color switches', () => {
-    const over: Partial<MutationInput> = {
-      layout: workflowLayout(),
-      colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-red' }] },
-      panelId: 'panel-workflow',
-      patch: { pairColor: 'blue' },
-    }
-
-    expect(plan(over).references).toEqual([
-      {
-        panelId: 'panel-workflow',
-        path: 'panel-workflow.workflowId',
-        field: 'workflowId',
-        value: 'workflow-red',
-      },
-    ])
-    expect(() => apply(over)).toThrow('validation scope is required')
-    expect(applyProven(over).colorPairs).toEqual({
-      pairs: [
-        { color: 'blue', workflowId: 'workflow-red' },
-        { color: 'red', workflowId: 'workflow-red' },
-      ],
-    })
-  })
-
-  it('lets explicit colorPair fields override carried pair-color state before validation', () => {
+  it('lets explicit colorPair fields override carried pair-color state', () => {
     const colorPairs = () => ({
       pairs: [{ color: 'red' as const, workflowId: 'workflow-red' }],
     })
@@ -391,15 +256,7 @@ describe('applyWidgetConfigMutation', () => {
       patch: { pairColor: 'blue', colorPair: { workflowId: 'workflow-blue' } },
     }
 
-    expect(plan(overridePatch).references).toEqual([
-      {
-        panelId: 'panel-workflow',
-        path: 'panel-workflow.workflowId',
-        field: 'workflowId',
-        value: 'workflow-blue',
-      },
-    ])
-    expect(applyProven(overridePatch).colorPairs).toEqual({
+    expect(apply(overridePatch).colorPairs).toEqual({
       pairs: [
         { color: 'blue', workflowId: 'workflow-blue' },
         { color: 'red', workflowId: 'workflow-red' },
@@ -413,7 +270,6 @@ describe('applyWidgetConfigMutation', () => {
       patch: { pairColor: 'blue', colorPair: { workflowId: null } },
     }
 
-    expect(plan(deletePatch).references).toEqual([])
     expect(apply(deletePatch).colorPairs).toEqual({
       pairs: [{ color: 'red', workflowId: 'workflow-red' }],
     })
@@ -458,19 +314,6 @@ describe('applyWidgetConfigMutation', () => {
     )
   })
 
-  it('skips non-contract persisted widget keys during reference collection', () => {
-    expect(
-      collectDashboardLayoutReferenceCandidates(unknownWidgetLayout(), {
-        pairs: [],
-      })
-    ).toEqual([])
-    expect(
-      collectDashboardLayoutReferenceCandidates(panel('panel-empty-widget', 'empty', 'gray'), {
-        pairs: [],
-      })
-    ).toEqual([])
-  })
-
   it('requires a canonical target widget key before editing unknown current widget keys', () => {
     expect(() =>
       apply({
@@ -490,70 +333,4 @@ describe('applyWidgetConfigMutation', () => {
 
     expect(result.widget).toEqual(getDefaultWidgetInstance('watchlist'))
   })
-
-  it('requires scoped reference validation proof before applying entity references', () => {
-    const patch = {
-      widgetKey: 'editor_workflow',
-      params: { workflowId: 'workflow-1' },
-    }
-    const candidates = plan({ patch }).references
-    const proof = (
-      over: Partial<WidgetReferenceValidationResult>
-    ): WidgetReferenceValidationResult => ({
-      ...scope,
-      panelId: 'chart-panel',
-      widgetKey: 'editor_workflow',
-      candidates,
-      ...over,
-    })
-
-    expect(candidates).toEqual([
-      {
-        panelId: 'chart-panel',
-        path: 'chart-panel.workflowId',
-        field: 'workflowId',
-        value: 'workflow-1',
-      },
-    ])
-    expect(() => apply({ patch })).toThrow('validation scope is required')
-    expect(() => apply({ patch, referenceValidation: proof({}) })).toThrow(
-      'validation scope is required'
-    )
-    expect(() =>
-      apply({
-        patch,
-        referenceValidationScope: scope,
-        referenceValidation: proof({
-          workspaceId: 'workspace-2',
-          ownerUserId: 'user-2',
-        }),
-      })
-    ).toThrow('proof scope does not match')
-    expect(() => apply({ patch, referenceValidationScope: scope })).toThrow(
-      'validation proof is required'
-    )
-
-    const result = apply({
-      patch,
-      referenceValidationScope: scope,
-      referenceValidation: proof({}),
-    })
-    expect(result.widget).toEqual({
-      key: 'editor_workflow',
-      pairColor: 'red',
-      params: null,
-    })
-    expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'red', workflowId: 'workflow-1' }],
-    })
-  })
 })
-
-function proofForPlan(plan: PlannedWidgetConfigMutation): WidgetReferenceValidationResult {
-  return {
-    ...scope,
-    panelId: plan.panelId,
-    widgetKey: plan.afterWidget?.key as WidgetReferenceValidationResult['widgetKey'],
-    candidates: plan.references,
-  }
-}

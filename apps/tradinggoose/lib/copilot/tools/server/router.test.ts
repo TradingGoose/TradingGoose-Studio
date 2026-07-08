@@ -397,7 +397,7 @@ describe('copilot contract registry', () => {
     })
   })
 
-  it('exposes knowledge base document contracts without the legacy operation wrapper', () => {
+  it('exposes knowledge base document contracts directly', () => {
     const entityDocument =
       '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
     const mutationArgs = {

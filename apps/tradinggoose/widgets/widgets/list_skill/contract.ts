@@ -5,8 +5,5 @@ export const skillListWidgetContract = defineEntityWidgetContract(
   'Skills',
   'list',
   'List skills.',
-  'skillId',
-  'skill-id',
-  'Use ids returned by list_skills.',
-  'skillId must exist in the workspace.'
+  'skillId'
 )

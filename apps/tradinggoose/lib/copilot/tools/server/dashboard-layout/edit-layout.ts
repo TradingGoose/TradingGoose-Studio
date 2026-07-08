@@ -18,8 +18,8 @@ import { listDashboardLayouts } from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import {
   applyLayoutEditDocument,
-  buildDashboardLayoutReviewDiff,
   createDashboardLayoutValidationError,
+  serializeDashboardLayoutDocument,
 } from '@/widgets/layout-document'
 
 export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
@@ -61,7 +61,10 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
         effectiveLayout: projection.effectiveLayout,
         reviewBaseStateHash: hashServerToolReviewBase(current),
         preview: {
-          layoutDiff: buildDashboardLayoutReviewDiff(current, next),
+          documentDiff: {
+            before: serializeDashboardLayoutDocument(current),
+            after: projection.entityDocument,
+          },
         },
       }
     }

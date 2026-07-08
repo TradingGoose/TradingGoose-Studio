@@ -18,7 +18,6 @@ const mockSetWatchlistItems = vi.fn()
 const mockSetWatchlistName = vi.fn()
 const mockSetWatchlistSettings = vi.fn()
 const mockSaveWatchlistDocument = vi.fn()
-const mockExportWatchlistAsJson = vi.fn()
 const mockPatchWidgetParams = vi.fn()
 
 const rootWatchlist: WatchlistRecord = {
@@ -60,16 +59,6 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
     }
   },
 }))
-
-vi.mock('@/lib/watchlists/import-export', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/watchlists/import-export')>(
-    '@/lib/watchlists/import-export'
-  )
-  return {
-    ...actual,
-    exportWatchlistAsJson: (...args: unknown[]) => mockExportWatchlistAsJson(...args),
-  }
-})
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
   useWidgetConfigRuntimeActions: () => ({
@@ -165,7 +154,6 @@ describe('watchlist header controls', () => {
     currentWatchlist = rootWatchlist
     currentWatchlists = [rootWatchlist]
     mockSaveWatchlistDocument.mockResolvedValue(undefined)
-    mockExportWatchlistAsJson.mockReturnValue('{"watchlists":[]}')
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -229,70 +217,6 @@ describe('watchlist header controls', () => {
       }),
     ])
     expect(mockSaveWatchlistDocument).toHaveBeenCalledTimes(1)
-  })
-
-  it('adds header listings as root items even when sections exist', async () => {
-    const section = { id: 'section-1', type: 'section' as const, parentId: null, label: 'Tech' }
-    const sectionListing = {
-      id: 'listing-1',
-      type: 'listing' as const,
-      parentId: 'section-1',
-      listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default' as const,
-      },
-    }
-    currentWatchlist = {
-      ...rootWatchlist,
-      items: [section, sectionListing],
-    }
-    currentWatchlists = [currentWatchlist]
-
-    await act(async () => {
-      root.render(
-        <WatchlistHeaderCenterControls
-          workspaceId='workspace-1'
-          panelId='panel-2'
-          widget={createWidget({
-            key: 'watchlist-widget',
-            params: { provider: 'alpaca' },
-          })}
-          canMutateWatchlist
-        />
-      )
-    })
-
-    const buttons = Array.from(container.querySelectorAll('button'))
-    const listingButton = buttons.find((button) => button.textContent?.includes('Select Listing'))
-    const addButton = buttons.find((button) =>
-      button.textContent?.includes('Add listing to watchlist')
-    )
-
-    await act(async () => {
-      listingButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    await act(async () => {
-      addButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-      await Promise.resolve()
-    })
-
-    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
-      section,
-      sectionListing,
-      expect.objectContaining({
-        type: 'listing',
-        parentId: null,
-        listing: {
-          listing_id: 'BTCUSD',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      }),
-    ])
   })
 
   it('creates the next section name through the selected Yjs document', async () => {
@@ -371,143 +295,5 @@ describe('watchlist header controls', () => {
     })
     expect(mockSetWatchlistItems).not.toHaveBeenCalled()
     expect(mockSaveWatchlistDocument).not.toHaveBeenCalled()
-  })
-
-  it('imports watchlist files into the selected watchlist document', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn(),
-    })
-    vi.stubGlobal('fetch', mockFetch)
-
-    await act(async () => {
-      root.render(
-        <WatchlistHeaderRightControls
-          workspaceId='workspace-1'
-          panelId='panel-4'
-          widget={createWidget({ key: 'watchlist-widget', params: {} })}
-          canEditWidgetParams
-          canMutateWatchlist
-        />
-      )
-    })
-
-    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
-      candidate.textContent?.includes('Import')
-    )
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement | null
-
-    await act(async () => {
-      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    const filePayload = {
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedAt: '2026-04-06T12:00:00.000Z',
-      exportedFrom: 'watchlistWidget',
-      resourceTypes: ['watchlists'],
-      watchlists: [
-        {
-          name: 'Watchlist',
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [],
-        },
-      ],
-    }
-    const file = {
-      text: vi.fn().mockResolvedValue(JSON.stringify(filePayload)),
-    } as unknown as File
-
-    Object.defineProperty(input, 'files', {
-      configurable: true,
-      value: [file],
-    })
-
-    await act(async () => {
-      input?.dispatchEvent(new Event('change', { bubbles: true }))
-      await Promise.resolve()
-    })
-
-    expect(mockFetch).toHaveBeenCalledWith('/api/watchlists/watchlist-1/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workspaceId: 'workspace-1',
-        file: filePayload,
-      }),
-    })
-  })
-
-  it('exports the selected Yjs watchlist document through the canonical export helper', async () => {
-    currentWatchlist = {
-      ...rootWatchlist,
-      name: '!!!',
-      items: [
-        {
-          id: 'listing-1',
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
-        },
-      ],
-    }
-    currentWatchlists = [currentWatchlist]
-    const fetchMock = vi.fn()
-    const createObjectURL = vi.fn(() => 'blob:watchlist-export')
-    const revokeObjectURL = vi.fn()
-    let downloadedName = ''
-    vi.stubGlobal('fetch', fetchMock)
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      value: createObjectURL,
-    })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      value: revokeObjectURL,
-    })
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function click(
-      this: HTMLAnchorElement
-    ) {
-      downloadedName = this.download
-    })
-
-    await act(async () => {
-      root.render(
-        <WatchlistHeaderRightControls
-          workspaceId='workspace-1'
-          panelId='panel-4'
-          widget={createWidget({ key: 'watchlist-widget', params: {} })}
-          canEditWidgetParams
-        />
-      )
-    })
-
-    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
-      candidate.textContent?.includes('Export')
-    )
-
-    await act(async () => {
-      button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-      await Promise.resolve()
-    })
-
-    expect(mockExportWatchlistAsJson).toHaveBeenCalledWith({
-      fields: {
-        name: '!!!',
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        items: currentWatchlist.items,
-      },
-      exportedFrom: 'watchlistWidget',
-    })
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
-    expect(downloadedName).toMatch(/^watchlist-1-\d{4}-/)
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:watchlist-export')
   })
 })

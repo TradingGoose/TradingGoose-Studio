@@ -5,8 +5,5 @@ export const customToolEditorWidgetContract = defineEntityWidgetContract(
   'Custom Tool Editor',
   'editor',
   'Edit a custom tool.',
-  'customToolId',
-  'custom-tool-id',
-  'Use with list_custom_tool through a shared pair color.',
-  'customToolId must exist in the workspace.'
+  'customToolId'
 )

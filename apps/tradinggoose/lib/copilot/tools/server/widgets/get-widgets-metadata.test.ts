@@ -14,12 +14,12 @@ describe('get_widgets_metadata server tool', () => {
     expect(Object.keys(metadata.metadata)).toEqual(['data_chart', 'watchlist'])
     expect(metadata.metadata.data_chart.widgetKey).toBe('data_chart')
     expect(metadata.metadata.data_chart.sanitizeLocalParams).toBeUndefined()
-    expect(
-      metadata.metadata.data_chart.paramContract
-        .find((field: any) => field.field === 'view')
-        ?.children?.find((field: any) => field.field === 'view.pineIndicators')
-        ?.children?.map((field: any) => field.field)
-    ).toContain('view.pineIndicators[].id')
+    expect(metadata.metadata.data_chart.paramContract.map((field: any) => field.field)).toEqual([
+      'listing',
+      'data',
+      'view',
+      'runtime',
+    ])
 
     await expect(
       getWidgetsMetadataServerTool.execute({ widgetKeys: ['unknown_widget'] })

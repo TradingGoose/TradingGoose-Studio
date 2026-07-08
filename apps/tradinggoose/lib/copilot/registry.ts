@@ -881,46 +881,12 @@ const DashboardLayoutMutationResult = EditEntityDocumentResultBase.merge(
   })
 )
 
-const DashboardLayoutReviewDiffSchema = z.object({
-  before: z.any(),
-  after: z.any(),
-  addedPanelIds: z.array(z.string()),
-  removedPanelIds: z.array(z.string()),
-  retainedPanelIds: z.array(z.string()),
-  changedPanelIds: z.array(z.string()),
-  addedPanelCount: z.number(),
-  removedPanelCount: z.number(),
-  retainedPanelCount: z.number(),
-  changedPanelCount: z.number(),
-  groupSizeChanges: z.array(
-    z.object({
-      groupId: z.string(),
-      before: z.array(z.number()),
-      after: z.array(z.number()),
-    })
-  ),
-  topologyChanged: z.boolean(),
-  metadataChanges: z.array(
-    z.object({
-      field: z.enum(['name', 'sortOrder', 'isActive']),
-      before: z.union([z.string(), z.number(), z.boolean()]),
-      after: z.union([z.string(), z.number(), z.boolean()]),
-    })
-  ),
-})
-
-const DashboardLayoutEditMutationResult = DashboardLayoutDocumentEnvelope.extend({
-  success: z.boolean(),
-  layout: z.any(),
-  colorPairs: z.any(),
-  requiresReview: z.literal(true).optional(),
-  reviewBaseStateHash: z.string().optional(),
-  preview: z
-    .object({
-      layoutDiff: DashboardLayoutReviewDiffSchema,
-    })
-    .optional(),
-})
+const DashboardLayoutEditMutationResult = EditEntityDocumentResultBase.merge(
+  DashboardLayoutDocumentEnvelope.extend({
+    layout: z.any(),
+    colorPairs: z.any(),
+  })
+)
 
 const WorkflowPreviewEdge = z.object({
   source: z.string(),

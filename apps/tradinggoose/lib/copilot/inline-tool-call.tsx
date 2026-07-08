@@ -2,20 +2,15 @@
 
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
+import {
+  DashboardLayoutPreviewCanvas,
+  type DashboardLayoutPreviewCopy,
+} from '@/components/dashboard-layout-preview'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
-import { DashboardLayoutReviewPreview } from '@/lib/copilot/components/dashboard-layout-review-preview'
-import { parseEntityDocument, WATCHLIST_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/identity'
-import type { DashboardLayoutReviewDiff } from '@/widgets/layout-document'
-import type {
-  WatchlistDocumentInputFields,
-  WatchlistDocumentInputItem,
-} from '@/lib/watchlists/types'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -24,6 +19,7 @@ import {
   isGatedTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
+import { type LayoutNode, normalizeDashboardLayout } from '@/widgets/layout'
 import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
 
 type WorkflowReviewPayload = {
@@ -42,22 +38,23 @@ type EntityReviewPayload = {
     after: string
   }
 }
-type WatchlistReviewPayload = {
-  title: string
-  before: WatchlistDocumentInputFields | null
-  after: WatchlistDocumentInputFields
+type DashboardLayoutReviewDocument = {
+  name?: string
+  sortOrder?: number
+  isActive?: boolean
+  layout: LayoutNode
 }
-type DashboardLayoutReviewPayload =
-  {
-    title: string
-    layoutDiff: DashboardLayoutReviewDiff
-  }
-type WatchlistReviewContainer = {
-  id: string
-  type: 'section'
-  label: string
-  listings: Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
-  containers: WatchlistReviewContainer[]
+type DashboardLayoutVisualReviewPayload = {
+  title: string
+  before: DashboardLayoutReviewDocument
+  after: DashboardLayoutReviewDocument
+}
+
+const DASHBOARD_LAYOUT_PREVIEW_COPY: DashboardLayoutPreviewCopy = {
+  headerAriaLabel: 'Dashboard panel',
+  heightLabel: 'height',
+  sizeLabel: 'Size',
+  widthLabel: 'width',
 }
 
 interface InlineToolCallProps {
@@ -281,19 +278,19 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
       ? 'Workflow Variable'
       : result?.entityKind === 'dashboard_layout' && toolCall.name === 'edit_widget'
         ? 'Widget'
-      : result?.entityKind === 'custom_tool'
-        ? 'Custom Tool'
-        : result?.entityKind === 'mcp_server'
-          ? 'MCP Server'
-          : result?.entityKind === 'knowledge_base'
-            ? 'Knowledge Base'
-            : result?.entityKind === 'indicator'
-              ? 'Indicator'
-              : result?.entityKind === 'skill'
-                ? 'Skill'
-                : result?.entityKind === 'dashboard_layout'
-                  ? 'Dashboard Layout'
-                : 'Entity'
+        : result?.entityKind === 'custom_tool'
+          ? 'Custom Tool'
+          : result?.entityKind === 'mcp_server'
+            ? 'MCP Server'
+            : result?.entityKind === 'knowledge_base'
+              ? 'Knowledge Base'
+              : result?.entityKind === 'indicator'
+                ? 'Indicator'
+                : result?.entityKind === 'skill'
+                  ? 'Skill'
+                  : result?.entityKind === 'dashboard_layout'
+                    ? 'Dashboard Layout'
+                    : 'Entity'
   return {
     title:
       toolCall.state === ClientToolCallState.success
@@ -303,71 +300,30 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
   }
 }
 
-function readDashboardLayoutReviewPayload(toolCall: CopilotToolCall): DashboardLayoutReviewPayload | null {
-  if (!isStagedPreviewState(toolCall.state)) return null
-  if (toolCall.name !== 'edit_layout') return null
-
-  const result =
-    toolCall.result && typeof toolCall.result === 'object'
-      ? (toolCall.result as Record<string, any>)
-      : null
-  if (result?.entityKind !== 'dashboard_layout') return null
-
-  const layoutDiff = result?.preview?.layoutDiff
-  if (
-    !layoutDiff ||
-    typeof layoutDiff !== 'object' ||
-    !layoutDiff.before ||
-    !layoutDiff.after ||
-    typeof layoutDiff.before !== 'object' ||
-    typeof layoutDiff.after !== 'object'
-  ) {
-    return null
-  }
-
-  return {
-    title:
-      toolCall.state === ClientToolCallState.success
-        ? 'Applied Dashboard Layout Changes'
-        : 'Proposed Dashboard Layout Changes',
-    layoutDiff: layoutDiff as DashboardLayoutReviewDiff,
-  }
-}
-
-function readWatchlistReviewDocument(value: string): WatchlistDocumentInputFields | null {
-  if (!value.trim()) {
-    return null
-  }
-
+function readDashboardLayoutReviewDocument(value: string): DashboardLayoutReviewDocument | null {
   try {
-    return parseEntityDocument('watchlist', value) as WatchlistDocumentInputFields
+    const parsed = JSON.parse(value) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object' || !('layout' in parsed)) return null
+    return {
+      layout: normalizeDashboardLayout(parsed.layout),
+      name: typeof parsed.name === 'string' ? parsed.name : undefined,
+      sortOrder: typeof parsed.sortOrder === 'number' ? parsed.sortOrder : undefined,
+      isActive: typeof parsed.isActive === 'boolean' ? parsed.isActive : undefined,
+    }
   } catch {
     return null
   }
 }
 
-function readWatchlistReviewPayload(toolCall: CopilotToolCall): WatchlistReviewPayload | null {
-  if (!isStagedPreviewState(toolCall.state)) {
-    return null
-  }
-  if (
-    toolCall.name !== 'create_watchlist' &&
-    toolCall.name !== 'edit_watchlist' &&
-    toolCall.name !== 'rename_watchlist'
-  ) {
+function readDashboardLayoutVisualReviewPayload(
+  toolCall: CopilotToolCall
+): DashboardLayoutVisualReviewPayload | null {
+  if (toolCall.name !== 'edit_layout' || !isStagedPreviewState(toolCall.state)) {
     return null
   }
 
-  const result =
-    toolCall.result && typeof toolCall.result === 'object'
-      ? (toolCall.result as Record<string, any>)
-      : null
-  if (result?.entityKind !== 'watchlist') {
-    return null
-  }
-  if (result.documentFormat && result.documentFormat !== WATCHLIST_DOCUMENT_FORMAT) {
-    return null
-  }
+  const result = toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : null
+  if (result?.entityKind !== 'dashboard_layout') return null
 
   const documentDiff = result?.preview?.documentDiff
   if (
@@ -379,180 +335,18 @@ function readWatchlistReviewPayload(toolCall: CopilotToolCall): WatchlistReviewP
     return null
   }
 
-  const beforeText = documentDiff.before.trim()
-  const before = beforeText ? readWatchlistReviewDocument(documentDiff.before) : null
-  const after = readWatchlistReviewDocument(documentDiff.after)
-  if (!after) {
-    return null
-  }
-  if (toolCall.name !== 'create_watchlist' && !before) {
-    return null
-  }
+  const before = readDashboardLayoutReviewDocument(documentDiff.before)
+  const after = readDashboardLayoutReviewDocument(documentDiff.after)
+  if (!before || !after) return null
 
   return {
     title:
       toolCall.state === ClientToolCallState.success
-        ? 'Applied Watchlist Changes'
-        : 'Proposed Watchlist Changes',
+        ? 'Applied Dashboard Layout Changes'
+        : 'Proposed Dashboard Layout Changes',
     before,
     after,
   }
-}
-
-function groupWatchlistReviewItems(items: WatchlistDocumentInputItem[]) {
-  const rootKey = '__root__'
-  const keyForParent = (parentId: string | null | undefined) => parentId ?? rootKey
-  const listingsByParent = new Map<
-    string,
-    Extract<WatchlistDocumentInputItem, { type: 'listing' }>[]
-  >()
-  const containersByParent = new Map<
-    string,
-    Extract<WatchlistDocumentInputItem, { type: 'section' }>[]
-  >()
-
-  for (const item of items) {
-    const key = keyForParent(item.parentId)
-    if (item.type === 'section') {
-      containersByParent.set(key, [...(containersByParent.get(key) ?? []), item])
-    } else {
-      listingsByParent.set(key, [...(listingsByParent.get(key) ?? []), item])
-    }
-  }
-
-  const buildContainers = (parentId: string | null): WatchlistReviewContainer[] =>
-    (containersByParent.get(keyForParent(parentId)) ?? []).map((container) => ({
-      id: container.id ?? container.label,
-      type: container.type,
-      label: container.label,
-      listings: listingsByParent.get(container.id ?? '') ?? [],
-      containers: container.id ? buildContainers(container.id) : [],
-    }))
-
-  return {
-    rootListings: listingsByParent.get(rootKey) ?? [],
-    containers: buildContainers(null),
-  }
-}
-
-function WatchlistReviewListingRow({
-  item,
-}: {
-  item: Extract<WatchlistDocumentInputItem, { type: 'listing' }>
-}) {
-  return (
-    <div className='rounded-sm border border-border/50 bg-background/70 px-2 py-1.5'>
-      <ListingDisplayRow
-        listing={buildListingDisplayOption(item.listing)}
-        showSecondary
-        className='min-h-5'
-      />
-    </div>
-  )
-}
-
-function WatchlistReviewDocumentView({
-  label,
-  document,
-}: {
-  label: string
-  document: WatchlistDocumentInputFields | null
-}) {
-  if (!document) {
-    return (
-      <div className='flex min-h-20 flex-col gap-2 rounded-md border border-border/60 bg-background/70 p-2'>
-        <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-          {label}
-        </div>
-        <div className='text-muted-foreground text-xs'>No existing watchlist document.</div>
-      </div>
-    )
-  }
-
-  const grouped = groupWatchlistReviewItems(document.items)
-  const settings = [
-    ['Logo', document.settings.showLogo],
-    ['Ticker', document.settings.showTicker],
-    ['Description', document.settings.showDescription],
-  ] as const
-
-  const renderContainer = (container: WatchlistReviewContainer, depth = 0) => (
-    <div key={container.id} className='flex flex-col gap-1.5'>
-      <div
-        className='rounded-sm bg-muted/60 px-2 py-1 font-medium text-muted-foreground text-xs'
-        style={depth > 0 ? { marginLeft: depth * 12 } : undefined}
-      >
-        {container.label}
-      </div>
-      {container.listings.map((item, itemIndex) => (
-        <div
-          key={item.id ?? `${getListingIdentityKey(item.listing)}-${itemIndex}`}
-          style={depth > 0 ? { marginLeft: depth * 12 } : undefined}
-        >
-          <WatchlistReviewListingRow item={item} />
-        </div>
-      ))}
-      {container.containers.map((childContainer) => renderContainer(childContainer, depth + 1))}
-    </div>
-  )
-
-  return (
-    <div className='flex min-w-0 flex-col gap-2 rounded-md border border-border/60 bg-background/70 p-2'>
-      <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-        {label}
-      </div>
-      <div className='min-w-0'>
-        <div className='truncate font-semibold text-sm'>{document.name}</div>
-        <div className='mt-1 flex flex-wrap gap-1'>
-          {settings.map(([name, enabled]) => (
-            <span
-              key={name}
-              className='rounded-sm border border-border/60 px-1.5 py-0.5 text-muted-foreground text-[10px]'
-            >
-              {name}: {enabled ? 'On' : 'Off'}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className='flex flex-col gap-1.5'>
-        {grouped.rootListings.map((item, index) => (
-          <WatchlistReviewListingRow
-            key={item.id ?? `${getListingIdentityKey(item.listing)}-${index}`}
-            item={item}
-          />
-        ))}
-        {grouped.containers.map((container) => renderContainer(container))}
-        {document.items.length === 0 ? (
-          <div className='rounded-sm border border-dashed border-border/60 px-2 py-3 text-center text-muted-foreground text-xs'>
-            No listings.
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function WatchlistReviewDiff({ payload }: { payload: WatchlistReviewPayload }) {
-  return (
-    <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
-      <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-        {payload.title}
-      </div>
-      <div className='grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2'>
-        <WatchlistReviewDocumentView label='Current' document={payload.before} />
-        <WatchlistReviewDocumentView label='Proposed' document={payload.after} />
-      </div>
-    </div>
-  )
-}
-
-function DashboardLayoutReviewDiff({ payload }: { payload: DashboardLayoutReviewPayload }) {
-  return (
-    <DashboardLayoutReviewPreview
-      title={payload.title}
-      layoutDiff={payload.layoutDiff}
-    />
-  )
 }
 
 function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPayload | null {
@@ -677,6 +471,48 @@ function ToolActionButtons({
   )
 }
 
+function DashboardLayoutReviewPane({
+  document,
+  label,
+}: {
+  document: DashboardLayoutReviewDocument
+  label: string
+}) {
+  const badges = [
+    typeof document.sortOrder === 'number' ? `Sort ${document.sortOrder}` : null,
+    typeof document.isActive === 'boolean' ? (document.isActive ? 'Active' : 'Inactive') : null,
+  ].filter((badge): badge is string => badge !== null)
+
+  return (
+    <div className='flex h-72 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background/70'>
+      <div className='flex min-h-9 items-center gap-2 border-border/60 border-b px-2 py-1.5'>
+        <span className='font-medium text-muted-foreground text-xs uppercase tracking-wide'>
+          {label}
+        </span>
+        {document.name ? (
+          <span className='min-w-0 flex-1 truncate font-medium text-sm'>{document.name}</span>
+        ) : null}
+        {badges.map((badge) => (
+          <span
+            className='rounded-sm border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground'
+            key={badge}
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+      <div className='min-h-0 flex-1'>
+        <DashboardLayoutPreviewCanvas
+          copy={DASHBOARD_LAYOUT_PREVIEW_COPY}
+          layout={document.layout}
+          showDimensions={false}
+          showWidgetKeys
+        />
+      </div>
+    </div>
+  )
+}
+
 export function InlineToolCall({
   toolCall: toolCallProp,
   toolCallId,
@@ -713,10 +549,10 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall)
   const params = toolCall.params ?? {}
-  const watchlistReviewPayload = readWatchlistReviewPayload(toolCall)
-  const dashboardReviewPayload = readDashboardLayoutReviewPayload(toolCall)
-  const entityReviewPayload =
-    watchlistReviewPayload || dashboardReviewPayload ? null : readEntityReviewPayload(toolCall)
+  const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
+  const entityReviewPayload = dashboardLayoutReviewPayload
+    ? null
+    : readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)
 
@@ -881,14 +717,26 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='px-1'>{renderPendingDetails()}</div>}
-      {watchlistReviewPayload ? (
+      {dashboardLayoutReviewPayload ? (
         <div className='px-1'>
-          <WatchlistReviewDiff payload={watchlistReviewPayload} />
-        </div>
-      ) : null}
-      {dashboardReviewPayload ? (
-        <div className='px-1'>
-          <DashboardLayoutReviewDiff payload={dashboardReviewPayload} />
+          <div
+            className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'
+            data-testid='dashboard-layout-review-preview'
+          >
+            <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+              {dashboardLayoutReviewPayload.title}
+            </div>
+            <div className='grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2'>
+              <DashboardLayoutReviewPane
+                document={dashboardLayoutReviewPayload.before}
+                label='Current'
+              />
+              <DashboardLayoutReviewPane
+                document={dashboardLayoutReviewPayload.after}
+                label='Proposed'
+              />
+            </div>
+          </div>
         </div>
       ) : null}
       {entityReviewPayload ? (

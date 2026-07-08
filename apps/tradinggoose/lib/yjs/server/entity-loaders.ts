@@ -11,20 +11,13 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import {
-  listDashboardLayouts,
-  readDefaultDashboardLayoutReferenceParams,
-} from '@/lib/dashboard-layouts/operations'
+import { listDashboardLayouts } from '@/lib/dashboard-layouts/operations'
 import { listWatchlists, loadWatchlistDocument } from '@/lib/watchlists/operations'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
   savedEntityRowToFields,
 } from '@/lib/yjs/entity-state'
-import {
-  dashboardLayoutNeedsDefaultReferenceParams,
-  initializeDashboardLayoutLinkedParams,
-} from '@/widgets/layout-document'
 
 const ENTITY_TABLES = {
   skill: { table: skill, name: skill.name, softDelete: false },
@@ -278,13 +271,7 @@ export async function readSavedEntityFieldsFromDb(
       throw new SavedEntityLoadError(`Saved ${entityKind} ${entityId} was not found`)
     }
 
-    const fields = savedEntityRowToFields(entityKind, row as SavedEntityRow)
-    return dashboardLayoutNeedsDefaultReferenceParams(fields.layout as any)
-      ? (initializeDashboardLayoutLinkedParams(
-          fields as any,
-          await readDefaultDashboardLayoutReferenceParams(workspaceId)
-        ) as unknown as Record<string, unknown>)
-      : (initializeDashboardLayoutLinkedParams(fields as any) as unknown as Record<string, unknown>)
+    return savedEntityRowToFields(entityKind, row as SavedEntityRow)
   }
 
   const { table } = entityConfig(entityKind)

@@ -2,9 +2,8 @@
 
 /**
  * This file contains all the core type definitions, interfaces, and enums used by the
- * lightweight-charts-line-tools-core plugin. It mirrors the V3.8 line tools build's
- * structures to ensure compatibility where needed and provides clear definitions for
- * all configuration and data objects.
+ * lightweight-charts-line-tools-core plugin. It provides clear definitions for
+ * all drawing configuration and data objects.
  */
 
 import type {

@@ -50,53 +50,6 @@ vi.mock(
   })
 )
 
-const dashboardDocument = (name: string, panelId: string, widgetKey: string) =>
-  JSON.stringify({
-    name,
-    layout: {
-      id: 'root',
-      type: 'group',
-      direction: 'horizontal',
-      sizes: [100],
-      children: [
-        {
-          id: panelId,
-          type: 'panel',
-          widget: {
-            key: widgetKey,
-            pairColor: 'gray',
-            params: null,
-          },
-        },
-      ],
-    },
-    colorPairs: { pairs: [] },
-    isActive: true,
-    sortOrder: 0,
-  })
-
-const dashboardLayoutDiff = () => ({
-  before: JSON.parse(dashboardDocument('Current Layout', 'panel-a', 'editor_workflow')),
-  after: JSON.parse(dashboardDocument('Proposed Layout', 'panel-b', 'watchlist')),
-  addedPanelIds: ['panel-b'],
-  removedPanelIds: ['panel-a'],
-  retainedPanelIds: [],
-  changedPanelIds: [],
-  addedPanelCount: 1,
-  removedPanelCount: 1,
-  retainedPanelCount: 0,
-  changedPanelCount: 0,
-  groupSizeChanges: [],
-  topologyChanged: true,
-  metadataChanges: [
-    {
-      field: 'name',
-      before: 'Current Layout',
-      after: 'Proposed Layout',
-    },
-  ],
-})
-
 describe('InlineToolCall', () => {
   let container: HTMLDivElement
   let root: Root
@@ -400,21 +353,61 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Reject changes')
   })
 
-  it.each([
-    [ClientToolCallState.review, 'Proposed Dashboard Layout Changes'],
-    [ClientToolCallState.success, 'Applied Dashboard Layout Changes'],
-  ])('renders dashboard layout review topology for %s state', async (state, title) => {
+  it('renders dashboard layout edits with the shared visual layout preview', async () => {
+    const currentLayout = {
+      name: 'Current Layout',
+      sortOrder: 0,
+      isActive: true,
+      layout: {
+        id: 'root',
+        type: 'group',
+        direction: 'horizontal',
+        sizes: [50, 50],
+        children: [
+          {
+            id: 'panel-a',
+            type: 'panel',
+            widget: { key: 'data_chart', pairColor: 'gray', params: null },
+          },
+          {
+            id: 'panel-b',
+            type: 'panel',
+            widget: { key: 'copilot', pairColor: 'gray', params: null },
+          },
+        ],
+      },
+      colorPairs: { pairs: [] },
+    }
+    const proposedLayout = {
+      ...currentLayout,
+      name: 'Proposed Layout',
+      layout: {
+        ...currentLayout.layout,
+        children: [
+          currentLayout.layout.children[0],
+          {
+            id: 'panel-b',
+            type: 'panel',
+            widget: { key: 'watchlist', pairColor: 'gray', params: null },
+          },
+        ],
+      },
+    }
+
     await act(async () => {
       root.render(
         <InlineToolCall
           toolCall={{
-            id: `tool-dashboard-layout-${state}`,
+            id: 'tool-dashboard-layout-review',
             name: 'edit_layout',
-            state,
+            state: ClientToolCallState.review,
             result: {
               entityKind: 'dashboard_layout',
               preview: {
-                layoutDiff: dashboardLayoutDiff(),
+                documentDiff: {
+                  before: JSON.stringify(currentLayout),
+                  after: JSON.stringify(proposedLayout),
+                },
               },
             },
           }}
@@ -422,207 +415,77 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).toContain(title)
+    expect(
+      container.querySelector('[data-testid="dashboard-layout-review-preview"]')
+    ).not.toBeNull()
+    expect(container.textContent).toContain('Proposed Dashboard Layout Changes')
     expect(container.textContent).toContain('Current Layout')
     expect(container.textContent).toContain('Proposed Layout')
-    expect(container.textContent).toContain('panel-a')
-    expect(container.textContent).toContain('panel-b')
+    expect(container.textContent).toContain('data_chart')
     expect(container.textContent).toContain('watchlist')
-    expect(container.textContent).toContain('removed')
-    expect(container.textContent).toContain('added')
-    expect(container.querySelector('[data-testid="dashboard-layout-review-preview"]')).not.toBeNull()
+    expect(container.textContent).not.toContain('"layout"')
   })
 
   it.each([
     [ClientToolCallState.review, 'Proposed Widget Changes'],
     [ClientToolCallState.success, 'Applied Widget Changes'],
-  ])('renders dashboard widget changes through the generic JSON diff for %s state', async (state, title) => {
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
-            id: `tool-dashboard-widget-${state}`,
-            name: 'edit_widget',
-            state,
-            result: {
-              entityKind: 'dashboard_layout',
-              preview: {
-                documentDiff: {
-                  before: JSON.stringify(
-                    {
-                      panelId: 'panel-a',
-                      widget: {
-                        key: 'editor_workflow',
-                        pairColor: 'red',
-                        params: null,
-                      },
-                      effectiveParams: null,
-                      colorPair: { workflowId: 'workflow-1' },
-                    },
-                    null,
-                    2
-                  ),
-                  after: JSON.stringify(
-                    {
-                      panelId: 'panel-a',
-                      widget: {
-                        key: 'watchlist',
-                        pairColor: 'red',
-                        params: { provider: 'alpaca' },
-                      },
-                      effectiveParams: { provider: 'alpaca' },
-                      colorPair: { watchlistId: 'watchlist-1' },
-                    },
-                    null,
-                    2
-                  ),
-                },
-              },
-            },
-          }}
-        />
-      )
-    })
-
-    expect(container.textContent).toContain(title)
-    expect(container.textContent).toContain('panel-a')
-    expect(container.textContent).toContain('editor_workflow')
-    expect(container.textContent).toContain('watchlist')
-    expect(container.textContent).toContain('effectiveParams')
-    expect(container.textContent).toContain('watchlist-1')
-    expect(container.textContent).not.toContain('Dashboard Widget')
-  })
-
-  it('renders dedicated watchlist review diffs for watchlist mutations', async () => {
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
-            id: 'tool-watchlist-review',
-            name: 'edit_watchlist',
-            state: ClientToolCallState.review,
-            result: {
-              entityKind: 'watchlist',
-              entityName: 'Momentum',
-              documentFormat: 'tg-watchlist-document-v1',
-              preview: {
-                documentDiff: {
-                  before: JSON.stringify({
-                    name: 'Watchlist',
-                    settings: {
-                      showLogo: true,
-                      showTicker: true,
-                      showDescription: true,
-                    },
-                    items: [],
-                  }),
-                  after: JSON.stringify({
-                    name: 'Momentum',
-                    settings: {
-                      showLogo: true,
-                      showTicker: true,
-                      showDescription: true,
-                    },
-                    items: [
-                      { type: 'section', label: 'Crypto' },
+  ])(
+    'renders dashboard widget changes through the generic JSON diff for %s state',
+    async (state, title) => {
+      await act(async () => {
+        root.render(
+          <InlineToolCall
+            toolCall={{
+              id: `tool-dashboard-widget-${state}`,
+              name: 'edit_widget',
+              state,
+              result: {
+                entityKind: 'dashboard_layout',
+                preview: {
+                  documentDiff: {
+                    before: JSON.stringify(
                       {
-                        type: 'listing',
-                        listing: {
-                          listing_id: '',
-                          base_id: 'BTC',
-                          quote_id: 'USD',
-                          listing_type: 'crypto',
+                        panelId: 'panel-a',
+                        widget: {
+                          key: 'editor_workflow',
+                          pairColor: 'red',
+                          params: null,
                         },
+                        effectiveParams: null,
+                        colorPair: { workflowId: 'workflow-1' },
                       },
-                    ],
-                  }),
+                      null,
+                      2
+                    ),
+                    after: JSON.stringify(
+                      {
+                        panelId: 'panel-a',
+                        widget: {
+                          key: 'watchlist',
+                          pairColor: 'red',
+                          params: { provider: 'alpaca' },
+                        },
+                        effectiveParams: { provider: 'alpaca' },
+                        colorPair: { watchlistId: 'watchlist-1' },
+                      },
+                      null,
+                      2
+                    ),
+                  },
                 },
               },
-            },
-          }}
-        />
-      )
-    })
+            }}
+          />
+        )
+      })
 
-    expect(container.textContent).toContain('Proposed Watchlist Changes')
-    expect(container.textContent).toContain('Momentum')
-    expect(container.textContent).toContain('Crypto')
-    expect(container.textContent).toContain('BTC')
-  })
-
-  it('falls back to generic entity diffs for non-mutation or malformed watchlist reviews', async () => {
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
-            id: 'tool-watchlist-read-preview',
-            name: 'read_watchlist',
-            state: ClientToolCallState.review,
-            result: {
-              entityKind: 'watchlist',
-              documentFormat: 'tg-watchlist-document-v1',
-              preview: {
-                documentDiff: {
-                  before: JSON.stringify({
-                    name: 'Current',
-                    settings: {
-                      showLogo: true,
-                      showTicker: true,
-                      showDescription: true,
-                    },
-                    items: [],
-                  }),
-                  after: JSON.stringify({
-                    name: 'Proposed',
-                    settings: {
-                      showLogo: true,
-                      showTicker: true,
-                      showDescription: true,
-                    },
-                    items: [],
-                  }),
-                },
-              },
-            },
-          }}
-        />
-      )
-    })
-
-    expect(container.textContent).not.toContain('Proposed Watchlist Changes')
-    expect(container.textContent).toContain('Proposed Entity Changes')
-
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
-            id: 'tool-watchlist-edit-malformed',
-            name: 'edit_watchlist',
-            state: ClientToolCallState.review,
-            result: {
-              entityKind: 'watchlist',
-              documentFormat: 'tg-watchlist-document-v1',
-              preview: {
-                documentDiff: {
-                  before: '',
-                  after: JSON.stringify({
-                    name: 'Proposed',
-                    settings: {
-                      showLogo: true,
-                      showTicker: true,
-                      showDescription: true,
-                    },
-                    items: [],
-                  }),
-                },
-              },
-            },
-          }}
-        />
-      )
-    })
-
-    expect(container.textContent).not.toContain('Proposed Watchlist Changes')
-    expect(container.textContent).toContain('Proposed Entity Changes')
-  })
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain('panel-a')
+      expect(container.textContent).toContain('editor_workflow')
+      expect(container.textContent).toContain('watchlist')
+      expect(container.textContent).toContain('effectiveParams')
+      expect(container.textContent).toContain('watchlist-1')
+      expect(container.textContent).not.toContain('Dashboard Widget')
+    }
+  )
 })

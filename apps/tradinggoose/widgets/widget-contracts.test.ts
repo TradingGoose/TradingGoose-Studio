@@ -15,8 +15,6 @@ const CONTRACT_FNS = [
   'splitPatchForPairColor',
   'resolveEffectiveParams',
   'resolveParamsForPairColorChange',
-  'collectReferenceParams',
-  'buildMetadataProfile',
 ] as const
 
 describe('dashboard widget contracts', () => {
@@ -38,9 +36,6 @@ describe('dashboard widget contracts', () => {
         params: contract.defaultParams,
       })
       expect(contract.editableFields).toEqual(contract.paramContract.map((field) => field.field))
-      expect(contract.buildMetadataProfile().colorPairBehavior.nonGrayLinkedFields).toEqual(
-        contract.linkedParamFields
-      )
     }
   )
 
@@ -100,10 +95,8 @@ describe('dashboard widget contracts', () => {
 
     expect(item?.category).toBe('trading')
     expect(item?.widgetKey).toBeDefined()
-    expect(item?.capabilities).toBeDefined()
     expect(item?.defaultParams).toBeUndefined()
     expect(item?.paramContract).toBeUndefined()
-    expect(item?.buildMetadataProfile).toBeUndefined()
   })
 
   it('rejects unknown widget keys during contract sanitization', () => {
@@ -133,55 +126,11 @@ describe('dashboard widget contracts', () => {
     })
   })
 
-  it('exposes data-chart provider and indicator params through nested metadata', () => {
+  it('exposes data-chart editable params through metadata', () => {
     const [profile] = readWidgetMetadataProfiles(['data_chart'])
     const fields = profile.paramContract.map((field) => field.field)
     expect(fields).toEqual(['listing', 'data', 'view', 'runtime'])
     expect(fields).not.toContain('indicators')
-
-    const data = profile.paramContract.find((field) => field.field === 'data')
-    const view = profile.paramContract.find((field) => field.field === 'view')
-
-    expect(data?.children?.map((field) => field.field)).toEqual([
-      'data.provider',
-      'data.providerParams',
-      'data.auth',
-      'data.live.enabled',
-      'data.live.interval',
-    ])
-    expect(view?.children?.some((field) => field.field === 'view.pineIndicators')).toBe(true)
-    expect(
-      view?.children
-        ?.find((field) => field.field === 'view.pineIndicators')
-        ?.children?.map((field) => [field.field, field.referenceKind])
-    ).toContainEqual(['view.pineIndicators[].id', 'indicator'])
-  })
-
-  it('collects nested data-chart indicator references for validation', () => {
-    expect(
-      getWidgetContract('data_chart').collectReferenceParams({
-        view: {
-          pineIndicators: [{ id: 'indicator-1' }, { id: ' RSI ' }],
-          drawTools: [{ id: 'manual-rsi', pane: 'indicator', indicatorId: 'MACD' }],
-        },
-      })
-    ).toEqual([
-      {
-        field: 'indicatorId',
-        value: 'indicator-1',
-        path: 'view.pineIndicators[0].id',
-      },
-      {
-        field: 'indicatorId',
-        value: 'RSI',
-        path: 'view.pineIndicators[1].id',
-      },
-      {
-        field: 'indicatorId',
-        value: 'MACD',
-        path: 'view.drawTools[0].indicatorId',
-      },
-    ])
   })
 
   it('keeps heatmap listing as the only linked pair field', () => {

@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import type { LayoutTab } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { PairColorContext } from '@/widgets/color-pairs'
 import type { LayoutNode } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 
@@ -239,9 +238,7 @@ vi.mock('@/components/ui/resizable', () => ({
 }))
 
 vi.mock('@/widgets/widget-surface', async () => {
-  const { useDashboardWidgetRenderConfig, useWidgetPairContext } = await import(
-    '@/widgets/widget-config-runtime'
-  )
+  const { useDashboardWidgetRenderConfig } = await import('@/widgets/widget-config-runtime')
 
   return {
     WidgetSurface: ({
@@ -266,14 +263,12 @@ vi.mock('@/widgets/widget-surface', async () => {
     }) => {
       const renderWidget = useDashboardWidgetRenderConfig(widget as any, panelId)
       const pairColor = (renderWidget?.pairColor ?? 'gray') as PairColor
-      const pairContext = useWidgetPairContext(pairColor)
 
       return (
         <div>
           <div
             data-testid={`widget-surface-${panelId ?? 'panel'}`}
             data-pair-color={pairColor}
-            data-pair-context={JSON.stringify(pairContext)}
             data-workflow-id={String(renderWidget?.params?.workflowId ?? '')}
             data-watchlist-id={String(renderWidget?.params?.watchlistId ?? '')}
             data-workspace-id={context?.workspaceId ?? ''}
@@ -499,194 +494,6 @@ describe('DashboardClient', () => {
         colorPairs: { pairs: [{ color: 'red', workflowId: 'wf-a' }] },
       })
     )
-  })
-
-  it('switches linked pair colors without triggering render-phase registry updates', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    await act(async () => {
-      root.render(
-        <>
-          <DashboardClient
-            initialState={createPanelLayout('panel-a', 'wf-red', 'red')}
-            workspaceId='ws-a'
-            ownerUserId='user-a'
-            layoutId='layout-a'
-            initialLayoutName='Layout A'
-            initialLayouts={createLayouts('layout-a')}
-            initialColorPairs={{
-              pairs: [{ color: 'red', workflowId: 'wf-red' }],
-            }}
-            {...dashboardPermissions}
-          />
-        </>
-      )
-    })
-
-    expect(readWidgetPairContext(container, 'panel-a')).toMatchObject({
-      workflowId: 'wf-red',
-    })
-
-    const switchToBlueButton = container.querySelector('[data-testid="pair-color-blue-panel-a"]')
-    if (!(switchToBlueButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected pair color switch button to be rendered')
-    }
-
-    await act(async () => {
-      switchToBlueButton.click()
-    })
-
-    expect(readWidgetPairContext(container, 'panel-a')).toMatchObject({
-      workflowId: 'wf-red',
-    })
-
-    expect(readWidgetSurface(container)).toEqual({
-      workflowId: 'wf-red',
-      watchlistId: '',
-      workspaceId: 'ws-a',
-      pairColor: 'blue',
-    })
-    expect(hasRenderPhaseUpdateWarning(consoleError.mock.calls)).toBe(false)
-
-    consoleError.mockRestore()
-  })
-
-  it('fills missing shared workflow state when switching a gray widget into a partially populated color', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialState={{
-            id: 'group-root',
-            type: 'group',
-            direction: 'horizontal',
-            sizes: [50, 50],
-            children: [
-              createPanelLayout('panel-a', 'wf-local'),
-              {
-                id: 'panel-b',
-                type: 'panel',
-                widget: {
-                  key: 'data_chart',
-                  pairColor: 'red',
-                  params: null,
-                },
-              },
-            ],
-          }}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayoutName='Layout A'
-          initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{
-            pairs: [
-              {
-                color: 'red',
-                listing: {
-                  listing_id: 'AAPL',
-                  base_id: '',
-                  quote_id: '',
-                  listing_type: 'default',
-                },
-              },
-            ],
-          }}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
-    if (!(switchToRedButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected pair color switch button to be rendered')
-    }
-
-    await act(async () => {
-      switchToRedButton.click()
-    })
-
-    expect(readWidgetPairContext(container, 'panel-a')).toEqual({
-      workflowId: 'wf-local',
-      listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-    })
-    expect(readWidgetSurface(container, 'panel-a')).toEqual({
-      workflowId: 'wf-local',
-      watchlistId: '',
-      workspaceId: 'ws-a',
-      pairColor: 'red',
-    })
-  })
-
-  it('hydrates supported stable entity ids from color pairs', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-current', 'red')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayoutName='Layout A'
-          initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{
-            pairs: [
-              {
-                color: 'red',
-                workflowId: 'wf-current',
-                skillId: 'skill-saved',
-              },
-            ],
-          }}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(readWidgetPairContext(container, 'panel-a')).toMatchObject({
-      workflowId: 'wf-current',
-    })
-  })
-
-  it('resolves linked watchlist pair state into the effective widget projection', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialState={{
-            id: 'panel-a',
-            type: 'panel',
-            widget: {
-              key: 'watchlist',
-              pairColor: 'red',
-              params: { provider: 'alpaca' },
-            },
-          }}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayoutName='Layout A'
-          initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{
-            pairs: [{ color: 'red', watchlistId: 'watchlist-pair' }],
-          }}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(readWidgetPairContext(container, 'panel-a')).toMatchObject({
-      watchlistId: 'watchlist-pair',
-    })
-    const surface = readWidgetSurface(container)
-    expect(surface).toEqual({
-      workflowId: '',
-      watchlistId: 'watchlist-pair',
-      workspaceId: 'ws-a',
-      pairColor: 'red',
-    })
   })
 
   it('keeps the current layout stable while switching active layout metadata', async () => {
@@ -943,27 +750,4 @@ function readWidgetRuntimeContext(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
     canWrite: element.dataset.canWrite === 'true',
   }
-}
-
-function readWidgetPairContext(container: HTMLDivElement, panelId?: string): PairColorContext {
-  const selector = panelId
-    ? `[data-testid="widget-surface-${panelId}"]`
-    : '[data-testid^="widget-surface-"]'
-  const element = container.querySelector(selector)
-  if (!(element instanceof HTMLElement)) {
-    throw new Error('Expected widget surface to be rendered')
-  }
-
-  return JSON.parse(element.dataset.pairContext || '{}') as PairColorContext
-}
-
-function hasRenderPhaseUpdateWarning(calls: unknown[][]) {
-  return calls.some((call) =>
-    call.some(
-      (value) =>
-        typeof value === 'string' &&
-        value.includes('Cannot update a component') &&
-        value.includes('while rendering a different component')
-    )
-  )
 }

@@ -9,14 +9,9 @@ import {
   useMemo,
   useRef,
 } from 'react'
-import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
-import { getListingIdentityKey } from '@/lib/listing/identity'
-import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
   normalizeColorPairsState,
-  normalizeListingIdentity,
   type PairColorContext,
   type PersistedColorPairsState,
   readPairColorContext,
@@ -26,16 +21,13 @@ import { type LayoutNode, normalizeDashboardLayout } from '@/widgets/layout'
 import { PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import type { WidgetRuntimeContext } from '@/widgets/types'
 import {
-  assertWidgetKey,
   isWidgetKey,
   resolveEffectiveWidgetParams,
   type WidgetKey,
-  type WidgetReferenceParamField,
 } from '@/widgets/widget-contracts'
 import {
   applyWidgetConfigMutation,
   findLayoutPanelWidget,
-  planWidgetConfigMutation,
   type WidgetConfigMutationPatch,
 } from '@/widgets/widget-mutations'
 
@@ -100,66 +92,15 @@ export function WidgetConfigRuntimeProvider({
 }) {
   const normalizedLayout = useMemo(() => normalizeDashboardLayout(layout), [layout])
   const normalizedColorPairs = useMemo(() => normalizeColorPairsState(colorPairs), [colorPairs])
-  const workspaceId = context.workspaceId ?? null
-  const workflowList = useEntityList('workflow', workspaceId)
-  const indicatorList = useEntityList('indicator', workspaceId)
-  const mcpServerList = useEntityList('mcp_server', workspaceId)
-  const customToolList = useEntityList('custom_tool', workspaceId)
-  const skillList = useEntityList('skill', workspaceId)
-  const watchlistList = useEntityList('watchlist', workspaceId)
-  const listingSelectorInstances = useListingSelectorStore((state) => state.instances)
-  const authorizedReferences = useMemo(
-    () =>
-      collectRuntimeReferenceValues({
-        workflowIds: workflowList.members.map((member) => member.entityId),
-        watchlistIds: watchlistList.members.map((member) => member.entityId),
-        indicatorIds: [
-          ...DEFAULT_INDICATOR_RUNTIME_ENTRIES.map((entry) => entry.id),
-          ...indicatorList.members.map((member) => member.entityId),
-        ],
-        mcpServerIds: mcpServerList.members.map((member) => member.entityId),
-        customToolIds: customToolList.members.map((member) => member.entityId),
-        skillIds: skillList.members.map((member) => member.entityId),
-        listingSelectorInstances,
-      }),
-    [
-      customToolList.members,
-      indicatorList.members,
-      listingSelectorInstances,
-      mcpServerList.members,
-      skillList.members,
-      watchlistList.members,
-      workflowList.members,
-    ]
-  )
   const applyWidgetPatch = useCallback(
     (panelId: string, patch: WidgetConfigMutationPatch) => {
       if (!canWrite) return
       onDocumentMutation((current) => {
-        const plan = planWidgetConfigMutation({
-          layout: current.layout,
-          colorPairs: current.colorPairs,
-          panelId,
-          patch,
-        })
-        if (plan.references.length > 0) {
-          assertReferencesAuthorizedForRuntimeMutation(plan.references, authorizedReferences)
-        }
-        const referenceValidation =
-          plan.references.length > 0 ? buildRuntimeReferenceValidation(plan, context) : undefined
-        const referenceValidationScope = referenceValidation
-          ? {
-              workspaceId: referenceValidation.workspaceId,
-              ownerUserId: referenceValidation.ownerUserId,
-            }
-          : undefined
         const next = applyWidgetConfigMutation({
           layout: current.layout,
           colorPairs: current.colorPairs,
           panelId,
           patch,
-          referenceValidationScope,
-          referenceValidation,
         })
         const mutation: { layout?: LayoutNode; colorPairs?: PersistedColorPairsState } = {}
         if (!areJsonValuesEqual(current.layout, next.layout)) {
@@ -171,7 +112,7 @@ export function WidgetConfigRuntimeProvider({
         return Object.keys(mutation).length > 0 ? mutation : null
       })
     },
-    [authorizedReferences, canWrite, context, onDocumentMutation]
+    [canWrite, onDocumentMutation]
   )
   const snapshot = useMemo<WidgetConfigRuntimeSnapshot>(
     () => ({
@@ -410,93 +351,4 @@ export const useDashboardWidgetRenderConfig = (
     return store.getPanelRenderConfig(panelId, widget)
   }, [panelId, store, widget])
   return useYjsSubscription(subscribe, extract, widget, areWidgetInstancesEqual)
-}
-
-function assertReferencesAuthorizedForRuntimeMutation(
-  candidates: Array<{
-    field: WidgetReferenceParamField
-    value: string
-    path: string
-  }>,
-  authorizedReferences: Set<string>
-) {
-  const missing = candidates.filter(
-    (candidate) => !authorizedReferences.has(`${candidate.field}:${candidate.value}`)
-  )
-  if (missing.length > 0) {
-    throw new Error(
-      'Widget reference edits must come from an authorized selector or server validation'
-    )
-  }
-}
-
-function buildRuntimeReferenceValidation(
-  plan: ReturnType<typeof planWidgetConfigMutation>,
-  context: WidgetRuntimeContext
-) {
-  const workspaceId = context.workspaceId?.trim()
-  const ownerUserId = context.dashboardLayoutOwnerUserId?.trim()
-  if (!workspaceId || !ownerUserId) {
-    throw new Error('Dashboard runtime reference validation requires workspace and owner identity')
-  }
-  if (!plan.afterWidget?.key) {
-    throw new Error('Dashboard runtime reference validation requires a widget key')
-  }
-  const widgetKey = assertWidgetKey(plan.afterWidget.key)
-
-  return {
-    workspaceId,
-    ownerUserId,
-    panelId: plan.panelId,
-    widgetKey,
-    candidates: plan.references,
-  }
-}
-
-function collectRuntimeReferenceValues(loaded: {
-  workflowIds: readonly string[]
-  watchlistIds: readonly string[]
-  indicatorIds: readonly string[]
-  mcpServerIds: readonly string[]
-  customToolIds: readonly string[]
-  skillIds: readonly string[]
-  listingSelectorInstances: Record<
-    string,
-    {
-      results?: unknown[]
-      selectedListingValue?: unknown
-      selectedListing?: unknown
-    }
-  >
-}): Set<string> {
-  const values = new Set<string>()
-  addEntityListReferenceValues(values, 'workflowId', loaded.workflowIds)
-  addEntityListReferenceValues(values, 'watchlistId', loaded.watchlistIds)
-  addEntityListReferenceValues(values, 'indicatorId', loaded.indicatorIds)
-  addEntityListReferenceValues(values, 'mcpServerId', loaded.mcpServerIds)
-  addEntityListReferenceValues(values, 'customToolId', loaded.customToolIds)
-  addEntityListReferenceValues(values, 'skillId', loaded.skillIds)
-  for (const instance of Object.values(loaded.listingSelectorInstances)) {
-    addListingReferenceValue(values, instance.selectedListingValue)
-    addListingReferenceValue(values, instance.selectedListing)
-    for (const result of instance.results ?? []) {
-      addListingReferenceValue(values, result)
-    }
-  }
-  return values
-}
-
-function addEntityListReferenceValues(
-  values: Set<string>,
-  field: WidgetReferenceParamField,
-  ids: readonly string[]
-) {
-  for (const id of ids) {
-    if (id) values.add(`${field}:${id}`)
-  }
-}
-
-function addListingReferenceValue(values: Set<string>, value: unknown) {
-  const listing = normalizeListingIdentity(value)
-  if (listing) values.add(`listing:${getListingIdentityKey(listing)}`)
 }

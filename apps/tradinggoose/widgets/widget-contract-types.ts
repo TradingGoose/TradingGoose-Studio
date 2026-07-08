@@ -1,4 +1,3 @@
-import { getListingIdentityKey } from '@/lib/listing/identity'
 import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
@@ -56,111 +55,82 @@ export type WidgetParamFieldContract = {
   kind: WidgetParamFieldKind
   referenceKind?: string
   allowedValues?: string[]
-  description: string
-  children?: WidgetParamFieldContract[]
 }
 
 type WidgetParamContractDef = Omit<WidgetParamFieldContract, 'field'>
-
-export type WidgetReferenceParamCandidate = {
-  field: WidgetReferenceParamField
-  value: string
-  path: string
-}
 
 const FIELD_DEFS = {
   workflowId: {
     kind: 'entity-reference',
     referenceKind: 'workflow',
-    description: 'Workflow id from list_workflows.',
   },
   watchlistId: {
     kind: 'entity-reference',
     referenceKind: 'watchlist',
-    description: 'Saved watchlist document id from list_watchlists.',
   },
   listing: {
     kind: 'listing',
-    description: 'Normalized listing identity object; display hydration is read-only.',
   },
   indicatorId: {
     kind: 'entity-reference',
     referenceKind: 'indicator',
-    description: 'Indicator runtime id from list_indicators.',
   },
   mcpServerId: {
     kind: 'entity-reference',
     referenceKind: 'mcp_server',
-    description: 'MCP server id from list_mcp_servers.',
   },
   customToolId: {
     kind: 'entity-reference',
     referenceKind: 'custom_tool',
-    description: 'Custom tool id from list_custom_tools.',
   },
   skillId: {
     kind: 'entity-reference',
     referenceKind: 'skill',
-    description: 'Skill id from list_skills.',
   },
   provider: {
     kind: 'string',
-    description: 'Trading or market-data provider id.',
   },
   providerParams: {
     kind: 'record',
-    description: 'Provider-specific market-data parameter object.',
   },
   auth: {
     kind: 'record',
-    description: 'Market-data auth settings; raw values and env-var placeholders are accepted.',
   },
   data: {
     kind: 'record',
-    description: 'Widget data settings.',
   },
   view: {
     kind: 'record',
-    description: 'Widget view settings.',
   },
   runtime: {
     kind: 'record',
-    description: 'Runtime refresh/state hints persisted by widget controls.',
   },
   sourceMode: {
     kind: 'enum',
     allowedValues: ['watchlist', 'portfolio'],
-    description: 'Heatmap source mode.',
   },
   watchlistSizeMetric: {
     kind: 'enum',
     allowedValues: ['volume', 'volumeUsd'],
-    description: 'Heatmap watchlist sizing metric.',
   },
-  marketProvider: { kind: 'string', description: 'Market-data provider id.' },
+  marketProvider: { kind: 'string' },
   marketProviderParams: {
     kind: 'record',
-    description: 'Market-data provider parameter object.',
   },
   marketAuth: {
     kind: 'record',
-    description: 'Market-data auth settings; raw values and env-var placeholders are accepted.',
   },
-  tradingProvider: { kind: 'string', description: 'Trading provider id.' },
-  serviceId: { kind: 'string', description: 'Provider service/account id.' },
+  tradingProvider: { kind: 'string' },
+  serviceId: { kind: 'string' },
   portfolioIdentity: {
     kind: 'json',
-    description:
-      'Trading account identity payload with providerId, credentialId, serviceId, and accountId.',
   },
   selectedWindow: {
     kind: 'string',
-    description: 'Selected portfolio time window.',
   },
   side: {
     kind: 'enum',
     allowedValues: ['buy', 'sell'],
-    description: 'Quick order side.',
   },
 } satisfies Record<string, WidgetParamContractDef>
 
@@ -214,7 +184,6 @@ export type WidgetCatalogItem = {
   editable: boolean
   editableFields: WidgetParamField[]
   linkedParamFields: WidgetParamField[]
-  capabilities: string[]
 }
 
 export type WidgetMetadataProfile = {
@@ -227,14 +196,6 @@ export type WidgetMetadataProfile = {
   editableFields: WidgetParamField[]
   paramContract: WidgetParamFieldContract[]
   linkedParamFields: WidgetParamField[]
-  colorPairBehavior: {
-    supportsLinkedPairs: boolean
-    grayKeepsParamsLocal: boolean
-    nonGrayLinkedFields: WidgetParamField[]
-  }
-  examples: Array<Record<string, unknown>>
-  bestPractices: string[]
-  validationHints: string[]
 }
 
 export type WidgetContract = {
@@ -247,9 +208,6 @@ export type WidgetContract = {
   editableFields: WidgetParamField[]
   paramContract: WidgetParamFieldContract[]
   linkedParamFields: WidgetParamField[]
-  examples: Array<Record<string, unknown>>
-  bestPractices: string[]
-  validationHints: string[]
   createDefaultInstance: () => NonNullable<WidgetInstance>
   sanitizeLocalParams: (
     params: unknown,
@@ -277,8 +235,6 @@ export type WidgetContract = {
     nextPairColor: PairColor,
     colorPairs: { pairs: Array<PairColorContext & { color: string }> } | unknown
   ) => WidgetSanitizeResult
-  collectReferenceParams: (params: unknown) => WidgetReferenceParamCandidate[]
-  buildMetadataProfile: () => WidgetMetadataProfile
 }
 
 type ContractInput = Omit<
@@ -290,8 +246,6 @@ type ContractInput = Omit<
   | 'splitPatchForPairColor'
   | 'resolveEffectiveParams'
   | 'resolveParamsForPairColorChange'
-  | 'collectReferenceParams'
-  | 'buildMetadataProfile'
 > & {
   sanitizeLocalParams?: (
     params: unknown,
@@ -302,9 +256,6 @@ type ContractInput = Omit<
     incomingParams: Record<string, unknown>
   ) => Record<string, unknown> | null
   paramContract?: WidgetParamFieldContract[]
-  collectAdditionalReferenceParams?: (
-    params: Record<string, unknown> | null
-  ) => WidgetReferenceParamCandidate[]
 }
 
 export function defineWidgetContract(input: ContractInput): WidgetContract {
@@ -397,65 +348,7 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
         issues: [],
       }
     },
-    collectReferenceParams(params) {
-      const normalized = sanitize(params, { strictUnknown: true })
-      return [
-        ...collectDefaultReferenceParams(input.editableFields, normalized),
-        ...(input.collectAdditionalReferenceParams?.(normalized) ?? []),
-      ]
-    },
-    buildMetadataProfile: () => ({
-      widgetKey: input.key,
-      title: input.title,
-      category: input.category,
-      description: input.description,
-      editable: input.editable,
-      defaultParams: cloneWidgetParams(input.defaultParams),
-      editableFields: [...input.editableFields],
-      paramContract,
-      linkedParamFields: [...input.linkedParamFields],
-      colorPairBehavior: {
-        supportsLinkedPairs: input.linkedParamFields.length > 0,
-        grayKeepsParamsLocal: true,
-        nonGrayLinkedFields: [...input.linkedParamFields],
-      },
-      examples: input.examples.map((example) => ({ ...example })),
-      bestPractices: [...input.bestPractices],
-      validationHints: [...input.validationHints],
-    }),
   }
-}
-
-function collectDefaultReferenceParams(
-  fields: readonly WidgetParamField[],
-  normalized: Record<string, unknown> | null
-): WidgetReferenceParamCandidate[] {
-  if (!normalized) return []
-
-  const references: WidgetReferenceParamCandidate[] = []
-  for (const field of fields) {
-    const fieldContract = FIELD_CONTRACTS[field]
-    const value = normalized[field]
-    if (fieldContract.kind === 'entity-reference' && typeof value === 'string') {
-      references.push({
-        field: field as WidgetReferenceParamField,
-        value,
-        path: field,
-      })
-    }
-    if (fieldContract.kind === 'listing') {
-      const listing = normalizeListingIdentity(value)
-      if (listing) {
-        references.push({
-          field: 'listing',
-          value: getListingIdentityKey(listing),
-          path: field,
-        })
-      }
-    }
-  }
-
-  return references
 }
 
 export function defineEntityWidgetContract(
@@ -463,10 +356,7 @@ export function defineEntityWidgetContract(
   title: string,
   category: WidgetCategory,
   description: string,
-  field: WidgetReferenceParamField,
-  exampleId: string,
-  bestPractice: string,
-  validationHint: string
+  field: WidgetReferenceParamField
 ): WidgetContract {
   return defineWidgetContract({
     key,
@@ -477,9 +367,6 @@ export function defineEntityWidgetContract(
     editableFields: [field],
     linkedParamFields: [field],
     defaultParams: null,
-    examples: [{ widgetKey: key, params: { [field]: exampleId } }],
-    bestPractices: [bestPractice],
-    validationHints: [validationHint],
   })
 }
 

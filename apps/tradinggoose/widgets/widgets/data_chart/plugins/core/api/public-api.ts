@@ -2,8 +2,7 @@
 
 /**
  * This file defines the public-facing API for the Lightweight Charts Line Tools Core plugin.
- * It specifies the interfaces and types that users will interact with, ensuring data structures
- * remain consistent with the original V3.8 line tools build for drop-in replacement compatibility.
+ * It specifies the interfaces and types that consumers use to manage chart drawing tools.
  */
 
 import type { IChartApiBase, ISeriesApi, SeriesType } from 'lightweight-charts'
@@ -14,8 +13,7 @@ import type { LineToolOptionsInternal, LineToolPartialOptionsMap, LineToolType }
 /**
  * Represents a single anchor point for a line tool in logical space.
  *
- * This structure is the fundamental way of defining a tool's position. It is compatible
- * with the original V3.8 line tools build's data format.
+ * This structure is the canonical way of defining a tool's position.
  *
  * @property timestamp - The time component of the point, typically a UNIX timestamp in seconds (or a date string if the chart is configured for `BusinessDay`).
  * @property price - The price component of the point (a floating-point number).
@@ -36,7 +34,7 @@ export interface LineToolPoint {
  *
  * This object is used to transfer the complete definition of a tool between the plugin's API
  * and a consumer's application (e.g., when saving tool state to a database). The structure
- * is designed for compatibility with the V3.8 line tools export format.
+ * is designed as the canonical export format for persisted chart drawings.
  *
  * @template T - The specific string identifier type of the line tool (e.g., `'TrendLine'`).
  * @property id - The unique identifier of the tool.
@@ -67,8 +65,6 @@ export interface LineToolExport<T extends LineToolType> {
 /**
  * Defines the structured data payload passed to listeners when a double-click event occurs on a line tool.
  *
- * This structure is kept identical to the original V3.8 event output for drop-in compatibility.
- *
  * @property selectedLineTool - The full {@link LineToolExport} data of the tool that was double-clicked.
  */
 export interface LineToolsDoubleClickEventParams {
@@ -83,12 +79,11 @@ export interface LineToolsDoubleClickEventParams {
  * @property selectedLineTool - The full {@link LineToolExport} data of the tool after the modification is complete.
  * @property stage - A string indicating the context of the edit completion:
  * - `'lineToolEdited'`: A point was moved, or the entire tool was dragged.
- * - `'pathFinished'`: (Deprecated/Path-Tool-Specific) A path tool creation has finished.
  * - `'lineToolFinished'`: A fixed-point tool creation (e.g., TrendLine, Rectangle) has finished.
  */
 export interface LineToolsAfterEditEventParams {
   selectedLineTool: LineToolExport<LineToolType>
-  stage: 'lineToolEdited' | 'pathFinished' | 'lineToolFinished'
+  stage: 'lineToolEdited' | 'lineToolFinished'
 }
 
 /**
@@ -117,7 +112,7 @@ export type LineToolsAfterEditEventHandler = (param: LineToolsAfterEditEventPara
  *
  * This object serves as the main point of interaction for managing, querying, and configuring
  * drawing tools on a Lightweight Charts instance. All methods here are callable by the consumer
- * and are designed to be compatible with the API of the V3.8 line tools build.
+ * and are designed around TradingGoose drawing persistence and interaction needs.
  */
 export interface ILineToolsApi {
   /**
@@ -222,7 +217,7 @@ export interface ILineToolsApi {
    * @returns A JSON string representing an array with the single {@link LineToolExport} data, or an empty array `[]` if the ID is not found.
    *
    * @remarks
-   * The return value is a JSON string containing an array (even for a single result) for consistency with the V3.8 API.
+   * The return value is a JSON string containing an array, even for a single result.
    */
   getLineToolByID(id: string): string
 
@@ -249,7 +244,7 @@ export interface ILineToolsApi {
    * Serializes the complete state of all currently drawn line tools into a JSON string.
    *
    * This function is essential for state persistence (e.g., saving tools to local storage or a database)
-   * as the returned format is fully compatible with {@link importLineTools}.
+   * as the returned format is accepted by {@link importLineTools}.
    *
    * @returns A JSON string representing an array of all {@link LineToolExport} data.
    *

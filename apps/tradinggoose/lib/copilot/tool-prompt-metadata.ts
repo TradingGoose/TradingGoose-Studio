@@ -394,7 +394,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   list_widgets: {
     description:
-      'List canonical dashboard widget catalog items, including widget keys, categories, editable fields, linked color-pair fields, and capability hints. Use before adding or replacing a dashboard widget.',
+      'List canonical dashboard widget catalog items, including widget keys, categories, editable fields, and linked color-pair fields. Use before adding or replacing a dashboard widget.',
     kind: 'inspect',
     entityKind: 'dashboard_layout',
     surfaceKind: 'dashboard_widget',

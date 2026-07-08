@@ -46,7 +46,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
   private readonly _interactionManager: InteractionManager<HorzScaleItem>
   private readonly _priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
 
-  // Delegates for broadcasting V3.8-compatible events
   private readonly _doubleClickDelegate = new Delegate<LineToolsDoubleClickEventParams>()
   private readonly _afterEditDelegate = new Delegate<LineToolsAfterEditEventParams>()
 
@@ -331,7 +330,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
    * @returns A JSON string representing an array containing the single tool's data, or an empty array `[]` if the ID was not found.
    *
    * @remarks
-   * The return type is a JSON string to maintain compatibility with the V3.8 API structure.
    * You will typically need to `JSON.parse()` the result to work with the data programmatically.
    */
   public getLineToolByID(id: string): string {
@@ -393,7 +391,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
       return false
     }
 
-    // Behavioral change: Deselect the tool after applying options, matching V3.8
     if (tool.isSelected()) {
       tool.setSelected(false)
     }
@@ -412,8 +409,8 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
   /**
    * Serializes the state of all currently drawn line tools into a JSON string.
    *
-   * This export format is compatible with `importLineTools` and the V3.8 line tools plugin,
-   * making it suitable for saving chart state to a database or local storage.
+   * This export format is accepted by `importLineTools`, making it suitable for saving chart
+   * state to a database or local storage.
    *
    * @returns A JSON string representing an array of all line tools and their current state.
    *
@@ -578,8 +575,6 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
 
     if (lineToolPoint) {
       // Cast lineToolPoint.timestamp directly to HorzScaleItem.
-      // This tells TypeScript that we know lineToolPoint.timestamp (a number)
-      // is compatible with the HorzScaleItem type expected by the current chart setup.
       const horizontalPosition: HorzScaleItem = lineToolPoint.timestamp as unknown as HorzScaleItem
       const priceValue: number = lineToolPoint.price
 
@@ -639,7 +634,7 @@ export class LineToolsCorePlugin<HorzScaleItem> implements ILineToolsApi {
    */
   public fireAfterEditEvent(
     tool: BaseLineTool<HorzScaleItem>,
-    stage: 'lineToolEdited' | 'pathFinished' | 'lineToolFinished'
+    stage: 'lineToolEdited' | 'lineToolFinished'
   ): void {
     const eventParams: LineToolsAfterEditEventParams = {
       selectedLineTool: tool.getExportData(),

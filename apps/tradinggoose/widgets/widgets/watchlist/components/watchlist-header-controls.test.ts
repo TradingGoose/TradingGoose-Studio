@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { resolveMarketProviderSettingsDefinitions } from '@/lib/market/market-provider-settings'
 import { resolveNextSectionName } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 describe('watchlist header naming helpers', () => {
@@ -39,15 +38,5 @@ describe('watchlist header naming helpers', () => {
         ],
       })
     ).toBe('Section 2')
-  })
-
-  it('resolves market provider settings fields for watchlist controls', () => {
-    expect(
-      resolveMarketProviderSettingsDefinitions('alpaca').map((definition) => definition.id)
-    ).toEqual(['apiKey', 'apiSecret', 'feed'])
-    expect(
-      resolveMarketProviderSettingsDefinitions('finnhub').map((definition) => definition.id)
-    ).toEqual(['apiKey'])
-    expect(resolveMarketProviderSettingsDefinitions('yahoo-finance')).toEqual([])
   })
 })

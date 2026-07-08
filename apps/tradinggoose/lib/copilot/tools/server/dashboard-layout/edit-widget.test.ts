@@ -6,9 +6,6 @@ const toolMocks = fx.createDashboardToolMocks()
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_widget' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
-vi.mock('@/lib/copilot/tools/server/widgets/widget-reference-validation', () => ({
-  validateWidgetReferenceCandidates: toolMocks.validateWidgetReferenceCandidates,
-}))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
 vi.mock('@/lib/copilot/tools/server/dashboard-layout/shared', () =>
   fx.mockDashboardSharedModule(toolMocks)
@@ -101,8 +98,8 @@ describe('edit_widget server tool', () => {
     })
   })
 
-  it('validates nested data-chart indicator references from edit_widget params', async () => {
-    await execute({
+  it('patches nested data-chart indicator references from edit_widget params', async () => {
+    const result = await execute({
       params: {
         view: {
           pineIndicators: [{ id: 'indicator-1' }],
@@ -111,25 +108,10 @@ describe('edit_widget server tool', () => {
       },
     })
 
-    expect(toolMocks.validateWidgetReferenceCandidates).toHaveBeenCalledWith(
-      toolMocks.scope,
-      expect.objectContaining({
-        references: [
-          {
-            panelId: 'chart-panel',
-            path: 'chart-panel.view.pineIndicators[0].id',
-            field: 'indicatorId',
-            value: 'indicator-1',
-          },
-          {
-            panelId: 'chart-panel',
-            path: 'chart-panel.view.drawTools[0].indicatorId',
-            field: 'indicatorId',
-            value: 'MACD',
-          },
-        ],
-      })
-    )
+    expect(result.widget.params.view).toMatchObject({
+      pineIndicators: [{ id: 'indicator-1' }],
+      drawTools: [{ id: 'manual-macd', pane: 'indicator', indicatorId: 'MACD' }],
+    })
   })
 
   it('keeps public edit_widget params null as an explicit local params clear', async () => {
@@ -165,15 +147,5 @@ describe('edit_widget server tool', () => {
     await expect(
       execute({ pairColor: 'gray' }, { acceptedReviewBaseStateHash: 'different-hash' })
     ).rejects.toThrow('stale_server_tool_review')
-  })
-
-  it('rejects edit_widget when reference validation rejects a candidate', async () => {
-    toolMocks.validateWidgetReferenceCandidates.mockRejectedValueOnce(
-      new Error('Widget workflowId reference "workflow-missing" is not accessible')
-    )
-
-    await expect(
-      execute({ widgetKey: 'editor_workflow', params: { workflowId: 'workflow-missing' } })
-    ).rejects.toThrow('workflow-missing')
   })
 })

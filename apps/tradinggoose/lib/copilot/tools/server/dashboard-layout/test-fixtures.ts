@@ -77,7 +77,6 @@ export function createDashboardToolMocks() {
         throw new Error('stale_server_tool_review')
       }
     }),
-    validateWidgetReferenceCandidates: vi.fn(),
   }
 }
 
@@ -86,12 +85,6 @@ export function resetDashboardToolMocks(mocks: DashboardToolMocks) {
   vi.clearAllMocks()
   mocks.setCurrentFields(createDashboardLayoutTestFields())
   mocks.shouldStage.mockReturnValue(false)
-  mocks.validateWidgetReferenceCandidates.mockImplementation((_scope: unknown, plan: any) => ({
-    ...TEST_SCOPE,
-    panelId: plan.panelId,
-    widgetKey: plan.afterWidget?.key,
-    candidates: plan.references,
-  }))
   mocks.listDashboardLayouts.mockResolvedValue([
     { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
   ])

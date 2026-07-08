@@ -20,12 +20,8 @@ import {
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  attachDashboardLayoutLiveProjection,
-  projectDashboardLayoutLiveState,
-} from '@/lib/yjs/server/dashboard-layout-live-projection'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, peekDocument, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -60,7 +56,6 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
   }
 
   if (entityKind === 'dashboard_layout') {
-    await projectDashboardLayoutLiveState(doc)
     await saveSavedEntityYjsDocToDb('dashboard_layout', docId, doc)
   }
 }
@@ -241,10 +236,6 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
         onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
       })
-      if (yjsReq.yjsPersistLiveUpdates && yjsReq.yjsEntityKind === 'dashboard_layout') {
-        const doc = peekDocument(docId)
-        if (doc) attachDashboardLayoutLiveProjection(doc)
-      }
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
       ws.close(4409, 'Failed to attach Yjs session')

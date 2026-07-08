@@ -5,7 +5,7 @@
 import { act } from 'react'
 import { JSDOM } from 'jsdom'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
 
 type DocumentMutationResult = {
@@ -28,39 +28,6 @@ function createDocumentMutationHarness(initial: {
   }
   return { results, onDocumentMutation }
 }
-
-vi.mock('@/lib/yjs/use-entity-fields', () => ({
-  useEntityList: (kind: string) => ({
-    members:
-      kind === 'workflow'
-        ? [
-            {
-              entityId: 'workflow-authorized',
-              entityName: 'Authorized workflow',
-              createdAt: '2026-01-01T00:00:00.000Z',
-            },
-          ]
-        : kind === 'indicator'
-          ? [
-              {
-                entityId: 'indicator-authorized',
-                entityName: 'Authorized indicator',
-                createdAt: '2026-01-01T00:00:00.000Z',
-              },
-            ]
-          : kind === 'watchlist'
-            ? [
-                {
-                  entityId: 'watchlist-visible',
-                  entityName: 'Visible',
-                  createdAt: '2026-01-01T00:00:00.000Z',
-                },
-              ]
-            : [],
-    isLoading: false,
-    error: null,
-  }),
-}))
 
 let rawBunDom: JSDOM | null = null
 
@@ -106,24 +73,6 @@ const layout = (): LayoutNode => ({
   ],
 })
 
-const watchlistLayout = (): LayoutNode => ({
-  id: 'root',
-  type: 'group',
-  direction: 'horizontal',
-  sizes: [100],
-  children: [
-    {
-      id: 'panel-watchlist',
-      type: 'panel',
-      widget: {
-        key: 'watchlist',
-        pairColor: 'red',
-        params: null,
-      },
-    },
-  ],
-})
-
 const dataChartLayout = (): LayoutNode => ({
   id: 'panel-chart',
   type: 'panel',
@@ -137,7 +86,7 @@ const dataChartLayout = (): LayoutNode => ({
   },
 })
 
-describe('WidgetConfigRuntimeProvider reference validation', () => {
+describe('WidgetConfigRuntimeProvider document mutation', () => {
   let container: HTMLDivElement | null
   let root: Root | null
 
@@ -157,7 +106,7 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
     container = null
   })
 
-  it('accepts loaded entity-list references and rejects arbitrary ids', async () => {
+  it('writes workflow references directly into the color pair state', async () => {
     const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
       '@/widgets/widget-config-runtime'
     )
@@ -195,78 +144,14 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
 
     act(() => {
       patchWidgetParams?.('panel-1', 'editor_workflow', {
-        workflowId: 'workflow-authorized',
+        workflowId: 'workflow-1',
       })
     })
     expect(results.at(-1)).toEqual({
       colorPairs: {
-        pairs: [{ color: 'red', workflowId: 'workflow-authorized' }],
+        pairs: [{ color: 'red', workflowId: 'workflow-1' }],
       },
     })
-
-    expect(() =>
-      act(() => {
-        patchWidgetParams?.('panel-1', 'editor_workflow', {
-          workflowId: 'workflow-unproven',
-        })
-      })
-    ).toThrow('Widget reference edits must come from an authorized selector or server validation')
-
-    expect(() =>
-      act(() => {
-        patchWidgetParams?.('panel-1', 'editor_workflow', {
-          workflowId: 'workflow-forged',
-        })
-      })
-    ).toThrow('Widget reference edits must come from an authorized selector or server validation')
-  })
-
-  it('does not authorize stale references from the current dashboard document', async () => {
-    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let patchWidgetParams:
-      | ((panelId: string, widgetKey: string, params: Record<string, unknown>) => void)
-      | null = null
-    const { results, onDocumentMutation } = createDocumentMutationHarness({
-      layout: layout(),
-      colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-stale' }] },
-    })
-
-    const CaptureActions = () => {
-      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
-      return null
-    }
-
-    act(() => {
-      root?.render(
-        <WidgetConfigRuntimeProvider
-          context={{
-            workspaceId: 'workspace-1',
-            dashboardLayoutOwnerUserId: 'user-1',
-          }}
-          layout={layout()}
-          colorPairs={
-            {
-              pairs: [{ color: 'red', workflowId: 'workflow-stale' }],
-            } satisfies PersistedColorPairsState
-          }
-          canWrite
-          onDocumentMutation={onDocumentMutation}
-        >
-          <CaptureActions />
-        </WidgetConfigRuntimeProvider>
-      )
-    })
-
-    expect(() =>
-      act(() => {
-        patchWidgetParams?.('panel-1', 'editor_workflow', {
-          workflowId: 'workflow-stale',
-        })
-      })
-    ).toThrow('Widget reference edits must come from an authorized selector or server validation')
-    expect(results).toHaveLength(0)
   })
 
   it('does not apply runtime widget mutations when writes are disabled', async () => {
@@ -305,69 +190,14 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
 
     act(() => {
       patchWidgetParams?.('panel-1', 'editor_workflow', {
-        workflowId: 'workflow-authorized',
+        workflowId: 'workflow-1',
       })
     })
 
     expect(results).toHaveLength(0)
   })
 
-  it('authorizes visible watchlist document ids and rejects arbitrary watchlist ids', async () => {
-    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let patchWidgetParams:
-      | ((panelId: string, widgetKey: string, params: Record<string, unknown>) => void)
-      | null = null
-    const { results, onDocumentMutation } = createDocumentMutationHarness({
-      layout: watchlistLayout(),
-      colorPairs: { pairs: [] },
-    })
-
-    const CaptureActions = () => {
-      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
-      return null
-    }
-
-    act(() => {
-      root?.render(
-        <WidgetConfigRuntimeProvider
-          context={{
-            workspaceId: 'workspace-1',
-            dashboardLayoutOwnerUserId: 'user-1',
-          }}
-          layout={watchlistLayout()}
-          colorPairs={{ pairs: [] } satisfies PersistedColorPairsState}
-          canWrite
-          onDocumentMutation={onDocumentMutation}
-        >
-          <CaptureActions />
-        </WidgetConfigRuntimeProvider>
-      )
-    })
-
-    act(() => {
-      patchWidgetParams?.('panel-watchlist', 'watchlist', {
-        watchlistId: 'watchlist-visible',
-      })
-    })
-    expect(results.at(-1)).toEqual({
-      colorPairs: {
-        pairs: [{ color: 'red', watchlistId: 'watchlist-visible' }],
-      },
-    })
-
-    expect(() =>
-      act(() => {
-        patchWidgetParams?.('panel-watchlist', 'watchlist', {
-          watchlistId: 'watchlist-forged',
-        })
-      })
-    ).toThrow('Widget reference edits must come from an authorized selector or server validation')
-    expect(results).toHaveLength(1)
-  })
-
-  it('authorizes nested data-chart indicator references', async () => {
+  it('writes nested data-chart indicator references', async () => {
     const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
       '@/widgets/widget-config-runtime'
     )
@@ -404,7 +234,7 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
     act(() => {
       patchWidgetParams?.('panel-chart', 'data_chart', {
         view: {
-          pineIndicators: [{ id: 'indicator-authorized' }],
+          pineIndicators: [{ id: 'indicator-1' }],
           drawTools: [{ id: 'manual-rsi', pane: 'indicator', indicatorId: 'RSI' }],
         },
       })
@@ -415,17 +245,9 @@ describe('WidgetConfigRuntimeProvider reference validation', () => {
       data: { provider: 'alpaca' },
       view: {
         interval: '15m',
-        pineIndicators: [{ id: 'indicator-authorized' }],
+        pineIndicators: [{ id: 'indicator-1' }],
         drawTools: [{ id: 'manual-rsi', pane: 'indicator', indicatorId: 'RSI' }],
       },
     })
-
-    expect(() =>
-      act(() => {
-        patchWidgetParams?.('panel-chart', 'data_chart', {
-          view: { pineIndicators: [{ id: 'indicator-forged' }] },
-        })
-      })
-    ).toThrow('Widget reference edits must come from an authorized selector or server validation')
   })
 })

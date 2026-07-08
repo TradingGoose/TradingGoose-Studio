@@ -46,7 +46,4 @@ export const portfolioSnapshotWidgetContract = defineWidgetContract({
   sanitizeLocalParams: sanitizePortfolioSnapshotParams,
   mergeLocalParams: (currentParams, incomingParams) =>
     mergeParamsWithRuntime(sanitizePortfolioSnapshotParams, currentParams, incomingParams),
-  examples: [{ widgetKey: 'portfolio_snapshot', params: { selectedWindow: '1D' } }],
-  bestPractices: ['Keep account/provider details widget-local.'],
-  validationHints: ['Unknown top-level params are rejected.'],
 })

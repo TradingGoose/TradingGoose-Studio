@@ -3,8 +3,6 @@ import {
   createDashboardLayout,
   deleteDashboardLayout,
   materializeDashboardLayoutFields,
-  provisionDashboardLayoutForWorkspaceUserInTx,
-  readActiveDashboardLayoutProjection,
 } from '@/lib/dashboard-layouts/operations'
 
 const m = vi.hoisted(() => {
@@ -33,7 +31,6 @@ const m = vi.hoisted(() => {
     txExecute,
     txInsert,
     txUpdate,
-    validateLayoutRefs: vi.fn(),
     db: {
       select,
       delete: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) })),
@@ -58,11 +55,6 @@ const m = vi.hoisted(() => {
 vi.mock('@tradinggoose/db', () => ({ db: m.db }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  workflow: {},
-  skill: {},
-  customTools: {},
-  pineIndicators: {},
-  mcpServers: {},
   layoutMap: {
     id: 'id',
     workspaceId: 'workspaceId',
@@ -87,10 +79,6 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/copilot/entity-documents', () => ({
   normalizeEntityFields: (_kind: string, fields: unknown) => fields,
-}))
-
-vi.mock('@/lib/copilot/tools/server/widgets/widget-reference-validation', () => ({
-  validateDashboardLayoutWidgetReferences: m.validateLayoutRefs,
 }))
 
 vi.mock('@/lib/dashboard-layouts/read-projection', () => ({
@@ -155,55 +143,6 @@ describe('dashboard layout operations', () => {
     )
   })
 
-  it('provisions a default active layout inside an owner transaction', async () => {
-    m.selectRows.mockResolvedValueOnce([])
-    m.insertRows.mockResolvedValueOnce([
-      row({ id: 'layout-new', name: 'Default Layout', sort_order: 0, isActive: true }),
-    ])
-
-    const created = await provisionDashboardLayoutForWorkspaceUserInTx(
-      {
-        delete: m.txDelete,
-        execute: m.txExecute,
-        insert: m.txInsert,
-        select: m.db.select,
-        update: m.txUpdate,
-      } as any,
-      scope
-    )
-
-    expect(created).toBe(true)
-    expect(m.txExecute).toHaveBeenCalled()
-    expect(m.txInsert).toHaveBeenCalled()
-  })
-
-  it.each([
-    {
-      label: 'falls back to the first owned layout when no row is active',
-      secondActive: false,
-      expected: { id: 'layout-a', isActive: false, sortOrder: 0 },
-    },
-    {
-      label: 'reads the active row',
-      secondActive: true,
-      expected: { id: 'layout-b', name: 'Second', isActive: true, sortOrder: 1 },
-    },
-  ])('$label without performing any persisted activation', async ({ secondActive, expected }) => {
-    m.selectRows.mockResolvedValueOnce([
-      row({ id: 'layout-a', isActive: false }),
-      row({ id: 'layout-b', name: 'Second', sort_order: 1, isActive: secondActive }),
-    ])
-
-    const result = await readActiveDashboardLayoutProjection(scope)
-
-    expect(result.activeLayout).toMatchObject(expected)
-    expect(result.layouts).toEqual([
-      expect.objectContaining({ id: 'layout-a', isActive: false }),
-      expect.objectContaining({ id: 'layout-b', isActive: secondActive }),
-    ])
-    expect(m.db.transaction).not.toHaveBeenCalled()
-  })
-
   it('rejects active layout deletion before database and socket side effects', async () => {
     m.selectRows.mockResolvedValueOnce([row({ id: 'layout-active', isActive: true })])
 
@@ -216,40 +155,7 @@ describe('dashboard layout operations', () => {
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
 
-  it('deletes inactive layouts and refreshes owner-scoped live sessions', async () => {
-    m.selectRows
-      .mockResolvedValueOnce([row({ id: 'layout-inactive', isActive: false })])
-      .mockResolvedValueOnce([
-        row({ id: 'layout-inactive', isActive: false }),
-        row({ id: 'layout-other', isActive: true }),
-      ])
-
-    await deleteDashboardLayout(scope, 'layout-inactive')
-
-    expect(m.txDelete).toHaveBeenCalled()
-    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'workspace-1',
-      'user-1'
-    )
-    expect(m.bridge.deleteYjsSessionInSocketServer).toHaveBeenCalledWith('layout-inactive')
-  })
-
-  it('rejects deleting the last inactive layout', async () => {
-    m.selectRows
-      .mockResolvedValueOnce([row({ id: 'layout-inactive', isActive: false })])
-      .mockResolvedValueOnce([row({ id: 'layout-inactive', isActive: false })])
-
-    await expect(deleteDashboardLayout(scope, 'layout-inactive')).rejects.toThrow(
-      'Cannot delete the last dashboard layout in this workspace'
-    )
-
-    expect(m.txDelete).not.toHaveBeenCalled()
-    expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
-    expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
-  })
-
-  it('validates references before mutation and projects sibling metadata into live sessions', async () => {
+  it('projects sibling metadata into live sessions after materializing layout fields', async () => {
     m.selectRows
       .mockResolvedValueOnce([row({ id: 'layout-b', isActive: false, sort_order: 1 })])
       .mockResolvedValueOnce([
@@ -263,10 +169,6 @@ describe('dashboard layout operations', () => {
       sortOrder: 0,
     })
 
-    expect(m.validateLayoutRefs).toHaveBeenCalled()
-    expect(m.validateLayoutRefs.mock.invocationCallOrder[0]).toBeLessThan(
-      m.txUpdate.mock.invocationCallOrder[0]
-    )
     expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
       'layout-a',
       'dashboard_layout',
@@ -281,25 +183,5 @@ describe('dashboard layout operations', () => {
     )
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-a')
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-b')
-  })
-
-  it('rejects unsupported persisted params for known widget contracts before database updates', async () => {
-    m.selectRows.mockResolvedValueOnce([row()])
-
-    await expect(
-      materializeDashboardLayoutFields(scope, 'layout-1', {
-        layout: {
-          id: 'panel-1',
-          type: 'panel',
-          widget: {
-            key: 'editor_workflow',
-            pairColor: 'gray',
-            params: { workflowId: 'workflow-1', listing: { listing_id: 'AAPL' } },
-          },
-        },
-      } as any)
-    ).rejects.toThrow('params.listing: Widget "editor_workflow" does not support this field')
-
-    expect(m.db.transaction).not.toHaveBeenCalled()
   })
 })

@@ -25,7 +25,7 @@ describe('sanitizeDataChartParams', () => {
     })
   })
 
-  it('drops legacy string listing values so only listing identities persist', () => {
+  it('drops non-identity listing values so only listing identities persist', () => {
     expect(sanitizeWidgetParams('data_chart', { listing: 'AAPL' })).toBeNull()
     expect(
       sanitizeWidgetParams('data_chart', {

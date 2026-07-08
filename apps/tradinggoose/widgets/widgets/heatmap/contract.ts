@@ -53,7 +53,4 @@ export const heatmapWidgetContract = defineWidgetContract({
   sanitizeLocalParams: sanitizeHeatmapParams,
   mergeLocalParams: (currentParams, incomingParams) =>
     mergeParamsWithRuntime(sanitizeHeatmapParams, currentParams, incomingParams),
-  examples: [{ widgetKey: 'heatmap', params: { sourceMode: 'watchlist' } }],
-  bestPractices: ['Use listing from the shared pair when linking panels.'],
-  validationHints: ['sourceMode must be watchlist or portfolio when provided.'],
 })

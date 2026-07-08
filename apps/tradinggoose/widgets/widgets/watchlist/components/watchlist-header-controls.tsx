@@ -98,14 +98,12 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 
 export const resolveNextSectionName = (
   watchlist: Pick<WatchlistRecord, 'items'> | null | undefined,
-  baseName = 'Section',
-  parentId: string | null = null
+  baseName = 'Section'
 ) => {
   const usedNumbers = new Set<number>()
 
   for (const item of watchlist?.items ?? []) {
     if (item.type !== 'section') continue
-    if ((item.parentId ?? null) !== parentId) continue
 
     const match = item.label.trim().match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
     if (!match) continue
