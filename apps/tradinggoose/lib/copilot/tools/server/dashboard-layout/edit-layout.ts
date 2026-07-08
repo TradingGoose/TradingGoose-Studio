@@ -34,7 +34,7 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
     )
     const scope = { workspaceId, ownerUserId: userId }
     const current = await readLiveDashboardLayoutFields(scope, entityId)
-    const next = applyLayoutEditDocument(current, args.entityDocument, args.removedPanelIds ?? [])
+    const next = applyLayoutEditDocument(current, args.entityDocument)
     if (next.sortOrder !== current.sortOrder) {
       const layouts = await listDashboardLayouts(scope)
       if (next.sortOrder < 0 || next.sortOrder >= layouts.length) {

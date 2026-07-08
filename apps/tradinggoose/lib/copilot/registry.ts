@@ -14,10 +14,7 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
-import {
-  DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-} from '@/widgets/layout-document'
+import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
@@ -299,19 +296,7 @@ const CreateDashboardLayoutArgs = z
   .strict()
   .describe('Create a new inactive dashboard layout shell in the current workspace.')
 const DashboardLayoutTargetArgs = EntityTargetArgs.strict()
-const EditDashboardLayoutArgs = EntityTargetArgs.extend({
-  entityDocument: z
-    .string()
-    .min(1)
-    .describe(
-      'Full tg-dashboard-layout-structure-v1 JSON document with top-level layout and optional name, sortOrder, or isActive: true. This edits topology and metadata only; use edit_widget for widget params, pairColor, and colorPairs.'
-    ),
-  removedPanelIds: z
-    .array(z.string().trim().min(1))
-    .optional()
-    .describe('Existing panel ids intentionally removed from the dashboard layout.'),
-  documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
-}).strict()
+const EditDashboardLayoutArgs = buildEntityDocumentMutationArgs(DASHBOARD_LAYOUT_DOCUMENT_FORMAT)
 const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
   widgetKey: z

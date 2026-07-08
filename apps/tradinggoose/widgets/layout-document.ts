@@ -6,7 +6,6 @@ import {
   type PersistedColorPair,
 } from '@/widgets/color-pairs'
 import {
-  createLayoutNodeId,
   type LayoutNode,
   normalizeColorPairsState,
   normalizeDashboardLayout,
@@ -21,8 +20,6 @@ import {
 } from '@/widgets/widget-contracts'
 
 export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v1' as const
-export const DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT =
-  'tg-dashboard-layout-structure-v1' as const
 
 export type DashboardLayoutDocumentFields = {
   name: string
@@ -103,38 +100,6 @@ export const DashboardLayoutDocumentSchema = z
     colorPairs: DashboardLayoutColorPairsSchema,
     isActive: z.boolean(),
     sortOrder: z.number().int(),
-  })
-  .strict()
-
-const DashboardLayoutStructurePanelNodeSchema = z
-  .object({
-    id: z.string().trim().min(1).optional(),
-    type: z.literal('panel'),
-    widget: z.object({ key: PersistedWidgetKeySchema }).strict().optional(),
-  })
-  .strict()
-
-const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
-  z.union([DashboardLayoutStructurePanelNodeSchema, DashboardLayoutStructureGroupNodeSchema])
-)
-
-const DashboardLayoutStructureGroupNodeSchema: z.ZodTypeAny = z
-  .object({
-    id: z.string().trim().min(1).optional(),
-    type: z.literal('group'),
-    direction: z.enum(['horizontal', 'vertical']),
-    sizes: z.array(z.number().finite().positive()).optional(),
-    children: z.array(DashboardLayoutStructureNodeSchema).min(1),
-  })
-  .strict()
-
-export const DashboardLayoutStructureDocumentSchema = z
-  .object({
-    documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
-    layout: DashboardLayoutStructureNodeSchema,
-    name: z.string().trim().min(1).optional(),
-    sortOrder: z.number().int().optional(),
-    isActive: z.literal(true).optional(),
   })
   .strict()
 
@@ -286,8 +251,7 @@ export function serializeDashboardLayoutDocument(
 
 export function applyLayoutEditDocument(
   currentFields: DashboardLayoutDocumentFields,
-  entityDocument: string,
-  removedPanelIds: readonly string[] = []
+  entityDocument: string
 ): DashboardLayoutDocumentFields {
   let parsed: unknown
   try {
@@ -298,295 +262,11 @@ export function applyLayoutEditDocument(
   if (!isRecord(parsed))
     failDashboardLayout('entityDocument', 'entityDocument must be a JSON object')
 
-  const raw = parsed
-  for (const key of ['colorPairs', 'colorPair'] as const) {
-    if (raw[key] !== undefined) {
-      failDashboardLayout(
-        `entityDocument.${key}`,
-        `edit_layout cannot modify ${key}; use edit_widget for linked color-pair params`
-      )
-    }
-  }
-  if (!isRecord(raw.layout)) {
-    failDashboardLayout(
-      'entityDocument.layout',
-      'edit_layout entityDocument requires a top-level layout object'
-    )
-  }
-  if (raw.isActive === false) {
-    failDashboardLayout('entityDocument.isActive', 'edit_layout can only request isActive: true')
-  }
-  if (
-    raw.documentFormat !== undefined &&
-    raw.documentFormat !== DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT
-  ) {
-    failDashboardLayout(
-      'entityDocument.documentFormat',
-      `Unsupported edit_layout documentFormat "${String(raw.documentFormat)}". Expected ${DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT}`
-    )
-  }
-
-  const currentLayout = normalizeDashboardLayout(currentFields.layout)
-  const currentWidgets = collectPanelWidgets(currentLayout)
-  const submittedLayout = reconcileStructureNode(raw.layout, '$.layout', {
-    currentGroupIds: new Set(collectGroupSizes(currentLayout).keys()),
-    currentWidgets,
-    submittedIds: new Set(),
-  })
-  const submittedPanelIds = collectPanelIds(submittedLayout)
-  if (submittedPanelIds.size === 0) {
-    failDashboardLayout(
-      'entityDocument.layout',
-      'edit_layout entityDocument must contain at least one panel'
-    )
-  }
-
-  const removed = new Set(removedPanelIds.map((id) => (typeof id === 'string' ? id.trim() : '')))
-  if (removed.has('') || removed.size !== removedPanelIds.length) {
-    failDashboardLayout('removedPanelIds', 'removedPanelIds must be unique non-empty panel ids')
-  }
-  for (const panelId of removed) {
-    if (!currentWidgets.has(panelId)) {
-      failDashboardLayout(
-        'removedPanelIds',
-        `removedPanelIds contains unknown panel id: ${panelId}`
-      )
-    }
-    if (submittedPanelIds.has(panelId)) {
-      failDashboardLayout(
-        'removedPanelIds',
-        `removedPanelIds still appear in edit_layout entityDocument: ${panelId}`
-      )
-    }
-  }
-  const missingRemovalIntents = [...currentWidgets.keys()].filter(
-    (panelId) => !submittedPanelIds.has(panelId) && !removed.has(panelId)
-  )
-  if (missingRemovalIntents.length > 0) {
-    failDashboardLayout(
-      'removedPanelIds',
-      `Existing panel ids omitted from edit_layout entityDocument without removedPanelIds: ${missingRemovalIntents.join(', ')}`
-    )
-  }
-
-  const name = typeof raw.name === 'string' ? raw.name.trim() : currentFields.name
-  if (raw.name !== undefined && !name) {
-    failDashboardLayout('entityDocument.name', 'edit_layout name must be non-empty when provided')
-  }
-  if (
-    raw.sortOrder !== undefined &&
-    (typeof raw.sortOrder !== 'number' || !Number.isInteger(raw.sortOrder))
-  ) {
-    failDashboardLayout(
-      'entityDocument.sortOrder',
-      'edit_layout sortOrder must be an integer when provided'
-    )
-  }
-
+  const nextFields = normalizeDashboardLayoutDocumentFields(parsed)
   return {
-    ...currentFields,
-    name,
-    layout: submittedLayout,
-    colorPairs: normalizeColorPairsState(currentFields.colorPairs),
-    isActive: raw.isActive === true ? true : currentFields.isActive,
-    sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : currentFields.sortOrder,
+    ...nextFields,
+    isActive: currentFields.isActive || nextFields.isActive,
   }
-}
-
-function walkLayout(node: LayoutNode, visit: (node: LayoutNode) => void) {
-  visit(node)
-  if (node.type === 'group') node.children.forEach((child) => walkLayout(child, visit))
-}
-
-function collectPanelIds(node: LayoutNode): Set<string> {
-  return new Set(collectPanelWidgets(node).keys())
-}
-
-function collectPanelWidgets(node: LayoutNode): Map<string, WidgetInstance> {
-  const widgets = new Map<string, WidgetInstance>()
-  walkLayout(node, (candidate) => {
-    if (candidate.type === 'panel') widgets.set(candidate.id, candidate.widget)
-  })
-  return widgets
-}
-
-function collectGroupSizes(node: LayoutNode): Map<string, number[]> {
-  const groups = new Map<string, number[]>()
-  walkLayout(node, (candidate) => {
-    if (candidate.type === 'group') groups.set(candidate.id, [...candidate.sizes])
-  })
-  return groups
-}
-
-type StructureReconcileContext = {
-  currentGroupIds: ReadonlySet<string>
-  currentWidgets: ReadonlyMap<string, WidgetInstance>
-  submittedIds: Set<string>
-}
-
-function reconcileStructureNode(
-  value: unknown,
-  path: string,
-  context: StructureReconcileContext
-): LayoutNode {
-  if (!isRecord(value)) failDashboardLayout(path, `${path} must be an object`)
-  rejectForbiddenStructureNodeFields(value, path)
-
-  const submittedId = readSubmittedId(value.id, path)
-  if (submittedId) {
-    if (context.submittedIds.has(submittedId)) {
-      failDashboardLayout(
-        'entityDocument.layout',
-        `edit_layout entityDocument contains duplicate existing id: ${submittedId}`
-      )
-    }
-    context.submittedIds.add(submittedId)
-  }
-
-  if (value.type === 'panel') {
-    if (!submittedId) {
-      const widgetKey = readNewTargetWidgetKey(value.widget, `${path}.widget`)
-      return {
-        id: createLayoutNodeId(),
-        type: 'panel',
-        widget: { key: widgetKey, pairColor: 'gray', params: null },
-      }
-    }
-    const currentWidget = context.currentWidgets.get(submittedId)
-    if (currentWidget === undefined) {
-      failDashboardLayout(
-        `${path}.id`,
-        `edit_layout submitted panel id "${submittedId}" is not in the base layout`
-      )
-    }
-    validateRetainedPanelWidget(value.widget, currentWidget, `${path}.widget`)
-    return { id: submittedId, type: 'panel', widget: currentWidget }
-  }
-
-  if (value.type !== 'group')
-    failDashboardLayout(`${path}.type`, `${path}.type must be "panel" or "group"`)
-  if (submittedId && !context.currentGroupIds.has(submittedId)) {
-    failDashboardLayout(
-      `${path}.id`,
-      `edit_layout submitted group id "${submittedId}" is not in the base layout`
-    )
-  }
-  if (value.direction !== 'horizontal' && value.direction !== 'vertical') {
-    failDashboardLayout(`${path}.direction`, `${path}.direction must be "horizontal" or "vertical"`)
-  }
-  if (!Array.isArray(value.children)) {
-    failDashboardLayout(`${path}.children`, `${path}.children must be an array`)
-  }
-  if (value.children.length === 0) {
-    failDashboardLayout(`${path}.children`, `${path}.children must contain at least one node`)
-  }
-  const children = value.children.map((child, index) =>
-    reconcileStructureNode(child, `${path}.children[${index}]`, context)
-  )
-
-  return {
-    id: submittedId ?? createLayoutNodeId(),
-    type: 'group',
-    direction: value.direction,
-    sizes: normalizeGroupSizesForChildren(value.sizes, children.length),
-    children,
-  }
-}
-
-function readSubmittedId(value: unknown, path: string): string | null {
-  if (value === undefined || value === null) return null
-  if (typeof value !== 'string')
-    failDashboardLayout(`${path}.id`, `${path}.id must be a string when provided`)
-  const trimmed = value.trim()
-  if (!trimmed) failDashboardLayout(`${path}.id`, `${path}.id must be non-empty when provided`)
-  return trimmed
-}
-
-function rejectForbiddenStructureNodeFields(raw: Record<string, unknown>, path: string) {
-  for (const key of [
-    'name',
-    'sortOrder',
-    'isActive',
-    'colorPairs',
-    'colorPair',
-    'colorPairContext',
-  ] as const) {
-    if (raw[key] !== undefined) {
-      failDashboardLayout(
-        `${path}.${key}`,
-        `edit_layout only accepts ${key} at supported top-level fields, not ${path}.${key}`
-      )
-    }
-  }
-  if (!isRecord(raw.widget)) return
-  for (const key of [
-    'params',
-    'pairColor',
-    'colorPairs',
-    'colorPair',
-    'colorPairContext',
-  ] as const) {
-    if (raw.widget[key] !== undefined) {
-      failDashboardLayout(
-        `${path}.widget.${key}`,
-        `edit_layout cannot set widget ${key}; use edit_widget for widget config`
-      )
-    }
-  }
-}
-
-function validateRetainedPanelWidget(
-  rawWidget: unknown,
-  currentWidget: WidgetInstance,
-  path: string
-) {
-  if (rawWidget === undefined || rawWidget === null) return
-  if (!isRecord(rawWidget)) failDashboardLayout(path, `${path} must be an object when provided`)
-  const rawKey = rawWidget.key
-  if (rawKey === undefined || rawKey === null) return
-  if (typeof rawKey !== 'string' || !rawKey.trim()) {
-    failDashboardLayout(`${path}.key`, `${path}.key must be a non-empty widget key when provided`)
-  }
-  const key = rawKey.trim()
-  if (!currentWidget?.key) {
-    failDashboardLayout(
-      `${path}.key`,
-      `${path}.key cannot be provided because the retained panel has no widget key`
-    )
-  }
-  if (key !== currentWidget.key) {
-    failDashboardLayout(
-      `${path}.key`,
-      `edit_layout cannot replace widget key for retained panel "${currentWidget.key}" with "${key}"; use edit_widget`
-    )
-  }
-}
-
-function readNewTargetWidgetKey(rawWidget: unknown, path: string) {
-  if (!isRecord(rawWidget)) {
-    failDashboardLayout(
-      path,
-      `${path} with a non-empty key is required for new target-widget panels`
-    )
-  }
-  const rawKey = rawWidget.key
-  if (typeof rawKey !== 'string' || !rawKey.trim()) {
-    failDashboardLayout(`${path}.key`, `${path}.key is required for new target-widget panels`)
-  }
-  const key = rawKey.trim()
-  return key
-}
-
-function normalizeGroupSizesForChildren(rawSizes: unknown, childCount: number): number[] {
-  if (
-    Array.isArray(rawSizes) &&
-    rawSizes.length === childCount &&
-    rawSizes.every((value) => typeof value === 'number' && Number.isFinite(value) && value > 0)
-  ) {
-    const total = rawSizes.reduce((sum, value) => sum + value, 0)
-    if (total > 0) return rawSizes.map((value) => (value / total) * 100)
-  }
-  return new Array(childCount).fill(100 / Math.max(childCount, 1))
 }
 
 export function resolveEffectiveDashboardLayout(

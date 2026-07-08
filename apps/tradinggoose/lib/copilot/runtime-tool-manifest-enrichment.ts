@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
@@ -14,10 +14,8 @@ import {
 } from '@/lib/copilot/monitor/monitor-documents'
 import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 import {
-  DashboardLayoutDocumentSchema,
-  DashboardLayoutStructureDocumentSchema,
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  DashboardLayoutDocumentSchema,
 } from '@/widgets/layout-document'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
@@ -86,11 +84,6 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
     documentLabel: 'dashboard layout',
     schema: toJsonSchemaRecord(DashboardLayoutDocumentSchema),
-  },
-  {
-    documentFormat: DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-    documentLabel: 'dashboard layout structure',
-    schema: toJsonSchemaRecord(DashboardLayoutStructureDocumentSchema),
   },
 ]
 

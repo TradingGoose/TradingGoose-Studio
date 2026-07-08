@@ -183,7 +183,7 @@ export function buildCopilotServerToolErrorResponse(
       body: {
         code: 'invalid_dashboard_layout_edit',
         error: error.message,
-        hint: 'Send one complete tg-dashboard-layout-structure-v1 layout edit document. Keep retained panel ids, put intentional removals in removedPanelIds, and use edit_widget for widget params or color-pair payloads.',
+        hint: 'Send one complete tg-dashboard-layout-document-v1 layout document with name, layout, colorPairs, isActive, and sortOrder.',
         retryable: true,
         issues: error.issues,
       },

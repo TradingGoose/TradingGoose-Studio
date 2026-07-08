@@ -161,8 +161,8 @@ describe('copilot server tool errors', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_layout',
       createDashboardLayoutValidationError(
-        'entityDocument.layout.children[0].widget.params',
-        'edit_layout cannot set widget params; use edit_widget for widget config'
+        'entityDocument.colorPairs',
+        'dashboard layout document colorPairs must be an object'
       )
     )
 
@@ -173,13 +173,13 @@ describe('copilot server tool errors', () => {
         retryable: true,
         issues: [
           {
-            path: 'entityDocument.layout.children[0].widget.params',
-            message: 'edit_layout cannot set widget params; use edit_widget for widget config',
+            path: 'entityDocument.colorPairs',
+            message: 'dashboard layout document colorPairs must be an object',
           },
         ],
       }),
     })
-    expect(response.body.hint).toContain('tg-dashboard-layout-structure-v1')
+    expect(response.body.hint).toContain('tg-dashboard-layout-document-v1')
   })
 
   it('returns a structured 422 payload for widget config validation failures', () => {

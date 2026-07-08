@@ -15,8 +15,6 @@ const WATCHLIST_DOCUMENT_GUIDANCE =
   'Use full `tg-watchlist-document-v1` JSON with exactly `name`, `settings`, and flat ordered `items`. Items are explicit `type: "section"` or `type: "listing"` entries. Root sections and root listings use `parentId: null`; listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
   'Use full `tg-dashboard-layout-document-v1` JSON with exactly `name`, `layout`, `colorPairs`, `isActive`, and `sortOrder`. `layout` is the dashboard split/panel tree. `colorPairs` is the shared per-layout pair color context map; change it when widget pair-color shared params change. Use `list_widgets` and `get_widgets_metadata` before adding or replacing widgets.'
-const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
-  'Use `tg-dashboard-layout-structure-v1` JSON for `edit_layout`: top-level `layout` plus optional top-level `name`, `sortOrder`, or `isActive: true`. Do not include `colorPairs`, detailed widget params, or pair-color payloads. Include omitted existing panel ids in `removedPanelIds`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -372,7 +370,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_layout: {
     description:
-      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` to change topology and `edit_widget` to add or configure widgets.',
+      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` to replace the full layout document or `edit_widget` for one panel patch.',
     kind: 'create',
     entityKind: 'dashboard_layout',
   },
@@ -382,7 +380,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'dashboard_layout',
   },
   edit_layout: {
-    description: `Update target dashboard topology or metadata from a full structure \`entityDocument\` and return the resulting layout document. Prefer \`edit_widget\` for one widget change. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE}`,
+    description: `Update the target dashboard layout from a full \`entityDocument\` and return the resulting layout document. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
     entityKind: 'dashboard_layout',
   },

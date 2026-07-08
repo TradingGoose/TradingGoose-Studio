@@ -339,19 +339,33 @@ describe('copilot runtime tool manifest', () => {
     const editLayoutGroupNode = editLayoutNodeOptions?.find(
       (option) => option.properties?.type?.const === 'group'
     )
+    const editLayoutPanelWidget = (
+      editLayoutPanelNode?.properties?.widget?.anyOf as
+        | Array<{
+            type?: string
+            properties?: Record<string, any>
+            required?: string[]
+            additionalProperties?: boolean
+          }>
+        | undefined
+    )?.find((option) => option.type === 'object')
 
     expect(editLayoutSchema?.additionalProperties).toBe(false)
-    expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
-    expect(editLayoutSchema?.properties?.isActive).toMatchObject({ const: true })
+    expect(editLayoutSchema?.properties).toHaveProperty('colorPairs')
+    expect(editLayoutSchema?.properties?.isActive).toMatchObject({ type: 'boolean' })
+    expect(editLayoutSchema?.required).toEqual(
+      expect.arrayContaining(['name', 'layout', 'colorPairs', 'isActive', 'sortOrder'])
+    )
     expect(editLayoutPanelNode?.additionalProperties).toBe(false)
-    expect(editLayoutPanelNode?.required).toContain('type')
-    expect(editLayoutPanelNode?.properties?.widget?.properties?.key).toMatchObject({
+    expect(editLayoutPanelNode?.required).toEqual(expect.arrayContaining(['id', 'type', 'widget']))
+    expect(editLayoutPanelWidget?.properties?.key).toMatchObject({
       type: 'string',
       minLength: 1,
     })
+    expect(editLayoutPanelWidget?.required).toContain('key')
     expect(editLayoutGroupNode?.additionalProperties).toBe(false)
     expect(editLayoutGroupNode?.required).toEqual(
-      expect.arrayContaining(['type', 'direction', 'children'])
+      expect.arrayContaining(['id', 'type', 'direction', 'sizes', 'children'])
     )
     expect(editLayoutGroupNode?.properties?.children?.items).toEqual({
       $ref: '#/properties/layout',

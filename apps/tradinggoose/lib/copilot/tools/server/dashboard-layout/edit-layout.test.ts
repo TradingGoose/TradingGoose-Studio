@@ -18,8 +18,7 @@ const execute = async (document: Record<string, unknown>, context?: Record<strin
   const { editLayoutServerTool } = await import('./edit-layout')
   const args = {
     entityId: 'layout-1',
-    removedPanelIds: [],
-    entityDocument: JSON.stringify({ layout: fx.createBareTwoPanelLayout(), ...document }),
+    entityDocument: JSON.stringify({ ...fx.createDashboardLayoutTestFields(), ...document }),
   }
   return editLayoutServerTool.execute(args, { ...fx.TEST_EXECUTION_CONTEXT, ...context } as any)
 }
@@ -29,16 +28,51 @@ describe('edit_layout server tool', () => {
     fx.resetDashboardToolMocks(toolMocks)
   })
 
-  const colorPairDocument = { colorPair: { red: { workflowId: 'workflow-1' } } }
-
-  it.each([
-    ['sortOrder out of range', { sortOrder: 2 }, 'edit_layout sortOrder is out of range'],
-    ['colorPair payloads', colorPairDocument, 'edit_layout cannot modify colorPair'],
-  ])('rejects edit_layout %s before staging review', async (_case, document, message) => {
-    await expect(execute(document)).rejects.toThrow(message)
+  it('rejects edit_layout sortOrder out of range before staging review', async () => {
+    await expect(execute({ sortOrder: 2 })).rejects.toThrow('edit_layout sortOrder is out of range')
 
     expect(toolMocks.shouldStage).not.toHaveBeenCalled()
     expect(toolMocks.applyLive).not.toHaveBeenCalled()
+  })
+
+  it('applies full-document widget and color-pair edits', async () => {
+    const current = fx.createDashboardLayoutTestFields()
+    if (current.layout.type !== 'group') throw new Error('Expected test layout group')
+    const layout = {
+      ...current.layout,
+      children: current.layout.children.map((child) =>
+        child.type === 'panel' && child.id === 'chart-panel'
+          ? {
+              ...child,
+              widget: {
+                key: 'data_chart',
+                pairColor: 'red',
+                params: { data: { provider: 'polygon' } },
+              },
+            }
+          : child
+      ),
+    }
+
+    const result = await execute({
+      layout,
+      colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-1' }] },
+    })
+
+    expect(toolMocks.applyLive).toHaveBeenCalledWith(
+      toolMocks.scope,
+      'layout-1',
+      expect.objectContaining({
+        layout,
+        colorPairs: { pairs: [{ color: 'red', workflowId: 'workflow-1' }] },
+      })
+    )
+    expect(result.layout).toMatchObject({
+      children: expect.arrayContaining([
+        expect.objectContaining({ widget: expect.objectContaining({ pairColor: 'red' }) }),
+      ]),
+    })
+    expect(result.colorPairs).toEqual({ pairs: [{ color: 'red', workflowId: 'workflow-1' }] })
   })
 
   it('stages edit_layout review without applying live fields', async () => {

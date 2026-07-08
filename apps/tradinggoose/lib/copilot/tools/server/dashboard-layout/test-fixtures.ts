@@ -11,18 +11,6 @@ export const AAPL_LISTING = {
   quote_id: '',
 }
 
-/** Bare two-panel horizontal split used by edit_layout entityDocument payloads. */
-export const createBareTwoPanelLayout = () => ({
-  id: 'root',
-  type: 'group',
-  direction: 'horizontal',
-  sizes: [50, 50],
-  children: [
-    { id: 'chart-panel', type: 'panel' },
-    { id: 'order-panel', type: 'panel' },
-  ],
-})
-
 /** Canonical two-panel layout fields with a linked red pair carrying an AAPL listing. */
 export const createDashboardLayoutTestFields = (): DashboardLayoutDocumentFields => ({
   name: 'Layout 1',
