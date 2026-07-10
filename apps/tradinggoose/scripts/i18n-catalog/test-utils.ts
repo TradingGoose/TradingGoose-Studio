@@ -95,6 +95,31 @@ function createLocaleMessages() {
             registration: 'Registration',
           },
         },
+        widgets: {
+          titles: {
+            quick_order: 'Quick Order',
+          },
+          selector: {
+            selectWidget: 'Select widget',
+            widgetSelectionUnavailable: 'Widget selection unavailable',
+            categories: {
+              trading: 'Trading',
+              list: 'Lists',
+              editor: 'Editor',
+              utility: 'Utils',
+            },
+          },
+          quickOrder: {
+            body: {
+              submitOrder: 'Submit order',
+            },
+            header: {
+              title: 'Quick Order',
+              buy: 'Buy',
+              sell: 'Sell',
+            },
+          },
+        },
       },
     },
     null,
@@ -866,6 +891,58 @@ export function MonitorPage() {
   })
 }
 
+function createWrappedExportMonitorProject(wrapper: 'forwardRef' | 'memo' | 'memoForwardRef') {
+  const messages = createLocaleMessages()
+  const reactImport =
+    wrapper === 'forwardRef'
+      ? "import { forwardRef } from 'react'"
+      : wrapper === 'memo'
+        ? "import { memo } from 'react'"
+        : "import { forwardRef, memo } from 'react'"
+  const componentDefinition =
+    wrapper === 'memo'
+      ? `
+function MonitorCardComponent() {
+  const copy = useMessages().workspace.monitor
+
+  return <div>{copy.used}</div>
+}
+`
+      : `
+function MonitorCardComponent(_props: object, _ref: any) {
+  const copy = useMessages().workspace.monitor
+
+  return <div>{copy.used}</div>
+}
+`
+  const exportLine =
+    wrapper === 'forwardRef'
+      ? 'export const MonitorCard = forwardRef(MonitorCardComponent)'
+      : wrapper === 'memo'
+        ? 'export const MonitorCard = memo(MonitorCardComponent)'
+        : 'export const MonitorCard = memo(forwardRef(MonitorCardComponent))'
+
+  return createTempProject({
+    'i18n/messages/en.json': messages,
+    'i18n/messages/es.json': messages,
+    'i18n/messages/zh.json': messages,
+    'app/[locale]/workspace/[workspaceId]/layout.tsx':
+      'export default function Layout({ children }: { children: React.ReactNode }) { return children }\n',
+    'app/[locale]/workspace/[workspaceId]/monitor/page.tsx':
+      "import { MonitorCard } from '@/app/workspace/[workspaceId]/monitor/monitor-card'\nexport default function Page(){ return <MonitorCard /> }\n",
+    'app/workspace/[workspaceId]/monitor/monitor-card.tsx': `
+'use client'
+
+${reactImport}
+import { useMessages } from 'next-intl'
+
+${componentDefinition.trim()}
+
+${exportLine}
+`,
+  })
+}
+
 function createReturnTypeMonitorProject() {
   const messages = parseLocaleMessages()
   messages.workspace.monitor.configSearch = {
@@ -1419,6 +1496,47 @@ export function formatTemplate(template: string, values: Record<string, string>)
   })
 }
 
+function createStringMethodMonitorProject() {
+  const messages = parseLocaleMessages()
+  messages.workspace.monitor.label = 'Label'
+  messages.workspace.monitor.noItemsFound = 'No {itemName} found'
+  messages.workspace.monitor.pages = 'Pages'
+
+  const localeMessages = toJson(messages)
+
+  return createTempProject({
+    'i18n/messages/en.json': localeMessages,
+    'i18n/messages/es.json': localeMessages,
+    'i18n/messages/zh.json': localeMessages,
+    'app/[locale]/workspace/[workspaceId]/layout.tsx':
+      'export default function Layout({ children }: { children: React.ReactNode }) { return children }\n',
+    'app/[locale]/workspace/[workspaceId]/monitor/page.tsx':
+      "import { MonitorPage } from '@/app/workspace/[workspaceId]/monitor/monitor'\nexport default function Page(){ return <MonitorPage /> }\n",
+    'app/workspace/[workspaceId]/monitor/monitor.tsx': `
+'use client'
+
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+
+export function MonitorPage() {
+  const copy = useMessages().workspace.monitor
+
+  return (
+    <section>
+      <span>{copy.label.toLowerCase()}</span>
+      <span>{formatTemplate(copy.noItemsFound, { itemName: copy.pages.toLowerCase() })}</span>
+    </section>
+  )
+}
+`,
+    'i18n/utils.ts': `
+export function formatTemplate(template: string, values: Record<string, string>) {
+  return template.replace('{itemName}', values.itemName)
+}
+`,
+  })
+}
+
 function createUnusedHelperMonitorProject() {
   const messages = createLocaleMessages()
 
@@ -1486,6 +1604,73 @@ export function UnusedExportedHelper() {
   })
 }
 
+function createAllModeEmailProject() {
+  const localeMessages = toJson({
+    emails: {
+      body: 'Welcome body',
+      orphan: 'Unused email copy',
+      subject: 'Welcome subject',
+    },
+  })
+
+  return createTempProject({
+    'i18n/messages/en.json': localeMessages,
+    'i18n/messages/es.json': localeMessages,
+    'i18n/messages/zh.json': localeMessages,
+    'app/[locale]/page.tsx': 'export default function Page() { return null }\n',
+    'components/emails/email-copy.ts': `
+import { getPublicCopy } from '@/i18n/public-copy'
+
+export type EmailLocale = string | undefined
+
+export function getEmailCopy(locale?: EmailLocale) {
+  return getPublicCopy(locale).emails
+}
+`,
+    'components/emails/render-email.ts': `
+import { getEmailCopy } from '@/components/emails/email-copy'
+
+export function getEmailSubject(locale?: string) {
+  return getEmailCopy(locale).subject
+}
+
+export function renderWaitlistConfirmationEmail(locale?: string) {
+  const copy = getEmailCopy(locale)
+  return [getEmailSubject(locale), copy.body].join(' ')
+}
+
+export function renderOrphanPreview(locale?: string) {
+  const copy = getEmailCopy(locale)
+  return copy.orphan
+}
+`,
+    'i18n/public-copy.ts': `
+export function getPublicCopy(_locale?: string) {
+  return {} as {
+    emails: {
+      body: string
+      orphan: string
+      subject: string
+    }
+  }
+}
+`,
+  })
+}
+
+function createRuntimeMatrixProject(monitorSource: string) {
+  const messages = createLocaleMessages()
+
+  return createTempProject({
+    'i18n/messages/en.json': messages,
+    'i18n/messages/es.json': messages,
+    'i18n/messages/zh.json': messages,
+    'app/[locale]/workspace/[workspaceId]/monitor/page.tsx':
+      "import { MonitorPage } from '@/app/workspace/[workspaceId]/monitor/monitor'\nexport default function Page(){ return <MonitorPage /> }\n",
+    'app/workspace/[workspaceId]/monitor/monitor.tsx': monitorSource,
+  })
+}
+
 function buildRouteReport(
   projectRoot: string,
   routePath: string,
@@ -1504,6 +1689,7 @@ function buildRouteReport(
     scanResult,
     globalScanResult,
     report: buildCatalogReport({
+      includeOrphans: Boolean(options?.withOrphans),
       projectRoot,
       scanResult,
       globalScanResult,
@@ -1511,15 +1697,18 @@ function buildRouteReport(
   }
 }
 
-function buildAllReport(projectRoot: string) {
+function buildAllReport(projectRoot: string, options?: { withOrphans?: boolean }) {
   const scanResult = scanCatalogProject({ mode: 'all', projectRoot })
+  const globalScanResult = options?.withOrphans ? scanResult : undefined
 
   return {
     scanResult,
+    globalScanResult,
     report: buildCatalogReport({
+      includeOrphans: Boolean(options?.withOrphans),
       projectRoot,
       scanResult,
-      globalScanResult: scanResult,
+      globalScanResult,
     }),
   }
 }
@@ -1578,6 +1767,7 @@ export {
   createCopyPassThroughMonitorProject,
   createUseCallbackMonitorProject,
   createUnusedUseCallbackMonitorProject,
+  createWrappedExportMonitorProject,
   createReturnTypeMonitorProject,
   createNotFoundAllModeProject,
   createLoadingAllModeProject,
@@ -1591,8 +1781,11 @@ export {
   createLandingArrayProject,
   createArrayBuiltinProject,
   createInlineFormatterProject,
+  createStringMethodMonitorProject,
   createUnusedHelperMonitorProject,
   createUnusedExportedHelperMonitorProject,
+  createAllModeEmailProject,
+  createRuntimeMatrixProject,
   buildRouteReport,
   buildAllReport,
   getCoveragePathKeys,

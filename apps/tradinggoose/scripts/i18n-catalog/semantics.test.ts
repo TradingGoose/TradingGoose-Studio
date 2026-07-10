@@ -207,4 +207,55 @@ export function MonitorPage() {
     )
     expect(getCoveragePathKeys(result)).toContain('workspace.monitor.fields.status')
   })
+
+  it('propagates semantics through guarded helper locals returned after null checks', () => {
+    const messages = createLocaleMessages()
+    const projectRoot = createTempProject({
+      'i18n/messages/en.json': messages,
+      'i18n/messages/es.json': messages,
+      'i18n/messages/zh.json': messages,
+      'app/[locale]/workspace/[workspaceId]/dashboard/page.tsx':
+        "import { DashboardPage } from '@/app/workspace/[workspaceId]/dashboard/page-client'\nexport default function Page(){ return <DashboardPage /> }\n",
+      'app/workspace/[workspaceId]/dashboard/page-client.tsx': `
+'use client'
+
+import { useSelectorMessages } from '@/i18n/workspace-widget-hooks'
+
+export function DashboardPage() {
+  const selectorCopy = useSelectorMessages()
+  return <div>{selectorCopy.selectWidget}</div>
+}
+`,
+      'i18n/workspace-widget-hooks.ts': `
+import type { Messages } from 'next-intl'
+import { useMessages } from 'next-intl'
+
+type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
+export type SelectorMessages = WorkspaceWidgetsMessages['selector']
+
+export function useWorkspaceWidgetsMessages(): WorkspaceWidgetsMessages {
+  const widgetsMessages = useMessages().workspace?.widgets
+
+  if (!widgetsMessages) {
+    throw new Error('Missing workspace widget messages')
+  }
+
+  return widgetsMessages
+}
+
+export function useSelectorMessages(): SelectorMessages {
+  return useWorkspaceWidgetsMessages().selector
+}
+`,
+    })
+
+    const result = scanCatalogProject({
+      mode: 'route',
+      projectRoot,
+      routePath: '/workspace/[workspaceId]/dashboard',
+    })
+
+    expect(result.scannedFiles).toContain('i18n/workspace-widget-hooks.ts')
+    expect(getCoveragePathKeys(result)).toContain('workspace.widgets.selector.selectWidget')
+  })
 })

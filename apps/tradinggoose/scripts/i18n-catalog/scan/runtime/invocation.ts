@@ -1,6 +1,6 @@
 import ts from 'typescript'
 import { unwrapExpression } from '../core/ast'
-import { descriptorToPathKey } from '../core/descriptors'
+import { descriptorToPathKey, readPropertyDescriptor } from '../core/descriptors'
 import {
   ARRAY_RUNTIME_CALLBACK_METHOD_NAMES,
   RUNTIME_CALLBACK_FUNCTION_NAMES,
@@ -10,9 +10,13 @@ import { createFunctionScope, createRootScope, getScopeBindingSignature } from '
 import type { ArgumentDescriptor, CallableTarget, ProjectFile, Scope, WalkEnv } from '../core/types'
 import { resolveExportedFunctionTarget } from '../graph/exports'
 import { getFileAnalysis } from '../semantics/analysis-cache'
+import { resolveExpressionDescriptor } from '../semantics/expression-resolution'
 import { bindFunctionParameters } from '../semantics/parameters'
 import { resolveCallPropertyTarget } from './property-access'
-import { resolveCallableTargetFromExpression } from './targets'
+import {
+  resolveCallableTargetFromDescriptor,
+  resolveCallableTargetFromExpression,
+} from './targets'
 
 type NodeScanner = (node: ts.Node, scope: Scope, env: WalkEnv) => void
 
@@ -27,6 +31,54 @@ function scanFunctionBody(
   }
 
   scanNodeWithScope(node.body, scope, env)
+}
+
+function resolveDottedExportCallableTarget(
+  file: ProjectFile,
+  exportName: string,
+  env: WalkEnv
+): CallableTarget | null {
+  const [baseExportName, ...propertySegments] = exportName.split('.')
+  if (!baseExportName || propertySegments.length === 0) {
+    return null
+  }
+
+  const localBindingName =
+    (baseExportName === 'default' ? file.defaultExportBindingName : null) ??
+    (file.exportedValueNames.has(baseExportName) &&
+    file.topLevelVariableDeclarations.has(baseExportName)
+      ? baseExportName
+      : null) ??
+    file.localExportBindings.find((binding) => binding.exportedName === baseExportName)
+      ?.localName ??
+    null
+  if (!localBindingName) {
+    return null
+  }
+
+  const declaration = file.topLevelVariableDeclarations.get(localBindingName)
+  if (!declaration?.initializer) {
+    return null
+  }
+
+  const analysis =
+    env.analysis.file.filePath === file.filePath
+      ? env.analysis
+      : getFileAnalysis(file, env.context)
+  let descriptor = resolveExpressionDescriptor(declaration.initializer, createRootScope(), analysis)
+
+  for (const propertySegment of propertySegments) {
+    if (!descriptor) {
+      return null
+    }
+    descriptor = readPropertyDescriptor(descriptor, propertySegment)
+  }
+
+  if (descriptor?.kind !== 'callable') {
+    return null
+  }
+
+  return resolveCallableTargetFromDescriptor(descriptor, env.context, env.activeRoutePath)
 }
 
 function getRuntimeCallbackArgumentIndexes(node: ts.CallExpression | ts.CallChain): number[] {
@@ -142,7 +194,9 @@ export function scanExportEntry(
   env: WalkEnv,
   scanNodeWithScope: NodeScanner
 ): void {
-  const target = resolveExportedFunctionTarget(env.context.projectFiles, file, exportName)
+  const target = exportName.includes('.')
+    ? resolveDottedExportCallableTarget(file, exportName, env)
+    : resolveExportedFunctionTarget(env.context.projectFiles, file, exportName)
   if (!target) {
     return
   }

@@ -7,7 +7,7 @@ export type RouteOwnershipRule = {
   namespaces: string[]
 }
 
-const ROUTE_OWNERSHIP_RULES: RouteOwnershipRule[] = [
+export const EXPLICIT_ROUTE_OWNERSHIP_RULES: readonly RouteOwnershipRule[] = [
   {
     pattern: '/',
     defaultNamespace: 'landing',
@@ -105,16 +105,6 @@ const ROUTE_OWNERSHIP_RULES: RouteOwnershipRule[] = [
     pattern: '/workspace/[workspaceId]/monitor',
     defaultNamespace: 'workspace.monitor',
     namespaces: ['workspace.monitor'],
-  },
-  {
-    pattern: '/workspace/[workspaceId]/templates',
-    defaultNamespace: 'workspace.templates',
-    namespaces: ['workspace.templates'],
-  },
-  {
-    pattern: '/workspace/[workspaceId]/templates/[id]',
-    defaultNamespace: 'workspace.templates',
-    namespaces: ['workspace.templates'],
   },
   {
     pattern: '/workspace/[workspaceId]/api-keys',
@@ -385,7 +375,7 @@ function getLastStaticRouteSegment(pathname: string) {
 }
 
 export function getRouteOwnership(pathname: string): RouteOwnershipRule | null {
-  return findBestMatchingRoute(pathname, ROUTE_OWNERSHIP_RULES, (rule) => rule.pattern)
+  return findBestMatchingRoute(pathname, EXPLICIT_ROUTE_OWNERSHIP_RULES, (rule) => rule.pattern)
 }
 
 export function getRouteOwnedNamespaces(pathname: string) {

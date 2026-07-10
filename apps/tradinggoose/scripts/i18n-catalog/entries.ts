@@ -1,5 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
+import { extractCallableInitializer, getLiteralPropertyName } from './scan/core/ast'
+import type { NamedFunctionNode } from './scan/core/types'
 import { findBestMatchingRoutePattern, normalizeRoutePath } from './ownership'
 
 export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'] as const
@@ -13,7 +16,7 @@ type FrameworkEntryBasename =
   | 'global-error'
   | 'not-found'
 
-export type EntryExportName = 'default' | 'generateMetadata'
+export type EntryExportName = string
 
 type FrameworkEntrySpec = {
   basename: FrameworkEntryBasename
@@ -23,6 +26,7 @@ type FrameworkEntrySpec = {
 type EntryDiscoveryResult = {
   entryExportNamesByFile: Map<string, EntryExportName[]>
   entryFiles: string[]
+  skipRuntimeImportFiles: string[]
 }
 
 export type RouteResolution = EntryDiscoveryResult & {
@@ -46,6 +50,16 @@ export type EntryDiscoveryContext = {
 
 type EntryDiscoveryInput = EntryDiscoveryContext | string
 
+export type CanonicalRouteInventory = {
+  localizedPageFiles: string[]
+  pageFilePathByRoute: Map<string, string>
+  routePaths: string[]
+}
+
+export type StandaloneAllModeEntrySpec = {
+  relativePath: string
+}
+
 const FRAMEWORK_ENTRY_SPECS: readonly FrameworkEntrySpec[] = [
   { basename: 'page', exportNames: ['default', 'generateMetadata'] },
   { basename: 'layout', exportNames: ['default', 'generateMetadata'] },
@@ -56,16 +70,29 @@ const FRAMEWORK_ENTRY_SPECS: readonly FrameworkEntrySpec[] = [
   { basename: 'not-found', exportNames: ['default'] },
 ]
 
+export const SUPPORTED_FRAMEWORK_ENTRY_BASENAMES = FRAMEWORK_ENTRY_SPECS.map(
+  (spec) => spec.basename
+) as readonly FrameworkEntryBasename[]
+
+export const STANDALONE_ALL_MODE_ENTRY_SPECS: readonly StandaloneAllModeEntrySpec[] = [
+  {
+    relativePath: 'components/emails/render-email.ts',
+  },
+] as const
+
+export const DASHBOARD_ROUTE_PATH = '/workspace/[workspaceId]/dashboard'
+export const WIDGET_REGISTRY_RELATIVE_PATH = 'widgets/registry.tsx'
+
 const FRAMEWORK_ENTRY_SPEC_BY_BASENAME = new Map(
   FRAMEWORK_ENTRY_SPECS.map((spec) => [spec.basename, spec])
 )
 
 const FRAMEWORK_ENTRY_BASENAMES = new Set<FrameworkEntryBasename>(
-  FRAMEWORK_ENTRY_SPECS.map((spec) => spec.basename)
+  SUPPORTED_FRAMEWORK_ENTRY_BASENAMES
 )
 
 const ROUTE_SIBLING_ENTRY_BASENAMES = new Set<FrameworkEntryBasename>(
-  FRAMEWORK_ENTRY_SPECS.map((spec) => spec.basename)
+  SUPPORTED_FRAMEWORK_ENTRY_BASENAMES
 )
 
 const ANCESTOR_LOCALIZED_ENTRY_BASENAMES = new Set<FrameworkEntryBasename>([
@@ -122,8 +149,191 @@ function isSourceFilePath(filePath: string) {
   return SOURCE_EXTENSIONS.some((extension) => filePath.endsWith(extension))
 }
 
+function getScriptKind(filePath: string): ts.ScriptKind {
+  if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX
+  if (filePath.endsWith('.jsx')) return ts.ScriptKind.JSX
+  if (filePath.endsWith('.js')) return ts.ScriptKind.JS
+  return ts.ScriptKind.TS
+}
+
+function createProjectSourceFile(filePath: string) {
+  return ts.createSourceFile(
+    filePath,
+    fs.readFileSync(filePath, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    getScriptKind(filePath)
+  )
+}
+
+function hasModifier(node: { modifiers?: ts.NodeArray<ts.ModifierLike> }, kind: ts.SyntaxKind) {
+  return Boolean(node.modifiers?.some((modifier) => modifier.kind === kind))
+}
+
+type ImportBinding = {
+  importedName: string
+  resolvedFilePath: string
+}
+
+function collectImportBindings(
+  projectRoot: string,
+  importerFilePath: string,
+  sourceFile: ts.SourceFile
+) {
+  const importBindings = new Map<string, ImportBinding>()
+
+  ts.forEachChild(sourceFile, (node) => {
+    if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) {
+      return
+    }
+
+    const resolvedFilePath = resolveImportPath(projectRoot, importerFilePath, node.moduleSpecifier.text)
+    if (!resolvedFilePath) {
+      return
+    }
+
+    const importClause = node.importClause
+    if (!importClause) {
+      return
+    }
+
+    if (importClause.name) {
+      importBindings.set(importClause.name.text, {
+        importedName: 'default',
+        resolvedFilePath,
+      })
+    }
+
+    const namedBindings = importClause.namedBindings
+    if (!namedBindings || !ts.isNamedImports(namedBindings)) {
+      return
+    }
+
+    for (const element of namedBindings.elements) {
+      importBindings.set(element.name.text, {
+        importedName: element.propertyName?.text ?? element.name.text,
+        resolvedFilePath,
+      })
+    }
+  })
+
+  return importBindings
+}
+
+function collectMatchingNamedExports(filePath: string, matchesExportName: (name: string) => boolean) {
+  const sourceFile = createProjectSourceFile(filePath)
+  const exportNames = new Set<string>()
+
+  ts.forEachChild(sourceFile, (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name && hasModifier(node, ts.SyntaxKind.ExportKeyword)) {
+      if (matchesExportName(node.name.text)) {
+        exportNames.add(node.name.text)
+      }
+      return
+    }
+
+    if (ts.isVariableStatement(node) && hasModifier(node, ts.SyntaxKind.ExportKeyword)) {
+      for (const declaration of node.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name) || !matchesExportName(declaration.name.text)) {
+          continue
+        }
+
+        exportNames.add(declaration.name.text)
+      }
+      return
+    }
+
+    if (
+      ts.isExportDeclaration(node) &&
+      !node.isTypeOnly &&
+      !node.moduleSpecifier &&
+      node.exportClause &&
+      ts.isNamedExports(node.exportClause)
+    ) {
+      for (const element of node.exportClause.elements) {
+        if (matchesExportName(element.name.text)) {
+          exportNames.add(element.name.text)
+        }
+      }
+    }
+  })
+
+  return [...exportNames].sort()
+}
+
+function matchesStandaloneAllModeEntryExportName(name: string) {
+  return /^get[A-Z].*Subject$/.test(name) || /^render[A-Z].*Email$/.test(name)
+}
+
 export function toRelativeProjectPath(projectRoot: string, filePath: string) {
   return path.relative(projectRoot, filePath).split(path.sep).join('/')
+}
+
+function resolveImportPath(
+  projectRoot: string,
+  importerFilePath: string,
+  specifier: string
+): string | null {
+  let basePath: string | null = null
+  if (specifier.startsWith('@/')) {
+    basePath = path.join(projectRoot, specifier.slice(2))
+  } else if (
+    specifier === '.' ||
+    specifier === '..' ||
+    specifier.startsWith('./') ||
+    specifier.startsWith('../')
+  ) {
+    basePath = path.resolve(path.dirname(importerFilePath), specifier)
+  }
+
+  if (!basePath) {
+    return null
+  }
+
+  const candidates = [basePath, ...SOURCE_EXTENSIONS.map((extension) => `${basePath}${extension}`)]
+  for (const extension of SOURCE_EXTENSIONS) {
+    candidates.push(path.join(basePath, `index${extension}`))
+  }
+
+  for (const candidate of candidates) {
+    if (!isPathInsideDirectory(candidate, projectRoot)) {
+      continue
+    }
+
+    if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+      continue
+    }
+
+    if (!isSourceFilePath(candidate)) {
+      return null
+    }
+
+    const relativePath = toRelativeProjectPath(projectRoot, candidate)
+    if (isIgnoredProjectPath(relativePath)) {
+      return null
+    }
+
+    return candidate
+  }
+
+  return null
+}
+
+function unwrapRegistryExpression(expression: ts.Expression): ts.Expression {
+  if (ts.isParenthesizedExpression(expression)) {
+    return unwrapRegistryExpression(expression.expression)
+  }
+
+  if (
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isNonNullExpression(expression) ||
+    ts.isSatisfiesExpression(expression)
+  ) {
+    return unwrapRegistryExpression(expression.expression)
+  }
+
+  return expression
 }
 
 export function walkProjectSourceFiles(
@@ -189,6 +399,33 @@ function getLocalizedAppRoot(projectRoot: string) {
   return path.join(projectRoot, 'app', '[locale]')
 }
 
+export function collectCanonicalRouteInventory(
+  projectRoot: string,
+  appSourceFiles = walkProjectSourceFiles(projectRoot, path.join(projectRoot, 'app'))
+): CanonicalRouteInventory {
+  const localeRoot = getLocalizedAppRoot(projectRoot)
+  const localizedPageFiles = appSourceFiles
+    .filter(
+      (filePath) =>
+        isPathInsideDirectory(filePath, localeRoot) &&
+        path.basename(filePath, path.extname(filePath)) === 'page'
+    )
+    .sort()
+  const pageFilePathByRoute = new Map<string, string>()
+
+  for (const filePath of localizedPageFiles) {
+    const relativePath = path.relative(localeRoot, filePath).split(path.sep)
+    const routePath = toRoutePath(normalizeAppRouteSegments(relativePath.slice(0, -1)))
+    pageFilePathByRoute.set(routePath, filePath)
+  }
+
+  return {
+    localizedPageFiles,
+    pageFilePathByRoute,
+    routePaths: [...pageFilePathByRoute.keys()].sort(),
+  }
+}
+
 function isFrameworkEntryBasename(value: string): value is FrameworkEntryBasename {
   return FRAMEWORK_ENTRY_BASENAMES.has(value as FrameworkEntryBasename)
 }
@@ -207,7 +444,271 @@ function addEntryFile(
   filePath: string,
   exportNames: EntryExportName[]
 ) {
-  entryExportNamesByFile.set(filePath, exportNames)
+  const existing = entryExportNamesByFile.get(filePath) ?? []
+  entryExportNamesByFile.set(filePath, [...new Set([...existing, ...exportNames])])
+}
+
+type WidgetRegistryRootMode = 'all' | 'route'
+
+type WidgetRegistryEntryRoots = {
+  entryExportNamesByFile: Map<string, EntryExportName[]>
+  skipRuntimeImportFiles: Set<string>
+}
+
+type WidgetRenderHeaderRouteRoot = {
+  exportName: EntryExportName
+  filePath: string
+}
+
+function findTopLevelVariableDeclaration(
+  sourceFile: ts.SourceFile,
+  variableName: string
+): ts.VariableDeclaration | null {
+  let match: ts.VariableDeclaration | null = null
+
+  ts.forEachChild(sourceFile, (node) => {
+    if (match || !ts.isVariableStatement(node)) {
+      return
+    }
+
+    for (const declaration of node.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.name.text === variableName &&
+        declaration.initializer
+      ) {
+        match = declaration
+        return
+      }
+    }
+  })
+
+  return match
+}
+
+function findObjectLiteralVariableInitializer(
+  sourceFile: ts.SourceFile,
+  variableName: string
+): ts.ObjectLiteralExpression | null {
+  const declaration = findTopLevelVariableDeclaration(sourceFile, variableName)
+  if (!declaration?.initializer) {
+    return null
+  }
+
+  const initializer = unwrapRegistryExpression(declaration.initializer)
+  return ts.isObjectLiteralExpression(initializer) ? initializer : null
+}
+
+function getObjectLiteralPropertyInitializer(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string
+): ts.Expression | null {
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      getLiteralPropertyName(property.name) === propertyName
+    ) {
+      return unwrapRegistryExpression(property.initializer)
+    }
+
+    if (ts.isShorthandPropertyAssignment(property) && property.name.text === propertyName) {
+      return property.name
+    }
+  }
+
+  return null
+}
+
+function collectTopLevelCallableDeclarations(sourceFile: ts.SourceFile) {
+  const topLevelCallableDeclarations = new Map<string, NamedFunctionNode>()
+  const topLevelVariableDeclarations = new Map<string, ts.VariableDeclaration>()
+
+  ts.forEachChild(sourceFile, (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      topLevelCallableDeclarations.set(node.name.text, node)
+    }
+
+    if (!ts.isVariableStatement(node)) {
+      return
+    }
+
+    for (const declaration of node.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name)) {
+        topLevelVariableDeclarations.set(declaration.name.text, declaration)
+      }
+    }
+  })
+
+  let discoveredTopLevelCallable = true
+  while (discoveredTopLevelCallable) {
+    discoveredTopLevelCallable = false
+
+    for (const [name, declaration] of topLevelVariableDeclarations.entries()) {
+      if (!declaration.initializer) {
+        continue
+      }
+
+      const functionTarget = extractCallableInitializer(
+        declaration.initializer,
+        (callableName) => topLevelCallableDeclarations.get(callableName) ?? null
+      )
+      if (!functionTarget || topLevelCallableDeclarations.get(name) === functionTarget) {
+        continue
+      }
+
+      topLevelCallableDeclarations.set(name, functionTarget)
+      discoveredTopLevelCallable = true
+    }
+  }
+
+  return topLevelCallableDeclarations
+}
+
+function resolveWidgetRenderHeaderRouteRoot(
+  projectRoot: string,
+  widgetDefinitionFilePath: string,
+  widgetExportName: string
+): WidgetRenderHeaderRouteRoot | null {
+  const sourceFile = createProjectSourceFile(widgetDefinitionFilePath)
+  const importBindings = collectImportBindings(projectRoot, widgetDefinitionFilePath, sourceFile)
+  const localCallables = collectTopLevelCallableDeclarations(sourceFile)
+  const widgetInitializer = findObjectLiteralVariableInitializer(sourceFile, widgetExportName)
+  if (!widgetInitializer) {
+    return null
+  }
+
+  const renderHeaderInitializer = getObjectLiteralPropertyInitializer(widgetInitializer, 'renderHeader')
+  if (!renderHeaderInitializer) {
+    return null
+  }
+
+  if (ts.isIdentifier(renderHeaderInitializer)) {
+    const importBinding = importBindings.get(renderHeaderInitializer.text)
+    if (importBinding) {
+      return {
+        exportName: importBinding.importedName,
+        filePath: importBinding.resolvedFilePath,
+      }
+    }
+
+    if (localCallables.has(renderHeaderInitializer.text)) {
+      return {
+        exportName: `${widgetExportName}.renderHeader`,
+        filePath: widgetDefinitionFilePath,
+      }
+    }
+
+    return null
+  }
+
+  const localCallable = extractCallableInitializer(
+    renderHeaderInitializer,
+    (callableName) => localCallables.get(callableName) ?? null
+  )
+  if (!localCallable) {
+    return null
+  }
+
+  return {
+    exportName: `${widgetExportName}.renderHeader`,
+    filePath: widgetDefinitionFilePath,
+  }
+}
+
+function collectWidgetRegistryEntryRoots(
+  context: EntryDiscoveryContext,
+  mode: WidgetRegistryRootMode
+): WidgetRegistryEntryRoots {
+  const entryExportNamesByFile = new Map<string, EntryExportName[]>()
+  const skipRuntimeImportFiles = new Set<string>()
+  const registryFilePath = path.join(context.projectRoot, WIDGET_REGISTRY_RELATIVE_PATH)
+  if (!fs.existsSync(registryFilePath) || !fs.statSync(registryFilePath).isFile()) {
+    return {
+      entryExportNamesByFile,
+      skipRuntimeImportFiles,
+    }
+  }
+
+  const sourceFile = createProjectSourceFile(registryFilePath)
+  const importedBindings = collectImportBindings(context.projectRoot, registryFilePath, sourceFile)
+  const widgetRegistryInitializer = findObjectLiteralVariableInitializer(sourceFile, 'widgetRegistry')
+  if (!widgetRegistryInitializer) {
+    return {
+      entryExportNamesByFile,
+      skipRuntimeImportFiles,
+    }
+  }
+
+  for (const property of widgetRegistryInitializer.properties) {
+    const initializer =
+      ts.isPropertyAssignment(property)
+        ? unwrapRegistryExpression(property.initializer)
+        : ts.isShorthandPropertyAssignment(property)
+          ? property.name
+          : null
+    if (!initializer || !ts.isIdentifier(initializer)) {
+      continue
+    }
+
+    const importedBinding = importedBindings.get(initializer.text)
+    if (!importedBinding) {
+      continue
+    }
+
+    if (mode === 'all') {
+      addEntryFile(entryExportNamesByFile, importedBinding.resolvedFilePath, [
+        `${importedBinding.importedName}.component`,
+        `${importedBinding.importedName}.renderHeader`,
+      ])
+      continue
+    }
+
+    const headerRoot = resolveWidgetRenderHeaderRouteRoot(
+      context.projectRoot,
+      importedBinding.resolvedFilePath,
+      importedBinding.importedName
+    )
+    if (!headerRoot) {
+      continue
+    }
+
+    addEntryFile(entryExportNamesByFile, headerRoot.filePath, [headerRoot.exportName])
+    if (headerRoot.filePath === importedBinding.resolvedFilePath) {
+      skipRuntimeImportFiles.add(headerRoot.filePath)
+    }
+  }
+
+  return {
+    entryExportNamesByFile,
+    skipRuntimeImportFiles,
+  }
+}
+
+function addWidgetRegistryEntryRoots(
+  context: EntryDiscoveryContext,
+  entryExportNamesByFile: Map<string, EntryExportName[]>,
+  mode: WidgetRegistryRootMode
+): Set<string> {
+  const { entryExportNamesByFile: widgetEntryRoots, skipRuntimeImportFiles } =
+    collectWidgetRegistryEntryRoots(context, mode)
+  for (const [filePath, exportNames] of widgetEntryRoots.entries()) {
+    addEntryFile(entryExportNamesByFile, filePath, exportNames)
+  }
+
+  return skipRuntimeImportFiles
+}
+
+function resolveStandaloneAllModeEntryFile(projectRoot: string, relativePath: string) {
+  const filePath = path.join(projectRoot, relativePath)
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return null
+  }
+
+  return filePath
+}
+
+function resolveStandaloneAllModeEntryExportNames(filePath: string) {
+  return collectMatchingNamedExports(filePath, matchesStandaloneAllModeEntryExportName)
 }
 
 function collectFrameworkEntriesInDirectory(
@@ -236,31 +737,18 @@ function resolveEntryDiscoveryContext(input: EntryDiscoveryInput) {
 
 export function createEntryDiscoveryContext(projectRoot: string): EntryDiscoveryContext {
   const appRoot = path.join(projectRoot, 'app')
-  const localeRoot = getLocalizedAppRoot(projectRoot)
   const appSourceFiles = walkProjectSourceFiles(projectRoot, appRoot)
-  const localizedPageFiles = appSourceFiles
-    .filter(
-      (filePath) =>
-        isPathInsideDirectory(filePath, localeRoot) &&
-        path.basename(filePath, path.extname(filePath)) === 'page'
-    )
-    .sort()
-  const pageFilePathByRoute = new Map<string, string>()
-
-  for (const filePath of localizedPageFiles) {
-    const relativePath = path.relative(localeRoot, filePath).split(path.sep)
-    const routePath = toRoutePath(normalizeAppRouteSegments(relativePath.slice(0, -1)))
-    pageFilePathByRoute.set(routePath, filePath)
-  }
+  const localeRoot = getLocalizedAppRoot(projectRoot)
+  const routeInventory = collectCanonicalRouteInventory(projectRoot, appSourceFiles)
 
   return {
     allModeEntries: null,
     appRoot,
     appSourceFiles,
-    knownRoutePaths: new Set(pageFilePathByRoute.keys()),
-    localizedPageFiles,
+    knownRoutePaths: new Set(routeInventory.routePaths),
+    localizedPageFiles: routeInventory.localizedPageFiles,
     localeRoot,
-    pageFilePathByRoute,
+    pageFilePathByRoute: routeInventory.pageFilePathByRoute,
     projectRoot,
     routeEntriesByRoute: new Map(),
     routePathByDirectory: new Map(),
@@ -406,11 +894,13 @@ function collectExactNonLocalizedRouteOwnedRoots(
 }
 
 function toEntryDiscoveryResult(
-  entryExportNamesByFile: Map<string, EntryExportName[]>
+  entryExportNamesByFile: Map<string, EntryExportName[]>,
+  skipRuntimeImportFiles: Iterable<string> = []
 ): EntryDiscoveryResult {
   return {
     entryExportNamesByFile,
     entryFiles: [...entryExportNamesByFile.keys()].sort(),
+    skipRuntimeImportFiles: [...new Set(skipRuntimeImportFiles)].sort(),
   }
 }
 
@@ -430,6 +920,22 @@ export function discoverAllModeEntries(input: EntryDiscoveryInput): EntryDiscove
 
     addEntryFile(entryExportNamesByFile, filePath, spec.exportNames)
   }
+
+  for (const spec of STANDALONE_ALL_MODE_ENTRY_SPECS) {
+    const filePath = resolveStandaloneAllModeEntryFile(context.projectRoot, spec.relativePath)
+    if (!filePath) {
+      continue
+    }
+
+    const exportNames = resolveStandaloneAllModeEntryExportNames(filePath)
+    if (exportNames.length === 0) {
+      continue
+    }
+
+    addEntryFile(entryExportNamesByFile, filePath, exportNames)
+  }
+
+  addWidgetRegistryEntryRoots(context, entryExportNamesByFile, 'all')
 
   const result = toEntryDiscoveryResult(entryExportNamesByFile)
   context.allModeEntries = result
@@ -487,6 +993,22 @@ export function resolveRouteEntries(
   const entryExportNamesByFile = new Map<string, EntryExportName[]>(localizedEntries)
   for (const [filePath, exportNames] of nonLocalizedEntries.entries()) {
     addEntryFile(entryExportNamesByFile, filePath, exportNames)
+  }
+
+  if (matchedRoutePath === DASHBOARD_ROUTE_PATH) {
+    const widgetRuntimeImportSkips = addWidgetRegistryEntryRoots(context, entryExportNamesByFile, 'route')
+    const result = {
+      pageFilePath,
+      routePath: matchedRoutePath,
+      routeOwnedRoots: [
+        path.dirname(pageFilePath),
+        ...collectExactNonLocalizedRouteOwnedRoots(context, matchedRoutePath),
+      ].sort(),
+      ...toEntryDiscoveryResult(entryExportNamesByFile, widgetRuntimeImportSkips),
+    }
+
+    context.routeEntriesByRoute.set(matchedRoutePath, result)
+    return result
   }
 
   const result = {

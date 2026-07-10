@@ -1,8 +1,11 @@
+import path from 'node:path'
 import {
+  DASHBOARD_ROUTE_PATH,
   discoverAllModeEntries,
   resolveOwningRoutePathForFile,
   resolveRouteEntries,
   toRelativeProjectPath,
+  WIDGET_REGISTRY_RELATIVE_PATH,
 } from './entries'
 import { getRouteOwnedNamespaces } from './ownership'
 import type { CatalogProjectContext, CatalogScanResult, ScanContext } from './scan/core/types'
@@ -42,12 +45,18 @@ export function scanCatalogProjectWithContext(
         )) as ReturnType<typeof resolveRouteEntries>)
       : discoverAllModeEntries(context.entryDiscoveryContext)
 
-  const selectedFiles = collectReachableFiles(entryDiscovery.entryFiles, context)
+  const routePath = routeResolution?.routePath ?? null
+  const skipRuntimeImportsFrom = new Set(entryDiscovery.skipRuntimeImportFiles)
+  if (routePath === DASHBOARD_ROUTE_PATH) {
+    skipRuntimeImportsFrom.add(path.join(context.projectRoot, WIDGET_REGISTRY_RELATIVE_PATH))
+  }
+  const selectedFiles = collectReachableFiles(entryDiscovery.entryFiles, context, {
+    skipRuntimeImportsFrom: skipRuntimeImportsFrom.size > 0 ? skipRuntimeImportsFrom : undefined,
+  })
   const analysisProjectFiles = buildAnalysisProjectFiles(context, selectedFiles)
   populateProjectFileTypeRoots(analysisProjectFiles)
   const semanticsByFile = buildGlobalFunctionSemantics(analysisProjectFiles)
 
-  const routePath = routeResolution?.routePath ?? null
   const ownedNamespaces = routePath ? getRouteOwnedNamespaces(routePath) : []
   const scanContext: ScanContext = {
     analysisByFile: new Map(),

@@ -10,6 +10,7 @@ export type CliFlags = {
   route?: string
   all?: boolean
   json?: boolean
+  showUsedKeys?: boolean
   withOrphans?: boolean
 }
 
@@ -29,6 +30,7 @@ export function parseCliFlags(argv = process.argv.slice(2)): CliFlags {
       route: { type: 'string' },
       all: { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
+      'show-used-keys': { type: 'boolean', default: false },
       'with-orphans': { type: 'boolean', default: false },
     },
     strict: true,
@@ -39,6 +41,7 @@ export function parseCliFlags(argv = process.argv.slice(2)): CliFlags {
     route: values.route,
     all: values.all,
     json: values.json,
+    showUsedKeys: values['show-used-keys'],
     withOrphans: values['with-orphans'],
   }
 }
@@ -51,11 +54,21 @@ function formatList(title: string, entries: string[]) {
   return `${title}: ${entries.length}\n${entries.map((entry) => `  - ${entry}`).join('\n')}`
 }
 
-export function formatCatalogCliText(scanResult: CatalogScanResult, report: CatalogReport) {
+function formatCount(title: string, count: number) {
+  return `${title}: ${count}`
+}
+
+export function formatCatalogCliText(
+  scanResult: CatalogScanResult,
+  report: CatalogReport,
+  options?: { showUsedKeys?: boolean }
+) {
   const sections = [
     `Mode: ${scanResult.mode}${scanResult.routePath ? ` (${scanResult.routePath})` : ''}`,
     `Scanned files: ${report.scannedFiles.length}`,
-    formatList('Used keys', report.usedKeys),
+    options?.showUsedKeys
+      ? formatList('Used keys', report.usedKeys)
+      : formatCount('Used keys', report.usedKeys.length),
     formatList(
       'Missing keys',
       report.missingKeys.map((entry) => entry.pathKey)
@@ -102,21 +115,19 @@ export function runCatalogCli(projectRoot: string, flags: CliFlags): CatalogCliR
     throw new Error('Pass exactly one of --route <pathname> or --all')
   }
 
-  if (flags.all && flags.withOrphans) {
-    throw new Error('`--with-orphans` is only valid with `--route <pathname>`')
-  }
-
   const context = createCatalogProjectContext(projectRoot)
   const scanResult = flags.all
     ? scanCatalogProjectWithContext(context, { mode: 'all' })
     : scanCatalogProjectWithContext(context, { mode: 'route', routePath: flags.route! })
+  const includeOrphans = Boolean(flags.withOrphans)
   const globalScanResult =
-    flags.all || flags.withOrphans
+    includeOrphans
       ? scanResult.mode === 'all'
         ? scanResult
         : scanCatalogProjectWithContext(context, { mode: 'all' })
       : undefined
   const report = buildCatalogReport({
+    includeOrphans,
     projectRoot,
     scanResult,
     globalScanResult,
@@ -128,7 +139,9 @@ export function runCatalogCli(projectRoot: string, flags: CliFlags): CatalogCliR
       routePath: scanResult.routePath,
     },
     report,
-    text: formatCatalogCliText(scanResult, report),
+    text: formatCatalogCliText(scanResult, report, {
+      showUsedKeys: flags.showUsedKeys,
+    }),
   }
 }
 

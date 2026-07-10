@@ -1,7 +1,9 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { discoverAllModeEntries, resolveRouteEntries } from './entries'
-import { scanCatalogProject } from './scan'
+import { createCatalogProjectContext, scanCatalogProject } from './scan'
+import { getProjectFile } from './scan/graph/source-file'
 import {
   cleanupTempProjects,
   createAppRootGlobalBoundaryProject,
@@ -10,9 +12,70 @@ import {
   createRouteBoundaryProject,
   createTempProject,
   getCoveragePathKeys,
+  parseLocaleMessages,
 } from './test-utils'
 
-afterEach(cleanupTempProjects)
+const extraTempRoots: string[] = []
+
+afterEach(() => {
+  cleanupTempProjects()
+
+  while (extraTempRoots.length > 0) {
+    fs.rmSync(extraTempRoots.pop()!, { recursive: true, force: true })
+  }
+})
+
+function createEscapedSiblingImportProject() {
+  const messages = createLocaleMessages()
+  const projectRoot = createTempProject({
+    'i18n/messages/en.json': messages,
+    'i18n/messages/es.json': messages,
+    'i18n/messages/zh.json': messages,
+    'app/[locale]/workspace/[workspaceId]/monitor/page.tsx':
+      'export default function Page(){ return null }\n',
+  })
+  const shadowRoot = `${projectRoot}-shadow`
+  const shadowFilePath = path.join(shadowRoot, 'escape.tsx')
+  const pageFilePath = path.join(
+    projectRoot,
+    'app/[locale]/workspace/[workspaceId]/monitor/page.tsx'
+  )
+  const shadowImportSpecifier = path
+    .relative(path.dirname(pageFilePath), shadowFilePath)
+    .replace(/\.[^.]+$/, '')
+    .split(path.sep)
+    .join('/')
+
+  extraTempRoots.push(shadowRoot)
+  fs.mkdirSync(path.dirname(shadowFilePath), { recursive: true })
+  fs.writeFileSync(
+    shadowFilePath,
+    `
+'use client'
+
+import { useTranslations } from 'next-intl'
+
+export function EscapedPanel() {
+  const t = useTranslations('workspace.monitor')
+  return <button title="Escaped title">{t('stray')}</button>
+}
+`,
+    'utf8'
+  )
+  fs.writeFileSync(
+    pageFilePath,
+    `
+import { EscapedPanel } from '${shadowImportSpecifier}'
+
+export default function Page() {
+  return <EscapedPanel />
+}
+`,
+    'utf8'
+  )
+
+  return { projectRoot, shadowFilePath }
+}
 
 describe('i18n catalog entry discovery', () => {
   it('discovers real framework entry basenames in all mode', () => {
@@ -88,6 +151,122 @@ describe('i18n catalog entry discovery', () => {
     )
 
     expect(relativeEntryFiles).toContain('app/global-error.tsx')
+  })
+
+  it('adds inline widget render headers as route roots without treating widget bodies as route-used', () => {
+    const messages = parseLocaleMessages()
+    messages.workspace.widgets.inlineWidget = {
+      body: {
+        bodyOnly: 'Inline body only',
+      },
+      header: {
+        title: 'Inline header title',
+      },
+    }
+
+    const serializedMessages = JSON.stringify(messages, null, 2)
+    const projectRoot = createTempProject({
+      'i18n/messages/en.json': serializedMessages,
+      'i18n/messages/es.json': serializedMessages,
+      'i18n/messages/zh.json': serializedMessages,
+      'app/[locale]/workspace/[workspaceId]/dashboard/page.tsx':
+        "import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'\nexport default function Page(){ return <DashboardClient /> }\n",
+      'app/workspace/[workspaceId]/dashboard/dashboard-client.tsx': `
+'use client'
+
+import { WidgetSurface } from '@/widgets/widget-surface'
+
+export function DashboardClient() {
+  return <WidgetSurface widget={{ key: 'inline_widget', params: null }} />
+}
+`,
+      'widgets/widget-surface.tsx': `
+'use client'
+
+import { getWidgetDefinition } from '@/widgets/registry'
+
+export function WidgetSurface({ widget }: { widget: { key: string; params: null } }) {
+  const definition = getWidgetDefinition(widget.key)
+  const WidgetComponent = definition?.component
+  const header = definition?.renderHeader?.({ widget } as any)
+
+  return (
+    <section>
+      <div>{header?.center}</div>
+      <div>{WidgetComponent ? 'body-rooted-in-all-mode' : 'missing-body'}</div>
+    </section>
+  )
+}
+`,
+      'widgets/registry.tsx': `
+import type { DashboardWidgetDefinition } from '@/widgets/types'
+import { inlineWidget } from '@/widgets/widgets/inline_widget'
+
+const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
+  inline_widget: inlineWidget,
+}
+
+export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>
+  widgetRegistry[key]
+`,
+      'widgets/types.ts': `
+import type { ReactNode } from 'react'
+
+export type DashboardWidgetDefinition = {
+  key: string
+  title: string
+  category: string
+  component?: (props: any) => ReactNode
+  renderHeader?: (props: any) => {
+    center?: ReactNode
+    left?: ReactNode
+    right?: ReactNode
+  }
+}
+`,
+      'widgets/widgets/inline_widget/index.tsx': `
+'use client'
+
+import { useMessages } from 'next-intl'
+import type { DashboardWidgetDefinition } from '@/widgets/types'
+
+function InlineHeader() {
+  const copy = useMessages().workspace.widgets.inlineWidget.header
+  return <span>{copy.title}</span>
+}
+
+function InlineBody() {
+  const copy = useMessages().workspace.widgets.inlineWidget.body
+  return <button>{copy.bodyOnly}</button>
+}
+
+export const inlineWidget: DashboardWidgetDefinition = {
+  key: 'inline_widget',
+  title: 'Inline Widget',
+  category: 'utility',
+  component: InlineBody,
+  renderHeader: () => ({
+    center: <InlineHeader />,
+  }),
+}
+`,
+    })
+
+    const entries = resolveRouteEntries(projectRoot, '/workspace/[workspaceId]/dashboard')
+    const inlineWidgetFilePath = path.join(projectRoot, 'widgets/widgets/inline_widget/index.tsx')
+
+    expect(entries.entryExportNamesByFile.get(inlineWidgetFilePath)).toEqual(
+      expect.arrayContaining(['inlineWidget.renderHeader'])
+    )
+
+    const result = scanCatalogProject({
+      mode: 'route',
+      projectRoot,
+      routePath: '/workspace/[workspaceId]/dashboard',
+    })
+
+    expect(getCoveragePathKeys(result)).toContain('workspace.widgets.inlineWidget.header.title')
+    expect(getCoveragePathKeys(result)).not.toContain('workspace.widgets.inlineWidget.body.bodyOnly')
   })
 })
 
@@ -172,6 +351,34 @@ export function DialogContent({ children }: { children: React.ReactNode }) {
     expect(result.scannedFiles).not.toContain('__tests__/root.tsx')
     expect(result.scannedFiles).not.toContain('__mocks__/next-intl.ts')
     expect(result.scannedFiles).not.toContain('components/__tests__/dialog.tsx')
+  })
+
+  it('does not follow escaped sibling imports that only share the project-root prefix', () => {
+    const { projectRoot, shadowFilePath } = createEscapedSiblingImportProject()
+    const shadowRelativePath = path.relative(projectRoot, shadowFilePath).split(path.sep).join('/')
+
+    const result = scanCatalogProject({
+      mode: 'route',
+      projectRoot,
+      routePath: '/workspace/[workspaceId]/monitor',
+    })
+
+    expect(result.scannedFiles).not.toContain(shadowRelativePath)
+    expect(getCoveragePathKeys(result)).not.toContain('workspace.monitor.stray')
+    expect(result.hardcodedCandidates).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: 'Escaped title',
+        }),
+      ])
+    )
+  })
+
+  it('rejects direct project-file lookups outside the project root even with matching prefixes', () => {
+    const { projectRoot, shadowFilePath } = createEscapedSiblingImportProject()
+    const context = createCatalogProjectContext(projectRoot)
+
+    expect(getProjectFile(context, shadowFilePath)).toBeNull()
   })
 
   it('follows runtime re-exports through barrels during route scans', () => {
@@ -449,5 +656,59 @@ export function VoiceInterface() {
         'workspace.monitor.containerOnly',
       ])
     )
+  })
+
+  it('follows bare parent-directory barrel imports during route scans', () => {
+    const messages = createLocaleMessages()
+    const projectRoot = createTempProject({
+      'i18n/messages/en.json': messages,
+      'i18n/messages/es.json': messages,
+      'i18n/messages/zh.json': messages,
+      'app/[locale]/workspace/[workspaceId]/monitor/page.tsx':
+        "import { MonitorPage } from '@/app/workspace/[workspaceId]/monitor/monitor'\nexport default function Page(){ return <MonitorPage /> }\n",
+      'app/workspace/[workspaceId]/monitor/monitor.tsx': `
+import { MonitorSection } from '@/app/workspace/[workspaceId]/monitor/components/panel/sections/section'
+
+export function MonitorPage() {
+  return <MonitorSection />
+}
+`,
+      'app/workspace/[workspaceId]/monitor/components/panel/index.ts':
+        "export { MentionMenu } from './mention-menu'\n",
+      'app/workspace/[workspaceId]/monitor/components/panel/mention-menu.tsx': `
+'use client'
+
+import { useTranslations } from 'next-intl'
+
+export function MentionMenu() {
+  const t = useTranslations('workspace.monitor')
+  return <div>{t('used')}</div>
+}
+`,
+      'app/workspace/[workspaceId]/monitor/components/panel/sections/section.tsx': `
+'use client'
+
+import { MentionMenu } from '..'
+
+export function MonitorSection() {
+  return <MentionMenu />
+}
+`,
+    })
+
+    const result = scanCatalogProject({
+      mode: 'route',
+      projectRoot,
+      routePath: '/workspace/[workspaceId]/monitor',
+    })
+
+    expect(result.scannedFiles).toEqual(
+      expect.arrayContaining([
+        'app/workspace/[workspaceId]/monitor/components/panel/index.ts',
+        'app/workspace/[workspaceId]/monitor/components/panel/mention-menu.tsx',
+        'app/workspace/[workspaceId]/monitor/components/panel/sections/section.tsx',
+      ])
+    )
+    expect(getCoveragePathKeys(result)).toContain('workspace.monitor.used')
   })
 })

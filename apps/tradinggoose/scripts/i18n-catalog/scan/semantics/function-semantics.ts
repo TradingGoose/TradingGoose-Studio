@@ -1,17 +1,74 @@
 import ts from 'typescript'
 import { isFunctionLike } from '../core/ast'
 import { cloneDescriptor, descriptorToPathKey, sameDescriptor } from '../core/descriptors'
-import { createFunctionScope, createRootScope } from '../core/scope'
+import {
+  bindVariableDeclaration,
+  createBlockScope,
+  createFunctionScope,
+  createRootScope,
+} from '../core/scope'
 import type {
   Descriptor,
   FileSemantics,
   NamedFunctionNode,
   ProjectFile,
   ResolverEnv,
+  Scope,
 } from '../core/types'
 import { buildImportedCallableDescriptorMap, buildImportedSemanticsMap } from './analysis-cache'
 import { resolveExpressionDescriptor } from './expression-resolution'
 import { bindFunctionParameters } from './parameters'
+
+function collectReturnDescriptors(
+  body: ts.Block,
+  scope: Scope,
+  env: ResolverEnv
+): Descriptor[] {
+  const descriptors: Descriptor[] = []
+
+  const visit = (currentNode: ts.Node, currentScope: Scope) => {
+    if (currentNode !== body && isFunctionLike(currentNode)) {
+      return
+    }
+
+    if (ts.isBlock(currentNode) && currentNode !== body) {
+      const blockScope = createBlockScope(currentScope)
+      currentNode.statements.forEach((statement) => visit(statement, blockScope))
+      return
+    }
+
+    if (
+      ts.isCaseBlock(currentNode) ||
+      ts.isForStatement(currentNode) ||
+      ts.isForInStatement(currentNode) ||
+      ts.isForOfStatement(currentNode)
+    ) {
+      const blockScope = createBlockScope(currentScope)
+      ts.forEachChild(currentNode, (child) => visit(child, blockScope))
+      return
+    }
+
+    if (ts.isVariableDeclaration(currentNode) && currentNode.initializer) {
+      const descriptor = resolveExpressionDescriptor(currentNode.initializer, currentScope, env)
+      if (descriptor) {
+        bindVariableDeclaration(currentScope, currentNode, descriptor)
+      }
+    }
+
+    if (ts.isReturnStatement(currentNode) && currentNode.expression) {
+      const descriptor = resolveExpressionDescriptor(currentNode.expression, currentScope, env)
+      if (descriptor) {
+        descriptors.push(descriptor)
+      }
+      return
+    }
+
+    ts.forEachChild(currentNode, (child) => visit(child, currentScope))
+  }
+
+  visit(body, scope)
+  return descriptors
+}
 
 export function inferFileSemantics(
   file: ProjectFile,
@@ -69,24 +126,7 @@ export function inferFunctionDescriptor(
     return resolveExpressionDescriptor(node.body, scope, env)
   }
 
-  const descriptors: Descriptor[] = []
-
-  const visit = (currentNode: ts.Node) => {
-    if (currentNode !== node.body && isFunctionLike(currentNode)) {
-      return
-    }
-
-    if (ts.isReturnStatement(currentNode) && currentNode.expression) {
-      const descriptor = resolveExpressionDescriptor(currentNode.expression, scope, env)
-      if (descriptor) {
-        descriptors.push(descriptor)
-      }
-    }
-
-    ts.forEachChild(currentNode, visit)
-  }
-
-  visit(node.body)
+  const descriptors = collectReturnDescriptors(node.body, scope, env)
 
   if (descriptors.length === 0) {
     return null

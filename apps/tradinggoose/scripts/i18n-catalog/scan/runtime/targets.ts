@@ -66,7 +66,7 @@ function resolveCallableTargetFromIdentifier(
   }
 }
 
-function resolveCallableTargetFromDescriptor(
+export function resolveCallableTargetFromDescriptor(
   descriptor: Extract<Descriptor, { kind: 'callable' }>,
   context: ScanContext,
   activeRoutePath: string | null

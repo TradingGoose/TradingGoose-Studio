@@ -63,6 +63,7 @@ export type ProjectFile = {
   filePath: string
   relativePath: string
   sourceFile: ts.SourceFile
+  topLevelVariableDeclarations: Map<string, ts.VariableDeclaration>
   importBindings: Map<string, ImportBinding>
   typeImportBindings: Map<string, TypeImportBinding>
   runtimeImportEdges: RuntimeImportEdge[]

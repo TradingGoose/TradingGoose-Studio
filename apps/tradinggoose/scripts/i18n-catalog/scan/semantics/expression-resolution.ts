@@ -18,6 +18,7 @@ import {
   sameDescriptor,
   translatorDescriptor,
 } from '../core/descriptors'
+import { STRING_CONSUMER_METHOD_NAMES } from '../core/rules'
 import { captureClosureScope, lookupBinding } from '../core/scope'
 import type { Descriptor, ResolverEnv, Scope } from '../core/types'
 
@@ -78,13 +79,33 @@ function resolveCallDescriptor(
   return null
 }
 
+function shouldResolveStringMethodToReceiver(
+  node:
+    | ts.PropertyAccessExpression
+    | ts.PropertyAccessChain
+    | ts.ElementAccessExpression
+    | ts.ElementAccessChain,
+  parentDescriptor: Descriptor
+): boolean {
+  return (
+    parentDescriptor.kind === 'root' &&
+    isCallLikeExpression(node.parent) &&
+    node.parent.expression === node &&
+    isPropertyAccessLikeExpression(node) &&
+    STRING_CONSUMER_METHOD_NAMES.has(node.name.text)
+  )
+}
+
 export function resolveExpressionDescriptor(
   expression: ts.Expression,
   scope: Scope,
   env: ResolverEnv
 ): Descriptor | null {
   const node = unwrapExpression(expression)
-  const callableNode = extractCallableInitializer(node)
+  const callableNode = extractCallableInitializer(
+    node,
+    (name) => env.file.localFunctions.get(name) ?? null
+  )
 
   if (callableNode) {
     return callableDescriptor(env.file.filePath, callableNode, captureClosureScope(scope))
@@ -111,7 +132,15 @@ export function resolveExpressionDescriptor(
 
   if (isPropertyAccessLikeExpression(node)) {
     const parentDescriptor = resolveExpressionDescriptor(node.expression, scope, env)
-    return parentDescriptor ? readPropertyDescriptor(parentDescriptor, node.name.text) : null
+    if (!parentDescriptor) {
+      return null
+    }
+
+    if (shouldResolveStringMethodToReceiver(node, parentDescriptor)) {
+      return parentDescriptor
+    }
+
+    return readPropertyDescriptor(parentDescriptor, node.name.text)
   }
 
   if (isElementAccessLikeExpression(node)) {

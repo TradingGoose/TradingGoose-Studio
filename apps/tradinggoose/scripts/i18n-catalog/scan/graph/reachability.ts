@@ -12,6 +12,10 @@ import type {
 } from '../core/types'
 import { getProjectFile } from './source-file'
 
+type ReachabilityOptions = {
+  skipRuntimeImportsFrom?: Set<string>
+}
+
 function fileMayExportName(
   filePath: string,
   exportName: string,
@@ -44,7 +48,8 @@ function fileMayExportName(
 
 export function collectReachableFiles(
   entryFiles: string[],
-  context: CatalogProjectContext
+  context: CatalogProjectContext,
+  options?: ReachabilityOptions
 ): string[] {
   const visited = new Set<string>()
   const requestedByFile = new Map<string, RequestedExports>()
@@ -93,8 +98,10 @@ export function collectReachableFiles(
       continue
     }
 
-    for (const runtimeImportEdge of projectFile.runtimeImportEdges) {
-      enqueue(runtimeImportEdge.resolvedFilePath, runtimeImportEdge.requestedExports)
+    if (!options?.skipRuntimeImportsFrom?.has(currentFilePath)) {
+      for (const runtimeImportEdge of projectFile.runtimeImportEdges) {
+        enqueue(runtimeImportEdge.resolvedFilePath, runtimeImportEdge.requestedExports)
+      }
     }
 
     if (requestedExports === 'all') {

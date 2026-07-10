@@ -1,6 +1,8 @@
 import ts from 'typescript'
 import type { NamedFunctionNode } from './types'
 
+const CALLABLE_WRAPPER_NAMES = new Set(['forwardRef', 'memo', 'useCallback'])
+
 export function collectBindingNames(name: ts.BindingName): string[] {
   if (ts.isIdentifier(name)) {
     return [name.text]
@@ -93,30 +95,47 @@ export function getScriptKind(filePath: string): ts.ScriptKind {
   return ts.ScriptKind.TS
 }
 
-export function extractCallableInitializer(expression: ts.Expression): NamedFunctionNode | null {
+function getExpressionCalleeName(expression: ts.Expression): string | null {
+  const callee = unwrapExpression(expression)
+
+  if (ts.isIdentifier(callee)) {
+    return callee.text
+  }
+
+  if (ts.isPropertyAccessExpression(callee) || ts.isPropertyAccessChain(callee)) {
+    return callee.name.text
+  }
+
+  if (
+    (ts.isElementAccessExpression(callee) || ts.isElementAccessChain(callee)) &&
+    callee.argumentExpression
+  ) {
+    return getStaticPropertyKey(unwrapExpression(callee.argumentExpression))
+  }
+
+  return null
+}
+
+function extractCallableInitializerInternal(
+  expression: ts.Expression,
+  resolveIdentifier: ((name: string) => NamedFunctionNode | null) | undefined,
+  allowIdentifierLookup: boolean
+): NamedFunctionNode | null {
   const node = unwrapExpression(expression)
   if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
     return node
+  }
+
+  if (allowIdentifierLookup && ts.isIdentifier(node)) {
+    return resolveIdentifier?.(node.text) ?? null
   }
 
   if (!ts.isCallExpression(node) && !ts.isCallChain(node)) {
     return null
   }
 
-  const callee = unwrapExpression(node.expression)
-  let calleeName: string | null = null
-  if (ts.isIdentifier(callee)) {
-    calleeName = callee.text
-  } else if (ts.isPropertyAccessExpression(callee) || ts.isPropertyAccessChain(callee)) {
-    calleeName = callee.name.text
-  } else if (
-    (ts.isElementAccessExpression(callee) || ts.isElementAccessChain(callee)) &&
-    callee.argumentExpression
-  ) {
-    calleeName = getStaticPropertyKey(unwrapExpression(callee.argumentExpression))
-  }
-
-  if (calleeName !== 'useCallback') {
+  const calleeName = getExpressionCalleeName(node.expression)
+  if (!calleeName || !CALLABLE_WRAPPER_NAMES.has(calleeName)) {
     return null
   }
 
@@ -125,7 +144,14 @@ export function extractCallableInitializer(expression: ts.Expression): NamedFunc
     return null
   }
 
-  return ts.isArrowFunction(callback) || ts.isFunctionExpression(callback) ? callback : null
+  return extractCallableInitializerInternal(callback, resolveIdentifier, true)
+}
+
+export function extractCallableInitializer(
+  expression: ts.Expression,
+  resolveIdentifier?: (name: string) => NamedFunctionNode | null
+): NamedFunctionNode | null {
+  return extractCallableInitializerInternal(expression, resolveIdentifier, false)
 }
 
 export function isPropertyAccessLikeExpression(

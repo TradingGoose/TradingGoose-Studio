@@ -6,7 +6,7 @@ import { captureHardcodedCandidate } from './candidates'
 import {
   buildJsxPropsDescriptor,
   isIntrinsicJsxTagName,
-  resolveCallableTargetFromExpression,
+  resolveCallableTargetFromDescriptor,
   resolveCallableTargetFromJsx,
 } from './targets'
 
@@ -87,28 +87,34 @@ export function handleIntrinsicJsxEventAttribute(
   scanInvocation: InvocationScanner
 ): void {
   if (
-    !ts.isJsxAttribute(node) ||
-    !ts.isIdentifier(node.name) ||
-    !/^on[A-Z]/.test(node.name.text) ||
-    !node.initializer ||
-    !ts.isJsxExpression(node.initializer) ||
-    !node.initializer.expression ||
-    (!ts.isJsxOpeningElement(node.parent.parent) &&
-      !ts.isJsxSelfClosingElement(node.parent.parent)) ||
-    !isIntrinsicJsxTagName(node.parent.parent.tagName)
+    !ts.isJsxOpeningElement(node) &&
+    !ts.isJsxSelfClosingElement(node)
   ) {
     return
   }
 
-  const target = resolveCallableTargetFromExpression(
-    node.initializer.expression,
-    env.analysis,
-    scope,
-    env.context,
-    env.activeRoutePath
-  )
-  if (target) {
-    scanInvocation(target, [])
+  if (!isIntrinsicJsxTagName(node.tagName)) {
+    return
+  }
+
+  const propsDescriptor = buildJsxPropsDescriptor(node.attributes, env.analysis, scope)
+  if (propsDescriptor?.kind !== 'object') {
+    return
+  }
+
+  for (const [propertyName, descriptor] of Object.entries(propsDescriptor.properties)) {
+    if (!/^on[A-Z]/.test(propertyName) || descriptor.kind !== 'callable') {
+      continue
+    }
+
+    const target = resolveCallableTargetFromDescriptor(
+      descriptor,
+      env.context,
+      env.activeRoutePath
+    )
+    if (target) {
+      scanInvocation(target, [])
+    }
   }
 }
 

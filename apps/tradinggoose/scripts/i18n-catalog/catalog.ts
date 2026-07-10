@@ -61,6 +61,7 @@ export type CatalogReport = {
 }
 
 type BuildReportOptions = {
+  includeOrphans?: boolean
   projectRoot: string
   scanResult: CatalogScanResult
   globalScanResult?: CatalogScanResult
@@ -251,8 +252,13 @@ function buildCatalogValueIndex(catalogIndex: CatalogIndex, ownedNamespaces: str
   return valueIndex
 }
 
-function findExistingPathKey(candidate: HardcodedCandidate, valueIndex: Map<string, string[]>) {
-  const matches = valueIndex.get(normalizeCatalogText(candidate.text)) ?? []
+function findExistingPathKey(
+  candidate: HardcodedCandidate,
+  valueIndex: Map<string, string[]>,
+  ownedValueIndex?: Map<string, string[]>
+) {
+  const normalizedText = normalizeCatalogText(candidate.text)
+  const matches = valueIndex.get(normalizedText) ?? []
   const namespaceMatches = matches.filter(
     (pathKey) => pathKey === candidate.namespace || pathKey.startsWith(`${candidate.namespace}.`)
   )
@@ -261,7 +267,12 @@ function findExistingPathKey(candidate: HardcodedCandidate, valueIndex: Map<stri
     return namespaceMatches[0]
   }
 
-  return matches.length === 1 ? matches[0] : undefined
+  if (!ownedValueIndex) {
+    return undefined
+  }
+
+  const ownedMatches = ownedValueIndex.get(normalizedText) ?? []
+  return ownedMatches.length === 1 ? ownedMatches[0] : undefined
 }
 
 function toSuggestedPathKey(candidate: HardcodedCandidate) {
@@ -272,7 +283,10 @@ function toSuggestedPathKey(candidate: HardcodedCandidate) {
 export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
   const catalogs = loadLocaleCatalogs(options.projectRoot)
   const englishCatalogIndex = buildCatalogIndex(catalogs[defaultLocale])
-  const hasGlobalScan = Boolean(options.globalScanResult)
+  const includeOrphans = Boolean(options.includeOrphans)
+  if (includeOrphans && !options.globalScanResult) {
+    throw new Error('Expected `globalScanResult` when including orphan analysis')
+  }
 
   const globalCoverageSummary = options.globalScanResult
     ? buildCoverageSummary(options.globalScanResult.coverage, englishCatalogIndex)
@@ -285,16 +299,20 @@ export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
 
   const ownedNamespaces =
     options.scanResult.mode === 'route' ? options.scanResult.ownedNamespaces : []
-  const catalogValueIndex = buildCatalogValueIndex(englishCatalogIndex, ownedNamespaces)
+  const catalogValueIndex = buildCatalogValueIndex(englishCatalogIndex, [])
+  const ownedCatalogValueIndex =
+    options.scanResult.mode === 'route' && ownedNamespaces.length > 1
+      ? buildCatalogValueIndex(englishCatalogIndex, ownedNamespaces)
+      : undefined
   const usedKeySet = globalCoverageSummary ? new Set(globalCoverageSummary.usedKeys) : null
-  const orphanedKeys = hasGlobalScan
+  const orphanedKeys = includeOrphans
     ? [...englishCatalogIndex.leafMap.keys()]
         .filter((pathKey) => !usedKeySet!.has(pathKey))
         .filter((pathKey) => isOwnedPath(pathKey, ownedNamespaces))
         .sort()
     : null
 
-  const dynamicProtectedRoots = hasGlobalScan
+  const dynamicProtectedRoots = includeOrphans
     ? globalCoverageSummary!.dynamicRootPaths
         .filter((pathKey) => isOwnedPath(pathKey, ownedNamespaces))
         .sort()
@@ -329,12 +347,16 @@ export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
         namespaceSource: candidate.namespaceSource,
         attributeName: candidate.attributeName,
         metadata: candidate.metadata,
-        existingPathKey: findExistingPathKey(candidate, catalogValueIndex),
+        existingPathKey: findExistingPathKey(
+          candidate,
+          catalogValueIndex,
+          ownedCatalogValueIndex
+        ),
         suggestedPathKey: toSuggestedPathKey(candidate),
       })),
   }
 
-  if (hasGlobalScan) {
+  if (includeOrphans) {
     report.orphanedKeys = orphanedKeys!.map((pathKey) => ({ pathKey }))
     report.dynamicProtectedRoots = dynamicProtectedRoots!
   }

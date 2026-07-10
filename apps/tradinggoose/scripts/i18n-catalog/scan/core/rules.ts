@@ -55,6 +55,28 @@ export const ARRAY_RUNTIME_CALLBACK_METHOD_NAMES = new Set([
   'toSorted',
 ])
 
+export const STRING_CONSUMER_METHOD_NAMES = new Set([
+  'toLowerCase',
+  'toUpperCase',
+  'trim',
+  'trimStart',
+  'trimEnd',
+  'normalize',
+  'replace',
+  'replaceAll',
+  'slice',
+  'substring',
+  'includes',
+  'startsWith',
+  'endsWith',
+  'split',
+  'match',
+  'search',
+  'localeCompare',
+  'padStart',
+  'padEnd',
+])
+
 export const RUNTIME_CALLBACK_HOOK_NAMES = new Set([
   'useEffect',
   'useInsertionEffect',

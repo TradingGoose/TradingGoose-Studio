@@ -1,7 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
-import { isIgnoredProjectPath, SOURCE_EXTENSIONS, toRelativeProjectPath } from '../../entries'
+import {
+  isIgnoredProjectPath,
+  isPathInsideDirectory,
+  SOURCE_EXTENSIONS,
+  toRelativeProjectPath,
+} from '../../entries'
 import { collectBindingNames, extractCallableInitializer, getScriptKind } from '../core/ast'
 import {
   cloneRequestedExports,
@@ -34,7 +39,12 @@ function resolveImportPath(
   let basePath: string | null = null
   if (specifier.startsWith('@/')) {
     basePath = path.join(projectRoot, specifier.slice(2))
-  } else if (specifier.startsWith('./') || specifier.startsWith('../')) {
+  } else if (
+    specifier === '.' ||
+    specifier === '..' ||
+    specifier.startsWith('./') ||
+    specifier.startsWith('../')
+  ) {
     basePath = path.resolve(path.dirname(importerFilePath), specifier)
   }
 
@@ -48,7 +58,7 @@ function resolveImportPath(
   }
 
   for (const candidate of candidates) {
-    if (!candidate.startsWith(projectRoot)) {
+    if (!isPathInsideDirectory(candidate, projectRoot)) {
       continue
     }
 
@@ -93,6 +103,8 @@ function collectProjectFile(projectRoot: string, filePath: string): ProjectFile 
   let defaultExportFunction: NamedFunctionNode | null = null
   let defaultExportBindingName: string | null = null
   let hasDefaultExport = false
+  const topLevelVariableDeclarations = new Map<string, ts.VariableDeclaration>()
+  const topLevelCallableDeclarations = new Map<string, NamedFunctionNode>()
 
   const hasModifier = (node: { modifiers?: ts.NodeArray<ts.ModifierLike> }, kind: ts.SyntaxKind) =>
     Boolean(node.modifiers?.some((modifier) => modifier.kind === kind))
@@ -154,6 +166,56 @@ function collectProjectFile(projectRoot: string, filePath: string): ProjectFile 
       exportedFunctions.add(name)
       registerExportedValueName(name)
     }
+  }
+
+  const resolveTopLevelCallable = (name: string) => topLevelCallableDeclarations.get(name) ?? null
+
+  ts.forEachChild(sourceFile, (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      topLevelCallableDeclarations.set(node.name.text, node)
+    }
+
+    if (!ts.isVariableStatement(node)) {
+      return
+    }
+
+    for (const declaration of node.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name)) {
+        topLevelVariableDeclarations.set(declaration.name.text, declaration)
+      }
+    }
+  })
+
+  let discoveredTopLevelCallable = true
+  while (discoveredTopLevelCallable) {
+    discoveredTopLevelCallable = false
+
+    ts.forEachChild(sourceFile, (node) => {
+      if (!ts.isVariableStatement(node)) {
+        return
+      }
+
+      for (const declaration of node.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name) || !declaration.initializer) {
+          continue
+        }
+
+        const functionTarget = extractCallableInitializer(
+          declaration.initializer,
+          resolveTopLevelCallable
+        )
+        if (!functionTarget) {
+          continue
+        }
+
+        if (topLevelCallableDeclarations.get(declaration.name.text) === functionTarget) {
+          continue
+        }
+
+        topLevelCallableDeclarations.set(declaration.name.text, functionTarget)
+        discoveredTopLevelCallable = true
+      }
+    })
   }
 
   const visit = (node: ts.Node) => {
@@ -300,7 +362,10 @@ function collectProjectFile(projectRoot: string, filePath: string): ProjectFile 
         }
 
         if (ts.isIdentifier(declaration.name) && declaration.initializer) {
-          const functionTarget = extractCallableInitializer(declaration.initializer)
+          const functionTarget = extractCallableInitializer(
+            declaration.initializer,
+            resolveTopLevelCallable
+          )
           if (functionTarget) {
             registerFunction(declaration.name.text, functionTarget, exported)
           }
@@ -347,7 +412,7 @@ function collectProjectFile(projectRoot: string, filePath: string): ProjectFile 
 
     if (ts.isExportAssignment(node) && !node.isExportEquals) {
       hasDefaultExport = true
-      const functionTarget = extractCallableInitializer(node.expression)
+      const functionTarget = extractCallableInitializer(node.expression, resolveTopLevelCallable)
       if (functionTarget) {
         defaultExportFunction = functionTarget
       } else if (ts.isIdentifier(node.expression)) {
@@ -364,6 +429,7 @@ function collectProjectFile(projectRoot: string, filePath: string): ProjectFile 
     filePath,
     relativePath: toRelativeProjectPath(projectRoot, filePath),
     sourceFile,
+    topLevelVariableDeclarations,
     importBindings,
     typeImportBindings,
     runtimeImportEdges: [...runtimeImportEdges.entries()].map(
@@ -397,7 +463,7 @@ export function getProjectFile(
     return cached
   }
 
-  if (!filePath.startsWith(context.projectRoot) || !isSourceFilePath(filePath)) {
+  if (!isPathInsideDirectory(filePath, context.projectRoot) || !isSourceFilePath(filePath)) {
     return null
   }
 
