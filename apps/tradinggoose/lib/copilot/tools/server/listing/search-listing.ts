@@ -11,7 +11,10 @@ type SearchListingArgs = {
   query: string
 }
 
-export const searchListingServerTool: BaseServerTool<SearchListingArgs, ListingIdentity[]> = {
+export const searchListingServerTool: BaseServerTool<
+  SearchListingArgs,
+  { results: ListingIdentity[] }
+> = {
   name: 'search_listing',
   async execute(args: SearchListingArgs, context?: ServerToolExecutionContext) {
     const query = args.query.trim()
@@ -23,7 +26,7 @@ export const searchListingServerTool: BaseServerTool<SearchListingArgs, ListingI
     try {
       const listings = await searchListingIdentities(query, context?.signal)
       throwIfServerToolAborted(context)
-      return listings
+      return { results: listings }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw error

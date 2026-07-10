@@ -27,7 +27,7 @@ describe('searchListingServerTool', () => {
 
     await expect(
       searchListingServerTool.execute({ query: '  Apple  ' }, { userId: 'user-1', signal })
-    ).resolves.toEqual(listings)
+    ).resolves.toEqual({ results: listings })
 
     expect(mockSearchListingIdentities).toHaveBeenCalledWith('Apple', signal)
   })

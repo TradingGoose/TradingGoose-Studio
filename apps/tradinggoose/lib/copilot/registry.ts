@@ -1023,7 +1023,7 @@ export const ToolResultSchemas = {
   [CopilotTool.get_indicator_catalog]: GetIndicatorCatalogResult,
   [CopilotTool.get_indicator_metadata]: GetIndicatorMetadataResult,
   search_documentation: z.object({ results: z.array(z.any()) }),
-  search_listing: z.array(ListingIdentitySchema),
+  search_listing: z.object({ results: z.array(ListingIdentitySchema) }),
   search_online: z.object({
     results: z.array(z.any()),
     query: z.string().optional(),

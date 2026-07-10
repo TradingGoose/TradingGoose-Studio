@@ -50,7 +50,7 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   scope: 'workspace',
   message: 'ok',
 }))
-const searchListingExecute = vi.fn(async () => [])
+const searchListingExecute = vi.fn(async () => ({ results: [] }))
 const noopEntityExecute = vi.fn(async () => ({}))
 const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
 
@@ -588,7 +588,7 @@ describe('routeExecution', () => {
           contextEntityId: 'watchlist-1',
         }
       )
-    ).resolves.toEqual([])
+    ).resolves.toEqual({ results: [] })
 
     expect(searchListingExecute).toHaveBeenCalledWith(
       { query: 'AAPL' },

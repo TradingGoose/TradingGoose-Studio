@@ -107,7 +107,7 @@ describe('Copilot MCP route', () => {
       name: 'My Workspace',
       permissions: 'admin',
     })
-    mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow'])
+    mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow', 'search_listing'])
     mockGetCopilotRuntimeToolManifest.mockResolvedValue({
       version: 'v1',
       tools: [
@@ -128,7 +128,7 @@ describe('Copilot MCP route', () => {
         },
       ],
     })
-    mockRouteExecution.mockResolvedValue({ workflows: [] })
+    mockRouteExecution.mockResolvedValue({ results: [] })
   })
 
   it('rejects requests without bearer auth', async () => {
@@ -273,7 +273,7 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
-  it('dispatches tool calls through the server tool router', async () => {
+  it('returns listing search results as MCP structured content', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
@@ -282,20 +282,20 @@ describe('Copilot MCP route', () => {
         id: 3,
         method: 'tools/call',
         params: {
-          name: 'list_workflows',
-          arguments: { workspaceId: 'workspace-1' },
+          name: 'search_listing',
+          arguments: { query: 'Apple' },
         },
       })
     )
     const body = await response.json()
 
     expect(mockRouteExecution).toHaveBeenCalledWith(
-      'list_workflows',
-      { workspaceId: 'workspace-1' },
+      'search_listing',
+      { query: 'Apple' },
       { userId: 'user-1', accessLevel: 'full' }
     )
-    expect(body.result.structuredContent).toEqual({ workflows: [] })
-    expect(body.result.content[0].text).toBe(JSON.stringify({ workflows: [] }, null, 2))
+    expect(body.result.structuredContent).toEqual({ results: [] })
+    expect(body.result.content[0].text).toBe(JSON.stringify({ results: [] }, null, 2))
   })
 
   it('dispatches external MCP mutation tools with full personal-agent access', async () => {
