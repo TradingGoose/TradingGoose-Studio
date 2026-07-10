@@ -81,6 +81,11 @@ const resolveInsertIndex = (
     return items.findIndex((item) => item.id === target.itemId)
   }
 
+  if (target.type === 'root') {
+    const firstSectionIndex = items.findIndex((item) => item.type === 'section')
+    return firstSectionIndex === -1 ? items.length : firstSectionIndex
+  }
+
   for (let index = items.length - 1; index >= 0; index -= 1) {
     if ((items[index]?.parentId ?? null) === parentId) {
       return index + 1

@@ -16,9 +16,14 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
+import {
+  createWatchlistContainerSortableId,
+  createWatchlistListingSortableId,
+} from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 
 const mockDragActivation = vi.fn()
+const mockSortableRender = vi.fn()
 const mockResolveListing = vi.fn()
 const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
@@ -103,7 +108,10 @@ vi.mock('@/stores/market/selector/store', () => ({
 }))
 
 vi.mock('@/components/ui/sortable', () => ({
-  Sortable: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Sortable: ({ children, ...props }: { children: ReactNode } & Record<string, unknown>) => {
+    mockSortableRender(props)
+    return <div>{children}</div>
+  },
   SortableContent: ({ children, withoutSlot }: { children: ReactNode; withoutSlot?: boolean }) =>
     withoutSlot ? <>{children}</> : <div>{children}</div>,
   SortableItem: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
@@ -271,6 +279,38 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(mockDragActivation).not.toHaveBeenCalled()
+  })
+
+  it('moves a section listing to the list root when it reaches the top boundary', async () => {
+    const onReorderItems = vi.fn().mockResolvedValue(undefined)
+
+    await act(async () => {
+      root.render(<WatchlistTable {...(createTableProps({ onReorderItems }) as any)} />)
+    })
+
+    const sortableProps = mockSortableRender.mock.lastCall?.[0] as {
+      value: string[]
+      onMove: (event: {
+        active: { id: string; rect: { current: { translated: { top: number } } } }
+        over: { id: string; rect: { top: number } }
+      }) => void
+    }
+    const sectionSortableId = createWatchlistContainerSortableId('section-1')
+    const listingSortableId = createWatchlistListingSortableId('listing-1')
+
+    expect(sortableProps.value).toEqual([sectionSortableId, listingSortableId])
+
+    act(() => {
+      sortableProps.onMove({
+        active: { id: listingSortableId, rect: { current: { translated: { top: 100 } } } },
+        over: { id: sectionSortableId, rect: { top: 100 } },
+      })
+    })
+
+    expect(onReorderItems).toHaveBeenCalledWith([
+      { ...watchlist.items[1], parentId: null },
+      watchlist.items[0],
+    ])
   })
 
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {

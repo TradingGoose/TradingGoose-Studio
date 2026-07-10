@@ -76,7 +76,13 @@ describe('watchlist reorder helpers', () => {
       WATCHLIST_ROOT_SORTABLE_ID
     )
 
-    expect(next?.find((item) => item.id === 'c')?.parentId).toBeNull()
+    expect(next?.map((item) => [item.id, item.parentId])).toEqual([
+      ['c', null],
+      ['s1', null],
+      ['a', 's1'],
+      ['b', 's1'],
+      ['s2', null],
+    ])
   })
 
   it('reorders sections at the root without rewriting their listing parents', () => {

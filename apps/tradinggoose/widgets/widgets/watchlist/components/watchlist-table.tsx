@@ -63,6 +63,7 @@ import {
   createWatchlistContainerSortableId,
   createWatchlistListingSortableId,
   moveWatchlistItem,
+  resolveDraggedItem,
   resolveEffectiveDropTarget,
   WATCHLIST_ROOT_SORTABLE_ID,
   type WatchlistDropTarget,
@@ -389,7 +390,6 @@ export const WatchlistTable = ({
     containerRenameInputRef.current?.focus()
   }, [editingContainerId])
 
-  const hasContainers = parsedRows.allContainers.length > 0
   const dragEnabled = !isMutating
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -410,10 +410,6 @@ export const WatchlistTable = ({
   const sortableIds = useMemo(() => {
     const next: UniqueIdentifier[] = []
 
-    if (hasContainers) {
-      next.push(WATCHLIST_ROOT_SORTABLE_ID)
-    }
-
     const appendBlockIds = (block: WatchlistTableBlock) => {
       if (block.type === 'listing') {
         next.push(createWatchlistListingSortableId(block.row.item.id))
@@ -430,7 +426,26 @@ export const WatchlistTable = ({
     parsedRows.rootBlocks.forEach(appendBlockIds)
 
     return next
-  }, [expandedContainers, hasContainers, parsedRows])
+  }, [expandedContainers, parsedRows])
+
+  const resolveOverSortableId = (
+    active: DragOverEvent['active'],
+    over: NonNullable<DragOverEvent['over']>
+  ) => {
+    const draggedItem = resolveDraggedItem(String(active.id))
+    const listing =
+      draggedItem?.type === 'listing'
+        ? watchlist?.items.find((item) => item.type === 'listing' && item.id === draggedItem.itemId)
+        : null
+    const activeTop = active.rect.current.translated?.top
+
+    return listing?.parentId &&
+      over.id === sortableIds[0] &&
+      activeTop != null &&
+      activeTop <= over.rect.top
+      ? WATCHLIST_ROOT_SORTABLE_ID
+      : String(over.id)
+  }
 
   const commitDrop = async (activeSortableId: string, overSortableId: string) => {
     if (!watchlist || !dragEnabled) return
@@ -452,7 +467,13 @@ export const WatchlistTable = ({
       return
     }
 
-    setDropTarget(resolveEffectiveDropTarget(watchlist.items, String(active.id), String(over.id)))
+    setDropTarget(
+      resolveEffectiveDropTarget(
+        watchlist.items,
+        String(active.id),
+        resolveOverSortableId(active, over)
+      )
+    )
   }
 
   const resetDragState = () => {
@@ -854,7 +875,7 @@ export const WatchlistTable = ({
           onDragCancel={resetDragState}
           onDragEnd={resetDragState}
           onMove={({ active, over }) => {
-            handleMove(active.id, over?.id ?? null)
+            handleMove(active.id, over ? resolveOverSortableId(active, over) : null)
           }}
         >
           <table className='w-full table-auto'>
@@ -883,26 +904,7 @@ export const WatchlistTable = ({
               </tr>
             </thead>
             <SortableContent withoutSlot>
-              <tbody>
-                {hasContainers ? (
-                  <SortableItem value={WATCHLIST_ROOT_SORTABLE_ID} asChild>
-                    <tr>
-                      <td colSpan={COLUMN_COUNT} className='p-0'>
-                        <div
-                          className={cn(
-                            'h-2 transition-colors',
-                            dropTarget?.type === 'root'
-                              ? 'bg-primary/15 ring-1 ring-primary/30 ring-inset'
-                              : 'bg-transparent'
-                          )}
-                        />
-                      </td>
-                    </tr>
-                  </SortableItem>
-                ) : null}
-
-                {parsedRows.rootBlocks.map((block) => renderBlock(block))}
-              </tbody>
+              <tbody>{parsedRows.rootBlocks.map((block) => renderBlock(block))}</tbody>
             </SortableContent>
           </table>
         </Sortable>
