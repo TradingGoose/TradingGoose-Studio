@@ -9,6 +9,7 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { useWorkflowChatMessages, useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
@@ -58,7 +59,11 @@ const ChatWidgetBody = ({ params, context, pairColor = 'gray', widget }: WidgetC
 
   return (
     <div className='flex h-full w-full overflow-hidden bg-background'>
-      <WorkflowChatApp workspaceId={workspaceId} workflowId={resolvedWorkflowId} />
+      <WorkflowChatApp
+        workspaceId={workspaceId}
+        workflowId={resolvedWorkflowId}
+        accessMode={context?.canWrite === false ? 'read' : 'write'}
+      />
     </div>
   )
 }
@@ -73,10 +78,12 @@ function ChatOutputsHeader({
   workspaceId,
   widget,
   triggerClassName,
+  accessMode,
 }: {
   workspaceId?: string
   widget?: WidgetInstance | null
   triggerClassName?: string
+  accessMode: ReviewAccessMode
 }) {
   const copy = useWorkflowChatMessages()
   const { selectedWorkflowOutputs, setSelectedWorkflowOutput } = useChatStore()
@@ -120,7 +127,11 @@ function ChatOutputsHeader({
         <TooltipTrigger asChild>
           <div className='min-w-[220px]'>
             {workspaceId && workflowId ? (
-              <WorkflowChatSessionProviders workspaceId={workspaceId} workflowId={workflowId}>
+              <WorkflowChatSessionProviders
+                workspaceId={workspaceId}
+                workflowId={workflowId}
+                accessMode={accessMode}
+              >
                 {outputSelect}
               </WorkflowChatSessionProviders>
             ) : (
@@ -232,6 +243,7 @@ export const chatWidget: DashboardWidgetDefinition = {
           <ChatOutputsHeader
             workspaceId={context?.workspaceId}
             widget={widget}
+            accessMode={context?.canWrite === false ? 'read' : 'write'}
             triggerClassName={widgetHeaderControlClassName('flex items-center gap-1 min-w-[240px]')}
           />
         </div>

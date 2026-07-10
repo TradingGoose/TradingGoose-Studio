@@ -2,7 +2,7 @@
 
 import type { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
-import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import type { ReviewAccessMode, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
 import {
   bootstrapYjsProvider,
@@ -39,10 +39,13 @@ export interface SharedWorkflowSessionUser {
 }
 
 interface SharedWorkflowSessionEntry {
+  key: string
   workflowId: string
   workspaceId: string | null
+  accessMode: ReviewAccessMode
   refCount: number
   destroyTimeout: ReturnType<typeof setTimeout> | null
+  reopenTimeout: ReturnType<typeof setTimeout> | null
   state: SharedWorkflowSessionState
   listeners: Set<() => void>
   initPromise: Promise<void> | null
@@ -69,6 +72,10 @@ export const EMPTY_SHARED_WORKFLOW_SESSION_STATE: SharedWorkflowSessionState = {
 }
 
 const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
+const READ_SESSION_REOPEN_RETRY_MS = 1_000
+
+const getSharedSessionKey = (workflowId: string, accessMode: ReviewAccessMode) =>
+  `${accessMode}:${workflowId}`
 
 function getSharedSessionEntries(): Map<string, SharedWorkflowSessionEntry> {
   if (!globalThis.__workflowYjsSessionEntries) {
@@ -118,15 +125,25 @@ function cancelPendingDestroy(entry: SharedWorkflowSessionEntry): void {
   entry.destroyTimeout = null
 }
 
+function cancelPendingReopen(entry: SharedWorkflowSessionEntry): void {
+  if (!entry.reopenTimeout) return
+  clearTimeout(entry.reopenTimeout)
+  entry.reopenTimeout = null
+}
+
 function createSessionEntry(args: {
   workflowId: string
   workspaceId: string | null
+  accessMode: ReviewAccessMode
 }): SharedWorkflowSessionEntry {
   return {
+    key: getSharedSessionKey(args.workflowId, args.accessMode),
     workflowId: args.workflowId,
     workspaceId: args.workspaceId,
+    accessMode: args.accessMode,
     refCount: 0,
     destroyTimeout: null,
+    reopenTimeout: null,
     state: { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE },
     listeners: new Set(),
     initPromise: null,
@@ -140,9 +157,11 @@ function createSessionEntry(args: {
 function ensureSessionEntry(args: {
   workflowId: string
   workspaceId: string | null
+  accessMode: ReviewAccessMode
 }): SharedWorkflowSessionEntry {
   const entries = getSharedSessionEntries()
-  const current = entries.get(args.workflowId)
+  const key = getSharedSessionKey(args.workflowId, args.accessMode)
+  const current = entries.get(key)
   if (current) {
     cancelPendingDestroy(current)
     if (args.workspaceId != null) {
@@ -152,7 +171,7 @@ function ensureSessionEntry(args: {
   }
 
   const entry = createSessionEntry(args)
-  entries.set(args.workflowId, entry)
+  entries.set(key, entry)
   return entry
 }
 
@@ -168,39 +187,75 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
   }
 
   try {
-    const result = await bootstrapYjsProvider(descriptor)
+    const result = await bootstrapYjsProvider(descriptor, undefined, entry.accessMode)
 
-    if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
+    if (entry.refCount === 0 || getSharedSessionEntries().get(entry.key) !== entry) {
       destroyBootstrappedSession(result)
       return
     }
+    cancelPendingReopen(entry)
 
-    const undoManager = new Y.UndoManager(
-      [
-        readWorkflowMap(result.doc),
-        readWorkflowTextFieldsMap(result.doc),
-        getVariablesMap(result.doc),
-      ],
-      {
-        trackedOrigins: createYjsUndoTrackedOrigins(),
-      }
-    )
-    undoManager.clear()
+    const undoManager =
+      entry.accessMode === 'write'
+        ? new Y.UndoManager(
+            [
+              readWorkflowMap(result.doc),
+              readWorkflowTextFieldsMap(result.doc),
+              getVariablesMap(result.doc),
+            ],
+            {
+              trackedOrigins: createYjsUndoTrackedOrigins(),
+            }
+          )
+        : null
+    undoManager?.clear()
 
-    const syncUndoState = () => {
-      setEntryState(entry, {
-        canUndo: undoManager.canUndo(),
-        canRedo: undoManager.canRedo(),
-      })
-    }
+    const syncUndoState = undoManager
+      ? () => {
+          setEntryState(entry, {
+            canUndo: undoManager.canUndo(),
+            canRedo: undoManager.canRedo(),
+          })
+        }
+      : null
 
     const syncStatus = (synced: boolean) => {
       setEntryState(entry, { isSynced: synced })
     }
 
-    undoManager.on('stack-item-added', syncUndoState)
-    undoManager.on('stack-item-popped', syncUndoState)
-    undoManager.on('stack-cleared', syncUndoState)
+    let readConnectionLost: (() => void) | null = null
+    if (entry.accessMode === 'read') {
+      let handled = false
+      readConnectionLost = () => {
+        if (handled) return
+        handled = true
+        if (
+          entry.refCount === 0 ||
+          getSharedSessionEntries().get(entry.key) !== entry ||
+          entry.result !== result
+        ) {
+          return
+        }
+
+        entry.cleanup?.()
+        entry.cleanup = null
+        entry.result = null
+        setEntryState(entry, {
+          ...EMPTY_SHARED_WORKFLOW_SESSION_STATE,
+          isLoading: true,
+        })
+        destroyBootstrappedSession(result)
+        scheduleReadSessionReopen(entry)
+      }
+      result.provider.on('connection-close', readConnectionLost)
+      result.provider.on('connection-error', readConnectionLost)
+    }
+
+    if (syncUndoState) {
+      undoManager?.on('stack-item-added', syncUndoState)
+      undoManager?.on('stack-item-popped', syncUndoState)
+      undoManager?.on('stack-cleared', syncUndoState)
+    }
     result.provider.on('sync', syncStatus)
 
     entry.result = result
@@ -208,17 +263,25 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     entry.undoManager = undoManager
     entry.syncUndoState = syncUndoState
     entry.cleanup = () => {
-      undoManager.off('stack-item-added', syncUndoState)
-      undoManager.off('stack-item-popped', syncUndoState)
-      undoManager.off('stack-cleared', syncUndoState)
+      if (syncUndoState) {
+        undoManager?.off('stack-item-added', syncUndoState)
+        undoManager?.off('stack-item-popped', syncUndoState)
+        undoManager?.off('stack-cleared', syncUndoState)
+      }
       result.provider.off('sync', syncStatus)
+      if (readConnectionLost) {
+        result.provider.off('connection-close', readConnectionLost)
+        result.provider.off('connection-error', readConnectionLost)
+      }
     }
 
-    registerWorkflowSession({
-      workflowId: entry.workflowId,
-      workspaceId: entry.workspaceId,
-      doc: result.doc,
-    })
+    if (entry.accessMode === 'write') {
+      registerWorkflowSession({
+        workflowId: entry.workflowId,
+        workspaceId: entry.workspaceId,
+        doc: result.doc,
+      })
+    }
 
     setEntryState(entry, {
       doc: result.doc,
@@ -231,7 +294,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       error: null,
     })
   } catch (error) {
-    if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
+    if (entry.refCount === 0 || getSharedSessionEntries().get(entry.key) !== entry) {
       return
     }
 
@@ -239,9 +302,19 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to initialize workflow session',
     })
+    scheduleReadSessionReopen(entry)
   } finally {
     entry.initPromise = null
   }
+}
+
+function scheduleReadSessionReopen(entry: SharedWorkflowSessionEntry): void {
+  if (entry.accessMode !== 'read' || entry.reopenTimeout || entry.refCount === 0) return
+  entry.reopenTimeout = setTimeout(() => {
+    entry.reopenTimeout = null
+    if (entry.refCount === 0 || getSharedSessionEntries().get(entry.key) !== entry) return
+    ensureSharedSessionInitialized(entry)
+  }, READ_SESSION_REOPEN_RETRY_MS)
 }
 
 function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void {
@@ -252,9 +325,9 @@ function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void
   entry.initPromise = initializeSharedSession(entry)
 }
 
-function releaseSharedSession(workflowId: string): void {
+function releaseSharedSession(key: string): void {
   const entries = getSharedSessionEntries()
-  const entry = entries.get(workflowId)
+  const entry = entries.get(key)
   if (!entry) {
     return
   }
@@ -266,13 +339,14 @@ function releaseSharedSession(workflowId: string): void {
 
   cancelPendingDestroy(entry)
   entry.destroyTimeout = setTimeout(() => {
-    const currentEntry = getSharedSessionEntries().get(workflowId)
+    const currentEntry = getSharedSessionEntries().get(key)
     if (!currentEntry || currentEntry !== entry || currentEntry.refCount > 0) {
       return
     }
 
     currentEntry.destroyTimeout = null
-    entries.delete(workflowId)
+    entries.delete(key)
+    cancelPendingReopen(currentEntry)
 
     currentEntry.cleanup?.()
     currentEntry.cleanup = null
@@ -280,10 +354,12 @@ function releaseSharedSession(workflowId: string): void {
     currentEntry.syncUndoState = null
 
     if (currentEntry.result) {
-      unregisterWorkflowSession(currentEntry.workflowId, currentEntry.result.doc)
+      if (currentEntry.accessMode === 'write') {
+        unregisterWorkflowSession(currentEntry.workflowId, currentEntry.result.doc)
+      }
       destroyBootstrappedSession(currentEntry.result)
       currentEntry.result = null
-    } else {
+    } else if (currentEntry.accessMode === 'write') {
       unregisterWorkflowSession(currentEntry.workflowId)
     }
 
@@ -295,6 +371,7 @@ function releaseSharedSession(workflowId: string): void {
 export function acquireSharedWorkflowSession(args: {
   workflowId: string
   workspaceId: string | null
+  accessMode: ReviewAccessMode
 }): () => void {
   const entry = ensureSessionEntry(args)
   entry.refCount += 1
@@ -307,7 +384,7 @@ export function acquireSharedWorkflowSession(args: {
       return
     }
     released = true
-    releaseSharedSession(args.workflowId)
+    releaseSharedSession(entry.key)
   }
 }
 
@@ -315,7 +392,7 @@ export async function acquireWritableWorkflowSessionLease(args: {
   workflowId: string
   workspaceId: string | null
 }): Promise<{ session: RegisteredWorkflowSession; release: () => void }> {
-  const entry = ensureSessionEntry(args)
+  const entry = ensureSessionEntry({ ...args, accessMode: 'write' })
   entry.refCount += 1
   ensureSharedSessionInitialized(entry)
 
@@ -325,7 +402,7 @@ export async function acquireWritableWorkflowSessionLease(args: {
       return
     }
     released = true
-    releaseSharedSession(args.workflowId)
+    releaseSharedSession(entry.key)
   }
 
   if (entry.initPromise) {
@@ -356,9 +433,10 @@ export async function acquireWritableWorkflowSessionLease(args: {
 
 export function subscribeToSharedWorkflowSession(
   workflowId: string,
+  accessMode: ReviewAccessMode,
   listener: () => void
 ): () => void {
-  const entry = getSharedSessionEntries().get(workflowId)
+  const entry = getSharedSessionEntries().get(getSharedSessionKey(workflowId, accessMode))
   if (!entry) {
     return () => {}
   }
@@ -370,24 +448,30 @@ export function subscribeToSharedWorkflowSession(
 }
 
 export function getSharedWorkflowSessionState(
-  workflowId: string | null | undefined
+  workflowId: string | null | undefined,
+  accessMode: ReviewAccessMode
 ): SharedWorkflowSessionState {
   if (!workflowId) {
     return EMPTY_SHARED_WORKFLOW_SESSION_STATE
   }
 
-  return getSharedSessionEntries().get(workflowId)?.state ?? EMPTY_SHARED_WORKFLOW_SESSION_STATE
+  return (
+    getSharedSessionEntries().get(getSharedSessionKey(workflowId, accessMode))?.state ??
+    EMPTY_SHARED_WORKFLOW_SESSION_STATE
+  )
 }
 
 export function setSharedWorkflowSessionUser(
   workflowId: string | null | undefined,
+  accessMode: ReviewAccessMode,
   user?: SharedWorkflowSessionUser
 ): void {
   if (!workflowId || !user) {
     return
   }
 
-  const awareness = getSharedSessionEntries().get(workflowId)?.state.provider?.awareness
+  const awareness = getSharedSessionEntries().get(getSharedSessionKey(workflowId, accessMode))
+    ?.state.provider?.awareness
   if (!awareness) {
     return
   }
@@ -416,12 +500,15 @@ export function setSharedWorkflowSessionUser(
   })
 }
 
-export function undoSharedWorkflowSession(workflowId: string | null | undefined): void {
+export function undoSharedWorkflowSession(
+  workflowId: string | null | undefined,
+  accessMode: ReviewAccessMode
+): void {
   if (!workflowId) {
     return
   }
 
-  const entry = getSharedSessionEntries().get(workflowId)
+  const entry = getSharedSessionEntries().get(getSharedSessionKey(workflowId, accessMode))
   const undoManager = entry?.undoManager
   if (!entry || !undoManager) {
     return
@@ -431,12 +518,15 @@ export function undoSharedWorkflowSession(workflowId: string | null | undefined)
   entry.syncUndoState?.()
 }
 
-export function redoSharedWorkflowSession(workflowId: string | null | undefined): void {
+export function redoSharedWorkflowSession(
+  workflowId: string | null | undefined,
+  accessMode: ReviewAccessMode
+): void {
   if (!workflowId) {
     return
   }
 
-  const entry = getSharedSessionEntries().get(workflowId)
+  const entry = getSharedSessionEntries().get(getSharedSessionKey(workflowId, accessMode))
   const undoManager = entry?.undoManager
   if (!entry || !undoManager) {
     return

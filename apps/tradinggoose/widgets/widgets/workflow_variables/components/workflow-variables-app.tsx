@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
@@ -12,10 +13,16 @@ import { Variables } from '@/widgets/widgets/workflow_variables/components/varia
 interface WorkflowVariablesAppProps {
   workspaceId: string
   workflowId: string
+  accessMode: ReviewAccessMode
   panelId?: string
 }
 
-const WorkflowVariablesApp = ({ workspaceId, workflowId, panelId }: WorkflowVariablesAppProps) => {
+const WorkflowVariablesApp = ({
+  workspaceId,
+  workflowId,
+  accessMode,
+  panelId,
+}: WorkflowVariablesAppProps) => {
   const session = useSession()
 
   const user = session.data?.user
@@ -28,7 +35,12 @@ const WorkflowVariablesApp = ({ workspaceId, workflowId, panelId }: WorkflowVari
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        accessMode={accessMode}
+        user={user}
+      >
         <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
           <WorkflowVariablesAppContent workflowId={workflowId} panelId={panelId} />
         </WorkflowRouteProvider>

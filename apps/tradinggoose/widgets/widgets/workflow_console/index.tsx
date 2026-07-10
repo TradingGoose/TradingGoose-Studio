@@ -92,6 +92,7 @@ const WorkflowConsoleWidgetBody = ({
       <WorkflowConsoleApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
+        accessMode={context?.canWrite === false ? 'read' : 'write'}
         panelWidth={panelWidth || fallbackPanelWidth}
         panelId={panelId}
       />

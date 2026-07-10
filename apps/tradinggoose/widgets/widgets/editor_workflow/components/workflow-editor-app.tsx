@@ -1,6 +1,7 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import Workflow from '@/widgets/widgets/editor_workflow/components/workflow'
@@ -10,6 +11,7 @@ import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context
 interface WorkflowEditorAppProps {
   workspaceId: string
   workflowId: string
+  accessMode: ReviewAccessMode
   ui?: WorkflowCanvasUIConfig
   toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
@@ -18,6 +20,7 @@ interface WorkflowEditorAppProps {
 const WorkflowEditorApp = ({
   workspaceId,
   workflowId,
+  accessMode,
   ui,
   toolbarScopeId,
   viewportBounds,
@@ -34,7 +37,12 @@ const WorkflowEditorApp = ({
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        accessMode={accessMode}
+        user={user}
+      >
         <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
           <Workflow
             key={workflowId}

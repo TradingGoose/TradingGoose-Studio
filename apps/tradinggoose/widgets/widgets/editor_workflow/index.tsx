@@ -151,6 +151,7 @@ const WorkflowEditorWidgetBody = ({
         <WorkflowEditorApp
           workspaceId={workspaceId}
           workflowId={resolvedWorkflowId}
+          accessMode={context?.canWrite === false ? 'read' : 'write'}
           toolbarScopeId={toolbarScopeId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
@@ -230,6 +231,7 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
           workspaceId={context?.workspaceId}
           widget={widget}
           panelId={panelId}
+          accessMode={context?.canWrite === false ? 'read' : 'write'}
         />
       ),
     }

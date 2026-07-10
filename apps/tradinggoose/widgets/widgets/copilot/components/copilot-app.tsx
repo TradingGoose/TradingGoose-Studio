@@ -1,6 +1,7 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
@@ -23,6 +24,7 @@ interface CopilotAppProps {
   panelWidth: number
   channelId?: string
   pairColor: PairColor
+  accessMode: ReviewAccessMode
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
@@ -33,6 +35,7 @@ const CopilotAppContent = ({
   panelWidth,
   channelId,
   pairColor,
+  accessMode,
   layoutId,
   ownerUserId,
   layoutName,
@@ -42,6 +45,7 @@ const CopilotAppContent = ({
   panelWidth: number
   channelId: string
   pairColor: PairColor
+  accessMode: ReviewAccessMode
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
@@ -68,7 +72,12 @@ const CopilotAppContent = ({
 
   const renderWorkflowContent = () =>
     workflowId ? (
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        accessMode={accessMode}
+        user={user}
+      >
         {renderCopilotBody()}
       </WorkflowSessionProvider>
     ) : (
@@ -83,6 +92,7 @@ const CopilotApp = ({
   panelWidth,
   channelId = DEFAULT_COPILOT_CHANNEL_ID,
   pairColor,
+  accessMode,
   layoutId,
   ownerUserId,
   layoutName,
@@ -105,6 +115,7 @@ const CopilotApp = ({
           panelWidth={panelWidth}
           channelId={channelId}
           pairColor={pairColor}
+          accessMode={accessMode}
           layoutId={layoutId}
           ownerUserId={ownerUserId}
           layoutName={layoutName}

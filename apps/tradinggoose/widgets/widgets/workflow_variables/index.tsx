@@ -69,6 +69,7 @@ const WorkflowVariablesWidgetBody = ({
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
+        accessMode={context?.canWrite === false ? 'read' : 'write'}
         panelId={panelId}
       />
     </div>

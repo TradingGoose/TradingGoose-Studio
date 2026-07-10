@@ -2,6 +2,7 @@
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
@@ -16,12 +17,14 @@ interface WorkflowWidgetControlBarProps {
   workspaceId?: string
   widget?: WidgetInstance | null
   panelId?: string
+  accessMode: ReviewAccessMode
 }
 
 export function WorkflowWidgetControlBar({
   workspaceId,
   widget,
   panelId,
+  accessMode,
 }: WorkflowWidgetControlBarProps) {
   const copy = useWorkflowEditorCopy()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
@@ -38,7 +41,11 @@ export function WorkflowWidgetControlBar({
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
-        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
+        <WorkflowSessionProvider
+          workspaceId={workspaceId}
+          workflowId={resolvedWorkflowId}
+          accessMode={accessMode}
+        >
           <WorkflowRouteProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
             <ControlBar
               variant='widget'

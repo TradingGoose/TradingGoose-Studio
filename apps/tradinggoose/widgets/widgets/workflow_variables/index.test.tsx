@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowVariablesWidget } from './index'
 
+const mockVariablesApp = vi.hoisted(() => vi.fn())
+
 vi.mock('next-intl', () => ({
   useLocale: () => 'es',
   useMessages: () => getPublicCopy('es'),
@@ -37,7 +39,10 @@ vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
 
 vi.mock('./components/workflow-variables-app', () => ({
   __esModule: true,
-  default: () => <div>variables-app</div>,
+  default: (props: Record<string, unknown>) => {
+    mockVariablesApp(props)
+    return <div>variables-app</div>
+  },
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -60,6 +65,18 @@ describe('workflowVariablesWidget', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('opens workflow variables in read mode for workspace readers', () => {
+    renderToStaticMarkup(
+      createElement(workflowVariablesWidget.component, {
+        context: { workspaceId: 'ws-1', canWrite: false },
+        widget: { key: 'workflow_variables' },
+        panelId: 'panel-1',
+      } as any)
+    )
+
+    expect(mockVariablesApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 
   it('maps workflow load errors through localized widget copy', () => {

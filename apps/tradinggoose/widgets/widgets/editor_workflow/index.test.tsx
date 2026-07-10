@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowEditorWidget } from './index'
 
+const { mockEditorApp, mockControlBar } = vi.hoisted(() => ({
+  mockEditorApp: vi.fn(),
+  mockControlBar: vi.fn(),
+}))
+
 vi.mock('next-intl', () => ({
   useLocale: () => 'es',
   useMessages: () => getPublicCopy('es'),
@@ -35,7 +40,10 @@ vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-controlbar', () => ({
-  WorkflowWidgetControlBar: () => <div>control-bar</div>,
+  WorkflowWidgetControlBar: (props: Record<string, unknown>) => {
+    mockControlBar(props)
+    return <div>control-bar</div>
+  },
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-toolbar', () => ({
@@ -48,7 +56,10 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-ui-context', () => (
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-editor-app', () => ({
   __esModule: true,
-  default: () => <div>editor-app</div>,
+  default: (props: Record<string, unknown>) => {
+    mockEditorApp(props)
+    return <div>editor-app</div>
+  },
 }))
 
 describe('workflowEditorWidget', () => {
@@ -65,6 +76,26 @@ describe('workflowEditorWidget', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('opens the workflow body and control bar in read mode for workspace readers', () => {
+    renderToStaticMarkup(
+      createElement(workflowEditorWidget.component, {
+        context: { workspaceId: 'ws-1', canWrite: false },
+        widget: { key: 'editor_workflow' },
+        panelId: 'panel-1',
+      } as any)
+    )
+    renderToStaticMarkup(
+      workflowEditorWidget.renderHeader?.({
+        context: { workspaceId: 'ws-1', canWrite: false },
+        widget: { key: 'editor_workflow' } as any,
+        panelId: 'panel-1',
+      })?.right
+    )
+
+    expect(mockEditorApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
+    expect(mockControlBar).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 
   it('maps workflow load errors through localized widget copy', () => {

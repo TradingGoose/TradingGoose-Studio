@@ -11,6 +11,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
+const mockChatApp = vi.hoisted(() => vi.fn())
+
 let mockWorkflowWidgetState: any = {
   resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
@@ -68,20 +70,26 @@ vi.mock('./components', () => ({
 
 vi.mock('./components/workflow-chat-app', () => ({
   __esModule: true,
-  default: () => <div data-testid='workflow-chat-app'>workflow-chat-app</div>,
+  default: (props: Record<string, unknown>) => {
+    mockChatApp(props)
+    return <div data-testid='workflow-chat-app'>workflow-chat-app</div>
+  },
   WorkflowChatSessionProviders: ({
     workspaceId,
     workflowId,
+    accessMode,
     children,
   }: {
     workspaceId: string
     workflowId: string
+    accessMode: string
     children: React.ReactNode
   }) => (
     <div
       data-testid='workflow-chat-session-providers'
       data-workspace-id={workspaceId}
       data-workflow-id={workflowId}
+      data-access-mode={accessMode}
     >
       {children}
     </div>
@@ -107,6 +115,7 @@ describe('chatWidget header', () => {
     }
     mockChatStore.setSelectedWorkflowOutput.mockClear()
     mockChatStore.clearChat.mockClear()
+    mockChatApp.mockClear()
   })
 
   afterEach(() => {
@@ -128,6 +137,7 @@ describe('chatWidget header', () => {
       } as any,
       context: {
         workspaceId: 'ws-1',
+        canWrite: false,
       } as any,
       panelId: 'panel-1',
     })
@@ -140,6 +150,17 @@ describe('chatWidget header', () => {
     expect(provider).not.toBeNull()
     expect(provider?.getAttribute('data-workspace-id')).toBe('ws-1')
     expect(provider?.getAttribute('data-workflow-id')).toBe('wf-1')
+    expect(provider?.getAttribute('data-access-mode')).toBe('read')
     expect(container.querySelector('[data-testid="output-select"]')).not.toBeNull()
+  })
+
+  it('opens the workflow chat body in read mode for workspace readers', async () => {
+    await act(async () => {
+      root.render(
+        <>{chatWidget.component({ context: { workspaceId: 'ws-1', canWrite: false } })}</>
+      )
+    })
+
+    expect(mockChatApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 })

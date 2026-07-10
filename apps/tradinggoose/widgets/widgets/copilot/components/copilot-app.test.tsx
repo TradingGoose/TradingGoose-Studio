@@ -39,11 +39,17 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
   WorkflowSessionProvider: ({
     children,
     workflowId,
+    accessMode,
   }: {
     children: React.ReactNode
     workflowId: string
+    accessMode: string
   }) => (
-    <div data-testid='workflow-session-host' data-workflow-id={workflowId}>
+    <div
+      data-testid='workflow-session-host'
+      data-workflow-id={workflowId}
+      data-access-mode={accessMode}
+    >
       {children}
     </div>
   ),
@@ -74,7 +80,9 @@ describe('CopilotApp', () => {
 
   const renderApp = async () => {
     await act(async () => {
-      root.render(<CopilotApp workspaceId='ws-1' panelWidth={480} pairColor='gray' />)
+      root.render(
+        <CopilotApp workspaceId='ws-1' panelWidth={480} pairColor='gray' accessMode='write' />
+      )
     })
   }
 
@@ -116,6 +124,10 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
       'data-workflow-id',
       'workflow-current'
+    )
+    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
+      'data-access-mode',
+      'write'
     )
   })
 

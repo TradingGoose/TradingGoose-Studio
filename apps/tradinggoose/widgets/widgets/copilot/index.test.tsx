@@ -79,7 +79,7 @@ describe('copilotWidget', () => {
             params: {
               workflowId: 'wf-stale',
             },
-            context: { workspaceId: 'ws-1' },
+            context: { workspaceId: 'ws-1', canWrite: false },
             pairColor: 'blue',
             panelId: 'panel-1',
             widget: {
@@ -99,6 +99,7 @@ describe('copilotWidget', () => {
       workspaceId: 'ws-1',
       channelId: 'pair-blue',
       pairColor: 'blue',
+      accessMode: 'read',
     })
   })
 

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
-import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { CopilotHeader, CopilotHeaderActions } from './components/copilot/copilot-header'
 import CopilotApp from './components/copilot-app'
 
@@ -70,6 +70,7 @@ const CopilotWidgetBody = ({
         panelWidth={panelWidth || defaultPanelWidth}
         channelId={channelId}
         pairColor={resolvedPairColor}
+        accessMode={context?.canWrite === false ? 'read' : 'write'}
         layoutId={layoutId}
         ownerUserId={ownerUserId}
         layoutName={layoutName}

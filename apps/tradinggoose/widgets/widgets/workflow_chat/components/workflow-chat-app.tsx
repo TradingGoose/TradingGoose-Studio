@@ -2,6 +2,7 @@
 
 import { type ReactNode, useState } from 'react'
 import { useSession } from '@/lib/auth-client'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -10,17 +11,20 @@ import { Chat } from './chat/chat'
 interface WorkflowChatAppProps {
   workspaceId: string
   workflowId: string
+  accessMode: ReviewAccessMode
 }
 
 interface WorkflowChatSessionProvidersProps {
   workspaceId: string
   workflowId: string
+  accessMode: ReviewAccessMode
   children: ReactNode
 }
 
 const WorkflowChatSessionProviders = ({
   workspaceId,
   workflowId,
+  accessMode,
   children,
 }: WorkflowChatSessionProvidersProps) => {
   const session = useSession()
@@ -34,7 +38,12 @@ const WorkflowChatSessionProviders = ({
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        accessMode={accessMode}
+        user={user}
+      >
         <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
           {children}
         </WorkflowRouteProvider>
@@ -43,11 +52,15 @@ const WorkflowChatSessionProviders = ({
   )
 }
 
-const WorkflowChatApp = ({ workspaceId, workflowId }: WorkflowChatAppProps) => {
+const WorkflowChatApp = ({ workspaceId, workflowId, accessMode }: WorkflowChatAppProps) => {
   const [chatMessage, setChatMessage] = useState('')
 
   return (
-    <WorkflowChatSessionProviders workspaceId={workspaceId} workflowId={workflowId}>
+    <WorkflowChatSessionProviders
+      workspaceId={workspaceId}
+      workflowId={workflowId}
+      accessMode={accessMode}
+    >
       <div className='flex h-full w-full flex-col overflow-y-auto'>
         <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} hideScrollbar={false} />
       </div>
