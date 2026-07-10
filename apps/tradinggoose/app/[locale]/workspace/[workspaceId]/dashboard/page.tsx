@@ -37,13 +37,11 @@ export default async function WorkspaceDashboardPage({
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
       <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
         <DashboardClient
-          initialState={activeLayout.layout}
+          initialTopology={activeLayout.topology}
           workspaceId={workspaceId}
           ownerUserId={userId}
           layoutId={activeLayout.id}
-          initialLayoutName={activeLayout.name}
           initialLayouts={projection.layouts}
-          initialColorPairs={activeLayout.colorPairs}
           workspaceCanWrite={access.canWrite}
         />
       </div>

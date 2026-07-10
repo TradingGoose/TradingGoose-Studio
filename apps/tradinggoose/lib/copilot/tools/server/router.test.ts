@@ -11,6 +11,7 @@ import {
 const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
   entityId: 'workflow-123',
+  entityName: 'Workflow 1',
   entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
   documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
   workflowState: { blocks: {} },
@@ -177,14 +178,15 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
   listCustomToolsServerTool: entityTool('list_custom_tools'),
   listIndicatorsServerTool: entityTool('list_indicators'),
-  listLayoutsServerTool: entityTool('list_layouts'),
+  listLayoutsServerTool: entityTool('list_layout'),
   listMcpServersServerTool: entityTool('list_mcp_servers'),
   listSkillsServerTool: entityTool('list_skills'),
-  listWatchlistsServerTool: entityTool('list_watchlists'),
+  listWatchlistsServerTool: entityTool('list_watchlist'),
   listWorkflowsServerTool: entityTool('list_workflows'),
   readCustomToolServerTool: entityTool('read_custom_tool'),
   readIndicatorServerTool: entityTool('read_indicator'),
   readLayoutServerTool: entityTool('read_layout'),
+  renameLayoutServerTool: entityTool('rename_layout'),
   readMcpServerServerTool: entityTool('read_mcp_server'),
   readSkillServerTool: entityTool('read_skill'),
   readWatchlistServerTool: entityTool('read_watchlist'),
@@ -261,8 +263,24 @@ describe('copilot contract registry', () => {
     expect(getMcpServerToolIds()).toContain('edit_workflow')
     expect(getMcpServerToolIds()).toContain('set_environment_variables')
     expect(getMcpServerToolIds()).toContain('create_mcp_server')
-    expect(getMcpServerToolIds()).toContain('list_watchlists')
-    expect(getMcpServerToolIds()).toContain('search_listing')
+    expect(getMcpServerToolIds()).toEqual(
+      expect.arrayContaining([
+        'list_watchlist',
+        'read_watchlist',
+        'create_watchlist',
+        'edit_watchlist',
+        'rename_watchlist',
+        'search_listing',
+        'list_layout',
+        'read_layout',
+        'create_layout',
+        'edit_layout',
+        'rename_layout',
+        'edit_widget',
+        'get_available_widgets',
+        'get_widgets_metadata',
+      ])
+    )
     expect(getMcpServerToolIds()).toContain('get_available_blocks')
     expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
@@ -313,6 +331,7 @@ describe('copilot contract registry', () => {
     const workflowReadResult = {
       entityKind: 'workflow',
       entityId: 'workflow-123',
+      entityName: 'Workflow 1',
       entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
@@ -369,6 +388,18 @@ describe('copilot contract registry', () => {
     })
   })
 
+  it('accepts the canonical workflow rename result', () => {
+    const result = {
+      success: true,
+      entityKind: 'workflow',
+      entityId: 'workflow-123',
+      entityName: 'Renamed Workflow',
+      workspaceId: 'workspace-123',
+    }
+
+    expect(getToolContract('rename_workflow')?.result.parse(result)).toEqual(result)
+  })
+
   it('accepts explicit entity ids on workflow execution tools', () => {
     expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
     expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
@@ -399,7 +430,7 @@ describe('copilot contract registry', () => {
 
   it('exposes knowledge base document contracts directly', () => {
     const entityDocument =
-      '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
+      '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
     const mutationArgs = {
       entityId: 'kb-123',
       entityDocument,
@@ -424,18 +455,23 @@ describe('copilot contract registry', () => {
     expect(
       getToolContract('create_knowledge_base')?.args.parse({
         workspaceId: 'workspace-123',
+        name: 'Research',
         entityDocument,
         documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
       })
     ).toEqual({
       workspaceId: 'workspace-123',
+      name: 'Research',
       entityDocument,
       documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
     })
-    expect(getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toEqual(mutationArgs)
-    expect(() =>
-      getToolContract('rename_knowledge_base')?.args.parse({ entityId: 'kb-123', name: 'Research' })
-    ).toThrow()
+    expect(
+      getToolContract('rename_knowledge_base')?.args.parse({
+        entityId: 'kb-123',
+        name: 'Research',
+      })
+    ).toEqual({ entityId: 'kb-123', name: 'Research' })
+    expect(() => getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toThrow()
     expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
     expect(
       getToolContract('edit_knowledge_base')?.result.parse({
@@ -473,7 +509,7 @@ describe('routeExecution', () => {
   it('identifies workspace-agnostic server tools from arbitrary strings', () => {
     expect(isWorkspaceAgnosticServerTool('search_listing')).toBe(true)
     expect(isWorkspaceAgnosticServerTool('search_documentation')).toBe(true)
-    expect(isWorkspaceAgnosticServerTool('list_watchlists')).toBe(false)
+    expect(isWorkspaceAgnosticServerTool('list_watchlist')).toBe(false)
     expect(isWorkspaceAgnosticServerTool('not_a_tool')).toBe(false)
   })
 

@@ -39,7 +39,7 @@ import {
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { requireUserId, verifyWorkspaceContext } from './shared'
+import { executeRenameEntityMutation, requireUserId, verifyWorkspaceContext } from './shared'
 
 type WorkflowSummary = {
   blocks: Array<{
@@ -213,7 +213,7 @@ export async function loadWorkflowSnapshotForCopilot(
   accessMode: ReviewAccessMode
 ): Promise<{
   workflowId: string
-  entityName?: string
+  entityName: string
   workspaceId: string | null
   workflowState: WorkflowSnapshot
   variables: Record<string, any>
@@ -252,7 +252,7 @@ export async function loadWorkflowSnapshotForCopilot(
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
     return {
       workflowId,
-      entityName: workflowRow.name ?? undefined,
+      entityName: workflowRow.name,
       workspaceId: workflowRow.workspaceId ?? null,
       workflowState: readWorkflowSnapshot(doc),
       variables: getVariablesSnapshot(doc),
@@ -411,7 +411,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       )
     }
     const workflowId = requireCopilotEntityId(args, { toolName: 'edit_workflow_variable' })
-    const { workspaceId, variables } = await loadWorkflowSnapshotForCopilot(
+    const { entityName, workspaceId, variables } = await loadWorkflowSnapshotForCopilot(
       workflowId,
       context,
       'write'
@@ -446,6 +446,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
         success: true,
         entityKind: ENTITY_KIND_WORKFLOW,
         entityId: workflowId,
+        entityName,
         ...(workspaceId ? { workspaceId } : {}),
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
         entityDocument: nextDocument,
@@ -466,6 +467,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
       entityId: workflowId,
+      entityName,
       ...(workspaceId ? { workspaceId } : {}),
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
       entityDocument: nextDocument,
@@ -550,64 +552,7 @@ export const createWorkflowServerTool: BaseServerTool<
 export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: string }, any> = {
   name: 'rename_workflow',
   async execute(args, context) {
-    const workflowId = requireCopilotEntityId(args, { toolName: 'rename_workflow' })
-    const nextName = args.name?.trim()
-    if (!nextName) {
-      throw new Error('name is required')
-    }
-
-    const { workspaceId: accessWorkspaceId } = await verifyWorkflowContext(
-      workflowId,
-      context,
-      'write'
-    )
-    const [current] = await db
-      .select({
-        name: workflow.name,
-        workspaceId: workflow.workspaceId,
-      })
-      .from(workflow)
-      .where(eq(workflow.id, workflowId))
-      .limit(1)
-    if (!current) {
-      throw new Error('Workflow not found')
-    }
-
-    const workspaceId = current.workspaceId ?? accessWorkspaceId
-    const currentNameBaseHash = hashServerToolReviewBase({
-      workflowId,
-      entityName: current.name ?? '',
-    })
-    if (shouldStageServerToolMutationForReview(context)) {
-      return {
-        requiresReview: true,
-        success: true,
-        entityKind: ENTITY_KIND_WORKFLOW,
-        entityId: workflowId,
-        entityName: nextName,
-        workspaceId: workspaceId ?? undefined,
-        reviewBaseStateHash: currentNameBaseHash,
-      }
-    }
-
-    assertAcceptedServerToolReviewBase(context, currentNameBaseHash)
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set({ name: nextName, updatedAt: new Date() })
-      .where(eq(workflow.id, workflowId))
-      .returning()
-    if (!updatedWorkflow) {
-      throw new Error('Workflow not found')
-    }
-    await refreshWorkflowListForWorkflow(workflowId)
-
-    return {
-      success: true,
-      entityKind: ENTITY_KIND_WORKFLOW,
-      entityId: workflowId,
-      entityName: nextName,
-      workspaceId: updatedWorkflow.workspaceId ?? workspaceId ?? undefined,
-    }
+    return executeRenameEntityMutation(ENTITY_KIND_WORKFLOW, 'rename_workflow', args, context)
   },
 }
 

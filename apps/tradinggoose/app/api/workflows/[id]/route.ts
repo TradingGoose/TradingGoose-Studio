@@ -8,6 +8,7 @@ import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
+import { renameSavedEntityIdentity, SavedEntityIdentityError } from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
 import {
   refreshWorkflowList,
@@ -15,10 +16,6 @@ import {
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import {
-  guardWorkspaceEntityDocumentDeleteInTx,
-  WorkspaceEntityDocumentDeletionError,
-} from '@/lib/workspaces/entity-documents'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -249,26 +246,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const workspaceId = workflowData.workspaceId
-    if (workspaceId) {
-      const deleted = await db.transaction(async (tx) => {
-        const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-          entityKind: 'workflow',
-          entityId: workflowId,
-          workspaceId,
-        })
-        if (!canDelete) {
-          return false
-        }
-        await tx.delete(workflow).where(eq(workflow.id, workflowId))
-        return true
-      })
-      if (!deleted) {
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-    } else {
-      await db.delete(workflow).where(eq(workflow.id, workflowId))
-    }
+    await db.delete(workflow).where(eq(workflow.id, workflowId))
 
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
@@ -284,9 +262,6 @@ export async function DELETE(
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
     const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
     if (realtimeResponse) return realtimeResponse
-    if (error instanceof WorkspaceEntityDocumentDeletionError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -350,25 +325,36 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const rowUpdates = {
-      ...(updates.name !== undefined ? { name: updates.name } : {}),
-      ...(updates.description !== undefined ? { description: updates.description } : {}),
-      ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
-      updatedAt: new Date(),
+    let updatedWorkflow = workflowData
+    const hasRowUpdates = updates.description !== undefined || updates.folderId !== undefined
+    if (hasRowUpdates) {
+      const [row] = await db
+        .update(workflow)
+        .set({
+          ...(updates.description !== undefined ? { description: updates.description } : {}),
+          ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(workflow.id, workflowId))
+        .returning()
+      if (!row) {
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+      updatedWorkflow = { ...updatedWorkflow, ...row }
     }
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set(rowUpdates)
-      .where(eq(workflow.id, workflowId))
-      .returning()
-    if (!updatedWorkflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    let renamedName: string | null = null
+    if (updates.name) {
+      if (!workflowData.workspaceId) {
+        throw new SavedEntityIdentityError(400, 'Workflow workspace is required')
+      }
+      renamedName = await renameSavedEntityIdentity({
+        entityKind: 'workflow',
+        entityId: workflowId,
+        workspaceId: workflowData.workspaceId,
+        name: updates.name,
+      })
     }
-    if (
-      updates.name !== undefined ||
-      updates.description !== undefined ||
-      updates.folderId !== undefined
-    ) {
+    if (!renamedName && hasRowUpdates) {
       await refreshWorkflowListForWorkflow(workflowId)
     }
 
@@ -377,7 +363,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       updates,
     })
 
-    return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
+    return NextResponse.json(
+      { workflow: renamedName ? { ...updatedWorkflow, name: renamedName } : updatedWorkflow },
+      { status: 200 }
+    )
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     if (error instanceof z.ZodError) {
@@ -388,6 +377,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       )
+    }
+    if (error instanceof SavedEntityIdentityError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
     logger.error(`[${requestId}] Error updating workflow ${workflowId} after ${elapsed}ms`, error)

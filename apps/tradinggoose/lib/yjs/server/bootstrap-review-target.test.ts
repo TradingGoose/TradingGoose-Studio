@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { getEntityListMembers } from '@/lib/yjs/entity-session'
 import {
+  createSavedReviewTargetBootstrapUpdate,
   readSavedEntityListFieldsForExecution,
   reseedEntityListSessionFromDb,
 } from './bootstrap-review-target'
@@ -28,6 +30,17 @@ function deferred<T>() {
 async function flushMicrotasks() {
   await Promise.resolve()
   await Promise.resolve()
+}
+
+const dashboardContent = {
+  layout: {
+    id: 'panel-1',
+    type: 'panel' as const,
+    identityId: null,
+    widgetKey: null,
+  },
+  widgets: {},
+  colorPairs: { pairs: [] },
 }
 
 describe('reseedEntityListSessionFromDb', () => {
@@ -103,7 +116,7 @@ describe('reseedEntityListSessionFromDb', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       },
     ])
-    readSavedEntityFieldsFromDb.mockResolvedValueOnce({ name: 'Layout 1' })
+    readSavedEntityFieldsFromDb.mockResolvedValueOnce(dashboardContent)
 
     await expect(
       readSavedEntityListFieldsForExecution('dashboard_layout', 'workspace-1', true, 'user-1')
@@ -113,8 +126,30 @@ describe('reseedEntityListSessionFromDb', () => {
         entityName: 'Layout 1',
         sortOrder: 2,
         isActive: true,
-        fields: { name: 'Layout 1' },
+        fields: dashboardContent,
       }),
     ])
+  })
+
+  it('bootstraps dashboard sessions from content without generic fields or row metadata', async () => {
+    readSavedEntityFieldsFromDb.mockResolvedValueOnce(dashboardContent)
+
+    const result = await createSavedReviewTargetBootstrapUpdate(
+      buildSavedEntityDescriptor('dashboard_layout', 'layout-1', 'workspace-1', {
+        ownerUserId: 'user-1',
+      })
+    )
+    const doc = new Y.Doc()
+    try {
+      Y.applyUpdate(doc, result.state)
+      const { readDashboardLayoutContent } = await import('@/lib/yjs/dashboard-layout-session')
+      expect(readDashboardLayoutContent(doc)).toEqual(dashboardContent)
+      expect(doc.share.has('fields')).toBe(false)
+      expect(doc.getMap('layout').has('name')).toBe(false)
+      expect(doc.getMap('layout').has('isActive')).toBe(false)
+      expect(doc.getMap('layout').has('sortOrder')).toBe(false)
+    } finally {
+      doc.destroy()
+    }
   })
 })

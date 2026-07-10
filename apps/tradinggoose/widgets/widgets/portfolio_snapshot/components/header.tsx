@@ -7,7 +7,6 @@ import { TradingProviderControls } from '@/components/trading-selector/provider-
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { LocaleCode } from '@/i18n/utils'
-import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
@@ -18,6 +17,7 @@ import {
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
+import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 
 type HeaderControlProps = {
   workspaceId?: string
@@ -26,12 +26,9 @@ type HeaderControlProps = {
   params: PortfolioSnapshotWidgetParams | null
 }
 
-const usePatchPortfolioSnapshotParams = (panelId: string | undefined, widgetKey: string) => {
+const usePatchPortfolioSnapshotParams = () => {
   const actions = useWidgetConfigRuntimeActions()
-  return (params: Record<string, unknown>) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, params)
-  }
+  return actions.patchWidgetParams
 }
 
 export function PortfolioSnapshotHeaderControls({
@@ -52,7 +49,7 @@ export function PortfolioSnapshotHeaderControls({
   const marketProviderOptions = useMemo(() => getPortfolioSnapshotMarketProviderOptions(), [])
   const providerId = resolvePortfolioSnapshotProviderId(params, providerOptions)
   const marketProviderId = resolvePortfolioSnapshotMarketProviderId(params, marketProviderOptions)
-  const patchParams = usePatchPortfolioSnapshotParams(panelId, widgetKey)
+  const patchParams = usePatchPortfolioSnapshotParams()
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
@@ -117,7 +114,7 @@ function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderC
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
-  const patchParams = usePatchPortfolioSnapshotParams(panelId, widgetKey)
+  const patchParams = usePatchPortfolioSnapshotParams()
 
   return (
     <WidgetHeaderRefreshButton

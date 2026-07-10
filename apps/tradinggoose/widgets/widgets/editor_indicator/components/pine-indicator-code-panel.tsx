@@ -35,6 +35,7 @@ import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflo
 
 type IndicatorCodePanelProps = {
   indicatorId: string
+  indicatorName: string
   workspaceId: string
   doc: Y.Doc | null
   save: () => Promise<void>
@@ -160,6 +161,7 @@ const verifyIndicatorInBrowser = async ({
 
 export function IndicatorCodePanel({
   indicatorId,
+  indicatorName,
   workspaceId,
   doc,
   save,
@@ -167,7 +169,6 @@ export function IndicatorCodePanel({
   saveRef,
   verifyRef,
 }: IndicatorCodePanelProps) {
-  const [indicatorName] = useYjsStringField(doc, 'name')
   const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
 
   const [verifyStatus, setVerifyStatus] = useState<

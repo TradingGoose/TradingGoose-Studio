@@ -181,8 +181,6 @@ describe('PortfolioSnapshotHeaderControls', () => {
 
     expect(container.textContent).toContain('Market provider')
     expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
       expect.objectContaining({
         marketProvider: expect.any(String),
       })
@@ -198,7 +196,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'portfolio_snapshot', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       provider: 'tradier',
       portfolioIdentity: null,
       serviceId: null,
@@ -213,7 +211,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'portfolio_snapshot', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       portfolioIdentity: {
         providerId: 'alpaca',
         credentialId: 'oauth-account-1',
@@ -251,7 +249,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'portfolio_snapshot', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       runtime: {
         refreshAt: expect.any(Number),
       },

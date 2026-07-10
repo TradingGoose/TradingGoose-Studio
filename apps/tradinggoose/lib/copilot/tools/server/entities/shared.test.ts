@@ -12,11 +12,13 @@ import {
   buildReviewDocumentDiff,
   buildSavedEntityListInfo,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
 } from './shared'
 
-const { mockApplySavedEntityState } = vi.hoisted(() => ({
+const { mockApplySavedEntityState, mockRenameSavedEntityIdentity } = vi.hoisted(() => ({
   mockApplySavedEntityState: vi.fn(),
+  mockRenameSavedEntityIdentity: vi.fn(),
 }))
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
@@ -44,10 +46,20 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   readEntityListMembersFromDb: (...args: unknown[]) => mockReadEntityListMembersFromDb(...args),
 }))
 
+vi.mock('@/lib/saved-entities/identity', async (importOriginal) => ({
+  ...(await importOriginal<any>()),
+  renameSavedEntityIdentity: (...args: unknown[]) => mockRenameSavedEntityIdentity(...args),
+}))
+
 describe('entity document mutation helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockApplySavedEntityState.mockImplementation(async (_kind, _entityId, fields) => fields)
+    mockRenameSavedEntityIdentity.mockResolvedValue(undefined)
+    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
+      description: 'Existing description',
+      content: 'Existing content',
+    })
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
@@ -57,7 +69,15 @@ describe('entity document mutation helpers', () => {
       hasAccess: true,
       workspaceId: 'workspace-1',
     })
-    mockReadEntityListMembersFromDb.mockResolvedValue([])
+    mockReadEntityListMembersFromDb.mockImplementation(async (kind: string) => {
+      const members: Record<string, { id: string; name: string }> = {
+        skill: { id: 'skill-1', name: 'Existing Skill' },
+        indicator: { id: 'indicator-1', name: 'Existing Indicator' },
+        mcp_server: { id: 'mcp-1', name: 'Existing MCP' },
+        watchlist: { id: 'watchlist-1', name: 'Existing Watchlist' },
+      }
+      return members[kind] ? [members[kind]] : []
+    })
   })
 
   it('builds server list entries from canonical DB membership', async () => {
@@ -89,7 +109,6 @@ describe('entity document mutation helpers', () => {
         entityId: 'skill-1',
         documentFormat: SKILL_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
-          name: 'Updated Skill',
           description: 'Updated description',
           content: 'Use the updated process.',
         }),
@@ -102,13 +121,12 @@ describe('entity document mutation helpers', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       entityId: 'skill-1',
-      entityName: 'Updated Skill',
+      entityName: 'Existing Skill',
       documentFormat: SKILL_DOCUMENT_FORMAT,
     })
     expect(result).not.toHaveProperty('requiresReview')
     expect(result).not.toHaveProperty('preview')
     expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', {
-      name: 'Updated Skill',
       description: 'Updated description',
       content: 'Use the updated process.',
     })
@@ -117,12 +135,10 @@ describe('entity document mutation helpers', () => {
 
   it('persists accepted reviewed updates after verifying the reviewed base', async () => {
     const currentFields = {
-      name: 'Existing Skill',
       description: 'Existing description',
       content: 'Use the existing process.',
     }
     const nextFields = {
-      name: 'Updated Skill',
       description: 'Updated description',
       content: 'Use the updated process.',
     }
@@ -146,35 +162,89 @@ describe('entity document mutation helpers', () => {
     expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
   })
 
-  it('keeps indicator input metadata out of Copilot document updates', async () => {
+  it('renames only the identity field and reviews only identity state', async () => {
+    mockReadEntityListMembersFromDb.mockResolvedValue([{ id: 'skill-1', name: 'Existing Skill' }])
+    const staged = await executeRenameEntityMutation(
+      'skill',
+      'rename_skill',
+      { entityId: 'skill-1', name: 'Renamed Skill' },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect('preview' in staged ? staged.preview.documentDiff : null).toEqual({
+      before: '{\n  "name": "Existing Skill"\n}',
+      after: '{\n  "name": "Renamed Skill"\n}',
+    })
+    expect(mockRenameSavedEntityIdentity).not.toHaveBeenCalled()
+
+    await executeRenameEntityMutation(
+      'skill',
+      'rename_skill',
+      { entityId: 'skill-1', name: 'Renamed Skill' },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      ownerUserId: null,
+      name: 'Renamed Skill',
+    })
+    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
+    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
+  })
+
+  it('uses the canonical custom-tool identity for review and persistence', async () => {
+    mockReadEntityListMembersFromDb.mockResolvedValueOnce([{ id: 'tool-1', name: 'Existing Tool' }])
+
+    const result = await executeRenameEntityMutation(
+      'custom_tool',
+      'rename_custom_tool',
+      { entityId: 'tool-1', name: '  My   Tool  ' },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+
+    expect(result).toMatchObject({
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      entityName: 'My Tool',
+    })
+    expect(result).not.toHaveProperty('entityDocument')
+    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      workspaceId: 'workspace-1',
+      ownerUserId: null,
+      name: 'My Tool',
+    })
+  })
+
+  it('rejects non-canonical indicator metadata instead of silently adapting it', async () => {
     const pineCode = `
 const mode = input.enum('fast', 'Mode', ['fast', 'slow'])
 const length = input.int(14, 'Length', 1, 50, 1)
 `
 
-    await executeUpdateEntityDocumentMutation(
-      'indicator',
-      'edit_indicator',
-      {
-        entityId: 'indicator-1',
-        documentFormat: INDICATOR_DOCUMENT_FORMAT,
-        entityDocument: JSON.stringify({
-          name: 'Updated Indicator',
-          color: '#10b981',
-          pineCode,
-          inputMeta: {
-            Stale: { title: 'Stale', type: 'string', defval: 'old' },
-          },
-        }),
-      },
-      { userId: 'user-1', accessLevel: 'full' }
-    )
+    await expect(
+      executeUpdateEntityDocumentMutation(
+        'indicator',
+        'edit_indicator',
+        {
+          entityId: 'indicator-1',
+          documentFormat: INDICATOR_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            color: '#10b981',
+            pineCode,
+            inputMeta: {
+              Stale: { title: 'Stale', type: 'string', defval: 'old' },
+            },
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow(/inputMeta/)
 
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('indicator', 'indicator-1', {
-      name: 'Updated Indicator',
-      color: '#10b981',
-      pineCode,
-    })
+    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })
 
   it('rejects MCP server create documents without a URL', async () => {
@@ -185,9 +255,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
         'mcp_server',
         {
           workspaceId: 'workspace-1',
+          name: 'Missing URL MCP',
           documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
           entityDocument: JSON.stringify({
-            name: 'Missing URL MCP',
             description: '',
             transport: 'http',
             url: '',
@@ -211,7 +281,6 @@ const length = input.int(14, 'Length', 1, 50, 1)
   it('allows disabled MCP server drafts without a URL', () => {
     expect(
       normalizeEntityFields('mcp_server', {
-        name: 'Draft MCP',
         description: '',
         transport: 'streamable-http',
         url: '',
@@ -223,7 +292,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
         retries: 3,
         enabled: false,
       })
-    ).toMatchObject({ name: 'Draft MCP', url: '', enabled: false })
+    ).toMatchObject({ url: '', enabled: false })
   })
 
   it('rejects MCP server edit documents without a URL before persisting state', async () => {
@@ -235,7 +304,6 @@ const length = input.int(14, 'Length', 1, 50, 1)
           entityId: 'mcp-1',
           documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
           entityDocument: JSON.stringify({
-            name: 'Missing URL MCP',
             description: '',
             transport: 'streamable-http',
             url: '   ',
@@ -263,9 +331,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
         {
           entityId: 'watchlist-1',
           documentFormat: WATCHLIST_DOCUMENT_FORMAT,
-          entityDocument: JSON.stringify({
-            name: 'Only Name',
-          }),
+          entityDocument: JSON.stringify({}),
         },
         { userId: 'user-1', accessLevel: 'full' }
       )
@@ -282,7 +348,6 @@ const length = input.int(14, 'Length', 1, 50, 1)
         entityId: 'mcp-1',
         documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
-          name: 'Header MCP',
           description: '',
           transport: 'streamable-http',
           url: 'https://mcp.example.test',
@@ -310,9 +375,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
       'skill',
       {
         workspaceId: 'workspace-1',
+        name: 'New Skill',
         documentFormat: SKILL_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
-          name: 'New Skill',
           description: 'New description',
           content: 'Use the new process.',
         }),
@@ -330,14 +395,13 @@ const length = input.int(14, 'Length', 1, 50, 1)
       documentFormat: SKILL_DOCUMENT_FORMAT,
     })
     expect('preview' in result ? result.preview.documentDiff.before : undefined).toBe('')
-    expect('preview' in result ? result.preview.documentDiff.after : undefined).toContain(
+    expect('preview' in result ? result.preview.documentDiff.after : undefined).not.toContain(
       'New Skill'
     )
   })
 
   it('redacts MCP server secret values in Copilot documents', async () => {
-    const readEnvelope = buildDocumentEnvelope('mcp_server', 'mcp-1', {
-      name: 'Private MCP',
+    const readEnvelope = buildDocumentEnvelope('mcp_server', 'mcp-1', 'Private MCP', {
       description: 'Uses auth',
       transport: 'http',
       url: 'https://mcp.example.test',
@@ -353,9 +417,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
       'mcp_server',
       {
         workspaceId: 'workspace-1',
+        name: 'Private MCP',
         documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
-          name: 'Private MCP',
           description: 'Uses auth',
           transport: 'http',
           url: 'https://mcp.example.test',
@@ -375,7 +439,6 @@ const length = input.int(14, 'Length', 1, 50, 1)
     const diff = buildReviewDocumentDiff(
       'mcp_server',
       {
-        name: 'Private MCP',
         description: 'Uses old auth',
         transport: 'http',
         url: 'https://mcp.example.test',

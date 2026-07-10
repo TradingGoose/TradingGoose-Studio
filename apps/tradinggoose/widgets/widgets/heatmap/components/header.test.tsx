@@ -165,8 +165,6 @@ describe('HeatmapHeaderControls', () => {
     })
 
     expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
       expect.objectContaining({
         marketProvider: expect.any(String),
       })
@@ -228,7 +226,7 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       sourceMode: 'portfolio',
     })
   })
@@ -255,7 +253,7 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       watchlistSizeMetric: 'volume',
     })
   })
@@ -282,7 +280,7 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'heatmap', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       serviceId: selectedPortfolioIdentity.serviceId,
       portfolioIdentity: selectedPortfolioIdentity,
     })

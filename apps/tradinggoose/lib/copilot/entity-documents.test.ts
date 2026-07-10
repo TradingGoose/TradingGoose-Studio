@@ -7,7 +7,6 @@ import {
 } from '@/lib/copilot/entity-documents'
 
 const watchlistDocument = {
-  name: 'Growth',
   settings: { showLogo: true, showTicker: true, showDescription: true },
   items: [],
 }
@@ -22,7 +21,7 @@ describe('copilot entity documents', () => {
           parentId: null,
         })
       )
-    ).toThrow('Unsupported watchlist document field: parentId')
+    ).toThrow(/parentId|Unrecognized/i)
   })
 
   it('accepts canonical watchlist documents for the current format', () => {
@@ -37,7 +36,7 @@ describe('copilot entity documents', () => {
       parseEntityDocument(
         'watchlist',
         JSON.stringify({
-          name: 'Only Name',
+          items: [],
         })
       )
     ).toThrow(/settings/i)
@@ -57,12 +56,14 @@ describe('copilot entity documents', () => {
       quote_id: 'USD',
     }
     const document = {
-      name: 'Markets',
       layout: {
         id: 'panel-chart',
         type: 'panel',
-        widget: {
-          key: 'data_chart',
+        identityId: 'widget-chart',
+        widgetKey: 'data_chart',
+      },
+      widgets: {
+        'widget-chart': {
           pairColor: 'gray',
           params: { listing: cryptoListing },
         },
@@ -70,16 +71,14 @@ describe('copilot entity documents', () => {
       colorPairs: {
         pairs: [{ color: 'red', listing: currencyListing }],
       },
-      isActive: true,
-      sortOrder: 0,
     }
 
-    expect(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).toBe('tg-dashboard-layout-document-v1')
+    expect(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).toBe('tg-dashboard-layout-document-v2')
     expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
 
     const serialized = JSON.parse(serializeEntityDocument('dashboard_layout', document))
     expect(serialized).toEqual(document)
-    expect(serialized.layout.widget.params.listing.base).toBeUndefined()
+    expect(serialized.widgets['widget-chart'].params.listing.base).toBeUndefined()
     expect(serialized.colorPairs.pairs[0].listing.quote).toBeUndefined()
   })
 
@@ -88,21 +87,47 @@ describe('copilot entity documents', () => {
       parseEntityDocument(
         'dashboard_layout',
         JSON.stringify({
-          name: 'Markets',
           layout: {
             id: 'panel-chart',
             type: 'panel',
-            widget: {
-              key: 'unknown_widget',
+            identityId: 'widget-chart',
+            widgetKey: 'unknown_widget',
+          },
+          widgets: {
+            'widget-chart': {
               pairColor: 'gray',
               params: null,
             },
           },
           colorPairs: { pairs: [] },
-          isActive: true,
-          sortOrder: 0,
         })
       )
-    ).toThrow('layout.widget.key must be a canonical widget key')
+    ).toThrow('unknown_widget')
+  })
+
+  it.each([
+    ['watchlist', { watchlistId: 123 }],
+    ['data_chart', { data: { provider: 123 } }],
+  ])('rejects lossy persisted %s widget params', (widgetKey, params) => {
+    expect(() =>
+      parseEntityDocument(
+        'dashboard_layout',
+        JSON.stringify({
+          layout: {
+            id: 'panel-widget',
+            type: 'panel',
+            identityId: 'widget-1',
+            widgetKey,
+          },
+          widgets: {
+            'widget-1': {
+              pairColor: 'gray',
+              params,
+            },
+          },
+          colorPairs: { pairs: [] },
+        })
+      )
+    ).toThrow('params must be canonical')
   })
 })

@@ -5,10 +5,12 @@
 import { act, type InputHTMLAttributes, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import type { LayoutTab } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { LayoutNode } from '@/widgets/layout'
+import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 import type { PairColor } from '@/widgets/pair-colors'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -18,9 +20,11 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mockPush = vi.fn()
 const mockReplace = vi.fn()
 const dashboardClientMocks = vi.hoisted(() => ({
-  saveSavedEntityField: vi.fn(() => Promise.resolve()),
+  activateDashboardLayoutAction: vi.fn(() => Promise.resolve()),
   createDashboardLayoutAction: vi.fn(() => Promise.resolve({ layoutId: 'layout-new' })),
   deleteDashboardLayoutAction: vi.fn(() => Promise.resolve()),
+  renameSavedEntityAction: vi.fn(() => Promise.resolve()),
+  reorderDashboardLayoutAction: vi.fn(() => Promise.resolve()),
 }))
 let mockPathname = '/workspace/ws-a/dashboard'
 let mockSearchParams = 'panel=left'
@@ -31,8 +35,9 @@ let mockDashboardLayoutList: {
   isLoading: boolean
   error: unknown
 } | null = null
-let mockDashboardLayoutProviderReady = true
-const mockMutateLayoutDocument = vi.fn()
+let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
+let mockDocuments = new Set<Y.Doc>()
+const mockLayoutMutation = vi.fn()
 const dashboardPermissions = {
   workspaceCanWrite: true,
 } as const
@@ -62,7 +67,6 @@ vi.mock('@/hooks/use-knowledge', () => ({
 }))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
-  saveSavedEntityField: dashboardClientMocks.saveSavedEntityField,
   useEntityList: (kind: string) => ({
     members:
       kind === 'workflow'
@@ -78,8 +82,13 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
+  activateDashboardLayoutAction: dashboardClientMocks.activateDashboardLayoutAction,
   createDashboardLayoutAction: dashboardClientMocks.createDashboardLayoutAction,
   deleteDashboardLayoutAction: dashboardClientMocks.deleteDashboardLayoutAction,
+  reorderDashboardLayoutAction: dashboardClientMocks.reorderDashboardLayoutAction,
+}))
+vi.mock('@/lib/saved-entities/actions', () => ({
+  renameSavedEntityAction: dashboardClientMocks.renameSavedEntityAction,
 }))
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
@@ -100,10 +109,6 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', async () => {
-  const React = await import('react')
-  const { normalizeColorPairsState, normalizeDashboardLayout } = await import('@/widgets/layout')
-  const { resolveEffectiveDashboardLayout } = await import('@/widgets/widget-contracts')
-
   return {
     useDashboardLayoutList: (workspaceId: string) =>
       mockDashboardLayoutList ?? {
@@ -112,98 +117,21 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
         error: null,
       },
     useDashboardLayoutDocument: ({
-      layoutId,
-      initialName,
-      initialLayout,
-      initialColorPairs,
-      initialIsActive,
-      initialSortOrder,
+      initialTopology,
     }: {
-      layoutId: string
-      initialName: string
-      initialLayout: LayoutNode
-      initialColorPairs: unknown
-      initialIsActive?: boolean
-      initialSortOrder: number
+      initialTopology?: DashboardLayoutTopologyNode | null
     }) => {
-      const [name, setName] = React.useState(initialName)
-      const [layout, setLayout] = React.useState(() => normalizeDashboardLayout(initialLayout))
-      const [colorPairs, setColorPairs] = React.useState(() =>
-        normalizeColorPairsState(initialColorPairs)
-      )
-      const [isActive, setIsActive] = React.useState(initialIsActive === true)
-      const [sortOrder, setSortOrder] = React.useState(initialSortOrder)
-      const layoutRef = React.useRef(layout)
-      layoutRef.current = layout
-      const colorPairsRef = React.useRef(colorPairs)
-      colorPairsRef.current = colorPairs
-
-      React.useEffect(() => {
-        setName(initialName)
-        setLayout(normalizeDashboardLayout(initialLayout))
-        setColorPairs(normalizeColorPairsState(initialColorPairs))
-        setIsActive(initialIsActive === true)
-        setSortOrder(initialSortOrder)
-      }, [
-        initialColorPairs,
-        initialIsActive,
-        initialLayout,
-        initialName,
-        initialSortOrder,
-        layoutId,
-      ])
-      const mutateLayoutDocument = React.useCallback(
-        (
-          mutation:
-            | { layout?: LayoutNode; colorPairs?: unknown }
-            | ((current: {
-                layout: LayoutNode
-                colorPairs: unknown
-              }) => { layout?: LayoutNode; colorPairs?: unknown } | null)
-        ) => {
-          if (!mockDashboardLayoutProviderReady) {
-            if (typeof mutation !== 'function') {
-              mockMutateLayoutDocument(mutation)
-            }
-            return
-          }
-          const next =
-            typeof mutation === 'function'
-              ? mutation({
-                  layout: layoutRef.current,
-                  colorPairs: colorPairsRef.current,
-                })
-              : mutation
-          if (!next) return
-          mockMutateLayoutDocument(next)
-          if (next.layout !== undefined) {
-            setLayout(normalizeDashboardLayout(next.layout))
-          }
-          if (next.colorPairs !== undefined) {
-            setColorPairs(normalizeColorPairsState(next.colorPairs))
-          }
-        },
-        []
-      )
-
+      const doc = initialTopology ? (mockTopologyDocuments.get(initialTopology) ?? null) : null
       return {
-        doc: null,
-        save: async () => {},
-        isProviderReady: mockDashboardLayoutProviderReady,
+        doc,
+        topology: initialTopology ?? null,
+        isProviderReady: Boolean(doc),
         isLoading: false,
         error: null,
-        name,
-        setName,
-        layout,
-        setLayout,
-        colorPairs,
-        setColorPairs,
-        mutateLayoutDocument,
-        effectiveLayout: resolveEffectiveDashboardLayout(layout, colorPairs),
-        isActive,
-        setIsActive,
-        sortOrder,
-        setSortOrder,
+        updateGroupSizes: mockLayoutMutation,
+        splitPanel: mockLayoutMutation,
+        closePanel: mockLayoutMutation,
+        replacePanelWidget: mockLayoutMutation,
       }
     },
   }
@@ -242,15 +170,11 @@ vi.mock('@/widgets/widget-surface', async () => {
 
   return {
     WidgetSurface: ({
-      widget,
       context,
       panelId,
       onPairColorChange,
+      onWidgetChange,
     }: {
-      widget: {
-        pairColor?: string
-        params?: Record<string, unknown> | null
-      } | null
       context?: {
         workspaceId?: string
         dashboardLayoutId?: string
@@ -260,8 +184,9 @@ vi.mock('@/widgets/widget-surface', async () => {
       }
       panelId?: string
       onPairColorChange?: (color: PairColor) => void
+      onWidgetChange?: (widgetKey: string) => void
     }) => {
-      const renderWidget = useDashboardWidgetRenderConfig(widget as any, panelId)
+      const renderWidget = useDashboardWidgetRenderConfig()
       const pairColor = (renderWidget?.pairColor ?? 'gray') as PairColor
 
       return (
@@ -289,6 +214,12 @@ vi.mock('@/widgets/widget-surface', async () => {
             disabled={!onPairColorChange}
             onClick={() => onPairColorChange?.('blue')}
           />
+          <button
+            type='button'
+            data-testid={`widget-watchlist-${panelId ?? 'panel'}`}
+            disabled={!onWidgetChange}
+            onClick={() => onWidgetChange?.('watchlist')}
+          />
         </div>
       )
     },
@@ -311,9 +242,10 @@ describe('DashboardClient', () => {
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockDashboardLayoutList = null
-    mockDashboardLayoutProviderReady = true
-    mockMutateLayoutDocument.mockClear()
-    dashboardClientMocks.saveSavedEntityField.mockClear()
+    mockTopologyDocuments = new WeakMap()
+    mockDocuments = new Set()
+    mockLayoutMutation.mockClear()
+    dashboardClientMocks.activateDashboardLayoutAction.mockClear()
     dashboardClientMocks.createDashboardLayoutAction.mockClear()
     dashboardClientMocks.deleteDashboardLayoutAction.mockClear()
     resetDashboardStores()
@@ -330,6 +262,7 @@ describe('DashboardClient', () => {
     act(() => {
       root.unmount()
     })
+    for (const doc of mockDocuments) doc.destroy()
     container.remove()
     vi.unstubAllGlobals()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
@@ -339,13 +272,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -363,13 +294,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-b', 'wf-b')}
+          initialTopology={createPanelLayout('panel-b', 'wf-b')}
           workspaceId='ws-b'
           ownerUserId='user-b'
           layoutId='layout-b'
-          initialLayoutName='Layout B'
           initialLayouts={createLayouts('layout-b')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -387,13 +316,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -409,13 +336,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-b'
           ownerUserId='user-b'
           layoutId='layout-b'
-          initialLayoutName='Layout B'
           initialLayouts={createLayouts('layout-b')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -429,20 +354,16 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('disables writable dashboard controls until the Yjs document is ready', async () => {
-    mockDashboardLayoutProviderReady = false
-
+  it('keeps personal layout controls writable for workspace readers', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
-          {...dashboardPermissions}
+          workspaceCanWrite={false}
         />
       )
     })
@@ -452,61 +373,51 @@ describe('DashboardClient', () => {
       throw new Error('Expected pair color switch button to be rendered')
     }
 
-    expect(switchToRedButton.disabled).toBe(true)
+    expect(switchToRedButton.disabled).toBe(false)
     await act(async () => {
       switchToRedButton.click()
     })
-    expect(mockMutateLayoutDocument).not.toHaveBeenCalled()
     expect(readWidgetSurface(container, 'panel-a')).toEqual({
       workflowId: 'wf-a',
       watchlistId: '',
       workspaceId: 'ws-a',
-      pairColor: 'gray',
+      pairColor: 'red',
     })
+    expect(readWidgetRuntimeContext(container).canWrite).toBe(false)
+  })
 
-    mockDashboardLayoutProviderReady = true
+  it('routes widget selection through the layout document owner', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
     })
 
-    const readySwitchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
-    if (!(readySwitchToRedButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected ready pair color switch button to be rendered')
+    const selectWatchlist = container.querySelector('[data-testid="widget-watchlist-panel-a"]')
+    if (!(selectWatchlist instanceof HTMLButtonElement)) {
+      throw new Error('Expected widget selector button')
     }
+    await act(async () => selectWatchlist.click())
 
-    expect(readySwitchToRedButton.disabled).toBe(false)
-    await act(async () => {
-      readySwitchToRedButton.click()
-    })
-    expect(mockMutateLayoutDocument).toHaveBeenCalledWith(
-      expect.objectContaining({
-        colorPairs: { pairs: [{ color: 'red', workflowId: 'wf-a' }] },
-      })
-    )
+    expect(mockLayoutMutation).toHaveBeenCalledWith('panel-a', 'watchlist')
   })
 
   it('keeps the current layout stable while switching active layout metadata', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -526,14 +437,10 @@ describe('DashboardClient', () => {
       await Promise.resolve()
     })
 
-    expect(dashboardClientMocks.saveSavedEntityField).toHaveBeenCalledTimes(1)
-    expect(dashboardClientMocks.saveSavedEntityField).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'layout-b',
+    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledTimes(1)
+    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledWith(
       'ws-a',
-      'isActive',
-      true,
-      'user-a'
+      'layout-b'
     )
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
@@ -553,13 +460,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -574,13 +479,9 @@ describe('DashboardClient', () => {
       await Promise.resolve()
     })
 
-    expect(dashboardClientMocks.saveSavedEntityField).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'layout-b',
+    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledWith(
       'ws-a',
-      'isActive',
-      true,
-      'user-a'
+      'layout-b'
     )
     expect(mockReplace).not.toHaveBeenCalled()
 
@@ -593,13 +494,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -619,13 +518,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -657,13 +554,11 @@ describe('DashboardClient', () => {
     await act(async () => {
       root.render(
         <DashboardClient
-          initialState={createPanelLayout('panel-a', 'wf-a')}
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
           workspaceId='ws-a'
           ownerUserId='user-a'
           layoutId='layout-a'
-          initialLayoutName='Layout A'
           initialLayouts={createLayouts('layout-a')}
-          initialColorPairs={{ pairs: [] }}
           {...dashboardPermissions}
         />
       )
@@ -671,22 +566,85 @@ describe('DashboardClient', () => {
 
     expect(mockLayoutTabsLayouts.map((layout) => layout.id)).toEqual(['layout-b', 'layout-a'])
   })
+
+  it('uses an empty completed live layout list instead of retaining SSR layouts', async () => {
+    mockDashboardLayoutList = {
+      layouts: [],
+      isLoading: false,
+      error: null,
+    }
+
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+
+    expect(mockLayoutTabsLayouts).toEqual([])
+    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
+    expect(
+      container
+        .querySelector('[data-testid="dashboard-layout-document-state"]')
+        ?.getAttribute('data-state')
+    ).toBe('empty')
+  })
+
+  it('does not show SSR or synthetic content for a newly active layout', async () => {
+    mockDashboardLayoutList = {
+      layouts: createLayouts('layout-b'),
+      isLoading: false,
+      error: null,
+    }
+
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
+    expect(
+      container.querySelector('[data-testid="dashboard-layout-document-state"]')
+    ).not.toBeNull()
+  })
 })
 
 function createPanelLayout(
   panelId: string,
   workflowId: string,
   pairColor: PairColor = 'gray'
-): LayoutNode {
-  return {
+): DashboardLayoutTopologyNode {
+  const topology: DashboardLayoutTopologyNode = {
     id: panelId,
     type: 'panel',
-    widget: {
-      key: 'editor_workflow',
-      pairColor,
-      params: { workflowId },
-    },
+    identityId: `${panelId}-widget`,
+    widgetKey: 'editor_workflow',
   }
+  const doc = new Y.Doc()
+  seedDashboardLayoutSession(doc, {
+    layout: topology,
+    widgets: {
+      [`${panelId}-widget`]: { pairColor, params: { workflowId } },
+    },
+    colorPairs: { pairs: [] },
+  })
+  mockTopologyDocuments.set(topology, doc)
+  mockDocuments.add(doc)
+  return topology
 }
 
 function resetDashboardStores() {

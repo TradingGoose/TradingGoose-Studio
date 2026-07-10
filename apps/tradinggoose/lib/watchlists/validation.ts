@@ -1,8 +1,14 @@
+import { z } from 'zod'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
+import {
+  getListingIdentityKey,
+  ListingIdentitySchema,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
   WatchlistDocumentFields,
+  WatchlistDocumentInputContent,
   WatchlistDocumentInputFields,
   WatchlistDocumentInputItem,
   WatchlistDocumentListingInputItem,
@@ -15,6 +21,49 @@ const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const watchlistDocumentKeys = new Set(['name', 'settings', 'items'])
+const watchlistContentKeys = new Set(['settings', 'items'])
+
+export const WatchlistSettingsSchema = z
+  .object({
+    showLogo: z.boolean(),
+    showTicker: z.boolean(),
+    showDescription: z.boolean(),
+  })
+  .strict()
+
+export const WatchlistDocumentListingItemSchema = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    type: z.literal('listing'),
+    parentId: z.string().trim().min(1).nullable().optional(),
+    listing: ListingIdentitySchema,
+  })
+  .strict()
+
+export const WatchlistDocumentSectionItemSchema = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    type: z.literal('section'),
+    parentId: z.null().optional(),
+    label: z.string().trim().min(1, 'Section label is required'),
+  })
+  .strict()
+
+export const WatchlistDocumentItemSchema = z.union([
+  WatchlistDocumentListingItemSchema,
+  WatchlistDocumentSectionItemSchema,
+])
+
+export const WatchlistContentDocumentSchema = z
+  .object({
+    settings: WatchlistSettingsSchema,
+    items: z.array(WatchlistDocumentItemSchema),
+  })
+  .strict()
+
+export const WatchlistDocumentSchema = WatchlistContentDocumentSchema.extend({
+  name: z.string().trim().min(1, 'Watchlist name is required'),
+}).strict()
 
 export class WatchlistDocumentError extends Error {
   constructor(
@@ -116,11 +165,14 @@ const normalizeWatchlistDocumentInputItem = (value: unknown): WatchlistDocumentI
 
   const label = normalizeString(value.label)
   if (!label) return null
+  if (value.parentId !== undefined && value.parentId !== null) {
+    throw new WatchlistDocumentError('Watchlist sections cannot have parentId')
+  }
 
   return {
     ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'section',
-    parentId: normalizeNullableParentId(value.parentId),
+    parentId: null,
     label,
   } satisfies WatchlistDocumentSectionInputItem
 }
@@ -135,10 +187,13 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
     if (!hasOnlyKeys(value, containerItemKeys)) return null
     const label = normalizeString(value.label)
     if (!label) return null
+    if (value.parentId !== undefined && value.parentId !== null) {
+      throw new WatchlistDocumentError('Watchlist sections cannot have parentId')
+    }
     return {
       id,
       type: 'section',
-      parentId: normalizeNullableParentId(value.parentId),
+      parentId: null,
       label,
     }
   }
@@ -227,35 +282,21 @@ function assertValidParentTree(
   items: Array<{ id?: string; type: string; parentId?: string | null }>
 ) {
   const sectionIds = new Set<string>()
-  const containerParents = new Map<string, string | null>()
 
   for (const item of items) {
-    if (item.type !== 'section' || !item.id) continue
-    sectionIds.add(item.id)
-    containerParents.set(item.id, item.parentId ?? null)
+    if (item.type !== 'section') continue
+    if (item.parentId != null) {
+      throw new WatchlistDocumentError('Watchlist sections cannot have parentId')
+    }
+    if (item.id) sectionIds.add(item.id)
   }
 
   for (const item of items) {
+    if (item.type !== 'listing') continue
     const parentId = item.parentId ?? null
     if (!parentId) continue
     if (!sectionIds.has(parentId)) {
       throw new WatchlistDocumentError('Watchlist item parentId must reference a section')
-    }
-    if (item.type === 'section' && item.id === parentId) {
-      throw new WatchlistDocumentError('Watchlist container cannot reference itself as parent')
-    }
-  }
-
-  for (const containerId of sectionIds) {
-    const visited = new Set<string>()
-    let currentParentId = containerParents.get(containerId) ?? null
-
-    while (currentParentId) {
-      if (currentParentId === containerId || visited.has(currentParentId)) {
-        throw new WatchlistDocumentError('Watchlist container parentId cycle detected')
-      }
-      visited.add(currentParentId)
-      currentParentId = containerParents.get(currentParentId) ?? null
     }
   }
 }
@@ -274,6 +315,13 @@ function assertOnlyWatchlistDocumentKeys(source: Record<string, unknown>): void 
   const unexpectedKey = Object.keys(source).find((key) => !watchlistDocumentKeys.has(key))
   if (unexpectedKey) {
     throw new WatchlistDocumentError(`Unsupported watchlist document field: ${unexpectedKey}`)
+  }
+}
+
+function assertOnlyWatchlistContentKeys(source: Record<string, unknown>): void {
+  const unexpectedKey = Object.keys(source).find((key) => !watchlistContentKeys.has(key))
+  if (unexpectedKey) {
+    throw new WatchlistDocumentError(`Unsupported watchlist content field: ${unexpectedKey}`)
   }
 }
 
@@ -311,6 +359,15 @@ export function normalizeWatchlistDocumentFields(value: unknown): WatchlistDocum
   assertOnlyWatchlistDocumentKeys(source)
   return {
     name: normalizeWatchlistName(source.name),
+    settings: normalizeWatchlistSettings(source.settings),
+    items: normalizeInputItems(source.items),
+  }
+}
+
+export function normalizeWatchlistDocumentContent(value: unknown): WatchlistDocumentInputContent {
+  const source = requireWatchlistDocumentRecord(value)
+  assertOnlyWatchlistContentKeys(source)
+  return {
     settings: normalizeWatchlistSettings(source.settings),
     items: normalizeInputItems(source.items),
   }

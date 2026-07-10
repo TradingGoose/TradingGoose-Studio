@@ -5,12 +5,7 @@ import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
-import {
-  useEntityList,
-  useSavedEntityYjsSession,
-  useYjsField,
-  useYjsStringField,
-} from '@/lib/yjs/use-entity-fields'
+import { useEntityList, useSavedEntityYjsSession, useYjsField } from '@/lib/yjs/use-entity-fields'
 import { resolveEntityIdFromList } from '@/widgets/widget-entity-selection'
 
 const EMPTY_WATCHLIST_ITEMS: WatchlistItem[] = []
@@ -29,7 +24,7 @@ export function useWatchlistYjsDocument(args: {
     null,
     accessMode
   )
-  const [name, setName] = useYjsStringField(doc, 'name', member?.entityName ?? 'Watchlist')
+  const name = member?.entityName ?? 'Watchlist'
   const [settings, setSettings] = useYjsField<WatchlistSettings>(
     doc,
     'settings',
@@ -56,7 +51,6 @@ export function useWatchlistYjsDocument(args: {
     name,
     settings,
     items: Array.isArray(items) ? items : [],
-    setName,
     setSettings,
     setItems,
     save,

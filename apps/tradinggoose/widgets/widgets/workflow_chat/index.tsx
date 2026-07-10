@@ -152,14 +152,11 @@ const ChatWorkflowHeaderSelector = ({
     params: widget?.params ?? null,
   })
   const actions = useWidgetConfigRuntimeActions()
-  const widgetKey = widget?.key ?? 'workflow_chat'
-
   const handleWorkflowChange = useCallback(
     (workflowId: string) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, widgetKey, { workflowId })
+      actions.patchWidgetParams({ workflowId })
     },
-    [actions, panelId, widgetKey]
+    [actions]
   )
 
   return (

@@ -6,7 +6,7 @@ describe('copilot runtime tool manifest', () => {
     const manifest = await getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)
 
-    expect(manifest.version).toBe('v1')
+    expect(manifest.version).toBe('v2')
     expect(manifest).not.toHaveProperty('instructions')
     expect(manifest.tools).toEqual(
       expect.arrayContaining([
@@ -196,7 +196,7 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'create_skill',
-          description: expect.stringContaining('Create a new skill'),
+          description: expect.stringContaining('separate `name` identity'),
           kind: 'create',
           entityKind: 'skill',
           semanticValidators: expect.arrayContaining([
@@ -321,7 +321,7 @@ describe('copilot runtime tool manifest', () => {
         | Record<string, any>
         | undefined) ?? {}
     expect(editLayoutProperties).toHaveProperty('removedPanelIds')
-    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v1')
+    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v2')
     const editLayoutSemanticValidator = manifest.tools
       .find((tool) => tool.name === 'edit_layout')
       ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')
@@ -332,11 +332,18 @@ describe('copilot runtime tool manifest', () => {
         }
       | undefined
     const editLayoutSchemaText = JSON.stringify(editLayoutSchema)
-    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v1')
+    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v2')
     expect(editLayoutSchema?.required).toEqual(['layout'])
     expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
     expect(editLayoutSchemaText).not.toContain('pairColor')
     expect(editLayoutSchemaText).not.toContain('params')
+    const editWidgetProperties =
+      (manifest.tools.find((tool) => tool.name === 'edit_widget')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    expect(editWidgetProperties).not.toHaveProperty('widgetKey')
+    expect(editWidgetProperties).toHaveProperty('panelId')
+    expect(editWidgetProperties).toHaveProperty('params')
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',
@@ -352,11 +359,11 @@ describe('copilot runtime tool manifest', () => {
         'create_watchlist',
         'rename_watchlist',
         'create_workflow',
-        'list_layouts',
+        'list_layout',
         'read_layout',
         'edit_layout',
         'edit_widget',
-        'list_widgets',
+        'get_available_widgets',
         'get_widgets_metadata',
         'get_agent_accessory_catalog',
         'get_indicator_catalog',

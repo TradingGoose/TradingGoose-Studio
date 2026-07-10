@@ -21,8 +21,9 @@ import {
 } from '@/components/widget-header-control'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { generateAvailableName } from '@/lib/naming'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { cn } from '@/lib/utils'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -39,10 +40,7 @@ import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-se
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
-import {
-  CUSTOM_TOOL_LIST_WIDGET_KEY,
-  resolveCustomToolId,
-} from '@/widgets/widgets/_shared/custom_tool/utils'
+import { resolveCustomToolId } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { customToolListWidgetContract } from '@/widgets/widgets/list_custom_tool/contract'
 
@@ -194,12 +192,9 @@ function CustomToolListHeaderRight({
 
   const selectTool = useCallback(
     (createdToolId: string) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, CUSTOM_TOOL_LIST_WIDGET_KEY, {
-        customToolId: createdToolId,
-      })
+      actions.patchWidgetParams({ customToolId: createdToolId })
     },
-    [actions, panelId]
+    [actions]
   )
   const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
@@ -359,7 +354,12 @@ function ListCustomToolWidgetBodyInner({
     async (customToolId: string, title: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await saveSavedEntityField('custom_tool', customToolId, workspaceId, 'title', title)
+      await renameSavedEntityAction({
+        entityKind: 'custom_tool',
+        entityId: customToolId,
+        workspaceId,
+        name: title,
+      })
     },
     [permissions.canEdit, workspaceId]
   )

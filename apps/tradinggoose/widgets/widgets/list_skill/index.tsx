@@ -12,17 +12,16 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
-import { skillListWidgetContract } from '@/widgets/widgets/list_skill/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
-import { SKILL_LIST_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
   SkillListMessage,
 } from '@/widgets/widgets/list_skill/components/skill-list/skill-list'
+import { skillListWidgetContract } from '@/widgets/widgets/list_skill/contract'
 
 const SkillListHeaderRight = ({
   workspaceId,
@@ -42,10 +41,9 @@ const SkillListHeaderRight = ({
 
   const selectSkill = useCallback(
     (createdSkillId: string) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, SKILL_LIST_WIDGET_KEY, { skillId: createdSkillId })
+      actions.patchWidgetParams({ skillId: createdSkillId })
     },
-    [actions, panelId]
+    [actions]
   )
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 

@@ -14,6 +14,10 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import {
+  readDashboardLayoutContent,
+  seedDashboardLayoutSession,
+} from '@/lib/yjs/dashboard-layout-session'
+import {
   type EntityListMember,
   getEntityFields,
   getEntityListMembers,
@@ -35,6 +39,7 @@ import {
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
+import { normalizeDashboardLayoutDocumentContent } from '@/widgets/layout-document'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -193,7 +198,9 @@ export async function readBootstrappedSavedEntityFields(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return getEntityFields(doc, entityKind)
+    return entityKind === 'dashboard_layout'
+      ? readDashboardLayoutContent(doc)
+      : getEntityFields(doc, entityKind)
   } finally {
     doc.destroy()
   }
@@ -238,15 +245,21 @@ export async function createSavedReviewTargetBootstrapUpdate(
       }
       resolvedWorkspaceId = workspaceId
 
-      seedEntitySession(doc, {
+      const payload = await readSavedEntityFieldsFromDb(
         entityKind,
-        payload: await readSavedEntityFieldsFromDb(
-          entityKind,
-          descriptor.entityId,
-          workspaceId,
-          descriptor.ownerUserId
-        ),
-      })
+        descriptor.entityId,
+        workspaceId,
+        descriptor.ownerUserId
+      )
+      if (entityKind === 'dashboard_layout') {
+        seedDashboardLayoutSession(
+          doc,
+          normalizeDashboardLayoutDocumentContent(payload),
+          YJS_ORIGINS.SYSTEM
+        )
+      } else {
+        seedEntitySession(doc, { entityKind, payload })
+      }
     }
 
     const metadata = getMetadataMap(doc)

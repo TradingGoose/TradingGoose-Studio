@@ -91,7 +91,7 @@ type ListingRowEntry = {
   item: WatchlistListingItem
   listing: ListingIdentity
   itemId: string
-  depth: number
+  isSectionChild: boolean
 }
 
 type WatchlistTableBlock =
@@ -100,8 +100,7 @@ type WatchlistTableBlock =
 
 type ContainerBlock = {
   container: WatchlistContainerItem
-  children: WatchlistTableBlock[]
-  depth: number
+  children: ListingRowEntry[]
 }
 
 type ResolvedListingEntry = {
@@ -144,9 +143,6 @@ const buildListingEditorInstanceId = (itemId: string) => `watchlist-listing-edit
 
 const buildListingEditSurfaceId = (itemId: string) => `watchlist-listing-edit-surface-${itemId}`
 
-const ROOT_PARENT_KEY = '__root__'
-const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARENT_KEY
-
 export const WatchlistTable = ({
   watchlist,
   quotes,
@@ -179,32 +175,51 @@ export const WatchlistTable = ({
   const containerRenameInputRef = useRef<HTMLInputElement | null>(null)
 
   const parsedRows = useMemo(() => {
-    const itemsByParent = new Map<string, WatchlistItem[]>()
-
-    for (const item of watchlist?.items ?? []) {
-      const key = parentKey(item.parentId)
-      itemsByParent.set(key, [...(itemsByParent.get(key) ?? []), item])
-    }
-
     const allRows: ListingRowEntry[] = []
     const allContainers: ContainerBlock[] = []
-    const buildBlocks = (parentId: string | null, depth: number): WatchlistTableBlock[] => {
-      return (itemsByParent.get(parentKey(parentId)) ?? []).map((item) => {
-        if (item.type === 'listing') {
-          const row: ListingRowEntry = { item, listing: item.listing, itemId: item.id, depth }
-          allRows.push(row)
-          return { type: 'listing', row }
-        }
+    const items = watchlist?.items ?? []
+    const listingRowsByParent = new Map<string, ListingRowEntry[]>()
 
-        const container: ContainerBlock = { container: item, children: [], depth }
-        allContainers.push(container)
-        container.children = buildBlocks(item.id, depth + 1)
-        return { type: 'container', container }
-      })
+    for (const item of items) {
+      if (item.type !== 'listing' || !item.parentId) continue
+      const row = {
+        item,
+        listing: item.listing,
+        itemId: item.id,
+        isSectionChild: true,
+      }
+      listingRowsByParent.set(item.parentId, [
+        ...(listingRowsByParent.get(item.parentId) ?? []),
+        row,
+      ])
+    }
+
+    const rootBlocks: WatchlistTableBlock[] = []
+    for (const item of items) {
+      if (item.type === 'listing') {
+        if (item.parentId) continue
+        const row = {
+          item,
+          listing: item.listing,
+          itemId: item.id,
+          isSectionChild: false,
+        }
+        allRows.push(row)
+        rootBlocks.push({ type: 'listing', row })
+        continue
+      }
+
+      const container = {
+        container: item,
+        children: listingRowsByParent.get(item.id) ?? [],
+      }
+      allRows.push(...container.children)
+      allContainers.push(container)
+      rootBlocks.push({ type: 'container', container })
     }
 
     return {
-      rootBlocks: buildBlocks(null, 0),
+      rootBlocks,
       allRows,
       allContainers,
     }
@@ -407,7 +422,9 @@ export const WatchlistTable = ({
 
       next.push(createWatchlistContainerSortableId(block.container.container.id))
       if (!(expandedContainers[block.container.container.id] ?? true)) return
-      block.container.children.forEach(appendBlockIds)
+      block.container.children.forEach((row) => {
+        next.push(createWatchlistListingSortableId(row.item.id))
+      })
     }
 
     parsedRows.rootBlocks.forEach(appendBlockIds)
@@ -596,7 +613,7 @@ export const WatchlistTable = ({
             ) : (
               <div
                 className='flex items-center'
-                style={row.depth > 0 ? { paddingLeft: row.depth * 16 } : undefined}
+                style={row.isSectionChild ? { paddingLeft: 16 } : undefined}
               >
                 <MarketListingRow listing={listing} className='w-full pl-1' />
               </div>
@@ -720,10 +737,7 @@ export const WatchlistTable = ({
             onClick={() => setActiveContainerId(container.container.id)}
           >
             <td colSpan={COLUMN_COUNT} className='p-0'>
-              <div
-                className='flex items-center gap-2 px-3 py-2'
-                style={container.depth > 0 ? { paddingLeft: 12 + container.depth * 16 } : undefined}
-              >
+              <div className='flex items-center gap-2 px-3 py-2'>
                 <Button
                   type='button'
                   size='icon'
@@ -823,7 +837,7 @@ export const WatchlistTable = ({
           </tr>
         </SortableItem>
 
-        {isExpanded ? <>{container.children.map((child) => renderBlock(child))}</> : null}
+        {isExpanded ? <>{container.children.map(renderListingRow)}</> : null}
       </Fragment>
     )
   }

@@ -1,5 +1,4 @@
 import { ENTITY_KIND_DASHBOARD_LAYOUT } from '@/lib/copilot/review-sessions/types'
-import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
@@ -8,62 +7,29 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { createDashboardLayout } from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  createDefaultDashboardLayoutContent,
+  normalizeDashboardLayoutDocumentContent,
+} from '@/widgets/layout-document'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
   type EntityServerTool,
-  readSavedEntityDocumentFields,
+  executeRenameEntityMutation,
+  type RenameEntityArgs,
   requireEntityId,
-  requireUserId,
   verifySavedEntityContext,
+  verifyWorkspaceContext,
 } from './shared'
 
-/**
- * list_layouts is list-specific: it takes `workspaceId` from tool ARGS (not the
- * execution context), validates it against the context workspace when one is
- * present, and checks workspace access. Dashboard layouts stay owner-scoped, so
- * the authenticated user is always the owner of the listed rows.
- */
-async function verifyDashboardLayoutWorkspaceScope(
-  args: { workspaceId: string },
-  context: ServerToolExecutionContext | undefined
-): Promise<{ workspaceId: string; ownerUserId: string }> {
-  const userId = requireUserId(context)
-  const workspaceId = args.workspaceId.trim()
-  if (!workspaceId) throw new Error('workspaceId is required')
-  if (context?.workspaceId && context.workspaceId !== workspaceId) {
-    throw new Error('workspaceId does not match execution context')
-  }
-
-  const access = await checkWorkspaceAccess(workspaceId, userId)
-  if (!access.exists || !access.hasAccess) {
-    throw new Error('Access denied: You do not have permission to use this dashboard layout')
-  }
-
-  return { workspaceId, ownerUserId: userId }
-}
-
-async function hashDashboardLayoutCreateReviewBase(
-  workspaceId: string,
-  ownerUserId: string
-): Promise<string> {
-  return hashServerToolReviewBase({
-    kind: ENTITY_KIND_DASHBOARD_LAYOUT,
-    workspaceId,
-    ownerUserId,
-    entities: await buildSavedEntityListInfo(
-      ENTITY_KIND_DASHBOARD_LAYOUT,
-      workspaceId,
-      ownerUserId
-    ),
-  })
-}
-
 export const listLayoutsServerTool: EntityServerTool<{ workspaceId: string }> = {
-  name: 'list_layouts',
+  name: 'list_layout',
   async execute(args, context) {
-    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(args, context)
+    const { userId: ownerUserId, workspaceId } = await verifyWorkspaceContext(
+      withWorkspaceArgContext(context, args),
+      'read'
+    )
     const entities = await buildSavedEntityListInfo(
       ENTITY_KIND_DASHBOARD_LAYOUT,
       workspaceId,
@@ -85,22 +51,37 @@ export const createLayoutServerTool: EntityServerTool<{
   name: 'create_layout',
   async execute(args, context) {
     const scopedContext = withWorkspaceArgContext(context, args)
-    const { workspaceId, ownerUserId } = await verifyDashboardLayoutWorkspaceScope(
-      { workspaceId: scopedContext?.workspaceId ?? '' },
-      scopedContext
-    )
+    const { userId: ownerUserId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
     const name = args.name?.trim() || 'New layout'
-    const reviewBaseStateHash = await hashDashboardLayoutCreateReviewBase(workspaceId, ownerUserId)
+    const existingLayouts = await buildSavedEntityListInfo(
+      ENTITY_KIND_DASHBOARD_LAYOUT,
+      workspaceId,
+      ownerUserId
+    )
+    const reviewBaseStateHash = hashServerToolReviewBase({
+      kind: ENTITY_KIND_DASHBOARD_LAYOUT,
+      workspaceId,
+      ownerUserId,
+      entities: existingLayouts,
+    })
 
     if (shouldStageServerToolMutationForReview(context)) {
+      const content = createDefaultDashboardLayoutContent()
+      const projection = await buildDashboardLayoutReadProjection(content)
       return {
         requiresReview: true,
         success: true,
-        entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
-        entityName: name,
+        ...buildDocumentEnvelope(ENTITY_KIND_DASHBOARD_LAYOUT, undefined, name, content),
         workspaceId,
         ownerUserId,
+        effectiveLayout: projection.effectiveLayout,
         reviewBaseStateHash,
+        preview: {
+          documentDiff: {
+            before: '',
+            after: projection.entityDocument,
+          },
+        },
       }
     }
 
@@ -121,28 +102,48 @@ export const createLayoutServerTool: EntityServerTool<{
   },
 }
 
+export const renameLayoutServerTool: EntityServerTool<RenameEntityArgs> = {
+  name: 'rename_layout',
+  execute(args, context) {
+    return executeRenameEntityMutation(ENTITY_KIND_DASHBOARD_LAYOUT, 'rename_layout', args, context)
+  },
+}
+
 export const readLayoutServerTool: EntityServerTool<{ entityId: string }> = {
   name: 'read_layout',
   async execute(args, context) {
     const entityId = requireEntityId(args, 'read_layout')
-    const { workspaceId, ownerUserId } = await verifySavedEntityContext(
+    const { userId, workspaceId } = await verifySavedEntityContext(
       context,
       ENTITY_KIND_DASHBOARD_LAYOUT,
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(
-      ENTITY_KIND_DASHBOARD_LAYOUT,
-      entityId,
-      workspaceId,
-      ownerUserId
+    const [content, entity] = await Promise.all([
+      readBootstrappedSavedEntityFields(
+        ENTITY_KIND_DASHBOARD_LAYOUT,
+        entityId,
+        workspaceId,
+        userId
+      ),
+      buildSavedEntityListInfo(ENTITY_KIND_DASHBOARD_LAYOUT, workspaceId, userId).then((entries) =>
+        entries.find((entry) => entry.entityId === entityId)
+      ),
+    ])
+    if (!entity) throw new Error('Dashboard layout not found')
+    const projection = await buildDashboardLayoutReadProjection(
+      normalizeDashboardLayoutDocumentContent(content)
     )
-    const projection = await buildDashboardLayoutReadProjection(fields)
 
     return {
-      ...buildDocumentEnvelope(ENTITY_KIND_DASHBOARD_LAYOUT, entityId, projection.canonicalFields),
+      ...buildDocumentEnvelope(
+        ENTITY_KIND_DASHBOARD_LAYOUT,
+        entityId,
+        entity.entityName,
+        projection.canonicalContent
+      ),
       workspaceId,
-      ownerUserId,
+      ownerUserId: userId,
       effectiveLayout: projection.effectiveLayout,
     }
   },

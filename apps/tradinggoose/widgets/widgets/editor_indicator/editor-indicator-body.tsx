@@ -43,6 +43,8 @@ export function EditorIndicatorWidgetBody({
     entityIds: indicatorMembers.map((member) => member.entityId),
     useDefaultEntity: false,
   })
+  const selectedIndicatorMember =
+    indicatorMembers.find((member) => member.entityId === indicatorId) ?? null
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   const codeExportRef = useRef<() => void>(() => {})
@@ -113,6 +115,7 @@ export function EditorIndicatorWidgetBody({
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <IndicatorCodePanel
         indicatorId={indicatorId}
+        indicatorName={selectedIndicatorMember?.entityName ?? ''}
         workspaceId={workspaceId}
         doc={indicatorSession.doc}
         save={indicatorSession.save}

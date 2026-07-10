@@ -6,10 +6,6 @@ import { z } from 'zod'
 import { createIndicators, listIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  guardWorkspaceEntityDocumentDeleteInTx,
-  WorkspaceEntityDocumentDeletionError,
-} from '@/lib/workspaces/entity-documents'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -241,24 +237,19 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const deleted = await db.transaction(async (tx) => {
-      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-        entityKind: 'indicator',
-        entityId: indicatorId,
-        workspaceId,
-      })
-      if (!canDelete) {
-        return false
-      }
-      await tx
-        .delete(pineIndicators)
-        .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      return true
-    })
-    if (!deleted) {
+    const [existingIndicator] = await db
+      .select({ id: pineIndicators.id })
+      .from(pineIndicators)
+      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+      .limit(1)
+    if (!existingIndicator) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
+
+    await db
+      .delete(pineIndicators)
+      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
     await refreshEntityListSession('indicator', workspaceId)
     await Promise.allSettled([deleteYjsSessionInSocketServer(indicatorId)])
@@ -266,9 +257,6 @@ export async function DELETE(request: NextRequest) {
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
-    if (error instanceof WorkspaceEntityDocumentDeletionError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
     logger.error(`[${requestId}] Error deleting indicator`, error)
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }

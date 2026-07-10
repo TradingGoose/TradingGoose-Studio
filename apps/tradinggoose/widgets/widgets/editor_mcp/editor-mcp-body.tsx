@@ -4,6 +4,7 @@ import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState 
 import { useMessages } from 'next-intl'
 import type * as Y from 'yjs'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
@@ -55,7 +56,7 @@ function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpSer
   if (!doc) return fallback
   const fields = getFieldsMap(doc)
   return {
-    name: fields.get('name') ?? fallback.name,
+    name: fallback.name,
     description: fields.get('description') ?? fallback.description,
     transport: fields.get('transport') ?? fallback.transport,
     url: fields.get('url') ?? fallback.url,
@@ -71,7 +72,8 @@ function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpSer
 
 function useMcpServerYjsFormData(
   doc: Y.Doc | null,
-  fallback: McpServerFormData
+  fallback: McpServerFormData,
+  setName: (name: string) => void
 ): [McpServerFormData, (next: SetStateAction<McpServerFormData>) => void] {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
@@ -87,11 +89,13 @@ function useMcpServerYjsFormData(
     (next: SetStateAction<McpServerFormData>) => {
       if (!doc) return
       const value = typeof next === 'function' ? next(formData) : next
+      setName(value.name)
       for (const [key, fieldValue] of Object.entries(value)) {
+        if (key === 'name') continue
         setEntityField(doc, key, fieldValue)
       }
     },
-    [doc, formData]
+    [doc, formData, setName]
   )
 
   return [formData, setFormData]
@@ -129,6 +133,7 @@ export function EditorMcpWidgetBody({
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [identityName, setIdentityName] = useState('')
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
   const initializedServerIdRef = useRef<string | null>(null)
   const defaultFormData = useMemo(() => createDefaultMcpServerFormData(), [])
@@ -155,12 +160,23 @@ export function EditorMcpWidgetBody({
   const selectedServerStatus = selectedServerId
     ? serverMembers.find((member) => member.entityId === selectedServerId)?.connectionStatus
     : undefined
+  const selectedServerMember =
+    serverMembers.find((member) => member.entityId === selectedServerId) ?? null
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
   const serverSession = useSavedEntityYjsSession('mcp_server', selectedServerId, workspaceId)
+  const formFallback = useMemo(
+    () => ({ ...defaultFormData, name: identityName }),
+    [defaultFormData, identityName]
+  )
   const [formDataState, setFormDataState] = useMcpServerYjsFormData(
     serverSession.doc,
-    defaultFormData
+    formFallback,
+    setIdentityName
   )
+
+  useEffect(() => {
+    setIdentityName(selectedServerMember?.entityName ?? '')
+  }, [selectedServerId, selectedServerMember?.entityName])
 
   useEffect(() => {
     if (!selectedServerId || !serverSession.doc) {
@@ -241,6 +257,14 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
 
     try {
+      if (formDataState.name.trim() !== selectedServerMember?.entityName) {
+        await renameSavedEntityAction({
+          entityKind: 'mcp_server',
+          entityId: selectedServerId,
+          workspaceId,
+          name: formDataState.name,
+        })
+      }
       await serverSession.save()
       initialFormDataRef.current = formDataState
       if (formDataState.enabled === false || !formDataState.url?.trim()) {
@@ -261,6 +285,7 @@ export function EditorMcpWidgetBody({
     serverSession.doc,
     serverSession.save,
     selectedServerId,
+    selectedServerMember?.entityName,
     workspaceId,
   ])
 

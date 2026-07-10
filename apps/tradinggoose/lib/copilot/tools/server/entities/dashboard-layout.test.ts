@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as fx from '@/lib/copilot/tools/server/dashboard-layout/test-fixtures'
 import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
-import { listLayoutsServerTool, readLayoutServerTool } from './dashboard-layout'
+import {
+  createLayoutServerTool,
+  listLayoutsServerTool,
+  readLayoutServerTool,
+} from './dashboard-layout'
 
 const mocks = vi.hoisted(() => ({
   projection: vi.fn(),
@@ -33,9 +37,9 @@ describe('dashboard layout server tools', () => {
     mocks.list.mockResolvedValue([
       { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
     ])
-    mocks.read.mockResolvedValue(fx.createDashboardLayoutTestFields())
+    mocks.read.mockResolvedValue(fx.createDashboardLayoutTestContent())
     mocks.projection.mockImplementation(async (fields: any) => ({
-      canonicalFields: fields,
+      canonicalContent: fields,
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
       entityDocument: JSON.stringify(fields),
       effectiveLayout: fields.layout,
@@ -66,7 +70,7 @@ describe('dashboard layout server tools', () => {
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
     })
     expect(result).not.toHaveProperty('layoutName')
-    expect(JSON.parse(result.entityDocument).name).toBe('Layout 1')
+    expect(JSON.parse(result.entityDocument)).not.toHaveProperty('name')
     expect(result.effectiveLayout).toMatchObject({ id: 'root', type: 'group' })
   })
 
@@ -81,7 +85,27 @@ describe('dashboard layout server tools', () => {
     })
   })
 
-  it('rejects list_layouts when the workspace arg conflicts with execution context', async () => {
+  it('stages create_layout with a complete aggregate preview', async () => {
+    const result = await createLayoutServerTool.execute(
+      { workspaceId: 'workspace-1', name: 'New Desk' },
+      { ...context, accessLevel: 'limited' }
+    )
+
+    expect(result).toMatchObject({
+      requiresReview: true,
+      entityKind: 'dashboard_layout',
+      entityName: 'New Desk',
+      documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+      preview: { documentDiff: { before: '', after: expect.any(String) } },
+    })
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      layout: { type: 'group' },
+      widgets: {},
+      colorPairs: { pairs: [] },
+    })
+  })
+
+  it('rejects list_layout when the workspace arg conflicts with execution context', async () => {
     await expect(
       listLayoutsServerTool.execute({ workspaceId: 'workspace-2' }, context)
     ).rejects.toThrow('workspaceId does not match execution context')

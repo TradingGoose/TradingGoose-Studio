@@ -992,6 +992,11 @@
         "docs": "Documentos"
       },
       "emptySearch": "Sin contenido coincidente",
+      "layoutState": {
+        "loading": "Cargando el diseño del panel...",
+        "empty": "No hay ningún diseño de panel disponible.",
+        "error": "No se pudo cargar el diseño del panel."
+      },
       "pages": {
         "records": "Registros",
         "monitor": "Monitoreo",

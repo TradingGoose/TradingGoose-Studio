@@ -204,7 +204,7 @@ describe('Workspaces API Route', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
-  it('creates a workspace with default dashboard entity documents in the same transaction', async () => {
+  it('creates a workspace and its owner-scoped dashboard layout in the same transaction', async () => {
     const { POST } = await import('@/app/api/workspaces/route')
     const schema = await import('@tradinggoose/db/schema')
 
@@ -223,32 +223,9 @@ describe('Workspaces API Route', () => {
       permissions: 'admin',
     })
     expect(transactionMock).toHaveBeenCalledTimes(1)
-    expect(txInsertValues.map((entry) => entry.table)).toEqual([
-      schema.workspace,
-      schema.workflow,
-      schema.watchlistTable,
-      schema.skill,
-      schema.customTools,
-      schema.pineIndicators,
-      schema.mcpServers,
-    ])
+    expect(txInsertValues.map((entry) => entry.table)).toEqual([schema.workspace])
 
     const workspaceInsert = txInsertValues[0]?.values
-    const documentValues = txInsertValues.slice(1).map((entry) => entry.values)
-
-    expect(documentValues.map((values) => values.workspaceId)).toEqual(
-      Array(6).fill(workspaceInsert.id)
-    )
-    expect(documentValues.map((values) => values.name ?? values.title)).toEqual([
-      'Default Workflow',
-      'Watchlist',
-      'New Skill',
-      'New Custom Tool',
-      'New Indicator',
-      'New MCP Server',
-    ])
-    expect(documentValues[1]).toMatchObject({ userId: null, parentId: null })
-    expect(documentValues[5]).toMatchObject({ createdBy: 'user-1', enabled: false })
     expect(provisionDashboardLayoutForWorkspaceUserInTxMock).toHaveBeenCalledWith(
       expect.objectContaining({ insert: txInsertMock }),
       {

@@ -15,8 +15,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 const fetchListingsMock = vi.fn()
 
-vi.mock('@/components/listing-selector/fetchers', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/components/listing-selector/fetchers')>()
+vi.mock('@/lib/listing/search', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/listing/search')>()
   return {
     ...actual,
     fetchListings: (...args: Parameters<typeof fetchListingsMock>) => fetchListingsMock(...args),

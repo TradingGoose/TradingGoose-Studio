@@ -9,6 +9,7 @@ import {
   WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
+import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
@@ -17,6 +18,7 @@ import {
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  DASHBOARD_WIDGET_DOCUMENT_FORMAT,
 } from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
@@ -96,17 +98,18 @@ const COPILOT_TOOL_IDS = [
   'create_mcp_server',
   'edit_mcp_server',
   'rename_mcp_server',
-  'list_watchlists',
+  'list_watchlist',
   'read_watchlist',
   'create_watchlist',
   'edit_watchlist',
   'rename_watchlist',
-  'list_layouts',
+  'list_layout',
   'create_layout',
   'read_layout',
   'edit_layout',
+  'rename_layout',
   'edit_widget',
-  'list_widgets',
+  'get_available_widgets',
   'get_widgets_metadata',
   'sleep',
   'read_block_outputs',
@@ -129,6 +132,7 @@ export const CopilotTool = Object.fromEntries(COPILOT_TOOL_IDS.map((id) => [id, 
 export const DASHBOARD_LAYOUT_TOOL_NAMES: ReadonlySet<string> = new Set<ToolId>([
   CopilotTool.read_layout,
   CopilotTool.edit_layout,
+  CopilotTool.rename_layout,
   CopilotTool.edit_widget,
 ])
 
@@ -137,10 +141,13 @@ const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
 const RequiredId = z.string().trim().min(1)
 const CUSTOM_TOOL_DOCUMENT_ARGUMENT_DESCRIPTION =
-  'Full `tg-custom-tool-document-v1` JSON document with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+  'Full `tg-custom-tool-document-v1` content JSON with exactly `schemaText` and `codeText`. Identity is supplied separately as `name`. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 const EntityTargetArgs = z.object({
   entityId: RequiredId,
 })
+const RenameSavedEntityArgs = EntityTargetArgs.extend({
+  name: z.string().trim().min(1).describe('New entity name.'),
+}).strict()
 const WorkspaceTargetArgs = z.object({
   workspaceId: RequiredId,
 })
@@ -182,6 +189,7 @@ function buildEntityDocumentCreateArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
 ) {
   return WorkspaceTargetArgs.extend({
+    name: z.string().trim().min(1).describe('Canonical entity name.'),
     entityDocument: z.string().min(1),
     documentFormat: z.literal(documentFormat).optional(),
   }).strict()
@@ -193,13 +201,6 @@ const CreateWorkflowArgs = z
     description: z.string().optional(),
     folderId: z.string().nullable().optional(),
     workspaceId: RequiredId,
-  })
-  .strict()
-
-const RenameWorkflowArgs = z
-  .object({
-    entityId: RequiredId,
-    name: z.string().trim().min(1),
   })
   .strict()
 
@@ -261,7 +262,10 @@ const CustomToolDocumentMutationShape = {
 const EditCustomToolArgs = EntityTargetArgs.extend(CustomToolDocumentMutationShape)
   .strict()
   .describe('Update a saved custom tool by replacing the full custom-tool document.')
-const CreateCustomToolArgs = WorkspaceTargetArgs.extend(CustomToolDocumentMutationShape)
+const CreateCustomToolArgs = WorkspaceTargetArgs.extend({
+  name: z.string().trim().min(1).describe('Canonical custom-tool name.'),
+  ...CustomToolDocumentMutationShape,
+})
   .strict()
   .describe('Create a custom tool from the full custom-tool document.')
 const GetIndicatorArgs = z
@@ -304,7 +308,7 @@ const EditDashboardLayoutArgs = EntityTargetArgs.extend({
     .string()
     .min(1)
     .describe(
-      'Raw tg-dashboard-layout-structure-v1 JSON document for layout topology and optional top-level name, sortOrder, or isActive:true. Existing panels use only id/type and preserve widget config; new panels use widget.key only.'
+      'Raw tg-dashboard-layout-structure-v2 JSON document. Existing panels use id/type to retain their widget or add widget.key to replace it; new panels use widget.key.'
     ),
   documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
   removedPanelIds: z
@@ -316,14 +320,6 @@ const EditDashboardLayoutArgs = EntityTargetArgs.extend({
 }).strict()
 const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
-  widgetKey: z
-    .string()
-    .trim()
-    .min(1)
-    .optional()
-    .describe(
-      'Canonical target widget key from list_widgets. Required when adding a widget to an empty panel or replacing the existing widget. Never use an empty placeholder.'
-    ),
   pairColor: z.enum(['gray', 'red', 'orange', 'blue', 'green', 'purple']).optional(),
   params: z.record(z.any()).nullable().optional(),
   colorPair: z.record(z.any()).nullable().optional(),
@@ -356,19 +352,19 @@ const KnowledgeBaseDocumentMutationShape = {
     .string()
     .min(1)
     .describe(
-      'Full `tg-knowledge-base-document-v1` JSON document with exactly `name`, `description`, and `chunkingConfig`: {"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}.'
+      'Full `tg-knowledge-base-document-v1` content JSON with exactly `description` and `chunkingConfig`: {"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}. Identity is supplied separately as `name` when creating and through rename_knowledge_base when renaming.'
     ),
   documentFormat: z.literal(KNOWLEDGE_BASE_DOCUMENT_FORMAT).optional(),
 }
-const CreateKnowledgeBaseArgs = WorkspaceTargetArgs.extend(KnowledgeBaseDocumentMutationShape)
+const CreateKnowledgeBaseArgs = WorkspaceTargetArgs.extend({
+  name: z.string().trim().min(1).describe('Canonical knowledge-base name.'),
+  ...KnowledgeBaseDocumentMutationShape,
+})
   .strict()
   .describe('Create a knowledge base in a workspace from the full knowledge-base document.')
 const EditKnowledgeBaseArgs = EntityTargetArgs.extend(KnowledgeBaseDocumentMutationShape)
   .strict()
   .describe('Update a knowledge base by replacing the full knowledge-base document.')
-const RenameKnowledgeBaseArgs = EditKnowledgeBaseArgs.describe(
-  'Rename a knowledge base by replacing the full knowledge-base document with an updated `name`.'
-)
 const QueryKnowledgeBaseArgs = z
   .object({
     entityId: RequiredId,
@@ -421,7 +417,7 @@ export const ToolArgSchemas = {
 
   edit_workflow: EditWorkflowArgs,
   edit_workflow_block: EditWorkflowBlockArgs,
-  rename_workflow: RenameWorkflowArgs,
+  rename_workflow: RenameSavedEntityArgs,
 
   run_workflow: z.object({
     entityId: RequiredId,
@@ -503,14 +499,14 @@ export const ToolArgSchemas = {
   read_knowledge_base: EntityTargetArgs,
   create_knowledge_base: CreateKnowledgeBaseArgs,
   edit_knowledge_base: EditKnowledgeBaseArgs,
-  rename_knowledge_base: RenameKnowledgeBaseArgs,
+  rename_knowledge_base: RenameSavedEntityArgs,
   query_knowledge_base: QueryKnowledgeBaseArgs,
 
   list_custom_tools: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_custom_tool]: EntityTargetArgs,
   create_custom_tool: CreateCustomToolArgs,
   edit_custom_tool: EditCustomToolArgs,
-  rename_custom_tool: EditCustomToolArgs,
+  rename_custom_tool: RenameSavedEntityArgs,
 
   list_monitors: WorkspaceTargetArgs.extend({
     entityId: z.string().optional(),
@@ -529,31 +525,32 @@ export const ToolArgSchemas = {
   [CopilotTool.read_indicator]: GetIndicatorArgs,
   create_indicator: CreateIndicatorArgs,
   edit_indicator: EditIndicatorArgs,
-  rename_indicator: EditIndicatorArgs,
+  rename_indicator: RenameSavedEntityArgs,
 
   list_skills: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_skill]: EntityTargetArgs,
   create_skill: CreateSkillArgs,
   edit_skill: EditSkillArgs,
-  rename_skill: EditSkillArgs,
+  rename_skill: RenameSavedEntityArgs,
 
   list_mcp_servers: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_mcp_server]: EntityTargetArgs,
   create_mcp_server: CreateMcpServerArgs,
   edit_mcp_server: EditMcpServerArgs,
-  rename_mcp_server: EditMcpServerArgs,
+  rename_mcp_server: RenameSavedEntityArgs,
 
-  list_watchlists: WorkspaceTargetArgs.strict(),
+  list_watchlist: WorkspaceTargetArgs.strict(),
   read_watchlist: EntityTargetArgs,
   create_watchlist: CreateWatchlistArgs,
   edit_watchlist: EditWatchlistArgs,
-  rename_watchlist: EditWatchlistArgs,
-  list_layouts: WorkspaceTargetArgs.strict(),
+  rename_watchlist: RenameSavedEntityArgs,
+  list_layout: WorkspaceTargetArgs.strict(),
   create_layout: CreateDashboardLayoutArgs,
   read_layout: DashboardLayoutTargetArgs,
   edit_layout: EditDashboardLayoutArgs,
+  rename_layout: RenameSavedEntityArgs,
   edit_widget: EditDashboardWidgetArgs,
-  list_widgets: ListWidgetsArgs,
+  get_available_widgets: ListWidgetsArgs,
   get_widgets_metadata: GetWidgetsMetadataArgs,
 
   sleep: z.object({
@@ -581,7 +578,7 @@ export const ServerToolArgSchemas = {
 const WorkflowTargetEnvelope = z.object({
   entityKind: z.literal('workflow'),
   entityId: z.string(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   workspaceId: z.string().optional(),
 })
 
@@ -651,7 +648,7 @@ const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
 // A list is a discovery surface: id, canonical name, and basic usability state.
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   entityDescription: z.string().optional(),
   enabled: z.boolean().optional(),
   sortOrder: z.number().optional(),
@@ -662,6 +659,7 @@ const GenericEntityListEntry = z.object({
 
 const GenericEntityListResult = z.object({
   entityKind: z.enum([
+    'workflow',
     'skill',
     'custom_tool',
     'indicator',
@@ -676,7 +674,7 @@ const GenericEntityListResult = z.object({
 const KnowledgeBaseDocumentEnvelope = z.object({
   entityKind: z.literal('knowledge_base'),
   entityId: z.string(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   workspaceId: z.string().optional(),
   documentFormat: z.literal(KNOWLEDGE_BASE_DOCUMENT_FORMAT),
   entityDocument: z.string(),
@@ -691,7 +689,7 @@ const KnowledgeBaseDocumentEnvelope = z.object({
 const QueryKnowledgeBaseResult = z.object({
   entityKind: z.literal('knowledge_base'),
   entityId: z.string(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   query: z.string(),
   topK: z.number(),
   totalResults: z.number(),
@@ -724,7 +722,7 @@ const IndicatorListResult = z.object({
 const EntityDocumentEnvelopeBase = z.object({
   entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server', 'watchlist']),
   entityId: z.string().optional(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   entityDocument: z.string(),
 })
 
@@ -797,6 +795,15 @@ const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
   success: z.boolean(),
 })
 
+const SavedEntityRenameResult = DocumentDiffReviewMetadata.extend({
+  success: z.boolean(),
+  workspaceId: z.string(),
+  ownerUserId: z.string().optional(),
+  entityKind: z.enum(REVIEW_ENTITY_KINDS),
+  entityId: z.string(),
+  entityName: z.string(),
+})
+
 const WorkflowMutationResult = WorkflowTargetEnvelope.merge(DocumentDiffReviewMetadata).extend({
   success: z.boolean(),
 })
@@ -843,7 +850,7 @@ const WatchlistDocumentMutationResult = EditEntityDocumentResultBase.merge(
 const DashboardLayoutDocumentEnvelope = z.object({
   entityKind: z.literal('dashboard_layout'),
   entityId: z.string(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   workspaceId: z.string(),
   ownerUserId: z.string(),
   documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT),
@@ -855,27 +862,36 @@ const DashboardLayoutCreateMutationResult = DocumentDiffReviewMetadata.extend({
   success: z.boolean(),
   entityKind: z.literal('dashboard_layout'),
   entityId: z.string().optional(),
-  entityName: z.string().optional(),
+  entityName: z.string(),
   workspaceId: z.string(),
   ownerUserId: z.string(),
+  documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).optional(),
+  entityDocument: z.string().optional(),
+  effectiveLayout: z.any().optional(),
 })
 
-const DashboardLayoutMutationResult = EditEntityDocumentResultBase.merge(
-  DashboardLayoutDocumentEnvelope.extend({
-    panelId: z.string().optional(),
-    widget: z.any().optional(),
-    colorPairDiff: z
-      .array(
-        z.object({
-          color: z.enum(['red', 'orange', 'blue', 'green', 'purple']),
-          before: z.record(z.any()),
-          after: z.record(z.any()),
-          changedFields: z.array(z.string()),
-        })
-      )
-      .optional(),
-  })
-)
+const DashboardLayoutMutationResult = EditEntityDocumentResultBase.extend({
+  entityKind: z.literal('dashboard_layout'),
+  entityId: z.string(),
+  entityName: z.string(),
+  workspaceId: z.string(),
+  ownerUserId: z.string(),
+  panelId: z.string(),
+  identityId: z.string(),
+  widgetKey: z.string(),
+  documentFormat: z.literal(DASHBOARD_WIDGET_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+  colorPairDiff: z
+    .array(
+      z.object({
+        color: z.enum(['red', 'orange', 'blue', 'green', 'purple']),
+        before: z.record(z.any()),
+        after: z.record(z.any()),
+        changedFields: z.array(z.string()),
+      })
+    )
+    .optional(),
+})
 
 const DashboardLayoutEditMutationResult = EditEntityDocumentResultBase.merge(
   DashboardLayoutDocumentEnvelope.extend({
@@ -992,7 +1008,7 @@ export const ToolResultSchemas = {
 
   edit_workflow: EditWorkflowResult,
   edit_workflow_block: EditWorkflowBlockResult,
-  rename_workflow: WorkflowMutationResult,
+  rename_workflow: SavedEntityRenameResult,
   run_workflow: z.object({
     executionId: z.string().optional(),
     message: z.any().optional(),
@@ -1140,7 +1156,7 @@ export const ToolResultSchemas = {
   read_knowledge_base: KnowledgeBaseDocumentEnvelope,
   create_knowledge_base: KnowledgeBaseDocumentMutationResult,
   edit_knowledge_base: KnowledgeBaseDocumentMutationResult,
-  rename_knowledge_base: KnowledgeBaseDocumentMutationResult,
+  rename_knowledge_base: SavedEntityRenameResult,
   query_knowledge_base: QueryKnowledgeBaseResult,
   list_custom_tools: GenericEntityListResult.extend({
     entityKind: z.literal('custom_tool'),
@@ -1150,7 +1166,7 @@ export const ToolResultSchemas = {
   }),
   create_custom_tool: CustomToolDocumentMutationResult,
   edit_custom_tool: CustomToolDocumentMutationResult,
-  rename_custom_tool: CustomToolDocumentMutationResult,
+  rename_custom_tool: SavedEntityRenameResult,
   list_monitors: MonitorListResult,
   [CopilotTool.read_monitor]: MonitorDocumentEnvelope,
   edit_monitor: z
@@ -1165,7 +1181,7 @@ export const ToolResultSchemas = {
   }),
   create_indicator: IndicatorDocumentMutationResult,
   edit_indicator: IndicatorDocumentMutationResult,
-  rename_indicator: IndicatorDocumentMutationResult,
+  rename_indicator: SavedEntityRenameResult,
   list_skills: GenericEntityListResult.extend({
     entityKind: z.literal('skill'),
   }),
@@ -1174,7 +1190,7 @@ export const ToolResultSchemas = {
   }),
   create_skill: SkillDocumentMutationResult,
   edit_skill: SkillDocumentMutationResult,
-  rename_skill: SkillDocumentMutationResult,
+  rename_skill: SavedEntityRenameResult,
   list_mcp_servers: GenericEntityListResult.extend({
     entityKind: z.literal('mcp_server'),
   }),
@@ -1183,8 +1199,8 @@ export const ToolResultSchemas = {
   }),
   create_mcp_server: McpServerDocumentMutationResult,
   edit_mcp_server: McpServerDocumentMutationResult,
-  rename_mcp_server: McpServerDocumentMutationResult,
-  list_watchlists: GenericEntityListResult.extend({
+  rename_mcp_server: SavedEntityRenameResult,
+  list_watchlist: GenericEntityListResult.extend({
     entityKind: z.literal('watchlist'),
   }),
   read_watchlist: WatchlistDocumentEnvelope.extend({
@@ -1192,15 +1208,16 @@ export const ToolResultSchemas = {
   }),
   create_watchlist: WatchlistDocumentMutationResult,
   edit_watchlist: WatchlistDocumentMutationResult,
-  rename_watchlist: WatchlistDocumentMutationResult,
-  list_layouts: GenericEntityListResult.extend({
+  rename_watchlist: SavedEntityRenameResult,
+  list_layout: GenericEntityListResult.extend({
     entityKind: z.literal('dashboard_layout'),
   }),
   create_layout: DashboardLayoutCreateMutationResult,
   read_layout: DashboardLayoutDocumentEnvelope,
   edit_layout: DashboardLayoutEditMutationResult,
+  rename_layout: SavedEntityRenameResult,
   edit_widget: DashboardLayoutMutationResult,
-  list_widgets: z.object({
+  get_available_widgets: z.object({
     widgets: z.array(WidgetCatalogItemSchema),
     count: z.number(),
   }),

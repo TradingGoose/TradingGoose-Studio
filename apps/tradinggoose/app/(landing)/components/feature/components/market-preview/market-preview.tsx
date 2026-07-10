@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import * as Y from 'yjs'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
@@ -12,10 +13,9 @@ import {
   evolveMockMarketBar,
   generateMockMarketSeries,
 } from '@/lib/market/mock-series'
-import { createDefaultColorPairsState, type PersistedColorPairsState } from '@/widgets/color-pairs'
-import type { LayoutNode, WidgetInstance } from '@/widgets/layout'
-import { normalizeDashboardLayout } from '@/widgets/layout'
-import type { WidgetRuntimeContext } from '@/widgets/types'
+import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import { createDefaultColorPairsState } from '@/widgets/color-pairs'
+import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
 import { useWidgetLocalParams, WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from '@/widgets/widgets/data_chart/components/chart-controls'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
@@ -53,10 +53,9 @@ const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
 const MARKET_LISTING_LABEL = 'TradingGoose Data Chart'
 const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
+const LANDING_MARKET_WIDGET_ID = 'landing-market-preview-widget'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
-const LANDING_MARKET_WIDGET: NonNullable<WidgetInstance> = {
-  key: 'data_chart',
-}
+const LANDING_MARKET_WIDGET_KEY = 'data_chart' as const
 const LANDING_MARKET_LISTING: ListingOption = {
   listing_id: 'tradinggoose-data-chart',
   base_id: '',
@@ -186,7 +185,7 @@ function MarketHeaderChartControls({
         params={params}
         candleType={params.view?.candleType}
         panelId={LANDING_MARKET_PANEL_ID}
-        widgetKey={LANDING_MARKET_WIDGET.key}
+        widgetKey={LANDING_MARKET_WIDGET_KEY}
       />
       <LandingIndicatorDropdown
         value={selectedIndicatorIds}
@@ -197,63 +196,32 @@ function MarketHeaderChartControls({
   )
 }
 
-type LandingMarketPreviewDocument = {
-  layout: LayoutNode
-  colorPairs: PersistedColorPairsState
-}
-
-const LANDING_MARKET_RUNTIME_CONTEXT: WidgetRuntimeContext = {}
-
-const buildInitialPreviewDocument = (): LandingMarketPreviewDocument => ({
-  layout: normalizeDashboardLayout({
+const buildInitialPreviewDocument = (): DashboardLayoutDocumentContent => ({
+  layout: {
     id: LANDING_MARKET_PANEL_ID,
     type: 'panel',
-    widget: {
-      key: LANDING_MARKET_WIDGET.key,
+    identityId: LANDING_MARKET_WIDGET_ID,
+    widgetKey: LANDING_MARKET_WIDGET_KEY,
+  },
+  widgets: {
+    [LANDING_MARKET_WIDGET_ID]: {
       pairColor: 'gray',
       params: buildInitialMarketParams() as Record<string, unknown>,
     },
-  }),
+  },
   colorPairs: createDefaultColorPairsState(),
 })
 
-/**
- * Hosts a local, in-memory widget config runtime so the shared data-chart
- * controls persist params through the canonical mutation engine instead of a
- * dashboard Yjs document. Mutations only touch this preview's React state.
- */
 export function MarketPreview() {
-  const [previewDocument, setPreviewDocument] = React.useState<LandingMarketPreviewDocument>(
-    buildInitialPreviewDocument
-  )
-
-  const handleDocumentMutation = React.useCallback(
-    (
-      compute: (
-        current: LandingMarketPreviewDocument
-      ) => Partial<LandingMarketPreviewDocument> | null
-    ) => {
-      setPreviewDocument((current) => {
-        try {
-          const next = compute(current)
-          return next ? { ...current, ...next } : current
-        } catch (error) {
-          console.warn('[landing/market-preview] Ignored invalid widget params mutation', error)
-          return current
-        }
-      })
-    },
-    []
-  )
+  const doc = React.useMemo(() => {
+    const next = new Y.Doc()
+    seedDashboardLayoutSession(next, buildInitialPreviewDocument())
+    return next
+  }, [])
+  React.useEffect(() => () => doc.destroy(), [doc])
 
   return (
-    <WidgetConfigRuntimeProvider
-      context={LANDING_MARKET_RUNTIME_CONTEXT}
-      layout={previewDocument.layout}
-      colorPairs={previewDocument.colorPairs}
-      canWrite
-      onDocumentMutation={handleDocumentMutation}
-    >
+    <WidgetConfigRuntimeProvider doc={doc} panelId={LANDING_MARKET_PANEL_ID} canWrite>
       <MarketPreviewContent />
     </WidgetConfigRuntimeProvider>
   )
@@ -270,7 +238,7 @@ function MarketPreviewContent() {
   const isBackfillingRef = React.useRef(false)
   const pendingBackfillRangeRef = React.useRef<{ from: number; to: number } | null>(null)
   const [browserTimezone, setBrowserTimezone] = React.useState('UTC')
-  const localParams = useWidgetLocalParams(LANDING_MARKET_PANEL_ID, 'data_chart')
+  const localParams = useWidgetLocalParams()
   const marketParams = (localParams ?? {}) as DataChartWidgetParams
   const [indicatorStates, setIndicatorStates] = React.useState<
     Record<string, IndicatorExecutionState>
@@ -283,10 +251,7 @@ function MarketPreviewContent() {
   const legendContainerRef = React.useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = React.useState(0)
 
-  const patchWidgetParams = useDataChartParamsPatch(
-    LANDING_MARKET_PANEL_ID,
-    LANDING_MARKET_WIDGET.key
-  )
+  const patchWidgetParams = useDataChartParamsPatch()
 
   const {
     chartRef,
@@ -635,7 +600,7 @@ function MarketPreviewContent() {
   } = useIndicatorControls({
     view: marketParams.view,
     panelId: LANDING_MARKET_PANEL_ID,
-    widgetKey: LANDING_MARKET_WIDGET.key,
+    widgetKey: LANDING_MARKET_WIDGET_KEY,
     pineIndicatorIds: selectedIndicatorIds,
     indicatorMetaById,
     indicatorRefsById,
@@ -668,7 +633,7 @@ function MarketPreviewContent() {
   } = useManualDrawToolsController({
     view: marketParams.view,
     panelId: LANDING_MARKET_PANEL_ID,
-    widgetKey: LANDING_MARKET_WIDGET.key,
+    widgetKey: LANDING_MARKET_WIDGET_KEY,
     chartResetKey: LANDING_MARKET_CHART_RESET_KEY,
     chartRef,
     chartContainerRef,

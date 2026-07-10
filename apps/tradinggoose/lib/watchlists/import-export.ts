@@ -4,65 +4,18 @@ import {
   type TradingGooseExportEnvelope,
   TradingGooseExportEnvelopeSchema,
 } from '@/lib/import-export/trading-goose'
-import { ListingIdentitySchema } from '@/lib/listing/identity'
+import type { WatchlistDocumentFields, WatchlistDocumentInputFields } from '@/lib/watchlists/types'
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentFields,
+  WatchlistDocumentSchema,
 } from '@/lib/watchlists/validation'
-import type { WatchlistDocumentFields, WatchlistDocumentInputFields } from '@/lib/watchlists/types'
 
 export const WATCHLIST_EXPORT_SOURCE = 'watchlistWidget'
 
 export type WatchlistImportFile = TradingGooseExportEnvelope & {
   watchlists: [WatchlistDocumentFields]
 }
-
-const normalizeString = (value: string) => value.trim()
-
-const WatchlistSettingsSchema = z
-  .object({
-    showLogo: z.boolean(),
-    showTicker: z.boolean(),
-    showDescription: z.boolean(),
-  })
-  .strict()
-
-const WatchlistDocumentListingItemSchema = z
-  .object({
-    id: z.string().trim().min(1).optional(),
-    type: z.literal('listing'),
-    parentId: z.string().trim().min(1).nullable().optional(),
-    listing: ListingIdentitySchema,
-  })
-  .strict()
-
-const WatchlistDocumentSectionItemSchema = z
-  .object({
-    id: z.string().trim().min(1).optional(),
-    type: z.literal('section'),
-    parentId: z.string().trim().min(1).nullable().optional(),
-    label: z
-      .string()
-      .transform(normalizeString)
-      .pipe(z.string().min(1, 'Section label is required')),
-  })
-  .strict()
-
-const WatchlistDocumentItemSchema = z.union([
-  WatchlistDocumentListingItemSchema,
-  WatchlistDocumentSectionItemSchema,
-])
-
-export const WatchlistDocumentSchema = z
-  .object({
-    name: z
-      .string()
-      .transform(normalizeString)
-      .pipe(z.string().min(1, 'Watchlist name is required')),
-    settings: WatchlistSettingsSchema,
-    items: z.array(WatchlistDocumentItemSchema),
-  })
-  .strict()
 
 export const WatchlistImportFileSchema = TradingGooseExportEnvelopeSchema.extend({
   watchlists: z.tuple([WatchlistDocumentSchema]),

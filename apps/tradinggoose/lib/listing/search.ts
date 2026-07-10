@@ -1,7 +1,7 @@
 import {
   getListingIdentityKey,
-  ListingIdentitySchema,
   type ListingIdentity,
+  ListingIdentitySchema,
   type ListingOption,
   toListingValueObject,
 } from '@/lib/listing/identity'

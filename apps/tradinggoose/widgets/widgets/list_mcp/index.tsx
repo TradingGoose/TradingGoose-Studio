@@ -29,9 +29,10 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -146,10 +147,9 @@ const ListMcpHeaderRightContent = ({
 
   const selectServer = useCallback(
     (serverId: string) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, 'list_mcp', { mcpServerId: serverId })
+      actions.patchWidgetParams({ mcpServerId: serverId })
     },
-    [actions, panelId]
+    [actions]
   )
   const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
@@ -248,7 +248,12 @@ const ListMcpWidgetContent = ({
     async (serverId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await saveSavedEntityField('mcp_server', serverId, workspaceId, 'name', name)
+      await renameSavedEntityAction({
+        entityKind: 'mcp_server',
+        entityId: serverId,
+        workspaceId,
+        name,
+      })
       await refreshTools()
     },
     [permissions.canEdit, refreshTools, workspaceId]

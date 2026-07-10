@@ -7,7 +7,6 @@ import { TradingProviderControls } from '@/components/trading-selector/provider-
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
@@ -22,6 +21,7 @@ import {
   resolveHeatmapTradingProviderId,
   resolveHeatmapWatchlistSizeMetric,
 } from '@/widgets/widgets/heatmap/components/shared'
+import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/contract'
 
 type HeaderControlProps = {
   workspaceId?: string
@@ -30,18 +30,15 @@ type HeaderControlProps = {
   params: HeatmapWidgetParams | null
 }
 
-const usePatchHeatmapParams = (panelId: string | undefined, widgetKey: string) => {
+const usePatchHeatmapParams = () => {
   const actions = useWidgetConfigRuntimeActions()
-  return (params: Record<string, unknown>) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, params)
-  }
+  return actions.patchWidgetParams
 }
 
 function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const marketProviderOptions = useMemo(() => getHeatmapMarketProviderOptions(), [])
   const marketProviderId = resolveHeatmapMarketProviderId(params, marketProviderOptions)
-  const patchParams = usePatchHeatmapParams(panelId, widgetKey)
+  const patchParams = usePatchHeatmapParams()
 
   return (
     <MarketProviderControls
@@ -72,7 +69,7 @@ function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: Head
 
 function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProps) {
   const sourceMode = resolveHeatmapSourceMode(params)
-  const patchParams = usePatchHeatmapParams(panelId, widgetKey)
+  const patchParams = usePatchHeatmapParams()
 
   return (
     <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
@@ -101,7 +98,7 @@ function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProp
 
 function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderControlProps) {
   const sizeMetric = resolveHeatmapWatchlistSizeMetric(params)
-  const patchParams = usePatchHeatmapParams(panelId, widgetKey)
+  const patchParams = usePatchHeatmapParams()
 
   return (
     <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
@@ -138,7 +135,7 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
     [providerAvailabilityQuery.data]
   )
   const providerId = resolveHeatmapTradingProviderId(params, providerOptions)
-  const patchParams = usePatchHeatmapParams(panelId, widgetKey)
+  const patchParams = usePatchHeatmapParams()
 
   return (
     <TradingProviderControls
@@ -166,7 +163,7 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
 }
 
 function HeatmapRefreshControl({ panelId, widgetKey }: HeaderControlProps) {
-  const patchParams = usePatchHeatmapParams(panelId, widgetKey)
+  const patchParams = usePatchHeatmapParams()
   return (
     <WidgetHeaderRefreshButton
       label='Refresh heatmap'

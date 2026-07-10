@@ -2,7 +2,7 @@ import { ENTITY_KIND_CUSTOM_TOOL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { createCustomTools } from '@/lib/custom-tools/operations'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -10,14 +10,17 @@ import {
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
 async function createCustomToolEntity(
+  name: string,
   fields: Record<string, unknown>,
   { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
@@ -26,7 +29,7 @@ async function createCustomToolEntity(
     workspaceId,
     tools: [
       {
-        title: String(fields.title ?? ''),
+        title: name,
         schema: parseCustomToolSchemaText(fields.schemaText),
         code: String(fields.codeText ?? ''),
       },
@@ -39,7 +42,8 @@ async function createCustomToolEntity(
 
   return {
     entityId: row.id,
-    fields: savedEntityRowToFields(ENTITY_KIND_CUSTOM_TOOL, row),
+    entityName: row.title,
+    fields: savedEntityRowToContent(ENTITY_KIND_CUSTOM_TOOL, row),
   }
 }
 
@@ -70,12 +74,13 @@ export const readCustomToolServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(
+    const document = await readSavedEntityDocument(ENTITY_KIND_CUSTOM_TOOL, entityId, workspaceId)
+    return buildDocumentEnvelope(
       ENTITY_KIND_CUSTOM_TOOL,
       entityId,
-      workspaceId
+      document.entityName,
+      document.fields
     )
-    return buildDocumentEnvelope(ENTITY_KIND_CUSTOM_TOOL, entityId, fields)
   },
 }
 
@@ -103,14 +108,9 @@ export const editCustomToolServerTool: EntityServerTool = {
   },
 }
 
-export const renameCustomToolServerTool: EntityServerTool = {
+export const renameCustomToolServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_custom_tool',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_CUSTOM_TOOL,
-      'rename_custom_tool',
-      args,
-      context
-    )
+    return executeRenameEntityMutation(ENTITY_KIND_CUSTOM_TOOL, 'rename_custom_tool', args, context)
   },
 }

@@ -17,10 +17,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
-import {
-  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-  resolveCustomToolId,
-} from '@/widgets/widgets/_shared/custom_tool/utils'
+import { resolveCustomToolId } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
 import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
@@ -122,6 +119,8 @@ function EditorCustomToolWidgetBody({
     entityIds: customToolMembers.map((member) => member.entityId),
     useDefaultEntity: false,
   })
+  const selectedToolMember =
+    customToolMembers.find((member) => member.entityId === selectedToolId) ?? null
 
   const syncActiveSection = useCallback(
     (section: CustomToolEditorSection) => {
@@ -206,6 +205,7 @@ function EditorCustomToolWidgetBody({
           doc={customToolSession.doc}
           save={customToolSession.save}
           toolId={selectedToolId}
+          toolTitle={selectedToolMember?.entityName ?? ''}
           onSectionChange={syncActiveSection}
           exportRef={exportRef}
           saveRef={saveRef}
@@ -238,8 +238,7 @@ function CustomToolEditorSelector({
   const selectedToolId = resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey ?? CUSTOM_TOOL_EDITOR_WIDGET_KEY, { customToolId })
+    actions.patchWidgetParams({ customToolId })
   }
 
   return (

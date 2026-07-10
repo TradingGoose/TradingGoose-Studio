@@ -55,45 +55,21 @@ export const resolveDropTarget = (sortableId: string): WatchlistDropTarget | nul
 const findItem = (items: WatchlistItem[], itemId: string) =>
   items.find((item) => item.id === itemId) ?? null
 
-const isContainerDescendant = (
-  items: WatchlistItem[],
-  containerId: string,
-  candidateParentId: string
-) => {
-  let currentParentId: string | null = candidateParentId
-  const visited = new Set<string>()
-
-  while (currentParentId) {
-    if (currentParentId === containerId) return true
-    if (visited.has(currentParentId)) return false
-    visited.add(currentParentId)
-    const parent = findItem(items, currentParentId)
-    currentParentId = parent?.type === 'section' ? parent.parentId : null
-  }
-
-  return false
-}
-
 const resolveTargetParentId = (
   items: WatchlistItem[],
   active: DraggedWatchlistItem,
   target: WatchlistDropTarget
 ) => {
+  if (active.type === 'container') {
+    return target.type === 'before' && target.itemId === active.itemId ? undefined : null
+  }
   if (target.type === 'root') return null
   if (target.type === 'container') {
-    if (active.type === 'container') {
-      if (target.containerId === active.itemId) return undefined
-      if (isContainerDescendant(items, active.itemId, target.containerId)) return undefined
-    }
     return target.containerId
   }
 
   const targetItem = findItem(items, target.itemId)
-  const parentId = targetItem?.parentId ?? null
-  if (active.type === 'container') {
-    if (target.itemId === active.itemId) return undefined
-  }
-  return parentId
+  return targetItem?.parentId ?? null
 }
 
 const resolveInsertIndex = (
@@ -127,16 +103,17 @@ const moveItem = (
   const sourceIndex = items.findIndex(
     (item) =>
       item.id === active.itemId &&
-      (active.type === 'container'
-        ? item.type === 'section'
-        : item.type === active.type)
+      (active.type === 'container' ? item.type === 'section' : item.type === active.type)
   )
   if (sourceIndex === -1) return null
 
   const nextParentId = resolveTargetParentId(items, active, target)
   if (nextParentId === undefined) return null
 
-  const draggedItem = { ...items[sourceIndex], parentId: nextParentId } as WatchlistItem
+  const draggedItem = {
+    ...items[sourceIndex],
+    parentId: active.type === 'container' ? null : nextParentId,
+  } as WatchlistItem
   const remaining = items.filter((item) => item.id !== active.itemId)
   const insertIndex = resolveInsertIndex(remaining, target, nextParentId)
   if (insertIndex === -1) return null
@@ -166,11 +143,17 @@ export const resolveEffectiveDropTarget = (
 
   if (!active || !rawTarget) return null
   if (active.type === 'listing') return rawTarget
-  if (rawTarget.type !== 'before') return rawTarget
+  if (rawTarget.type === 'root') return rawTarget
+  if (rawTarget.type === 'container') {
+    return rawTarget.containerId === active.itemId
+      ? null
+      : { type: 'before', itemId: rawTarget.containerId }
+  }
 
   const targetItem = findItem(items, rawTarget.itemId)
   const parentId = targetItem?.parentId ?? null
-  return parentId ? { type: 'container', containerId: parentId } : { type: 'root' }
+  if (!parentId) return rawTarget.itemId === active.itemId ? null : rawTarget
+  return parentId === active.itemId ? null : { type: 'before', itemId: parentId }
 }
 
 export const moveWatchlistItem = (

@@ -13,7 +13,6 @@ import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/vali
 import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
 import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
-import { isWatchlistToolId, WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
@@ -23,6 +22,7 @@ import {
   getTool,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
+import { isWatchlistToolId, WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 
 const logger = createLogger('Tools')
 
@@ -106,10 +106,15 @@ async function getServerCustomTool(
     scopedWorkspaceId,
     isDeployedContext
   )
+  const { readEntityListMembersFromDb } = await import('@/lib/yjs/server/entity-loaders')
+  const title = (await readEntityListMembersFromDb('custom_tool', scopedWorkspaceId)).find(
+    (member) => member.id === identifier
+  )?.name
+  if (title === undefined) throw new Error(`Custom tool ${identifier} not found`)
 
   return createToolConfig(
     {
-      title: String(fields.title ?? ''),
+      title,
       schema: parseCustomToolSchemaText(fields.schemaText),
       code: String(fields.codeText ?? ''),
     },
@@ -135,7 +140,10 @@ async function executeWatchlistTool(
     params._context?.isDeployedContext !== false
   )
   const watchlists = entries.map((entry: any) => {
-    const fields = normalizePersistedWatchlistDocumentFields(entry.fields)
+    const fields = normalizePersistedWatchlistDocumentFields({
+      name: entry.entityName,
+      ...entry.fields,
+    })
     return {
       id: entry.entityId,
       workspaceId,

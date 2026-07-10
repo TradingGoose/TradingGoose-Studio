@@ -44,6 +44,7 @@ export function EditorSkillWidgetBody({
     entityIds: skillMembers.map((member) => member.entityId),
     useDefaultEntity: false,
   })
+  const selectedSkillMember = skillMembers.find((member) => member.entityId === skillId) ?? null
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useSkillEditorActions({
@@ -97,6 +98,8 @@ export function EditorSkillWidgetBody({
         doc={skillSession.doc}
         save={skillSession.save}
         skillId={skillId}
+        workspaceId={workspaceId}
+        entityName={selectedSkillMember?.entityName ?? ''}
         exportRef={exportRef}
         saveRef={saveRef}
       />

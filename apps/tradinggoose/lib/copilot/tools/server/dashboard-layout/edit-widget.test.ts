@@ -5,11 +5,9 @@ const toolMocks = fx.createDashboardToolMocks()
 
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_widget' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
-vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
-vi.mock('@/lib/copilot/tools/server/dashboard-layout/shared', () =>
-  fx.mockDashboardSharedModule(toolMocks)
-)
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => fx.mockSnapshotBridgeModule(toolMocks))
 
 const QUICK_ORDER_PARAMS = {
   provider: 'alpaca',
@@ -36,11 +34,23 @@ const DATA_CHART_PARAMS = {
   runtime: { refreshAt: 100 },
 }
 
-const widgetPanel = (id: string, key: string, params: Record<string, unknown>) => ({
-  id,
-  type: 'panel',
-  widget: { key, pairColor: 'gray', params: structuredClone(params) },
-})
+const withWidgetParams = (
+  widgetId: 'chart-widget' | 'order-widget',
+  params: Record<string, unknown>
+) => {
+  const fields = fx.createDashboardLayoutTestContent()
+  return {
+    ...fields,
+    widgets: {
+      ...fields.widgets,
+      [widgetId]: {
+        ...fields.widgets[widgetId],
+        pairColor: 'gray' as const,
+        params: structuredClone(params),
+      },
+    },
+  }
+}
 
 const execute = async (args: Record<string, unknown>, context?: Record<string, unknown>) => {
   const { editWidgetServerTool } = await import('./edit-widget')
@@ -59,40 +69,52 @@ describe('edit_widget server tool', () => {
   it('applies edit_widget without pruning the independent color store', async () => {
     const result = await execute({ pairColor: 'gray' })
 
-    expect(toolMocks.applyLive).toHaveBeenCalledWith(
-      toolMocks.scope,
-      'layout-1',
+    expect(toolMocks.applyWidget).toHaveBeenCalledWith(
       expect.objectContaining({
-        colorPairs: { pairs: [{ color: 'red', listing: fx.AAPL_LISTING }] },
+        entityId: 'layout-1',
+        identityId: 'chart-widget',
+        widget: expect.objectContaining({ pairColor: 'gray' }),
       })
     )
+    expect(toolMocks.applyWidget.mock.calls[0]?.[0]).not.toHaveProperty('layout')
     expect(result.colorPairDiff).toEqual([])
   })
 
-  it('patches public edit_widget params without replacing unrelated quick-order params', async () => {
-    toolMocks.setCurrentFields(
-      fx.createFieldsWithChildren((children) => [
-        children[0],
-        widgetPanel('order-panel', 'quick_order', QUICK_ORDER_PARAMS),
-      ])
+  it('rejects empty panels instead of creating a layout binding', async () => {
+    toolMocks.setCurrentContent({
+      layout: {
+        id: 'chart-panel',
+        type: 'panel',
+        identityId: null,
+        widgetKey: null,
+      },
+      widgets: {},
+      colorPairs: { pairs: [] },
+    })
+
+    await expect(execute({ params: { view: { interval: '1h' } } })).rejects.toThrow(
+      'has no widget; use edit_layout'
     )
+    expect(toolMocks.applyWidget).not.toHaveBeenCalled()
+  })
+
+  it('patches public edit_widget params without replacing unrelated quick-order params', async () => {
+    toolMocks.setCurrentContent(withWidgetParams('order-widget', QUICK_ORDER_PARAMS))
 
     const result = await execute({ panelId: 'order-panel', params: { side: 'sell' } })
 
-    expect(result.widget.params).toMatchObject({ ...QUICK_ORDER_PARAMS, side: 'sell' })
+    expect(JSON.parse(result.entityDocument).params).toMatchObject({
+      ...QUICK_ORDER_PARAMS,
+      side: 'sell',
+    })
   })
 
   it('deep-patches public edit_widget data-chart params without replacing nested siblings', async () => {
-    toolMocks.setCurrentFields(
-      fx.createFieldsWithChildren((children) => [
-        widgetPanel('chart-panel', 'data_chart', DATA_CHART_PARAMS),
-        children[1],
-      ])
-    )
+    toolMocks.setCurrentContent(withWidgetParams('chart-widget', DATA_CHART_PARAMS))
 
     const result = await execute({ params: { view: { interval: '1h' } } })
 
-    expect(result.widget.params).toMatchObject({
+    expect(JSON.parse(result.entityDocument).params).toMatchObject({
       ...DATA_CHART_PARAMS,
       view: { ...DATA_CHART_PARAMS.view, interval: '1h' },
     })
@@ -108,7 +130,7 @@ describe('edit_widget server tool', () => {
       },
     })
 
-    expect(result.widget.params.view).toMatchObject({
+    expect(JSON.parse(result.entityDocument).params.view).toMatchObject({
       pineIndicators: [{ id: 'indicator-1' }],
       drawTools: [{ id: 'manual-macd', pane: 'indicator', indicatorId: 'MACD' }],
     })
@@ -117,7 +139,7 @@ describe('edit_widget server tool', () => {
   it('keeps public edit_widget params null as an explicit local params clear', async () => {
     const result = await execute({ params: null })
 
-    expect(result.widget.params).toBeNull()
+    expect(JSON.parse(result.entityDocument).params).toBeNull()
   })
 
   it('stages edit_widget review with selected-widget JSON document diff', async () => {
@@ -133,12 +155,14 @@ describe('edit_widget server tool', () => {
     const after = JSON.parse(result.preview.documentDiff.after)
     expect(before).toMatchObject({
       panelId: 'chart-panel',
-      widget: { key: 'data_chart', pairColor: 'red' },
+      widgetKey: 'data_chart',
+      widgetDocument: { pairColor: 'red' },
       colorPair: { listing: { listing_id: 'AAPL' } },
     })
     expect(after).toMatchObject({
       panelId: 'chart-panel',
-      widget: { key: 'data_chart', pairColor: 'red' },
+      widgetKey: 'data_chart',
+      widgetDocument: { pairColor: 'red' },
     })
     expect(after.effectiveParams).toMatchObject({ data: { provider: 'polygon' } })
   })

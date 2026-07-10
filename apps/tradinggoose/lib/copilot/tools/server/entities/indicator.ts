@@ -5,17 +5,19 @@ import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
   DEFAULT_INDICATOR_RUNTIME_MAP,
 } from '@/lib/indicators/default/runtime'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
-  type EntityCreateContext,
   type CopilotIndicatorListEntry,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   requireUserId,
   verifySavedEntityContext,
@@ -52,6 +54,7 @@ async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndica
 }
 
 async function createIndicatorEntity(
+  name: string,
   fields: Record<string, unknown>,
   { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
@@ -60,7 +63,7 @@ async function createIndicatorEntity(
     workspaceId,
     indicators: [
       {
-        name: String(fields.name ?? ''),
+        name,
         color: String(fields.color ?? ''),
         pineCode: String(fields.pineCode ?? ''),
       },
@@ -73,7 +76,8 @@ async function createIndicatorEntity(
 
   return {
     entityId: row.id,
-    fields: savedEntityRowToFields(ENTITY_KIND_INDICATOR, row),
+    entityName: row.name,
+    fields: savedEntityRowToContent(ENTITY_KIND_INDICATOR, row),
   }
 }
 
@@ -102,8 +106,7 @@ export const readIndicatorServerTool: EntityServerTool = {
       requireUserId(context)
       const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(runtimeId)
       if (defaultIndicator) {
-        return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, {
-          name: defaultIndicator.name,
+        return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, defaultIndicator.name, {
           color: '',
           pineCode: defaultIndicator.pineCode,
         })
@@ -115,12 +118,13 @@ export const readIndicatorServerTool: EntityServerTool = {
         runtimeId,
         'read'
       )
-      const fields = await readSavedEntityDocumentFields(
+      const document = await readSavedEntityDocument(ENTITY_KIND_INDICATOR, runtimeId, workspaceId)
+      return buildDocumentEnvelope(
         ENTITY_KIND_INDICATOR,
         runtimeId,
-        workspaceId
+        document.entityName,
+        document.fields
       )
-      return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, runtimeId, fields)
     }
 
     const entityId = requireEntityId(args, 'read_indicator')
@@ -130,8 +134,13 @@ export const readIndicatorServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(ENTITY_KIND_INDICATOR, entityId, workspaceId)
-    return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, entityId, fields)
+    const document = await readSavedEntityDocument(ENTITY_KIND_INDICATOR, entityId, workspaceId)
+    return buildDocumentEnvelope(
+      ENTITY_KIND_INDICATOR,
+      entityId,
+      document.entityName,
+      document.fields
+    )
   },
 }
 
@@ -159,14 +168,9 @@ export const editIndicatorServerTool: EntityServerTool = {
   },
 }
 
-export const renameIndicatorServerTool: EntityServerTool = {
+export const renameIndicatorServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_indicator',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_INDICATOR,
-      'rename_indicator',
-      args,
-      context
-    )
+    return executeRenameEntityMutation(ENTITY_KIND_INDICATOR, 'rename_indicator', args, context)
   },
 }

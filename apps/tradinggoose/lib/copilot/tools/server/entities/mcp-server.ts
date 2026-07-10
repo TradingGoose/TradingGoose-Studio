@@ -14,8 +14,10 @@ import {
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
@@ -89,13 +91,15 @@ function prepareNewMcpServerFields(fields: Record<string, unknown>): Record<stri
 }
 
 async function createMcpServerEntity(
+  name: string,
   fields: Record<string, unknown>,
   { userId, workspaceId }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const created = await mcpService.createWorkspaceServer({ userId, workspaceId, fields })
+  const created = await mcpService.createWorkspaceServer({ userId, workspaceId, name, fields })
 
   return {
     entityId: created.entityId,
+    entityName: created.entityName,
     fields: created.fields,
   }
 }
@@ -105,7 +109,7 @@ async function applyMcpServerDocument(input: {
   fields: Record<string, unknown>
   workspaceId: string
 }) {
-  const currentFields = await readSavedEntityDocumentFields(
+  const current = await readSavedEntityDocument(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
     input.workspaceId
@@ -113,7 +117,7 @@ async function applyMcpServerDocument(input: {
   return applySavedEntityState(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
-    preserveMcpServerSecretPlaceholders(input.fields, currentFields)
+    preserveMcpServerSecretPlaceholders(input.fields, current.fields)
   )
 }
 
@@ -144,12 +148,13 @@ export const readMcpServerServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(
+    const document = await readSavedEntityDocument(ENTITY_KIND_MCP_SERVER, entityId, workspaceId)
+    return buildDocumentEnvelope(
       ENTITY_KIND_MCP_SERVER,
       entityId,
-      workspaceId
+      document.entityName,
+      document.fields
     )
-    return buildDocumentEnvelope(ENTITY_KIND_MCP_SERVER, entityId, fields)
   },
 }
 
@@ -180,16 +185,9 @@ export const editMcpServerServerTool: EntityServerTool = {
   },
 }
 
-export const renameMcpServerServerTool: EntityServerTool = {
+export const renameMcpServerServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_mcp_server',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_MCP_SERVER,
-      'rename_mcp_server',
-      args,
-      context,
-      applyMcpServerDocument,
-      normalizeMcpServerDocumentFields
-    )
+    return executeRenameEntityMutation(ENTITY_KIND_MCP_SERVER, 'rename_mcp_server', args, context)
   },
 }

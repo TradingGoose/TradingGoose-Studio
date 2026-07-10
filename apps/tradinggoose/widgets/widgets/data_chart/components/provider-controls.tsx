@@ -1,8 +1,8 @@
 'use client'
 
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
@@ -22,7 +22,7 @@ type RefreshButtonProps = {
 
 export const DataChartRefreshControl = ({ providerId, panelId, widgetKey }: RefreshButtonProps) => {
   const copy = useDataChartCopy().header
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   return (
     <WidgetHeaderRefreshButton
       label={copy.refresh}
@@ -44,7 +44,7 @@ export const DataChartProviderControls = ({
   const providerId = params.data?.provider
   const providerParams = params.data?.providerParams ?? {}
   const authParams = params.data?.auth
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 

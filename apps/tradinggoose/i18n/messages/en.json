@@ -992,6 +992,11 @@
         "docs": "Docs"
       },
       "emptySearch": "No matching content",
+      "layoutState": {
+        "loading": "Loading dashboard layout...",
+        "empty": "No dashboard layout is available.",
+        "error": "The dashboard layout could not be loaded."
+      },
       "pages": {
         "records": "Records",
         "monitor": "Monitor",

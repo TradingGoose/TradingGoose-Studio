@@ -1,7 +1,12 @@
 'use server'
 
 import { getSession } from '@/lib/auth'
-import { createDashboardLayout, deleteDashboardLayout } from '@/lib/dashboard-layouts/operations'
+import {
+  activateDashboardLayout,
+  createDashboardLayout,
+  deleteDashboardLayout,
+  reorderDashboardLayout,
+} from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 
 async function requireDashboardLayoutScope(workspaceId: string) {
@@ -28,4 +33,18 @@ export async function createDashboardLayoutAction(workspaceId: string) {
 export async function deleteDashboardLayoutAction(workspaceId: string, layoutId: string) {
   const scope = await requireDashboardLayoutScope(workspaceId)
   await deleteDashboardLayout(scope, layoutId)
+}
+
+export async function activateDashboardLayoutAction(workspaceId: string, layoutId: string) {
+  const scope = await requireDashboardLayoutScope(workspaceId)
+  await activateDashboardLayout(scope, layoutId)
+}
+
+export async function reorderDashboardLayoutAction(
+  workspaceId: string,
+  layoutId: string,
+  sortOrder: number
+) {
+  const scope = await requireDashboardLayoutScope(workspaceId)
+  await reorderDashboardLayout(scope, layoutId, sortOrder)
 }

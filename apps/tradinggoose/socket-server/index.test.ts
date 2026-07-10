@@ -105,6 +105,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       const latest = savedEntityStates.at(-1)
       if (!latest) return
       const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+      if (typeof name !== 'string') return
       replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
     }
   ),
@@ -479,16 +480,6 @@ describe('Socket Server Index Integration', () => {
     it('should apply saved entity state through Yjs', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
-      mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
-        doc.getMap('fields').set('name', 'Canonical Risk Skill')
-        const fields = getEntityFields(doc, entityKind)
-        savedEntityStates.push({
-          entityKind,
-          entityId,
-          fields,
-        })
-        return fields
-      })
 
       const response = await sendHttpRequestWithOptions(
         PORT,
@@ -502,7 +493,6 @@ describe('Socket Server Index Integration', () => {
           body: JSON.stringify({
             entityKind: 'skill',
             fields: {
-              name: 'Risk Skill',
               description: 'Position sizing rules',
               content: 'Keep risk below one percent.',
             },
@@ -514,7 +504,6 @@ describe('Socket Server Index Integration', () => {
       expect(JSON.parse(response.body)).toEqual({
         success: true,
         fields: {
-          name: 'Canonical Risk Skill',
           description: 'Position sizing rules',
           content: 'Keep risk below one percent.',
         },
@@ -524,7 +513,6 @@ describe('Socket Server Index Integration', () => {
           entityKind: 'skill',
           entityId: 'skill-1',
           fields: {
-            name: 'Canonical Risk Skill',
             description: 'Position sizing rules',
             content: 'Keep risk below one percent.',
           },
@@ -534,7 +522,7 @@ describe('Socket Server Index Integration', () => {
       expect(getEntityListMembers(listDoc, 'skill')).toEqual([
         {
           entityId: 'skill-1',
-          entityName: 'Canonical Risk Skill',
+          entityName: 'Old Skill',
         },
       ])
 
@@ -545,16 +533,6 @@ describe('Socket Server Index Integration', () => {
     it('applies watchlist state and refreshes the open watchlist entity list', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
-      mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
-        doc.getMap('fields').set('name', 'Canonical Watchlist')
-        const fields = getEntityFields(doc, entityKind)
-        savedEntityStates.push({
-          entityKind,
-          entityId,
-          fields,
-        })
-        return fields
-      })
 
       const response = await sendHttpRequestWithOptions(
         PORT,
@@ -568,7 +546,6 @@ describe('Socket Server Index Integration', () => {
           body: JSON.stringify({
             entityKind: 'watchlist',
             fields: {
-              name: 'Draft Watchlist',
               settings: { showLogo: true, showTicker: true, showDescription: false },
               items: [],
             },
@@ -580,7 +557,6 @@ describe('Socket Server Index Integration', () => {
       expect(JSON.parse(response.body)).toEqual({
         success: true,
         fields: {
-          name: 'Canonical Watchlist',
           settings: { showLogo: true, showTicker: true, showDescription: false },
           items: [],
         },
@@ -590,7 +566,6 @@ describe('Socket Server Index Integration', () => {
           entityKind: 'watchlist',
           entityId: 'watchlist-1',
           fields: {
-            name: 'Canonical Watchlist',
             settings: { showLogo: true, showTicker: true, showDescription: false },
             items: [],
           },
@@ -599,46 +574,12 @@ describe('Socket Server Index Integration', () => {
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
-          entityName: 'Canonical Watchlist',
+          entityName: 'Old Watchlist',
         },
       ])
 
       conn.emit('close')
       await new Promise((resolve) => setImmediate(resolve))
-    })
-
-    it('requires dashboard owner identity for internal apply-state requests', async () => {
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/entities/layout-1/apply-state',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-          body: JSON.stringify({
-            entityKind: 'dashboard_layout',
-            fields: {
-              name: 'Layout 1',
-              layout: {
-                id: 'panel-1',
-                type: 'panel',
-                widget: null,
-              },
-              colorPairs: { pairs: [] },
-              isActive: true,
-              sortOrder: 0,
-            },
-          }),
-        }
-      )
-
-      expect(response.statusCode).toBe(400)
-      expect(JSON.parse(response.body)).toEqual({
-        error: 'Dashboard layout ownerUserId is required',
-      })
-      expect(mockSaveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
     })
 
     it('should discard an idle workflow document when materialization fails', async () => {
@@ -718,7 +659,6 @@ describe('Socket Server Index Integration', () => {
         PORT,
         'skill-update-failed',
         createSkillUpdateBase64({
-          name: 'Unsaved Skill',
           description: 'Draft',
           content: 'Draft content',
         })
@@ -733,7 +673,6 @@ describe('Socket Server Index Integration', () => {
       seedEntitySession(liveDoc, {
         entityKind: 'skill',
         payload: {
-          name: 'Original Skill',
           description: 'Original',
           content: 'Original content',
         },
@@ -741,7 +680,6 @@ describe('Socket Server Index Integration', () => {
       seedEntitySession(liveDoc, {
         entityKind: 'skill',
         payload: {
-          name: 'Unsaved Skill',
           description: 'Draft',
           content: 'Draft content',
         },
@@ -752,7 +690,6 @@ describe('Socket Server Index Integration', () => {
         PORT,
         'skill-update-connected',
         createSkillUpdateBase64({
-          name: 'Unsaved Skill',
           description: 'Draft',
           content: 'Draft content',
         })
@@ -762,7 +699,6 @@ describe('Socket Server Index Integration', () => {
       expect(
         getEntityFields((await getExistingDocument('skill-update-connected'))!, 'skill')
       ).toEqual({
-        name: 'Unsaved Skill',
         description: 'Draft',
         content: 'Draft content',
       })

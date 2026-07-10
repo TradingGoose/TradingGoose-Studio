@@ -12,11 +12,12 @@ import type {
   McpTransport,
 } from '@/lib/mcp/types'
 import { generateRequestId } from '@/lib/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import {
   readSavedEntityFieldsForExecution,
   readSavedEntityListFieldsForExecution,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
@@ -104,10 +105,14 @@ class McpService {
     }
   }
 
-  private toServerConfig(serverId: string, fields: Record<string, unknown>): McpServerConfig {
+  private toServerConfig(
+    serverId: string,
+    name: string,
+    fields: Record<string, unknown>
+  ): McpServerConfig {
     return {
       id: serverId,
-      name: String(fields.name ?? ''),
+      name,
       description: String(fields.description ?? '') || undefined,
       transport: fields.transport as McpTransport,
       url: String(fields.url ?? '') || undefined,
@@ -121,8 +126,9 @@ class McpService {
   async createWorkspaceServer(input: {
     userId: string
     workspaceId: string
+    name: string
     fields: Record<string, unknown>
-  }): Promise<{ entityId: string; fields: Record<string, unknown> }> {
+  }): Promise<{ entityId: string; entityName: string; fields: Record<string, unknown> }> {
     let normalized: Record<string, unknown>
     try {
       normalized = normalizeEntityFields('mcp_server', input.fields)
@@ -137,7 +143,7 @@ class McpService {
         id: entityId,
         workspaceId: input.workspaceId,
         createdBy: input.userId,
-        name: String(normalized.name ?? ''),
+        name: input.name,
         description: String(normalized.description ?? '') || null,
         transport: normalized.transport as McpTransport,
         url: String(normalized.url ?? '') || null,
@@ -159,7 +165,11 @@ class McpService {
 
     await refreshEntityListSession('mcp_server', input.workspaceId)
 
-    return { entityId, fields: savedEntityRowToFields('mcp_server', row) }
+    return {
+      entityId,
+      entityName: row.name,
+      fields: savedEntityRowToContent('mcp_server', row),
+    }
   }
 
   private async getServerConfig(
@@ -168,16 +178,14 @@ class McpService {
     isDeployedContext = true
   ): Promise<McpServerConfig | null> {
     try {
-      const fields = normalizeEntityFields(
-        'mcp_server',
-        await readSavedEntityFieldsForExecution(
-          'mcp_server',
-          serverId,
-          workspaceId,
-          isDeployedContext
-        )
-      )
-      return fields.enabled === false ? null : this.toServerConfig(serverId, fields)
+      const [rawFields, members] = await Promise.all([
+        readSavedEntityFieldsForExecution('mcp_server', serverId, workspaceId, isDeployedContext),
+        readEntityListMembersFromDb('mcp_server', workspaceId),
+      ])
+      const fields = normalizeEntityFields('mcp_server', rawFields)
+      const name = members.find((member) => member.id === serverId)?.name
+      if (name === undefined) return null
+      return fields.enabled === false ? null : this.toServerConfig(serverId, name, fields)
     } catch (error) {
       if (
         typeof error === 'object' &&
@@ -200,10 +208,10 @@ class McpService {
       isDeployedContext
     )
 
-    return servers.flatMap(({ entityId, fields: rawFields }) => {
+    return servers.flatMap(({ entityId, entityName, fields: rawFields }) => {
       try {
         const fields = normalizeEntityFields('mcp_server', rawFields)
-        return fields.enabled === false ? [] : [this.toServerConfig(entityId, fields)]
+        return fields.enabled === false ? [] : [this.toServerConfig(entityId, entityName, fields)]
       } catch (error) {
         logger.warn(`Skipping invalid MCP server ${entityId} during workspace discovery:`, error)
         return []

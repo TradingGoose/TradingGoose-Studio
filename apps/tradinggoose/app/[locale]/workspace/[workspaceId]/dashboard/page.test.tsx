@@ -35,12 +35,12 @@ const activeLayout = {
   name: 'Active',
   sortOrder: 0,
   isActive: true,
-  layout: {
+  topology: {
     id: 'panel-1',
     type: 'panel',
-    widget: null,
+    identityId: null,
+    widgetKey: null,
   },
-  colorPairs: { pairs: [] },
 }
 
 const renderPage = async () =>
@@ -69,10 +69,13 @@ describe('WorkspaceDashboardPage', () => {
     )
     expect(m.readActive).toHaveBeenCalledWith(scope)
     expect(m.clientProps).toMatchObject({
+      initialTopology: activeLayout.topology,
       layoutId: 'layout-active',
       ownerUserId: 'user-1',
       workspaceCanWrite: true,
     })
+    expect(m.clientProps).not.toHaveProperty('initialWidgets')
+    expect(m.clientProps).not.toHaveProperty('initialColorPairs')
   })
 
   it('passes workspace write permission only for workspace entities', async () => {

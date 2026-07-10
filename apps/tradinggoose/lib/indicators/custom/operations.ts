@@ -8,6 +8,7 @@ import {
 } from '@/lib/indicators/import-export'
 import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
+import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
@@ -24,7 +25,7 @@ export async function listCustomIndicatorRuntimeEntries(
     workspaceId,
     isDeployedContext
   )
-  return entries.map(({ entityId, fields }) => {
+  return entries.map(({ entityId, entityName, fields }) => {
     const pineCode = String(fields.pineCode ?? '')
     return {
       id: entityId,
@@ -40,13 +41,13 @@ export async function listIndicators(params: { workspaceId: string }) {
     params.workspaceId,
     false
   )
-  return entries.map(({ entityId, fields }) => {
+  return entries.map(({ entityId, entityName, fields }) => {
     const pineCode = String(fields.pineCode ?? '')
     return {
       id: entityId,
       workspaceId: params.workspaceId,
       userId: null,
-      name: String(fields.name ?? ''),
+      name: entityName,
       color: String(fields.color ?? ''),
       pineCode,
       inputMeta: inferInputMetaFromPineCode(pineCode),
@@ -137,8 +138,13 @@ export async function saveIndicator({
     throw new Error(`Indicator ${indicator.id} was not found`)
   }
 
-  await applySavedEntityState('indicator', indicator.id, {
+  await renameSavedEntityIdentity({
+    entityKind: 'indicator',
+    entityId: indicator.id,
+    workspaceId,
     name: indicator.name,
+  })
+  await applySavedEntityState('indicator', indicator.id, {
     color: existing.color ?? getStableVibrantColor(indicator.id),
     pineCode: indicator.pineCode,
   })

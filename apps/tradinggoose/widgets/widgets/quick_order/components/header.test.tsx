@@ -232,17 +232,17 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       marketProvider: 'finnhub',
       marketProviderParams: null,
       marketAuth: null,
     })
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       provider: 'tradier',
       portfolioIdentity: null,
       serviceId: null,
     })
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       side: 'sell',
     })
   })
@@ -266,7 +266,7 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       marketProviderParams: { region: 'US' },
       marketAuth: { apiKey: 'market-key' },
     })
@@ -293,8 +293,6 @@ describe('QuickOrderHeaderControls', () => {
       })
     )
     expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
       expect.objectContaining({
         marketProvider: expect.any(String),
       })
@@ -357,7 +355,7 @@ describe('QuickOrderHeaderControls', () => {
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-1', 'quick_order', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       portfolioIdentity: {
         providerId: 'alpaca',
         credentialId: 'oauth-account-1',

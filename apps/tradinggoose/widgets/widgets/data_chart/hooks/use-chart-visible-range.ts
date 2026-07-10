@@ -63,7 +63,7 @@ export const useChartVisibleRange = ({
   )
   const pendingRef = useRef<RangeMs | null>(null)
   const flushTimerRef = useRef<number | null>(null)
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const patchWidgetParamsRef = useRef(patchWidgetParams)
 
   useEffect(() => {

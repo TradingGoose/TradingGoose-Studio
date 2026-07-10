@@ -36,6 +36,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
@@ -167,8 +168,8 @@ export const WatchlistHeaderLeftControls = ({
   const providerId = resolveProviderId(params)
   const actions = useWidgetConfigRuntimeActions()
   const patchWidgetParams = (nextParams: Record<string, unknown>) => {
-    if (!canEditWidgetParams || !panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, nextParams)
+    if (!canEditWidgetParams) return
+    actions.patchWidgetParams(nextParams)
   }
 
   const handleProviderChange = (nextProvider: string) => {
@@ -396,8 +397,8 @@ export const WatchlistHeaderRightControls = ({
   const isMutating = Boolean(pendingAction)
 
   const handleSelectList = (watchlistId: string) => {
-    if (!canEditWidgetParams || !panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, { watchlistId })
+    if (!canEditWidgetParams) return
+    actions.patchWidgetParams({ watchlistId })
   }
 
   const selectListOption = (option: WatchlistListOption) => {
@@ -481,6 +482,7 @@ export const WatchlistHeaderRightControls = ({
   const commitListRename = async () => {
     if (
       !canMutateWatchlist ||
+      !workspaceId ||
       !editingListId ||
       !selectedWatchlist ||
       editingListId !== selectedWatchlist.id
@@ -497,8 +499,12 @@ export const WatchlistHeaderRightControls = ({
 
     try {
       setPendingAction('rename-list')
-      selectedDocument.setName(nextName)
-      await selectedDocument.save()
+      await renameSavedEntityAction({
+        entityKind: 'watchlist',
+        entityId: selectedWatchlist.id,
+        workspaceId,
+        name: nextName,
+      })
       cancelListRename()
     } catch {
       // Keep edit mode active so the user can retry.
@@ -627,8 +633,8 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const handleRefreshData = () => {
-    if (!canEditWidgetParams || !providerId || !panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, {
+    if (!canEditWidgetParams || !providerId) return
+    actions.patchWidgetParams({
       runtime: {
         refreshAt: Date.now(),
       },

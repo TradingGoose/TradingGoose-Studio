@@ -393,9 +393,15 @@ describe('watchlist import/export', () => {
             settings: { showLogo: true, showTicker: true, showDescription: true },
             items: [
               {
+                id: 'section-1',
                 type: 'section',
                 label: 'Tech',
-                items: [],
+                parentId: null,
+              },
+              {
+                type: 'section',
+                label: 'Semiconductors',
+                parentId: 'section-1',
               },
             ],
           },

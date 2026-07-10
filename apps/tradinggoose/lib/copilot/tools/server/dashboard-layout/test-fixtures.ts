@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { DashboardLayoutDocumentFields } from '@/widgets/layout-document'
+import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
 
 export const TEST_SCOPE = { workspaceId: 'workspace-1', ownerUserId: 'user-1' }
 export const TEST_EXECUTION_CONTEXT = { userId: 'user-1', workspaceId: 'workspace-1' }
@@ -11,9 +11,7 @@ export const AAPL_LISTING = {
   quote_id: '',
 }
 
-/** Canonical two-panel layout fields with a linked red pair carrying an AAPL listing. */
-export const createDashboardLayoutTestFields = (): DashboardLayoutDocumentFields => ({
-  name: 'Layout 1',
+export const createDashboardLayoutTestContent = (): DashboardLayoutDocumentContent => ({
   layout: {
     id: 'root',
     type: 'group',
@@ -23,43 +21,42 @@ export const createDashboardLayoutTestFields = (): DashboardLayoutDocumentFields
       {
         id: 'chart-panel',
         type: 'panel',
-        widget: { key: 'data_chart', pairColor: 'red', params: { data: { provider: 'alpaca' } } },
+        identityId: 'chart-widget',
+        widgetKey: 'data_chart',
       },
       {
         id: 'order-panel',
         type: 'panel',
-        widget: { key: 'quick_order', pairColor: 'red', params: null },
+        identityId: 'order-widget',
+        widgetKey: 'quick_order',
       },
     ],
   },
+  widgets: {
+    'chart-widget': {
+      pairColor: 'red',
+      params: { data: { provider: 'alpaca' } },
+    },
+    'order-widget': {
+      pairColor: 'red',
+      params: null,
+    },
+  },
   colorPairs: { pairs: [{ color: 'red', listing: { ...AAPL_LISTING } }] },
-  isActive: true,
-  sortOrder: 0,
 })
-
-/** Test fields with the default layout children rewritten (widget variants). */
-export const createFieldsWithChildren = (
-  mutate: (children: any[]) => any[]
-): DashboardLayoutDocumentFields => {
-  const fields = createDashboardLayoutTestFields()
-  const layout = fields.layout as any
-  return { ...fields, layout: { ...layout, children: mutate(layout.children) } }
-}
 
 export type DashboardToolMocks = ReturnType<typeof createDashboardToolMocks>
 
-/** Mutable mock bundle the edit_widget/edit_layout files' vi.mock factories close over. */
 export function createDashboardToolMocks() {
-  let currentFields: DashboardLayoutDocumentFields
+  let currentContent: DashboardLayoutDocumentContent
   return {
-    scope: TEST_SCOPE,
-    getCurrentFields: () => currentFields,
-    setCurrentFields: (fields: DashboardLayoutDocumentFields) => {
-      currentFields = fields
+    getCurrentContent: () => currentContent,
+    setCurrentContent: (content: DashboardLayoutDocumentContent) => {
+      currentContent = content
     },
     shouldStage: vi.fn(),
-    applyLive: vi.fn(async (_scope: any, _layoutId: any, fields: any) => fields),
-    listDashboardLayouts: vi.fn(),
+    applyTopology: vi.fn(async (_input: any) => undefined),
+    applyWidget: vi.fn(async (_input: any) => undefined),
     assertAcceptedReviewBase: vi.fn((context: any, hash: string) => {
       if (context?.acceptedReviewBaseStateHash && context.acceptedReviewBaseStateHash !== hash) {
         throw new Error('stale_server_tool_review')
@@ -68,17 +65,11 @@ export function createDashboardToolMocks() {
   }
 }
 
-/** Shared beforeEach reset for the dashboard-layout tool test files. */
 export function resetDashboardToolMocks(mocks: DashboardToolMocks) {
   vi.clearAllMocks()
-  mocks.setCurrentFields(createDashboardLayoutTestFields())
+  mocks.setCurrentContent(createDashboardLayoutTestContent())
   mocks.shouldStage.mockReturnValue(false)
-  mocks.listDashboardLayouts.mockResolvedValue([
-    { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
-  ])
 }
-
-/* vi.mock factory bodies shared by the edit_widget/edit_layout test files. */
 
 export const mockBaseToolModule = (mocks: DashboardToolMocks) => ({
   assertAcceptedServerToolReviewBase: mocks.assertAcceptedReviewBase,
@@ -87,19 +78,27 @@ export const mockBaseToolModule = (mocks: DashboardToolMocks) => ({
 })
 
 export const mockReadProjectionModule = () => ({
-  buildDashboardLayoutReadProjection: vi.fn(async (fields: DashboardLayoutDocumentFields) => ({
-    documentFormat: 'tg-dashboard-layout-document-v1',
-    entityDocument: JSON.stringify(fields),
-    effectiveLayout: fields.layout,
+  buildDashboardLayoutReadProjection: vi.fn(async (content: DashboardLayoutDocumentContent) => ({
+    canonicalContent: content,
+    documentFormat: 'tg-dashboard-layout-document-v2',
+    entityDocument: JSON.stringify(content),
+    effectiveLayout: content.layout,
   })),
 })
 
 export const mockEntitiesSharedModule = () => ({
+  buildSavedEntityListInfo: vi.fn(async () => [
+    { entityId: 'layout-1', entityName: 'Layout 1', sortOrder: 0, isActive: true },
+  ]),
   requireEntityId: vi.fn((args: any) => args.entityId),
   verifySavedEntityContext: vi.fn(async () => ({ ...TEST_SCOPE, userId: 'user-1' })),
 })
 
-export const mockDashboardSharedModule = (mocks: DashboardToolMocks) => ({
-  readLiveDashboardLayoutFields: vi.fn(async () => mocks.getCurrentFields()),
-  applyLiveDashboardLayoutFields: mocks.applyLive,
+export const mockBootstrapModule = (mocks: DashboardToolMocks) => ({
+  readBootstrappedSavedEntityFields: vi.fn(async () => mocks.getCurrentContent()),
+})
+
+export const mockSnapshotBridgeModule = (mocks: DashboardToolMocks) => ({
+  applyDashboardTopologyMutationInSocketServer: mocks.applyTopology,
+  applyDashboardWidgetMutationInSocketServer: mocks.applyWidget,
 })

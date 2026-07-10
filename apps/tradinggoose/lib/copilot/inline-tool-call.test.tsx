@@ -25,6 +25,16 @@ vi.mock('@/components/ui/button', () => ({
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }))
 
+vi.mock('@/hooks/queries/listing-resolution', () => ({
+  useResolvedListings: () => ({ data: {} }),
+}))
+
+vi.mock('@/components/listing-selector/listing/row', () => ({
+  MarketListingRow: ({ listing }: any) => (
+    <div data-testid='market-listing-row'>{listing?.base ?? listing?.name ?? ''}</div>
+  ),
+}))
+
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: (selector?: (state: any) => unknown) =>
     selector ? selector(mockUseCopilotStoreState) : mockUseCopilotStoreState,
@@ -355,9 +365,6 @@ describe('InlineToolCall', () => {
 
   it('renders dashboard layout edits with the shared visual layout preview', async () => {
     const currentLayout = {
-      name: 'Current Layout',
-      sortOrder: 0,
-      isActive: true,
       layout: {
         id: 'root',
         type: 'group',
@@ -367,20 +374,31 @@ describe('InlineToolCall', () => {
           {
             id: 'panel-a',
             type: 'panel',
-            widget: { key: 'data_chart', pairColor: 'gray', params: null },
+            identityId: 'widget-a',
+            widgetKey: 'data_chart',
           },
           {
             id: 'panel-b',
             type: 'panel',
-            widget: { key: 'copilot', pairColor: 'gray', params: null },
+            identityId: 'widget-b',
+            widgetKey: 'copilot',
           },
         ],
+      },
+      widgets: {
+        'widget-a': {
+          pairColor: 'gray',
+          params: null,
+        },
+        'widget-b': {
+          pairColor: 'gray',
+          params: null,
+        },
       },
       colorPairs: { pairs: [] },
     }
     const proposedLayout = {
       ...currentLayout,
-      name: 'Proposed Layout',
       layout: {
         ...currentLayout.layout,
         children: [
@@ -388,9 +406,18 @@ describe('InlineToolCall', () => {
           {
             id: 'panel-b',
             type: 'panel',
-            widget: { key: 'watchlist', pairColor: 'gray', params: null },
+            identityId: 'widget-b-next',
+            widgetKey: 'watchlist',
           },
         ],
+      },
+      widgets: {
+        ...currentLayout.widgets,
+        'widget-b': undefined,
+        'widget-b-next': {
+          pairColor: 'gray',
+          params: null,
+        },
       },
     }
 
@@ -403,6 +430,7 @@ describe('InlineToolCall', () => {
             state: ClientToolCallState.review,
             result: {
               entityKind: 'dashboard_layout',
+              entityName: 'Layout 1',
               preview: {
                 documentDiff: {
                   before: JSON.stringify(currentLayout),
@@ -419,11 +447,57 @@ describe('InlineToolCall', () => {
       container.querySelector('[data-testid="dashboard-layout-review-preview"]')
     ).not.toBeNull()
     expect(container.textContent).toContain('Proposed Dashboard Layout Changes')
-    expect(container.textContent).toContain('Current Layout')
-    expect(container.textContent).toContain('Proposed Layout')
+    expect(container.textContent).toContain('Layout 1')
     expect(container.textContent).toContain('data_chart')
     expect(container.textContent).toContain('watchlist')
     expect(container.textContent).not.toContain('"layout"')
+  })
+
+  it('renders watchlist edits with resolved-style listing rows', async () => {
+    const document = {
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        { id: 'section-1', type: 'section', parentId: null, label: 'Semiconductors' },
+        {
+          id: 'listing-1',
+          type: 'listing',
+          parentId: 'section-1',
+          listing: {
+            listing_type: 'default',
+            listing_id: 'NVDA',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    }
+
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-watchlist-review',
+            name: 'edit_watchlist',
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'watchlist',
+              entityName: 'Momentum',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify({ ...document, items: [] }),
+                  after: JSON.stringify(document),
+                },
+              },
+            },
+          }}
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-testid="watchlist-review-preview"]')).not.toBeNull()
+    expect(container.textContent).toContain('Semiconductors')
+    expect(container.textContent).toContain('NVDA')
+    expect(container.textContent).not.toContain('listing_id')
   })
 
   it.each([
@@ -446,8 +520,8 @@ describe('InlineToolCall', () => {
                     before: JSON.stringify(
                       {
                         panelId: 'panel-a',
-                        widget: {
-                          key: 'editor_workflow',
+                        widgetKey: 'editor_workflow',
+                        widgetDocument: {
                           pairColor: 'red',
                           params: null,
                         },
@@ -460,8 +534,8 @@ describe('InlineToolCall', () => {
                     after: JSON.stringify(
                       {
                         panelId: 'panel-a',
-                        widget: {
-                          key: 'watchlist',
+                        widgetKey: 'watchlist',
+                        widgetDocument: {
                           pairColor: 'red',
                           params: { provider: 'alpaca' },
                         },

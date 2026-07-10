@@ -57,7 +57,7 @@ export const useIndicatorControls = ({
 }: UseIndicatorControlsArgs) => {
   const [settingsIndicatorId, setSettingsIndicatorId] = useState<string | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<Record<string, unknown>>({})
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
 
   const updateView = useCallback(
     (nextView: DataChartWidgetParams['view']) => {

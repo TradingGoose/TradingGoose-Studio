@@ -2,7 +2,6 @@
 
 import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
-import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
@@ -15,7 +14,6 @@ type HeaderSlotContent = ReactNode | ReactNode[]
 type WidgetSurfaceHeader = Partial<WidgetHeaderSlots>
 
 interface WidgetSurfaceProps {
-  widget: WidgetInstance
   header?: WidgetSurfaceHeader
   context?: WidgetRuntimeContext
   onPairColorChange?: (color: PairColor) => void
@@ -28,7 +26,6 @@ interface WidgetSurfaceProps {
 }
 
 function WidgetSurfaceComponent({
-  widget,
   header,
   context,
   onPairColorChange,
@@ -39,8 +36,8 @@ function WidgetSurfaceComponent({
   onPanelClose,
   onWidgetParamsPatch,
 }: WidgetSurfaceProps) {
-  const widgetKey = widget?.key ?? 'empty'
-  const renderWidget = useDashboardWidgetRenderConfig(widget, panelId)
+  const renderWidget = useDashboardWidgetRenderConfig()
+  const widgetKey = renderWidget?.key ?? 'empty'
   const emptyDefinition = getWidgetDefinition('empty')
   const definition = getWidgetDefinition(widgetKey) ?? emptyDefinition
   const pairColor = isPairColor(renderWidget?.pairColor) ? renderWidget?.pairColor : 'gray'
@@ -173,16 +170,7 @@ function renderHeaderSlot(slot?: HeaderSlotContent) {
 }
 
 function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
-  const prevWidget = prev.widget
-  const nextWidget = next.widget
-
-  const sameWidget =
-    prevWidget?.key === nextWidget?.key &&
-    prevWidget?.pairColor === nextWidget?.pairColor &&
-    prevWidget?.params === nextWidget?.params
-
   return (
-    sameWidget &&
     prev.panelId === next.panelId &&
     prev.context?.workspaceId === next.context?.workspaceId &&
     prev.context?.dashboardLayoutOwnerUserId === next.context?.dashboardLayoutOwnerUserId &&

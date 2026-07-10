@@ -30,8 +30,7 @@ export function IndicatorEditorSelector({
 
   const handleIndicatorChange = (ids: string[]) => {
     const nextId = ids[0] ?? null
-    if (!panelId || !widgetKey) return
-    actions.patchWidgetParams(panelId, widgetKey, { indicatorId: nextId })
+    actions.patchWidgetParams({ indicatorId: nextId })
   }
 
   return (

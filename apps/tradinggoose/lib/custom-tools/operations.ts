@@ -8,6 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
@@ -50,11 +51,11 @@ export async function listCustomTools(params: { workspaceId: string }) {
     params.workspaceId,
     false
   )
-  return entries.map(({ entityId, fields }) => ({
+  return entries.map(({ entityId, entityName, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
     userId: null,
-    title: String(fields.title ?? ''),
+    title: entityName,
     schema: parseCustomToolSchemaText(fields.schemaText),
     code: String(fields.codeText ?? ''),
   }))
@@ -127,8 +128,13 @@ export async function saveCustomTool({
     throw new Error(`Custom tool ${tool.id} was not found`)
   }
 
+  await renameSavedEntityIdentity({
+    entityKind: 'custom_tool',
+    entityId: tool.id,
+    workspaceId,
+    name: tool.title,
+  })
   await applySavedEntityState('custom_tool', tool.id, {
-    title: tool.title,
     schemaText: JSON.stringify(tool.schema, null, 2),
     codeText: tool.code,
   })

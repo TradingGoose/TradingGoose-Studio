@@ -3,13 +3,13 @@ import { skill } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import {
   type ImportedSkillTransferRecord,
   resolveImportedSkillName,
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { guardWorkspaceEntityDocumentDeleteInTx } from '@/lib/workspaces/entity-documents'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
@@ -50,11 +50,11 @@ interface ImportSkillsParams {
 
 export async function listSkills(params: { workspaceId: string }) {
   const entries = await readSavedEntityListFieldsForExecution('skill', params.workspaceId, false)
-  return entries.map(({ entityId, fields }) => ({
+  return entries.map(({ entityId, entityName, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
     userId: null,
-    name: String(fields.name ?? ''),
+    name: entityName,
     description: String(fields.description ?? ''),
     content: String(fields.content ?? ''),
   }))
@@ -64,24 +64,16 @@ export async function deleteSkill(params: {
   skillId: string
   workspaceId: string
 }): Promise<boolean> {
-  const deleted = await db.transaction(async (tx) => {
-    const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-      entityKind: 'skill',
-      entityId: params.skillId,
-      workspaceId: params.workspaceId,
-    })
-    if (!canDelete) {
-      return false
-    }
-    await tx
-      .delete(skill)
-      .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    return true
-  })
+  const [existingSkill] = await db
+    .select({ id: skill.id })
+    .from(skill)
+    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+    .limit(1)
+  if (!existingSkill) return false
 
-  if (!deleted) {
-    return false
-  }
+  await db
+    .delete(skill)
+    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
 
   await refreshEntityListSession('skill', params.workspaceId)
   await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])
@@ -161,8 +153,13 @@ export async function saveSkill({
     throw new Error(`Skill ${currentSkill.id} was not found`)
   }
 
-  await applySavedEntityState('skill', currentSkill.id, {
+  await renameSavedEntityIdentity({
+    entityKind: 'skill',
+    entityId: currentSkill.id,
+    workspaceId,
     name: currentSkill.name,
+  })
+  await applySavedEntityState('skill', currentSkill.id, {
     description: currentSkill.description,
     content: currentSkill.content,
   })

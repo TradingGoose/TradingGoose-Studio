@@ -8,6 +8,7 @@ const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
 const mockApplySavedEntityState = vi.fn()
+const mockRenameSavedEntityIdentity = vi.fn()
 class MockSavedEntityPersistenceError extends Error {
   constructor(
     public status: number,
@@ -37,6 +38,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/permissions/utils', () => ({
   getUserEntityPermissions: mockGetUserEntityPermissions,
+}))
+
+vi.mock('@/lib/saved-entities/identity', () => ({
+  renameSavedEntityIdentity: (...args: unknown[]) => mockRenameSavedEntityIdentity(...args),
 }))
 
 vi.mock('@/lib/watchlists/operations', async () => {
@@ -86,6 +91,7 @@ describe('Watchlist import API route', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
+    mockRenameSavedEntityIdentity.mockResolvedValue('Imported Watchlist')
     mockGetWatchlist.mockResolvedValue({
       id: 'watchlist-1',
       workspaceId: 'workspace-1',
@@ -96,7 +102,6 @@ describe('Watchlist import API route', () => {
       updatedAt: new Date().toISOString(),
     })
     mockApplySavedEntityState.mockResolvedValue({
-      name: 'Imported Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [],
     })
@@ -117,8 +122,13 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(200)
     expect(payload.watchlist.id).toBe('watchlist-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'watchlist-1')
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('watchlist', 'watchlist-1', {
+    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
+      entityKind: 'watchlist',
+      entityId: 'watchlist-1',
+      workspaceId: 'workspace-1',
       name: 'Imported Watchlist',
+    })
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('watchlist', 'watchlist-1', {
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [
         {
@@ -220,7 +230,7 @@ describe('Watchlist import API route', () => {
   it('returns saved-entity persistence validation errors from import apply', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     mockApplySavedEntityState.mockRejectedValueOnce(
-      new MockSavedEntityPersistenceError(409, 'Watchlist contains a duplicate name or listing')
+      new MockSavedEntityPersistenceError(409, 'Watchlist contains a duplicate listing')
     )
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
@@ -233,6 +243,6 @@ describe('Watchlist import API route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(409)
-    expect(payload.error).toBe('Watchlist contains a duplicate name or listing')
+    expect(payload.error).toBe('Watchlist contains a duplicate listing')
   })
 })

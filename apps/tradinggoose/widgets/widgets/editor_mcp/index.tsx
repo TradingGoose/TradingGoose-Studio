@@ -3,7 +3,6 @@
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { mcpEditorWidgetContract } from '@/widgets/widgets/editor_mcp/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
@@ -12,6 +11,7 @@ import { readEntitySelectionState } from '@/widgets/widget-contracts'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
+import { mcpEditorWidgetContract } from '@/widgets/widgets/editor_mcp/contract'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
 
 const McpEditorSelector = ({
@@ -35,8 +35,7 @@ const McpEditorSelector = ({
   })
 
   const handleServerChange = (nextServerId: string | null) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey ?? 'editor_mcp', { mcpServerId: nextServerId })
+    actions.patchWidgetParams({ mcpServerId: nextServerId })
   }
 
   return (

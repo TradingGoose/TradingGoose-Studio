@@ -1,5 +1,7 @@
+import * as Y from 'yjs'
 import {
   buildEntityListDescriptor,
+  buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
@@ -10,7 +12,15 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  applyDashboardTopologyMutation,
+  applyDashboardWidgetMutation,
+} from '@/lib/yjs/dashboard-layout-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import type { PairColorContext } from '@/widgets/color-pairs'
+import type { LinkedPairColor } from '@/widgets/layout'
+import type { DashboardLayoutEditPlan, DashboardWidgetDocument } from '@/widgets/layout-document'
 
 const logger = createLogger('YjsSnapshotBridge')
 
@@ -150,9 +160,8 @@ export async function applyWorkflowPatchInSocketServer(
 
 export async function applyEntityStateInSocketServer(
   entityId: string,
-  entityKind: string,
-  fields: Record<string, unknown>,
-  ownerUserId?: string | null
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
+  fields: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const response = await postJsonToSocketServerWithResponse<{
     success?: unknown
@@ -160,7 +169,6 @@ export async function applyEntityStateInSocketServer(
   }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
     entityKind,
     fields,
-    ownerUserId: ownerUserId ?? null,
   })
   if (
     response.success !== true ||
@@ -171,6 +179,63 @@ export async function applyEntityStateInSocketServer(
     throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
   }
   return response.fields as Record<string, unknown>
+}
+
+async function applyDashboardMutationInSocketServer(
+  entityId: string,
+  workspaceId: string,
+  ownerUserId: string,
+  mutate: (doc: Y.Doc) => void
+): Promise<void> {
+  const descriptor = buildSavedEntityDescriptor('dashboard_layout', entityId, workspaceId, {
+    ownerUserId,
+  })
+  const params = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+  const snapshot = await getYjsSnapshot(entityId, params)
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    const stateVector = Y.encodeStateVector(doc)
+    mutate(doc)
+    const update = Y.encodeStateAsUpdate(doc, stateVector)
+    await applyYjsUpdateInSocketServer(
+      entityId,
+      `?${new URLSearchParams(params)}`,
+      Buffer.from(update).toString('base64')
+    )
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function applyDashboardTopologyMutationInSocketServer(input: {
+  entityId: string
+  workspaceId: string
+  ownerUserId: string
+  plan: DashboardLayoutEditPlan
+}): Promise<void> {
+  return applyDashboardMutationInSocketServer(
+    input.entityId,
+    input.workspaceId,
+    input.ownerUserId,
+    (doc) => applyDashboardTopologyMutation(doc, input.plan)
+  )
+}
+
+export async function applyDashboardWidgetMutationInSocketServer(input: {
+  entityId: string
+  workspaceId: string
+  ownerUserId: string
+  identityId: string
+  widget: DashboardWidgetDocument
+  colorPairs?: Array<{ color: LinkedPairColor; value: PairColorContext | null }>
+}): Promise<void> {
+  return applyDashboardMutationInSocketServer(
+    input.entityId,
+    input.workspaceId,
+    input.ownerUserId,
+    (doc) => applyDashboardWidgetMutation(doc, input)
+  )
 }
 
 export async function applyYjsUpdateInSocketServer(

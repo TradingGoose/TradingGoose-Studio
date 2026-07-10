@@ -28,6 +28,7 @@ interface CustomToolEditorProps {
   activeSection: CustomToolEditorSection
   blockId: string
   toolId: string
+  toolTitle: string
   doc: Y.Doc | null
   save: () => Promise<void>
   onSectionChange: (section: CustomToolEditorSection) => void
@@ -39,6 +40,7 @@ export function CustomToolEditor({
   activeSection,
   blockId,
   toolId,
+  toolTitle,
   doc,
   save,
   onSectionChange,
@@ -47,7 +49,6 @@ export function CustomToolEditor({
 }: CustomToolEditorProps) {
   const copy = useWorkspaceWidgetsMessages().customToolEditor
   const workspaceId = useWorkspaceId()
-  const [toolTitle] = useYjsStringField(doc, 'title')
   const [jsonSchema, setJsonSchema] = useYjsStringField(doc, 'schemaText')
   const [functionCode, setFunctionCode] = useYjsStringField(doc, 'codeText')
   const [schemaError, setSchemaError] = useState<string | null>(null)

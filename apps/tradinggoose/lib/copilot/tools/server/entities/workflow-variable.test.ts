@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import {
   editWorkflowVariableServerTool,
   readWorkflowServerTool,
@@ -120,6 +121,7 @@ describe('workflow variable server tools', () => {
       success: true,
       entityKind: 'workflow',
       entityId: 'wf-1',
+      entityName: 'Strategy Workflow',
       workspaceId: 'workspace-1',
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
       variables: {
@@ -141,6 +143,7 @@ describe('workflow variable server tools', () => {
     })
     expect(result.preview.documentDiff.before).toContain('riskLimit')
     expect(result.preview.documentDiff.after).toContain('enabled')
+    expect(ToolResultSchemas.edit_workflow_variable.parse(result)).toEqual(result)
   })
 
   it('applies full-access workflow variable deletion without replaying workflow topology', async () => {
@@ -160,10 +163,12 @@ describe('workflow variable server tools', () => {
       success: true,
       entityKind: 'workflow',
       entityId: 'wf-1',
+      entityName: 'Strategy Workflow',
       workspaceId: 'workspace-1',
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
     expect(result.variables).toEqual({})
+    expect(ToolResultSchemas.edit_workflow_variable.parse(result)).toEqual(result)
     expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', { variables: {} })
     expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })

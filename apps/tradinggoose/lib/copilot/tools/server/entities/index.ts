@@ -9,6 +9,7 @@ export {
   createLayoutServerTool,
   listLayoutsServerTool,
   readLayoutServerTool,
+  renameLayoutServerTool,
 } from './dashboard-layout'
 export {
   createIndicatorServerTool,

@@ -178,11 +178,8 @@ const WorkflowEditorHeaderSelector = ({
     params: widget?.params ?? null,
   })
   const actions = useWidgetConfigRuntimeActions()
-  const widgetKey = widget?.key ?? 'editor_workflow'
-
   const handleWorkflowChange = (workflowId: string) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, { workflowId })
+    actions.patchWidgetParams({ workflowId })
   }
 
   return (

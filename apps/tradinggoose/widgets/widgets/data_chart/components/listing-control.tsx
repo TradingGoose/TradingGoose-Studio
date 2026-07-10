@@ -14,9 +14,9 @@ import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 
 type DataChartListingControlProps = {
   widgetKey?: string
@@ -72,13 +72,11 @@ export const DataChartListingControl = ({
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const actions = useWidgetConfigRuntimeActions()
-  const resolvedWidgetKey = widgetKey ?? 'data_chart'
   const patchWidgetParams = useCallback(
     (nextParams: Record<string, unknown>) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, resolvedWidgetKey, nextParams)
+      actions.patchWidgetParams(nextParams)
     },
-    [actions, panelId, resolvedWidgetKey]
+    [actions]
   )
   const previousProviderRef = useRef<string | undefined>(undefined)
   const syncedInstanceIdRef = useRef<string | null>(null)

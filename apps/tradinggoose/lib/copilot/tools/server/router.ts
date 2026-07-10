@@ -46,6 +46,7 @@ import {
   readWorkflowServerTool,
   renameCustomToolServerTool,
   renameIndicatorServerTool,
+  renameLayoutServerTool,
   renameMcpServerServerTool,
   renameSkillServerTool,
   renameWatchlistServerTool,
@@ -71,8 +72,8 @@ import { readCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-
 import { readEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/read-environment-variables'
 import { readOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
+import { getAvailableWidgetsServerTool } from '@/lib/copilot/tools/server/widgets/get-available-widgets'
 import { getWidgetsMetadataServerTool } from '@/lib/copilot/tools/server/widgets/get-widgets-metadata'
-import { listWidgetsServerTool } from '@/lib/copilot/tools/server/widgets/list-widgets'
 import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
 import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/read-block-outputs'
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
@@ -141,8 +142,9 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [createLayoutServerTool.name]: createLayoutServerTool,
   [readLayoutServerTool.name]: readLayoutServerTool,
   [editLayoutServerTool.name]: editLayoutServerTool,
+  [renameLayoutServerTool.name]: renameLayoutServerTool,
   [editWidgetServerTool.name]: editWidgetServerTool,
-  [listWidgetsServerTool.name]: listWidgetsServerTool,
+  [getAvailableWidgetsServerTool.name]: getAvailableWidgetsServerTool,
   [getWidgetsMetadataServerTool.name]: getWidgetsMetadataServerTool,
   [searchListingServerTool.name]: searchListingServerTool,
 }
@@ -238,8 +240,9 @@ const mcpServerToolIds = [
   createLayoutServerTool.name,
   readLayoutServerTool.name,
   editLayoutServerTool.name,
+  renameLayoutServerTool.name,
   editWidgetServerTool.name,
-  listWidgetsServerTool.name,
+  getAvailableWidgetsServerTool.name,
   getWidgetsMetadataServerTool.name,
   searchListingServerTool.name,
   CopilotTool.get_available_blocks,
@@ -252,7 +255,7 @@ const mcpServerToolIds = [
 const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
   CopilotTool.search_documentation,
   CopilotTool.search_listing,
-  CopilotTool.list_widgets,
+  CopilotTool.get_available_widgets,
   CopilotTool.get_widgets_metadata,
 ] as const satisfies readonly ToolId[]
 

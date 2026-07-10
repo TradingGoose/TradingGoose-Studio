@@ -6,15 +6,17 @@ import {
   buildSavedEntityListInfo,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
 export const listWatchlistsServerTool: EntityServerTool<{ workspaceId?: string }> = {
-  name: 'list_watchlists',
+  name: 'list_watchlist',
   async execute(args, context) {
     const { workspaceId } = await verifyWorkspaceContext(
       withWorkspaceArgContext(context, args),
@@ -40,8 +42,13 @@ export const readWatchlistServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(ENTITY_KIND_WATCHLIST, entityId, workspaceId)
-    return buildDocumentEnvelope(ENTITY_KIND_WATCHLIST, entityId, fields)
+    const document = await readSavedEntityDocument(ENTITY_KIND_WATCHLIST, entityId, workspaceId)
+    return buildDocumentEnvelope(
+      ENTITY_KIND_WATCHLIST,
+      entityId,
+      document.entityName,
+      document.fields
+    )
   },
 }
 
@@ -52,9 +59,10 @@ export const createWatchlistServerTool: EntityServerTool = {
       ENTITY_KIND_WATCHLIST,
       args,
       context,
-      async (fields, { workspaceId }) => {
-        const created = await createWatchlistFromDocument({ workspaceId }, fields)
-        return { entityId: created.id, fields: created.fields }
+      async (name, fields, { workspaceId }) => {
+        const created = await createWatchlistFromDocument({ workspaceId }, { name, ...fields })
+        const { name: entityName, ...content } = created.fields
+        return { entityId: created.id, entityName, fields: content }
       }
     )
   },
@@ -72,14 +80,9 @@ export const editWatchlistServerTool: EntityServerTool = {
   },
 }
 
-export const renameWatchlistServerTool: EntityServerTool = {
+export const renameWatchlistServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_watchlist',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_WATCHLIST,
-      'rename_watchlist',
-      args,
-      context
-    )
+    return executeRenameEntityMutation(ENTITY_KIND_WATCHLIST, 'rename_watchlist', args, context)
   },
 }

@@ -1,5 +1,4 @@
 import { normalizeOptionalString } from '@/lib/utils'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   REVIEW_ENTITY_KINDS,
   type ReviewEntityKind,
@@ -58,7 +57,7 @@ const requireYjsTargetKind = (value: string | undefined): YjsTargetKind => {
  * read/write addresses the entity identically.
  */
 export function buildSavedEntityDescriptor(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   entityId: string,
   workspaceId: string | null,
   options?: { ownerUserId?: string | null }

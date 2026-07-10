@@ -5,7 +5,6 @@ import { useLocale, useMessages } from 'next-intl'
 import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
-import { SKILL_EDITOR_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
 
@@ -32,10 +31,7 @@ export function SkillEditorSelector({
   const resolvedSkillId = skillId ?? null
 
   const handleSkillChange = (nextSkillId: string | null) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey ?? SKILL_EDITOR_WIDGET_KEY, {
-      skillId: nextSkillId,
-    })
+    actions.patchWidgetParams({ skillId: nextSkillId })
   }
 
   return (

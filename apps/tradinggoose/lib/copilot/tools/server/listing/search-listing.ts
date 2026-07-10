@@ -5,16 +5,13 @@ import {
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import { searchListingIdentities } from '@/components/listing-selector/fetchers'
+import { searchListingIdentities } from '@/lib/listing/search'
 
 type SearchListingArgs = {
   query: string
 }
 
-export const searchListingServerTool: BaseServerTool<
-  SearchListingArgs,
-  ListingIdentity[]
-> = {
+export const searchListingServerTool: BaseServerTool<SearchListingArgs, ListingIdentity[]> = {
   name: 'search_listing',
   async execute(args: SearchListingArgs, context?: ServerToolExecutionContext) {
     const query = args.query.trim()

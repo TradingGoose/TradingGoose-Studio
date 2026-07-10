@@ -138,7 +138,7 @@ describe('WatchlistHeaderLeftControls', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-7', 'watchlist-widget', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       providerParams: { feed: 'iex' },
       auth: { apiKey: '{{ ALPACA_API_KEY }}' },
       runtime: {

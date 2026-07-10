@@ -3,6 +3,7 @@ import {
   copilotReviewItems,
   copilotReviewSessions,
   document,
+  knowledgeBase,
   permissions,
   workflow,
   workflowExecutionLogs,
@@ -17,9 +18,9 @@ import {
 } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
+import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
@@ -27,8 +28,10 @@ import {
   readBootstrappedReviewTargetSnapshot,
   readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
+import { normalizeDashboardLayoutDocumentContent } from '@/widgets/layout-document'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type AgentContextType =
@@ -185,51 +188,25 @@ async function processEntityContext(params: {
   workspaceId: string | null
   tag: string
 }): Promise<AgentContext | null> {
-  try {
-    const access = await verifyReviewTargetAccess(
-      params.userId,
-      buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId),
-      'read'
-    )
-    if (!access.hasAccess || !access.workspaceId) {
-      logger.warn('Skipping unauthorized copilot entity context', {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-        userId: params.userId,
-      })
-      return null
-    }
-
-    const fields = await readBootstrappedSavedEntityFields(
-      params.entityKind,
-      params.entityId,
-      access.workspaceId,
-      null
-    )
-    const serialized = serializeEntityContext(params.entityKind, {
-      id: params.entityId,
-      workspaceId: access.workspaceId,
-      ...fields,
+  const access = await verifyReviewTargetAccess(
+    params.userId,
+    buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId),
+    'read'
+  )
+  if (!access.hasAccess || !access.workspaceId) {
+    logger.warn('Skipping unauthorized copilot entity context', {
+      entityKind: params.entityKind,
+      entityId: params.entityId,
+      workspaceId: params.workspaceId,
+      userId: params.userId,
     })
+    return null
+  }
 
-    return {
-      type: params.contextKind,
-      tag: params.tag,
-      content: JSON.stringify(serialized, null, 2),
-    }
-  } catch (error) {
-    // Only a genuinely missing entity degrades to "no context"; realtime
-    // failures must surface instead of silently omitting attached context.
-    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-      logger.warn('Skipping missing copilot entity context', {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-      })
-      return null
-    }
-    throw error
+  return {
+    type: params.contextKind,
+    tag: params.tag,
+    content: JSON.stringify({ entityId: params.entityId }, null, 2),
   }
 }
 
@@ -268,13 +245,20 @@ async function processDashboardLayoutContext(params: {
       return null
     }
 
-    const fields = await readBootstrappedSavedEntityFields(
-      'dashboard_layout',
-      params.entityId,
-      access.workspaceId,
-      params.ownerUserId
+    const [content, members] = await Promise.all([
+      readBootstrappedSavedEntityFields(
+        'dashboard_layout',
+        params.entityId,
+        access.workspaceId,
+        params.ownerUserId
+      ),
+      readEntityListMembersFromDb('dashboard_layout', access.workspaceId, params.ownerUserId),
+    ])
+    const entityName = members.find((member) => member.id === params.entityId)?.name
+    if (entityName === undefined) return null
+    const projection = await buildDashboardLayoutReadProjection(
+      normalizeDashboardLayoutDocumentContent(content)
     )
-    const projection = await buildDashboardLayoutReadProjection(fields)
 
     return {
       type: params.contextKind,
@@ -283,7 +267,7 @@ async function processDashboardLayoutContext(params: {
         {
           entityKind: 'dashboard_layout',
           entityId: params.entityId,
-          entityName: projection.canonicalFields.name,
+          entityName,
           workspaceId: access.workspaceId,
           ownerUserId: params.ownerUserId,
           documentFormat: projection.documentFormat,
@@ -321,80 +305,6 @@ async function readBootstrappedCopilotYjsDoc<T>(
     return read(doc)
   } finally {
     doc.destroy()
-  }
-}
-
-function parseStructuredTextField(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value ?? null
-  }
-
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
-}
-
-function serializeEntityContext(
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server' | 'watchlist',
-  row: Record<string, unknown>
-) {
-  switch (entityKind) {
-    case 'skill':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        description: row.description ?? null,
-        content: row.content ?? null,
-      }
-    case 'indicator':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        color: row.color ?? null,
-        pineCode: row.pineCode ?? null,
-      }
-    case 'custom_tool':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        title: row.title ?? null,
-        schema: parseStructuredTextField(row.schemaText ?? row.schema),
-        code: row.codeText ?? row.code ?? null,
-      }
-    case 'mcp_server':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        description: row.description ?? null,
-        transport: row.transport ?? null,
-        url: row.url ?? null,
-        command: row.command ?? null,
-        args: Array.isArray(row.args) ? row.args : [],
-        headerKeys:
-          row.headers && typeof row.headers === 'object'
-            ? Object.keys(row.headers as Record<string, unknown>)
-            : [],
-        envKeys:
-          row.env && typeof row.env === 'object'
-            ? Object.keys(row.env as Record<string, unknown>)
-            : [],
-        timeout: row.timeout ?? null,
-        retries: row.retries ?? null,
-        enabled: row.enabled ?? null,
-      }
-    case 'watchlist':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        settings: row.settings ?? null,
-        items: Array.isArray(row.items) ? row.items : [],
-      }
   }
 }
 
@@ -581,17 +491,30 @@ async function processKnowledgeContext(
       access.workspaceId
     )
 
-    const docRows = await db
-      .select({ filename: document.filename })
-      .from(document)
-      .where(and(eq(document.knowledgeBaseId, knowledgeBaseId), isNull(document.deletedAt)))
-      .limit(20)
+    const [[identity], docRows] = await Promise.all([
+      db
+        .select({ name: knowledgeBase.name })
+        .from(knowledgeBase)
+        .where(
+          and(
+            eq(knowledgeBase.id, knowledgeBaseId),
+            eq(knowledgeBase.workspaceId, access.workspaceId)
+          )
+        )
+        .limit(1),
+      db
+        .select({ filename: document.filename })
+        .from(document)
+        .where(and(eq(document.knowledgeBaseId, knowledgeBaseId), isNull(document.deletedAt)))
+        .limit(20),
+    ])
+    if (!identity) return null
 
     const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
     const summary = {
       id: knowledgeBaseId,
       workspaceId: access.workspaceId,
-      name: fields.name ?? null,
+      name: identity.name,
       description: fields.description ?? null,
       chunkingConfig: fields.chunkingConfig ?? null,
       docCount: sampleDocuments.length,

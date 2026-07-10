@@ -8,26 +8,26 @@
  *   - "fields"   (Y.Map) — entity-kind-specific editable field values
  *   - "metadata"  (Y.Map) — session-level metadata: the resolved `workspaceId`
  *                            that owns the entity (its canonical persistence
- *                            scope), plus bootstrap-touch and identity markers.
+ *                            scope), plus bootstrap state.
  *   - "members"   (Y.Map) — entity-list sessions only. List discovery metadata
  *                            is mutated explicitly by create/update/delete flows,
  *                            never inferred from a saved entity document.
  *
  * Entity-kind adapters:
- *   - skill:        name, description, content
- *   - custom_tool:  title, schemaText (Y.Text), codeText (Y.Text)
- *   - indicator:    name, color, pineCode (Y.Text)
- *   - knowledge_base: name, description, chunkingConfig
- *   - mcp_server:   name, description, transport, url, headers, command,
+ *   - skill:        description, content
+ *   - custom_tool:  schemaText (Y.Text), codeText (Y.Text)
+ *   - indicator:    color, pineCode (Y.Text)
+ *   - knowledge_base: description, chunkingConfig
+ *   - mcp_server:   description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
- *   - watchlist:    name, settings, items
- *   - dashboard_layout: name, layout, colorPairs, isActive, sortOrder
+ *   - watchlist:    settings, items
+ *   - dashboard_layout: delegated to its owner-scoped layout session with
+ *                       layout, widgets, and colorPairs child maps
  */
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
-import { normalizeDashboardLayoutEntityFields } from '@/lib/yjs/entity-state'
+import { normalizeWatchlistDocumentContent } from '@/lib/watchlists/validation'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -203,7 +203,7 @@ export function setEntityOwnerUserId(
 // ---------------------------------------------------------------------------
 
 interface EntitySessionSeedOptions {
-  entityKind: ReviewEntityKind
+  entityKind: Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'>
   payload: Record<string, any>
 }
 
@@ -226,25 +226,22 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
 
     switch (entityKind) {
       case 'skill':
-        fields.set('name', payload.name ?? '')
         fields.set('description', payload.description ?? '')
         fields.set('content', payload.content ?? '')
         break
 
       case 'custom_tool': {
-        fields.set('title', payload.title ?? '')
         // schemaText and codeText are Y.Text for Monaco binding
         const schemaText = new Y.Text()
-        schemaText.insert(0, payload.schemaText ?? payload.schema ?? '')
+        schemaText.insert(0, payload.schemaText ?? '')
         fields.set('schemaText', schemaText)
         const codeText = new Y.Text()
-        codeText.insert(0, payload.codeText ?? payload.code ?? '')
+        codeText.insert(0, payload.codeText ?? '')
         fields.set('codeText', codeText)
         break
       }
 
       case 'indicator': {
-        fields.set('name', payload.name ?? '')
         fields.set('color', payload.color ?? '')
         const pineCode = new Y.Text()
         pineCode.insert(0, payload.pineCode ?? '')
@@ -253,7 +250,6 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
       }
 
       case 'knowledge_base':
-        fields.set('name', payload.name ?? '')
         fields.set('description', payload.description ?? '')
         fields.set('chunkingConfig', payload.chunkingConfig)
         if ('tokenCount' in payload) fields.set('tokenCount', payload.tokenCount ?? 0)
@@ -266,7 +262,6 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         break
 
       case 'mcp_server':
-        fields.set('name', payload.name ?? MCP_SERVER_DEFAULTS.name)
         fields.set('description', payload.description ?? MCP_SERVER_DEFAULTS.description)
         fields.set('transport', payload.transport ?? 'http')
         fields.set('url', payload.url ?? MCP_SERVER_DEFAULTS.url)
@@ -280,20 +275,9 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         break
 
       case 'watchlist': {
-        const watchlist = normalizeWatchlistDocumentFields(payload)
-        fields.set('name', watchlist.name)
+        const watchlist = normalizeWatchlistDocumentContent(payload)
         fields.set('settings', watchlist.settings)
         fields.set('items', watchlist.items)
-        break
-      }
-
-      case 'dashboard_layout': {
-        const layout = normalizeDashboardLayoutEntityFields(payload)
-        fields.set('name', layout.name)
-        fields.set('layout', layout.layout)
-        fields.set('colorPairs', layout.colorPairs)
-        fields.set('isActive', layout.isActive)
-        fields.set('sortOrder', layout.sortOrder)
         break
       }
     }
@@ -307,31 +291,30 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
 /**
  * Reads the current entity fields from the Yjs doc.
  */
-export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Record<string, any> {
+export function getEntityFields(
+  doc: Y.Doc,
+  entityKind: Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'>
+): Record<string, any> {
   const fields = getFieldsMap(doc)
   const result: Record<string, any> = {}
 
   switch (entityKind) {
     case 'skill':
-      result.name = fields.get('name') ?? ''
       result.description = fields.get('description') ?? ''
       result.content = fields.get('content') ?? ''
       break
 
     case 'custom_tool':
-      result.title = fields.get('title') ?? ''
       result.schemaText = fields.get('schemaText')?.toString() ?? ''
       result.codeText = fields.get('codeText')?.toString() ?? ''
       break
 
     case 'indicator':
-      result.name = fields.get('name') ?? ''
       result.color = fields.get('color') ?? ''
       result.pineCode = fields.get('pineCode')?.toString() ?? ''
       break
 
     case 'knowledge_base':
-      result.name = fields.get('name') ?? ''
       result.description = fields.get('description') ?? ''
       result.chunkingConfig = fields.get('chunkingConfig')
       result.tokenCount = fields.get('tokenCount') ?? 0
@@ -340,7 +323,6 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       break
 
     case 'mcp_server':
-      result.name = fields.get('name') ?? MCP_SERVER_DEFAULTS.name
       result.description = fields.get('description') ?? MCP_SERVER_DEFAULTS.description
       result.transport = fields.get('transport') ?? 'http'
       result.url = fields.get('url') ?? MCP_SERVER_DEFAULTS.url
@@ -354,18 +336,9 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       break
 
     case 'watchlist':
-      return normalizeWatchlistDocumentFields({
-        name: fields.get('name'),
+      return normalizeWatchlistDocumentContent({
         settings: fields.get('settings'),
         items: fields.get('items'),
-      })
-    case 'dashboard_layout':
-      return normalizeDashboardLayoutEntityFields({
-        name: fields.get('name'),
-        layout: fields.get('layout'),
-        colorPairs: fields.get('colorPairs'),
-        isActive: fields.get('isActive'),
-        sortOrder: fields.get('sortOrder'),
       })
   }
 

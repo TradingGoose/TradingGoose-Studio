@@ -7,7 +7,7 @@ import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { replaceEntityTextField, seedEntitySession, setEntityField } from '@/lib/yjs/entity-session'
+import { replaceEntityTextField, seedEntitySession } from '@/lib/yjs/entity-session'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
 const mockUseWand = vi.fn()
@@ -91,12 +91,11 @@ const readBlobText = async (blob: Blob) =>
     reader.readAsText(blob)
   })
 
-const createCustomToolDoc = (initialValues: { title: string; schema: unknown; code: string }) => {
+const createCustomToolDoc = (initialValues: { schema: unknown; code: string }) => {
   const doc = new Y.Doc()
   seedEntitySession(doc, {
     entityKind: 'custom_tool',
     payload: {
-      title: initialValues.title,
       schemaText:
         typeof initialValues.schema === 'string'
           ? initialValues.schema
@@ -157,8 +156,6 @@ describe('CustomToolEditor export', () => {
     saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
-      id: 'tool-1',
-      title: 'Fetch Top Movers',
       schema: {
         type: 'function',
         function: {
@@ -179,6 +176,7 @@ describe('CustomToolEditor export', () => {
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
+          toolTitle='Tool 1'
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
@@ -212,7 +210,6 @@ describe('CustomToolEditor export', () => {
           2
         )
       )
-      setEntityField(doc, 'title', 'fetchTopMoversCurrent')
     })
 
     await act(async () => {
@@ -221,6 +218,7 @@ describe('CustomToolEditor export', () => {
           activeSection='code'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
+          toolTitle='fetchTopMoversCurrent'
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
@@ -287,8 +285,6 @@ describe('CustomToolEditor export', () => {
     saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
-      id: 'tool-1',
-      title: 'Fetch Top Movers',
       schema: {
         type: 'function',
         function: {
@@ -308,6 +304,7 @@ describe('CustomToolEditor export', () => {
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
+          toolTitle='Tool 1'
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}

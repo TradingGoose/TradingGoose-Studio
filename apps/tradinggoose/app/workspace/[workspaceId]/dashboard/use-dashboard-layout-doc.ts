@@ -1,21 +1,25 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import type { EntityListMember } from '@/lib/yjs/entity-session'
-import { getFieldsMap } from '@/lib/yjs/entity-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
-  useEntityList,
-  useSavedEntityYjsSession,
-  useYjsStringField,
-} from '@/lib/yjs/use-entity-fields'
+  applyDashboardTopologyMutation,
+  getDashboardLayoutMap,
+  readDashboardLayoutContent,
+  readDashboardLayoutTopology,
+  setDashboardLayoutTopology,
+} from '@/lib/yjs/dashboard-layout-session'
+import type { EntityListMember } from '@/lib/yjs/entity-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import {
-  type LayoutNode,
-  normalizeColorPairsState,
-  normalizeDashboardLayout,
-  type PersistedColorPairsState,
-} from '@/widgets/layout'
+  closeDashboardTopologyPanel,
+  type DashboardLayoutTopologyNode,
+  normalizeDashboardLayoutTopology,
+  replaceDashboardPanelWidget,
+  splitDashboardTopologyPanel,
+  updateDashboardTopologyGroupSizes,
+} from '@/widgets/layout-document'
 
 export type DashboardLayoutListEntry = {
   id: string
@@ -29,16 +33,13 @@ export type DashboardLayoutListEntry = {
 
 function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
   const name = member.entityName?.trim()
-  if (!name) {
-    throw new Error(`dashboard_layout list member ${member.entityId} is missing entityName`)
-  }
+  if (!name) throw new Error(`dashboard_layout ${member.entityId} is missing entityName`)
   if (typeof member.sortOrder !== 'number' || !Number.isFinite(member.sortOrder)) {
-    throw new Error(`dashboard_layout list member ${member.entityId} is missing sortOrder`)
+    throw new Error(`dashboard_layout ${member.entityId} is missing sortOrder`)
   }
   if (typeof member.isActive !== 'boolean') {
-    throw new Error(`dashboard_layout list member ${member.entityId} is missing isActive`)
+    throw new Error(`dashboard_layout ${member.entityId} is missing isActive`)
   }
-
   return {
     id: member.entityId,
     name,
@@ -54,130 +55,106 @@ export function useDashboardLayoutList(
   ownerUserId: string | null | undefined
 ) {
   const { members, isLoading, error } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
-  const layouts = useMemo(() => members.map(toLayoutListEntry), [members])
-
-  return { layouts, isLoading, error }
+  return { layouts: useMemo(() => members.map(toLayoutListEntry), [members]), isLoading, error }
 }
 
-type DashboardLayoutContentSnapshot = {
-  layout: LayoutNode
-  colorPairs: PersistedColorPairsState
-}
-
-type DashboardLayoutContentMutation = {
-  layout?: LayoutNode
-  colorPairs?: PersistedColorPairsState
-}
-
-function areDashboardLayoutContentSnapshotsEqual(
-  left: DashboardLayoutContentSnapshot,
-  right: DashboardLayoutContentSnapshot
-): boolean {
-  return (
-    JSON.stringify(left.layout) === JSON.stringify(right.layout) &&
-    JSON.stringify(left.colorPairs) === JSON.stringify(right.colorPairs)
-  )
-}
+const snapshotsEqual = (
+  left: DashboardLayoutTopologyNode | null,
+  right: DashboardLayoutTopologyNode | null
+) =>
+  left === right ||
+  (left !== null && right !== null && JSON.stringify(left) === JSON.stringify(right))
 
 export function useDashboardLayoutDocument(input: {
   workspaceId: string | null | undefined
   ownerUserId: string | null | undefined
   layoutId: string | null | undefined
-  initialName: string
-  initialLayout: LayoutNode
-  initialColorPairs: PersistedColorPairsState | unknown
+  initialTopology?: DashboardLayoutTopologyNode | null
 }) {
-  const { doc } = useSavedEntityYjsSession(
+  const { doc, isLoading, error } = useSavedEntityYjsSession(
     'dashboard_layout',
     input.layoutId,
     input.workspaceId,
     input.ownerUserId,
     'write'
   )
-  const [name] = useYjsStringField(doc, 'name', input.initialName)
-  const initialLayout = useMemo(
-    () => normalizeDashboardLayout(input.initialLayout),
-    [input.initialLayout]
+  const fallback = useMemo<DashboardLayoutTopologyNode | null>(
+    () => (input.initialTopology ? normalizeDashboardLayoutTopology(input.initialTopology) : null),
+    [input.initialTopology]
   )
-  const initialColorPairs = useMemo(
-    () => normalizeColorPairsState(input.initialColorPairs),
-    [input.initialColorPairs]
-  )
-  const fallbackContent = useMemo(
-    () => ({
-      layout: initialLayout,
-      colorPairs: initialColorPairs,
-    }),
-    [initialColorPairs, initialLayout]
-  )
-
-  const subscribeContent = useMemo(() => {
-    if (!doc) return (cb: () => void) => () => {}
-    const fields = getFieldsMap(doc)
-    return (cb: () => void) => {
-      const handler = (event: { keysChanged: Set<string> }) => {
-        if (event.keysChanged.has('layout') || event.keysChanged.has('colorPairs')) {
-          cb()
-        }
-      }
-      fields.observe(handler)
-      return () => fields.unobserve(handler)
+  const subscribe = useMemo(() => {
+    if (!doc) return (callback: () => void) => () => {}
+    const layout = getDashboardLayoutMap(doc)
+    return (callback: () => void) => {
+      layout.observeDeep(callback)
+      return () => layout.unobserveDeep(callback)
     }
   }, [doc])
+  const read = useCallback(() => {
+    if (!doc) return fallback
+    return readDashboardLayoutTopology(doc)
+  }, [doc, fallback])
+  const topology = useYjsSubscription(subscribe, read, fallback, snapshotsEqual)
 
-  const extractContent = useCallback((): DashboardLayoutContentSnapshot => {
-    if (!doc) return fallbackContent
-    const fields = getFieldsMap(doc)
-    return {
-      layout: normalizeDashboardLayout(fields.has('layout') ? fields.get('layout') : initialLayout),
-      colorPairs: normalizeColorPairsState(
-        fields.has('colorPairs') ? fields.get('colorPairs') : initialColorPairs
-      ),
-    }
-  }, [doc, fallbackContent, initialColorPairs, initialLayout])
-
-  const { layout, colorPairs } = useYjsSubscription(
-    subscribeContent,
-    extractContent,
-    fallbackContent,
-    areDashboardLayoutContentSnapshotsEqual
-  )
-
-  const mutateLayoutDocument = useCallback(
-    (
-      mutation:
-        | DashboardLayoutContentMutation
-        | ((current: DashboardLayoutContentSnapshot) => DashboardLayoutContentMutation | null)
-    ) => {
+  const updateGroupSizes = useCallback(
+    (groupId: string, sizes: number[]) => {
       if (!doc) return
-      doc.transact(() => {
-        const fields = getFieldsMap(doc)
-        const next =
-          typeof mutation === 'function'
-            ? mutation({
-                layout: normalizeDashboardLayout(fields.get('layout')),
-                colorPairs: normalizeColorPairsState(fields.get('colorPairs')),
-              })
-            : mutation
-        if (!next) return
-        if (next.layout !== undefined) {
-          fields.set('layout', next.layout)
-        }
-        if (next.colorPairs !== undefined) {
-          fields.set('colorPairs', normalizeColorPairsState(next.colorPairs))
-        }
-      }, YJS_ORIGINS.USER)
+      const current = readDashboardLayoutContent(doc)
+      const layout = updateDashboardTopologyGroupSizes(current.layout, groupId, sizes)
+      if (layout !== current.layout) setDashboardLayoutTopology(doc, layout, YJS_ORIGINS.USER)
     },
     [doc]
   )
 
-  const isProviderReady = Boolean(doc)
+  const splitPanel = useCallback(
+    (panelId: string, direction: 'horizontal' | 'vertical') => {
+      if (!doc) return
+      const current = readDashboardLayoutContent(doc)
+      const plan = splitDashboardTopologyPanel(current.layout, current.widgets, panelId, direction)
+      if (plan.layout !== current.layout) {
+        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
+      }
+    },
+    [doc]
+  )
+
+  const closePanel = useCallback(
+    (panelId: string) => {
+      if (!doc) return
+      const current = readDashboardLayoutContent(doc)
+      const plan = closeDashboardTopologyPanel(current.layout, panelId)
+      if (plan.layout !== current.layout) {
+        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
+      }
+    },
+    [doc]
+  )
+
+  const replacePanelWidget = useCallback(
+    (panelId: string, widgetKey: string) => {
+      if (!doc) return
+      const current = readDashboardLayoutContent(doc)
+      const plan = replaceDashboardPanelWidget(current, panelId, widgetKey)
+      if (
+        plan.layout !== current.layout ||
+        plan.removedIdentityIds.length > 0 ||
+        Object.keys(plan.createdWidgets).length > 0
+      ) {
+        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
+      }
+    },
+    [doc]
+  )
 
   return {
-    isProviderReady,
-    name,
-    layout,
-    colorPairs,
-    mutateLayoutDocument,
+    doc,
+    topology,
+    isProviderReady: Boolean(doc),
+    isLoading,
+    error,
+    updateGroupSizes,
+    splitPanel,
+    closePanel,
+    replacePanelWidget,
   }
 }

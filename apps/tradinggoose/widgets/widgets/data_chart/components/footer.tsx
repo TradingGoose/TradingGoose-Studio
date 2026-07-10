@@ -54,7 +54,7 @@ const DataChartTimezoneDropdown = ({
   widgetKey,
 }: DataChartTimezoneDropdownProps) => {
   const copy = useDataChartCopy()
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -303,7 +303,7 @@ const DataChartMarketSessionDropdown = ({
   widgetKey,
 }: DataChartMarketSessionDropdownProps) => {
   const copy = useDataChartCopy()
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const selectedSession = params.view?.marketSession === 'extended' ? 'extended' : 'regular'
   const sessionLabel =
     selectedSession === 'extended' ? copy.footer.session.extended : copy.footer.session.regular
@@ -367,7 +367,7 @@ const DataChartNormalizationDropdown = ({
   widgetKey,
 }: DataChartNormalizationDropdownProps) => {
   const copy = useDataChartCopy()
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const providerId = typeof params.data?.provider === 'string' ? params.data?.provider.trim() : ''
   const supportedModes = useMemo(() => {
     if (!providerId) return []
@@ -468,7 +468,7 @@ export const DataChartFooter = ({
   exchangeTimezone?: string | null
 }) => {
   const copy = useDataChartCopy()
-  const patchWidgetParams = useDataChartParamsPatch(panelId, widgetKey)
+  const patchWidgetParams = useDataChartParamsPatch()
   const availablePresets = DEFAULT_RANGE_PRESETS.filter(
     (preset) => !preset.interval || allowedIntervals.includes(preset.interval)
   )

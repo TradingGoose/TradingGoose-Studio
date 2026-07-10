@@ -4,30 +4,23 @@ import {
   removePairColorContext,
   upsertPairColorContext,
 } from '@/widgets/color-pairs'
-import type {
-  LayoutNode,
-  LinkedPairColor,
-  PersistedColorPairsState,
-  WidgetInstance,
-} from '@/widgets/layout'
+import type { LinkedPairColor, PersistedColorPairsState, WidgetInstance } from '@/widgets/layout'
 import { normalizeColorPairsState } from '@/widgets/layout'
+import type { DashboardWidgetDocument } from '@/widgets/layout-document'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
-  getDefaultWidgetInstance,
   getWidgetContract,
   isWidgetContractValidationError,
   isWidgetKey,
   mergeWidgetParams,
   normalizeWidgetColorPairPatch,
   resolveEffectiveWidgetParams,
-  sanitizeWidgetInstance,
   sanitizeWidgetParams,
   splitWidgetParamsForColorPair,
   type WidgetKey,
 } from '@/widgets/widget-contracts'
 
 export type WidgetConfigMutationPatch = {
-  widgetKey?: unknown
   pairColor?: unknown
   params?: Record<string, unknown> | null
   paramsMode?: 'patch' | 'replace'
@@ -78,15 +71,14 @@ function withWidgetConfigErrors<T>(path: string, run: () => T): T {
 
 export type PlannedWidgetConfigMutation = {
   panelId: string
-  beforeWidget: WidgetInstance
-  afterWidget: NonNullable<WidgetInstance>
+  beforeWidgetDocument: DashboardWidgetDocument
+  widgetKey: WidgetKey
+  widgetDocument: DashboardWidgetDocument
   carriedPairContext: PairColorContext
 }
 
 export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
-  layout: LayoutNode
   colorPairs: PersistedColorPairsState
-  widget: NonNullable<WidgetInstance>
   beforeEffectiveParams: Record<string, unknown> | null
   afterEffectiveParams: Record<string, unknown> | null
   colorPairDiff: Array<{
@@ -100,40 +92,9 @@ export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
   issues: string[]
 }
 
-type PanelNode = Extract<LayoutNode, { type: 'panel' }>
-
-function findLayoutPanel(node: LayoutNode, panelId: string): PanelNode | null {
-  if (node.type === 'panel') {
-    return node.id === panelId ? node : null
-  }
-  for (const child of node.children) {
-    const panel = findLayoutPanel(child, panelId)
-    if (panel) return panel
-  }
-  return null
-}
-
-export function findLayoutPanelWidget(node: LayoutNode, panelId: string): WidgetInstance {
-  return findLayoutPanel(node, panelId)?.widget ?? null
-}
-
-function updateLayoutPanelWidget(
-  node: LayoutNode,
-  panelId: string,
-  widget: WidgetInstance
-): LayoutNode {
-  if (node.type === 'panel') {
-    return node.id === panelId ? { ...node, widget: sanitizeWidgetInstance(widget) } : node
-  }
-
-  const children = node.children.map((child) => updateLayoutPanelWidget(child, panelId, widget))
-  return children.some((child, index) => child !== node.children[index])
-    ? { ...node, children }
-    : node
-}
-
 type WidgetConfigMutationInput = {
-  layout: LayoutNode
+  widgetKey: string
+  widget: DashboardWidgetDocument
   colorPairs: PersistedColorPairsState
   panelId: string
   patch: WidgetConfigMutationPatch
@@ -143,27 +104,12 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
   plan: PlannedWidgetConfigMutation
   pairPatch: Record<string, unknown>
 } {
-  const panel = findLayoutPanel(input.layout, input.panelId)
-  if (!panel) {
-    failWidgetConfig('panelId', `Unknown dashboard panel id: ${input.panelId}`)
-  }
-  const current = panel.widget
-  let currentKey: WidgetKey | null = null
-  if (current && isWidgetKey(current.key)) {
-    currentKey = current.key
-  }
-  const currentPairColor = current && isPairColor(current.pairColor) ? current.pairColor : 'gray'
-  const nextKey: WidgetKey =
-    input.patch.widgetKey === undefined
-      ? currentKey
-        ? currentKey
-        : failWidgetConfig(
-            'widgetKey',
-            `A target widgetKey is required for empty panel "${input.panelId}"`
-          )
-      : isWidgetKey(input.patch.widgetKey)
-        ? input.patch.widgetKey
-        : failWidgetConfig('widgetKey', `Unknown widget key "${String(input.patch.widgetKey)}"`)
+  const currentKey = isWidgetKey(input.widgetKey)
+    ? input.widgetKey
+    : failWidgetConfig('widgetKey', `Unknown widget key "${String(input.widgetKey)}"`)
+  const nextKey = currentKey
+  const current: NonNullable<WidgetInstance> = { key: currentKey, ...input.widget }
+  const currentPairColor = isPairColor(current.pairColor) ? current.pairColor : 'gray'
   const nextPairColor = resolveNextPairColor({
     pairColor: input.patch.pairColor,
     defaultPairColor: currentPairColor,
@@ -205,9 +151,9 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
   return {
     plan: {
       panelId: input.panelId,
-      beforeWidget: current,
-      afterWidget: {
-        key: nextKey,
+      beforeWidgetDocument: input.widget,
+      widgetKey: nextKey,
+      widgetDocument: {
         pairColor: nextPairColor,
         params: widgetParams,
       },
@@ -221,13 +167,15 @@ export function applyWidgetConfigMutation(
   input: WidgetConfigMutationInput
 ): AppliedWidgetConfigMutation {
   const { plan, pairPatch } = computeWidgetConfigMutation(input)
-  const widget = plan.afterWidget
-  if (!isWidgetKey(widget.key)) {
-    failWidgetConfig('widgetKey', `Unknown widget key for panel "${input.panelId}"`)
+  const beforeWidget: NonNullable<WidgetInstance> = {
+    key: plan.widgetKey,
+    ...plan.beforeWidgetDocument,
   }
-
-  const layout = updateLayoutPanelWidget(input.layout, input.panelId, widget)
-  const afterPairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const widget: NonNullable<WidgetInstance> = {
+    key: plan.widgetKey,
+    ...plan.widgetDocument,
+  }
+  const afterPairColor = plan.widgetDocument.pairColor
   const unprunedColorPairs = buildNextColorPairs({
     colorPairs: input.colorPairs,
     pairColor: afterPairColor,
@@ -238,16 +186,11 @@ export function applyWidgetConfigMutation(
 
   return {
     ...plan,
-    layout,
     colorPairs,
-    widget,
-    beforeEffectiveParams:
-      plan.beforeWidget && isWidgetKey(plan.beforeWidget.key)
-        ? resolveEffectiveWidgetParams(plan.beforeWidget, input.colorPairs)
-        : null,
+    beforeEffectiveParams: resolveEffectiveWidgetParams(beforeWidget, input.colorPairs),
     afterEffectiveParams: resolveEffectiveWidgetParams(widget, colorPairs),
     colorPairDiff: buildColorPairDiff(input.colorPairs, colorPairs),
-    changedPaths: buildChangedPaths(plan.beforeWidget, widget, input.colorPairs, colorPairs),
+    changedPaths: buildChangedPaths(beforeWidget, widget, input.colorPairs, colorPairs),
     warnings: [],
     issues: [],
   }
@@ -268,12 +211,11 @@ function resolveNextPairColor({
 }
 
 function resolveMutationParams(
-  current: WidgetInstance,
+  current: NonNullable<WidgetInstance>,
   nextKey: WidgetKey,
   patch: WidgetConfigMutationPatch
 ): Record<string, unknown> | null {
-  const baseParams =
-    nextKey === current?.key ? current?.params : getDefaultWidgetInstance(nextKey).params
+  const baseParams = current.params
 
   if (patch.params === undefined) return baseParams ?? null
   if (patch.params === null) return null
@@ -309,7 +251,7 @@ function buildNextColorPairs(input: {
 }
 
 function buildCarriedPairContext(input: {
-  beforeWidget: WidgetInstance
+  beforeWidget: NonNullable<WidgetInstance>
   colorPairs: PersistedColorPairsState
   beforePairColor: PairColor
   nextPairColor: PairColor
@@ -318,7 +260,6 @@ function buildCarriedPairContext(input: {
   if (
     input.nextPairColor === 'gray' ||
     input.nextPairColor === input.beforePairColor ||
-    !input.beforeWidget ||
     !isWidgetKey(input.beforeWidget.key)
   ) {
     return {}
@@ -403,15 +344,14 @@ function assertNoLinkedFieldConflicts(
 }
 
 function buildChangedPaths(
-  beforeWidget: WidgetInstance,
-  afterWidget: WidgetInstance,
+  beforeWidget: NonNullable<WidgetInstance>,
+  afterWidget: NonNullable<WidgetInstance>,
   beforeColorPairs: PersistedColorPairsState,
   afterColorPairs: PersistedColorPairsState
 ): string[] {
   const changed: string[] = []
-  if (beforeWidget?.key !== afterWidget?.key) changed.push('widget.key')
-  if (beforeWidget?.pairColor !== afterWidget?.pairColor) changed.push('widget.pairColor')
-  if (!areJsonValuesEqual(beforeWidget?.params, afterWidget?.params)) changed.push('widget.params')
+  if (beforeWidget.pairColor !== afterWidget.pairColor) changed.push('widget.pairColor')
+  if (!areJsonValuesEqual(beforeWidget.params, afterWidget.params)) changed.push('widget.params')
   if (!areJsonValuesEqual(beforeColorPairs, afterColorPairs)) changed.push('colorPairs')
   return changed
 }

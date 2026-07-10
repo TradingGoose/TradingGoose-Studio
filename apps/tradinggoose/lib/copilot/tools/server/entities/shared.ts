@@ -1,12 +1,12 @@
 import {
   type EntityDocumentKind,
   getEntityDocumentFormat,
-  getEntityDocumentName,
   parseEntityDocument,
   serializeEntityDocument,
 } from '@/lib/copilot/entity-documents'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
@@ -18,18 +18,29 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import {
+  normalizeSavedEntityIdentity,
+  renameSavedEntityIdentity,
+} from '@/lib/saved-entities/identity'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 
 type SavedEntityDocumentKind = EntityDocumentKind
+type GenericSavedEntityDocumentKind = Exclude<SavedEntityDocumentKind, 'dashboard_layout'>
 export type EntityDocumentArgs = {
   entityId?: string
   runtimeId?: string
   workspaceId?: string
+  name?: string
   entityDocument?: string
   documentFormat?: string
+}
+
+export type RenameEntityArgs = {
+  entityId: string
+  name: string
 }
 
 /**
@@ -63,11 +74,13 @@ export type CopilotIndicatorListEntry = {
 
 export type EntityCreateResult = {
   entityId: string
+  entityName: string
   fields: Record<string, unknown>
 }
 export type EntityCreateContext = ServerToolExecutionContext & { workspaceId: string }
 
 type CreateEntityFromDocument = (
+  name: string,
   fields: Record<string, unknown>,
   context: EntityCreateContext
 ) => Promise<EntityCreateResult>
@@ -78,11 +91,10 @@ type ApplyEntityDocument = (input: {
   workspaceId: string
 }) => Promise<Record<string, unknown>>
 
-type PrepareEntityDocumentFields = (
-  fields: Record<string, unknown>
-) => Record<string, unknown>
+type PrepareEntityDocumentFields = (fields: Record<string, unknown>) => Record<string, unknown>
 
-const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
+const ENTITY_KIND_LABELS: Record<ReviewEntityKind, string> = {
+  workflow: 'workflow',
   skill: 'skill',
   custom_tool: 'custom tool',
   indicator: 'indicator',
@@ -127,7 +139,7 @@ export async function verifyWorkspaceContext(
 
 export async function verifySavedEntityContext(
   context: ServerToolExecutionContext | undefined,
-  entityKind: SavedEntityDocumentKind,
+  entityKind: ReviewEntityKind,
   entityId: string,
   accessMode: 'read' | 'write'
 ): Promise<{ userId: string; workspaceId: string; ownerUserId: string | null }> {
@@ -183,12 +195,13 @@ function parseEntityMutationDocument(
 export function buildDocumentEnvelope(
   kind: SavedEntityDocumentKind,
   entityId: string | undefined,
+  entityName: string,
   fields: Record<string, unknown>
 ) {
   return {
     entityKind: kind,
     ...(entityId ? { entityId } : {}),
-    entityName: getEntityDocumentName(kind, fields),
+    entityName,
     documentFormat: getEntityDocumentFormat(kind),
     entityDocument: serializeEntityDocument(kind, fields),
   }
@@ -205,21 +218,29 @@ export function buildReviewDocumentDiff(
   }
 }
 
-export async function readSavedEntityDocumentFields(
-  kind: SavedEntityDocumentKind,
+async function readSavedEntityName(
+  kind: ReviewEntityKind,
   entityId: string,
   workspaceId: string,
   ownerUserId?: string | null
-): Promise<Record<string, unknown>> {
-  if (ownerUserId === undefined) {
-    return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
-  }
-  return readBootstrappedSavedEntityFields(
-    kind as SavedEntityKind,
-    entityId,
-    workspaceId,
-    ownerUserId
-  )
+): Promise<string> {
+  const members = await readEntityListMembersFromDb(kind, workspaceId, ownerUserId)
+  const entityName = members.find((member) => member.id === entityId)?.name
+  if (entityName === undefined) throw new Error(`${ENTITY_KIND_LABELS[kind]} not found`)
+  return entityName
+}
+
+export async function readSavedEntityDocument(
+  kind: GenericSavedEntityDocumentKind,
+  entityId: string,
+  workspaceId: string,
+  ownerUserId?: string | null
+): Promise<{ entityName: string; fields: Record<string, unknown> }> {
+  const [fields, entityName] = await Promise.all([
+    readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId, ownerUserId),
+    readSavedEntityName(kind, entityId, workspaceId, ownerUserId),
+  ])
+  return { entityName, fields }
 }
 
 /**
@@ -233,7 +254,7 @@ export async function readSavedEntityDocumentFields(
  * shape unchanged.
  */
 export async function buildSavedEntityListInfo(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
 ): Promise<EntityListEntry[]> {
@@ -267,18 +288,18 @@ export async function buildSavedEntityListInfo(
 }
 
 async function hashCreateEntityReviewBase(
-  kind: SavedEntityDocumentKind,
+  kind: GenericSavedEntityDocumentKind,
   workspaceId: string
 ): Promise<string> {
   return hashServerToolReviewBase({
     kind,
     workspaceId,
-    entities: await buildSavedEntityListInfo(kind as SavedEntityKind, workspaceId),
+    entities: await buildSavedEntityListInfo(kind, workspaceId),
   })
 }
 
 export async function executeCreateEntityDocumentMutation(
-  kind: SavedEntityDocumentKind,
+  kind: GenericSavedEntityDocumentKind,
   args: EntityDocumentArgs,
   context: ServerToolExecutionContext | undefined,
   create: CreateEntityFromDocument,
@@ -297,6 +318,7 @@ export async function executeCreateEntityDocumentMutation(
   }
   const parsedFields = parseEntityMutationDocument(kind, args)
   const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
+  const name = normalizeSavedEntityIdentity(kind, args.name ?? '')
 
   if (shouldStageServerToolMutationForReview(context)) {
     return {
@@ -304,7 +326,7 @@ export async function executeCreateEntityDocumentMutation(
       success: true,
       workspaceId,
       reviewBaseStateHash: await hashCreateEntityReviewBase(kind, workspaceId),
-      ...buildDocumentEnvelope(kind, undefined, fields),
+      ...buildDocumentEnvelope(kind, undefined, name, fields),
       preview: {
         documentDiff: {
           before: '',
@@ -317,16 +339,16 @@ export async function executeCreateEntityDocumentMutation(
   if (context?.acceptedReviewBaseStateHash) {
     assertAcceptedServerToolReviewBase(context, await hashCreateEntityReviewBase(kind, workspaceId))
   }
-  const created = await create(fields, createContext)
+  const created = await create(name, fields, createContext)
   return {
     success: true,
     workspaceId,
-    ...buildDocumentEnvelope(kind, created.entityId, created.fields),
+    ...buildDocumentEnvelope(kind, created.entityId, created.entityName, created.fields),
   }
 }
 
 export async function executeUpdateEntityDocumentMutation(
-  kind: SavedEntityDocumentKind,
+  kind: GenericSavedEntityDocumentKind,
   toolName: string,
   args: EntityDocumentArgs,
   context: ServerToolExecutionContext | undefined,
@@ -337,25 +359,28 @@ export async function executeUpdateEntityDocumentMutation(
   const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
   const entityId = requireEntityId(args, toolName)
   const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
+  const requiresReview = shouldStageServerToolMutationForReview(context)
 
-  if (shouldStageServerToolMutationForReview(context)) {
-    const currentFields = await readSavedEntityDocumentFields(kind, entityId, workspaceId)
+  if (requiresReview) {
+    const current = await readSavedEntityDocument(kind, entityId, workspaceId)
     return {
       requiresReview: true,
       success: true,
-      reviewBaseStateHash: hashServerToolReviewBase(currentFields),
-      ...buildDocumentEnvelope(kind, entityId, fields),
+      reviewBaseStateHash: hashServerToolReviewBase(current.fields),
+      ...buildDocumentEnvelope(kind, entityId, current.entityName, fields),
       preview: {
-        documentDiff: buildReviewDocumentDiff(kind, currentFields, fields),
+        documentDiff: buildReviewDocumentDiff(kind, current.fields, fields),
       },
     }
   }
 
+  let entityName: string
   if (context?.acceptedReviewBaseStateHash) {
-    assertAcceptedServerToolReviewBase(
-      context,
-      hashServerToolReviewBase(await readSavedEntityDocumentFields(kind, entityId, workspaceId))
-    )
+    const current = await readSavedEntityDocument(kind, entityId, workspaceId)
+    assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(current.fields))
+    entityName = current.entityName
+  } else {
+    entityName = await readSavedEntityName(kind, entityId, workspaceId)
   }
 
   const persistedFields = apply
@@ -364,8 +389,56 @@ export async function executeUpdateEntityDocumentMutation(
   return {
     success: true,
     workspaceId,
-    ...buildDocumentEnvelope(kind, entityId, persistedFields),
+    ...buildDocumentEnvelope(kind, entityId, entityName, persistedFields),
   }
+}
+
+export async function executeRenameEntityMutation(
+  kind: ReviewEntityKind,
+  toolName: string,
+  args: RenameEntityArgs,
+  context: ServerToolExecutionContext | undefined
+) {
+  const entityId = requireEntityId(args, toolName)
+  const identityField = kind === 'custom_tool' ? 'title' : 'name'
+  const name = normalizeSavedEntityIdentity(kind, args.name)
+  const { workspaceId, ownerUserId } = await verifySavedEntityContext(
+    context,
+    kind,
+    entityId,
+    'write'
+  )
+  const currentName = await readSavedEntityName(kind, entityId, workspaceId, ownerUserId)
+  const reviewBase = { [identityField]: currentName }
+  const result = {
+    success: true,
+    workspaceId,
+    ...(ownerUserId ? { ownerUserId } : {}),
+    entityKind: kind,
+    entityId,
+    entityName: name,
+  }
+
+  if (shouldStageServerToolMutationForReview(context)) {
+    return {
+      ...result,
+      requiresReview: true,
+      reviewBaseStateHash: hashServerToolReviewBase(reviewBase),
+      preview: {
+        documentDiff: {
+          before: JSON.stringify(reviewBase, null, 2),
+          after: JSON.stringify({ [identityField]: name }, null, 2),
+        },
+      },
+    }
+  }
+
+  if (context?.acceptedReviewBaseStateHash) {
+    assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(reviewBase))
+  }
+
+  await renameSavedEntityIdentity({ entityKind: kind, entityId, workspaceId, ownerUserId, name })
+  return result
 }
 
 export type EntityServerTool<TArgs = EntityDocumentArgs> = BaseServerTool<TArgs, any>

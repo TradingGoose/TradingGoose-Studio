@@ -65,12 +65,11 @@ type ApplyWorkflowStateRequest = {
   variables?: Record<string, any>
 }
 
-type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
+type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'>
 
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
   fields: Record<string, any>
-  ownerUserId?: string | null
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -214,8 +213,7 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     candidate.entityKind !== 'indicator' &&
     candidate.entityKind !== 'knowledge_base' &&
     candidate.entityKind !== 'mcp_server' &&
-    candidate.entityKind !== 'watchlist' &&
-    candidate.entityKind !== 'dashboard_layout'
+    candidate.entityKind !== 'watchlist'
   ) {
     throw new InvalidInternalYjsRequestError('Invalid entityKind')
   }
@@ -228,15 +226,9 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
-  const ownerUserId = typeof candidate.ownerUserId === 'string' ? candidate.ownerUserId.trim() : ''
-  if (candidate.entityKind === 'dashboard_layout' && !ownerUserId) {
-    throw new InvalidInternalYjsRequestError('Dashboard layout ownerUserId is required')
-  }
-
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
-    ownerUserId: ownerUserId || null,
   }
 }
 
@@ -425,9 +417,7 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
-    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null, {
-      ownerUserId: body.ownerUserId,
-    })
+    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
     const doc = await getBootstrappedApplyDocument(descriptor)
     const persistedFields = await applyThroughStaging(
       doc,
@@ -487,7 +477,9 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
         await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
-        await refreshSavedEntityListDoc(descriptor.entityKind, doc)
+        if (descriptor.entityKind !== 'dashboard_layout') {
+          await refreshSavedEntityListDoc(descriptor.entityKind, doc)
+        }
         markDocumentPersisted(doc)
         discardDocumentIfIdle(sessionId)
       }

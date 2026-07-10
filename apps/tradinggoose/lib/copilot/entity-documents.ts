@@ -1,13 +1,16 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
-import { WatchlistDocumentSchema } from '@/lib/watchlists/import-export'
 import {
-  DashboardLayoutDocumentSchema,
+  normalizeWatchlistDocumentContent,
+  WatchlistContentDocumentSchema,
+} from '@/lib/watchlists/validation'
+import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  normalizeDashboardLayoutDocumentFields,
+  DashboardLayoutDocumentContentSchema,
+  normalizeDashboardLayoutDocumentContent,
 } from '@/widgets/layout-document'
+
 export { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
@@ -29,67 +32,72 @@ const ENTITY_DOCUMENT_FORMATS = {
 
 export type EntityDocumentKind = keyof typeof ENTITY_DOCUMENT_FORMATS
 
-const SkillDocumentSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  content: z.string(),
-})
+const SkillDocumentSchema = z
+  .object({
+    description: z.string(),
+    content: z.string(),
+  })
+  .strict()
 
-const CustomToolDocumentSchema = z.object({
-  title: z.string().describe('Human-readable custom tool title.'),
-  schemaText: z
-    .string()
-    .describe(
-      'JSON text for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. This field is a string containing JSON, not an object. Do not include a `name` property inside `function`; the document `title` is the canonical custom-tool name.'
-    ),
-  codeText: z
-    .string()
-    .describe(
-      'Raw JavaScript async function body only. Do not include a function wrapper, export, markdown, or imports. Use <paramName> for parameters and {{ENV_VAR_NAME}} for environment variables.'
-    ),
-})
+const CustomToolDocumentSchema = z
+  .object({
+    schemaText: z
+      .string()
+      .describe(
+        'JSON text for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. This field is a string containing JSON, not an object. Do not include a `name` property inside `function`; entityName is the canonical custom-tool name.'
+      ),
+    codeText: z
+      .string()
+      .describe(
+        'Raw JavaScript async function body only. Do not include a function wrapper, export, markdown, or imports. Use <paramName> for parameters and {{ENV_VAR_NAME}} for environment variables.'
+      ),
+  })
+  .strict()
 
-const IndicatorDocumentSchema = z.object({
-  name: z.string(),
-  color: z.string(),
-  pineCode: z.string(),
-})
+const IndicatorDocumentSchema = z
+  .object({
+    color: z.string(),
+    pineCode: z.string(),
+  })
+  .strict()
 
-const McpServerDocumentSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  transport: z.enum(['http', 'sse', 'streamable-http']),
-  url: z.string(),
-  headers: z
-    .record(z.string())
-    .describe(
-      'MCP server headers. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
-    ),
-  command: z.string(),
-  args: z.array(z.string()),
-  env: z
-    .record(z.string())
-    .describe(
-      'MCP server environment variables. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
-    ),
-  timeout: z.number(),
-  retries: z.number(),
-  enabled: z.boolean(),
-})
+const McpServerDocumentSchema = z
+  .object({
+    description: z.string(),
+    transport: z.enum(['http', 'sse', 'streamable-http']),
+    url: z.string(),
+    headers: z
+      .record(z.string())
+      .describe(
+        'MCP server headers. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
+      ),
+    command: z.string(),
+    args: z.array(z.string()),
+    env: z
+      .record(z.string())
+      .describe(
+        'MCP server environment variables. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
+      ),
+    timeout: z.number(),
+    retries: z.number(),
+    enabled: z.boolean(),
+  })
+  .strict()
 
-const KnowledgeBaseDocumentSchema = z.object({
-  name: z.string().trim().min(1),
-  description: z.string(),
-  chunkingConfig: z
-    .object({
-      maxSize: z.number().min(100).max(4000),
-      minSize: z.number().min(1).max(2000),
-      overlap: z.number().min(0).max(500),
-    })
-    .refine((data) => data.minSize < data.maxSize, {
-      message: 'minSize must be less than maxSize',
-    }),
-})
+const KnowledgeBaseDocumentSchema = z
+  .object({
+    description: z.string(),
+    chunkingConfig: z
+      .object({
+        maxSize: z.number().min(100).max(4000),
+        minSize: z.number().min(1).max(2000),
+        overlap: z.number().min(0).max(500),
+      })
+      .refine((data) => data.minSize < data.maxSize, {
+        message: 'minSize must be less than maxSize',
+      }),
+  })
+  .strict()
 
 const EntityDocumentSchemas = {
   skill: SkillDocumentSchema,
@@ -97,13 +105,11 @@ const EntityDocumentSchemas = {
   indicator: IndicatorDocumentSchema,
   mcp_server: McpServerDocumentSchema,
   knowledge_base: KnowledgeBaseDocumentSchema,
-  watchlist: WatchlistDocumentSchema,
-  dashboard_layout: DashboardLayoutDocumentSchema,
+  watchlist: WatchlistContentDocumentSchema,
+  dashboard_layout: DashboardLayoutDocumentContentSchema,
 } as const
 
-type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
-  (typeof EntityDocumentSchemas)[K]
->
+type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<(typeof EntityDocumentSchemas)[K]>
 
 export const ENTITY_SECRET_PLACEHOLDER = '[redacted]'
 const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
@@ -153,21 +159,18 @@ export function normalizeEntityFields(
   switch (kind) {
     case 'skill':
       return {
-        name: typeof source.name === 'string' ? source.name.trim() : '',
         description: typeof source.description === 'string' ? source.description.trim() : '',
         content: typeof source.content === 'string' ? source.content.trim() : '',
       }
     case 'custom_tool': {
       const schemaText = typeof source.schemaText === 'string' ? source.schemaText : ''
       return {
-        title: typeof source.title === 'string' ? source.title.trim().replace(/\s+/g, ' ') : '',
         schemaText: JSON.stringify(parseCustomToolSchemaText(schemaText), null, 2),
         codeText: typeof source.codeText === 'string' ? source.codeText : '',
       }
     }
     case 'indicator': {
       return {
-        name: typeof source.name === 'string' ? source.name.trim() : '',
         color: typeof source.color === 'string' ? source.color.trim() : '',
         pineCode: typeof source.pineCode === 'string' ? source.pineCode : '',
       }
@@ -192,7 +195,6 @@ export function normalizeEntityFields(
       }
 
       return {
-        name: typeof source.name === 'string' ? source.name.trim() : '',
         description: typeof source.description === 'string' ? source.description.trim() : '',
         transport: source.transport,
         url: validation?.normalizedUrl ?? rawUrl,
@@ -209,15 +211,14 @@ export function normalizeEntityFields(
     }
     case 'knowledge_base':
       return {
-        name: typeof source.name === 'string' ? source.name.trim() : source.name,
         description:
           typeof source.description === 'string' ? source.description.trim() : source.description,
         chunkingConfig: source.chunkingConfig,
       }
     case 'watchlist':
-      return normalizeWatchlistDocumentFields(source)
+      return normalizeWatchlistDocumentContent(source)
     case 'dashboard_layout':
-      return normalizeDashboardLayoutDocumentFields(source)
+      return normalizeDashboardLayoutDocumentContent(source)
   }
 }
 
@@ -233,7 +234,7 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
   kind: K,
   entityDocument: string
 ): EntityDocumentFields<K> {
-  const parsedJson = JSON.parse(entityDocument)
+  const parsedJson = EntityDocumentSchemas[kind].parse(JSON.parse(entityDocument))
   const normalized = normalizeEntityFields(kind, parsedJson)
   return EntityDocumentSchemas[kind].parse(normalized) as EntityDocumentFields<K>
 }
@@ -260,28 +261,4 @@ export function serializeEntityDocument<K extends EntityDocumentKind>(
   fields: Record<string, unknown> | null | undefined
 ): string {
   return JSON.stringify(redactEntityDocumentSecretFields(kind, fields), null, 2)
-}
-
-export function getEntityDocumentName(
-  kind: EntityDocumentKind,
-  fields: Record<string, unknown> | null | undefined
-): string {
-  const normalized = normalizeEntityFields(kind, fields)
-
-  switch (kind) {
-    case 'skill':
-      return String(normalized.name ?? '')
-    case 'custom_tool':
-      return String(normalized.title ?? '')
-    case 'indicator':
-      return String(normalized.name ?? '')
-    case 'mcp_server':
-      return String(normalized.name ?? '')
-    case 'knowledge_base':
-      return String(normalized.name ?? '')
-    case 'watchlist':
-      return String(normalized.name ?? '')
-    case 'dashboard_layout':
-      return String(normalized.name ?? '')
-  }
 }

@@ -36,12 +36,12 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  inArray: vi.fn((left: unknown, right: unknown[]) => ({ kind: 'inArray', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
 }))
 
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
+import { composeWatchlistDocumentFromRows } from '@/lib/watchlists/document'
 import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/operations'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 
 const rootRow = {
   id: 'watchlist-1',
@@ -94,13 +94,7 @@ describe('watchlist operations', () => {
     const insertedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const updatedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const deletedRows: Array<{ table: unknown; condition: unknown }> = []
-    const selectResults = [
-      [rootRow],
-      [
-        { id: rootRow.id, parentId: null },
-        { id: 'old-section', parentId: rootRow.id },
-      ],
-    ]
+    const selectResults = [[rootRow]]
     const tx: any = {
       select: vi.fn(() => createQueryChain(selectResults.shift() ?? [], whereCalls)),
       delete: vi.fn((table: unknown) => ({
@@ -156,7 +150,6 @@ describe('watchlist operations', () => {
     }
 
     const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', {
-      name: 'Growth',
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
         {
@@ -262,7 +255,6 @@ describe('watchlist operations', () => {
       {
         table: expect.objectContaining({ id: 'watchlist_table.id' }),
         values: expect.objectContaining({
-          name: 'Growth',
           settings: { showLogo: true, showTicker: true, showDescription: false },
         }),
       },
@@ -363,5 +355,48 @@ describe('watchlist operations', () => {
         ],
       })
     ).toThrow('Invalid watchlist item')
+  })
+
+  it('rejects persisted nested sections and listings outside the watchlist hierarchy', () => {
+    const section = {
+      ...rootRow,
+      id: 'section-1',
+      parentId: rootRow.id,
+      name: 'Semiconductors',
+      settings: { kind: 'section' },
+    }
+
+    expect(() =>
+      composeWatchlistDocumentFromRows(
+        [{ ...section, id: 'nested-section', parentId: section.id }, section],
+        [],
+        rootRow.id
+      )
+    ).toThrow('Persisted watchlist sections cannot be nested')
+
+    expect(() =>
+      composeWatchlistDocumentFromRows(
+        [section],
+        [
+          {
+            id: 'listing-1',
+            workspaceId: rootRow.workspaceId,
+            userId: null,
+            watchlistId: rootRow.id,
+            containerId: 'other-watchlist',
+            listing: {
+              listing_id: 'NVDA',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+            sortOrder: 0,
+            createdAt: rootRow.createdAt,
+            updatedAt: rootRow.updatedAt,
+          },
+        ],
+        rootRow.id
+      )
+    ).toThrow('Persisted watchlist listing has an invalid container')
   })
 })

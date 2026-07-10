@@ -10,9 +10,10 @@ import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { materializeDashboardLayoutFields } from '@/lib/dashboard-layouts/operations'
+import { materializeDashboardLayoutContent } from '@/lib/dashboard-layouts/operations'
 import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/document'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import { readDashboardLayoutContent } from '@/lib/yjs/dashboard-layout-session'
 import {
   getEntityFields,
   getEntityOwnerUserId,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -52,17 +54,6 @@ function isUniqueConstraintViolation(error: unknown): boolean {
   )
 }
 
-async function mapUniqueConstraint<T>(operation: Promise<T>, message: string): Promise<T> {
-  try {
-    return await operation
-  } catch (error) {
-    if (isUniqueConstraintViolation(error)) {
-      throw new SavedEntityPersistenceError(409, message)
-    }
-    throw error
-  }
-}
-
 function normalizeSavedEntityFields(
   entityKind: SavedEntityKind,
   fields: Record<string, unknown>
@@ -89,44 +80,33 @@ async function persistSavedEntityState(
 
   switch (entityKind) {
     case 'skill': {
-      const name = String(fields.name ?? '')
-      persisted = await mapUniqueConstraint(
-        db
-          .update(skill)
-          .set({
-            name,
-            description: String(fields.description ?? ''),
-            content: String(fields.content ?? ''),
-            updatedAt: now,
-          })
-          .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
-          .returning({ id: skill.id }),
-        `A skill with the name "${name}" already exists in this workspace`
-      )
+      persisted = await db
+        .update(skill)
+        .set({
+          description: String(fields.description ?? ''),
+          content: String(fields.content ?? ''),
+          updatedAt: now,
+        })
+        .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
+        .returning({ id: skill.id })
       break
     }
     case 'custom_tool': {
-      const title = String(fields.title ?? '')
-      persisted = await mapUniqueConstraint(
-        db
-          .update(customTools)
-          .set({
-            title,
-            schema: parseCustomToolSchemaText(fields.schemaText),
-            code: String(fields.codeText ?? ''),
-            updatedAt: now,
-          })
-          .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
-          .returning({ id: customTools.id }),
-        `A tool with the title "${title}" already exists in this workspace`
-      )
+      persisted = await db
+        .update(customTools)
+        .set({
+          schema: parseCustomToolSchemaText(fields.schemaText),
+          code: String(fields.codeText ?? ''),
+          updatedAt: now,
+        })
+        .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
+        .returning({ id: customTools.id })
       break
     }
     case 'indicator':
       persisted = await db
         .update(pineIndicators)
         .set({
-          name: String(fields.name ?? ''),
           color: String(fields.color ?? ''),
           pineCode: String(fields.pineCode ?? ''),
           updatedAt: now,
@@ -138,7 +118,6 @@ async function persistSavedEntityState(
       persisted = await db
         .update(knowledgeBase)
         .set({
-          name: String(fields.name ?? ''),
           description: String(fields.description ?? ''),
           chunkingConfig: fields.chunkingConfig,
           updatedAt: now,
@@ -161,7 +140,6 @@ async function persistSavedEntityState(
       persisted = await db
         .update(mcpServers)
         .set({
-          name: String(fields.name ?? ''),
           description: String(fields.description ?? '') || null,
           transport: String(fields.transport ?? 'http'),
           url,
@@ -189,10 +167,7 @@ async function persistSavedEntityState(
           throw new SavedEntityPersistenceError(error.status, error.message)
         }
         if (isUniqueConstraintViolation(error)) {
-          throw new SavedEntityPersistenceError(
-            409,
-            'Watchlist contains a duplicate name or listing'
-          )
+          throw new SavedEntityPersistenceError(409, 'Watchlist contains a duplicate listing')
         }
         throw error
       }
@@ -200,7 +175,11 @@ async function persistSavedEntityState(
       if (!ownerUserId) {
         throw new SavedEntityPersistenceError(400, 'Dashboard layout ownerUserId is required')
       }
-      return materializeDashboardLayoutFields({ workspaceId, ownerUserId }, entityId, fields)
+      return materializeDashboardLayoutContent(
+        { workspaceId, ownerUserId },
+        entityId,
+        fields as DashboardLayoutDocumentContent
+      )
     }
   }
 
@@ -215,19 +194,13 @@ async function persistSavedEntityState(
 }
 
 export async function applySavedEntityState(
-  entityKind: SavedEntityKind,
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
-  fields: Record<string, unknown>,
-  ownerUserId?: string | null
+  fields: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    return await applyEntityStateInSocketServer(
-      entityId,
-      entityKind,
-      normalizedFields,
-      ownerUserId ?? null
-    )
+    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -251,14 +224,20 @@ export async function saveSavedEntityYjsDocToDb(
 ): Promise<Record<string, unknown>> {
   let entityFields: Record<string, unknown>
   try {
-    entityFields = getEntityFields(doc, entityKind)
+    entityFields =
+      entityKind === 'dashboard_layout'
+        ? readDashboardLayoutContent(doc)
+        : getEntityFields(doc, entityKind)
   } catch (error) {
     throw new SavedEntityPersistenceError(
       400,
       error instanceof Error ? error.message : 'Invalid saved entity fields'
     )
   }
-  const yjsFields = normalizeSavedEntityFields(entityKind, entityFields)
+  const yjsFields =
+    entityKind === 'dashboard_layout'
+      ? entityFields
+      : normalizeSavedEntityFields(entityKind, entityFields)
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
     throw new SavedEntityPersistenceError(
@@ -274,6 +253,8 @@ export async function saveSavedEntityYjsDocToDb(
     workspaceId,
     ownerUserId
   )
-  seedEntitySession(doc, { entityKind, payload: persistedFields })
+  if (entityKind !== 'dashboard_layout') {
+    seedEntitySession(doc, { entityKind, payload: persistedFields })
+  }
   return persistedFields
 }

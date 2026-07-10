@@ -1,7 +1,11 @@
 /** @vitest-environment jsdom */
+
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import { WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 const registryState = vi.hoisted(() => ({
@@ -38,6 +42,7 @@ const reactActEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 describe('WidgetSurface', () => {
   let container: HTMLDivElement
   let root: Root
+  let doc: Y.Doc
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -46,12 +51,29 @@ describe('WidgetSurface', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    doc = new Y.Doc()
+    seedDashboardLayoutSession(doc, {
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        identityId: 'widget-1',
+        widgetKey: 'data_chart',
+      },
+      widgets: {
+        'widget-1': {
+          pairColor: 'red',
+          params: { data: { provider: 'alpaca' } },
+        },
+      },
+      colorPairs: { pairs: [] },
+    })
   })
 
   afterEach(() => {
     act(() => {
       root.unmount()
     })
+    doc.destroy()
     container.remove()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -67,12 +89,13 @@ describe('WidgetSurface', () => {
 
     await act(async () => {
       root.render(
-        <WidgetSurface
-          widget={{ key: 'data_chart', pairColor: 'red', params: { data: { provider: 'alpaca' } } }}
-          context={context}
-          panelId='panel-1'
-          onWidgetParamsPatch={onWidgetParamsPatch}
-        />
+        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
+          <WidgetSurface
+            context={context}
+            panelId='panel-1'
+            onWidgetParamsPatch={onWidgetParamsPatch}
+          />
+        </WidgetConfigRuntimeProvider>
       )
     })
 
@@ -84,5 +107,30 @@ describe('WidgetSurface', () => {
       pairColor: 'red',
       onWidgetParamsPatch,
     })
+  })
+
+  it('keeps the empty-widget render fallback and layout selection callback', async () => {
+    const onWidgetChange = vi.fn()
+    seedDashboardLayoutSession(doc, {
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        identityId: null,
+        widgetKey: null,
+      },
+      widgets: {},
+      colorPairs: { pairs: [] },
+    })
+
+    await act(async () => {
+      root.render(
+        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
+          <WidgetSurface panelId='panel-1' onWidgetChange={onWidgetChange} />
+        </WidgetConfigRuntimeProvider>
+      )
+    })
+
+    expect(container.querySelector('[data-testid="widget-empty"]')).toBeTruthy()
+    expect(registryState.componentProps).toMatchObject({ onWidgetChange })
   })
 })

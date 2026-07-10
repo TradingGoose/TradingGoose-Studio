@@ -22,10 +22,10 @@ const listing = (id: string, parentId: string | null = null): WatchlistItem => (
   },
 })
 
-const section = (id: string, label = id, parentId: string | null = null): WatchlistItem => ({
+const section = (id: string, label = id): WatchlistItem => ({
   id,
   type: 'section',
-  parentId,
+  parentId: null,
   label,
 })
 
@@ -79,7 +79,7 @@ describe('watchlist reorder helpers', () => {
     expect(next?.find((item) => item.id === 'c')?.parentId).toBeNull()
   })
 
-  it('moves a section under another container without rewriting descendant parents', () => {
+  it('reorders sections at the root without rewriting their listing parents', () => {
     const items = [
       listing('a'),
       section('s1'),
@@ -95,11 +95,12 @@ describe('watchlist reorder helpers', () => {
       createWatchlistContainerSortableId('s1')
     )
 
-    expect(next?.find((item) => item.id === 's2')?.parentId).toBe('s1')
+    expect(next?.map((item) => item.id)).toEqual(['a', 's2', 's1', 'b', 'c', 'd'])
+    expect(next?.find((item) => item.id === 's2')?.parentId).toBeNull()
     expect(next?.find((item) => item.id === 'd')?.parentId).toBe('s2')
   })
 
-  it('resolves a container drag over child rows to the target container block', () => {
+  it('resolves a section drag over child rows before the root section block', () => {
     const items = [
       listing('a'),
       section('s1'),
@@ -115,10 +116,10 @@ describe('watchlist reorder helpers', () => {
         createWatchlistContainerSortableId('s2'),
         createWatchlistListingSortableId('b')
       )
-    ).toEqual({ type: 'container', containerId: 's1' })
+    ).toEqual({ type: 'before', itemId: 's1' })
   })
 
-  it('resolves a container drag over unsectioned rows to the root bucket', () => {
+  it('resolves a section drag over an unsectioned row as a root reorder', () => {
     const items = [listing('a'), listing('b'), section('s1'), listing('c', 's1')]
 
     expect(
@@ -127,7 +128,7 @@ describe('watchlist reorder helpers', () => {
         createWatchlistContainerSortableId('s1'),
         createWatchlistListingSortableId('a')
       )
-    ).toEqual({ type: 'root' })
+    ).toEqual({ type: 'before', itemId: 'a' })
   })
 
   it('returns null when drop results in no change or invalid ids', () => {

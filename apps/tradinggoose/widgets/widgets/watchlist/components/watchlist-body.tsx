@@ -20,14 +20,12 @@ const removeContainerPromoteChildren = <
 >(
   items: T[],
   containerId: string
-) => {
-  const removedContainer = items.find((item) => item.id === containerId)
-  const nextParentId = removedContainer?.parentId ?? null
-
-  return items
+) =>
+  items
     .filter((item) => item.id !== containerId)
-    .map((item) => (item.parentId === containerId ? { ...item, parentId: nextParentId } : item))
-}
+    .map((item) =>
+      item.type === 'listing' && item.parentId === containerId ? { ...item, parentId: null } : item
+    )
 
 export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const copy = useMessages().workspace.widgets.watchlist.body

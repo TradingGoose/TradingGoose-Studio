@@ -6,9 +6,12 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
+import { WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
@@ -25,18 +28,31 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 describe('data chart localized component copy', () => {
   let container: HTMLDivElement
   let root: Root
+  let doc: Y.Doc
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    doc = new Y.Doc()
+    seedDashboardLayoutSession(doc, {
+      layout: {
+        id: 'panel-chart',
+        type: 'panel',
+        identityId: 'widget-chart',
+        widgetKey: 'data_chart',
+      },
+      widgets: { 'widget-chart': { pairColor: 'gray', params: null } },
+      colorPairs: { pairs: [] },
+    })
   })
 
   afterEach(() => {
     act(() => {
       root.unmount()
     })
+    doc.destroy()
     container.remove()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -44,7 +60,11 @@ describe('data chart localized component copy', () => {
   const renderWithLocale = (element: React.ReactNode, locale: LocaleCode = 'es') => {
     root.render(
       <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-        <TooltipProvider>{element}</TooltipProvider>
+        <TooltipProvider>
+          <WidgetConfigRuntimeProvider doc={doc} panelId='panel-chart' canWrite>
+            {element}
+          </WidgetConfigRuntimeProvider>
+        </TooltipProvider>
       </NextIntlClientProvider>
     )
   }

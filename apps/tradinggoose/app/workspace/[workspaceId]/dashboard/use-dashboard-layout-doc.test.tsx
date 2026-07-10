@@ -6,23 +6,20 @@ import { act } from 'react'
 import { JSDOM } from 'jsdom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LayoutNode } from '@/widgets/layout'
+import * as Y from 'yjs'
+import {
+  readDashboardLayoutContent,
+  seedDashboardLayoutSession,
+} from '@/lib/yjs/dashboard-layout-session'
+import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 
-const listing = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
-} as const
-const layout: LayoutNode = {
+let mockLayoutDoc: Y.Doc | null = null
+
+const topology: DashboardLayoutTopologyNode = {
   id: 'panel-chart',
   type: 'panel',
-  widget: { key: 'data_chart', pairColor: 'red', params: null },
-}
-const hydratedColorPairs = {
-  pairs: [
-    { color: 'red', listing: { ...listing, base: 'Apple', quote: null, name: 'Apple Inc.' } },
-  ],
+  identityId: 'widget-chart',
+  widgetKey: 'data_chart',
 }
 
 function installRawBunDom() {
@@ -42,7 +39,12 @@ function installRawBunDom() {
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useEntityList: () => ({ members: [], isLoading: true, error: null }),
-  useSavedEntityYjsSession: () => ({ doc: null, save: vi.fn(), isLoading: false, error: null }),
+  useSavedEntityYjsSession: () => ({
+    doc: mockLayoutDoc,
+    save: vi.fn(),
+    isLoading: false,
+    error: null,
+  }),
   useYjsField: (_doc: unknown, _field: string, initial: unknown) => [initial, vi.fn()],
   useYjsStringField: (_doc: unknown, _field: string, initial: string) => [initial, vi.fn()],
 }))
@@ -56,16 +58,19 @@ describe('useDashboardLayoutDocument live fields', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    mockLayoutDoc = null
   })
 
   afterEach(() => {
     if (root) act(() => root?.unmount())
+    mockLayoutDoc?.destroy()
+    mockLayoutDoc = null
     container?.remove()
     root = null
     container = null
   })
 
-  it('returns raw layout and canonical color-store state while the provider is not ready', async () => {
+  it('returns matching SSR topology while the provider is not ready', async () => {
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
 
@@ -74,9 +79,7 @@ describe('useDashboardLayoutDocument live fields', () => {
         workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
         layoutId: 'layout-1',
-        initialName: 'Layout',
-        initialLayout: layout,
-        initialColorPairs: hydratedColorPairs,
+        initialTopology: topology,
       })
       return null
     }
@@ -85,9 +88,58 @@ describe('useDashboardLayoutDocument live fields', () => {
       root?.render(<Capture />)
     })
 
-    expect(latest?.layout).toEqual(layout)
-    expect(latest?.colorPairs).toEqual({
-      pairs: [{ color: 'red', listing }],
+    expect(latest?.topology).toEqual(topology)
+    expect(latest?.doc).toBeNull()
+    expect(latest?.isProviderReady).toBe(false)
+  })
+
+  it('does not fabricate topology without a matching SSR document', async () => {
+    const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
+    let latest: any = null
+
+    const Capture = () => {
+      latest = useDashboardLayoutDocument({
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        layoutId: 'layout-2',
+      })
+      return null
+    }
+
+    act(() => {
+      root?.render(<Capture />)
     })
+
+    expect(latest?.topology).toBeNull()
+    expect(latest?.isProviderReady).toBe(false)
+  })
+
+  it('routes widget selection through a layout-owned replacement plan', async () => {
+    mockLayoutDoc = new Y.Doc()
+    seedDashboardLayoutSession(mockLayoutDoc, {
+      layout: topology,
+      widgets: { 'widget-chart': { pairColor: 'gray', params: null } },
+      colorPairs: { pairs: [] },
+    })
+    const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
+    let latest: any = null
+    const Capture = () => {
+      latest = useDashboardLayoutDocument({
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        layoutId: 'layout-1',
+      })
+      return null
+    }
+
+    act(() => root?.render(<Capture />))
+    act(() => latest.replacePanelWidget('panel-chart', 'watchlist'))
+
+    const next = readDashboardLayoutContent(mockLayoutDoc)
+    if (next.layout.type !== 'panel') throw new Error('Expected panel layout')
+    expect(next.layout).toMatchObject({ widgetKey: 'watchlist' })
+    expect(next.layout.identityId).not.toBe('widget-chart')
+    expect(next.widgets).not.toHaveProperty('widget-chart')
+    expect(next.widgets).toHaveProperty(next.layout.identityId!)
   })
 })

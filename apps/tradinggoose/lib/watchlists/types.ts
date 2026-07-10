@@ -16,7 +16,7 @@ export type WatchlistListingItem = {
 export type WatchlistSectionItem = {
   id: string
   type: 'section'
-  parentId: string | null
+  parentId: null
   label: string
 }
 
@@ -34,7 +34,7 @@ export type WatchlistDocumentListingInputItem = {
 export type WatchlistDocumentSectionInputItem = {
   id?: string
   type: 'section'
-  parentId?: string | null
+  parentId?: null
   label: string
 }
 
@@ -48,11 +48,15 @@ export type WatchlistDocumentInputFields = {
   items: WatchlistDocumentInputItem[]
 }
 
+export type WatchlistDocumentInputContent = Omit<WatchlistDocumentInputFields, 'name'>
+
 export type WatchlistDocumentFields = {
   name: string
   settings: WatchlistSettings
   items: WatchlistItem[]
 }
+
+export type WatchlistDocumentContent = Omit<WatchlistDocumentFields, 'name'>
 
 export type WatchlistRecord = {
   id: string

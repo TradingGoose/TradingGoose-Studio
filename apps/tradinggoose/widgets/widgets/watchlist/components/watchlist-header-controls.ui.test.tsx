@@ -292,7 +292,7 @@ describe('watchlist header controls', () => {
       refreshButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith('panel-4', 'watchlist-widget', {
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
       runtime: { refreshAt: expect.any(Number) },
     })
     expect(mockSetWatchlistItems).not.toHaveBeenCalled()

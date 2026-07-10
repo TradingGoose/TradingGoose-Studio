@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { searchListingServerTool } from '@/lib/copilot/tools/server/listing/search-listing'
-import { searchListingIdentities } from '@/components/listing-selector/fetchers'
+import { searchListingIdentities } from '@/lib/listing/search'
 
-vi.mock('@/components/listing-selector/fetchers', () => ({
+vi.mock('@/lib/listing/search', () => ({
   searchListingIdentities: vi.fn(),
 }))
 

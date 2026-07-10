@@ -4,9 +4,10 @@ import { useCallback, useMemo, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import { bootstrapYjsProvider } from '@/lib/yjs/provider'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
@@ -91,7 +92,12 @@ export function IndicatorList({
   const handleRename = useCallback(
     async (indicatorId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
-      await saveSavedEntityField('indicator', indicatorId, workspaceId, 'name', name)
+      await renameSavedEntityAction({
+        entityKind: 'indicator',
+        entityId: indicatorId,
+        workspaceId,
+        name,
+      })
     },
     [permissions.canEdit, workspaceId]
   )

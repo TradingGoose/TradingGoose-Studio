@@ -21,14 +21,17 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import type { Doc } from 'yjs'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { saveSavedEntityField } from '@/lib/yjs/use-entity-fields'
 import {
+  activateDashboardLayoutAction,
   createDashboardLayoutAction,
   deleteDashboardLayoutAction,
+  reorderDashboardLayoutAction,
 } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import {
@@ -39,18 +42,9 @@ import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import {
-  closeDashboardLayoutPanelGroup,
-  createDefaultColorPairsState,
-  createDefaultLayoutState,
-  findDashboardLayoutParentGroupId,
-  type LayoutNode,
-  normalizeColorPairsState,
-  type PersistedColorPairsState,
-  splitDashboardLayoutPanelIntoHorizontalGroup,
-  splitDashboardLayoutPanelIntoVerticalGroup,
-  updateDashboardLayoutGroupSizes,
-} from '@/widgets/layout'
-import type { PairColor } from '@/widgets/pair-colors'
+  type DashboardLayoutTopologyNode,
+  findDashboardTopologyParentGroupId,
+} from '@/widgets/layout-document'
 import type { WidgetRuntimeContext } from '@/widgets/types'
 import {
   useWidgetConfigRuntimeActions,
@@ -59,33 +53,26 @@ import {
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 interface DashboardClientProps {
-  initialState: LayoutNode
+  initialTopology: DashboardLayoutTopologyNode
   workspaceId: string
   ownerUserId: string
   layoutId: string
-  initialLayoutName: string
   initialLayouts: LayoutTab[]
-  initialColorPairs: PersistedColorPairsState | unknown
   workspaceCanWrite: boolean
 }
 
 interface DashboardNodeProps {
-  node: LayoutNode
+  node: DashboardLayoutTopologyNode
+  doc: Doc
+  canEditContent: boolean
   persistGroup?: (id: string, sizes: number[]) => void
   widgetContext: WidgetRuntimeContext
-  updatePairColor?: (panelId: string, color: PairColor) => void
-  updateWidget?: (panelId: string, widgetKey: string) => void
-  updateWidgetParamsPatch?: (
-    panelId: string,
-    widgetKey: string,
-    params: Record<string, unknown>
-  ) => void
-  sizeHint?: number
   availableWidth?: number
   availableHeight?: number
   splitPanelVertical?: (panelId: string) => void
   splitPanelHorizontal?: (panelId: string) => void
   closePanel?: (panelId: string) => void
+  replacePanelWidget?: (panelId: string, widgetKey: string) => void
 }
 
 const PANEL_MIN_SIZE = 10
@@ -101,74 +88,33 @@ interface DropdownItem {
 
 const DashboardNode = memo(function DashboardNode({
   node,
+  doc,
+  canEditContent,
   persistGroup,
   widgetContext,
-  updatePairColor,
-  updateWidget,
-  updateWidgetParamsPatch,
-  sizeHint,
   availableWidth = 100,
   availableHeight = 100,
   splitPanelVertical,
   splitPanelHorizontal,
   closePanel,
+  replacePanelWidget,
 }: DashboardNodeProps) {
-  const panelId = node.type === 'panel' ? node.id : null
-  const panelWidgetKey = node.type === 'panel' ? node.widget?.key : undefined
-  const handlePairColorChange = useCallback(
-    (color: PairColor) => {
-      if (!panelId || !updatePairColor) return
-      updatePairColor(panelId, color)
-    },
-    [panelId, updatePairColor]
-  )
-  const handleWidgetChange = useCallback(
-    (key: string) => {
-      if (!panelId || !updateWidget) return
-      updateWidget(panelId, key)
-    },
-    [panelId, updateWidget]
-  )
-  const handleWidgetParamsPatch = useCallback(
-    (params: Record<string, unknown>) => {
-      if (!panelId || !panelWidgetKey || !updateWidgetParamsPatch) return
-      updateWidgetParamsPatch(panelId, panelWidgetKey, params)
-    },
-    [panelId, panelWidgetKey, updateWidgetParamsPatch]
-  )
-  const handlePanelSplitVertical = useCallback(() => {
-    if (!panelId || !splitPanelVertical) return
-    splitPanelVertical(panelId)
-  }, [panelId, splitPanelVertical])
-  const handlePanelSplitHorizontal = useCallback(() => {
-    if (!panelId || !splitPanelHorizontal) return
-    splitPanelHorizontal(panelId)
-  }, [panelId, splitPanelHorizontal])
-  const handlePanelClose = useCallback(() => {
-    if (!panelId || !closePanel) return
-    closePanel(panelId)
-  }, [closePanel, panelId])
-
   if (node.type === 'panel') {
     const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
     const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
 
     return (
-      <WidgetSurface
-        widget={node.widget}
-        context={widgetContext}
-        panelId={node.id}
-        onPairColorChange={updatePairColor ? handlePairColorChange : undefined}
-        onWidgetChange={updateWidget ? handleWidgetChange : undefined}
-        onWidgetParamsPatch={
-          updateWidgetParamsPatch && panelWidgetKey ? handleWidgetParamsPatch : undefined
-        }
-        onPanelSplit={splitPanelVertical && canSplitVertical ? handlePanelSplitVertical : undefined}
-        onPanelSplitHorizontal={
-          splitPanelHorizontal && canSplitHorizontal ? handlePanelSplitHorizontal : undefined
-        }
-        onPanelClose={closePanel ? handlePanelClose : undefined}
-      />
+      <WidgetConfigRuntimeProvider doc={doc} panelId={node.id} canWrite={canEditContent}>
+        <DashboardPanel
+          panelId={node.id}
+          widgetContext={widgetContext}
+          canEditContent={canEditContent}
+          splitPanelVertical={canSplitVertical ? splitPanelVertical : undefined}
+          splitPanelHorizontal={canSplitHorizontal ? splitPanelHorizontal : undefined}
+          closePanel={closePanel}
+          replacePanelWidget={replacePanelWidget}
+        />
+      </WidgetConfigRuntimeProvider>
     )
   }
 
@@ -197,17 +143,16 @@ const DashboardNode = memo(function DashboardNode({
             >
               <DashboardNode
                 node={child}
+                doc={doc}
+                canEditContent={canEditContent}
                 persistGroup={persistGroup}
                 widgetContext={widgetContext}
-                updatePairColor={updatePairColor}
-                updateWidget={updateWidget}
-                updateWidgetParamsPatch={updateWidgetParamsPatch}
-                sizeHint={childSize}
                 availableWidth={nextAvailableWidth}
                 availableHeight={nextAvailableHeight}
                 splitPanelVertical={splitPanelVertical}
                 splitPanelHorizontal={splitPanelHorizontal}
                 closePanel={closePanel}
+                replacePanelWidget={replacePanelWidget}
               />
             </ResizablePanel>
             {index < node.children.length - 1 && <ResizableHandle withHandle />}
@@ -218,14 +163,58 @@ const DashboardNode = memo(function DashboardNode({
   )
 })
 
+function DashboardPanel({
+  panelId,
+  widgetContext,
+  canEditContent,
+  splitPanelVertical,
+  splitPanelHorizontal,
+  closePanel,
+  replacePanelWidget,
+}: {
+  panelId: string
+  widgetContext: WidgetRuntimeContext
+  canEditContent: boolean
+  splitPanelVertical?: (panelId: string) => void
+  splitPanelHorizontal?: (panelId: string) => void
+  closePanel?: (panelId: string) => void
+  replacePanelWidget?: (panelId: string, widgetKey: string) => void
+}) {
+  const { changeWidgetPairColor, patchWidgetParams } = useWidgetConfigRuntimeActions()
+  const handlePanelSplitVertical = useCallback(
+    () => splitPanelVertical?.(panelId),
+    [panelId, splitPanelVertical]
+  )
+  const handlePanelSplitHorizontal = useCallback(
+    () => splitPanelHorizontal?.(panelId),
+    [panelId, splitPanelHorizontal]
+  )
+  const handlePanelClose = useCallback(() => closePanel?.(panelId), [closePanel, panelId])
+  const handleWidgetChange = useCallback(
+    (widgetKey: string) => replacePanelWidget?.(panelId, widgetKey),
+    [panelId, replacePanelWidget]
+  )
+
+  return (
+    <WidgetSurface
+      context={widgetContext}
+      panelId={panelId}
+      onPairColorChange={canEditContent ? changeWidgetPairColor : undefined}
+      onWidgetChange={canEditContent && replacePanelWidget ? handleWidgetChange : undefined}
+      onWidgetParamsPatch={canEditContent ? patchWidgetParams : undefined}
+      onPanelSplit={splitPanelVertical ? handlePanelSplitVertical : undefined}
+      onPanelSplitHorizontal={splitPanelHorizontal ? handlePanelSplitHorizontal : undefined}
+      onPanelClose={closePanel ? handlePanelClose : undefined}
+    />
+  )
+}
+
 export function DashboardClient({
-  initialState,
+  initialTopology,
   workspaceId,
   ownerUserId,
   layoutId,
-  initialLayoutName,
   initialLayouts,
-  initialColorPairs,
   workspaceCanWrite,
 }: DashboardClientProps) {
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
@@ -243,65 +232,29 @@ export function DashboardClient({
   const searchContainerRef = useRef<HTMLDivElement | null>(null)
   const docsLoadedRef = useRef(false)
   const docsLoadingRef = useRef(false)
-  const layoutListCacheRef = useRef<{
-    scopeKey: string
-    layouts: LayoutTab[]
-  } | null>(null)
   const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
-  const layoutListScopeKey = `${workspaceId}:${ownerUserId}`
-  if (layoutListCacheRef.current?.scopeKey !== layoutListScopeKey) {
-    layoutListCacheRef.current = {
-      scopeKey: layoutListScopeKey,
-      layouts: initialLayouts,
-    }
-  }
-  const hasLiveLayouts = dashboardLayoutList.layouts.length > 0
-  const canUseLiveLayoutList = !dashboardLayoutList.isLoading && hasLiveLayouts
-  useEffect(() => {
-    if (!canUseLiveLayoutList) return
-    layoutListCacheRef.current = {
-      scopeKey: layoutListScopeKey,
-      layouts: dashboardLayoutList.layouts,
-    }
-  }, [canUseLiveLayoutList, dashboardLayoutList.layouts, layoutListScopeKey])
-  const layouts = useMemo(
-    () =>
-      canUseLiveLayoutList
-        ? dashboardLayoutList.layouts
-        : (layoutListCacheRef.current?.layouts ?? initialLayouts),
-    [canUseLiveLayoutList, dashboardLayoutList.layouts, initialLayouts]
-  )
+  const layouts = dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts
   const listActiveLayout = useMemo(
     () => layouts.find((layout) => layout.isActive) ?? null,
     [layouts]
   )
-  const activeLayoutId = listActiveLayout?.id ?? layoutId
-  const emptyInitialLayout = useMemo(() => createDefaultLayoutState(), [])
-  const emptyInitialColorPairs = useMemo(() => createDefaultColorPairsState(), [])
-  const activeInitialLayout = activeLayoutId === layoutId ? initialState : emptyInitialLayout
-  const activeInitialColorPairs = useMemo(
-    () =>
-      activeLayoutId === layoutId
-        ? normalizeColorPairsState(initialColorPairs)
-        : emptyInitialColorPairs,
-    [activeLayoutId, emptyInitialColorPairs, initialColorPairs, layoutId]
+  const activeLayoutId = listActiveLayout?.id ?? null
+  const activeInitialTopology = useMemo<DashboardLayoutTopologyNode | null>(
+    () => (activeLayoutId === layoutId ? initialTopology : null),
+    [activeLayoutId, initialTopology, layoutId]
   )
-  const activeInitialName = listActiveLayout?.name ?? initialLayoutName
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
     ownerUserId,
     layoutId: activeLayoutId,
-    initialName: activeInitialName,
-    initialLayout: activeInitialLayout,
-    initialColorPairs: activeInitialColorPairs,
+    initialTopology: activeInitialTopology,
   })
-  const rawTree = layoutDocument.layout
-  const colorPairs = layoutDocument.colorPairs
-  const mutateLayoutDocument = layoutDocument.mutateLayoutDocument
-  const canEditContent = layoutDocument.isProviderReady && Boolean(activeLayoutId)
+  const rawTree = layoutDocument.topology
+  const canEditContent =
+    layoutDocument.isProviderReady && rawTree !== null && activeLayoutId !== null
 
   useEffect(() => {
     skipLayoutRef.current.clear()
@@ -381,23 +334,20 @@ export function DashboardClient({
         return
       }
 
-      mutateLayoutDocument((current) => {
-        const next = updateDashboardLayoutGroupSizes(current.layout, groupId, sizes)
-        return next === current.layout ? null : { layout: next }
-      })
+      layoutDocument.updateGroupSizes(groupId, sizes)
     },
-    [canEditContent, mutateLayoutDocument]
+    [canEditContent, layoutDocument.updateGroupSizes]
   )
 
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
       dashboardLayoutId: activeLayoutId ?? undefined,
-      dashboardLayoutName: layoutDocument.name,
+      dashboardLayoutName: listActiveLayout?.name,
       dashboardLayoutOwnerUserId: ownerUserId,
       canWrite: workspaceCanWrite,
     }),
-    [activeLayoutId, layoutDocument.name, ownerUserId, workspaceCanWrite, workspaceId]
+    [activeLayoutId, listActiveLayout?.name, ownerUserId, workspaceCanWrite, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -493,41 +443,29 @@ export function DashboardClient({
   const handleSplitPanelVertical = useCallback(
     (panelId: string) => {
       if (!canEditContent) return
-      mutateLayoutDocument((current) => {
-        const parentId = findDashboardLayoutParentGroupId(current.layout, panelId)
-        const next = splitDashboardLayoutPanelIntoVerticalGroup(current.layout, panelId)
-        if (next === current.layout) return null
-        if (parentId) skipLayoutRef.current.add(parentId)
-        return { layout: next }
-      })
+      const parentId = rawTree ? findDashboardTopologyParentGroupId(rawTree, panelId) : null
+      if (parentId) skipLayoutRef.current.add(parentId)
+      layoutDocument.splitPanel(panelId, 'vertical')
     },
-    [canEditContent, mutateLayoutDocument]
+    [canEditContent, layoutDocument.splitPanel, rawTree]
   )
 
   const handleSplitPanelHorizontal = useCallback(
     (panelId: string) => {
       if (!canEditContent) return
-      mutateLayoutDocument((current) => {
-        const parentId = findDashboardLayoutParentGroupId(current.layout, panelId)
-        const next = splitDashboardLayoutPanelIntoHorizontalGroup(current.layout, panelId)
-        if (next === current.layout) return null
-        if (parentId) skipLayoutRef.current.add(parentId)
-        return { layout: next }
-      })
+      const parentId = rawTree ? findDashboardTopologyParentGroupId(rawTree, panelId) : null
+      if (parentId) skipLayoutRef.current.add(parentId)
+      layoutDocument.splitPanel(panelId, 'horizontal')
     },
-    [canEditContent, mutateLayoutDocument]
+    [canEditContent, layoutDocument.splitPanel, rawTree]
   )
 
   const handleClosePanel = useCallback(
     (panelId: string) => {
       if (!canEditContent) return
-      mutateLayoutDocument((current) => {
-        const next = closeDashboardLayoutPanelGroup(current.layout, panelId)
-        if (next === current.layout) return null
-        return { layout: next }
-      })
+      layoutDocument.closePanel(panelId)
     },
-    [canEditContent, mutateLayoutDocument]
+    [canEditContent, layoutDocument.closePanel]
   )
 
   const handleSelectLayout = useCallback(
@@ -536,38 +474,29 @@ export function DashboardClient({
       setPendingActivationId(nextLayoutId)
 
       try {
-        await saveSavedEntityField(
-          'dashboard_layout',
-          nextLayoutId,
-          workspaceId,
-          'isActive',
-          true,
-          ownerUserId
-        )
+        await activateDashboardLayoutAction(workspaceId, nextLayoutId)
       } catch (error) {
         console.error('Failed to switch layout:', error)
         setPendingActivationId(null)
       }
     },
-    [activeLayoutId, ownerUserId, workspaceId]
+    [activeLayoutId, workspaceId]
   )
 
   const handleRenameLayout = useCallback(
     async (layoutId: string, name: string) => {
       try {
-        await saveSavedEntityField(
-          'dashboard_layout',
-          layoutId,
+        await renameSavedEntityAction({
+          entityKind: 'dashboard_layout',
+          entityId: layoutId,
           workspaceId,
-          'name',
           name,
-          ownerUserId
-        )
+        })
       } catch (error) {
         console.error('Failed to rename layout:', error)
       }
     },
-    [ownerUserId, workspaceId]
+    [workspaceId]
   )
 
   const handleDeleteLayout = useCallback(
@@ -583,18 +512,11 @@ export function DashboardClient({
 
   const handleReorderLayouts = useCallback(
     (layoutId: string, targetIndex: number) => {
-      saveSavedEntityField(
-        'dashboard_layout',
-        layoutId,
-        workspaceId,
-        'sortOrder',
-        targetIndex,
-        ownerUserId
-      ).catch((error) => {
+      reorderDashboardLayoutAction(workspaceId, layoutId, targetIndex).catch((error) => {
         console.error('Failed to reorder layouts:', error)
       })
     },
-    [ownerUserId, workspaceId]
+    [workspaceId]
   )
 
   const handleAddLayout = useCallback(async () => {
@@ -732,19 +654,27 @@ export function DashboardClient({
     />
   )
 
+  const layoutDocumentState =
+    dashboardLayoutList.error || layoutDocument.error
+      ? 'error'
+      : dashboardLayoutList.isLoading || layoutDocument.isLoading
+        ? 'loading'
+        : 'empty'
+  const layoutDocumentMessage =
+    layoutDocumentState === 'error'
+      ? t('layoutState.error')
+      : layoutDocumentState === 'loading'
+        ? t('layoutState.loading')
+        : t('layoutState.empty')
+
   return (
     <>
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
       <div className='h-full min-h-0 w-full min-w-0 overflow-hidden'>
-        <WidgetConfigRuntimeProvider
-          context={widgetContext}
-          layout={rawTree}
-          colorPairs={colorPairs}
-          canWrite={canEditContent}
-          onDocumentMutation={mutateLayoutDocument}
-        >
-          <DashboardRuntimeTree
+        {rawTree && layoutDocument.doc ? (
+          <DashboardNode
             node={rawTree}
+            doc={layoutDocument.doc}
             persistGroup={canEditContent ? persistGroup : undefined}
             widgetContext={widgetContext}
             availableWidth={100}
@@ -753,30 +683,20 @@ export function DashboardClient({
             splitPanelVertical={canEditContent ? handleSplitPanelVertical : undefined}
             splitPanelHorizontal={canEditContent ? handleSplitPanelHorizontal : undefined}
             closePanel={canEditContent ? handleClosePanel : undefined}
+            replacePanelWidget={canEditContent ? layoutDocument.replacePanelWidget : undefined}
           />
-        </WidgetConfigRuntimeProvider>
+        ) : (
+          <div
+            className='flex h-full items-center justify-center text-muted-foreground text-sm'
+            data-state={layoutDocumentState}
+            data-testid='dashboard-layout-document-state'
+            role={layoutDocumentState === 'error' ? 'alert' : 'status'}
+          >
+            {layoutDocumentMessage}
+          </div>
+        )}
       </div>
     </>
-  )
-}
-
-function DashboardRuntimeTree(
-  props: Omit<
-    DashboardNodeProps,
-    'updatePairColor' | 'updateWidget' | 'updateWidgetParamsPatch'
-  > & { canEditContent: boolean }
-) {
-  const { canEditContent, ...nodeProps } = props
-  const { changeWidgetPairColor, changeWidgetKey, patchWidgetParams } =
-    useWidgetConfigRuntimeActions()
-
-  return (
-    <DashboardNode
-      {...nodeProps}
-      updatePairColor={canEditContent ? changeWidgetPairColor : undefined}
-      updateWidget={canEditContent ? changeWidgetKey : undefined}
-      updateWidgetParamsPatch={canEditContent ? patchWidgetParams : undefined}
-    />
   )
 }
 

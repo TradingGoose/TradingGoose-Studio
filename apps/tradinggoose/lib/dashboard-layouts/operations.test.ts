@@ -3,13 +3,18 @@ import {
   createDashboardLayout,
   deleteDashboardLayout,
   ensureDashboardLayoutProvisioned,
-  materializeDashboardLayoutFields,
+  materializeDashboardLayoutContent,
+  readDashboardLayoutMetadata,
+  readPersistedDashboardLayoutContent,
 } from '@/lib/dashboard-layouts/operations'
-import type { LayoutNode, PersistedColorPairsState } from '@/widgets/layout'
+import type { PersistedColorPairsState } from '@/widgets/layout'
+import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 
 const m = vi.hoisted(() => {
   const selectRows = vi.fn()
   const insertRows = vi.fn()
+  const updateRows = vi.fn()
+  const updateValues: unknown[] = []
   const select = vi.fn(() => ({
     from: vi.fn(() => ({
       where: vi.fn(() => ({
@@ -20,7 +25,14 @@ const m = vi.hoisted(() => {
   }))
   const txExecute = vi.fn(() => Promise.resolve())
   const txUpdate = vi.fn(() => ({
-    set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) })),
+    set: vi.fn((values) => {
+      updateValues.push(values)
+      return {
+        where: vi.fn(() => ({
+          returning: vi.fn(() => updateRows()),
+        })),
+      }
+    }),
   }))
   const txInsert = vi.fn(() => ({
     values: vi.fn(() => ({ returning: vi.fn(() => insertRows()) })),
@@ -29,13 +41,16 @@ const m = vi.hoisted(() => {
   return {
     selectRows,
     insertRows,
+    updateRows,
     txDelete,
     txExecute,
     txInsert,
     txUpdate,
+    updateValues,
     db: {
       select,
       delete: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([])) })),
+      update: txUpdate,
       transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
           delete: txDelete,
@@ -75,18 +90,14 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn(),
   asc: vi.fn((field) => field),
   eq: vi.fn(),
-  isNull: vi.fn(),
   sql: vi.fn(),
-}))
-
-vi.mock('@/lib/copilot/entity-documents', () => ({
-  normalizeEntityFields: (_kind: string, fields: unknown) => fields,
 }))
 
 vi.mock('@/lib/dashboard-layouts/read-projection', () => ({
   buildDashboardLayoutReadProjection: vi.fn(async (fields) => ({
     hydratedLayout: fields.layout,
     hydratedColorPairs: fields.colorPairs,
+    canonicalContent: fields,
   })),
 }))
 
@@ -101,9 +112,13 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   name: 'Layout 1',
   sort_order: 0,
   layout: {
-    id: 'panel-1',
-    type: 'panel',
-    widget: null,
+    layout: {
+      id: 'panel-1',
+      type: 'panel',
+      identityId: null,
+      widgetKey: null,
+    },
+    widgets: {},
   },
   color_pair: { pairs: [] },
   isActive: true,
@@ -117,6 +132,8 @@ describe('dashboard layout operations', () => {
     vi.clearAllMocks()
     m.selectRows.mockReset()
     m.insertRows.mockReset()
+    m.updateRows.mockReset()
+    m.updateValues.length = 0
   })
 
   it('creates appended inactive layouts by default', async () => {
@@ -167,6 +184,23 @@ describe('dashboard layout operations', () => {
     expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
   })
 
+  it('reads persisted content and row metadata through separate contracts', async () => {
+    m.selectRows.mockResolvedValueOnce([row({ name: 'Desk', sort_order: 3, isActive: false })])
+
+    await expect(readPersistedDashboardLayoutContent(scope, 'layout-1')).resolves.toEqual({
+      layout: row().layout.layout,
+      widgets: {},
+      colorPairs: { pairs: [] },
+    })
+
+    m.selectRows.mockResolvedValueOnce([row({ name: 'Desk', sort_order: 3, isActive: false })])
+    await expect(readDashboardLayoutMetadata(scope, 'layout-1')).resolves.toEqual({
+      name: 'Desk',
+      sortOrder: 3,
+      isActive: false,
+    })
+  })
+
   it('rejects active layout deletion before database and socket side effects', async () => {
     m.selectRows.mockResolvedValueOnce([row({ id: 'layout-active', isActive: true })])
 
@@ -179,69 +213,62 @@ describe('dashboard layout operations', () => {
     expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
 
-  it('projects sibling metadata into live sessions after materializing layout fields', async () => {
-    m.selectRows
-      .mockResolvedValueOnce([row({ id: 'layout-b', isActive: false, sort_order: 1 })])
-      .mockResolvedValueOnce([
-        row({ id: 'layout-a', isActive: true, sort_order: 0 }),
-        row({ id: 'layout-b', isActive: false, sort_order: 1 }),
-      ])
-      .mockResolvedValueOnce([row({ id: 'layout-b', isActive: true, sort_order: 0 })])
-
-    await materializeDashboardLayoutFields(scope, 'layout-b', {
-      isActive: true,
-      sortOrder: 0,
-    })
-
-    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
-      'layout-a',
-      'dashboard_layout',
-      expect.objectContaining({ isActive: false, sortOrder: 1 }),
-      'user-1'
-    )
-    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
-      'layout-b',
-      'dashboard_layout',
-      expect.objectContaining({ isActive: true, sortOrder: 0 }),
-      'user-1'
-    )
-    expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-a')
-    expect(m.bridge.deleteYjsSessionInSocketServer).not.toHaveBeenCalledWith('layout-b')
-  })
-
-  it('fans out committed content when materialization also changes metadata', async () => {
-    const nextLayout: LayoutNode = {
+  it('persists layout content without carrying row metadata into the document', async () => {
+    const nextLayout: DashboardLayoutTopologyNode = {
       id: 'panel-next',
       type: 'panel',
-      widget: null,
+      identityId: null,
+      widgetKey: null,
     }
     const nextColorPairs: PersistedColorPairsState = {
       pairs: [{ color: 'red', workflowId: 'workflow-1' }],
     }
-    m.selectRows
-      .mockResolvedValueOnce([row()])
-      .mockResolvedValueOnce([row()])
-      .mockResolvedValueOnce([
-        row({ name: 'Renamed', layout: nextLayout, color_pair: nextColorPairs }),
-      ])
+    m.updateRows.mockResolvedValueOnce([
+      row({
+        name: 'Concurrent Rename',
+        isActive: false,
+        sort_order: 2,
+        layout: { layout: nextLayout, widgets: {} },
+        color_pair: nextColorPairs,
+      }),
+    ])
 
-    await materializeDashboardLayoutFields(scope, 'layout-1', {
-      name: 'Renamed',
+    await materializeDashboardLayoutContent(scope, 'layout-1', {
       layout: nextLayout,
+      widgets: {},
       colorPairs: nextColorPairs,
-      isActive: true,
-      sortOrder: 0,
     })
 
-    expect(m.bridge.applyEntityStateInSocketServer).toHaveBeenCalledWith(
-      'layout-1',
+    expect(m.updateValues).toEqual([
+      {
+        layout: { layout: nextLayout, widgets: {} },
+        color_pair: nextColorPairs,
+        updatedAt: expect.any(Date),
+      },
+    ])
+    expect(m.bridge.applyEntityStateInSocketServer).not.toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
       'dashboard_layout',
-      expect.objectContaining({
-        name: 'Renamed',
-        layout: nextLayout,
-        colorPairs: nextColorPairs,
-      }),
+      'workspace-1',
       'user-1'
     )
+  })
+
+  it('rejects invalid topology-to-widget references before acquiring the owner lock', async () => {
+    await expect(
+      materializeDashboardLayoutContent(scope, 'layout-1', {
+        layout: {
+          id: 'panel-1',
+          type: 'panel',
+          identityId: 'missing-widget',
+          widgetKey: 'data_chart',
+        },
+        widgets: {},
+        colorPairs: { pairs: [] },
+      })
+    ).rejects.toThrow('dashboard layout references missing widget missing-widget')
+
+    expect(m.txExecute).not.toHaveBeenCalled()
+    expect(m.txUpdate).not.toHaveBeenCalled()
   })
 })

@@ -396,25 +396,12 @@
         "waitlist": "嘟！隆重推出 TradingGoose-Studio",
         "open": "嘟！TradingGoose-Studio 已上线"
       },
-      "leadWords": [
-        "构建",
-        "测试",
-        "运行"
-      ],
-      "highlightWords": [
-        "交易分析",
-        "信号检测",
-        "风险评估"
-      ],
+      "leadWords": ["构建", "测试", "运行"],
+      "highlightWords": ["交易分析", "信号检测", "风险评估"],
       "titleConnector": "你的",
       "suffix": "与 TradingGoose",
       "description": "连接你自己的数据提供商，编写自定义指标以监控市场价格，并将其接入工作流，从而触发交易、卖出、买入或你定义的任何操作。",
-      "featureBadges": [
-        "AI Agent 工作流",
-        "自定义指标",
-        "自带数据",
-        "集成"
-      ],
+      "featureBadges": ["AI Agent 工作流", "自定义指标", "自带数据", "集成"],
       "learnMore": "了解更多",
       "logoAlt": "TradingGoose 标志"
     },
@@ -636,21 +623,13 @@
           "badge": "工作空间",
           "title": "组件布局",
           "description": "拆分工作区，将组件并排或堆叠放置。为每个工作区保存并切换命名的布局。",
-          "bullets": [
-            "递归拆分",
-            "每个工作区保存的布局",
-            "共享组件操作菜单"
-          ]
+          "bullets": ["递归拆分", "每个工作区保存的布局", "共享组件操作菜单"]
         },
         {
           "badge": "图表",
           "title": "指标与实时数据",
           "description": "内置指标以及一个用于编写自定义指标的 PineTS 编辑器。连接您自己的数据提供商，实时监控价格。",
-          "bullets": [
-            "可配置的指标输入",
-            "每根 K 线实时重新执行",
-            "十字准线图例与图表标记"
-          ]
+          "bullets": ["可配置的指标输入", "每根 K 线实时重新执行", "十字准线图例与图表标记"]
         },
         {
           "badge": "工作流",
@@ -739,13 +718,7 @@
         "experience": {
           "label": "工作年限 *",
           "placeholder": "请选择经验级别",
-          "options": [
-            "0-1 年",
-            "1-3 年",
-            "3-5 年",
-            "5-10 年",
-            "10 年以上"
-          ]
+          "options": ["0-1 年", "1-3 年", "3-5 年", "5-10 年", "10 年以上"]
         },
         "location": {
           "label": "所在地 *",
@@ -1006,6 +979,11 @@
         "docs": "文档"
       },
       "emptySearch": "没有匹配的内容",
+      "layoutState": {
+        "loading": "正在加载仪表盘布局...",
+        "empty": "没有可用的仪表盘布局。",
+        "error": "无法加载仪表盘布局。"
+      },
       "pages": {
         "records": "记录",
         "monitor": "监控",
@@ -3659,10 +3637,7 @@
             },
             "headers": {
               "title": "响应头",
-              "columns": [
-                "键",
-                "值"
-              ],
+              "columns": ["键", "值"],
               "description": "要包含在响应中的其他 HTTP 头"
             }
           },
@@ -17908,10 +17883,7 @@
             },
             "variables": {
               "title": "变量",
-              "columns": [
-                "键",
-                "值"
-              ]
+              "columns": ["键", "值"]
             },
             "apiKey": {
               "title": "Anthropic API 密钥",
@@ -22394,11 +22366,7 @@
         "body": "你的组织账单层级已在 {brandName} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
         "cta": "访问你的账户",
         "nextStepsTitle": "后续步骤",
-        "nextSteps": [
-          "- 邀请团队成员加入组织",
-          "- 配置工作区权限",
-          "- 使用新限制开始构建工作流"
-        ],
+        "nextSteps": ["- 邀请团队成员加入组织", "- 配置工作区权限", "- 使用新限制开始构建工作流"],
         "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
       },
       "planWelcome": {

@@ -2,25 +2,18 @@ import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { layoutMap } from '@tradinggoose/db/schema'
 import { and, asc, eq, sql } from 'drizzle-orm'
-import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import {
-  guardWorkspaceEntityDocumentDeleteInTx,
-  WorkspaceEntityDocumentDeletionError,
-} from '@/lib/workspaces/entity-documents'
-import {
-  applyEntityStateInSocketServer,
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
+import type { PersistedColorPairsState } from '@/widgets/layout'
 import {
-  createDefaultColorPairsState,
-  createDefaultLayoutState,
-  type LayoutNode,
-  type PersistedColorPairsState,
-  serializeLayout,
-} from '@/widgets/layout'
-import { normalizeDashboardLayoutDocumentFields } from '@/widgets/layout-document'
+  createDefaultDashboardLayoutContent,
+  type DashboardLayoutDocumentContent,
+  type DashboardLayoutTopologyNode,
+  normalizeDashboardLayoutDocumentContent,
+  type PersistedDashboardLayoutContent,
+} from '@/widgets/layout-document'
 
 export type DashboardLayoutOwnerScope = {
   workspaceId: string
@@ -38,16 +31,7 @@ export type DashboardLayoutTab = {
 }
 
 export type DashboardLayoutProjection = DashboardLayoutTab & {
-  layout: LayoutNode
-  colorPairs: PersistedColorPairsState
-}
-
-export type DashboardLayoutFields = {
-  name: string
-  layout: LayoutNode
-  colorPairs: PersistedColorPairsState
-  isActive: boolean
-  sortOrder: number
+  topology: DashboardLayoutTopologyNode
 }
 
 type LayoutRow = typeof layoutMap.$inferSelect
@@ -94,6 +78,15 @@ function toLayoutTab(row: LayoutRow): DashboardLayoutTab {
   }
 }
 
+function rowToContent(row: LayoutRow): DashboardLayoutDocumentContent {
+  const content = row.layout as PersistedDashboardLayoutContent
+  return normalizeDashboardLayoutDocumentContent({
+    layout: content.layout,
+    widgets: content.widgets,
+    colorPairs: row.color_pair as PersistedColorPairsState,
+  })
+}
+
 function sortLayoutRows(rows: LayoutRow[]): LayoutRow[] {
   return [...rows].sort(
     (left, right) =>
@@ -133,6 +126,25 @@ export async function listDashboardLayouts(scope: DashboardLayoutOwnerScope) {
   return (await readDashboardLayoutRows(scope)).map(toLayoutTab)
 }
 
+export async function readPersistedDashboardLayoutContent(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string
+): Promise<DashboardLayoutDocumentContent> {
+  return rowToContent(await readOwnedLayoutRow(scope, layoutId))
+}
+
+export async function readDashboardLayoutMetadata(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string
+): Promise<{ name: string; isActive: boolean; sortOrder: number }> {
+  const row = await readOwnedLayoutRow(scope, layoutId)
+  return {
+    name: row.name,
+    isActive: row.isActive,
+    sortOrder: readLayoutSortOrder(row),
+  }
+}
+
 export async function createDashboardLayout(
   scope: DashboardLayoutOwnerScope,
   options?: { name?: string; isActive?: boolean }
@@ -143,14 +155,14 @@ export async function createDashboardLayout(
   })
 
   await refreshLayoutList(scope)
-  return { ...toLayoutTab(created.row), layout: created.layout, colorPairs: created.colorPairs }
+  return projectLayoutRow(created.row)
 }
 
 export async function readActiveDashboardLayoutProjection(scope: DashboardLayoutOwnerScope) {
   const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope))
   const active = orderedRows.find((row) => row.isActive) ?? orderedRows[0]
   return {
-    activeLayout: active ? await hydrateLayoutRow(active) : null,
+    activeLayout: active ? projectLayoutRow(active) : null,
     layouts: orderedRows.map(toLayoutTab),
   }
 }
@@ -181,6 +193,53 @@ export async function ensureDashboardLayoutProvisioned(
   }
 }
 
+export async function activateDashboardLayout(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string
+): Promise<void> {
+  await withDashboardLayoutOwnerLock(scope, async (tx) => {
+    const rows = await readDashboardLayoutRows(scope, tx)
+    if (!rows.some((row) => row.id === layoutId)) {
+      throw new DashboardLayoutOperationError(404, 'Layout not found')
+    }
+    await Promise.all(
+      rows.map((row) =>
+        tx
+          .update(layoutMap)
+          .set({ isActive: row.id === layoutId, updatedAt: new Date() })
+          .where(ownedWhere(scope, row.id))
+      )
+    )
+  })
+  await refreshLayoutList(scope)
+}
+
+export async function reorderDashboardLayout(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string,
+  sortOrder: number
+): Promise<void> {
+  await withDashboardLayoutOwnerLock(scope, async (tx) => {
+    const rows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
+    const sourceIndex = rows.findIndex((row) => row.id === layoutId)
+    if (sourceIndex < 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder >= rows.length) {
+      throw new DashboardLayoutOperationError(400, 'sortOrder is out of range')
+    }
+    const [moved] = rows.splice(sourceIndex, 1)
+    if (moved) rows.splice(sortOrder, 0, moved)
+    await Promise.all(
+      rows.map((row, index) =>
+        tx
+          .update(layoutMap)
+          .set({ sort_order: index, updatedAt: new Date() })
+          .where(ownedWhere(scope, row.id))
+      )
+    )
+  })
+  await refreshLayoutList(scope)
+}
+
 async function withDashboardLayoutOwnerLock<T>(
   scope: DashboardLayoutOwnerScope,
   callback: (tx: DashboardLayoutWriteStore) => Promise<T>
@@ -207,8 +266,7 @@ async function insertDashboardLayoutRow(
   options?: { name?: string; isActive?: boolean }
 ) {
   const highestSortOrder = rows.reduce((max, row) => Math.max(max, readLayoutSortOrder(row)), -1)
-  const layout = createDefaultLayoutState()
-  const colorPairs = createDefaultColorPairsState()
+  const content = createDefaultDashboardLayoutContent()
   const makeActive = options?.isActive === true
 
   if (makeActive) {
@@ -226,209 +284,43 @@ async function insertDashboardLayoutRow(
       userId: scope.ownerUserId,
       name: options?.name?.trim() || `Layout ${rows.length + 1}`,
       sort_order: highestSortOrder + 1,
-      layout: serializeLayout(layout),
-      color_pair: colorPairs,
+      layout: {
+        layout: content.layout,
+        widgets: content.widgets,
+      } satisfies PersistedDashboardLayoutContent,
+      color_pair: content.colorPairs,
       isActive: makeActive,
     })
     .returning()
 
-  return { row, layout, colorPairs }
+  return { row }
 }
 
-async function hydrateLayoutRow(row: LayoutRow): Promise<DashboardLayoutProjection> {
-  const fields = layoutRowToFields(row)
-  const projection = await buildDashboardLayoutReadProjection(fields)
+function projectLayoutRow(row: LayoutRow): DashboardLayoutProjection {
   return {
     ...toLayoutTab(row),
-    layout: projection.hydratedLayout,
-    colorPairs: projection.hydratedColorPairs,
+    topology: rowToContent(row).layout,
   }
 }
 
-function layoutRowToFields(row: LayoutRow): DashboardLayoutFields {
-  return normalizeEntityFields('dashboard_layout', {
-    name: row.name,
-    layout: row.layout,
-    colorPairs: row.color_pair,
-    isActive: row.isActive,
-    sortOrder: row.sort_order,
-  }) as DashboardLayoutFields
-}
-
-async function readDashboardLayoutFields(scope: DashboardLayoutOwnerScope, layoutId: string) {
-  return layoutRowToFields(await readOwnedLayoutRow(scope, layoutId))
-}
-
-export async function materializeDashboardLayoutFields(
+export async function materializeDashboardLayoutContent(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  fields: Partial<DashboardLayoutFields>
-): Promise<DashboardLayoutFields> {
-  const current = await readDashboardLayoutFields(scope, layoutId)
-  const normalized = normalizeDashboardLayoutDocumentFields(
-    normalizeEntityFields('dashboard_layout', {
-      ...current,
-      ...fields,
-    }) as DashboardLayoutFields
-  )
-
-  await applyDashboardLayoutOperation(scope, layoutId, {
-    name: normalized.name,
-    // A live doc can request activation but can never deactivate a layout.
-    isActive: current.isActive || normalized.isActive,
-    sortOrder: normalized.sortOrder,
-    content: {
-      layout: normalized.layout,
-      colorPairs: normalized.colorPairs,
-    },
-  })
-  return readDashboardLayoutFields(scope, layoutId)
-}
-
-type DashboardLayoutOperationInput = {
-  name?: string
-  isActive?: boolean
-  sortOrder?: number
-  content?: {
-    layout: LayoutNode
-    colorPairs: PersistedColorPairsState
-  }
-}
-
-type DashboardLayoutMetadataPatch = {
-  layoutId: string
-  fields: DashboardLayoutFields
-}
-
-/**
- * Canonical dashboard layout metadata transaction: every metadata mutation
- * (name/isActive/sortOrder, plus content on the Yjs materialization path)
- * validates, reorders with a dense 0..n-1 reindex, sets/clears activation
- * across sibling rows, then refreshes the list session. Layout metadata is
- * projected back into already-open layout docs so tab edits do not force Yjs
- * document reloads.
- * `input` may be a resolver so a caller can derive its effective
- * input from the freshly-read target row (the fields path normalizes it).
- */
-async function applyDashboardLayoutOperation(
-  scope: DashboardLayoutOwnerScope,
-  layoutId: string,
-  input: DashboardLayoutOperationInput | ((currentRow: LayoutRow) => DashboardLayoutOperationInput)
-): Promise<void> {
-  const { metadataPatches } = await withDashboardLayoutOwnerLock(scope, async (tx) => {
-    const rows = await readDashboardLayoutRows(scope, tx)
-    const orderedRows = sortLayoutRows(rows)
-    const currentRow = rows.find((row) => row.id === layoutId)
-    if (!currentRow) {
-      throw new DashboardLayoutOperationError(404, 'Layout not found')
-    }
-
-    const resolved = typeof input === 'function' ? input(currentRow) : input
-
-    const name = resolved.name === undefined ? currentRow.name : resolved.name.trim()
-    if (!name) {
-      throw new DashboardLayoutOperationError(400, 'Layout name is required')
-    }
-
-    const currentSortOrder = readLayoutSortOrder(currentRow)
-    const sortOrder = resolved.sortOrder === undefined ? currentSortOrder : resolved.sortOrder
-    const shouldReorder = sortOrder !== currentSortOrder
-    if (
-      shouldReorder &&
-      (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder >= orderedRows.length)
-    ) {
-      throw new DashboardLayoutOperationError(400, 'sortOrder is out of range')
-    }
-
-    const shouldActivate = resolved.isActive === true && !currentRow.isActive
-    const content = resolved.content
-
-    const nextOrder = [...orderedRows]
-    if (shouldReorder) {
-      const sourceIndex = nextOrder.findIndex((row) => row.id === layoutId)
-      const [moved] = nextOrder.splice(sourceIndex, 1)
-      if (!moved) {
-        throw new DashboardLayoutOperationError(404, 'Layout not found')
-      }
-      nextOrder.splice(sortOrder, 0, moved)
-    }
-    const now = new Date()
-    await Promise.all(
-      nextOrder.map((row, index) => {
-        const isTarget = row.id === layoutId
-        if (!isTarget && !shouldActivate && !shouldReorder) {
-          return Promise.resolve()
-        }
-
-        return tx
-          .update(layoutMap)
-          .set({
-            ...(isTarget
-              ? {
-                  name,
-                  ...(content
-                    ? {
-                        layout: serializeLayout(content.layout),
-                        color_pair: content.colorPairs,
-                      }
-                    : {}),
-                }
-              : {}),
-            isActive: shouldActivate ? isTarget : row.isActive,
-            sort_order: index,
-            updatedAt: now,
-          })
-          .where(ownedWhere(scope, row.id))
-      })
-    )
-
-    return {
-      metadataPatches: nextOrder.flatMap<DashboardLayoutMetadataPatch>((row, index) => {
-        const isTarget = row.id === layoutId
-        const nextName = isTarget ? name : row.name
-        const nextIsActive = shouldActivate ? isTarget : row.isActive
-        const nextSortOrder = index
-        const changed =
-          nextName !== row.name ||
-          nextIsActive !== row.isActive ||
-          readLayoutSortOrder(row) !== nextSortOrder
-
-        return changed
-          ? [
-              {
-                layoutId: row.id,
-                fields: {
-                  ...layoutRowToFields(row),
-                  name: nextName,
-                  isActive: nextIsActive,
-                  sortOrder: nextSortOrder,
-                  ...(isTarget && content
-                    ? {
-                        layout: content.layout,
-                        colorPairs: content.colorPairs,
-                      }
-                    : {}),
-                },
-              },
-            ]
-          : []
-      }),
-    }
-  })
-
+  fields: DashboardLayoutDocumentContent
+): Promise<DashboardLayoutDocumentContent> {
+  const content = normalizeDashboardLayoutDocumentContent(fields)
+  const [row] = await db
+    .update(layoutMap)
+    .set({
+      layout: { layout: content.layout, widgets: content.widgets },
+      color_pair: content.colorPairs,
+      updatedAt: new Date(),
+    })
+    .where(ownedWhere(scope, layoutId))
+    .returning()
+  if (!row) throw new DashboardLayoutOperationError(404, 'Layout not found')
   await refreshLayoutList(scope)
-  await Promise.all(
-    metadataPatches.map((patch) =>
-      applyEntityStateInSocketServer(
-        patch.layoutId,
-        'dashboard_layout',
-        patch.fields,
-        scope.ownerUserId
-      )
-        .then(() => undefined)
-        .catch(() => undefined)
-    )
-  )
+  return rowToContent(row)
 }
 
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {
@@ -439,23 +331,6 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
     }
     if (row.isActive) {
       throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-    }
-
-    try {
-      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-        entityKind: 'dashboard_layout',
-        entityId: layoutId,
-        workspaceId: scope.workspaceId,
-        ownerUserId: scope.ownerUserId,
-      })
-      if (!canDelete) {
-        throw new DashboardLayoutOperationError(404, 'Layout not found')
-      }
-    } catch (error) {
-      if (error instanceof WorkspaceEntityDocumentDeletionError) {
-        throw new DashboardLayoutOperationError(error.status, error.message)
-      }
-      throw error
     }
 
     await tx.delete(layoutMap).where(ownedWhere(scope, layoutId))

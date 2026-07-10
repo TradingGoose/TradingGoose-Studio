@@ -5,18 +5,20 @@ import { useLocale, useMessages } from 'next-intl'
 import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
 import type { LocaleCode } from '@/i18n/utils'
 import {
-  closeDashboardLayoutPanelGroup,
-  createDefaultLayoutState,
-  findDashboardLayoutParentGroupId,
-  type LayoutNode,
-  splitDashboardLayoutPanelIntoHorizontalGroup,
-  splitDashboardLayoutPanelIntoVerticalGroup,
-  updateDashboardLayoutGroupSizes,
-} from '@/widgets/layout'
+  closeDashboardTopologyPanel,
+  createDefaultDashboardLayoutContent,
+  type DashboardLayoutTopologyNode,
+  findDashboardTopologyParentGroupId,
+  resolveDashboardLayout,
+  splitDashboardTopologyPanel,
+  updateDashboardTopologyGroupSizes,
+} from '@/widgets/layout-document'
 
 export function LayoutPreview() {
   const [mounted, setMounted] = useState(false)
-  const [tree, setTree] = useState<LayoutNode>(() => createDefaultLayoutState())
+  const [tree, setTree] = useState<DashboardLayoutTopologyNode>(
+    () => createDefaultDashboardLayoutContent().layout
+  )
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
@@ -28,13 +30,13 @@ export function LayoutPreview() {
       return
     }
 
-    setTree((prev) => updateDashboardLayoutGroupSizes(prev, groupId, sizes))
+    setTree((prev) => updateDashboardTopologyGroupSizes(prev, groupId, sizes))
   }, [])
 
   const splitPanelVertical = useCallback((panelId: string) => {
     setTree((prev) => {
-      const parentId = findDashboardLayoutParentGroupId(prev, panelId)
-      const next = splitDashboardLayoutPanelIntoVerticalGroup(prev, panelId)
+      const parentId = findDashboardTopologyParentGroupId(prev, panelId)
+      const next = splitDashboardTopologyPanel(prev, {}, panelId, 'vertical').layout
 
       if (next !== prev && parentId) {
         skipLayoutRef.current.add(parentId)
@@ -46,8 +48,8 @@ export function LayoutPreview() {
 
   const splitPanelHorizontal = useCallback((panelId: string) => {
     setTree((prev) => {
-      const parentId = findDashboardLayoutParentGroupId(prev, panelId)
-      const next = splitDashboardLayoutPanelIntoHorizontalGroup(prev, panelId)
+      const parentId = findDashboardTopologyParentGroupId(prev, panelId)
+      const next = splitDashboardTopologyPanel(prev, {}, panelId, 'horizontal').layout
 
       if (next !== prev && parentId) {
         skipLayoutRef.current.add(parentId)
@@ -58,7 +60,7 @@ export function LayoutPreview() {
   }, [])
 
   const closePanel = useCallback((panelId: string) => {
-    setTree((prev) => closeDashboardLayoutPanelGroup(prev, panelId))
+    setTree((prev) => closeDashboardTopologyPanel(prev, panelId).layout)
   }, [])
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export function LayoutPreview() {
       <DashboardLayoutPreviewCanvas
         closePanel={closePanel}
         copy={layoutCopy}
-        layout={tree}
+        layout={resolveDashboardLayout(tree, {})}
         locale={locale}
         persistGroupSizes={persistGroupSizes}
         splitPanelHorizontal={splitPanelHorizontal}

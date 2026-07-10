@@ -156,16 +156,18 @@ describe('tool-registry', () => {
       prepareCopilotToolArgs(
         'create_knowledge_base',
         {
+          name: 'Research',
           entityDocument:
-            '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
+            '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
           documentFormat: 'tg-knowledge-base-document-v1',
         },
         context
       )
     ).toEqual({
       workspaceId: 'workspace-1',
+      name: 'Research',
       entityDocument:
-        '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
+        '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}',
       documentFormat: 'tg-knowledge-base-document-v1',
     })
   })
@@ -173,11 +175,11 @@ describe('tool-registry', () => {
   it('injects hosted workspace context into workspace-targeted watchlist list tool', () => {
     const context = createExecutionContext({
       toolCallId,
-      toolName: 'list_watchlists',
+      toolName: 'list_watchlist',
       provenance: { workspaceId: 'workspace-1' },
     })
 
-    expect(prepareCopilotToolArgs('list_watchlists', {}, context)).toEqual({
+    expect(prepareCopilotToolArgs('list_watchlist', {}, context)).toEqual({
       workspaceId: 'workspace-1',
     })
   })
@@ -185,12 +187,14 @@ describe('tool-registry', () => {
   it('does not inject workspace context into widget catalog tools', () => {
     const context = createExecutionContext({
       toolCallId,
-      toolName: 'list_widgets',
+      toolName: 'get_available_widgets',
       provenance: { workspaceId: 'workspace-1' },
     })
 
-    expect(prepareCopilotToolArgs('list_widgets', {}, context)).toEqual({})
-    expect(prepareCopilotToolArgs('list_widgets', { category: 'trading' }, context)).toEqual({
+    expect(prepareCopilotToolArgs('get_available_widgets', {}, context)).toEqual({})
+    expect(
+      prepareCopilotToolArgs('get_available_widgets', { category: 'trading' }, context)
+    ).toEqual({
       category: 'trading',
     })
     expect(
@@ -277,7 +281,7 @@ describe('tool-registry', () => {
     expect(ensureClientToolInstance('edit_indicator', 'edit-indicator-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_custom_tool', 'edit-custom-tool-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_mcp_server', 'edit-mcp-server-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('list_watchlists', 'list-watchlists-tool')).toBeUndefined()
+    expect(ensureClientToolInstance('list_watchlist', 'list-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('read_watchlist', 'read-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_watchlist', 'edit-watchlist-tool')).toBeUndefined()
     expect(ensureClientToolInstance('list_knowledge_bases', 'list-kb-tool')).toBeUndefined()

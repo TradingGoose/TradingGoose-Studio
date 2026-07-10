@@ -27,7 +27,6 @@ import {
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -357,41 +356,6 @@ export function useSavedEntityYjsSession(
     save,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
-  }
-}
-
-export async function saveSavedEntityField(
-  entityKind: SavedEntityKind,
-  entityId: string,
-  workspaceId: string,
-  key: string,
-  value: unknown,
-  ownerUserId?: string | null
-): Promise<void> {
-  await saveSavedEntityFields(entityKind, entityId, workspaceId, { [key]: value }, ownerUserId)
-}
-
-export async function saveSavedEntityFields(
-  entityKind: SavedEntityKind,
-  entityId: string,
-  workspaceId: string,
-  fields: Record<string, unknown>,
-  ownerUserId?: string | null
-): Promise<void> {
-  const result = await bootstrapYjsProvider(
-    buildSavedEntityDescriptor(entityKind, entityId, workspaceId, { ownerUserId })
-  )
-  try {
-    result.doc.transact(() => {
-      const fieldsMap = getFieldsMap(result.doc)
-      for (const [key, value] of Object.entries(fields)) {
-        fieldsMap.set(key, value)
-      }
-    }, YJS_ORIGINS.USER)
-    await saveYjsSessionSnapshot(result)
-    invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
-  } finally {
-    closeYjsSession(result)
   }
 }
 

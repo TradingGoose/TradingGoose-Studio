@@ -292,11 +292,8 @@ const WorkflowConsoleHeaderSelector = ({
     params: widget?.params ?? null,
   })
   const actions = useWidgetConfigRuntimeActions()
-  const widgetKey = widget?.key ?? 'workflow_console'
-
   const handleWorkflowChange = (workflowId: string) => {
-    if (!panelId) return
-    actions.patchWidgetParams(panelId, widgetKey, { workflowId })
+    actions.patchWidgetParams({ workflowId })
   }
 
   return (

@@ -98,36 +98,15 @@ describe('socket internal HTTP Yjs routes', () => {
     )
   })
 
-  it('rejects dashboard apply-state requests without owner scope', async () => {
+  it('rejects dashboard documents on the generic entity apply route', async () => {
     const response = await invoke('POST', '/internal/yjs/entities/layout-1/apply-state', {
       entityKind: 'dashboard_layout',
       fields: { name: 'Desk' },
     })
 
     expect(response.status).toBe(400)
-    expect(response.body.error).toBe('Dashboard layout ownerUserId is required')
+    expect(response.body.error).toBe('Invalid entityKind')
     expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
-  })
-
-  it('forwards dashboard owner scope through apply-state persistence and list refresh', async () => {
-    const response = await invoke('POST', '/internal/yjs/entities/layout-1/apply-state', {
-      entityKind: 'dashboard_layout',
-      ownerUserId: 'user-1',
-      fields: { name: 'Desk' },
-    })
-
-    expect(response.status).toBe(200)
-    expect(socketRouteMocks.saveSavedEntityYjsDocToDb).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'layout-1',
-      expect.any(Y.Doc)
-    )
-    expect(socketRouteMocks.reseedEntityListSessionFromDb).toHaveBeenCalledWith(
-      expect.any(Y.Doc),
-      'dashboard_layout',
-      'workspace-1',
-      'user-1'
-    )
   })
 
   it('forwards dashboard owner scope when bootstrapping entity-list snapshots', async () => {

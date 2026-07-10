@@ -6,130 +6,156 @@ import {
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
 import {
-  applyLiveDashboardLayoutFields,
-  type EditWidgetArgs,
-  readLiveDashboardLayoutFields,
-} from '@/lib/copilot/tools/server/dashboard-layout/shared'
-import {
+  buildSavedEntityListInfo,
   requireEntityId,
   verifySavedEntityContext,
 } from '@/lib/copilot/tools/server/entities/shared'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyDashboardWidgetMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { readPairColorContext } from '@/widgets/color-pairs'
-import type { PersistedColorPairsState, WidgetInstance } from '@/widgets/layout'
+import type { LinkedPairColor, PersistedColorPairsState } from '@/widgets/layout'
+import {
+  DASHBOARD_WIDGET_DOCUMENT_FORMAT,
+  type DashboardWidgetDocument,
+  findDashboardTopologyPanel,
+  normalizeDashboardLayoutDocumentContent,
+} from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
+
+type EditWidgetArgs = {
+  entityId: string
+  panelId: string
+  pairColor?: string
+  params?: Record<string, unknown> | null
+  colorPair?: Record<string, unknown> | null
+}
 
 export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
   name: CopilotTool.edit_widget,
   async execute(args, context) {
     const entityId = requireEntityId(args, 'edit_widget')
-    const { userId, workspaceId } = await verifySavedEntityContext(
+    const { userId: ownerUserId, workspaceId } = await verifySavedEntityContext(
       context,
       'dashboard_layout',
       entityId,
       'write'
     )
-    const scope = { workspaceId, ownerUserId: userId }
-    const current = await readLiveDashboardLayoutFields(scope, entityId)
-    const patch = {
-      widgetKey: args.widgetKey,
-      pairColor: args.pairColor,
-      params: args.params,
-      colorPair: args.colorPair,
+    const [rawCurrent, entity] = await Promise.all([
+      readBootstrappedSavedEntityFields('dashboard_layout', entityId, workspaceId, ownerUserId),
+      buildSavedEntityListInfo('dashboard_layout', workspaceId, ownerUserId).then((entries) =>
+        entries.find((entry) => entry.entityId === entityId)
+      ),
+    ])
+    if (!entity) throw new Error('Dashboard layout not found')
+    const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
+    const panel = findDashboardTopologyPanel(current.layout, args.panelId)
+    if (!panel) throw new Error(`Unknown dashboard panel ${args.panelId}`)
+    if (!panel.identityId || !panel.widgetKey) {
+      throw new Error(`Dashboard panel ${args.panelId} has no widget; use edit_layout`)
     }
+    const currentWidget = current.widgets[panel.identityId]
+    if (!currentWidget)
+      throw new Error(`Dashboard panel ${args.panelId} references a missing widget`)
     const next = applyWidgetConfigMutation({
-      layout: current.layout,
+      widgetKey: panel.widgetKey,
+      widget: currentWidget,
       colorPairs: current.colorPairs,
       panelId: args.panelId,
-      patch,
+      patch: {
+        pairColor: args.pairColor,
+        params: args.params,
+        colorPair: args.colorPair,
+      },
     })
-    const nextFields = {
-      ...current,
-      layout: next.layout,
+    const identityId = panel.identityId
+    const widget = next.widgetDocument
+    const colorPairs = next.colorPairDiff.flatMap((diff) =>
+      diff.color === 'gray'
+        ? []
+        : [
+            {
+              color: diff.color as LinkedPairColor,
+              value: Object.keys(diff.after).length > 0 ? diff.after : null,
+            },
+          ]
+    )
+    const reviewBase = buildWidgetReviewDocument({
+      panelId: args.panelId,
+      widgetKey: panel.widgetKey,
+      widgetDocument: next.beforeWidgetDocument,
+      effectiveParams: next.beforeEffectiveParams,
+      colorPairs: current.colorPairs,
+    })
+    const afterReview = buildWidgetReviewDocument({
+      panelId: args.panelId,
+      widgetKey: next.widgetKey,
+      widgetDocument: next.widgetDocument,
+      effectiveParams: next.afterEffectiveParams,
       colorPairs: next.colorPairs,
+    })
+    const result = {
+      success: true,
+      entityKind: 'dashboard_layout' as const,
+      entityId,
+      entityName: entity.entityName,
+      workspaceId,
+      ownerUserId,
+      panelId: args.panelId,
+      identityId,
+      widgetKey: next.widgetKey,
+      colorPairDiff: next.colorPairDiff,
+      documentFormat: DASHBOARD_WIDGET_DOCUMENT_FORMAT,
+      entityDocument: JSON.stringify(widget, null, 2),
     }
+
     if (shouldStageServerToolMutationForReview(context)) {
-      const projection = await buildDashboardLayoutReadProjection(nextFields)
       return {
+        ...result,
         requiresReview: true,
-        success: true,
-        entityKind: 'dashboard_layout',
-        entityId,
-        panelId: args.panelId,
-        widget: next.widget,
-        colorPairDiff: next.colorPairDiff,
-        workspaceId: scope.workspaceId,
-        ownerUserId: scope.ownerUserId,
-        documentFormat: projection.documentFormat,
-        entityDocument: projection.entityDocument,
-        effectiveLayout: projection.effectiveLayout,
-        reviewBaseStateHash: hashServerToolReviewBase(current),
+        reviewBaseStateHash: hashServerToolReviewBase(reviewBase),
         preview: {
           documentDiff: {
-            before: JSON.stringify(
-              buildWidgetReviewDocument({
-                panelId: args.panelId,
-                widget: next.beforeWidget,
-                effectiveParams: next.beforeEffectiveParams,
-                colorPairs: current.colorPairs,
-              }),
-              null,
-              2
-            ),
-            after: JSON.stringify(
-              buildWidgetReviewDocument({
-                panelId: args.panelId,
-                widget: next.widget,
-                effectiveParams: next.afterEffectiveParams,
-                colorPairs: next.colorPairs,
-              }),
-              null,
-              2
-            ),
+            before: JSON.stringify(reviewBase, null, 2),
+            after: JSON.stringify(afterReview, null, 2),
           },
         },
       }
     }
 
     if (context?.acceptedReviewBaseStateHash) {
-      assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(current))
+      assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(reviewBase))
     }
-
-    const fields = await applyLiveDashboardLayoutFields(scope, entityId, nextFields)
-    const projection = await buildDashboardLayoutReadProjection(fields)
-    return {
-      success: true,
-      entityKind: 'dashboard_layout',
+    await applyDashboardWidgetMutationInSocketServer({
       entityId,
-      panelId: args.panelId,
-      widget: next.widget,
-      colorPairDiff: next.colorPairDiff,
-      workspaceId: scope.workspaceId,
-      ownerUserId: scope.ownerUserId,
-      documentFormat: projection.documentFormat,
-      entityDocument: projection.entityDocument,
-      effectiveLayout: projection.effectiveLayout,
-    }
+      workspaceId,
+      ownerUserId,
+      identityId,
+      widget,
+      colorPairs,
+    })
+    return result
   },
 }
 
 function buildWidgetReviewDocument({
   panelId,
-  widget,
+  widgetKey,
+  widgetDocument,
   effectiveParams,
   colorPairs,
 }: {
   panelId: string
-  widget: WidgetInstance
+  widgetKey: string | null
+  widgetDocument: DashboardWidgetDocument | null
   effectiveParams: Record<string, unknown> | null
   colorPairs: PersistedColorPairsState
 }) {
-  const pairColor = isPairColor(widget?.pairColor) ? widget.pairColor : 'gray'
-
+  const pairColor = isPairColor(widgetDocument?.pairColor) ? widgetDocument.pairColor : 'gray'
   return {
     panelId,
-    widget,
+    widgetKey,
+    widgetDocument,
     effectiveParams,
     colorPair: pairColor === 'gray' ? null : readPairColorContext(colorPairs, pairColor),
   }

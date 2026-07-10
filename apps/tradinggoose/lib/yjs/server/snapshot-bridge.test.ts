@@ -32,7 +32,6 @@ beforeEach(() => {
 describe('applyEntityStateInSocketServer', () => {
   it('posts watchlist entity fields and returns the canonical persisted fields', async () => {
     const persistedFields = {
-      name: 'Persisted Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
         {
@@ -55,7 +54,6 @@ describe('applyEntityStateInSocketServer', () => {
 
     await expect(
       applyEntityStateInSocketServer('watchlist-1', 'watchlist', {
-        name: 'Draft Watchlist',
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       })
@@ -71,9 +69,7 @@ describe('applyEntityStateInSocketServer', () => {
     })
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',
-      ownerUserId: null,
       fields: {
-        name: 'Draft Watchlist',
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       },
@@ -92,7 +88,6 @@ describe('applyEntityStateInSocketServer', () => {
 
     await expect(
       applyEntityStateInSocketServer('watchlist-1', 'watchlist', {
-        name: 'Draft Watchlist',
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       })

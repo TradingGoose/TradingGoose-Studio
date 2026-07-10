@@ -14,7 +14,6 @@ import {
   normalizeWatchlistDocumentFields,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
-import { guardWorkspaceEntityDocumentDeleteInTx } from '@/lib/workspaces/entity-documents'
 import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -39,9 +38,6 @@ export class WatchlistOperationError extends Error {
 function mapDocumentError(error: unknown): never {
   if (error instanceof WatchlistDocumentError) {
     throw new WatchlistOperationError(error.message, error.status)
-  }
-  if (error instanceof Error && error.name === 'WorkspaceEntityDocumentDeletionError') {
-    throw new WatchlistOperationError(error.message, 400)
   }
   throw error
 }
@@ -155,12 +151,13 @@ export async function createWatchlistFromDocument(
 
       return {
         id: createdRoot.id,
-        fields: await materializeWatchlistDocumentInTx(
-          tx,
-          scope.workspaceId,
-          createdRoot.id,
-          fields
-        ),
+        fields: {
+          name: fields.name,
+          ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
+            settings: fields.settings,
+            items: fields.items,
+          })),
+        },
       }
     })
 
@@ -192,14 +189,12 @@ export async function deleteWatchlist(
 ): Promise<boolean> {
   try {
     const deleted = await db.transaction(async (tx) => {
-      const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-        entityKind: 'watchlist',
-        entityId: watchlistId,
-        workspaceId: scope.workspaceId,
-      })
-      if (!canDelete) {
-        return false
-      }
+      const [root] = await tx
+        .select({ id: watchlistTable.id })
+        .from(watchlistTable)
+        .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
+        .limit(1)
+      if (!root) return false
 
       await tx.delete(watchlistTable).where(rootWatchlistWhere(scope.workspaceId, watchlistId))
       return true

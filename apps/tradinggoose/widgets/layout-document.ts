@@ -1,35 +1,66 @@
+import { isEqual } from 'lodash'
 import { z } from 'zod'
 import { ListingIdentitySchema } from '@/lib/listing/identity'
 import type { LinkedPairColor } from '@/widgets/color-pairs'
 import {
+  createDefaultColorPairsState,
+  createDefaultLayoutState,
   createLayoutNodeId,
   type LayoutNode,
   normalizeColorPairsState,
   type PersistedColorPairsState,
-  type WidgetInstance,
 } from '@/widgets/layout'
-import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
+import { PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import {
   getDefaultWidgetInstance,
   isWidgetKey,
-  pruneDashboardColorPairsForLayout,
-  sanitizeWidgetInstance as sanitizeContractWidgetInstance,
+  sanitizeWidgetInstance,
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
-export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v1' as const
+export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v2' as const
 export const DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT =
-  'tg-dashboard-layout-structure-v1' as const
+  'tg-dashboard-layout-structure-v2' as const
+export const DASHBOARD_WIDGET_DOCUMENT_FORMAT = 'tg-dashboard-widget-document-v1' as const
 
-export type DashboardLayoutDocumentFields = {
-  name: string
-  layout: LayoutNode
+export type DashboardWidgetDocument = {
+  pairColor: PairColor
+  params: Record<string, unknown> | null
+}
+
+export type DashboardWidgetsState = Record<string, DashboardWidgetDocument>
+
+export type DashboardLayoutTopologyNode =
+  | {
+      id: string
+      type: 'panel'
+      identityId: string | null
+      widgetKey: (typeof WIDGET_KEYS)[number] | null
+    }
+  | {
+      id: string
+      type: 'group'
+      direction: 'horizontal' | 'vertical'
+      sizes: number[]
+      children: DashboardLayoutTopologyNode[]
+    }
+
+export type PersistedDashboardLayoutContent = {
+  layout: DashboardLayoutTopologyNode
+  widgets: DashboardWidgetsState
+}
+
+export type DashboardLayoutDocumentContent = PersistedDashboardLayoutContent & {
   colorPairs: PersistedColorPairsState
-  isActive: boolean
-  sortOrder: number
 }
 
 export type DashboardLayoutValidationIssue = { path: string; message: string }
+
+export type DashboardLayoutEditPlan = {
+  layout: DashboardLayoutTopologyNode
+  createdWidgets: DashboardWidgetsState
+  removedIdentityIds: string[]
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -43,26 +74,21 @@ const LinkedPairColorSchema = z.enum(
   ]
 )
 
-const DashboardLayoutWidgetInstanceSchema = z
-  .object({
-    key: WidgetKeySchema,
-    pairColor: PairColorSchema,
-    params: z.record(z.unknown()).nullable(),
-  })
-  .strict()
-  .nullable()
-
 const DashboardLayoutNodeSchema: z.ZodTypeAny = z.lazy(() =>
   z.union([DashboardLayoutPanelNodeSchema, DashboardLayoutGroupNodeSchema])
 )
 
-const DashboardLayoutPanelNodeSchema = z
+export const DashboardLayoutPanelNodeSchema = z
   .object({
     id: z.string().trim().min(1),
     type: z.literal('panel'),
-    widget: DashboardLayoutWidgetInstanceSchema,
+    identityId: z.string().trim().min(1).nullable(),
+    widgetKey: WidgetKeySchema.nullable(),
   })
   .strict()
+  .refine((node) => (node.identityId === null) === (node.widgetKey === null), {
+    message: 'identityId and widgetKey must both be null or both be set',
+  })
 
 const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
   .object({
@@ -73,24 +99,23 @@ const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
     children: z.array(DashboardLayoutNodeSchema).min(1),
   })
   .strict()
+  .refine((node) => node.sizes.length === node.children.length, {
+    path: ['sizes'],
+    message: 'sizes must contain one positive size per child',
+  })
 
 const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
   z.union([
+    z.object({ id: z.string().trim().min(1), type: z.literal('panel') }).strict(),
     z
       .object({
         id: z.string().trim().min(1),
         type: z.literal('panel'),
+        widget: z.object({ key: WidgetKeySchema }).strict(),
       })
       .strict(),
     z
-      .object({
-        type: z.literal('panel'),
-        widget: z
-          .object({
-            key: WidgetKeySchema,
-          })
-          .strict(),
-      })
+      .object({ type: z.literal('panel'), widget: z.object({ key: WidgetKeySchema }).strict() })
       .strict(),
     z
       .object({
@@ -100,17 +125,16 @@ const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
         sizes: z.array(z.number().finite().positive()),
         children: z.array(DashboardLayoutStructureNodeSchema).min(1),
       })
-      .strict(),
+      .strict()
+      .refine((node) => node.sizes.length === node.children.length, {
+        path: ['sizes'],
+        message: 'sizes must contain one positive size per child',
+      }),
   ])
 )
 
 export const DashboardLayoutStructureDocumentSchema = z
-  .object({
-    layout: DashboardLayoutStructureNodeSchema,
-    name: z.string().trim().min(1).optional(),
-    sortOrder: z.number().int().optional(),
-    isActive: z.literal(true).optional(),
-  })
+  .object({ layout: DashboardLayoutStructureNodeSchema })
   .strict()
 
 const DashboardLayoutColorPairsSchema = z
@@ -131,14 +155,25 @@ const DashboardLayoutColorPairsSchema = z
     ),
   })
   .strict()
+  .refine(
+    ({ pairs }) => new Set(pairs.map((pair) => pair.color)).size === pairs.length,
+    'colorPairs cannot contain duplicate colors'
+  )
 
-export const DashboardLayoutDocumentSchema = z
+export const DashboardWidgetDocumentSchema = z
   .object({
-    name: z.string().trim().min(1),
+    pairColor: PairColorSchema,
+    params: z.record(z.unknown()).nullable(),
+  })
+  .strict()
+
+const DashboardWidgetsSchema = z.record(DashboardWidgetDocumentSchema)
+
+export const DashboardLayoutDocumentContentSchema = z
+  .object({
     layout: DashboardLayoutNodeSchema,
+    widgets: DashboardWidgetsSchema,
     colorPairs: DashboardLayoutColorPairsSchema,
-    isActive: z.boolean(),
-    sortOrder: z.number().int(),
   })
   .strict()
 
@@ -166,232 +201,379 @@ function failDashboardLayout(path: string, message: string): never {
   throw createDashboardLayoutValidationError(path, message)
 }
 
-export function normalizeDashboardLayoutDocumentFields(
-  fields: Partial<DashboardLayoutDocumentFields> & {
-    layout?: LayoutNode | unknown
-    colorPairs?: PersistedColorPairsState | unknown
+function defaultTopology(node: LayoutNode): DashboardLayoutTopologyNode {
+  if (node.type === 'panel') {
+    return { id: node.id, type: 'panel', identityId: null, widgetKey: null }
   }
-): DashboardLayoutDocumentFields {
-  if (!isRecord(fields)) throw new Error('dashboard layout document fields must be an object')
-  const name = typeof fields.name === 'string' ? fields.name.trim() : ''
-  if (!name) throw new Error('dashboard layout document requires a non-empty name')
-  for (const key of ['layout', 'colorPairs'] as const) {
-    if (!Object.hasOwn(fields, key)) throw new Error(`dashboard layout document requires ${key}`)
-  }
-  if (typeof fields.isActive !== 'boolean')
-    throw new Error('dashboard layout document requires boolean isActive')
-  if (typeof fields.sortOrder !== 'number' || !Number.isInteger(fields.sortOrder)) {
-    throw new Error('dashboard layout document requires an integer sortOrder')
-  }
+  return { ...node, children: node.children.map(defaultTopology) }
+}
 
+export function createDefaultDashboardLayoutContent(): DashboardLayoutDocumentContent {
   return {
-    name,
-    layout: normalizeDocumentLayout(fields.layout),
-    colorPairs: normalizeDocumentColorPairs(fields.colorPairs),
-    isActive: fields.isActive,
-    sortOrder: fields.sortOrder,
+    layout: defaultTopology(createDefaultLayoutState()),
+    widgets: {},
+    colorPairs: createDefaultColorPairsState(),
   }
 }
 
-function normalizeDocumentLayout(layout: unknown, path = 'layout'): LayoutNode {
-  if (!isRecord(layout)) throw new Error(`${path} must be a layout node object`)
-  if (typeof layout.id !== 'string' || !layout.id.trim())
-    throw new Error(`${path}.id must be a non-empty string`)
-  const id = layout.id.trim()
-
+export function resolveDashboardLayout(
+  layout: DashboardLayoutTopologyNode,
+  widgets: DashboardWidgetsState
+): LayoutNode {
   if (layout.type === 'panel') {
+    const widget = layout.identityId ? widgets[layout.identityId] : null
     return {
-      id,
+      id: layout.id,
       type: 'panel',
-      widget: normalizeDocumentWidget(layout.widget, `${path}.widget`),
+      widget:
+        widget && layout.widgetKey
+          ? { key: layout.widgetKey, pairColor: widget.pairColor, params: widget.params }
+          : null,
     }
   }
-  if (layout.type !== 'group' || !Array.isArray(layout.children)) {
-    throw new Error(`${path}.type must be "panel" or "group"`)
-  }
-  if (layout.direction !== 'horizontal' && layout.direction !== 'vertical') {
-    throw new Error(`${path}.direction must be "horizontal" or "vertical"`)
-  }
-  if (layout.children.length === 0)
-    throw new Error(`${path}.children must contain at least one node`)
-  const children = layout.children.map((child, index) =>
-    normalizeDocumentLayout(child, `${path}.children[${index}]`)
-  )
-
   return {
-    id,
-    type: 'group',
-    direction: layout.direction,
-    sizes: readCanonicalGroupSizes(layout.sizes, children.length, `${path}.sizes`),
-    children,
+    ...layout,
+    children: layout.children.map((child) => resolveDashboardLayout(child, widgets)),
   }
 }
 
-function normalizeDocumentWidget(widget: unknown, path: string): WidgetInstance {
-  if (widget === null) return null
-  if (!isRecord(widget)) throw new Error(`${path} must be a widget object`)
-  const key = typeof widget.key === 'string' ? widget.key.trim() : ''
-  if (!key) throw new Error(`${path}.key must be a non-empty widget key`)
-  if (!isPairColor(widget.pairColor))
-    throw new Error(`${path}.pairColor must be a valid pair color`)
-  if (!Object.hasOwn(widget, 'params')) throw new Error(`${path}.params is required`)
-  const params = widget.params ?? null
-  if (params !== null && !isRecord(params)) {
-    throw new Error(`${path}.params must be an object or null`)
+export function normalizeDashboardLayoutDocumentContent(
+  fields: unknown
+): DashboardLayoutDocumentContent {
+  const parsed = DashboardLayoutDocumentContentSchema.parse(
+    fields
+  ) as DashboardLayoutDocumentContent
+  const widgets = normalizeDocumentWidgets(parsed.layout, parsed.widgets)
+  return {
+    layout: parsed.layout,
+    widgets,
+    colorPairs: normalizeColorPairsState(parsed.colorPairs),
   }
-  if (!isWidgetKey(key)) {
-    throw new Error(`${path}.key must be a canonical widget key`)
+}
+
+export function normalizeDashboardLayoutTopology(layout: unknown): DashboardLayoutTopologyNode {
+  return DashboardLayoutNodeSchema.parse(layout) as DashboardLayoutTopologyNode
+}
+
+export function normalizeDashboardWidgetDocument(
+  widgetKey: (typeof WIDGET_KEYS)[number],
+  value: unknown
+): DashboardWidgetDocument {
+  const widget = DashboardWidgetDocumentSchema.parse(value)
+  const sanitized = sanitizeWidgetInstance({ key: widgetKey, ...widget }, { strict: true })
+  if (!sanitized) throw new Error(`dashboard widget ${widgetKey} is invalid`)
+  const params = sanitized.params ?? null
+  if (!isEqual(widget.params, params)) {
+    throw new Error(`dashboard widget ${widgetKey}.params must be canonical`)
+  }
+  return { pairColor: sanitized.pairColor ?? 'gray', params }
+}
+
+function normalizeDocumentWidgets(
+  layout: DashboardLayoutTopologyNode,
+  widgets: DashboardWidgetsState
+): DashboardWidgetsState {
+  const references = new Map<string, (typeof WIDGET_KEYS)[number]>()
+  const nodeIds = new Set<string>()
+  const visit = (node: DashboardLayoutTopologyNode) => {
+    if (nodeIds.has(node.id)) throw new Error(`dashboard layout contains duplicate node ${node.id}`)
+    nodeIds.add(node.id)
+    if (node.type === 'group') {
+      node.children.forEach(visit)
+      return
+    }
+    if (!node.identityId || !node.widgetKey) return
+    if (references.has(node.identityId)) {
+      throw new Error(`dashboard layout widget ${node.identityId} is referenced by multiple panels`)
+    }
+    references.set(node.identityId, node.widgetKey)
+  }
+  visit(layout)
+
+  const normalized: DashboardWidgetsState = {}
+  for (const [identityId, widgetKey] of references) {
+    const widget = widgets[identityId]
+    if (!widget) throw new Error(`dashboard layout references missing widget ${identityId}`)
+    normalized[identityId] = normalizeDashboardWidgetDocument(widgetKey, widget)
+  }
+  const orphan = Object.keys(widgets).find((identityId) => !references.has(identityId))
+  if (orphan) throw new Error(`dashboard layout contains orphan widget ${orphan}`)
+  return normalized
+}
+
+export function serializeDashboardLayoutDocument(content: DashboardLayoutDocumentContent): string {
+  return JSON.stringify(normalizeDashboardLayoutDocumentContent(content), null, 2)
+}
+
+export function findDashboardTopologyPanel(
+  node: DashboardLayoutTopologyNode,
+  panelId: string
+): Extract<DashboardLayoutTopologyNode, { type: 'panel' }> | null {
+  if (node.type === 'panel') return node.id === panelId ? node : null
+  for (const child of node.children) {
+    const found = findDashboardTopologyPanel(child, panelId)
+    if (found) return found
+  }
+  return null
+}
+
+function planPanelWidgetBinding(
+  panel: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>,
+  widgetKey: string
+): {
+  panel: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>
+  createdWidgets: DashboardWidgetsState
+  removedIdentityIds: string[]
+} {
+  if (!isWidgetKey(widgetKey)) {
+    failDashboardLayout('widget.key', `Unknown widget key "${widgetKey}"`)
+  }
+  if (panel.identityId && panel.widgetKey === widgetKey) {
+    return { panel, createdWidgets: {}, removedIdentityIds: [] }
   }
 
-  return sanitizeContractWidgetInstance(
-    { key, pairColor: widget.pairColor, params },
-    { strict: true }
+  const widget = getDefaultWidgetInstance(widgetKey)
+  const identityId = createLayoutNodeId()
+  return {
+    panel: { ...panel, identityId, widgetKey },
+    createdWidgets: {
+      [identityId]: {
+        pairColor: widget.pairColor ?? 'gray',
+        params: widget.params ?? null,
+      },
+    },
+    removedIdentityIds: panel.identityId ? [panel.identityId] : [],
+  }
+}
+
+function replaceTopologyPanel(
+  node: DashboardLayoutTopologyNode,
+  panel: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>
+): DashboardLayoutTopologyNode {
+  if (node.type === 'panel') return node.id === panel.id ? panel : node
+  const children = node.children.map((child) => replaceTopologyPanel(child, panel))
+  return children.some((child, index) => child !== node.children[index])
+    ? { ...node, children }
+    : node
+}
+
+export function replaceDashboardPanelWidget(
+  current: DashboardLayoutDocumentContent,
+  panelId: string,
+  widgetKey: string
+): DashboardLayoutEditPlan {
+  const panel = findDashboardTopologyPanel(current.layout, panelId)
+  if (!panel) failDashboardLayout('panelId', `Unknown panel: ${panelId}`)
+  const binding = planPanelWidgetBinding(panel, widgetKey)
+  const layout = replaceTopologyPanel(current.layout, binding.panel)
+  const widgets = { ...current.widgets, ...binding.createdWidgets }
+  for (const identityId of binding.removedIdentityIds) delete widgets[identityId]
+  normalizeDashboardLayoutDocumentContent({ layout, widgets, colorPairs: current.colorPairs })
+  return {
+    layout,
+    createdWidgets: binding.createdWidgets,
+    removedIdentityIds: binding.removedIdentityIds,
+  }
+}
+
+export function findDashboardTopologyParentGroupId(
+  node: DashboardLayoutTopologyNode,
+  childId: string,
+  parentId: string | null = null
+): string | null {
+  if (node.type === 'panel') return node.id === childId ? parentId : null
+  for (const child of node.children) {
+    const found = findDashboardTopologyParentGroupId(child, childId, node.id)
+    if (found) return found
+  }
+  return null
+}
+
+export function updateDashboardTopologyGroupSizes(
+  node: DashboardLayoutTopologyNode,
+  groupId: string,
+  sizes: number[]
+): DashboardLayoutTopologyNode {
+  if (node.type === 'panel') return node
+  if (node.id === groupId) {
+    return isEqual(node.sizes, sizes) ? node : { ...node, sizes: [...sizes] }
+  }
+  const children = node.children.map((child) =>
+    updateDashboardTopologyGroupSizes(child, groupId, sizes)
   )
+  return children.some((child, index) => child !== node.children[index])
+    ? { ...node, children }
+    : node
 }
 
-function normalizeDocumentColorPairs(colorPairs: unknown): PersistedColorPairsState {
-  if (!isRecord(colorPairs))
-    throw new Error('dashboard layout document colorPairs must be an object')
-  if (!Array.isArray(colorPairs.pairs))
-    throw new Error('dashboard layout document colorPairs.pairs must be an array')
-  colorPairs.pairs.forEach((pair, index) => {
-    if (!isRecord(pair))
-      throw new Error(`dashboard layout document colorPairs.pairs[${index}] must be an object`)
-    if (!isPairColor(pair.color) || pair.color === 'gray') {
-      throw new Error(
-        `dashboard layout document colorPairs.pairs[${index}].color must be a linked pair color`
-      )
+export function splitDashboardTopologyPanel(
+  node: DashboardLayoutTopologyNode,
+  widgets: DashboardWidgetsState,
+  panelId: string,
+  direction: 'horizontal' | 'vertical'
+): DashboardLayoutEditPlan {
+  const createdWidgets: DashboardWidgetsState = {}
+  const split = (current: DashboardLayoutTopologyNode): DashboardLayoutTopologyNode => {
+    if (current.type === 'group') {
+      const children = current.children.map(split)
+      return children.some((child, index) => child !== current.children[index])
+        ? { ...current, children }
+        : current
     }
-  })
-  return normalizeColorPairsState(colorPairs)
-}
+    if (current.id !== panelId) return current
 
-function readCanonicalGroupSizes(value: unknown, childCount: number, path: string): number[] {
-  if (!Array.isArray(value) || value.length !== childCount) {
-    throw new Error(`${path} must contain one positive size per child`)
-  }
-  return value.map((size, index) => {
-    if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
-      throw new Error(`${path}[${index}] must be a positive finite number`)
+    const cloneIdentityId = current.identityId ? createLayoutNodeId() : null
+    if (cloneIdentityId && current.identityId) {
+      const source = widgets[current.identityId]
+      if (!source)
+        throw new Error(`dashboard layout references missing widget ${current.identityId}`)
+      createdWidgets[cloneIdentityId] = { ...source }
     }
-    return size
-  })
+    return {
+      id: createLayoutNodeId(),
+      type: 'group',
+      direction,
+      sizes: [50, 50],
+      children: [
+        { ...current, id: createLayoutNodeId() },
+        {
+          ...current,
+          id: createLayoutNodeId(),
+          identityId: cloneIdentityId,
+        },
+      ],
+    }
+  }
+
+  return { layout: split(node), createdWidgets, removedIdentityIds: [] }
 }
 
-export function serializeDashboardLayoutDocument(
-  fields: Partial<DashboardLayoutDocumentFields> & {
-    layout?: LayoutNode | unknown
-    colorPairs?: PersistedColorPairsState | unknown
+export function closeDashboardTopologyPanel(
+  node: DashboardLayoutTopologyNode,
+  panelId: string
+): DashboardLayoutEditPlan {
+  const target = findDashboardTopologyPanel(node, panelId)
+  const close = (current: DashboardLayoutTopologyNode): DashboardLayoutTopologyNode => {
+    if (current.type === 'panel') return current
+    const index = current.children.findIndex(
+      (child) => child.type === 'panel' && child.id === panelId
+    )
+    if (index >= 0) {
+      const children = current.children.filter((_, childIndex) => childIndex !== index)
+      if (children.length === 0) return current
+      if (children.length === 1) return { ...children[0], id: createLayoutNodeId() }
+      const remainingSizes = current.sizes.filter((_, childIndex) => childIndex !== index)
+      const total = remainingSizes.reduce((sum, size) => sum + size, 0) || children.length
+      return {
+        ...current,
+        id: createLayoutNodeId(),
+        children,
+        sizes: remainingSizes.map((size) => (size / total) * 100),
+      }
+    }
+    const children = current.children.map(close)
+    return children.some((child, childIndex) => child !== current.children[childIndex])
+      ? { ...current, children }
+      : current
   }
-): string {
-  return JSON.stringify(normalizeDashboardLayoutDocumentFields(fields), null, 2)
+  const layout = close(node)
+  return {
+    layout,
+    createdWidgets: {},
+    removedIdentityIds: layout !== node && target?.identityId ? [target.identityId] : [],
+  }
 }
 
 export function applyLayoutEditDocument(
-  currentFields: DashboardLayoutDocumentFields,
+  current: DashboardLayoutDocumentContent,
   entityDocument: string,
   removedPanelIds: readonly string[] = []
-): DashboardLayoutDocumentFields {
+): DashboardLayoutEditPlan {
   let parsed: unknown
   try {
     parsed = JSON.parse(entityDocument)
   } catch {
     failDashboardLayout('entityDocument', 'entityDocument must be valid JSON')
   }
-  if (!isRecord(parsed))
-    failDashboardLayout('entityDocument', 'entityDocument must be a JSON object')
+  if (!isRecord(parsed)) failDashboardLayout('entityDocument', 'entityDocument must be an object')
 
-  const parsedStructure = DashboardLayoutStructureDocumentSchema.safeParse(parsed)
-  if (!parsedStructure.success) {
+  const structure = DashboardLayoutStructureDocumentSchema.safeParse(parsed)
+  if (!structure.success) {
     throw new DashboardLayoutValidationError(
-      parsedStructure.error.issues.map((issue) => {
-        let path = 'entityDocument'
-        for (const segment of issue.path) {
-          path = typeof segment === 'number' ? `${path}[${segment}]` : `${path}.${segment}`
-        }
-        return { path, message: issue.message }
-      })
+      structure.error.issues.map((issue) => ({
+        path: `entityDocument.${issue.path.join('.')}`,
+        message: issue.message,
+      }))
     )
   }
 
-  const currentPanelWidgets = new Map<string, WidgetInstance>()
-  const collectPanelWidgets = (node: LayoutNode) => {
-    if (node.type === 'panel') {
-      currentPanelWidgets.set(node.id, node.widget)
-      return
-    }
-    node.children.forEach(collectPanelWidgets)
+  const currentPanels = new Map<string, Extract<DashboardLayoutTopologyNode, { type: 'panel' }>>()
+  const collect = (node: DashboardLayoutTopologyNode) => {
+    if (node.type === 'panel') currentPanels.set(node.id, node)
+    else node.children.forEach(collect)
   }
-  collectPanelWidgets(currentFields.layout)
+  collect(current.layout)
 
-  const removedPanels = new Set(removedPanelIds.map((id) => id.trim()))
-  if (removedPanels.has('') || removedPanels.size !== removedPanelIds.length) {
+  const removed = new Set(removedPanelIds.map((id) => id.trim()))
+  if (removed.has('') || removed.size !== removedPanelIds.length) {
     failDashboardLayout('removedPanelIds', 'removedPanelIds must be unique non-empty panel ids')
   }
-  for (const id of removedPanels) {
-    if (!currentPanelWidgets.has(id)) {
-      failDashboardLayout('removedPanelIds', `Unknown removedPanelIds entry: ${id}`)
-    }
+  for (const id of removed) {
+    if (!currentPanels.has(id)) failDashboardLayout('removedPanelIds', `Unknown panel: ${id}`)
   }
 
-  const retainedPanelIds = new Set<string>()
-  const seenIds = new Set<string>()
-  const materializeStructureNode = (node: any): LayoutNode => {
-    const id = 'id' in node && node.id ? node.id : createLayoutNodeId()
-    if (seenIds.has(id)) {
-      failDashboardLayout('entityDocument.layout.id', `Duplicate layout node id: ${id}`)
+  const retained = new Set<string>()
+  const nodeIds = new Set<string>()
+  const createdWidgets: DashboardWidgetsState = {}
+  const replacedIdentityIds = new Set<string>()
+  const materialize = (node: any): DashboardLayoutTopologyNode => {
+    const id = node.id || createLayoutNodeId()
+    if (nodeIds.has(id)) failDashboardLayout('entityDocument.layout.id', `Duplicate node: ${id}`)
+    nodeIds.add(id)
+    if (node.type === 'group') {
+      return { ...node, id, children: node.children.map(materialize) }
     }
-    seenIds.add(id)
-
-    if (node.type === 'panel') {
-      if ('widget' in node) {
-        return { id, type: 'panel', widget: getDefaultWidgetInstance(node.widget.key) }
+    if ('widget' in node) {
+      const existing = node.id ? currentPanels.get(id) : null
+      if (node.id && !existing) {
+        failDashboardLayout('entityDocument.layout.id', `Unknown panel: ${id}`)
       }
-      if (removedPanels.has(id)) {
-        failDashboardLayout(
-          'removedPanelIds',
-          `removedPanelIds still appear in edit_layout entityDocument: ${id}`
-        )
+      if (removed.has(id)) {
+        failDashboardLayout('removedPanelIds', `Removed panel still appears in document: ${id}`)
       }
-      if (!currentPanelWidgets.has(id)) {
-        failDashboardLayout('entityDocument.layout.id', `Unknown existing panel id: ${id}`)
-      }
-      retainedPanelIds.add(id)
-      return {
-        id,
-        type: 'panel',
-        widget: currentPanelWidgets.get(id) ?? null,
-      }
+      const binding = planPanelWidgetBinding(
+        existing ?? { id, type: 'panel', identityId: null, widgetKey: null },
+        node.widget.key
+      )
+      Object.assign(createdWidgets, binding.createdWidgets)
+      binding.removedIdentityIds.forEach((identityId) => replacedIdentityIds.add(identityId))
+      if (existing) retained.add(id)
+      return binding.panel
     }
-
-    const children = node.children.map(materializeStructureNode)
-    return {
-      id,
-      type: 'group',
-      direction: node.direction,
-      sizes: readCanonicalGroupSizes(node.sizes, children.length, 'entityDocument.layout.sizes'),
-      children,
+    if (removed.has(id)) {
+      failDashboardLayout('removedPanelIds', `Removed panel still appears in document: ${id}`)
     }
+    const existing = currentPanels.get(id)
+    if (!existing) failDashboardLayout('entityDocument.layout.id', `Unknown panel: ${id}`)
+    retained.add(id)
+    return { ...existing }
   }
 
-  const structureDocument = parsedStructure.data
-  const nextLayout = materializeStructureNode(structureDocument.layout)
-  const omittedPanelIds = [...currentPanelWidgets.keys()].filter(
-    (panelId) => !retainedPanelIds.has(panelId) && !removedPanels.has(panelId)
-  )
-  if (omittedPanelIds.length > 0) {
+  const layout = materialize(structure.data.layout)
+  const omitted = [...currentPanels.keys()].filter((id) => !retained.has(id) && !removed.has(id))
+  if (omitted.length > 0) {
     failDashboardLayout(
       'removedPanelIds',
-      `Existing panel ids omitted from edit_layout entityDocument without removedPanelIds: ${omittedPanelIds.join(', ')}`
+      `Existing panels omitted without removedPanelIds: ${omitted.join(', ')}`
     )
   }
-
-  return normalizeDashboardLayoutDocumentFields({
-    ...currentFields,
-    name: structureDocument.name ?? currentFields.name,
-    sortOrder: structureDocument.sortOrder ?? currentFields.sortOrder,
-    isActive: currentFields.isActive || structureDocument.isActive === true,
-    layout: nextLayout,
-    colorPairs: pruneDashboardColorPairsForLayout(nextLayout, currentFields.colorPairs),
-  })
+  const removedIdentityIds = new Set(replacedIdentityIds)
+  for (const id of removed) {
+    const identityId = currentPanels.get(id)?.identityId
+    if (identityId) removedIdentityIds.add(identityId)
+  }
+  const widgets = { ...current.widgets, ...createdWidgets }
+  for (const identityId of removedIdentityIds) delete widgets[identityId]
+  normalizeDashboardLayoutDocumentContent({ layout, widgets, colorPairs: current.colorPairs })
+  return { layout, createdWidgets, removedIdentityIds: [...removedIdentityIds] }
 }

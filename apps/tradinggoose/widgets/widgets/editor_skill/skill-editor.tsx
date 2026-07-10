@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { isValidSkillName } from '@/hooks/queries/skills'
@@ -15,15 +16,25 @@ const logger = createLogger('SkillEditor')
 
 interface SkillEditorProps {
   skillId: string
+  workspaceId: string
+  entityName: string
   doc: Y.Doc | null
   save: () => Promise<void>
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
 }
 
-export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEditorProps) {
+export function SkillEditor({
+  skillId,
+  workspaceId,
+  entityName,
+  doc,
+  save,
+  exportRef,
+  saveRef,
+}: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
-  const [name, setName] = useYjsStringField(doc, 'name')
+  const [name, setName] = useState(entityName)
   const [description, setDescription] = useYjsStringField(doc, 'description')
   const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +42,8 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
 
   useEffect(() => {
     setError(null)
-  }, [doc, skillId])
+    setName(entityName)
+  }, [doc, entityName, skillId])
 
   const handleSave = useCallback(async () => {
     if (!doc) return
@@ -64,6 +76,14 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
     setError(null)
 
     try {
+      if (trimmedName !== entityName) {
+        await renameSavedEntityAction({
+          entityKind: 'skill',
+          entityId: skillId,
+          workspaceId,
+          name: trimmedName,
+        })
+      }
       await save()
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
@@ -72,7 +92,7 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
     } finally {
       setIsSaving(false)
     }
-  }, [content, copy.validation, description, doc, name, save, skillId])
+  }, [content, copy.validation, description, doc, entityName, name, save, skillId, workspaceId])
 
   const handleExport = useCallback(() => {
     if (!doc) return

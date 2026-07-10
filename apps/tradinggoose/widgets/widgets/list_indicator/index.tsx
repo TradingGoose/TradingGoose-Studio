@@ -12,7 +12,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
-import { indicatorListWidgetContract } from '@/widgets/widgets/list_indicator/contract'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
@@ -22,6 +21,7 @@ import {
   IndicatorList,
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
+import { indicatorListWidgetContract } from '@/widgets/widgets/list_indicator/contract'
 
 const buildNewIndicator = (defaults: { name: string }) => {
   return {
@@ -48,10 +48,9 @@ const IndicatorListHeaderRight = ({
 
   const selectIndicator = useCallback(
     (createdIndicatorId: string) => {
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, 'list_indicator', { indicatorId: createdIndicatorId })
+      actions.patchWidgetParams({ indicatorId: createdIndicatorId })
     },
-    [actions, panelId]
+    [actions]
   )
   const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 

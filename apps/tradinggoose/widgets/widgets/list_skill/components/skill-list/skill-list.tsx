@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import type { SkillDefinition } from '@/lib/skills/types'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
@@ -17,12 +18,7 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 
 export const SkillListMessage = WidgetStateMessage
 
-export function SkillList({
-  context,
-  params,
-  onWidgetParamsPatch,
-  panelId,
-}: WidgetComponentProps) {
+export function SkillList({ context, params, onWidgetParamsPatch, panelId }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.skillList
   const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
@@ -97,9 +93,14 @@ export function SkillList({
         )
       }
 
-      await saveSavedEntityField('skill', skillId, workspaceId, 'name', normalizedName)
+      await renameSavedEntityAction({
+        entityKind: 'skill',
+        entityId: skillId,
+        workspaceId,
+        name: normalizedName,
+      })
     },
-    [permissions.canEdit, workspaceId]
+    [permissions.canEdit, skillValidationCopy, workspaceId]
   )
 
   if (isLoading && listSkills.length === 0) {

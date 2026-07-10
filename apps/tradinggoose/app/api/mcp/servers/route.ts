@@ -9,10 +9,6 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import {
-  guardWorkspaceEntityDocumentDeleteInTx,
-  WorkspaceEntityDocumentDeletionError,
-} from '@/lib/workspaces/entity-documents'
-import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
@@ -102,17 +98,29 @@ export const POST = withMcpAuth('write')(
       const created = await mcpService.createWorkspaceServer({
         userId,
         workspaceId,
-        fields: body,
+        name: body.name,
+        fields: {
+          description: body.description,
+          transport: body.transport,
+          url: body.url,
+          headers: body.headers,
+          command: body.command,
+          args: body.args,
+          env: body.env,
+          timeout: body.timeout,
+          retries: body.retries,
+          enabled: body.enabled,
+        },
       })
 
-      logger.info(`[${requestId}] Successfully registered MCP server: ${created.fields.name}`)
+      logger.info(`[${requestId}] Successfully registered MCP server: ${created.entityName}`)
 
       // Track MCP server registration
       try {
         const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
         trackPlatformEvent('platform.mcp.server_added', {
           'mcp.server_id': created.entityId,
-          'mcp.server_name': String(created.fields.name ?? ''),
+          'mcp.server_name': created.entityName,
           'mcp.transport': String(created.fields.transport ?? ''),
           'workspace.id': workspaceId,
         })
@@ -167,33 +175,15 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      const deleted = await db.transaction(async (tx) => {
-        const canDelete = await guardWorkspaceEntityDocumentDeleteInTx(tx, {
-          entityKind: 'mcp_server',
-          entityId: serverId,
-          workspaceId,
-        })
-        if (!canDelete) {
-          return false
-        }
-        await tx
-          .delete(mcpServers)
-          .where(
-            and(
-              eq(mcpServers.id, serverId),
-              eq(mcpServers.workspaceId, workspaceId),
-              isNull(mcpServers.deletedAt)
-            )
+      await db
+        .delete(mcpServers)
+        .where(
+          and(
+            eq(mcpServers.id, serverId),
+            eq(mcpServers.workspaceId, workspaceId),
+            isNull(mcpServers.deletedAt)
           )
-        return true
-      })
-      if (!deleted) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
         )
-      }
 
       await refreshEntityListSession('mcp_server', workspaceId)
       await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])
@@ -203,9 +193,6 @@ export const DELETE = withMcpAuth('write')(
         message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
-      if (error instanceof WorkspaceEntityDocumentDeletionError) {
-        return createMcpErrorResponse(error, error.message, error.status)
-      }
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),

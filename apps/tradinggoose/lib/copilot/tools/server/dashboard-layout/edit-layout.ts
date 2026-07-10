@@ -6,60 +6,80 @@ import {
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
 import {
-  applyLiveDashboardLayoutFields,
-  type EditLayoutArgs,
-  readLiveDashboardLayoutFields,
-} from '@/lib/copilot/tools/server/dashboard-layout/shared'
-import {
+  buildSavedEntityListInfo,
   requireEntityId,
   verifySavedEntityContext,
 } from '@/lib/copilot/tools/server/entities/shared'
-import { listDashboardLayouts } from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyDashboardTopologyMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   applyLayoutEditDocument,
-  createDashboardLayoutValidationError,
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  type DashboardLayoutDocumentContent,
+  normalizeDashboardLayoutDocumentContent,
   serializeDashboardLayoutDocument,
 } from '@/widgets/layout-document'
+
+type EditLayoutArgs = {
+  entityId: string
+  entityDocument: string
+  documentFormat?: string
+  removedPanelIds?: string[]
+}
 
 export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
   name: CopilotTool.edit_layout,
   async execute(args, context) {
     const entityId = requireEntityId(args, 'edit_layout')
-    const { userId, workspaceId } = await verifySavedEntityContext(
+    if (args.documentFormat && args.documentFormat !== DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT) {
+      throw new Error(
+        `Unsupported documentFormat "${args.documentFormat}". Expected ${DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT}`
+      )
+    }
+    const { userId: ownerUserId, workspaceId } = await verifySavedEntityContext(
       context,
       'dashboard_layout',
       entityId,
       'write'
     )
-    const scope = { workspaceId, ownerUserId: userId }
-    const current = await readLiveDashboardLayoutFields(scope, entityId)
-    const next = applyLayoutEditDocument(current, args.entityDocument, args.removedPanelIds ?? [])
-    if (next.sortOrder !== current.sortOrder) {
-      const layouts = await listDashboardLayouts(scope)
-      if (next.sortOrder < 0 || next.sortOrder >= layouts.length) {
-        throw createDashboardLayoutValidationError(
-          'entityDocument.sortOrder',
-          'edit_layout sortOrder is out of range'
-        )
-      }
+    const [rawCurrent, entity] = await Promise.all([
+      readBootstrappedSavedEntityFields('dashboard_layout', entityId, workspaceId, ownerUserId),
+      buildSavedEntityListInfo('dashboard_layout', workspaceId, ownerUserId).then((entries) =>
+        entries.find((entry) => entry.entityId === entityId)
+      ),
+    ])
+    if (!entity) throw new Error('Dashboard layout not found')
+    const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
+    const plan = applyLayoutEditDocument(current, args.entityDocument, args.removedPanelIds ?? [])
+    const widgets = { ...current.widgets, ...plan.createdWidgets }
+    for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
+    const next: DashboardLayoutDocumentContent = normalizeDashboardLayoutDocumentContent({
+      ...current,
+      layout: plan.layout,
+      widgets,
+    })
+    const reviewBase = { layout: current.layout }
+    const projection = await buildDashboardLayoutReadProjection(next)
+    const result = {
+      success: true,
+      entityKind: 'dashboard_layout' as const,
+      entityId,
+      entityName: entity.entityName,
+      workspaceId,
+      ownerUserId,
+      documentFormat: projection.documentFormat,
+      entityDocument: projection.entityDocument,
+      layout: next.layout,
+      colorPairs: next.colorPairs,
+      effectiveLayout: projection.effectiveLayout,
     }
 
     if (shouldStageServerToolMutationForReview(context)) {
-      const projection = await buildDashboardLayoutReadProjection(next)
       return {
+        ...result,
         requiresReview: true,
-        success: true,
-        entityKind: 'dashboard_layout',
-        entityId,
-        workspaceId: scope.workspaceId,
-        ownerUserId: scope.ownerUserId,
-        documentFormat: projection.documentFormat,
-        entityDocument: projection.entityDocument,
-        layout: next.layout,
-        colorPairs: next.colorPairs,
-        effectiveLayout: projection.effectiveLayout,
-        reviewBaseStateHash: hashServerToolReviewBase(current),
+        reviewBaseStateHash: hashServerToolReviewBase(reviewBase),
         preview: {
           documentDiff: {
             before: serializeDashboardLayoutDocument(current),
@@ -70,22 +90,14 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
     }
 
     if (context?.acceptedReviewBaseStateHash) {
-      assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(current))
+      assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(reviewBase))
     }
-
-    const fields = await applyLiveDashboardLayoutFields(scope, entityId, next)
-    const projection = await buildDashboardLayoutReadProjection(fields)
-    return {
-      success: true,
-      entityKind: 'dashboard_layout',
+    await applyDashboardTopologyMutationInSocketServer({
       entityId,
-      workspaceId: scope.workspaceId,
-      ownerUserId: scope.ownerUserId,
-      documentFormat: projection.documentFormat,
-      entityDocument: projection.entityDocument,
-      layout: fields.layout,
-      colorPairs: fields.colorPairs,
-      effectiveLayout: projection.effectiveLayout,
-    }
+      workspaceId,
+      ownerUserId,
+      plan,
+    })
+    return result
   },
 }

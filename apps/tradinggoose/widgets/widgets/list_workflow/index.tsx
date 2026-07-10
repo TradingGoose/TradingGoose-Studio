@@ -182,10 +182,9 @@ const WorkflowListHeaderRight = ({
       if (!workflowId) {
         return
       }
-      if (!panelId) return
-      actions.patchWidgetParams(panelId, widgetKey, { workflowId })
+      actions.patchWidgetParams({ workflowId })
     },
-    [actions, panelId, widgetKey]
+    [actions]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
