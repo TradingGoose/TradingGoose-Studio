@@ -22,7 +22,6 @@ import { getQueryClient } from '@/app/query-provider'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
-import { indicatorKeys } from '@/hooks/queries/indicators'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
@@ -362,7 +361,7 @@ export async function handleCopilotServerToolSuccess(
     } else if (toolName.endsWith('_custom_tool')) {
       await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
     } else if (toolName.endsWith('_indicator')) {
-      await queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
+      return
     } else if (toolName.endsWith('_knowledge_base')) {
       const entityId =
         result && typeof result === 'object' && !Array.isArray(result)

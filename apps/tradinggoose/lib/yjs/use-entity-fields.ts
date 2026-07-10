@@ -30,7 +30,6 @@ import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
-import { indicatorKeys } from '@/hooks/queries/indicators'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 
@@ -255,8 +254,6 @@ function invalidateSavedEntityQueries(
       void queryClient.invalidateQueries({ queryKey: customToolsKeys.detail(entityId) })
       return
     case 'indicator':
-      void queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
-      void queryClient.invalidateQueries({ queryKey: indicatorKeys.detail(entityId) })
       return
     case 'knowledge_base':
       void queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })

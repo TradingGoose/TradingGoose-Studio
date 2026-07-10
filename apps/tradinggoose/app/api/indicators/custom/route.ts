@@ -3,7 +3,7 @@ import { pineIndicators } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createIndicators, listIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
+import { createIndicators, listIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
@@ -39,11 +39,12 @@ const logWorkspacePermissionDenied = ({
 const IndicatorSchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
   indicators: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().min(1, 'Indicator name is required'),
-      pineCode: z.string().default(''),
-    })
+    z
+      .object({
+        name: z.string().min(1, 'Indicator name is required'),
+        pineCode: z.string().default(''),
+      })
+      .strict()
   ),
 })
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       request,
       requestId,
       logger,
-      action: 'update',
+      action: 'creation',
       responseShape: 'errorOnly',
     })
     if ('response' in auth) return auth.response
@@ -127,38 +128,12 @@ export async function POST(request: NextRequest) {
         return permissionCheck.response
       }
 
-      const indicatorsToCreate = indicators.filter((indicator) => !indicator.id)
-      const indicatorsToSave = indicators.filter((indicator) => indicator.id)
-      if (indicatorsToCreate.length > 0 && indicatorsToSave.length > 0) {
-        return NextResponse.json(
-          { error: 'Create and save indicators in separate requests' },
-          { status: 400 }
-        )
-      }
-      if (indicatorsToSave.length > 1) {
-        return NextResponse.json(
-          { error: 'Save one existing indicator per request' },
-          { status: 400 }
-        )
-      }
-
-      const resultIndicators =
-        indicatorsToSave.length === 1
-          ? await saveIndicator({
-              indicator: {
-                id: indicatorsToSave[0].id!,
-                name: indicatorsToSave[0].name,
-                pineCode: indicatorsToSave[0].pineCode,
-              },
-              workspaceId,
-              requestId,
-            })
-          : await createIndicators({
-              indicators: indicatorsToCreate,
-              workspaceId,
-              userId: auth.userId,
-              requestId,
-            })
+      const resultIndicators = await createIndicators({
+        indicators,
+        workspaceId,
+        userId: auth.userId,
+        requestId,
+      })
 
       return NextResponse.json({ success: true, data: resultIndicators })
     } catch (validationError) {
@@ -182,17 +157,14 @@ export async function POST(request: NextRequest) {
       if (validationError instanceof SavedEntityPersistenceError) {
         return NextResponse.json(validationError.responseBody(), { status: validationError.status })
       }
-      if (validationError instanceof Error && validationError.message.includes('was not found')) {
-        return NextResponse.json({ error: validationError.message }, { status: 404 })
-      }
       throw validationError
     }
   } catch (error) {
     if (error instanceof SavedEntityRealtimeRequiredError) {
       return NextResponse.json(error.responseBody(), { status: error.status })
     }
-    logger.error(`[${requestId}] Error updating indicators`, error)
-    return NextResponse.json({ error: 'Failed to update indicators' }, { status: 500 })
+    logger.error(`[${requestId}] Error creating indicators`, error)
+    return NextResponse.json({ error: 'Failed to create indicators' }, { status: 500 })
   }
 }
 

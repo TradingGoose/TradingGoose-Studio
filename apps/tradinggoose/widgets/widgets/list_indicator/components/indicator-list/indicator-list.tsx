@@ -1,16 +1,15 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
-import { getEntityFields } from '@/lib/yjs/entity-session'
+import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session'
 import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
@@ -37,25 +36,11 @@ export function IndicatorList({
   const { members, isLoading, error } = useEntityList('indicator', workspaceId)
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
-  const listIndicators = useMemo<IndicatorDefinition[]>(
-    () =>
-      workspaceId
-        ? members.map((member) => ({
-            id: member.entityId,
-            workspaceId,
-            userId: null,
-            name: member.entityName,
-            color: member.color,
-            pineCode: '',
-          }))
-        : [],
-    [members, workspaceId]
-  )
 
   const requestedIndicatorId = getIndicatorIdFromParams(params)
   const selectedIndicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
-    entityIds: listIndicators.map((indicator) => indicator.id),
+    entityIds: members.map((member) => member.entityId),
     useDefaultEntity: false,
   })
 
@@ -103,16 +88,16 @@ export function IndicatorList({
   )
 
   const handleCopy = useCallback(
-    async (indicator: IndicatorDefinition) => {
+    async (indicator: EntityListMember) => {
       if (!workspaceId || !permissions.canEdit) return
-      if (!indicator.id) return
+      if (!indicator.entityId) return
 
-      setCopyingIds((prev) => new Set(prev).add(indicator.id))
+      setCopyingIds((prev) => new Set(prev).add(indicator.entityId))
 
       try {
-        const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
+        const copiedName = `${indicator.entityName || copy.listItem.untitledIndicator} (Copy)`
         const sourceSession = await bootstrapYjsProvider(
-          buildSavedEntityDescriptor('indicator', indicator.id, workspaceId),
+          buildSavedEntityDescriptor('indicator', indicator.entityId, workspaceId),
           undefined,
           'read'
         )
@@ -145,7 +130,7 @@ export function IndicatorList({
       } finally {
         setCopyingIds((prev) => {
           const next = new Set(prev)
-          next.delete(indicator.id)
+          next.delete(indicator.entityId)
           return next
         })
       }
@@ -173,22 +158,22 @@ export function IndicatorList({
 
   return (
     <div className='h-full w-full overflow-hidden p-2'>
-      {listIndicators.length === 0 ? (
+      {members.length === 0 ? (
         <IndicatorListMessage message={copy.body.noIndicatorsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
-          {listIndicators.map((indicator: IndicatorDefinition) => (
+          {members.map((indicator) => (
             <IndicatorListItem
-              key={indicator.id}
+              key={indicator.entityId}
               indicator={indicator}
-              isSelected={indicator.id === selectedIndicatorId}
+              isSelected={indicator.entityId === selectedIndicatorId}
               onSelect={handleSelect}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
-              isCopying={copyingIds.has(indicator.id)}
-              isDeleting={deletingIds.has(indicator.id)}
+              isCopying={copyingIds.has(indicator.entityId)}
+              isDeleting={deletingIds.has(indicator.entityId)}
             />
           ))}
         </div>

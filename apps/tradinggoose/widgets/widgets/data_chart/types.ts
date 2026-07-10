@@ -1,5 +1,6 @@
 import type { MutableRefObject } from 'react'
 import type { IPaneApi, ISeriesApi } from 'lightweight-charts'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import type { MarketSessionWindow } from '@/providers/market/types'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 
@@ -18,6 +19,12 @@ export type IndicatorRuntimeEntry = {
   paneAnchorSeries?: ISeriesApi<any> | null
   paneAnchorIdentity?: string | null
   errorMessage?: string
+}
+
+export type IndicatorDocumentRuntimeSource = {
+  id: string
+  pineCode: string
+  inputMeta?: InputMetaMap | null
 }
 
 export type DataChartDataContext = {

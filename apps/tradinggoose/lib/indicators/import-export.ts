@@ -3,7 +3,6 @@ import {
   createTradingGooseExportFile,
   TradingGooseExportEnvelopeSchema,
 } from '@/lib/import-export/trading-goose'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
 
 const IMPORTED_INDICATOR_MARKER = '(imported)'
 
@@ -37,7 +36,7 @@ export type IndicatorTransferRecord = z.infer<typeof IndicatorTransferSchema>
 export type IndicatorsImportFile = z.infer<typeof IndicatorsImportFileSchema>
 
 function normalizeIndicatorForTransfer(
-  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode'>
+  indicator: IndicatorTransferRecord
 ): IndicatorTransferRecord {
   return {
     name: normalizeInlineWhitespace(indicator.name),
@@ -53,7 +52,7 @@ export function createIndicatorsExportFile({
   indicators,
   exportedFrom,
 }: {
-  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
+  indicators: IndicatorTransferRecord[]
   exportedFrom: string
 }): IndicatorsImportFile {
   return createTradingGooseExportFile({
@@ -69,7 +68,7 @@ export function exportIndicatorsAsJson({
   indicators,
   exportedFrom,
 }: {
-  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
+  indicators: IndicatorTransferRecord[]
   exportedFrom: string
 }): string {
   return JSON.stringify(createIndicatorsExportFile({ indicators, exportedFrom }), null, 2)

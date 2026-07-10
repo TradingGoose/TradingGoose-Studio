@@ -5,11 +5,15 @@ import { useLocale } from 'next-intl'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { InputMetaMap } from '@/lib/indicators/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useSocket } from '@/contexts/socket-context'
-import { useIndicators } from '@/hooks/queries/indicators'
 import type { MarketSessionWindow } from '@/providers/market/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
+import {
+  CustomIndicatorDocumentConnections,
+  getCustomIndicatorConnectionKey,
+} from '@/widgets/widgets/data_chart/components/custom-indicator-document-connections'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
@@ -35,6 +39,7 @@ import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type {
   DataChartDataContext,
+  IndicatorDocumentRuntimeSource,
   IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import {
@@ -194,11 +199,34 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     errorCopy: copy.errors,
   })
 
-  const { data: pineIndicators = [] } = useIndicators(workspaceId ?? '')
   const pineIndicatorIds = useMemo(
     () => resolveIndicatorIds(dataParams.view),
     [dataParams.view?.pineIndicators]
   )
+  const { members: customIndicatorMembers } = useEntityList('indicator', workspaceId)
+  const [connectedCustomIndicators, setConnectedCustomIndicators] = useState(
+    () => new Map<string, IndicatorDocumentRuntimeSource>()
+  )
+  const handleCustomIndicatorChange = useCallback(
+    (key: string, indicator: IndicatorDocumentRuntimeSource | null) => {
+      setConnectedCustomIndicators((current) => {
+        const next = new Map(current)
+        if (indicator) next.set(key, indicator)
+        else next.delete(key)
+        return next
+      })
+    },
+    []
+  )
+  const pineIndicators = useMemo(() => {
+    if (!workspaceId) return []
+    return pineIndicatorIds.flatMap((id) => {
+      const indicator = connectedCustomIndicators.get(
+        getCustomIndicatorConnectionKey(workspaceId, id)
+      )
+      return indicator ? [indicator] : []
+    })
+  }, [connectedCustomIndicators, pineIndicatorIds, workspaceId])
   const pineIndicatorRefs = useMemo(
     () =>
       buildIndicatorRefs(
@@ -225,14 +253,15 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     const metaMap = new Map<string, { name: string; inputMeta?: InputMetaMap | null }>()
     pineIndicatorIds.forEach((id) => {
       const custom = customMap.get(id)
+      const customName = customIndicatorMembers.find((member) => member.entityId === id)?.entityName
       const fallback = DEFAULT_INDICATOR_MAP.get(id) ?? null
       metaMap.set(id, {
-        name: custom?.name ?? fallback?.name ?? id,
+        name: customName ?? fallback?.name ?? id,
         inputMeta: custom?.inputMeta ?? fallback?.inputMeta ?? undefined,
       })
     })
     return metaMap
-  }, [pineIndicators, pineIndicatorIds, widgetsCopy])
+  }, [customIndicatorMembers, pineIndicators, pineIndicatorIds])
 
   useIndicatorSync({
     chartRef,
@@ -428,6 +457,12 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
 
   return (
     <div className='relative flex h-full w-full flex-col'>
+      <CustomIndicatorDocumentConnections
+        workspaceId={workspaceId}
+        indicatorIds={pineIndicatorIds}
+        members={customIndicatorMembers}
+        onChange={handleCustomIndicatorChange}
+      />
       <div className='relative flex-1 overflow-hidden'>
         {!showEmptyState && !showErrorState && (
           <DrawToolsSidebar

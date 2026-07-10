@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
   type IndicatorTransferRecord,
@@ -8,9 +8,7 @@ import {
 } from '@/lib/indicators/import-export'
 import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
-import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -66,16 +64,6 @@ interface CreateIndicatorsParams {
   requestId?: string
 }
 
-interface SaveIndicatorParams {
-  indicator: {
-    id: string
-    name: string
-    pineCode: string
-  }
-  workspaceId: string
-  requestId?: string
-}
-
 interface ImportIndicatorsParams {
   indicators: IndicatorTransferRecord[]
   workspaceId: string
@@ -118,38 +106,6 @@ export async function createIndicators({
   await refreshEntityListSession('indicator', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
   return created
-}
-
-export async function saveIndicator({
-  indicator,
-  workspaceId,
-  requestId = generateRequestId(),
-}: SaveIndicatorParams) {
-  const [existing] = await db
-    .select({
-      id: pineIndicators.id,
-      color: pineIndicators.color,
-    })
-    .from(pineIndicators)
-    .where(and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId)))
-    .limit(1)
-
-  if (!existing) {
-    throw new Error(`Indicator ${indicator.id} was not found`)
-  }
-
-  await renameSavedEntityIdentity({
-    entityKind: 'indicator',
-    entityId: indicator.id,
-    workspaceId,
-    name: indicator.name,
-  })
-  await applySavedEntityState('indicator', indicator.id, {
-    color: existing.color ?? getStableVibrantColor(indicator.id),
-    pineCode: indicator.pineCode,
-  })
-  logger.info(`[${requestId}] Saved Indicator ${indicator.id}`)
-  return listIndicators({ workspaceId })
 }
 
 export async function importIndicators({

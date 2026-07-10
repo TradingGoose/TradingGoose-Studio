@@ -20,7 +20,6 @@ vi.mock('@/lib/mcp/utils', () => ({
 }))
 
 vi.mock('@/hooks/queries/custom-tools', () => ({ customToolsKeys: {} }))
-vi.mock('@/hooks/queries/indicators', () => ({ indicatorKeys: {} }))
 vi.mock('@/hooks/queries/knowledge', () => ({ knowledgeKeys: {} }))
 vi.mock('@/hooks/queries/skills', () => ({ skillsKeys: {} }))
 
