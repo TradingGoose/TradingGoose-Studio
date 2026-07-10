@@ -240,11 +240,13 @@ function CustomToolEditorSelector({
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectedToolId = resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
-    actions.patchWidgetParams({ customToolId })
+    patchLinkedParams({ customToolId })
   }
 
   return (

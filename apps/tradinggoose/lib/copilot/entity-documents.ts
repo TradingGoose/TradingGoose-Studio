@@ -234,7 +234,11 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
   kind: K,
   entityDocument: string
 ): EntityDocumentFields<K> {
-  const parsedJson = EntityDocumentSchemas[kind].parse(JSON.parse(entityDocument))
+  const raw = JSON.parse(entityDocument)
+  if (kind === 'dashboard_layout') {
+    return normalizeDashboardLayoutDocumentContent(raw) as EntityDocumentFields<K>
+  }
+  const parsedJson = EntityDocumentSchemas[kind].parse(raw)
   const normalized = normalizeEntityFields(kind, parsedJson)
   return EntityDocumentSchemas[kind].parse(normalized) as EntityDocumentFields<K>
 }

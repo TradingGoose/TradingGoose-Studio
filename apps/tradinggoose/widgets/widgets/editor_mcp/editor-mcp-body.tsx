@@ -128,10 +128,13 @@ export function EditorMcpWidgetBody({
   panelId,
   widget,
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const patchLinkedParams =
+    resolvedPairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
   const [saveError, setSaveError] = useState<string | null>(null)
   const [identityName, setIdentityName] = useState('')
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
@@ -204,8 +207,8 @@ export function EditorMcpWidgetBody({
   }, [clearTestResult, defaultFormData, formDataState, selectedServerId, serverSession.doc])
 
   const handleClose = useCallback(() => {
-    onWidgetParamsPatch?.({ mcpServerId: null })
-  }, [onWidgetParamsPatch])
+    patchLinkedParams?.({ mcpServerId: null })
+  }, [patchLinkedParams])
 
   const handleResetForm = useCallback(() => {
     setFormDataState(initialFormDataRef.current)

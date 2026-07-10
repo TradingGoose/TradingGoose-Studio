@@ -38,12 +38,14 @@ const SkillListHeaderRight = ({
   const importMutation = useImportSkills()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('skill', workspaceId)
+  const patchLinkedParams =
+    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectSkill = useCallback(
     (createdSkillId: string) => {
-      actions.patchWidgetParams({ skillId: createdSkillId })
+      patchLinkedParams({ skillId: createdSkillId })
     },
-    [actions]
+    [patchLinkedParams]
   )
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 

@@ -63,8 +63,8 @@ describe('Workspaces API Route', () => {
         ownerId: 'workspace.ownerId',
         createdAt: 'workspace.createdAt',
       },
-      layoutMap: {
-        table: 'layoutMap',
+      layoutMaps: {
+        table: 'layoutMaps',
       },
       workflow: {
         table: 'workflow',

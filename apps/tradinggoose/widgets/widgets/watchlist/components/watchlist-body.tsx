@@ -42,7 +42,11 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     selectedWatchlist,
   } = useWatchlistWidgetState(props)
 
-  const canEditWidgetParams = Boolean(props.onWidgetParamsPatch)
+  const patchLinkedParams =
+    (props.pairColor ?? 'gray') === 'gray'
+      ? props.onWidgetParamsPatch
+      : props.onWidgetColorPairPatch
+  const canEditWidgetParams = Boolean(patchLinkedParams)
   const viewItems = selectedWatchlist?.items ?? []
   const quoteItems = useMemo(
     () =>
@@ -108,21 +112,20 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const handleReorderItems = async (items: typeof selectedDocument.items) => {
     await persistItems(() => items)
   }
-  const selectedListing = isLinkedToColorPair ? (widgetParams?.listing ?? null) : null
+  const selectedListing = widgetParams?.listing ?? null
 
   const handleSelectListing = useCallback(
     (listing: ListingIdentity | null) => {
       if (!canEditWidgetParams) return
-      if (!isLinkedToColorPair) return
       if (listing == null) {
         if (selectedListing == null) return
-        props.onWidgetParamsPatch?.({ listing: null })
+        patchLinkedParams?.({ listing: null })
         return
       }
       if (areListingIdentitiesEqual(selectedListing, listing)) return
-      props.onWidgetParamsPatch?.({ listing })
+      patchLinkedParams?.({ listing })
     },
-    [canEditWidgetParams, isLinkedToColorPair, props.onWidgetParamsPatch, selectedListing]
+    [canEditWidgetParams, patchLinkedParams, selectedListing]
   )
 
   if (!workspaceId) {
@@ -159,7 +162,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       isMutating={isMutating}
       selectedListing={selectedListing}
       isLinkedSelection={isLinkedToColorPair}
-      onSelectListing={canEditWidgetParams && isLinkedToColorPair ? handleSelectListing : undefined}
+      onSelectListing={canEditWidgetParams ? handleSelectListing : undefined}
     />
   )
 }

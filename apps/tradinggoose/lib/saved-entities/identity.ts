@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import {
   customTools,
   knowledgeBase,
-  layoutMap,
+  layoutMaps,
   mcpServers,
   pineIndicators,
   skill,
@@ -125,16 +125,16 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
           throw new SavedEntityIdentityError(400, 'Dashboard layout ownerUserId is required')
         }
         rows = await db
-          .update(layoutMap)
+          .update(layoutMaps)
           .set({ name, updatedAt })
           .where(
             and(
-              eq(layoutMap.id, entityId),
-              eq(layoutMap.workspaceId, workspaceId),
-              eq(layoutMap.userId, ownerUserId)
+              eq(layoutMaps.id, entityId),
+              eq(layoutMaps.workspaceId, workspaceId),
+              eq(layoutMaps.userId, ownerUserId)
             )
           )
-          .returning({ id: layoutMap.id })
+          .returning({ id: layoutMaps.id })
         break
     }
 

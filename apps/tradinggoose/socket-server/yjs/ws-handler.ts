@@ -14,7 +14,7 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import { saveSavedEntityYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
+import { saveDashboardLayoutYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
 import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
@@ -56,7 +56,7 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
   }
 
   if (entityKind === 'dashboard_layout') {
-    await saveSavedEntityYjsDocToDb('dashboard_layout', docId, doc)
+    await saveDashboardLayoutYjsDocToDb(docId, doc)
   }
 }
 

@@ -7,6 +7,7 @@ import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocketServer } from 'ws'
+import * as Y from 'yjs'
 
 const mockLogger = {
   debug: vi.fn(),
@@ -21,6 +22,7 @@ const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
+const mockSaveDashboardLayoutYjsDocToDb = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -92,6 +94,7 @@ beforeEach(() => {
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
   mockSetupWSConnection.mockReset()
+  mockSaveDashboardLayoutYjsDocToDb.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -121,7 +124,7 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/apply-entity-state', () => ({
-    saveSavedEntityYjsDocToDb: vi.fn(),
+    saveDashboardLayoutYjsDocToDb: mockSaveDashboardLayoutYjsDocToDb,
   }))
 
   vi.doMock('./upstream-utils', () => ({
@@ -379,6 +382,64 @@ describe('handleYjsUpgrade', () => {
     )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
+  })
+
+  it('persists writable dashboard updates through the dedicated layout saver', async () => {
+    const sessionId = 'layout-write'
+    const request = createDashboardRequest(sessionId)
+    const socket = createSocket()
+    const wss = createWebSocketServer()
+
+    mockAuthenticateYjsConnection.mockResolvedValue({
+      userId: 'user-1',
+      userName: 'User One',
+      envelope: {
+        targetKind: 'entity',
+        sessionId,
+        reviewSessionId: null,
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_layout',
+        entityId: sessionId,
+        draftSessionId: null,
+      },
+    })
+    mockVerifyReviewTargetAccess.mockResolvedValue({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: true,
+    })
+    mockGetExistingDocument.mockResolvedValue(null)
+    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
+      descriptor: { entityKind: 'dashboard_layout', entityId: sessionId },
+      runtime: { docState: 'active' },
+      state: new Uint8Array([1, 2]),
+    })
+
+    const { handleYjsUpgrade } = await loadModule()
+    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const options = mockSetupWSConnection.mock.calls[0]?.[2]
+    expect(options).toEqual(
+      expect.objectContaining({
+        docId: sessionId,
+        accessMode: 'write',
+        onDocumentIdle: expect.any(Function),
+        onDocumentUpdate: expect.any(Function),
+      })
+    )
+    const doc = new Y.Doc()
+    const metadata = doc.getMap('metadata')
+    metadata.set('entityKind', 'dashboard_layout')
+    metadata.set('entityId', sessionId)
+    metadata.set('draftSessionId', null)
+    metadata.set('reviewSessionId', null)
+    await options.onDocumentUpdate(sessionId, doc)
+
+    expect(mockSaveDashboardLayoutYjsDocToDb).toHaveBeenCalledWith(sessionId, doc)
+    doc.destroy()
   })
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {

@@ -241,10 +241,12 @@ describe('processContextsServer', () => {
       layout: {
         id: 'root',
         type: 'panel',
-        identityId: null,
+        identityId: 'widget-1',
         widgetKey: null,
       },
-      widgets: {},
+      widgets: {
+        'widget-1': { pairColor: 'gray', params: null },
+      },
       colorPairs: { pairs: [] },
     })
     mockReadEntityListMembersFromDb.mockResolvedValue([

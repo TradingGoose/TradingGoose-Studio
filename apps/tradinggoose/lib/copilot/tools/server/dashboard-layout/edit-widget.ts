@@ -51,12 +51,10 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
     const panel = findDashboardTopologyPanel(current.layout, args.panelId)
     if (!panel) throw new Error(`Unknown dashboard panel ${args.panelId}`)
-    if (!panel.identityId || !panel.widgetKey) {
+    if (!panel.widgetKey) {
       throw new Error(`Dashboard panel ${args.panelId} has no widget; use edit_layout`)
     }
-    const currentWidget = current.widgets[panel.identityId]
-    if (!currentWidget)
-      throw new Error(`Dashboard panel ${args.panelId} references a missing widget`)
+    const currentWidget = current.widgets[panel.identityId]!
     const next = applyWidgetConfigMutation({
       widgetKey: panel.widgetKey,
       widget: currentWidget,

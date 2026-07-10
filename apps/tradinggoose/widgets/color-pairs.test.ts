@@ -100,4 +100,22 @@ describe('color-pair linked context helpers', () => {
     })
     expect(context.channelId).toBeUndefined()
   })
+
+  it('uses absence as the only representation for an empty shared context', () => {
+    const colorOnly = {
+      pairs: [{ color: 'blue' as const }],
+    }
+
+    expect(readPairColorContext(colorOnly, 'blue')).toEqual({})
+    expect(upsertPairColorContext(colorOnly, 'blue', {})).toEqual({ pairs: [] })
+
+    const configured = upsertPairColorContext(colorOnly, 'blue', {
+      workflowId: 'workflow-a',
+    })
+    expect(
+      upsertPairColorContext(configured, 'blue', {
+        workflowId: null,
+      })
+    ).toEqual({ pairs: [] })
+  })
 })

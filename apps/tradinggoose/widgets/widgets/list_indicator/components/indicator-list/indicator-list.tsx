@@ -25,7 +25,9 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 export function IndicatorList({
   context,
   params,
+  pairColor = 'gray',
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
   panelId,
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.indicatorList
@@ -43,12 +45,13 @@ export function IndicatorList({
     entityIds: members.map((member) => member.entityId),
     useDefaultEntity: false,
   })
+  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
 
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
-      onWidgetParamsPatch?.({ indicatorId })
+      patchLinkedParams?.({ indicatorId })
     },
-    [onWidgetParamsPatch]
+    [patchLinkedParams]
   )
 
   const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)

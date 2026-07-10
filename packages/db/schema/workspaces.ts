@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -237,8 +238,8 @@ export const watchlistItem = pgTable(
   })
 )
 
-export const layoutMap = pgTable(
-  'layout_map',
+export const layoutMaps = pgTable(
+  'layout_maps',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id')
@@ -248,22 +249,50 @@ export const layoutMap = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    sort_order: integer('sort_order').notNull().default(0),
-    layout: jsonb('layout').notNull().default('{}'),
-    color_pair: jsonb('color_pair').notNull().default('{}'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    layout: jsonb('layout').notNull(),
     isActive: boolean('is_active').notNull().default(false),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceIdx: index('layout_map_workspace_idx').on(table.workspaceId),
-    userIdx: index('layout_map_user_idx').on(table.userId),
-    workspaceUserIdx: index('layout_map_workspace_user_idx').on(table.workspaceId, table.userId),
-    workspaceUserActiveIdx: index('layout_map_workspace_user_active_idx').on(
+    workspaceIdx: index('layout_maps_workspace_idx').on(table.workspaceId),
+    userIdx: index('layout_maps_user_idx').on(table.userId),
+    workspaceUserIdx: index('layout_maps_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserActiveIdx: index('layout_maps_workspace_user_active_idx').on(
       table.workspaceId,
       table.userId,
       table.isActive
     ),
+  })
+)
+
+export const layoutWidgets = pgTable(
+  'layout_widgets',
+  {
+    id: text('id').primaryKey(),
+    layoutId: text('layout_id')
+      .notNull()
+      .references(() => layoutMaps.id, { onDelete: 'cascade' }),
+    pairColor: text('pair_color').notNull(),
+    params: jsonb('params'),
+  },
+  (table) => ({
+    layoutIdIdx: index('layout_widgets_layout_id_idx').on(table.layoutId),
+  })
+)
+
+export const layoutPairs = pgTable(
+  'layout_pairs',
+  {
+    layoutId: text('layout_id')
+      .notNull()
+      .references(() => layoutMaps.id, { onDelete: 'cascade' }),
+    color: text('color').notNull(),
+    context: jsonb('context').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.layoutId, table.color] }),
   })
 )
 

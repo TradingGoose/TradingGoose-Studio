@@ -105,6 +105,55 @@ describe('copilot entity documents', () => {
     ).toThrow('unknown_widget')
   })
 
+  it('round-trips canonical null-key panels with their real widget child', () => {
+    const document = {
+      layout: {
+        id: 'panel-empty',
+        type: 'panel',
+        identityId: 'widget-empty',
+        widgetKey: null,
+      },
+      widgets: {
+        'widget-empty': {
+          pairColor: 'gray',
+          params: null,
+        },
+      },
+      colorPairs: { pairs: [] },
+    }
+
+    expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
+    expect(JSON.parse(serializeEntityDocument('dashboard_layout', document))).toEqual(document)
+  })
+
+  it('rejects a null-key panel whose real child is missing or non-null', () => {
+    const layout = {
+      id: 'panel-empty',
+      type: 'panel',
+      identityId: 'widget-empty',
+      widgetKey: null,
+    }
+
+    expect(() =>
+      parseEntityDocument(
+        'dashboard_layout',
+        JSON.stringify({ layout, widgets: {}, colorPairs: { pairs: [] } })
+      )
+    ).toThrow(/missing widget widget-empty/i)
+    expect(() =>
+      parseEntityDocument(
+        'dashboard_layout',
+        JSON.stringify({
+          layout,
+          widgets: {
+            'widget-empty': { pairColor: 'gray', params: { workflowId: 'workflow-1' } },
+          },
+          colorPairs: { pairs: [] },
+        })
+      )
+    ).toThrow(/null-key dashboard widget/i)
+  })
+
   it.each([
     ['watchlist', { watchlistId: 123 }],
     ['data_chart', { data: { provider: 123 } }],

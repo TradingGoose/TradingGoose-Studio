@@ -2,16 +2,34 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import {
+  ensureDashboardLayoutDirtyTracker,
+  getDashboardWidgetsMap,
+  isDashboardLayoutDirty,
+  readDashboardLayoutContent,
+  seedDashboardLayoutSession,
+  setDashboardLayoutTopology,
+} from '@/lib/yjs/dashboard-layout-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
 
 const events: string[] = []
 const mockApplyEntityStateInSocketServer = vi.fn()
 const mockDbTransaction = vi.fn()
 const mockDbUpdate = vi.fn()
-const mockMaterializeDashboardLayoutContent = vi.fn()
+const mockPersistDashboardLayoutDirtyChannels = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
+class MockDashboardLayoutOperationError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message)
+    this.name = 'DashboardLayoutOperationError'
+  }
+}
 class MockWatchlistDocumentError extends Error {
   constructor(
     message: string,
@@ -55,7 +73,8 @@ vi.mock('@/lib/copilot/entity-documents', () => ({
 }))
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
-  materializeDashboardLayoutContent: mockMaterializeDashboardLayoutContent,
+  DashboardLayoutOperationError: MockDashboardLayoutOperationError,
+  persistDashboardLayoutDirtyChannels: mockPersistDashboardLayoutDirtyChannels,
 }))
 
 vi.mock('@/lib/custom-tools/schema', () => ({
@@ -92,19 +111,31 @@ function buildDoc(
   return doc
 }
 
+function dashboardContent(): DashboardLayoutDocumentContent {
+  return {
+    layout: {
+      id: 'panel-1',
+      type: 'panel',
+      identityId: 'widget-1',
+      widgetKey: null,
+    },
+    widgets: {
+      'widget-1': { pairColor: 'gray', params: null },
+    },
+    colorPairs: { pairs: [] },
+  }
+}
+
 function buildDashboardDoc(
-  fields: {
-    layout: any
-    widgets: any
-    colorPairs: any
-  },
-  workspaceId = 'workspace-1',
+  fields: DashboardLayoutDocumentContent = dashboardContent(),
+  workspaceId: string | null = 'workspace-1',
   ownerUserId: string | null = 'user-1'
 ) {
   const doc = new Y.Doc()
-  seedDashboardLayoutSession(doc, fields)
-  doc.getMap('metadata').set('workspaceId', workspaceId)
+  seedDashboardLayoutSession(doc, fields, YJS_ORIGINS.SYSTEM)
+  if (workspaceId) doc.getMap('metadata').set('workspaceId', workspaceId)
   if (ownerUserId) doc.getMap('metadata').set('ownerUserId', ownerUserId)
+  ensureDashboardLayoutDirtyTracker(doc)
   return doc
 }
 
@@ -132,8 +163,8 @@ describe('applySavedEntityState', () => {
         },
       ],
     })
-    mockMaterializeDashboardLayoutContent.mockImplementation(
-      async (_scope, _entityId, fields) => fields
+    mockPersistDashboardLayoutDirtyChannels.mockImplementation(async (_scope, _entityId, doc) =>
+      readDashboardLayoutContent(doc)
     )
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -324,85 +355,196 @@ describe('applySavedEntityState', () => {
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
-  it('refuses to materialize dashboard layouts when the Yjs document has no owner identity', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const doc = buildDashboardDoc(
-      {
-        layout: {
-          id: 'panel-1',
-          type: 'panel',
-          identityId: null,
-          widgetKey: null,
-        },
-        widgets: {},
-        colorPairs: { pairs: [] },
-      },
-      'workspace-1',
-      null
+  it('keeps dashboard layouts out of the generic saved-entity saver contract', async () => {
+    const { saveDashboardLayoutYjsDocToDb, saveSavedEntityYjsDocToDb } = await import(
+      './apply-entity-state'
     )
 
-    try {
-      await expect(
-        saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)
-      ).rejects.toMatchObject({
-        status: 400,
-        message: 'Dashboard layout ownerUserId is required',
-      })
-    } finally {
-      doc.destroy()
-    }
-
-    expect(mockMaterializeDashboardLayoutContent).not.toHaveBeenCalled()
+    expectTypeOf<'dashboard_layout'>().not.toMatchTypeOf<
+      Parameters<typeof saveSavedEntityYjsDocToDb>[0]
+    >()
+    expect(saveDashboardLayoutYjsDocToDb).toBeTypeOf('function')
   })
 
-  it('passes dashboard layout owner scope into materialization', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const fields = {
-      layout: {
-        id: 'panel-1',
-        type: 'panel',
-        identityId: null,
-        widgetKey: null,
-      },
-      widgets: {},
-      colorPairs: { pairs: [] },
+  it.each([
+    {
+      name: 'workspace',
+      workspaceId: null,
+      ownerUserId: 'user-1',
+      status: 404,
+      message: 'Saved dashboard_layout layout-1 workspace is missing while materializing Yjs state',
+    },
+    {
+      name: 'owner',
+      workspaceId: 'workspace-1',
+      ownerUserId: null,
+      status: 400,
+      message: 'Dashboard layout ownerUserId is required',
+    },
+  ])(
+    'rejects a dedicated dashboard save without $name identity metadata',
+    async ({ workspaceId, ownerUserId, status, message }) => {
+      const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+      const doc = buildDashboardDoc(dashboardContent(), workspaceId, ownerUserId)
+
+      try {
+        await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).rejects.toMatchObject({
+          status,
+          message,
+        })
+      } finally {
+        doc.destroy()
+      }
+
+      expect(mockPersistDashboardLayoutDirtyChannels).not.toHaveBeenCalled()
     }
+  )
+
+  it('returns a clean dashboard document without falling back to a full-document write', async () => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+    const fields = dashboardContent()
     const doc = buildDashboardDoc(fields)
 
     try {
-      await expect(saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)).resolves.toEqual(
-        fields
-      )
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).resolves.toEqual(fields)
+      expect(isDashboardLayoutDirty(doc)).toBe(false)
     } finally {
       doc.destroy()
     }
 
-    expect(mockMaterializeDashboardLayoutContent).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-      'layout-1',
-      fields
-    )
+    expect(mockPersistDashboardLayoutDirtyChannels).not.toHaveBeenCalled()
   })
 
-  it('refuses to materialize malformed dashboard layout fields from Yjs', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+  it('maps invalid clean dashboard state without falling back to a full-document write', async () => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
-    doc.getMap('layout').set('rootId', 'missing-node')
-    doc.getMap('layout').set('nodes', new Y.Map())
+    seedDashboardLayoutSession(doc, dashboardContent(), YJS_ORIGINS.SYSTEM)
+    getDashboardWidgetsMap(doc).delete('widget-1')
     doc.getMap('metadata').set('workspaceId', 'workspace-1')
     doc.getMap('metadata').set('ownerUserId', 'user-1')
+    ensureDashboardLayoutDirtyTracker(doc)
 
     try {
-      await expect(
-        saveSavedEntityYjsDocToDb('dashboard_layout', 'layout-1', doc)
-      ).rejects.toMatchObject({
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).rejects.toMatchObject({
         status: 400,
+        message: expect.stringMatching(/missing widget widget-1/i),
       })
+      expect(isDashboardLayoutDirty(doc)).toBe(false)
     } finally {
       doc.destroy()
     }
 
-    expect(mockMaterializeDashboardLayoutContent).not.toHaveBeenCalled()
+    expect(mockPersistDashboardLayoutDirtyChannels).not.toHaveBeenCalled()
+  })
+
+  it('persists one owner-scoped dirty batch and completes only that generation', async () => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDashboardDoc()
+    const current = readDashboardLayoutContent(doc)
+    setDashboardLayoutTopology(doc, { ...current.layout, id: 'panel-renamed' })
+    const persisted = readDashboardLayoutContent(doc)
+    mockPersistDashboardLayoutDirtyChannels.mockResolvedValueOnce(persisted)
+
+    try {
+      expect(isDashboardLayoutDirty(doc)).toBe(true)
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).resolves.toEqual(persisted)
+      expect(isDashboardLayoutDirty(doc)).toBe(false)
+
+      const [scope, entityId, receivedDoc, batch] =
+        mockPersistDashboardLayoutDirtyChannels.mock.calls[0]!
+      expect(scope).toEqual({ workspaceId: 'workspace-1', ownerUserId: 'user-1' })
+      expect(entityId).toBe('layout-1')
+      expect(receivedDoc).toBe(doc)
+      expect(batch).toMatchObject({ generation: 1, layout: true })
+      expect([...batch.widgetIdentityIds]).toEqual([])
+      expect([...batch.pairColors]).toEqual([])
+
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).resolves.toEqual(persisted)
+      expect(mockPersistDashboardLayoutDirtyChannels).toHaveBeenCalledTimes(1)
+    } finally {
+      doc.destroy()
+    }
+  })
+
+  it('maps a dashboard operation error, merges the failed batch, and retries it', async () => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDashboardDoc()
+    const current = readDashboardLayoutContent(doc)
+    setDashboardLayoutTopology(doc, { ...current.layout, id: 'panel-renamed' })
+    const persisted = readDashboardLayoutContent(doc)
+    mockPersistDashboardLayoutDirtyChannels
+      .mockRejectedValueOnce(new MockDashboardLayoutOperationError(404, 'Layout was not found'))
+      .mockResolvedValueOnce(persisted)
+
+    try {
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).rejects.toMatchObject({
+        status: 404,
+        message: 'Layout was not found',
+      })
+      expect(isDashboardLayoutDirty(doc)).toBe(true)
+
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).resolves.toEqual(persisted)
+      expect(isDashboardLayoutDirty(doc)).toBe(false)
+
+      const firstBatch = mockPersistDashboardLayoutDirtyChannels.mock.calls[0]?.[3]
+      const retryBatch = mockPersistDashboardLayoutDirtyChannels.mock.calls[1]?.[3]
+      expect(retryBatch).not.toBe(firstBatch)
+      expect(retryBatch).toMatchObject({ generation: 1, layout: true })
+      expect([...retryBatch.widgetIdentityIds]).toEqual([])
+      expect([...retryBatch.pairColors]).toEqual([])
+    } finally {
+      doc.destroy()
+    }
+  })
+
+  it('maps cross-layout widget identity collisions and retains the dirty batch', async () => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDashboardDoc()
+    const current = readDashboardLayoutContent(doc)
+    setDashboardLayoutTopology(doc, { ...current.layout, id: 'panel-renamed' })
+    mockPersistDashboardLayoutDirtyChannels.mockRejectedValueOnce(
+      Object.assign(new Error('duplicate key'), { code: '23505' })
+    )
+
+    try {
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).rejects.toMatchObject({
+        status: 409,
+        message: 'Dashboard widget identity conflicts with another layout',
+      })
+      expect(isDashboardLayoutDirty(doc)).toBe(true)
+    } finally {
+      doc.destroy()
+    }
+  })
+
+  it.each([
+    ['database transaction', new Error('database offline')],
+    [
+      'foreign-key violation',
+      Object.assign(new Error('layout owner disappeared'), { code: '23503' }),
+    ],
+  ])('maps a %s failure and keeps its dirty batch retryable', async (_name, failure) => {
+    const { saveDashboardLayoutYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDashboardDoc()
+    const current = readDashboardLayoutContent(doc)
+    setDashboardLayoutTopology(doc, { ...current.layout, id: 'panel-renamed' })
+    const persisted = readDashboardLayoutContent(doc)
+    mockPersistDashboardLayoutDirtyChannels
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(persisted)
+
+    try {
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).rejects.toMatchObject({
+        status: 500,
+        message: failure.message,
+      })
+      expect(isDashboardLayoutDirty(doc)).toBe(true)
+
+      await expect(saveDashboardLayoutYjsDocToDb('layout-1', doc)).resolves.toEqual(persisted)
+      expect(isDashboardLayoutDirty(doc)).toBe(false)
+    } finally {
+      doc.destroy()
+    }
   })
 
   it('maps watchlist document persistence errors to saved-entity persistence errors', async () => {

@@ -10,10 +10,18 @@ import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { materializeDashboardLayoutContent } from '@/lib/dashboard-layouts/operations'
+import {
+  DashboardLayoutOperationError,
+  persistDashboardLayoutDirtyChannels,
+} from '@/lib/dashboard-layouts/operations'
 import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/document'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
-import { readDashboardLayoutContent } from '@/lib/yjs/dashboard-layout-session'
+import {
+  beginDashboardLayoutDirtyFlush,
+  completeDashboardLayoutDirtyFlush,
+  failDashboardLayoutDirtyFlush,
+  readDashboardLayoutContent,
+} from '@/lib/yjs/dashboard-layout-session'
 import {
   getEntityFields,
   getEntityOwnerUserId,
@@ -22,7 +30,6 @@ import {
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -69,11 +76,10 @@ function normalizeSavedEntityFields(
 }
 
 async function persistSavedEntityState(
-  entityKind: SavedEntityKind,
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
   fields: Record<string, unknown>,
-  workspaceId: string,
-  ownerUserId?: string | null
+  workspaceId: string
 ): Promise<Record<string, unknown>> {
   const now = new Date()
   let persisted: Array<{ id: string }>
@@ -171,16 +177,6 @@ async function persistSavedEntityState(
         }
         throw error
       }
-    case 'dashboard_layout': {
-      if (!ownerUserId) {
-        throw new SavedEntityPersistenceError(400, 'Dashboard layout ownerUserId is required')
-      }
-      return materializeDashboardLayoutContent(
-        { workspaceId, ownerUserId },
-        entityId,
-        fields as DashboardLayoutDocumentContent
-      )
-    }
   }
 
   if (persisted.length === 0) {
@@ -218,26 +214,20 @@ export async function applySavedEntityState(
 }
 
 export async function saveSavedEntityYjsDocToDb(
-  entityKind: SavedEntityKind,
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
   doc: Y.Doc
 ): Promise<Record<string, unknown>> {
   let entityFields: Record<string, unknown>
   try {
-    entityFields =
-      entityKind === 'dashboard_layout'
-        ? readDashboardLayoutContent(doc)
-        : getEntityFields(doc, entityKind)
+    entityFields = getEntityFields(doc, entityKind)
   } catch (error) {
     throw new SavedEntityPersistenceError(
       400,
       error instanceof Error ? error.message : 'Invalid saved entity fields'
     )
   }
-  const yjsFields =
-    entityKind === 'dashboard_layout'
-      ? entityFields
-      : normalizeSavedEntityFields(entityKind, entityFields)
+  const yjsFields = normalizeSavedEntityFields(entityKind, entityFields)
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
     throw new SavedEntityPersistenceError(
@@ -245,16 +235,75 @@ export async function saveSavedEntityYjsDocToDb(
       `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
     )
   }
-  const ownerUserId = getEntityOwnerUserId(doc)
   const persistedFields = await persistSavedEntityState(
     entityKind,
     entityId,
     yjsFields,
-    workspaceId,
-    ownerUserId
+    workspaceId
   )
-  if (entityKind !== 'dashboard_layout') {
-    seedEntitySession(doc, { entityKind, payload: persistedFields })
-  }
+  seedEntitySession(doc, { entityKind, payload: persistedFields })
   return persistedFields
+}
+
+export async function saveDashboardLayoutYjsDocToDb(
+  entityId: string,
+  doc: Y.Doc
+): Promise<Record<string, unknown>> {
+  const workspaceId = getEntityWorkspaceId(doc)
+  if (!workspaceId) {
+    throw new SavedEntityPersistenceError(
+      404,
+      `Saved dashboard_layout ${entityId} workspace is missing while materializing Yjs state`
+    )
+  }
+  const ownerUserId = getEntityOwnerUserId(doc)
+  if (!ownerUserId) {
+    throw new SavedEntityPersistenceError(400, 'Dashboard layout ownerUserId is required')
+  }
+
+  let batch
+  try {
+    batch = beginDashboardLayoutDirtyFlush(doc)
+  } catch (error) {
+    throw new SavedEntityPersistenceError(
+      500,
+      error instanceof Error ? error.message : 'Dashboard layout persistence tracker is missing'
+    )
+  }
+  if (!batch) {
+    try {
+      return readDashboardLayoutContent(doc)
+    } catch (error) {
+      throw new SavedEntityPersistenceError(
+        400,
+        error instanceof Error ? error.message : 'Dashboard layout Yjs state is invalid'
+      )
+    }
+  }
+
+  try {
+    const content = await persistDashboardLayoutDirtyChannels(
+      { workspaceId, ownerUserId },
+      entityId,
+      doc,
+      batch
+    )
+    completeDashboardLayoutDirtyFlush(doc, batch)
+    return content
+  } catch (error) {
+    failDashboardLayoutDirtyFlush(doc, batch)
+    if (error instanceof DashboardLayoutOperationError) {
+      throw new SavedEntityPersistenceError(error.status, error.message)
+    }
+    if (isUniqueConstraintViolation(error)) {
+      throw new SavedEntityPersistenceError(
+        409,
+        'Dashboard widget identity conflicts with another layout'
+      )
+    }
+    throw new SavedEntityPersistenceError(
+      500,
+      error instanceof Error ? error.message : 'Dashboard layout persistence failed'
+    )
+  }
 }

@@ -27,10 +27,10 @@ const m = vi.hoisted(() => {
       userId: 'watchlistTable.userId',
       parentId: 'watchlistTable.parentId',
     },
-    layoutMap: {
-      id: 'layoutMap.id',
-      workspaceId: 'layoutMap.workspaceId',
-      userId: 'layoutMap.userId',
+    layoutMaps: {
+      id: 'layoutMaps.id',
+      workspaceId: 'layoutMaps.workspaceId',
+      userId: 'layoutMaps.userId',
     },
   }
   const state: {
@@ -152,9 +152,9 @@ describe('renameSavedEntityIdentity', () => {
 
     expect(m.state.last?.condition).toEqual({
       and: [
-        { field: 'layoutMap.id', value: 'entity-1' },
-        { field: 'layoutMap.workspaceId', value: 'workspace-1' },
-        { field: 'layoutMap.userId', value: 'user-1' },
+        { field: 'layoutMaps.id', value: 'entity-1' },
+        { field: 'layoutMaps.workspaceId', value: 'workspace-1' },
+        { field: 'layoutMaps.userId', value: 'user-1' },
       ],
     })
     expect(m.refreshEntityListSession).toHaveBeenCalledWith(

@@ -146,12 +146,16 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
   })
   const actions = useWidgetConfigRuntimeActions()
   const widgetKey = widget?.key ?? 'workflow_variables'
+  const patchLinkedParams =
+    (widget?.pairColor ?? 'gray') === 'gray'
+      ? actions.patchWidgetParams
+      : actions.patchWidgetColorPair
 
   const handleWorkflowChange = useCallback(
     (workflowId: string) => {
-      actions.patchWidgetParams({ workflowId })
+      patchLinkedParams({ workflowId })
     },
-    [actions]
+    [patchLinkedParams]
   )
 
   return (

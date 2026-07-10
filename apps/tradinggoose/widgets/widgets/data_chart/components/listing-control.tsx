@@ -72,11 +72,12 @@ export const DataChartListingControl = ({
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const actions = useWidgetConfigRuntimeActions()
-  const patchWidgetParams = useCallback(
+  const patchListing = useCallback(
     (nextParams: Record<string, unknown>) => {
-      actions.patchWidgetParams(nextParams)
+      const patch = pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
+      patch(nextParams)
     },
-    [actions]
+    [actions, pairColor]
   )
   const previousProviderRef = useRef<string | undefined>(undefined)
   const syncedInstanceIdRef = useRef<string | null>(null)
@@ -141,7 +142,7 @@ export const DataChartListingControl = ({
 
   const handleListingChange = (selected: ListingOption | null) => {
     const normalized = toListingValue(selected)
-    patchWidgetParams({ listing: normalized ?? null })
+    patchListing({ listing: normalized ?? null })
   }
 
   return (

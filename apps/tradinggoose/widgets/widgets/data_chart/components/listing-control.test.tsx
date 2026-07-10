@@ -14,6 +14,9 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const fetchListingsMock = vi.fn()
+const listingInputState = vi.hoisted(() => ({
+  onListingChange: null as ((listing: ListingOption | null) => void) | null,
+}))
 
 vi.mock('@/lib/listing/search', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/listing/search')>()
@@ -57,13 +60,29 @@ vi.mock('@/components/widget-header-control', () => ({
     ['trigger', className].filter(Boolean).join(' '),
 }))
 
+vi.mock('@/components/listing-selector/selector/input', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/components/listing-selector/selector/input')>()
+  return {
+    ...actual,
+    ListingSearchInput: (props: React.ComponentProps<typeof actual.ListingSearchInput>) => {
+      listingInputState.onListingChange = props.onListingChange ?? null
+      const Component = actual.ListingSearchInput
+      return <Component {...props} />
+    },
+  }
+})
+
 const patchWidgetParamsMock = vi.fn()
+const patchWidgetColorPairMock = vi.fn()
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
   useWidgetPairContext: () => ({}),
   useWidgetConfigRuntimeActions: () => ({
     patchWidgetParams: (...args: Parameters<typeof patchWidgetParamsMock>) =>
       patchWidgetParamsMock(...args),
+    patchWidgetColorPair: (...args: Parameters<typeof patchWidgetColorPairMock>) =>
+      patchWidgetColorPairMock(...args),
   }),
 }))
 
@@ -77,6 +96,8 @@ describe('DataChartListingControl', () => {
     fetchListingsMock.mockReset()
     fetchListingsMock.mockResolvedValue([])
     patchWidgetParamsMock.mockReset()
+    patchWidgetColorPairMock.mockReset()
+    listingInputState.onListingChange = null
     useListingSelectorStore.setState({ instances: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -162,4 +183,48 @@ describe('DataChartListingControl', () => {
 
     expect(patchWidgetParamsMock).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['gray', patchWidgetParamsMock, patchWidgetColorPairMock],
+    ['red', patchWidgetColorPairMock, patchWidgetParamsMock],
+  ] as const)(
+    'routes %s listing changes through the canonical callback',
+    async (pairColor, used, unused) => {
+      const selectedListing: ListingOption = {
+        listing_id: 'TG_LSTG_AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+        base: 'AAPL',
+        quote: 'USD',
+        name: 'Apple Inc.',
+        iconUrl: '',
+        assetClass: 'stock',
+      }
+
+      await act(async () => {
+        root.render(
+          <DataChartListingControl
+            widgetKey='listing-control-test'
+            panelId='panel-1'
+            params={{ data: { provider: 'alpaca' } }}
+            pairColor={pairColor}
+          />
+        )
+      })
+      await act(async () => {
+        listingInputState.onListingChange?.(selectedListing)
+      })
+
+      expect(used).toHaveBeenCalledWith({
+        listing: {
+          listing_id: 'TG_LSTG_AAPL',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      })
+      expect(unused).not.toHaveBeenCalled()
+    }
+  )
 })

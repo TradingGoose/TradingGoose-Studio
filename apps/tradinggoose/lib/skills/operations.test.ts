@@ -35,10 +35,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workspaceId: 'mcpServers.workspaceId',
     deletedAt: 'mcpServers.deletedAt',
   },
-  layoutMap: {
-    id: 'layoutMap.id',
-    workspaceId: 'layoutMap.workspaceId',
-    userId: 'layoutMap.userId',
+  layoutMaps: {
+    id: 'layoutMaps.id',
+    workspaceId: 'layoutMaps.workspaceId',
+    userId: 'layoutMaps.userId',
   },
 }))
 

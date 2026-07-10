@@ -17,6 +17,7 @@ import {
 } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
+  saveDashboardLayoutYjsDocToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -32,6 +33,7 @@ import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-loc
 import {
   discardDocument,
   discardDocumentIfIdle,
+  flushDocumentPersistence,
   getDocument,
   getExistingDocument,
   markDocumentPersisted,
@@ -476,12 +478,17 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
-        await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
-        if (descriptor.entityKind !== 'dashboard_layout') {
+        if (descriptor.entityKind === 'dashboard_layout') {
+          await flushDocumentPersistence(doc, async (docId, target) => {
+            await saveDashboardLayoutYjsDocToDb(docId, target)
+          })
+          discardDocumentIfIdle(sessionId)
+        } else {
+          await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
           await refreshSavedEntityListDoc(descriptor.entityKind, doc)
+          markDocumentPersisted(doc)
+          discardDocumentIfIdle(sessionId)
         }
-        markDocumentPersisted(doc)
-        discardDocumentIfIdle(sessionId)
       }
     } catch (error) {
       discardDocumentIfIdle(descriptor.yjsSessionId)
@@ -579,7 +586,9 @@ async function handleInternalYjsSnapshotRequest(
       runtime: getRuntimeStateFromDoc(liveDoc),
       touchedAt: null,
     })
-    if (bootstrappedForRequest) {
+    const retainDashboardLayout =
+      descriptor.entityKind === 'dashboard_layout' && descriptor.entityId !== null
+    if (bootstrappedForRequest && !retainDashboardLayout) {
       discardDocumentIfIdle(sessionId)
     }
   } catch (error) {

@@ -180,7 +180,8 @@ function DashboardPanel({
   closePanel?: (panelId: string) => void
   replacePanelWidget?: (panelId: string, widgetKey: string) => void
 }) {
-  const { changeWidgetPairColor, patchWidgetParams } = useWidgetConfigRuntimeActions()
+  const { changeWidgetPairColor, patchWidgetColorPair, patchWidgetParams } =
+    useWidgetConfigRuntimeActions()
   const handlePanelSplitVertical = useCallback(
     () => splitPanelVertical?.(panelId),
     [panelId, splitPanelVertical]
@@ -202,6 +203,7 @@ function DashboardPanel({
       onPairColorChange={canEditContent ? changeWidgetPairColor : undefined}
       onWidgetChange={canEditContent && replacePanelWidget ? handleWidgetChange : undefined}
       onWidgetParamsPatch={canEditContent ? patchWidgetParams : undefined}
+      onWidgetColorPairPatch={canEditContent ? patchWidgetColorPair : undefined}
       onPanelSplit={splitPanelVertical ? handlePanelSplitVertical : undefined}
       onPanelSplitHorizontal={splitPanelHorizontal ? handlePanelSplitHorizontal : undefined}
       onPanelClose={closePanel ? handlePanelClose : undefined}

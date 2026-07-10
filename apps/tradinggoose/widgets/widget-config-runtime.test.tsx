@@ -48,24 +48,24 @@ const content = (): DashboardLayoutDocumentContent => ({
         id: 'panel-a',
         type: 'panel',
         identityId: 'widget-a',
-        widgetKey: 'editor_workflow',
+        widgetKey: 'watchlist',
       },
       {
         id: 'panel-b',
         type: 'panel',
         identityId: 'widget-b',
-        widgetKey: 'editor_workflow',
+        widgetKey: 'watchlist',
       },
     ],
   },
   widgets: {
-    'widget-a': { pairColor: 'red', params: null },
-    'widget-b': { pairColor: 'blue', params: null },
+    'widget-a': { pairColor: 'red', params: { provider: 'alpaca' } },
+    'widget-b': { pairColor: 'blue', params: { provider: 'alpaca' } },
   },
   colorPairs: {
     pairs: [
-      { color: 'red', workflowId: 'workflow-red' },
-      { color: 'blue', workflowId: 'workflow-blue' },
+      { color: 'red', watchlistId: 'watchlist-red' },
+      { color: 'blue', watchlistId: 'watchlist-blue' },
     ],
   },
 })
@@ -90,7 +90,7 @@ describe('WidgetConfigRuntimeProvider', () => {
     container.remove()
   })
 
-  it('writes through the scoped panel into the layout child maps', async () => {
+  it('keeps local params patches in the selected widget map', async () => {
     const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
       '@/widgets/widget-config-runtime'
     )
@@ -108,29 +108,32 @@ describe('WidgetConfigRuntimeProvider', () => {
         </WidgetConfigRuntimeProvider>
       )
     })
-    act(() => patchWidgetParams?.({ workflowId: 'workflow-next' }))
+    act(() => patchWidgetParams?.({ provider: 'polygon' }))
 
     const next = readDashboardLayoutContent(doc)
-    expect(next.widgets['widget-a']).toEqual({ pairColor: 'red', params: null })
+    expect(next.widgets['widget-a']).toEqual({
+      pairColor: 'red',
+      params: { provider: 'polygon' },
+    })
     expect(next.colorPairs.pairs).toContainEqual({
       color: 'red',
-      workflowId: 'workflow-next',
+      watchlistId: 'watchlist-red',
     })
     expect(next.colorPairs.pairs).toContainEqual({
       color: 'blue',
-      workflowId: 'workflow-blue',
+      watchlistId: 'watchlist-blue',
     })
   })
 
-  it('clears a linked field in the selected color-pair map only', async () => {
+  it('uses the explicit pair action to clear a linked field in the selected pair map only', async () => {
     getDashboardColorPairsMap(doc).get('red')?.set('indicatorId', 'indicator-red')
     const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
       '@/widgets/widget-config-runtime'
     )
-    let patchWidgetParams: ((params: Record<string, unknown>) => void) | null = null
+    let patchWidgetColorPair: ((params: Record<string, unknown> | null) => void) | null = null
 
     const CaptureActions = () => {
-      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
+      patchWidgetColorPair = useWidgetConfigRuntimeActions().patchWidgetColorPair
       return null
     }
 
@@ -141,20 +144,23 @@ describe('WidgetConfigRuntimeProvider', () => {
         </WidgetConfigRuntimeProvider>
       )
     })
-    act(() => patchWidgetParams?.({ workflowId: null }))
+    act(() => patchWidgetColorPair?.({ watchlistId: null }))
 
     const next = readDashboardLayoutContent(doc)
-    expect(next.widgets['widget-a']).toEqual({ pairColor: 'red', params: null })
+    expect(next.widgets['widget-a']).toEqual({
+      pairColor: 'red',
+      params: { provider: 'alpaca' },
+    })
     expect(next.colorPairs.pairs).toContainEqual({
       color: 'red',
       indicatorId: 'indicator-red',
     })
     expect(next.colorPairs.pairs).toContainEqual({
       color: 'blue',
-      workflowId: 'workflow-blue',
+      watchlistId: 'watchlist-blue',
     })
     expect(next.colorPairs.pairs.find((pair) => pair.color === 'red')).not.toHaveProperty(
-      'workflowId'
+      'watchlistId'
     )
   })
 
@@ -176,7 +182,7 @@ describe('WidgetConfigRuntimeProvider', () => {
         </WidgetConfigRuntimeProvider>
       )
     })
-    act(() => patchWidgetParams?.({ workflowId: 'blocked' }))
+    act(() => patchWidgetParams?.({ provider: 'blocked' }))
 
     expect(readDashboardLayoutContent(doc)).toEqual(before)
   })
@@ -213,7 +219,7 @@ describe('WidgetConfigRuntimeProvider', () => {
       )
     })
     const beforePanelB = panelBRenders
-    act(() => patchPanelA?.({ workflowId: 'workflow-next' }))
+    act(() => patchPanelA?.({ provider: 'polygon' }))
 
     expect(panelARenders).toBeGreaterThan(1)
     expect(panelBRenders).toBe(beforePanelB)
@@ -227,7 +233,7 @@ describe('WidgetConfigRuntimeProvider', () => {
     const RenderConfig = () => {
       renders += 1
       const widget = useDashboardWidgetRenderConfig()
-      return <span>{String(widget?.params?.workflowId ?? '')}</span>
+      return <span>{String(widget?.params?.watchlistId ?? '')}</span>
     }
     act(() => {
       root.render(
@@ -237,10 +243,10 @@ describe('WidgetConfigRuntimeProvider', () => {
       )
     })
     const beforeBlue = renders
-    act(() => getDashboardColorPairsMap(doc).get('blue')?.set('workflowId', 'blue-next'))
+    act(() => getDashboardColorPairsMap(doc).get('blue')?.set('watchlistId', 'blue-next'))
     expect(renders).toBe(beforeBlue)
 
-    act(() => getDashboardColorPairsMap(doc).get('red')?.set('workflowId', 'red-next'))
+    act(() => getDashboardColorPairsMap(doc).get('red')?.set('watchlistId', 'red-next'))
     expect(renders).toBeGreaterThan(beforeBlue)
     expect(container.textContent).toContain('red-next')
   })

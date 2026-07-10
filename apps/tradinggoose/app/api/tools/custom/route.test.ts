@@ -52,7 +52,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   customTools: {},
   pineIndicators: {},
   mcpServers: {},
-  layoutMap: {},
+  layoutMaps: {},
 }))
 
 describe('Custom Tools API Routes', () => {

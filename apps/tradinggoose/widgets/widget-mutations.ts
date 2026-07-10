@@ -16,7 +16,6 @@ import {
   normalizeWidgetColorPairPatch,
   resolveEffectiveWidgetParams,
   sanitizeWidgetParams,
-  splitWidgetParamsForColorPair,
   type WidgetKey,
 } from '@/widgets/widget-contracts'
 
@@ -74,7 +73,6 @@ export type PlannedWidgetConfigMutation = {
   beforeWidgetDocument: DashboardWidgetDocument
   widgetKey: WidgetKey
   widgetDocument: DashboardWidgetDocument
-  carriedPairContext: PairColorContext
 }
 
 export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
@@ -114,46 +112,19 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     pairColor: input.patch.pairColor,
     defaultPairColor: currentPairColor,
   })
-  const contract = getWidgetContract(nextKey)
-  const paramsPairPatch = withWidgetConfigErrors('params', () => {
-    if (nextPairColor === 'gray' || !input.patch.params) return {}
-    const linkedFields = new Set<string>(contract.linkedParamFields)
-    const linkedParams = Object.fromEntries(
-      Object.entries(input.patch.params).filter(([field]) => linkedFields.has(field))
-    )
-    return normalizeWidgetColorPairPatch(nextKey, linkedParams)
-  })
-  const { nextParams, widgetParams } = withWidgetConfigErrors('params', () => {
-    const nextParams = sanitizeWidgetParams(
-      nextKey,
-      resolveMutationParams(current, nextKey, input.patch),
-      {
-        strictUnknown: true,
-      }
-    )
-    const widgetParams = contract.resolveParamsForPairColorChange(
-      { key: nextKey, pairColor: nextPairColor, params: nextParams },
-      nextPairColor,
-      input.colorPairs
-    ).params
-    return { nextParams, widgetParams }
-  })
-  const carriedPairContext = buildCarriedPairContext({
-    beforeWidget: current,
-    colorPairs: input.colorPairs,
-    beforePairColor: currentPairColor,
-    nextPairColor,
-    nextKey,
-  })
-  const pairPatch = withWidgetConfigErrors('params', () =>
-    nextPairColor === 'gray' || input.patch.colorPair === null
-      ? {}
-      : buildFinalPairPatch({
-          widgetKey: nextKey,
-          paramsPairPatch,
-          colorPair: input.patch.colorPair,
-          carriedPairContext,
-        })
+  assertLinkedParamsUseColorPair(nextKey, nextPairColor, input.patch.params)
+  const widgetParams = withWidgetConfigErrors('params', () =>
+    sanitizeWidgetParams(nextKey, resolveMutationParams(current, nextKey, input.patch), {
+      strictUnknown: true,
+    })
+  )
+  if (nextPairColor === 'gray' && input.patch.colorPair !== undefined) {
+    failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
+  }
+  const pairPatch = withWidgetConfigErrors('colorPair', () =>
+    input.patch.colorPair && nextPairColor !== 'gray'
+      ? normalizeWidgetColorPairPatch(nextKey, input.patch.colorPair)
+      : {}
   )
 
   return {
@@ -165,7 +136,6 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
         pairColor: nextPairColor,
         params: widgetParams,
       },
-      carriedPairContext,
     },
     pairPatch,
   }
@@ -191,14 +161,15 @@ export function applyWidgetConfigMutation(
     pairPatch,
   })
   const colorPairs = normalizeColorPairsState(unprunedColorPairs)
+  const colorPairDiff = buildColorPairDiff(input.colorPairs, colorPairs)
 
   return {
     ...plan,
     colorPairs,
     beforeEffectiveParams: resolveEffectiveWidgetParams(beforeWidget, input.colorPairs),
     afterEffectiveParams: resolveEffectiveWidgetParams(widget, colorPairs),
-    colorPairDiff: buildColorPairDiff(input.colorPairs, colorPairs),
-    changedPaths: buildChangedPaths(beforeWidget, widget, input.colorPairs, colorPairs),
+    colorPairDiff,
+    changedPaths: buildChangedPaths(beforeWidget, widget, colorPairDiff),
     warnings: [],
     issues: [],
   }
@@ -236,17 +207,32 @@ function resolveMutationParams(
   return mode === 'replace' ? patch.params : mergeWidgetParams(nextKey, baseParams, patch.params)
 }
 
+function assertLinkedParamsUseColorPair(
+  widgetKey: WidgetKey,
+  pairColor: PairColor,
+  params: Record<string, unknown> | null | undefined
+): void {
+  if (pairColor === 'gray' || !params) return
+
+  const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
+  const issues = Object.keys(params)
+    .filter((field) => linkedFields.has(field))
+    .map((field) => ({
+      path: `params.${field}`,
+      message: `Shared color-pair field "${field}" must be updated through colorPair for non-gray widgets`,
+    }))
+  if (issues.length > 0) throw new WidgetConfigValidationError(issues)
+}
+
 function buildNextColorPairs(input: {
   colorPairs: PersistedColorPairsState
   pairColor: PairColor
   colorPair?: Record<string, unknown> | null
   pairPatch: Record<string, unknown>
 }): PersistedColorPairsState {
+  if (input.colorPair === undefined) return input.colorPairs
   if (input.pairColor === 'gray') {
-    if (input.colorPair && Object.keys(input.colorPair).length > 0) {
-      failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
-    }
-    return input.colorPairs
+    failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
   }
 
   if (input.colorPair === null) {
@@ -256,55 +242,6 @@ function buildNextColorPairs(input: {
   return Object.keys(input.pairPatch).length > 0
     ? upsertPairColorContext(input.colorPairs, input.pairColor, input.pairPatch)
     : input.colorPairs
-}
-
-function buildCarriedPairContext(input: {
-  beforeWidget: NonNullable<WidgetInstance>
-  colorPairs: PersistedColorPairsState
-  beforePairColor: PairColor
-  nextPairColor: PairColor
-  nextKey: WidgetKey
-}): PairColorContext {
-  if (
-    input.nextPairColor === 'gray' ||
-    input.nextPairColor === input.beforePairColor ||
-    !isWidgetKey(input.beforeWidget.key)
-  ) {
-    return {}
-  }
-
-  const linkedFields = getWidgetContract(input.nextKey).linkedParamFields
-  if (linkedFields.length === 0) return {}
-
-  const effectiveParams = resolveEffectiveWidgetParams(input.beforeWidget, input.colorPairs)
-  if (!effectiveParams) return {}
-
-  const targetContext = readPairColorContext(input.colorPairs, input.nextPairColor)
-  const carryInput: Record<string, unknown> = {}
-  for (const field of linkedFields) {
-    const value = effectiveParams[field]
-    if (value != null && targetContext[field as keyof PairColorContext] == null) {
-      carryInput[field] = value
-    }
-  }
-
-  if (Object.keys(carryInput).length === 0) return {}
-  return splitWidgetParamsForColorPair(input.nextKey, input.nextPairColor, carryInput).pairContext
-}
-
-function buildFinalPairPatch(input: {
-  widgetKey: WidgetKey
-  paramsPairPatch: Record<string, unknown>
-  colorPair?: Record<string, unknown> | null
-  carriedPairContext?: PairColorContext
-}): Record<string, unknown> {
-  const explicitPatch = normalizeWidgetColorPairPatch(input.widgetKey, input.colorPair)
-  assertNoLinkedFieldConflicts(input.paramsPairPatch, explicitPatch)
-  return {
-    ...(input.carriedPairContext ?? {}),
-    ...input.paramsPairPatch,
-    ...explicitPatch,
-  }
 }
 
 function buildColorPairDiff(
@@ -334,30 +271,14 @@ function areJsonValuesEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
 }
 
-function assertNoLinkedFieldConflicts(
-  fromParams: PairColorContext,
-  explicitPatch: Record<string, unknown>
-) {
-  const issues: WidgetConfigValidationIssue[] = []
-  for (const [field, value] of Object.entries(fromParams)) {
-    if (!(field in explicitPatch) || areJsonValuesEqual(value, explicitPatch[field])) continue
-    const message = `Conflicting linked colorPair field "${field}" submitted in params and colorPair`
-    issues.push({ path: `params.${field}`, message }, { path: `colorPair.${field}`, message })
-  }
-  if (issues.length > 0) {
-    throw new WidgetConfigValidationError(issues)
-  }
-}
-
 function buildChangedPaths(
   beforeWidget: NonNullable<WidgetInstance>,
   afterWidget: NonNullable<WidgetInstance>,
-  beforeColorPairs: PersistedColorPairsState,
-  afterColorPairs: PersistedColorPairsState
+  colorPairDiff: AppliedWidgetConfigMutation['colorPairDiff']
 ): string[] {
   const changed: string[] = []
   if (beforeWidget.pairColor !== afterWidget.pairColor) changed.push('widget.pairColor')
   if (!areJsonValuesEqual(beforeWidget.params, afterWidget.params)) changed.push('widget.params')
-  if (!areJsonValuesEqual(beforeColorPairs, afterColorPairs)) changed.push('colorPairs')
+  if (colorPairDiff.length > 0) changed.push('colorPairs')
   return changed
 }

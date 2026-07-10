@@ -179,8 +179,12 @@ const WorkflowEditorHeaderSelector = ({
     params: widget?.params ?? null,
   })
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    (widget?.pairColor ?? 'gray') === 'gray'
+      ? actions.patchWidgetParams
+      : actions.patchWidgetColorPair
   const handleWorkflowChange = (workflowId: string) => {
-    actions.patchWidgetParams({ workflowId })
+    patchLinkedParams({ workflowId })
   }
 
   return (

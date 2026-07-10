@@ -9,13 +9,7 @@ import {
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
-const CONTRACT_FNS = [
-  'sanitizeLocalParams',
-  'mergeLocalParams',
-  'splitPatchForPairColor',
-  'resolveEffectiveParams',
-  'resolveParamsForPairColorChange',
-] as const
+const CONTRACT_FNS = ['sanitizeLocalParams', 'mergeLocalParams', 'resolveEffectiveParams'] as const
 
 describe('dashboard widget contracts', () => {
   it.each(WIDGET_KEYS)(
@@ -46,37 +40,6 @@ describe('dashboard widget contracts', () => {
         { strictUnknown: true }
       )
     ).toThrow()
-  })
-
-  it.each(WIDGET_KEYS)('round-trips linked split/effective params for %s', (key) => {
-    const contract = getWidgetContract(key)
-    const input = Object.fromEntries(
-      contract.linkedParamFields.map((field) => [
-        field,
-        field === 'listing'
-          ? {
-              listing_id: 'AAPL',
-              listing_type: 'default',
-              base_id: '',
-              quote_id: '',
-            }
-          : `${field}-1`,
-      ])
-    )
-
-    const split = contract.splitPatchForPairColor(input, 'red')
-    const widget = { key, pairColor: 'red' as const, params: null }
-    if (contract.linkedParamFields.length === 0) {
-      expect(split.linkedPatch).toEqual({})
-      expect(contract.resolveEffectiveParams(widget, split.linkedPatch).params).toBeNull()
-      return
-    }
-
-    expect(Object.keys(split.linkedPatch).sort()).toEqual([...contract.linkedParamFields].sort())
-    expect(split.localPatch).toBeNull()
-    expect(contract.resolveEffectiveParams(widget, split.linkedPatch).params).toEqual(
-      split.linkedPatch
-    )
   })
 
   it.each(WIDGET_KEYS)('serializes %s metadata without executable functions', (key) => {
@@ -133,27 +96,27 @@ describe('dashboard widget contracts', () => {
     expect(fields).not.toContain('indicators')
   })
 
-  it('keeps heatmap listing as the only linked pair field', () => {
-    const split = getWidgetContract('heatmap').splitPatchForPairColor(
+  it('keeps heatmap listing as its only linked pair field', () => {
+    expect(getWidgetContract('heatmap').linkedParamFields).toEqual(['listing'])
+  })
+
+  it('lets shared pair context override linked local params without touching non-linked params', () => {
+    const contract = getWidgetContract('watchlist')
+    const result = contract.resolveEffectiveParams(
       {
-        listing: {
-          listing_id: 'AAPL',
-          listing_type: 'default',
-          provider: 'ignored',
+        key: 'watchlist',
+        pairColor: 'red',
+        params: {
+          watchlistId: 'watchlist-local',
+          provider: 'alpaca',
         },
-        sourceMode: 'watchlist',
       },
-      'red'
+      { watchlistId: 'watchlist-shared' }
     )
 
-    expect(split.localPatch).toEqual({ sourceMode: 'watchlist' })
-    expect(split.linkedPatch).toEqual({
-      listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
+    expect(result.params).toEqual({
+      watchlistId: 'watchlist-shared',
+      provider: 'alpaca',
     })
   })
 

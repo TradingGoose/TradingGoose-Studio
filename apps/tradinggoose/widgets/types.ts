@@ -27,6 +27,7 @@ export interface WidgetComponentProps {
   widget?: WidgetInstance | null
   onWidgetChange?: (widgetKey: string) => void
   onWidgetParamsPatch?: (params: Record<string, unknown>) => void
+  onWidgetColorPairPatch?: (colorPair: Record<string, unknown> | null) => void
 }
 
 export type DashboardWidgetComponent = (props: WidgetComponentProps) => ReactNode

@@ -16,6 +16,10 @@ import * as map from 'lib0/map'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
+import {
+  ensureDashboardLayoutDirtyTracker,
+  isDashboardLayoutDirty,
+} from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
@@ -38,9 +42,12 @@ class WSSharedDoc extends Y.Doc {
   onDocumentUpdate?: DocumentPersistenceHandler
   onDocumentUpdateDebounceMs = 0
   hasUnsavedChanges = false
+  changeGeneration = 0
   isPersisting = false
-  needsPersist = false
+  pendingPersistRequests = 0
+  persistenceQueue: Promise<void> = Promise.resolve()
   persistTimer: ReturnType<typeof setTimeout> | null = null
+  cleanupRequested = false
 
   constructor(name: string, gc: boolean) {
     super({ gc })
@@ -78,6 +85,7 @@ class WSSharedDoc extends Y.Doc {
 
     this.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin !== YJS_ORIGINS.SYSTEM) {
+        this.changeGeneration += 1
         this.hasUnsavedChanges = true
         scheduleDocumentPersistence(this)
       }
@@ -98,52 +106,86 @@ function scheduleDocumentPersistence(doc: WSSharedDoc): void {
     doc.persistTimer = null
   }
 
-  if (doc.isPersisting) {
-    doc.needsPersist = true
+  if (doc.pendingPersistRequests > 0) {
     return
   }
 
   if (doc.onDocumentUpdateDebounceMs > 0) {
     doc.persistTimer = setTimeout(() => {
       doc.persistTimer = null
-      runDocumentPersistence(doc)
+      void enqueueDocumentPersistence(doc, doc.onDocumentUpdate).catch((error) => {
+        console.error('[yjs upstream-utils] Failed to persist live document', error)
+      })
     }, doc.onDocumentUpdateDebounceMs)
     return
   }
 
-  runDocumentPersistence(doc)
+  void enqueueDocumentPersistence(doc, doc.onDocumentUpdate).catch((error) => {
+    console.error('[yjs upstream-utils] Failed to persist live document', error)
+  })
 }
 
-function runDocumentPersistence(doc: WSSharedDoc): void {
-  const persist = doc.onDocumentUpdate
-  if (!persist) {
-    return
-  }
+function hasDashboardTracker(doc: WSSharedDoc): boolean {
+  return doc.getMap('metadata').get('entityKind') === 'dashboard_layout'
+}
 
-  if (doc.isPersisting) {
-    doc.needsPersist = true
-    return
-  }
+function hasDirtyState(doc: WSSharedDoc): boolean {
+  return doc.hasUnsavedChanges || (hasDashboardTracker(doc) && isDashboardLayoutDirty(doc))
+}
 
-  doc.isPersisting = true
-  doc.needsPersist = false
-  void Promise.resolve(persist(doc.name, doc))
-    .then(() => {
-      if (!doc.needsPersist) {
-        doc.hasUnsavedChanges = false
-      }
-    })
-    .catch((error) => {
+function isPersistenceClean(doc: WSSharedDoc): boolean {
+  return (
+    !hasDirtyState(doc) &&
+    !doc.isPersisting &&
+    doc.pendingPersistRequests === 0 &&
+    doc.persistTimer === null
+  )
+}
+
+function schedulePersistenceRetry(doc: WSSharedDoc): void {
+  if (doc.persistTimer || doc.pendingPersistRequests > 0 || !doc.onDocumentUpdate) return
+  doc.persistTimer = setTimeout(
+    () => {
+      doc.persistTimer = null
+      scheduleDocumentPersistence(doc)
+    },
+    Math.max(doc.onDocumentUpdateDebounceMs, 1000)
+  )
+}
+
+function enqueueDocumentPersistence(
+  doc: WSSharedDoc,
+  persist: DocumentPersistenceHandler | undefined
+): Promise<void> {
+  if (!persist) return doc.persistenceQueue
+
+  doc.pendingPersistRequests += 1
+  const run = doc.persistenceQueue.then(async () => {
+    if (!hasDirtyState(doc)) return
+    const generation = doc.changeGeneration
+    doc.isPersisting = true
+    try {
+      await persist(doc.name, doc)
+      const hasNewerChanges = doc.changeGeneration !== generation
+      const dashboardDirty = hasDashboardTracker(doc) && isDashboardLayoutDirty(doc)
+      doc.hasUnsavedChanges = hasNewerChanges || dashboardDirty
+    } catch (error) {
       doc.hasUnsavedChanges = true
-      doc.needsPersist = true
-      console.error('[yjs upstream-utils] Failed to persist live document', error)
-    })
-    .finally(() => {
+      throw error
+    } finally {
       doc.isPersisting = false
-      if (doc.needsPersist) {
-        scheduleDocumentPersistence(doc)
-      }
-    })
+    }
+  })
+
+  const settled = run.finally(() => {
+    doc.pendingPersistRequests -= 1
+    if (hasDirtyState(doc)) schedulePersistenceRetry(doc)
+    if (doc.cleanupRequested && doc.conns.size === 0 && isPersistenceClean(doc)) {
+      cleanupDocument(doc)
+    }
+  })
+  doc.persistenceQueue = settled.catch(() => undefined)
+  return settled
 }
 
 function cleanupDocument(doc: WSSharedDoc): void {
@@ -151,6 +193,8 @@ function cleanupDocument(doc: WSSharedDoc): void {
     return
   }
 
+  if (doc.persistTimer) clearTimeout(doc.persistTimer)
+  doc.persistTimer = null
   docs.delete(doc.name)
   doc.destroy()
 }
@@ -161,20 +205,20 @@ function finalizeDocumentCleanup(doc: WSSharedDoc): void {
     doc.persistTimer = null
   }
 
-  if (!doc.onDocumentIdle || !doc.hasUnsavedChanges) {
+  doc.cleanupRequested = true
+  if (isPersistenceClean(doc)) {
     cleanupDocument(doc)
     return
   }
 
-  void Promise.resolve(doc.onDocumentIdle(doc.name, doc))
-    .catch((error) => {
-      console.error('[yjs upstream-utils] Failed to persist idle document', error)
-    })
-    .finally(() => {
-      if (doc.conns.size === 0) {
-        cleanupDocument(doc)
-      }
-    })
+  const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate
+  if (!persist) {
+    cleanupDocument(doc)
+    return
+  }
+  void enqueueDocumentPersistence(doc, persist).catch((error) => {
+    console.error('[yjs upstream-utils] Failed to persist idle document', error)
+  })
 }
 
 function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
@@ -260,14 +304,32 @@ export function getDocument(docId: string, gc = true, bootstrapState?: Uint8Arra
       Y.applyUpdate(doc, bootstrapState, YJS_ORIGINS.SYSTEM)
       doc.hasUnsavedChanges = false
     }
+    if (hasDashboardTracker(doc)) ensureDashboardLayoutDirtyTracker(doc)
     return doc
   })
 }
 
 export function markDocumentPersisted(doc: Y.Doc): void {
   if (doc instanceof WSSharedDoc) {
-    doc.hasUnsavedChanges = false
+    doc.hasUnsavedChanges = hasDashboardTracker(doc) && isDashboardLayoutDirty(doc)
   }
+}
+
+export async function flushDocumentPersistence(
+  doc: Y.Doc,
+  persist?: DocumentPersistenceHandler
+): Promise<void> {
+  if (!(doc instanceof WSSharedDoc)) {
+    if (persist) await persist('', doc)
+    return
+  }
+  if (persist) doc.onDocumentUpdate = persist
+  if (hasDashboardTracker(doc)) ensureDashboardLayoutDirtyTracker(doc)
+  if (doc.persistTimer) {
+    clearTimeout(doc.persistTimer)
+    doc.persistTimer = null
+  }
+  await enqueueDocumentPersistence(doc, persist ?? doc.onDocumentUpdate ?? doc.onDocumentIdle)
 }
 
 export function peekDocument(docId: string): Y.Doc | null {
@@ -310,6 +372,7 @@ export function setupWSConnection(
   conn.binaryType = 'arraybuffer'
 
   const doc = getDocument(docId, gc, bootstrapState) as WSSharedDoc
+  if (hasDashboardTracker(doc)) ensureDashboardLayoutDirtyTracker(doc)
   doc.onDocumentIdle = onDocumentIdle
   if (onDocumentUpdate) {
     doc.onDocumentUpdate = onDocumentUpdate
@@ -415,8 +478,10 @@ export function discardDocument(docId: string): void {
 
 export function discardDocumentIfIdle(docId: string): void {
   const doc = docs.get(docId)
-  if (!doc || doc.conns.size > 0) {
-    return
+  if (!doc || doc.conns.size > 0) return
+  if (hasDashboardTracker(doc)) {
+    doc.cleanupRequested = true
+    if (!isPersistenceClean(doc)) return
   }
 
   cleanupDocument(doc)

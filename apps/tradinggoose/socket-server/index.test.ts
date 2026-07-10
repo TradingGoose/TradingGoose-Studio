@@ -951,7 +951,7 @@ describe('Socket Server Index Integration', () => {
       expect(await getExistingDocument('idle-clean')).toBeNull()
     })
 
-    it('should discard an idle document even when final persistence fails', async () => {
+    it('should retain an idle document when final persistence fails', async () => {
       const conn = new (await import('node:events')).EventEmitter() as any
       conn.readyState = 1
       conn.send = vi.fn((_message, _options, callback) => callback?.())
@@ -973,7 +973,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
 
       expect(onDocumentIdle).toHaveBeenCalledWith('idle-save-failed', expect.any(Y.Doc))
-      expect(await getExistingDocument('idle-save-failed')).toBeNull()
+      expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
     })
   })
 

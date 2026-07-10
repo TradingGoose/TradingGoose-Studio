@@ -29,13 +29,15 @@ const McpEditorSelector = ({
 }) => {
   const actions = useWidgetConfigRuntimeActions()
   const copy = useMessages().workspace.widgets.mcpEditor
+  const patchLinkedParams =
+    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const resolvedServerId = resolveMcpServerId({
     params,
   })
 
   const handleServerChange = (nextServerId: string | null) => {
-    actions.patchWidgetParams({ mcpServerId: nextServerId })
+    patchLinkedParams({ mcpServerId: nextServerId })
   }
 
   return (

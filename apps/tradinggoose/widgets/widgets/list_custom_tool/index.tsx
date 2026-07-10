@@ -189,12 +189,14 @@ function CustomToolListHeaderRight({
   const importMutation = useImportCustomTools()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('custom_tool', workspaceId)
+  const patchLinkedParams =
+    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectTool = useCallback(
     (createdToolId: string) => {
-      actions.patchWidgetParams({ customToolId: createdToolId })
+      patchLinkedParams({ customToolId: createdToolId })
     },
-    [actions]
+    [patchLinkedParams]
   )
   const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
@@ -286,7 +288,9 @@ const ListCustomToolHeaderRight = ({
 function ListCustomToolWidgetBodyInner({
   context,
   params,
+  pairColor = 'gray',
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
   panelId,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
@@ -321,12 +325,13 @@ function ListCustomToolWidgetBodyInner({
     entityIds: tools.map((tool) => tool.id),
     useDefaultEntity: false,
   })
+  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
 
   const syncSelection = useCallback(
     (customToolId: string | null) => {
-      onWidgetParamsPatch?.({ customToolId })
+      patchLinkedParams?.({ customToolId })
     },
-    [onWidgetParamsPatch]
+    [patchLinkedParams]
   )
 
   const handleDeleteTool = useCallback(

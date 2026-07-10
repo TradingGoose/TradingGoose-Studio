@@ -1,8 +1,6 @@
 import {
-  type LinkedPairColor,
   normalizePairColorContext,
   type PairColorContext,
-  type PersistedColorPair,
   type PersistedColorPairsState,
   readPairColorContext,
 } from '@/widgets/color-pairs'
@@ -143,21 +141,6 @@ export function mergeWidgetParams(
     .params
 }
 
-export function splitWidgetParamsForColorPair(
-  widgetKey: WidgetKey,
-  pairColor: unknown,
-  params: unknown
-): {
-  localParams: Record<string, unknown> | null
-  pairContext: PairColorContext
-} {
-  if (pairColor !== 'gray' && !isPairColor(pairColor)) {
-    throw new Error(`Unknown pairColor "${String(pairColor)}"`)
-  }
-  const split = getWidgetContract(widgetKey).splitPatchForPairColor(params, pairColor)
-  return { localParams: split.localPatch, pairContext: split.linkedPatch }
-}
-
 export function resolveEffectiveWidgetParams(
   widget: WidgetInstance,
   colorPairs: PersistedColorPairsState | unknown
@@ -236,63 +219,6 @@ export function normalizeWidgetColorPairPatch(
     }
     return acc
   }, {})
-}
-
-export function pruneDashboardColorPairsForLayout(
-  layout: LayoutNode,
-  colorPairs: PersistedColorPairsState | unknown
-): PersistedColorPairsState {
-  const supportedFieldsByColor = collectSupportedLinkedFieldsByColor(layout)
-  const pairs: PersistedColorPair[] = []
-
-  for (const pair of normalizeColorPairsState(colorPairs).pairs) {
-    const supportedFields = supportedFieldsByColor.get(pair.color)
-    if (!supportedFields || supportedFields.size === 0) continue
-
-    const context = normalizePairColorContext(pair)
-    const nextPair: PersistedColorPair = { color: pair.color }
-    for (const field of supportedFields) {
-      const value = context[field as keyof PairColorContext]
-      if (value != null) {
-        ;(nextPair as Record<string, unknown>)[field] = value
-      }
-    }
-    if (Object.keys(nextPair).length > 1) {
-      pairs.push(nextPair)
-    }
-  }
-
-  return { pairs }
-}
-
-function collectSupportedLinkedFieldsByColor(
-  node: LayoutNode,
-  fieldsByColor: Map<LinkedPairColor, Set<WidgetParamField>> = new Map()
-): Map<LinkedPairColor, Set<WidgetParamField>> {
-  if (node.type === 'panel') {
-    const widget = node.widget
-    if (
-      !widget ||
-      !isWidgetKey(widget.key) ||
-      !isPairColor(widget.pairColor) ||
-      widget.pairColor === 'gray'
-    ) {
-      return fieldsByColor
-    }
-    const fields = getWidgetContract(widget.key).linkedParamFields
-    if (fields.length === 0) return fieldsByColor
-    const existing = fieldsByColor.get(widget.pairColor) ?? new Set<WidgetParamField>()
-    for (const field of fields) {
-      existing.add(field)
-    }
-    fieldsByColor.set(widget.pairColor, existing)
-    return fieldsByColor
-  }
-
-  for (const child of node.children) {
-    collectSupportedLinkedFieldsByColor(child, fieldsByColor)
-  }
-  return fieldsByColor
 }
 
 export function listWidgetCatalogItems(

@@ -26,11 +26,13 @@ export function IndicatorEditorSelector({
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const resolvedIndicatorId = indicatorId ?? null
 
   const handleIndicatorChange = (ids: string[]) => {
     const nextId = ids[0] ?? null
-    actions.patchWidgetParams({ indicatorId: nextId })
+    patchLinkedParams({ indicatorId: nextId })
   }
 
   return (

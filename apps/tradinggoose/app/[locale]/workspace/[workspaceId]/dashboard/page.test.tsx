@@ -38,7 +38,7 @@ const activeLayout = {
   topology: {
     id: 'panel-1',
     type: 'panel',
-    identityId: null,
+    identityId: 'widget-1',
     widgetKey: null,
   },
 }
@@ -78,12 +78,16 @@ describe('WorkspaceDashboardPage', () => {
     expect(m.clientProps).not.toHaveProperty('initialColorPairs')
   })
 
-  it('passes workspace write permission only for workspace entities', async () => {
+  it('keeps a reader personal layout available while workspace entities remain read-only', async () => {
     m.access.mockResolvedValueOnce({ exists: true, hasAccess: true, canWrite: false })
 
     await renderPage()
 
+    expect(m.ensureLayout).toHaveBeenCalledWith(scope)
+    expect(m.readActive).toHaveBeenCalledWith(scope)
     expect(m.clientProps).toMatchObject({
+      layoutId: 'layout-active',
+      ownerUserId: 'user-1',
       workspaceCanWrite: false,
     })
   })

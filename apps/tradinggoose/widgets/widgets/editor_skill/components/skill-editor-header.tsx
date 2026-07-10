@@ -28,10 +28,12 @@ export function SkillEditorSelector({
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const resolvedSkillId = skillId ?? null
 
   const handleSkillChange = (nextSkillId: string | null) => {
-    actions.patchWidgetParams({ skillId: nextSkillId })
+    patchLinkedParams({ skillId: nextSkillId })
   }
 
   return (

@@ -34,10 +34,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workspace.id',
     ownerId: 'workspace.owner_id',
   },
-  layoutMap: {
-    id: 'layout_map.id',
-    workspaceId: 'layout_map.workspace_id',
-    userId: 'layout_map.user_id',
+  layoutMaps: {
+    id: 'layout_maps.id',
+    workspaceId: 'layout_maps.workspace_id',
+    userId: 'layout_maps.user_id',
   },
 }))
 

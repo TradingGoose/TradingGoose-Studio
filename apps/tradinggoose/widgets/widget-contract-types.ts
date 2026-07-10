@@ -9,7 +9,6 @@ import {
   type PairColorContext,
 } from '@/widgets/color-pairs'
 import type { WidgetInstance } from '@/widgets/layout'
-import type { PairColor } from '@/widgets/pair-colors'
 
 export { normalizeListingIdentity } from '@/widgets/color-pairs'
 
@@ -218,23 +217,10 @@ export type WidgetContract = {
     incomingParams: Record<string, unknown>,
     mode?: WidgetParamMutationMode
   ) => WidgetSanitizeResult
-  splitPatchForPairColor: (
-    params: unknown,
-    pairColor: PairColor
-  ) => {
-    localPatch: Record<string, unknown> | null
-    linkedPatch: PairColorContext
-    rejectedPaths: string[]
-  }
   resolveEffectiveParams: (
     widget: WidgetInstance,
     pairContext: PairColorContext
   ) => WidgetEffectiveParamsResult
-  resolveParamsForPairColorChange: (
-    widget: WidgetInstance,
-    nextPairColor: PairColor,
-    colorPairs: { pairs: Array<PairColorContext & { color: string }> } | unknown
-  ) => WidgetSanitizeResult
 }
 
 type ContractInput = Omit<
@@ -243,9 +229,7 @@ type ContractInput = Omit<
   | 'createDefaultInstance'
   | 'sanitizeLocalParams'
   | 'mergeLocalParams'
-  | 'splitPatchForPairColor'
   | 'resolveEffectiveParams'
-  | 'resolveParamsForPairColorChange'
 > & {
   sanitizeLocalParams?: (
     params: unknown,
@@ -278,29 +262,6 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
         },
         { strictUnknown: true }
       ))
-  const splitPatchForPairColor: WidgetContract['splitPatchForPairColor'] = (params, pairColor) => {
-    const normalizedParams = sanitize(params, { strictUnknown: true })
-    if (pairColor === 'gray' || !normalizedParams) {
-      return {
-        localPatch: normalizedParams,
-        linkedPatch: {},
-        rejectedPaths: [],
-      }
-    }
-
-    const linkedFields = new Set<string>(input.linkedParamFields)
-    const localPatch: Record<string, unknown> = {}
-    const linkedPatch: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(normalizedParams)) {
-      ;(linkedFields.has(key) ? linkedPatch : localPatch)[key] = value
-    }
-
-    return {
-      localPatch: Object.keys(localPatch).length > 0 ? localPatch : null,
-      linkedPatch: normalizePairColorContext(linkedPatch),
-      rejectedPaths: [],
-    }
-  }
   return {
     ...input,
     paramContract,
@@ -320,7 +281,6 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
           : merge(currentParams, incomingParams),
       issues: [],
     }),
-    splitPatchForPairColor,
     resolveEffectiveParams(widget, pairContext) {
       const localParams = sanitize(widget?.params, { strictUnknown: false }) ?? {}
       const normalizedPairContext = normalizePairColorContext(pairContext)
@@ -336,15 +296,6 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
 
       return {
         params: Object.keys(localParams).length > 0 ? localParams : null,
-        issues: [],
-      }
-    },
-    resolveParamsForPairColorChange(widget, nextPairColor) {
-      return {
-        params:
-          nextPairColor === 'gray'
-            ? sanitize(widget?.params, { strictUnknown: false })
-            : splitPatchForPairColor(widget?.params ?? null, nextPairColor).localPatch,
         issues: [],
       }
     },

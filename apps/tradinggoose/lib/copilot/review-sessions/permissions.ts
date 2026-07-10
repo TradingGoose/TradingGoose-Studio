@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { copilotReviewSessions, layoutMap, permissions, workspace } from '@tradinggoose/db/schema'
+import { copilotReviewSessions, layoutMaps, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { isEntityListSessionId } from '@/lib/copilot/review-sessions/identity'
 import type {
@@ -243,9 +243,9 @@ async function verifySavedEntityTargetAccess(
     }
 
     const [layout] = await db
-      .select({ workspaceId: layoutMap.workspaceId, userId: layoutMap.userId })
-      .from(layoutMap)
-      .where(eq(layoutMap.id, reviewTarget.entityId))
+      .select({ workspaceId: layoutMaps.workspaceId, userId: layoutMaps.userId })
+      .from(layoutMaps)
+      .where(eq(layoutMaps.id, reviewTarget.entityId))
       .limit(1)
     if (!layout || layout.userId !== ownerUserId) {
       logger.warn('Dashboard layout review target not found', { userId, reviewTarget })

@@ -31,6 +31,7 @@ const WorkflowListWidgetBody = ({
   pairColor = 'gray',
   widget,
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.workflowList
@@ -44,6 +45,7 @@ const WorkflowListWidgetBody = ({
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
+  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
 
   // Workflows list newest-first; the projection's canonical name order is a
   // deterministic base, not the workflow list's presentation order.
@@ -68,9 +70,9 @@ const WorkflowListWidgetBody = ({
 
   const selectWorkflowId = useCallback(
     (workflowId: string) => {
-      onWidgetParamsPatch?.({ workflowId })
+      patchLinkedParams?.({ workflowId })
     },
-    [onWidgetParamsPatch]
+    [patchLinkedParams]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
@@ -177,14 +179,16 @@ const WorkflowListHeaderRight = ({
   const copy = useMessages().workspace.widgets.workflowList
   const { members } = useEntityList('workflow', workspaceId)
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const selectWorkflowId = useCallback(
     (workflowId: string) => {
       if (!workflowId) {
         return
       }
-      actions.patchWidgetParams({ workflowId })
+      patchLinkedParams({ workflowId })
     },
-    [actions]
+    [patchLinkedParams]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 

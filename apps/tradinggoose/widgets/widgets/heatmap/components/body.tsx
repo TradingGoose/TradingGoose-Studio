@@ -63,10 +63,12 @@ export function HeatmapWidgetBody({
   params,
   pairColor = 'gray',
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
+  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
   const canEditWidgetParams = Boolean(onWidgetParamsPatch)
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
@@ -186,10 +188,9 @@ export function HeatmapWidgetBody({
   })
   const handleListingSelect = useCallback(
     (listing: ListingIdentity) => {
-      if (pairColor === 'gray') return
-      patchWidgetParams({ listing })
+      patchLinkedParams?.({ listing })
     },
-    [pairColor, patchWidgetParams]
+    [patchLinkedParams]
   )
   const chartItems = useMemo(
     () =>

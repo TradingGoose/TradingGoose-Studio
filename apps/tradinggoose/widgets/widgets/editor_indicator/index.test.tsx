@@ -12,6 +12,9 @@ import {
 } from '@/widgets/events'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 
+const mockPatchWidgetParams = vi.fn()
+const mockPatchWidgetColorPair = vi.fn()
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -19,12 +22,19 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/pine-indicator-dropdown', () => ({
-  IndicatorDropdown: () => <div>indicator-dropdown</div>,
+  IndicatorDropdown: ({ onChange }: { onChange: (ids: string[]) => void }) => (
+    <button type='button' onClick={() => onChange(['indicator-next'])}>
+      indicator-dropdown
+    </button>
+  ),
 }))
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
   useWidgetPairContext: () => ({}),
-  useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+    patchWidgetColorPair: (...args: unknown[]) => mockPatchWidgetColorPair(...args),
+  }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -69,6 +79,34 @@ describe('Indicator Editor header controls', () => {
     expect(buttons[1]?.textContent).toContain('Export indicator')
     expect(buttons[2]?.textContent).toContain('Save indicator')
   })
+
+  it.each([
+    ['gray', mockPatchWidgetParams, mockPatchWidgetColorPair],
+    ['red', mockPatchWidgetColorPair, mockPatchWidgetParams],
+  ] as const)(
+    'routes %s linked selections through the canonical callback',
+    async (pairColor, used, unused) => {
+      const header = editorIndicatorWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_indicator',
+          params: { indicatorId: 'indicator-1' },
+          pairColor,
+        } as any,
+      } as any)
+
+      await act(async () => {
+        root.render(header?.center as ReactNode)
+      })
+      await act(async () => {
+        container.querySelector('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(used).toHaveBeenCalledWith({ indicatorId: 'indicator-next' })
+      expect(unused).not.toHaveBeenCalled()
+    }
+  )
 
   it('disables export when no indicator is selected', async () => {
     const header = editorIndicatorWidget.renderHeader?.({

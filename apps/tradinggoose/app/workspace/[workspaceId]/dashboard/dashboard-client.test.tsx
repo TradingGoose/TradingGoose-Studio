@@ -378,7 +378,7 @@ describe('DashboardClient', () => {
       switchToRedButton.click()
     })
     expect(readWidgetSurface(container, 'panel-a')).toEqual({
-      workflowId: 'wf-a',
+      workflowId: '',
       watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'red',

@@ -45,12 +45,14 @@ const IndicatorListHeaderRight = ({
   const importMutation = useImportIndicators()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('indicator', workspaceId)
+  const patchLinkedParams =
+    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectIndicator = useCallback(
     (createdIndicatorId: string) => {
-      actions.patchWidgetParams({ indicatorId: createdIndicatorId })
+      patchLinkedParams({ indicatorId: createdIndicatorId })
     },
-    [actions]
+    [patchLinkedParams]
   )
   const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 

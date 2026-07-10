@@ -85,10 +85,12 @@ describe('edit_widget server tool', () => {
       layout: {
         id: 'chart-panel',
         type: 'panel',
-        identityId: null,
+        identityId: 'empty-widget',
         widgetKey: null,
       },
-      widgets: {},
+      widgets: {
+        'empty-widget': { pairColor: 'gray', params: null },
+      },
       colorPairs: { pairs: [] },
     })
 
@@ -144,7 +146,7 @@ describe('edit_widget server tool', () => {
 
   it('clears a linked listing through review and socket color-pair mutations', async () => {
     toolMocks.shouldStage.mockReturnValue(true)
-    const staged = await execute({ params: { listing: null } }, { accessLevel: 'limited' })
+    const staged = await execute({ colorPair: { listing: null } }, { accessLevel: 'limited' })
     const after = JSON.parse(staged.preview.documentDiff.after)
 
     expect(after.effectiveParams).not.toHaveProperty('listing')
@@ -159,7 +161,7 @@ describe('edit_widget server tool', () => {
     ])
 
     toolMocks.shouldStage.mockReturnValue(false)
-    const applied = await execute({ params: { listing: null } })
+    const applied = await execute({ colorPair: { listing: null } })
     expect(applied.colorPairDiff).toEqual(staged.colorPairDiff)
     expect(toolMocks.applyWidget).toHaveBeenCalledWith(
       expect.objectContaining({

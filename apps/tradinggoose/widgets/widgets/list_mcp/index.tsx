@@ -144,12 +144,14 @@ const ListMcpHeaderRightContent = ({
   const permissions = useUserPermissionsContext()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('mcp_server', workspaceId)
+  const patchLinkedParams =
+    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectServer = useCallback(
     (serverId: string) => {
-      actions.patchWidgetParams({ mcpServerId: serverId })
+      patchLinkedParams({ mcpServerId: serverId })
     },
-    [actions]
+    [patchLinkedParams]
   )
   const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
@@ -202,7 +204,9 @@ const ListMcpHeaderRight = ({
 const ListMcpWidgetContent = ({
   context,
   params,
+  pairColor = 'gray',
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
@@ -236,12 +240,13 @@ const ListMcpWidgetContent = ({
     entityIds: workspaceServers.map((server) => server.id),
     useDefaultEntity: false,
   })
+  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
 
   const handleSelectServer = useCallback(
     (serverId: string | null) => {
-      onWidgetParamsPatch?.({ mcpServerId: serverId })
+      patchLinkedParams?.({ mcpServerId: serverId })
     },
-    [onWidgetParamsPatch]
+    [patchLinkedParams]
   )
 
   const handleRenameServer = useCallback(

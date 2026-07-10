@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import {
   customTools,
   knowledgeBase,
-  layoutMap,
+  layoutMaps,
   mcpServers,
   pineIndicators,
   skill,
@@ -87,9 +87,9 @@ export async function resolveEntityWorkspaceId(
       throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
     }
     const [row] = await db
-      .select({ workspaceId: layoutMap.workspaceId })
-      .from(layoutMap)
-      .where(and(eq(layoutMap.id, entityId), eq(layoutMap.userId, ownerUserId)))
+      .select({ workspaceId: layoutMaps.workspaceId })
+      .from(layoutMaps)
+      .where(and(eq(layoutMaps.id, entityId), eq(layoutMaps.userId, ownerUserId)))
       .limit(1)
     return row?.workspaceId ?? null
   }

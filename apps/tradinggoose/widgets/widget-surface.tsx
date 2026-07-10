@@ -23,6 +23,7 @@ interface WidgetSurfaceProps {
   onPanelSplitHorizontal?: () => void
   onPanelClose?: () => void
   onWidgetParamsPatch?: (params: Record<string, unknown>) => void
+  onWidgetColorPairPatch?: (colorPair: Record<string, unknown> | null) => void
 }
 
 function WidgetSurfaceComponent({
@@ -35,6 +36,7 @@ function WidgetSurfaceComponent({
   onPanelSplitHorizontal,
   onPanelClose,
   onWidgetParamsPatch,
+  onWidgetColorPairPatch,
 }: WidgetSurfaceProps) {
   const renderWidget = useDashboardWidgetRenderConfig()
   const widgetKey = renderWidget?.key ?? 'empty'
@@ -147,6 +149,7 @@ function WidgetSurfaceComponent({
               widget={renderWidget}
               onWidgetChange={onWidgetChange}
               onWidgetParamsPatch={onWidgetParamsPatch}
+              onWidgetColorPairPatch={onWidgetColorPairPatch}
             />
           ) : null}
         </div>
@@ -183,7 +186,8 @@ function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
     prev.onPanelSplit === next.onPanelSplit &&
     prev.onPanelSplitHorizontal === next.onPanelSplitHorizontal &&
     prev.onPanelClose === next.onPanelClose &&
-    prev.onWidgetParamsPatch === next.onWidgetParamsPatch
+    prev.onWidgetParamsPatch === next.onWidgetParamsPatch &&
+    prev.onWidgetColorPairPatch === next.onWidgetColorPairPatch
   )
 }
 

@@ -7,18 +7,27 @@ import type { LocaleCode } from '@/i18n/utils'
 import {
   closeDashboardTopologyPanel,
   createDefaultDashboardLayoutContent,
-  type DashboardLayoutTopologyNode,
+  type DashboardLayoutDocumentContent,
+  type DashboardLayoutEditPlan,
   findDashboardTopologyParentGroupId,
+  normalizeDashboardLayoutDocumentContent,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
   updateDashboardTopologyGroupSizes,
 } from '@/widgets/layout-document'
 
+function applyPreviewEditPlan(
+  current: DashboardLayoutDocumentContent,
+  plan: DashboardLayoutEditPlan
+): DashboardLayoutDocumentContent {
+  const widgets = { ...current.widgets, ...plan.createdWidgets }
+  for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
+  return normalizeDashboardLayoutDocumentContent({ ...current, layout: plan.layout, widgets })
+}
+
 export function LayoutPreview() {
   const [mounted, setMounted] = useState(false)
-  const [tree, setTree] = useState<DashboardLayoutTopologyNode>(
-    () => createDefaultDashboardLayoutContent().layout
-  )
+  const [document, setDocument] = useState(createDefaultDashboardLayoutContent)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
@@ -30,37 +39,47 @@ export function LayoutPreview() {
       return
     }
 
-    setTree((prev) => updateDashboardTopologyGroupSizes(prev, groupId, sizes))
+    setDocument((current) => ({
+      ...current,
+      layout: updateDashboardTopologyGroupSizes(current.layout, groupId, sizes),
+    }))
   }, [])
 
   const splitPanelVertical = useCallback((panelId: string) => {
-    setTree((prev) => {
-      const parentId = findDashboardTopologyParentGroupId(prev, panelId)
-      const next = splitDashboardTopologyPanel(prev, {}, panelId, 'vertical').layout
+    setDocument((current) => {
+      const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
+      const plan = splitDashboardTopologyPanel(current.layout, current.widgets, panelId, 'vertical')
 
-      if (next !== prev && parentId) {
+      if (plan.layout !== current.layout && parentId) {
         skipLayoutRef.current.add(parentId)
       }
 
-      return next
+      return applyPreviewEditPlan(current, plan)
     })
   }, [])
 
   const splitPanelHorizontal = useCallback((panelId: string) => {
-    setTree((prev) => {
-      const parentId = findDashboardTopologyParentGroupId(prev, panelId)
-      const next = splitDashboardTopologyPanel(prev, {}, panelId, 'horizontal').layout
+    setDocument((current) => {
+      const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
+      const plan = splitDashboardTopologyPanel(
+        current.layout,
+        current.widgets,
+        panelId,
+        'horizontal'
+      )
 
-      if (next !== prev && parentId) {
+      if (plan.layout !== current.layout && parentId) {
         skipLayoutRef.current.add(parentId)
       }
 
-      return next
+      return applyPreviewEditPlan(current, plan)
     })
   }, [])
 
   const closePanel = useCallback((panelId: string) => {
-    setTree((prev) => closeDashboardTopologyPanel(prev, panelId).layout)
+    setDocument((current) =>
+      applyPreviewEditPlan(current, closeDashboardTopologyPanel(current.layout, panelId))
+    )
   }, [])
 
   useEffect(() => {
@@ -76,7 +95,7 @@ export function LayoutPreview() {
       <DashboardLayoutPreviewCanvas
         closePanel={closePanel}
         copy={layoutCopy}
-        layout={resolveDashboardLayout(tree, {})}
+        layout={resolveDashboardLayout(document.layout, document.widgets)}
         locale={locale}
         persistGroupSizes={persistGroupSizes}
         splitPanelHorizontal={splitPanelHorizontal}

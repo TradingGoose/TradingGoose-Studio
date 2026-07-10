@@ -86,14 +86,14 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       continue
     }
 
-    pairs.push({
-      color,
-      ...normalizePersistedColorPairFields(raw as Record<string, unknown>),
-    })
+    const context = normalizePersistedColorPairFields(raw as Record<string, unknown>)
+    if (Object.keys(context).length === 0) continue
+
+    pairs.push({ color, ...context })
     seen.add(color)
   }
 
-  return { pairs }
+  return { pairs: pairs.sort((left, right) => left.color.localeCompare(right.color)) }
 }
 
 export type WidgetInstance = {

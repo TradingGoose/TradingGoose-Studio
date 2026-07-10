@@ -665,8 +665,9 @@ describe('HeatmapWidgetBody', () => {
     )
   })
 
-  it('writes selected heatmap listings through the widget params patch callback', async () => {
+  it('writes selected heatmap listings through the explicit pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
     currentWatchlists = [
       {
         id: 'watchlist-1',
@@ -697,6 +698,7 @@ describe('HeatmapWidgetBody', () => {
             marketProvider: 'alpaca',
           }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
@@ -708,7 +710,8 @@ describe('HeatmapWidgetBody', () => {
       onListingSelect(createListing('AAPL'))
     })
 
-    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: createListing('AAPL') })
+    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: createListing('AAPL') })
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
   it('shows empty portfolio message when portfolio mode has no listings', async () => {

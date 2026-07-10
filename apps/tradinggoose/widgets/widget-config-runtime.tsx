@@ -57,9 +57,10 @@ function useWidgetConfigRuntime(): WidgetConfigRuntime {
 
 function readPanelWidget(doc: Y.Doc, panelId: string): WidgetInstance {
   const panel = findDashboardTopologyPanel(readDashboardLayoutTopology(doc), panelId)
-  if (!panel?.identityId || !panel.widgetKey) return null
+  if (!panel) return null
   const widget = readDashboardWidgetDocument(doc, panel.identityId, panel.widgetKey)
-  return widget ? { key: panel.widgetKey, ...widget } : null
+  if (!widget) throw new Error(`Dashboard panel ${panelId} references a missing widget`)
+  return panel.widgetKey ? { key: panel.widgetKey, ...widget } : null
 }
 
 function subscribePanelWidget(doc: Y.Doc, panelId: string, listener: () => void): () => void {
@@ -183,6 +184,19 @@ export const useWidgetConfigRuntimeActions = () => {
           { params, paramsMode: 'patch' },
           YJS_ORIGINS.USER
         )
+      },
+      patchWidgetColorPair: (colorPair: Record<string, unknown> | null) => {
+        const widget = readPanelWidget(doc, panelId)
+        if (
+          !canWrite ||
+          !widget ||
+          !isWidgetKey(widget.key) ||
+          !isPairColor(widget.pairColor) ||
+          widget.pairColor === 'gray'
+        ) {
+          return
+        }
+        applyDashboardWidgetConfigPatch(doc, panelId, { colorPair }, YJS_ORIGINS.USER)
       },
     }),
     [canWrite, doc, panelId]

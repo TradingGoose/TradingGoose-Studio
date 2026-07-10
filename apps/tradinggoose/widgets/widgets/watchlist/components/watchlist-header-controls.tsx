@@ -371,6 +371,10 @@ export const WatchlistHeaderRightControls = ({
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
   const actions = useWidgetConfigRuntimeActions()
+  const patchLinkedParams =
+    (widget?.pairColor ?? 'gray') === 'gray'
+      ? actions.patchWidgetParams
+      : actions.patchWidgetColorPair
   const requestedWatchlistId = resolveSelectedWatchlistId({
     params,
   })
@@ -398,7 +402,7 @@ export const WatchlistHeaderRightControls = ({
 
   const handleSelectList = (watchlistId: string) => {
     if (!canEditWidgetParams) return
-    actions.patchWidgetParams({ watchlistId })
+    patchLinkedParams({ watchlistId })
   }
 
   const selectListOption = (option: WatchlistListOption) => {

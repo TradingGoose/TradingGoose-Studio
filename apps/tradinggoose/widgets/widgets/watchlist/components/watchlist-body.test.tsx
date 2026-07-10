@@ -130,8 +130,9 @@ describe('WatchlistWidgetBody', () => {
     container.remove()
   })
 
-  it('writes selected listings through the widget params patch callback when linked', async () => {
+  it('writes selected listings through the explicit pair callback when linked', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
 
     await act(async () => {
       root.render(
@@ -142,6 +143,7 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
@@ -161,7 +163,8 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
       root.render(
@@ -172,6 +175,7 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: selectedListing }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
@@ -184,7 +188,7 @@ describe('WatchlistWidgetBody', () => {
     )
   })
 
-  it('uses a read Yjs session and ignores listing selection when read-only', async () => {
+  it('uses a read Yjs session while keeping gray listing selection local', async () => {
     const onWidgetParamsPatch = vi.fn()
 
     await act(async () => {
@@ -210,18 +214,19 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
+    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         isLinkedSelection: false,
         selectedListing: null,
-        onSelectListing: undefined,
+        onSelectListing: expect.any(Function),
       })
     )
   })
 
-  it('uses a read Yjs session but writes linked selection through widget params when workspace read-only', async () => {
+  it('uses a read Yjs session but writes linked selection through the pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
 
     await act(async () => {
       root.render(
@@ -232,6 +237,7 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
@@ -246,11 +252,13 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
   it('does not auto-claim the first watchlist when the widget is linked without a pair watchlist', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
 
     await act(async () => {
       root.render(
@@ -261,11 +269,13 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
 
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
+    expect(onWidgetColorPairPatch).not.toHaveBeenCalled()
     expect(mockWatchlistTable).toHaveBeenCalledWith(
       expect.objectContaining({
         watchlist,
@@ -276,8 +286,9 @@ describe('WatchlistWidgetBody', () => {
     expect(container.textContent).not.toContain('Create a watchlist to get started.')
   })
 
-  it('clears linked selections through the widget params patch callback', async () => {
+  it('clears linked selections through the explicit pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
 
     await act(async () => {
       root.render(
@@ -288,6 +299,7 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: selectedListing }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })
@@ -307,7 +319,8 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: null })
+    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: null })
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
       root.render(
@@ -318,6 +331,7 @@ describe('WatchlistWidgetBody', () => {
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: null }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetColorPairPatch={onWidgetColorPairPatch}
         />
       )
     })

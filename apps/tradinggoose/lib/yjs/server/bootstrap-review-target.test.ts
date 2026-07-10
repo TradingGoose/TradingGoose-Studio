@@ -36,10 +36,12 @@ const dashboardContent = {
   layout: {
     id: 'panel-1',
     type: 'panel' as const,
-    identityId: null,
+    identityId: 'widget-1',
     widgetKey: null,
   },
-  widgets: {},
+  widgets: {
+    'widget-1': { pairColor: 'gray' as const, params: null },
+  },
   colorPairs: { pairs: [] },
 }
 

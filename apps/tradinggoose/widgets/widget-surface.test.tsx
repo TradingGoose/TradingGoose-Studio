@@ -4,7 +4,10 @@ import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import {
+  getDashboardWidgetsMap,
+  seedDashboardLayoutSession,
+} from '@/lib/yjs/dashboard-layout-session'
 import { WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
@@ -80,6 +83,7 @@ describe('WidgetSurface', () => {
 
   it('forwards widget runtime context and patch callback to the selected widget', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetColorPairPatch = vi.fn()
     const context = {
       workspaceId: 'workspace-1',
       dashboardLayoutId: 'layout-1',
@@ -94,6 +98,7 @@ describe('WidgetSurface', () => {
             context={context}
             panelId='panel-1'
             onWidgetParamsPatch={onWidgetParamsPatch}
+            onWidgetColorPairPatch={onWidgetColorPairPatch}
           />
         </WidgetConfigRuntimeProvider>
       )
@@ -106,6 +111,7 @@ describe('WidgetSurface', () => {
       panelId: 'panel-1',
       pairColor: 'red',
       onWidgetParamsPatch,
+      onWidgetColorPairPatch,
     })
   })
 
@@ -115,10 +121,12 @@ describe('WidgetSurface', () => {
       layout: {
         id: 'panel-1',
         type: 'panel',
-        identityId: null,
+        identityId: 'widget-empty',
         widgetKey: null,
       },
-      widgets: {},
+      widgets: {
+        'widget-empty': { pairColor: 'gray', params: null },
+      },
       colorPairs: { pairs: [] },
     })
 
@@ -132,5 +140,36 @@ describe('WidgetSurface', () => {
 
     expect(container.querySelector('[data-testid="widget-empty"]')).toBeTruthy()
     expect(registryState.componentProps).toMatchObject({ onWidgetChange })
+  })
+
+  it('rejects a missing child instead of rendering it as an empty widget', () => {
+    seedDashboardLayoutSession(doc, {
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        identityId: 'widget-empty',
+        widgetKey: null,
+      },
+      widgets: {
+        'widget-empty': { pairColor: 'gray', params: null },
+      },
+      colorPairs: { pairs: [] },
+    })
+    getDashboardWidgetsMap(doc).delete('widget-empty')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    try {
+      expect(() => {
+        act(() => {
+          root.render(
+            <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
+              <WidgetSurface panelId='panel-1' />
+            </WidgetConfigRuntimeProvider>
+          )
+        })
+      }).toThrow('Dashboard panel panel-1 references a missing widget')
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 })
