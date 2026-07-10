@@ -142,6 +142,33 @@ describe('edit_widget server tool', () => {
     expect(JSON.parse(result.entityDocument).params).toBeNull()
   })
 
+  it('clears a linked listing through review and socket color-pair mutations', async () => {
+    toolMocks.shouldStage.mockReturnValue(true)
+    const staged = await execute({ params: { listing: null } }, { accessLevel: 'limited' })
+    const after = JSON.parse(staged.preview.documentDiff.after)
+
+    expect(after.effectiveParams).not.toHaveProperty('listing')
+    expect(after.colorPair).toEqual({})
+    expect(staged.colorPairDiff).toEqual([
+      {
+        color: 'red',
+        before: { listing: fx.AAPL_LISTING },
+        after: {},
+        changedFields: ['listing'],
+      },
+    ])
+
+    toolMocks.shouldStage.mockReturnValue(false)
+    const applied = await execute({ params: { listing: null } })
+    expect(applied.colorPairDiff).toEqual(staged.colorPairDiff)
+    expect(toolMocks.applyWidget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        widget: expect.objectContaining({ params: { data: { provider: 'alpaca' } } }),
+        colorPairs: [{ color: 'red', value: null }],
+      })
+    )
+  })
+
   it('stages edit_widget review with selected-widget JSON document diff', async () => {
     toolMocks.shouldStage.mockReturnValue(true)
 

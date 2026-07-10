@@ -122,6 +122,42 @@ describe('WidgetConfigRuntimeProvider', () => {
     })
   })
 
+  it('clears a linked field in the selected color-pair map only', async () => {
+    getDashboardColorPairsMap(doc).get('red')?.set('indicatorId', 'indicator-red')
+    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
+      '@/widgets/widget-config-runtime'
+    )
+    let patchWidgetParams: ((params: Record<string, unknown>) => void) | null = null
+
+    const CaptureActions = () => {
+      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
+      return null
+    }
+
+    act(() => {
+      root.render(
+        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite>
+          <CaptureActions />
+        </WidgetConfigRuntimeProvider>
+      )
+    })
+    act(() => patchWidgetParams?.({ workflowId: null }))
+
+    const next = readDashboardLayoutContent(doc)
+    expect(next.widgets['widget-a']).toEqual({ pairColor: 'red', params: null })
+    expect(next.colorPairs.pairs).toContainEqual({
+      color: 'red',
+      indicatorId: 'indicator-red',
+    })
+    expect(next.colorPairs.pairs).toContainEqual({
+      color: 'blue',
+      workflowId: 'workflow-blue',
+    })
+    expect(next.colorPairs.pairs.find((pair) => pair.color === 'red')).not.toHaveProperty(
+      'workflowId'
+    )
+  })
+
   it('does not mutate child maps when writes are disabled', async () => {
     const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
       '@/widgets/widget-config-runtime'

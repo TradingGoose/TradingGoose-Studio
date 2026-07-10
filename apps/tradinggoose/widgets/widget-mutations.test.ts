@@ -127,6 +127,88 @@ describe('applyWidgetConfigMutation', () => {
     expect(result.colorPairs).toEqual({ pairs: [] })
   })
 
+  it('clears a params-side linked listing while preserving unrelated shared fields', () => {
+    const result = apply({
+      widgetKey: 'watchlist',
+      widget: widget('red'),
+      colorPairs: {
+        pairs: [{ color: 'red', workflowId: 'workflow-red', listing: normalizedListing }],
+      },
+      patch: { params: { listing: null } },
+    })
+
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'red', workflowId: 'workflow-red' }],
+    })
+  })
+
+  it('clears entity-linked params through the same shared mutation path', () => {
+    const result = apply({
+      widgetKey: 'editor_workflow',
+      widget: widget('blue'),
+      colorPairs: {
+        pairs: [{ color: 'blue', indicatorId: 'indicator-blue', workflowId: 'workflow-blue' }],
+      },
+      patch: { params: { workflowId: null } },
+    })
+
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'blue', indicatorId: 'indicator-blue' }],
+    })
+  })
+
+  it('keeps gray linked-field clears local to the widget document', () => {
+    const result = apply({
+      widgetKey: 'watchlist',
+      widget: widget('gray', { listing: normalizedListing, provider: 'alpaca' }),
+      colorPairs: { pairs: [{ color: 'red', listing: normalizedListing }] },
+      patch: { params: { listing: null } },
+    })
+
+    expect(widgetOf(result).params).toEqual({ provider: 'alpaca' })
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'red', listing: normalizedListing }],
+    })
+  })
+
+  it('lets a linked null override carried state when changing pair colors', () => {
+    const result = apply({
+      widgetKey: 'watchlist',
+      widget: widget('red'),
+      colorPairs: { pairs: [{ color: 'red', listing: normalizedListing }] },
+      patch: { pairColor: 'blue', params: { listing: null } },
+    })
+
+    expect(widgetOf(result)).toEqual({ key: 'watchlist', pairColor: 'blue', params: null })
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'red', listing: normalizedListing }],
+    })
+  })
+
+  it('lets an explicit colorPair null override a gray widget value carried to a color', () => {
+    const result = apply({
+      widgetKey: 'watchlist',
+      widget: widget('gray', { listing: normalizedListing }),
+      colorPairs: { pairs: [{ color: 'blue', workflowId: 'workflow-blue' }] },
+      patch: { pairColor: 'blue', colorPair: { listing: null } },
+    })
+
+    expect(widgetOf(result)).toEqual({ key: 'watchlist', pairColor: 'blue', params: null })
+    expect(result.colorPairs).toEqual({
+      pairs: [{ color: 'blue', workflowId: 'workflow-blue' }],
+    })
+  })
+
+  it('rejects conflicting params-side null and concrete colorPair values', () => {
+    expect(() =>
+      apply({
+        widgetKey: 'watchlist',
+        widget: widget('red'),
+        patch: { params: { listing: null }, colorPair: { listing } },
+      })
+    ).toThrow('Conflicting linked colorPair field "listing"')
+  })
+
   it('accepts identical linked values submitted in params and colorPair once', () => {
     const result = apply({ patch: { params: { listing }, colorPair: { listing } } })
     expect(result.colorPairs).toEqual({

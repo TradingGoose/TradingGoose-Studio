@@ -114,6 +114,15 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     pairColor: input.patch.pairColor,
     defaultPairColor: currentPairColor,
   })
+  const contract = getWidgetContract(nextKey)
+  const paramsPairPatch = withWidgetConfigErrors('params', () => {
+    if (nextPairColor === 'gray' || !input.patch.params) return {}
+    const linkedFields = new Set<string>(contract.linkedParamFields)
+    const linkedParams = Object.fromEntries(
+      Object.entries(input.patch.params).filter(([field]) => linkedFields.has(field))
+    )
+    return normalizeWidgetColorPairPatch(nextKey, linkedParams)
+  })
   const { nextParams, widgetParams } = withWidgetConfigErrors('params', () => {
     const nextParams = sanitizeWidgetParams(
       nextKey,
@@ -122,7 +131,7 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
         strictUnknown: true,
       }
     )
-    const widgetParams = getWidgetContract(nextKey).resolveParamsForPairColorChange(
+    const widgetParams = contract.resolveParamsForPairColorChange(
       { key: nextKey, pairColor: nextPairColor, params: nextParams },
       nextPairColor,
       input.colorPairs
@@ -141,8 +150,7 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
       ? {}
       : buildFinalPairPatch({
           widgetKey: nextKey,
-          pairColor: nextPairColor,
-          params: nextParams,
+          paramsPairPatch,
           colorPair: input.patch.colorPair,
           carriedPairContext,
         })
@@ -286,17 +294,15 @@ function buildCarriedPairContext(input: {
 
 function buildFinalPairPatch(input: {
   widgetKey: WidgetKey
-  pairColor: PairColor
-  params: Record<string, unknown> | null
+  paramsPairPatch: Record<string, unknown>
   colorPair?: Record<string, unknown> | null
   carriedPairContext?: PairColorContext
 }): Record<string, unknown> {
-  const split = splitWidgetParamsForColorPair(input.widgetKey, input.pairColor, input.params)
   const explicitPatch = normalizeWidgetColorPairPatch(input.widgetKey, input.colorPair)
-  assertNoLinkedFieldConflicts(split.pairContext, explicitPatch)
+  assertNoLinkedFieldConflicts(input.paramsPairPatch, explicitPatch)
   return {
     ...(input.carriedPairContext ?? {}),
-    ...split.pairContext,
+    ...input.paramsPairPatch,
     ...explicitPatch,
   }
 }
