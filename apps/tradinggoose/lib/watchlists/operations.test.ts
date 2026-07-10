@@ -55,6 +55,12 @@ const rootRow = {
   updatedAt: new Date('2026-03-17T10:00:00.000Z'),
 }
 
+const generatedSectionId = '00000000-0000-4000-8000-000000000001'
+const generatedListingIds = [
+  '00000000-0000-4000-8000-000000000002',
+  '00000000-0000-4000-8000-000000000003',
+]
+
 const createQueryChain = (result: unknown, whereCalls: Array<{ condition: unknown }>) => {
   const chain: any = {}
   chain.from = vi.fn().mockReturnValue(chain)
@@ -89,7 +95,7 @@ describe('watchlist operations', () => {
     vi.clearAllMocks()
   })
 
-  it('materializes sections and listings with nullable parent references', async () => {
+  it('materializes document-local ids as generated section and listing ids', async () => {
     const whereCalls: Array<{ condition: unknown }> = []
     const insertedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
     const updatedRows: Array<{ table: unknown; values: Record<string, unknown> }> = []
@@ -130,11 +136,14 @@ describe('watchlist operations', () => {
                 table === 'watchlist_table.id' ||
                 (table as { id?: unknown }).id === 'watchlist_table.id'
               ) {
-                return [{ ...rootRow, ...values, id: 'section-new' }]
+                return [{ ...rootRow, ...values, id: generatedSectionId }]
               }
+              const itemCount = insertedRows.filter(
+                (row) => (row.table as any).id === 'watchlist_item.id'
+              ).length
               return [
                 {
-                  id: `item-new-${insertedRows.filter((row) => (row.table as any).id === 'watchlist_item.id').length}`,
+                  id: generatedListingIds[itemCount - 1],
                   watchlistId: values.watchlistId,
                   containerId: values.containerId,
                   listing: values.listing,
@@ -153,6 +162,7 @@ describe('watchlist operations', () => {
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
         {
+          id: 'root-listing-local',
           type: 'listing',
           parentId: null,
           listing: {
@@ -169,6 +179,7 @@ describe('watchlist operations', () => {
           label: 'Semiconductors',
         },
         {
+          id: 'section-listing-local',
           type: 'listing',
           parentId: 'section-1',
           listing: {
@@ -231,6 +242,7 @@ describe('watchlist operations', () => {
         sortOrder: 1,
       },
     })
+    expect(insertedRows[0]?.values).not.toHaveProperty('id')
     expect(insertedRows[1]).toMatchObject({
       table: expect.objectContaining({ id: 'watchlist_item.id' }),
       values: {
@@ -241,16 +253,18 @@ describe('watchlist operations', () => {
         sortOrder: 0,
       },
     })
+    expect(insertedRows[1]?.values).not.toHaveProperty('id')
     expect(insertedRows[2]).toMatchObject({
       table: expect.objectContaining({ id: 'watchlist_item.id' }),
       values: {
         workspaceId: 'workspace-1',
         userId: null,
         watchlistId: 'watchlist-1',
-        containerId: 'section-new',
+        containerId: generatedSectionId,
         sortOrder: 0,
       },
     })
+    expect(insertedRows[2]?.values).not.toHaveProperty('id')
     expect(updatedRows).toEqual([
       {
         table: expect.objectContaining({ id: 'watchlist_table.id' }),
@@ -261,7 +275,7 @@ describe('watchlist operations', () => {
     ])
     expect(fields.items).toEqual([
       {
-        id: 'item-new-1',
+        id: generatedListingIds[0],
         type: 'listing',
         parentId: null,
         listing: {
@@ -271,11 +285,11 @@ describe('watchlist operations', () => {
           listing_type: 'default',
         },
       },
-      { id: 'section-new', type: 'section', parentId: null, label: 'Semiconductors' },
+      { id: generatedSectionId, type: 'section', parentId: null, label: 'Semiconductors' },
       {
-        id: 'item-new-2',
+        id: generatedListingIds[1],
         type: 'listing',
-        parentId: 'section-new',
+        parentId: generatedSectionId,
         listing: {
           listing_id: 'NVDA',
           base_id: '',
@@ -299,6 +313,7 @@ describe('watchlist operations', () => {
             label: 'Semiconductors',
           },
           {
+            id: 'listing-1',
             type: 'listing',
             parentId: 'section-1',
             listing: {
@@ -321,6 +336,7 @@ describe('watchlist operations', () => {
           label: 'Semiconductors',
         },
         {
+          id: 'listing-1',
           type: 'listing',
           parentId: 'section-1',
           listing: {

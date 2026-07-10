@@ -196,8 +196,6 @@ export const mapWatchlistDocumentFieldsInTx = async (
   })
 }
 
-const itemId = (item: WatchlistDocumentInputItem) => item.id?.trim() || null
-
 async function deleteWatchlistDocumentChildren(
   tx: WatchlistDocumentTx,
   workspaceId: string,
@@ -228,11 +226,9 @@ async function insertContainer(
   parentId: string,
   sortOrder: number
 ): Promise<string> {
-  const submittedId = itemId(item)
   const [created] = await tx
     .insert(watchlistTable)
     .values({
-      ...(submittedId ? { id: submittedId } : {}),
       workspaceId,
       userId: null,
       parentId,
@@ -253,11 +249,9 @@ async function insertListingItem(
   containerId: string,
   sortOrder: number
 ): Promise<string> {
-  const submittedId = itemId(item)
   const [created] = await tx
     .insert(watchlistItem)
     .values({
-      ...(submittedId ? { id: submittedId } : {}),
       workspaceId,
       userId: null,
       watchlistId,
