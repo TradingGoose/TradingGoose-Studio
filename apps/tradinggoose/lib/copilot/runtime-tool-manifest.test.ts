@@ -344,6 +344,19 @@ describe('copilot runtime tool manifest', () => {
     expect(editWidgetProperties).not.toHaveProperty('widgetKey')
     expect(editWidgetProperties).toHaveProperty('panelId')
     expect(editWidgetProperties).toHaveProperty('params')
+    expect(manifest.tools.find((tool) => tool.name === 'read_layout')?.description).toContain(
+      'params` is persisted local state'
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_layout')?.description).toContain(
+      'same complete layout document shape as `read_layout`'
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
+      'same non-gray `pairColor`'
+    )
+    const editWidgetSchemaText = JSON.stringify(editWidgetProperties)
+    expect(editWidgetSchemaText).toContain('layout-scoped color-store channel')
+    expect(editWidgetSchemaText).toContain('get_widgets_metadata.linkedParamFields')
+    expect(editWidgetSchemaText).toContain('clear the whole selected color channel')
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',

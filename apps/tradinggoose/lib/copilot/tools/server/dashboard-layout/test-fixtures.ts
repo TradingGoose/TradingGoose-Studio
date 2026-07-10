@@ -79,7 +79,6 @@ export const mockBaseToolModule = (mocks: DashboardToolMocks) => ({
 
 export const mockReadProjectionModule = () => ({
   buildDashboardLayoutReadProjection: vi.fn(async (content: DashboardLayoutDocumentContent) => ({
-    canonicalContent: content,
     documentFormat: 'tg-dashboard-layout-document-v2',
     entityDocument: JSON.stringify(content),
     effectiveLayout: content.layout,

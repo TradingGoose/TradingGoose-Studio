@@ -13,8 +13,11 @@ const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use `tg-knowledge-base-document-v1` content JSON with exactly `description` and `chunkingConfig`. Identity is outside the document: supply `name` to create and use `rename_knowledge_base` to rename. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
   'Use `tg-watchlist-document-v1` content JSON with exactly `settings` and flat ordered `items`. Identity is outside the document: supply `name` to create and use `rename_watchlist` to rename. Items are explicit `type: "section"` or `type: "listing"` entries. Submitted item ids are document-local references; use a section id as its listings\' `parentId`, and the persisted result will return generated item ids. Sections cannot nest and always use `parentId: null`; root listings use `parentId: null`, and listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
+const DASHBOARD_COLOR_STORE_GUIDANCE =
+  'The layout color store is `colorPairs`: each non-gray color is one layout-scoped shared channel, while `gray` means the widget is unlinked and uses only local `params`. Widgets synchronize a field only when they select the same non-gray `pairColor` and both list that field in `get_widgets_metadata.linkedParamFields`; other fields remain local. Set both widgets to the same `pairColor`, then update shared fields through `colorPair`, not `params`. Changing `pairColor` only changes the subscription and preserves both local params and stored color channels.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
-  'Returns `tg-dashboard-layout-document-v2` content JSON with exactly the `layout`, `widgets`, and `colorPairs` child channels. Layout identity is returned separately as `entityName`. Use it to inspect panel ids, widget identities, and effective widget state; do not submit this full document to `edit_layout`.'
+  'Returns `tg-dashboard-layout-document-v2` content JSON with exactly the `layout`, `widgets`, and `colorPairs` child channels. Layout identity is returned separately as `entityName`. `widgets[identityId].params` is persisted local state and may canonically be `null`, meaning no local overrides rather than a missing widget. `effectiveLayout` is the resolved local-plus-color-store state. Use it to inspect panel ids, widget identities, and effective widget state; do not submit this full document to `edit_layout`. ' +
+  DASHBOARD_COLOR_STORE_GUIDANCE
 const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
   'Use raw `tg-dashboard-layout-structure-v2` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget params and color-pair edits belong to `edit_widget`.'
 
@@ -379,7 +382,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'dashboard_layout',
   },
   edit_layout: {
-    description: `Update the target dashboard layout topology from one raw \`entityDocument\`, then return the resulting persisted layout document. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE}`,
+    description: `Update the target dashboard layout topology from one raw \`entityDocument\`, then return the same complete layout document shape as \`read_layout\`. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE} ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
     entityKind: 'dashboard_layout',
   },
@@ -390,7 +393,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_widget: {
     description:
-      'Patch the existing widget in one dashboard panel by exact `entityId` and `panelId`. Use `params` for widget params, `pairColor` for the panel pair color, and `colorPair` for shared per-layout pair-color params. Use `edit_layout` to add, replace, or remove widget bindings.',
+      'Patch the existing widget in one dashboard panel by exact `entityId` and `panelId`, then return the same complete layout document shape as `read_layout`. Use `params` for local or non-linked widget params, `pairColor` to select its color-store channel, and `colorPair` for shared linked fields. Use `colorPair: { field: null }` to clear one shared field or `colorPair: null` to clear the selected channel. Use `edit_layout` to add, replace, or remove widget bindings. ' +
+      DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE,
     kind: 'edit',
     entityKind: 'dashboard_layout',
   },
@@ -403,7 +407,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_widgets_metadata: {
     description:
-      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults, editable params, and pair-related fields.',
+      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults, editable params, and authoritative `linkedParamFields` that can synchronize through a shared non-gray layout color store.',
     kind: 'inspect',
     entityKind: 'dashboard_layout',
     surfaceKind: 'dashboard_widget',

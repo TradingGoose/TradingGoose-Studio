@@ -5,6 +5,7 @@ const toolMocks = fx.createDashboardToolMocks()
 
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_widget' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
+vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => fx.mockSnapshotBridgeModule(toolMocks))
@@ -77,7 +78,13 @@ describe('edit_widget server tool', () => {
       })
     )
     expect(toolMocks.applyWidget.mock.calls[0]?.[0]).not.toHaveProperty('layout')
-    expect(result.colorPairDiff).toEqual([])
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      widgets: {
+        'chart-widget': { pairColor: 'gray', params: { data: { provider: 'alpaca' } } },
+        'order-widget': { pairColor: 'red', params: null },
+      },
+      colorPairs: { pairs: [{ color: 'red', listing: fx.AAPL_LISTING }] },
+    })
   })
 
   it('rejects empty panels instead of creating a layout binding', async () => {
@@ -105,7 +112,7 @@ describe('edit_widget server tool', () => {
 
     const result = await execute({ panelId: 'order-panel', params: { side: 'sell' } })
 
-    expect(JSON.parse(result.entityDocument).params).toMatchObject({
+    expect(JSON.parse(result.entityDocument).widgets['order-widget'].params).toMatchObject({
       ...QUICK_ORDER_PARAMS,
       side: 'sell',
     })
@@ -116,7 +123,7 @@ describe('edit_widget server tool', () => {
 
     const result = await execute({ params: { view: { interval: '1h' } } })
 
-    expect(JSON.parse(result.entityDocument).params).toMatchObject({
+    expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params).toMatchObject({
       ...DATA_CHART_PARAMS,
       view: { ...DATA_CHART_PARAMS.view, interval: '1h' },
     })
@@ -132,7 +139,7 @@ describe('edit_widget server tool', () => {
       },
     })
 
-    expect(JSON.parse(result.entityDocument).params.view).toMatchObject({
+    expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params.view).toMatchObject({
       pineIndicators: [{ id: 'indicator-1' }],
       drawTools: [{ id: 'manual-macd', pane: 'indicator', indicatorId: 'MACD' }],
     })
@@ -141,7 +148,7 @@ describe('edit_widget server tool', () => {
   it('keeps public edit_widget params null as an explicit local params clear', async () => {
     const result = await execute({ params: null })
 
-    expect(JSON.parse(result.entityDocument).params).toBeNull()
+    expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params).toBeNull()
   })
 
   it('clears a linked listing through review and socket color-pair mutations', async () => {
@@ -151,18 +158,11 @@ describe('edit_widget server tool', () => {
 
     expect(after.effectiveParams).not.toHaveProperty('listing')
     expect(after.colorPair).toEqual({})
-    expect(staged.colorPairDiff).toEqual([
-      {
-        color: 'red',
-        before: { listing: fx.AAPL_LISTING },
-        after: {},
-        changedFields: ['listing'],
-      },
-    ])
+    expect(JSON.parse(staged.entityDocument).colorPairs).toEqual({ pairs: [] })
 
     toolMocks.shouldStage.mockReturnValue(false)
     const applied = await execute({ colorPair: { listing: null } })
-    expect(applied.colorPairDiff).toEqual(staged.colorPairDiff)
+    expect(JSON.parse(applied.entityDocument).colorPairs).toEqual({ pairs: [] })
     expect(toolMocks.applyWidget).toHaveBeenCalledWith(
       expect.objectContaining({
         widget: expect.objectContaining({ params: { data: { provider: 'alpaca' } } }),
@@ -180,6 +180,15 @@ describe('edit_widget server tool', () => {
     )
 
     expect(Object.keys(result.preview)).toEqual(['documentDiff'])
+    expect(result.documentFormat).toBe('tg-dashboard-layout-document-v2')
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      layout: { id: 'root', type: 'group' },
+      widgets: {
+        'chart-widget': { params: { data: { provider: 'polygon' } } },
+        'order-widget': { params: null },
+      },
+      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
+    })
     const before = JSON.parse(result.preview.documentDiff.before)
     const after = JSON.parse(result.preview.documentDiff.after)
     expect(before).toMatchObject({

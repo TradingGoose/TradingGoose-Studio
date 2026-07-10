@@ -22,7 +22,6 @@ import {
 export const DASHBOARD_LAYOUT_DOCUMENT_FORMAT = 'tg-dashboard-layout-document-v2' as const
 export const DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT =
   'tg-dashboard-layout-structure-v2' as const
-export const DASHBOARD_WIDGET_DOCUMENT_FORMAT = 'tg-dashboard-widget-document-v1' as const
 
 export type DashboardWidgetDocument = {
   pairColor: PairColor

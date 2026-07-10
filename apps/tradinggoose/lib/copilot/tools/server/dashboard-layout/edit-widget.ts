@@ -5,6 +5,7 @@ import {
   hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
 import {
   buildSavedEntityListInfo,
   requireEntityId,
@@ -15,7 +16,6 @@ import { applyDashboardWidgetMutationInSocketServer } from '@/lib/yjs/server/sna
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type { LinkedPairColor, PersistedColorPairsState } from '@/widgets/layout'
 import {
-  DASHBOARD_WIDGET_DOCUMENT_FORMAT,
   type DashboardWidgetDocument,
   findDashboardTopologyPanel,
   normalizeDashboardLayoutDocumentContent,
@@ -68,6 +68,11 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     })
     const identityId = panel.identityId
     const widget = next.widgetDocument
+    const nextContent = normalizeDashboardLayoutDocumentContent({
+      ...current,
+      widgets: { ...current.widgets, [identityId]: widget },
+      colorPairs: next.colorPairs,
+    })
     const colorPairs = next.colorPairDiff.flatMap((diff) =>
       diff.color === 'gray'
         ? []
@@ -94,17 +99,13 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     })
     const result = {
       success: true,
-      entityKind: 'dashboard_layout' as const,
-      entityId,
-      entityName: entity.entityName,
-      workspaceId,
-      ownerUserId,
-      panelId: args.panelId,
-      identityId,
-      widgetKey: next.widgetKey,
-      colorPairDiff: next.colorPairDiff,
-      documentFormat: DASHBOARD_WIDGET_DOCUMENT_FORMAT,
-      entityDocument: JSON.stringify(widget, null, 2),
+      ...(await buildDashboardLayoutResult({
+        entityId,
+        entityName: entity.entityName,
+        workspaceId,
+        ownerUserId,
+        content: nextContent,
+      })),
     }
 
     if (shouldStageServerToolMutationForReview(context)) {

@@ -18,7 +18,6 @@ import {
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-  DASHBOARD_WIDGET_DOCUMENT_FORMAT,
 } from '@/widgets/layout-document'
 import {
   GetAgentAccessoryCatalogInput,
@@ -320,9 +319,26 @@ const EditDashboardLayoutArgs = EntityTargetArgs.extend({
 }).strict()
 const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
-  pairColor: z.enum(['gray', 'red', 'orange', 'blue', 'green', 'purple']).optional(),
-  params: z.record(z.any()).nullable().optional(),
-  colorPair: z.record(z.any()).nullable().optional(),
+  pairColor: z
+    .enum(['gray', 'red', 'orange', 'blue', 'green', 'purple'])
+    .optional()
+    .describe(
+      "Select this widget's layout-scoped color-store channel. Gray is unlinked/local. Compatible widgets synchronize linked fields only when assigned the same non-gray color; changing color preserves existing local and shared state."
+    ),
+  params: z
+    .record(z.any())
+    .nullable()
+    .optional()
+    .describe(
+      'Patch persisted local widget params. For a non-gray widget, do not put fields from get_widgets_metadata.linkedParamFields here; update those through colorPair.'
+    ),
+  colorPair: z
+    .record(z.any())
+    .nullable()
+    .optional()
+    .describe(
+      "Patch shared fields in the widget's selected non-gray layout color store. Use { field: null } to clear one shared field, or null to clear the whole selected color channel."
+    ),
 }).strict()
 const GetWidgetsMetadataArgs = z
   .object({
@@ -870,34 +886,8 @@ const DashboardLayoutCreateMutationResult = DocumentDiffReviewMetadata.extend({
   effectiveLayout: z.any().optional(),
 })
 
-const DashboardLayoutMutationResult = EditEntityDocumentResultBase.extend({
-  entityKind: z.literal('dashboard_layout'),
-  entityId: z.string(),
-  entityName: z.string(),
-  workspaceId: z.string(),
-  ownerUserId: z.string(),
-  panelId: z.string(),
-  identityId: z.string(),
-  widgetKey: z.string(),
-  documentFormat: z.literal(DASHBOARD_WIDGET_DOCUMENT_FORMAT),
-  entityDocument: z.string(),
-  colorPairDiff: z
-    .array(
-      z.object({
-        color: z.enum(['red', 'orange', 'blue', 'green', 'purple']),
-        before: z.record(z.any()),
-        after: z.record(z.any()),
-        changedFields: z.array(z.string()),
-      })
-    )
-    .optional(),
-})
-
-const DashboardLayoutEditMutationResult = EditEntityDocumentResultBase.merge(
-  DashboardLayoutDocumentEnvelope.extend({
-    layout: z.any(),
-    colorPairs: z.any(),
-  })
+const DashboardLayoutDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  DashboardLayoutDocumentEnvelope
 )
 
 const WorkflowPreviewEdge = z.object({
@@ -1214,9 +1204,9 @@ export const ToolResultSchemas = {
   }),
   create_layout: DashboardLayoutCreateMutationResult,
   read_layout: DashboardLayoutDocumentEnvelope,
-  edit_layout: DashboardLayoutEditMutationResult,
+  edit_layout: DashboardLayoutDocumentMutationResult,
   rename_layout: SavedEntityRenameResult,
-  edit_widget: DashboardLayoutMutationResult,
+  edit_widget: DashboardLayoutDocumentMutationResult,
   get_available_widgets: z.object({
     widgets: z.array(WidgetCatalogItemSchema),
     count: z.number(),

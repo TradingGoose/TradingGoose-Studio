@@ -1,5 +1,4 @@
 import { hydrateDashboardListingData } from '@/lib/listing/hydrate-ui'
-import type { LayoutNode } from '@/widgets/layout'
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   type DashboardLayoutDocumentContent,
@@ -10,11 +9,8 @@ import {
 import { resolveEffectiveDashboardLayout } from '@/widgets/widget-contracts'
 
 export type DashboardLayoutReadProjection = {
-  canonicalContent: DashboardLayoutDocumentContent
   documentFormat: typeof DASHBOARD_LAYOUT_DOCUMENT_FORMAT
   entityDocument: string
-  hydratedLayout: LayoutNode
-  hydratedColorPairs: DashboardLayoutDocumentContent['colorPairs']
   effectiveLayout: unknown
 }
 
@@ -27,18 +23,13 @@ export async function buildDashboardLayoutReadProjection(
     resolvedLayout,
     canonicalContent.colorPairs
   )
-  const [{ layout: hydratedLayout, colorPairs: hydratedColorPairs }, { layout: effectiveLayout }] =
-    await Promise.all([
-      hydrateDashboardListingData(resolvedLayout, canonicalContent.colorPairs),
-      hydrateDashboardListingData(effectiveLayoutSource, { pairs: [] }),
-    ])
+  const { layout: effectiveLayout } = await hydrateDashboardListingData(effectiveLayoutSource, {
+    pairs: [],
+  })
 
   return {
-    canonicalContent,
     documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
     entityDocument: serializeDashboardLayoutDocument(canonicalContent),
-    hydratedLayout,
-    hydratedColorPairs,
     effectiveLayout,
   }
 }

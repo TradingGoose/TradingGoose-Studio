@@ -39,7 +39,6 @@ describe('dashboard layout server tools', () => {
     ])
     mocks.read.mockResolvedValue(fx.createDashboardLayoutTestContent())
     mocks.projection.mockImplementation(async (fields: any) => ({
-      canonicalContent: fields,
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
       entityDocument: JSON.stringify(fields),
       effectiveLayout: fields.layout,
@@ -70,6 +69,14 @@ describe('dashboard layout server tools', () => {
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
     })
     expect(result).not.toHaveProperty('layoutName')
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      layout: { id: 'root', type: 'group' },
+      widgets: {
+        'chart-widget': { params: { data: { provider: 'alpaca' } } },
+        'order-widget': { params: null },
+      },
+      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
+    })
     expect(JSON.parse(result.entityDocument)).not.toHaveProperty('name')
     expect(result.effectiveLayout).toMatchObject({ id: 'root', type: 'group' })
   })

@@ -78,7 +78,8 @@ describe('edit_layout server tool', () => {
       })
     )
     const plan = toolMocks.applyTopology.mock.calls[0]?.[0]?.plan
-    expect(result.layout).toMatchObject({
+    const document = JSON.parse(result.entityDocument)
+    expect(document.layout).toMatchObject({
       children: expect.arrayContaining([
         expect.objectContaining({
           id: 'chart-panel',
@@ -91,6 +92,14 @@ describe('edit_layout server tool', () => {
     expect(Object.values(plan.createdWidgets)).toEqual(
       expect.arrayContaining([expect.objectContaining({ pairColor: 'gray' })])
     )
+    const addedPanel = document.layout.children.find(
+      (panel: { widgetKey?: string }) => panel.widgetKey === 'watchlist'
+    )
+    expect(document.widgets['chart-widget']).toEqual({
+      pairColor: 'red',
+      params: { data: { provider: 'alpaca' } },
+    })
+    expect(document.widgets[addedPanel.identityId]).toEqual({ pairColor: 'gray', params: null })
   })
 
   it('owns replacement of an existing panel widget binding', async () => {
@@ -108,13 +117,15 @@ describe('edit_layout server tool', () => {
     })
 
     const plan = toolMocks.applyTopology.mock.calls[0]?.[0]?.plan
-    const chartPanel = result.layout.children.find(
+    const document = JSON.parse(result.entityDocument)
+    const chartPanel = document.layout.children.find(
       (panel: { id?: string }) => panel.id === 'chart-panel'
     )
     expect(chartPanel).toMatchObject({ widgetKey: 'watchlist' })
     expect(chartPanel.identityId).not.toBe('chart-widget')
     expect(plan.removedIdentityIds).toEqual(['chart-widget'])
     expect(Object.values(plan.createdWidgets)).toEqual([{ pairColor: 'gray', params: null }])
+    expect(document.widgets[chartPanel.identityId]).toEqual({ pairColor: 'gray', params: null })
   })
 
   it('requires removedPanelIds for omitted existing panels', async () => {
@@ -142,8 +153,7 @@ describe('edit_layout server tool', () => {
       requiresReview: true,
       entityKind: 'dashboard_layout',
       reviewBaseStateHash: 'base-hash',
-      layout: { id: 'root', type: 'group' },
-      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
+      documentFormat: 'tg-dashboard-layout-document-v2',
       preview: {
         documentDiff: {
           before: expect.stringContaining('"widgets"'),
@@ -151,6 +161,16 @@ describe('edit_layout server tool', () => {
         },
       },
     })
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      layout: { id: 'root', type: 'group' },
+      widgets: {
+        'chart-widget': { params: { data: { provider: 'alpaca' } } },
+        'order-widget': { params: null },
+      },
+      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
+    })
+    expect(result).not.toHaveProperty('layout')
+    expect(result).not.toHaveProperty('colorPairs')
     expect(toolMocks.applyTopology).not.toHaveBeenCalled()
   })
 })

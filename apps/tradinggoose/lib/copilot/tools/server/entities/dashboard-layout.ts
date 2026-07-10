@@ -5,6 +5,7 @@ import {
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
 import { createDashboardLayout } from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
@@ -131,20 +132,12 @@ export const readLayoutServerTool: EntityServerTool<{ entityId: string }> = {
       ),
     ])
     if (!entity) throw new Error('Dashboard layout not found')
-    const projection = await buildDashboardLayoutReadProjection(
-      normalizeDashboardLayoutDocumentContent(content)
-    )
-
-    return {
-      ...buildDocumentEnvelope(
-        ENTITY_KIND_DASHBOARD_LAYOUT,
-        entityId,
-        entity.entityName,
-        projection.canonicalContent
-      ),
+    return buildDashboardLayoutResult({
+      entityId,
+      entityName: entity.entityName,
       workspaceId,
       ownerUserId: userId,
-      effectiveLayout: projection.effectiveLayout,
-    }
+      content: normalizeDashboardLayoutDocumentContent(content),
+    })
   },
 }

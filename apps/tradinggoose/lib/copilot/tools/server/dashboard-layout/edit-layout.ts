@@ -5,12 +5,12 @@ import {
   hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
 import {
   buildSavedEntityListInfo,
   requireEntityId,
   verifySavedEntityContext,
 } from '@/lib/copilot/tools/server/entities/shared'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardTopologyMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
@@ -60,19 +60,15 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
       widgets,
     })
     const reviewBase = { layout: current.layout }
-    const projection = await buildDashboardLayoutReadProjection(next)
     const result = {
       success: true,
-      entityKind: 'dashboard_layout' as const,
-      entityId,
-      entityName: entity.entityName,
-      workspaceId,
-      ownerUserId,
-      documentFormat: projection.documentFormat,
-      entityDocument: projection.entityDocument,
-      layout: next.layout,
-      colorPairs: next.colorPairs,
-      effectiveLayout: projection.effectiveLayout,
+      ...(await buildDashboardLayoutResult({
+        entityId,
+        entityName: entity.entityName,
+        workspaceId,
+        ownerUserId,
+        content: next,
+      })),
     }
 
     if (shouldStageServerToolMutationForReview(context)) {
@@ -83,7 +79,7 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
         preview: {
           documentDiff: {
             before: serializeDashboardLayoutDocument(current),
-            after: projection.entityDocument,
+            after: result.entityDocument,
           },
         },
       }

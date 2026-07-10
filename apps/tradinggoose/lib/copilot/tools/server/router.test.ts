@@ -7,6 +7,7 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
+import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 
 const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
@@ -386,6 +387,27 @@ describe('copilot contract registry', () => {
       entities: [{ entityId: 'workflow-123', entityName: 'Workflow 1' }],
       count: 1,
     })
+  })
+
+  it('uses one aggregate layout document result for reads and both edit tools', () => {
+    const envelope = {
+      entityKind: 'dashboard_layout' as const,
+      entityId: 'layout-1',
+      entityName: 'Layout 1',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+      entityDocument: JSON.stringify({ layout: {}, widgets: {}, colorPairs: { pairs: [] } }),
+      effectiveLayout: { id: 'root', type: 'panel', widget: null },
+    }
+
+    expect(getToolContract('read_layout')?.result.parse(envelope)).toEqual(envelope)
+    for (const toolName of ['edit_layout', 'edit_widget'] as const) {
+      expect(getToolContract(toolName)?.result.parse({ success: true, ...envelope })).toEqual({
+        success: true,
+        ...envelope,
+      })
+    }
   })
 
   it('accepts the canonical workflow rename result', () => {
