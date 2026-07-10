@@ -314,8 +314,8 @@ export function useSavedEntityYjsSession(
   entityKind: SavedEntityKind,
   entityId: string | null | undefined,
   workspaceId: string | null | undefined,
-  ownerUserId?: string | null | undefined,
-  accessMode: ReviewAccessMode = 'write'
+  ownerUserId: string | null | undefined,
+  accessMode: ReviewAccessMode
 ) {
   const descriptor = useMemo(
     () =>

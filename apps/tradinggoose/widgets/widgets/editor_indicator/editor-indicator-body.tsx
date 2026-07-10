@@ -45,7 +45,13 @@ export function EditorIndicatorWidgetBody({
   })
   const selectedIndicatorMember =
     indicatorMembers.find((member) => member.entityId === indicatorId) ?? null
-  const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
+  const indicatorSession = useSavedEntityYjsSession(
+    'indicator',
+    indicatorId,
+    workspaceId,
+    null,
+    context?.canWrite === false ? 'read' : 'write'
+  )
 
   const codeExportRef = useRef<() => void>(() => {})
   const codeSaveRef = useRef<() => void>(() => {})

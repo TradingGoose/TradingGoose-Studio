@@ -137,7 +137,13 @@ function EditorCustomToolWidgetBody({
     [panelId, widget?.key]
   )
 
-  const customToolSession = useSavedEntityYjsSession('custom_tool', selectedToolId, workspaceId)
+  const customToolSession = useSavedEntityYjsSession(
+    'custom_tool',
+    selectedToolId,
+    workspaceId,
+    null,
+    context?.canWrite === false ? 'read' : 'write'
+  )
 
   useEffect(() => {
     if (!selectedToolId) {

@@ -45,7 +45,13 @@ export function EditorSkillWidgetBody({
     useDefaultEntity: false,
   })
   const selectedSkillMember = skillMembers.find((member) => member.entityId === skillId) ?? null
-  const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
+  const skillSession = useSavedEntityYjsSession(
+    'skill',
+    skillId,
+    workspaceId,
+    null,
+    context?.canWrite === false ? 'read' : 'write'
+  )
 
   useSkillEditorActions({
     panelId,

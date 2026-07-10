@@ -163,7 +163,13 @@ export function EditorMcpWidgetBody({
   const selectedServerMember =
     serverMembers.find((member) => member.entityId === selectedServerId) ?? null
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
-  const serverSession = useSavedEntityYjsSession('mcp_server', selectedServerId, workspaceId)
+  const serverSession = useSavedEntityYjsSession(
+    'mcp_server',
+    selectedServerId,
+    workspaceId,
+    null,
+    context?.canWrite === false ? 'read' : 'write'
+  )
   const formFallback = useMemo(
     () => ({ ...defaultFormData, name: identityName }),
     [defaultFormData, identityName]
