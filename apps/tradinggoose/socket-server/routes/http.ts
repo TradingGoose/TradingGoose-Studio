@@ -15,6 +15,7 @@ import {
   getEntityWorkspaceId,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
+import type { SavedEntityApplyOptions } from '@/lib/yjs/entity-state'
 import {
   SavedEntityPersistenceError,
   saveDashboardLayoutYjsDocToDb,
@@ -69,7 +70,7 @@ type ApplyWorkflowStateRequest = {
 
 type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'>
 
-type ApplyEntityStateRequest = {
+type ApplyEntityStateRequest = SavedEntityApplyOptions & {
   entityKind: SavedEntityKind
   fields: Record<string, any>
 }
@@ -228,9 +229,21 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
+  if (candidate.entityName !== undefined) {
+    if (candidate.entityKind !== 'watchlist') {
+      throw new InvalidInternalYjsRequestError('entityName is only supported for watchlist')
+    }
+    if (typeof candidate.entityName !== 'string' || !candidate.entityName.trim()) {
+      throw new InvalidInternalYjsRequestError('entityName must be a non-empty string')
+    }
+  }
+
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
+    ...(candidate.entityName === undefined
+      ? {}
+      : { entityName: (candidate.entityName as string).trim() }),
   }
 }
 
@@ -428,7 +441,13 @@ async function handleInternalYjsEntityApplyRequest(
         seedEntitySession(target, { entityKind: body.entityKind, payload: body.fields })
         clearSessionReseededFromCanonical(target)
       },
-      (staged) => saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
+      (staged) =>
+        saveSavedEntityYjsDocToDb(
+          body.entityKind,
+          entityId,
+          staged,
+          body.entityName === undefined ? undefined : { entityName: body.entityName }
+        )
     )
     await refreshSavedEntityListDoc(body.entityKind, doc)
 

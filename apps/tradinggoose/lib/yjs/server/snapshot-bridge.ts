@@ -16,7 +16,7 @@ import {
   applyDashboardTopologyMutation,
   applyDashboardWidgetMutation,
 } from '@/lib/yjs/dashboard-layout-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import type { SavedEntityApplyOptions, SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import type { LinkedPairColor } from '@/widgets/layout'
@@ -161,7 +161,8 @@ export async function applyWorkflowPatchInSocketServer(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  options?: SavedEntityApplyOptions
 ): Promise<Record<string, unknown>> {
   const response = await postJsonToSocketServerWithResponse<{
     success?: unknown
@@ -169,6 +170,7 @@ export async function applyEntityStateInSocketServer(
   }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
     entityKind,
     fields,
+    ...(options?.entityName === undefined ? {} : { entityName: options.entityName }),
   })
   if (
     response.success !== true ||

@@ -119,6 +119,18 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
   })
 
+  it('rejects entityName outside the watchlist apply contract', async () => {
+    const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+      entityKind: 'skill',
+      fields: { description: '', content: '' },
+      entityName: 'Renamed Skill',
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('entityName is only supported for watchlist')
+    expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
+  })
+
   it('forwards dashboard owner scope when bootstrapping entity-list snapshots', async () => {
     const descriptor = buildEntityListDescriptor('dashboard_layout', 'workspace-1', {
       ownerUserId: 'user-1',

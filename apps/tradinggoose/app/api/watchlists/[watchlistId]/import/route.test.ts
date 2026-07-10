@@ -8,7 +8,6 @@ const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
 const mockApplySavedEntityState = vi.fn()
-const mockRenameSavedEntityIdentity = vi.fn()
 class MockSavedEntityPersistenceError extends Error {
   constructor(
     public status: number,
@@ -38,10 +37,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/permissions/utils', () => ({
   getUserEntityPermissions: mockGetUserEntityPermissions,
-}))
-
-vi.mock('@/lib/saved-entities/identity', () => ({
-  renameSavedEntityIdentity: (...args: unknown[]) => mockRenameSavedEntityIdentity(...args),
 }))
 
 vi.mock('@/lib/watchlists/operations', async () => {
@@ -91,7 +86,6 @@ describe('Watchlist import API route', () => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockRenameSavedEntityIdentity.mockResolvedValue('Imported Watchlist')
     mockGetWatchlist.mockResolvedValue({
       id: 'watchlist-1',
       workspaceId: 'workspace-1',
@@ -122,32 +116,31 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(200)
     expect(payload.watchlist.id).toBe('watchlist-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'watchlist-1')
-    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
-      entityKind: 'watchlist',
-      entityId: 'watchlist-1',
-      workspaceId: 'workspace-1',
-      name: 'Imported Watchlist',
-    })
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('watchlist', 'watchlist-1', {
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      items: [
-        {
-          type: 'section',
-          parentId: null,
-          label: 'Tech',
-        },
-        {
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
+      'watchlist',
+      'watchlist-1',
+      {
+        settings: { showLogo: true, showTicker: true, showDescription: true },
+        items: [
+          {
+            type: 'section',
+            parentId: null,
+            label: 'Tech',
           },
-        },
-      ],
-    })
+          {
+            type: 'listing',
+            parentId: null,
+            listing: {
+              listing_id: 'aapl-id',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          },
+        ],
+      },
+      { entityName: 'Imported Watchlist' }
+    )
   })
 
   it('returns 400 when the watchlist document is invalid', async () => {
@@ -244,5 +237,12 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(409)
     expect(payload.error).toBe('Watchlist contains a duplicate listing')
+    expect(mockGetWatchlist).toHaveBeenCalledTimes(1)
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
+      'watchlist',
+      'watchlist-1',
+      expect.any(Object),
+      { entityName: 'Imported Watchlist' }
+    )
   })
 })

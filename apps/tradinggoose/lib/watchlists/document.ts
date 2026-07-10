@@ -13,6 +13,7 @@ import type {
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentContent,
+  normalizeWatchlistName,
   normalizeWatchlistSettings,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
@@ -37,6 +38,9 @@ const ensureFound = <T>(row: T | undefined, message = 'Watchlist not found'): T 
 const isDuplicateListingViolation = (error: unknown) =>
   error instanceof Error &&
   error.message.includes('watchlist_item_watchlist_listing_identity_unique')
+
+const isDuplicateWatchlistNameViolation = (error: unknown) =>
+  error instanceof Error && error.message.includes('watchlist_table_workspace_user_name_unique')
 
 export const workspaceContainerCondition = (workspaceId: string) =>
   and(eq(watchlistTable.workspaceId, workspaceId), isNull(watchlistTable.userId))
@@ -267,15 +271,25 @@ export async function materializeWatchlistDocumentInTx(
   tx: WatchlistDocumentTx,
   workspaceId: string,
   watchlistId: string,
-  rawFields: Record<string, unknown>
+  rawFields: Record<string, unknown>,
+  identity?: { name?: string }
 ): Promise<WatchlistDocumentContent> {
   const fields = normalizeWatchlistDocumentContent(rawFields)
+  let name: string | undefined
+  try {
+    name = identity?.name === undefined ? undefined : normalizeWatchlistName(identity.name)
+  } catch (error) {
+    throw new WatchlistDocumentError(
+      error instanceof Error ? error.message : 'Watchlist name is required'
+    )
+  }
   await fetchRootWatchlistRow(tx, workspaceId, watchlistId)
 
   try {
     const [updatedRoot] = await tx
       .update(watchlistTable)
       .set({
+        ...(name === undefined ? {} : { name }),
         settings: fields.settings,
         updatedAt: new Date(),
       })
@@ -354,6 +368,9 @@ export async function materializeWatchlistDocumentInTx(
     })
     return content
   } catch (error) {
+    if (isDuplicateWatchlistNameViolation(error)) {
+      throw new WatchlistDocumentError(`A watchlist with the name "${name}" already exists`, 409)
+    }
     if (isDuplicateListingViolation(error)) {
       throw new WatchlistDocumentError('Watchlist contains a duplicate listing', 409)
     }

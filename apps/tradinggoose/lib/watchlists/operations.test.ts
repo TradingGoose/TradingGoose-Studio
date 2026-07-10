@@ -158,39 +158,45 @@ describe('watchlist operations', () => {
       })),
     }
 
-    const fields = await materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          id: 'root-listing-local',
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_id: 'SPY',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+    const fields = await materializeWatchlistDocumentInTx(
+      tx,
+      'workspace-1',
+      'watchlist-1',
+      {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            id: 'root-listing-local',
+            type: 'listing',
+            parentId: null,
+            listing: {
+              listing_id: 'SPY',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
           },
-        },
-        {
-          id: 'section-1',
-          type: 'section',
-          parentId: null,
-          label: 'Semiconductors',
-        },
-        {
-          id: 'section-listing-local',
-          type: 'listing',
-          parentId: 'section-1',
-          listing: {
-            listing_id: 'NVDA',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+          {
+            id: 'section-1',
+            type: 'section',
+            parentId: null,
+            label: 'Semiconductors',
           },
-        },
-      ],
-    })
+          {
+            id: 'section-listing-local',
+            type: 'listing',
+            parentId: 'section-1',
+            listing: {
+              listing_id: 'NVDA',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+          },
+        ],
+      },
+      { name: ' Imported Growth ' }
+    )
 
     expect(
       findCondition(
@@ -269,6 +275,7 @@ describe('watchlist operations', () => {
       {
         table: expect.objectContaining({ id: 'watchlist_table.id' }),
         values: expect.objectContaining({
+          name: 'Imported Growth',
           settings: { showLogo: true, showTicker: true, showDescription: false },
         }),
       },
@@ -298,6 +305,42 @@ describe('watchlist operations', () => {
         },
       },
     ])
+  })
+
+  it('maps an imported root-name collision before rebuilding document children', async () => {
+    const tx: any = {
+      select: vi.fn(() => createQueryChain([rootRow], [])),
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => {
+              throw new Error(
+                'duplicate key violates constraint watchlist_table_workspace_user_name_unique'
+              )
+            }),
+          })),
+        })),
+      })),
+      delete: vi.fn(),
+      insert: vi.fn(),
+    }
+
+    await expect(
+      materializeWatchlistDocumentInTx(
+        tx,
+        'workspace-1',
+        'watchlist-1',
+        {
+          settings: rootRow.settings,
+          items: [],
+        },
+        { name: 'Existing Watchlist' }
+      )
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'A watchlist with the name "Existing Watchlist" already exists',
+    })
+    expect(tx.delete).not.toHaveBeenCalled()
   })
 
   it('accepts canonical parentId ownership and rejects old containerId ownership', () => {

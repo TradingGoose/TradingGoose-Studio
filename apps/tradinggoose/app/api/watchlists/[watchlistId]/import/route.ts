@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
@@ -81,16 +80,15 @@ export async function POST(
     const fields = parseImportedWatchlistDocument(parsed.file)
 
     await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
-    await renameSavedEntityIdentity({
-      entityKind: 'watchlist',
-      entityId: watchlistId,
-      workspaceId: parsed.workspaceId,
-      name: fields.name,
-    })
-    await applySavedEntityState('watchlist', watchlistId, {
-      settings: fields.settings,
-      items: fields.items,
-    })
+    await applySavedEntityState(
+      'watchlist',
+      watchlistId,
+      {
+        settings: fields.settings,
+        items: fields.items,
+      },
+      { entityName: fields.name }
+    )
     const watchlist = await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
 
     return NextResponse.json({ watchlist }, { status: 200 })

@@ -45,6 +45,7 @@ const {
     entityKind: string
     entityId: string
     fields: Record<string, unknown>
+    entityName?: string
   }>,
   savedWorkflowStates: [] as Array<ReturnType<typeof extractPersistedStateFromDoc>>,
 }))
@@ -104,7 +105,9 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
     async (doc) => {
       const latest = savedEntityStates.at(-1)
       if (!latest) return
-      const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+      const name =
+        latest.entityName ??
+        (latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name)
       if (typeof name !== 'string') return
       replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
     }
@@ -293,12 +296,13 @@ describe('Socket Server Index Integration', () => {
     mockSaveWorkflowYjsDocToDb.mockImplementation(async (_workflowId, doc) => {
       savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
     })
-    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
+    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc, options) => {
       const fields = getEntityFields(doc, entityKind)
       savedEntityStates.push({
         entityKind,
         entityId,
         fields,
+        ...(options?.entityName === undefined ? {} : { entityName: options.entityName }),
       })
       return fields
     })
@@ -545,6 +549,7 @@ describe('Socket Server Index Integration', () => {
           },
           body: JSON.stringify({
             entityKind: 'watchlist',
+            entityName: 'Imported Watchlist',
             fields: {
               settings: { showLogo: true, showTicker: true, showDescription: false },
               items: [],
@@ -569,12 +574,13 @@ describe('Socket Server Index Integration', () => {
             settings: { showLogo: true, showTicker: true, showDescription: false },
             items: [],
           },
+          entityName: 'Imported Watchlist',
         },
       ])
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
-          entityName: 'Old Watchlist',
+          entityName: 'Imported Watchlist',
         },
       ])
 

@@ -28,7 +28,7 @@ import {
   getEntityWorkspaceId,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import type { SavedEntityApplyOptions, SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
@@ -79,7 +79,8 @@ async function persistSavedEntityState(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
   fields: Record<string, unknown>,
-  workspaceId: string
+  workspaceId: string,
+  options?: SavedEntityApplyOptions
 ): Promise<Record<string, unknown>> {
   const now = new Date()
   let persisted: Array<{ id: string }>
@@ -166,7 +167,13 @@ async function persistSavedEntityState(
     case 'watchlist':
       try {
         return await db.transaction((tx) =>
-          materializeWatchlistDocumentInTx(tx, workspaceId, entityId, fields)
+          materializeWatchlistDocumentInTx(
+            tx,
+            workspaceId,
+            entityId,
+            fields,
+            options?.entityName === undefined ? undefined : { name: options.entityName }
+          )
         )
       } catch (error) {
         if (error instanceof WatchlistDocumentError) {
@@ -192,11 +199,12 @@ async function persistSavedEntityState(
 export async function applySavedEntityState(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  options?: SavedEntityApplyOptions
 ): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields, options)
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -216,8 +224,12 @@ export async function applySavedEntityState(
 export async function saveSavedEntityYjsDocToDb(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
-  doc: Y.Doc
+  doc: Y.Doc,
+  options?: SavedEntityApplyOptions
 ): Promise<Record<string, unknown>> {
+  if (options?.entityName !== undefined && entityKind !== 'watchlist') {
+    throw new SavedEntityPersistenceError(400, 'entityName is only supported for watchlist')
+  }
   let entityFields: Record<string, unknown>
   try {
     entityFields = getEntityFields(doc, entityKind)
@@ -239,7 +251,8 @@ export async function saveSavedEntityYjsDocToDb(
     entityKind,
     entityId,
     yjsFields,
-    workspaceId
+    workspaceId,
+    options
   )
   seedEntitySession(doc, { entityKind, payload: persistedFields })
   return persistedFields

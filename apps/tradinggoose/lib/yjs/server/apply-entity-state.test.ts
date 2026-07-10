@@ -183,10 +183,15 @@ describe('applySavedEntityState', () => {
       content: 'Use the Copilot input.',
     })
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('skill-1', 'skill', {
-      description: 'Copilot description',
-      content: 'Use the Copilot input.',
-    })
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'skill-1',
+      'skill',
+      {
+        description: 'Copilot description',
+        content: 'Use the Copilot input.',
+      },
+      undefined
+    )
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual(['yjs'])
   })
@@ -211,7 +216,31 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
 
     await expect(
-      applySavedEntityState('watchlist', 'watchlist-1', {
+      applySavedEntityState(
+        'watchlist',
+        'watchlist-1',
+        {
+          settings: { showLogo: true, showTicker: true, showDescription: false },
+          items: [
+            {
+              type: 'listing',
+              listing: {
+                listing_type: 'default',
+                listing_id: 'AAPL',
+                base_id: '',
+                quote_id: '',
+              },
+            },
+          ],
+        },
+        { entityName: 'Imported Watchlist' }
+      )
+    ).resolves.toEqual(persistedFields)
+
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'watchlist-1',
+      'watchlist',
+      {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [
           {
@@ -224,23 +253,9 @@ describe('applySavedEntityState', () => {
             },
           },
         ],
-      })
-    ).resolves.toEqual(persistedFields)
-
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('watchlist-1', 'watchlist', {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          type: 'listing',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ],
-    })
+      },
+      { entityName: 'Imported Watchlist' }
+    )
     expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
@@ -297,7 +312,11 @@ describe('applySavedEntityState', () => {
     })
 
     try {
-      await expect(saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)).resolves.toEqual({
+      await expect(
+        saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc, {
+          entityName: 'Imported Watchlist',
+        })
+      ).resolves.toEqual({
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [
           {
@@ -350,7 +369,8 @@ describe('applySavedEntityState', () => {
             },
           },
         ],
-      }
+      },
+      { name: 'Imported Watchlist' }
     )
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })

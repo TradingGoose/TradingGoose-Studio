@@ -3,6 +3,10 @@ import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/vali
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
+export type SavedEntityApplyOptions = {
+  entityName?: string
+}
+
 export type SavedEntityRow = {
   id: string
   workspaceId: string | null
