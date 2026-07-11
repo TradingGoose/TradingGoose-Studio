@@ -399,7 +399,7 @@ export const WatchlistHeaderRightControls = ({
   const canManageContainers = canMutateWatchlist && hasSelectedWatchlist
   const isMutating = Boolean(pendingAction)
 
-  const handleSelectList = (watchlistId: string) => {
+  const handleSelectList = (watchlistId: string | null) => {
     if (!canEditWidgetParams) return
     patchLinkedParams({ watchlistId })
   }
@@ -472,8 +472,8 @@ export const WatchlistHeaderRightControls = ({
         throw new Error(payload?.error || 'Failed to delete watchlist')
       }
       setListToDelete(null)
-      if (selectedWatchlist?.id === watchlistId && nextOption) {
-        handleSelectList(nextOption.watchlistId)
+      if (selectedWatchlist?.id === watchlistId) {
+        handleSelectList(nextOption?.watchlistId ?? null)
       }
     } catch {
       // Keep the current list in place so the user can retry.
@@ -840,7 +840,7 @@ export const WatchlistHeaderRightControls = ({
                             setListToDelete(option)
                           }}
                           aria-label={copy.header.deleteList}
-                          disabled={!canMutateWatchlist || isMutating || listOptions.length <= 1}
+                          disabled={!canMutateWatchlist || isMutating}
                         >
                           <Trash2 className='!h-3.5 !w-3.5' />
                         </button>

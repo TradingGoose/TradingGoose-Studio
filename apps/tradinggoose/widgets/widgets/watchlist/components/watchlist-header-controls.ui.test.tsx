@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import type { ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -124,6 +124,28 @@ vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: { children: ReactNode; open?: boolean }) =>
+    open ? <div>{children}</div> : null,
+  AlertDialogAction: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type='button' {...props} />
+  ),
+  AlertDialogCancel: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type='button' {...props} />
+  ),
+  AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@/components/widget-header-control', () => ({
@@ -314,5 +336,53 @@ describe('watchlist header controls', () => {
     expect(watchlistButton?.textContent).toContain('Watchlist')
     expect(watchlistButton?.textContent).not.toContain(currentWatchlist.name)
     expect(watchlistButton?.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('deletes the sole watchlist and clears the widget selection', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-delete'
+          widget={createWidget({
+            key: 'watchlist',
+            params: { watchlistId: rootWatchlist.id },
+          })}
+          canEditWidgetParams
+          canMutateWatchlist
+        />
+      )
+    })
+
+    const deleteButton = await vi.waitFor(() => {
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => /delete list/i.test(candidate.getAttribute('aria-label') ?? '')
+      )
+      expect(button).toBeTruthy()
+      return button!
+    })
+    expect(deleteButton.disabled).toBe(false)
+    await act(async () => deleteButton.click())
+    const confirm = await vi.waitFor(() => {
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => /^delete$/i.test(candidate.textContent?.trim() ?? '')
+      )
+      expect(button).toBeTruthy()
+      return button!
+    })
+    await act(async () => {
+      confirm.click()
+      await Promise.resolve()
+    })
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({ watchlistId: null })
   })
 })
