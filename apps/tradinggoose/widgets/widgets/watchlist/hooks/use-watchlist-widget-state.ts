@@ -1,6 +1,5 @@
 'use client'
 
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { resolveEntityId } from '@/widgets/widget-contracts'
@@ -14,16 +13,9 @@ const resolveProviderId = (params: WatchlistWidgetParams | null) => {
   return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
-export function useWatchlistWidgetState({
-  context,
-  pairColor = 'gray',
-  widget,
-  params,
-}: WidgetComponentProps) {
+export function useWatchlistWidgetState({ context, params }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
   const canWrite = context?.canWrite !== false
-  const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const widgetParams =
     params && typeof params === 'object' ? (params as WatchlistWidgetParams) : null
   const providerId = resolveProviderId(widgetParams)
@@ -44,8 +36,6 @@ export function useWatchlistWidgetState({
   return {
     workspaceId,
     canWrite,
-    resolvedPairColor,
-    isLinkedToColorPair,
     widgetParams,
     providerId,
     refreshAt,

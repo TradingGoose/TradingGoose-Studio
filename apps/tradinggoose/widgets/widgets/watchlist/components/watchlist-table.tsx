@@ -84,7 +84,6 @@ type WatchlistTableProps = {
   onRemoveContainer: (containerId: string) => Promise<void> | void
   isMutating?: boolean
   selectedListing?: ListingIdentity | null
-  isLinkedSelection?: boolean
   onSelectListing?: (listing: ListingIdentity | null) => void
 }
 
@@ -155,7 +154,6 @@ export const WatchlistTable = ({
   onRemoveContainer,
   isMutating = false,
   selectedListing = null,
-  isLinkedSelection = false,
   onSelectListing,
 }: WatchlistTableProps) => {
   const locale = useLocale() as LocaleCode
@@ -171,7 +169,6 @@ export const WatchlistTable = ({
   const [editingContainerId, setEditingContainerId] = useState<string | null>(null)
   const [editingContainerLabel, setEditingContainerLabel] = useState('')
   const [activeContainerId, setActiveContainerId] = useState<string | null>(null)
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [editingListingId, setEditingListingId] = useState<string | null>(null)
   const containerRenameInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -286,17 +283,6 @@ export const WatchlistTable = ({
     }
   }, [activeContainerId, watchlist])
 
-  useEffect(() => {
-    if (!selectedListingId) return
-
-    const exists =
-      watchlist?.items.some((item) => item.type === 'listing' && item.id === selectedListingId) ??
-      false
-    if (!exists) {
-      setSelectedListingId(null)
-    }
-  }, [selectedListingId, watchlist])
-
   const resetListingEditor = useCallback(
     (itemId: string) => {
       resetListingSelectorInstance(buildListingEditorInstanceId(itemId))
@@ -339,8 +325,7 @@ export const WatchlistTable = ({
     const previousListing = watchlist?.items.find(
       (item): item is WatchlistListingItem => item.type === 'listing' && item.id === itemId
     )?.listing
-    const shouldSyncLinkedSelection =
-      isLinkedSelection &&
+    const shouldSyncSelection =
       selectedListing &&
       previousListing &&
       areListingIdentitiesEqual(selectedListing, previousListing)
@@ -350,7 +335,7 @@ export const WatchlistTable = ({
 
     resetListingEditor(itemId)
     setEditingListingId((current) => (current === itemId ? null : current))
-    if (shouldSyncLinkedSelection) {
+    if (shouldSyncSelection) {
       onSelectListing?.(listing)
     }
   }
@@ -546,16 +531,11 @@ export const WatchlistTable = ({
   }
 
   const handleToggleListingSelection = (row: ListingRowEntry) => {
-    if (isLinkedSelection) {
-      const nextListing =
-        selectedListing && areListingIdentitiesEqual(selectedListing, row.listing)
-          ? null
-          : row.listing
-      onSelectListing?.(nextListing)
-      return
-    }
-
-    setSelectedListingId((current) => (current === row.item.id ? null : row.item.id))
+    const nextListing =
+      selectedListing && areListingIdentitiesEqual(selectedListing, row.listing)
+        ? null
+        : row.listing
+    onSelectListing?.(nextListing)
   }
 
   if (!watchlist || listingRows.length + parsedRows.allContainers.length === 0) {
@@ -603,9 +583,7 @@ export const WatchlistTable = ({
     const isDropBefore = dropTarget?.type === 'before' && dropTarget.itemId === row.item.id
     const sortableId = createWatchlistListingSortableId(row.item.id)
     const isEditing = editingListingId === row.item.id
-    const isSelected = isLinkedSelection
-      ? areListingIdentitiesEqual(selectedListing, row.listing)
-      : selectedListingId === row.item.id
+    const isSelected = areListingIdentitiesEqual(selectedListing, row.listing)
     const editSurfaceId = isEditing ? buildListingEditSurfaceId(row.item.id) : undefined
 
     return (
@@ -624,7 +602,7 @@ export const WatchlistTable = ({
             isDropBefore ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
           )}
           onClick={() => {
-            if (isEditing || (isMutating && !isLinkedSelection)) return
+            if (isEditing || !onSelectListing) return
             handleToggleListingSelection(row)
           }}
         >

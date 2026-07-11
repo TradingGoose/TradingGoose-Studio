@@ -225,7 +225,6 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   onRenameContainer: vi.fn(),
   onRemoveContainer: vi.fn(),
   selectedListing: null,
-  isLinkedSelection: false,
   onSelectListing: vi.fn(),
   ...overrides,
 })
@@ -400,14 +399,13 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow?.textContent).not.toContain('4.3219%')
   })
 
-  it('selects a listing when the row itself is clicked in linked mode', async () => {
+  it('selects a listing through the controlled callback', async () => {
     const onSelectListing = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistTable
           {...(createTableProps({
-            isLinkedSelection: true,
             onSelectListing,
           }) as any)}
         />
@@ -430,9 +428,12 @@ describe('WatchlistTable section interactions', () => {
     })
   })
 
-  it('selects a listing through a row click in unlinked mode', async () => {
+  it('lets a reader select a listing while entity mutations are disabled', async () => {
+    const onSelectListing = vi.fn()
     await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+      root.render(
+        <WatchlistTable {...(createTableProps({ isMutating: true, onSelectListing }) as any)} />
+      )
     })
 
     const listingRow = findRowByText(container, 'BTC')
@@ -443,37 +444,19 @@ describe('WatchlistTable section interactions', () => {
       listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(listingRow?.className).toContain('bg-accent')
-    expect(findButtonByText(container, 'Select symbol')).toBeFalsy()
-    expect(findButtonByText(container, 'Deselect symbol')).toBeFalsy()
+    expect(onSelectListing).toHaveBeenCalledWith({
+      listing_id: 'BTC',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
   })
 
-  it('toggles the selected row off when the same row is clicked again in unlinked mode', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
-
-    const listingRow = findRowByText(container, 'BTC')
-
-    expect(listingRow).toBeTruthy()
-
-    await act(async () => {
-      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    await act(async () => {
-      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(listingRow?.className.split(/\s+/)).not.toContain('bg-accent')
-  })
-
-  it('keeps the linked-selected row highlighted', async () => {
+  it('keeps the controlled selected row highlighted', async () => {
     await act(async () => {
       root.render(
         <WatchlistTable
           {...(createTableProps({
-            isLinkedSelection: true,
             selectedListing: {
               listing_id: 'BTC',
               base_id: '',
@@ -498,7 +481,6 @@ describe('WatchlistTable section interactions', () => {
       root.render(
         <WatchlistTable
           {...(createTableProps({
-            isLinkedSelection: true,
             onSelectListing,
             selectedListing: {
               listing_id: 'BTC',
@@ -620,7 +602,6 @@ describe('WatchlistTable section interactions', () => {
           {...(createTableProps({
             onUpdateItemListing,
             onSelectListing,
-            isLinkedSelection: true,
           }) as any)}
         />
       )
@@ -663,7 +644,7 @@ describe('WatchlistTable section interactions', () => {
     expect(onSelectListing).not.toHaveBeenCalled()
   })
 
-  it('updates linked selection when the selected listing is edited', async () => {
+  it('updates controlled selection when the selected listing is edited', async () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
     const onSelectListing = vi.fn()
 
@@ -673,7 +654,6 @@ describe('WatchlistTable section interactions', () => {
           {...(createTableProps({
             onUpdateItemListing,
             onSelectListing,
-            isLinkedSelection: true,
             selectedListing: {
               listing_id: 'BTC',
               base_id: '',

@@ -80,7 +80,6 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 vi.mock('@/widgets/widgets/watchlist/components/watchlist-table', () => ({
   WatchlistTable: (props: {
     selectedListing?: ListingIdentity | null
-    isLinkedSelection?: boolean
     onSelectListing?: (listing: ListingIdentity | null) => void
     onRemoveContainer?: (containerId: string) => void
   }) => {
@@ -150,7 +149,6 @@ describe('WatchlistWidgetBody', () => {
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        isLinkedSelection: true,
         selectedListing: null,
       })
     )
@@ -178,13 +176,12 @@ describe('WatchlistWidgetBody', () => {
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        isLinkedSelection: true,
         selectedListing,
       })
     )
   })
 
-  it('uses a read Yjs session while keeping gray listing selection local', async () => {
+  it('uses a read Yjs session while persisting gray listing selection to widget params', async () => {
     const onWidgetParamsPatch = vi.fn()
 
     await act(async () => {
@@ -213,7 +210,6 @@ describe('WatchlistWidgetBody', () => {
     expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        isLinkedSelection: false,
         selectedListing: null,
         onSelectListing: expect.any(Function),
       })
@@ -275,7 +271,6 @@ describe('WatchlistWidgetBody', () => {
     expect(mockWatchlistTable).toHaveBeenCalledWith(
       expect.objectContaining({
         watchlist,
-        isLinkedSelection: true,
       })
     )
     expect(container.textContent).not.toContain('Select a watchlist.')
@@ -306,7 +301,6 @@ describe('WatchlistWidgetBody', () => {
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        isLinkedSelection: true,
         selectedListing,
       })
     )
@@ -334,7 +328,6 @@ describe('WatchlistWidgetBody', () => {
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        isLinkedSelection: true,
         selectedListing: null,
       })
     )

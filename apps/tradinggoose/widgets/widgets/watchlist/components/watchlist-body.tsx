@@ -32,7 +32,6 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const {
     workspaceId,
     canWrite,
-    isLinkedToColorPair,
     widgetParams,
     providerId,
     refreshAt,
@@ -160,7 +159,6 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       onRemoveContainer={handleRemoveContainer}
       isMutating={isMutating}
       selectedListing={selectedListing}
-      isLinkedSelection={isLinkedToColorPair}
       onSelectListing={canEditWidgetParams ? handleSelectListing : undefined}
     />
   )
