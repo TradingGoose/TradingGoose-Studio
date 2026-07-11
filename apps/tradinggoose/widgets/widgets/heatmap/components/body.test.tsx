@@ -101,26 +101,15 @@ vi.mock('@/hooks/queries/trading-portfolio', () => ({
 }))
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
-  useSelectedWatchlistYjsDocument: () => {
-    const watchlistId = currentWatchlists[0]?.id ?? null
-    const record = currentWatchlists.find((entry) => entry.id === watchlistId) ?? null
-    const isLoading = watchlistId ? loadingWatchlistDocumentIds.has(watchlistId) : false
-    const error = watchlistId ? (erroredWatchlistDocuments.get(watchlistId) ?? null) : null
+  useWorkspaceWatchlistYjsDocuments: () => {
+    const isLoading = currentWatchlists.some((entry) => loadingWatchlistDocumentIds.has(entry.id))
+    const error = currentWatchlists
+      .map((entry) => erroredWatchlistDocuments.get(entry.id))
+      .find(Boolean)
     return {
-      record: isLoading || error ? null : record,
-      name: record?.name ?? '',
-      settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
-      items: record?.items ?? [],
-      save: vi.fn(),
+      records: isLoading || error ? [] : currentWatchlists,
       isLoading,
-      error,
-      members: currentWatchlists.map((entry) => ({
-        entityId: entry.id,
-        entityName: entry.name,
-        createdAt: entry.createdAt,
-        updatedAt: entry.updatedAt,
-      })),
-      selectedWatchlistId: watchlistId,
+      error: error ?? null,
     }
   },
 }))

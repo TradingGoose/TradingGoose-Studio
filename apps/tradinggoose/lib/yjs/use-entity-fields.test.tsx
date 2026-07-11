@@ -7,7 +7,11 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { updateWatchlistItems } from '@/lib/yjs/entity-session'
+import {
+  useSavedEntityYjsSession,
+  useSavedEntityYjsSessionCollection,
+} from '@/lib/yjs/use-entity-fields'
 
 const providerMocks = vi.hoisted(() => ({
   bootstrap: vi.fn(),
@@ -65,5 +69,47 @@ describe('useSavedEntityYjsSession access mode', () => {
 
     await expect(retainedSave()).rejects.toThrow('Cannot save a read-only Yjs session')
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('reuses shared read sessions for a live entity collection', async () => {
+    let collection: ReturnType<typeof useSavedEntityYjsSessionCollection>
+    let renderCount = 0
+    const CollectionHarness = ({ entityIds }: { entityIds: string[] }) => {
+      collection = useSavedEntityYjsSessionCollection(
+        'watchlist',
+        entityIds,
+        'workspace-1',
+        null,
+        'read'
+      )
+      renderCount += 1
+      return null
+    }
+
+    await act(async () => root.render(<CollectionHarness entityIds={['list-1', 'list-2']} />))
+    await vi.waitFor(() => expect(collection.documents.size).toBe(2))
+    const beforeUpdate = renderCount
+    act(() => {
+      updateWatchlistItems(collection.documents.get('list-2')!, () => [
+        {
+          id: 'listing-2',
+          type: 'listing',
+          parentId: null,
+          listing: {
+            listing_type: 'default',
+            listing_id: 'MSFT',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ])
+    })
+    await vi.waitFor(() => expect(renderCount).toBeGreaterThan(beforeUpdate))
+
+    await act(async () => root.render(<CollectionHarness entityIds={['list-2', 'list-3']} />))
+    await vi.waitFor(() => {
+      expect([...collection.documents.keys()].sort()).toEqual(['list-2', 'list-3'])
+    })
+    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(3)
   })
 })

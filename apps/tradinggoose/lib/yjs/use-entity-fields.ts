@@ -40,6 +40,12 @@ type SavedEntityYjsSessionState = {
   error: string | null
 }
 
+type SavedEntityYjsCollectionState = {
+  key: string | null
+  documents: ReadonlyMap<string, Y.Doc>
+  error: string | null
+}
+
 type SharedYjsSessionEntry = {
   key: string
   result: YjsProviderBootstrapResult | null
@@ -245,6 +251,24 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
   }, SHARED_SESSION_DESTROY_GRACE_MS)
 }
 
+function retainSharedYjsSession(
+  sessionKey: string,
+  openSession: () => Promise<YjsProviderBootstrapResult>,
+  errorMessage: string,
+  listener: (entry: SharedYjsSessionEntry) => void
+): () => void {
+  const entry = getSharedYjsSessionEntry(sessionKey)
+  const notify = () => listener(entry)
+  entry.refCount += 1
+  entry.listeners.add(notify)
+  notify()
+  initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+  return () => {
+    entry.listeners.delete(notify)
+    releaseSharedYjsSessionEntry(entry)
+  }
+}
+
 function invalidateSavedEntityQueries(
   entityKind: SavedEntityKind,
   entityId: string,
@@ -294,21 +318,10 @@ function useYjsSession(
       return
     }
 
-    const entry = getSharedYjsSessionEntry(sessionKey)
-    entry.refCount += 1
-
-    const syncState = () => {
+    return retainSharedYjsSession(sessionKey, openSession, errorMessage, (entry) => {
       const next = readSharedYjsSessionEntry(entry)
       setState((current) => (areSavedEntityYjsSessionStatesEqual(current, next) ? current : next))
-    }
-    entry.listeners.add(syncState)
-    syncState()
-    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
-
-    return () => {
-      entry.listeners.delete(syncState)
-      releaseSharedYjsSessionEntry(entry)
-    }
+    })
   }, [errorMessage, openSession, sessionKey])
 
   return state.key === sessionKey ? state : null
@@ -367,6 +380,108 @@ export function useSavedEntityYjsSession(
     save,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
+  }
+}
+
+export function useSavedEntityYjsSessionCollection(
+  entityKind: SavedEntityKind,
+  entityIds: readonly string[],
+  workspaceId: string | null | undefined,
+  ownerUserId: string | null | undefined,
+  accessMode: ReviewAccessMode
+) {
+  const entityIdsKey = entityIds.join('\u0000')
+  const collectionKey = workspaceId
+    ? [entityKind, accessMode, workspaceId, ownerUserId ?? '', entityIdsKey].join(':')
+    : null
+  const descriptors = useMemo(
+    () =>
+      workspaceId
+        ? entityIds.map((entityId) =>
+            buildSavedEntityDescriptor(entityKind, entityId, workspaceId, { ownerUserId })
+          )
+        : [],
+    [entityIdsKey, entityKind, ownerUserId, workspaceId]
+  )
+  const [state, setState] = useState<SavedEntityYjsCollectionState>({
+    key: null,
+    documents: new Map(),
+    error: null,
+  })
+
+  useEffect(() => {
+    if (!collectionKey) {
+      setState({ key: null, documents: new Map(), error: null })
+      return
+    }
+
+    const bindings = descriptors.map((descriptor) => {
+      const sessionKey = [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
+      return {
+        descriptor,
+        sessionKey,
+        entry: null as SharedYjsSessionEntry | null,
+        unobserve: null as (() => void) | null,
+        release: null as (() => void) | null,
+      }
+    })
+
+    const publish = () => {
+      setState({
+        key: collectionKey,
+        documents: new Map(
+          bindings.flatMap(({ descriptor, entry }) =>
+            entry?.result ? [[descriptor.entityId as string, entry.result.doc] as const] : []
+          )
+        ),
+        error: bindings.find(({ entry }) => entry?.error)?.entry?.error ?? null,
+      })
+    }
+    const bindDocument = (binding: (typeof bindings)[number]) => {
+      binding.unobserve?.()
+      binding.unobserve = null
+      const doc = binding.entry?.result?.doc
+      if (!doc) return
+      const onUpdate = () => publish()
+      doc.on('update', onUpdate)
+      binding.unobserve = () => doc.off('update', onUpdate)
+    }
+
+    for (const binding of bindings) {
+      binding.release = retainSharedYjsSession(
+        binding.sessionKey,
+        () => bootstrapYjsProvider(binding.descriptor, undefined, accessMode),
+        `Failed to open ${entityKind} entity session`,
+        (entry) => {
+          binding.entry = entry
+          bindDocument(binding)
+          publish()
+        }
+      )
+    }
+    publish()
+
+    return () => {
+      for (const binding of bindings) {
+        binding.unobserve?.()
+        binding.release?.()
+      }
+    }
+  }, [accessMode, collectionKey, descriptors, entityKind])
+
+  const current = state.key === collectionKey ? state : null
+  return {
+    documents: current?.documents ?? new Map<string, Y.Doc>(),
+    isLoading: Boolean(
+      collectionKey && !current?.error && current?.documents.size !== entityIds.length
+    ),
+    error: current?.error ?? null,
   }
 }
 

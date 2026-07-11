@@ -6,10 +6,16 @@ import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
 import {
   type EntityListMember,
+  getFieldsMap,
   readWatchlistItems,
   updateWatchlistItems,
 } from '@/lib/yjs/entity-session'
-import { useEntityList, useSavedEntityYjsSession, useYjsField } from '@/lib/yjs/use-entity-fields'
+import {
+  useEntityList,
+  useSavedEntityYjsSession,
+  useSavedEntityYjsSessionCollection,
+  useYjsField,
+} from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { resolveEntityIdFromList } from '@/widgets/widget-entity-selection'
@@ -104,5 +110,47 @@ export function useSelectedWatchlistYjsDocument(args: {
     selectedWatchlistId,
     isLoading: watchlistList.isLoading || document.isLoading,
     error: watchlistList.error ?? document.error,
+  }
+}
+
+export function useWorkspaceWatchlistYjsDocuments(workspaceId: string | null | undefined) {
+  const list = useEntityList('watchlist', workspaceId)
+  const entityIds = useMemo(() => list.members.map((member) => member.entityId), [list.members])
+  const collection = useSavedEntityYjsSessionCollection(
+    'watchlist',
+    entityIds,
+    workspaceId,
+    null,
+    'read'
+  )
+  const records = useMemo<WatchlistRecord[]>(() => {
+    if (!workspaceId || list.isLoading || list.error || collection.isLoading || collection.error) {
+      return []
+    }
+    return list.members.flatMap((member) => {
+      const doc = collection.documents.get(member.entityId)
+      if (!doc) return []
+      const settings = getFieldsMap(doc).get('settings')
+      return [
+        {
+          id: member.entityId,
+          workspaceId,
+          name: member.entityName,
+          settings:
+            settings && typeof settings === 'object'
+              ? (settings as WatchlistSettings)
+              : DEFAULT_WATCHLIST_SETTINGS,
+          items: readWatchlistItems(doc),
+          createdAt: member.createdAt ?? '',
+          updatedAt: member.updatedAt ?? '',
+        },
+      ]
+    })
+  }, [collection.documents, collection.error, collection.isLoading, list, workspaceId])
+
+  return {
+    records,
+    isLoading: list.isLoading || collection.isLoading,
+    error: list.error ?? collection.error,
   }
 }

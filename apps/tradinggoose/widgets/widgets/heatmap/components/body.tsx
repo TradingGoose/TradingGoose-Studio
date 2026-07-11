@@ -12,7 +12,7 @@ import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
 import type { LocaleCode } from '@/i18n/utils'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import { useWorkspaceWatchlistYjsDocuments } from '@/widgets/utils/watchlist-yjs'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
@@ -84,23 +84,20 @@ export function HeatmapWidgetBody({
     },
     [canEditWidgetParams, onWidgetParamsPatch]
   )
-  const watchlistDocument = useSelectedWatchlistYjsDocument({
-    workspaceId,
-    accessMode: 'read',
-  })
+  const watchlistDocuments = useWorkspaceWatchlistYjsDocuments(
+    sourceMode === 'watchlist' ? workspaceId : null
+  )
 
   const watchlistDocumentsLoading =
-    sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocument.isLoading
+    sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocuments.isLoading
   const watchlistDocumentError =
-    sourceMode === 'watchlist' && watchlistDocument.error ? String(watchlistDocument.error) : null
+    sourceMode === 'watchlist' && watchlistDocuments.error ? String(watchlistDocuments.error) : null
   const watchlistSources = useMemo(
     () =>
       sourceMode === 'watchlist' && (watchlistDocumentsLoading || watchlistDocumentError)
         ? []
-        : resolveWatchlistHeatmapListings(
-            watchlistDocument.record ? [watchlistDocument.record] : []
-          ),
-    [sourceMode, watchlistDocument.record, watchlistDocumentError, watchlistDocumentsLoading]
+        : resolveWatchlistHeatmapListings(watchlistDocuments.records),
+    [sourceMode, watchlistDocumentError, watchlistDocuments.records, watchlistDocumentsLoading]
   )
 
   const providerAvailabilityQuery = useOAuthProviderAvailability(
