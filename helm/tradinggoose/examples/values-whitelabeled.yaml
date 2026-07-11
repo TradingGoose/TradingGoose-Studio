@@ -42,7 +42,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 1
   env:
     NEXT_PUBLIC_APP_URL: "https://tradinggoose.acme.ai"
     BETTER_AUTH_URL: "https://tradinggoose.acme.ai"

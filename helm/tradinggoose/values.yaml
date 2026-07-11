@@ -160,9 +160,6 @@ realtime:
     tag: latest
     pullPolicy: Always
   
-  # Number of replicas
-  replicaCount: 1
-  
   # Resource limits and requests
   resources:
     limits:

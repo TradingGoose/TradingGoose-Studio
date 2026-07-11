@@ -45,7 +45,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 1
   
   # Node selector for application pods (customize based on your AKS node labels)
   nodeSelector:

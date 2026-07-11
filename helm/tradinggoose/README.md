@@ -165,10 +165,12 @@ The following table lists the configurable parameters and their default values.
 
 ### Realtime Service Parameters
 
+Realtime is the single process-local Yjs owner. The chart enforces one replica with a `Recreate`
+deployment strategy; autoscaling and pod disruption budget settings apply only to the app.
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `realtime.enabled` | Enable the realtime service | `true` |
-| `realtime.replicaCount` | Number of realtime replicas | `1` |
 | `realtime.image.repository` | Realtime image repository | `tradinggoose/realtime` |
 | `realtime.image.tag` | Realtime image tag | `latest` |
 | `realtime.image.pullPolicy` | Realtime image pull policy | `Always` |
@@ -415,7 +417,7 @@ The following table lists the configurable parameters and their default values.
 
 ### Autoscaling
 
-Enable automatic horizontal scaling based on CPU and memory usage:
+Enable automatic horizontal scaling for the app based on CPU and memory usage:
 
 ```yaml
 autoscaling:
@@ -585,9 +587,10 @@ This creates Kubernetes CronJob resources that:
 - Support individual enable/disable per job
 - Follow Kubernetes security best practices
 
-### High Availability
+### Application High Availability
 
-Configure pod disruption budgets and anti-affinity:
+Configure app pod disruption budgets and anti-affinity. Realtime remains a singleton so its
+process-local Yjs documents and mutation queues always have one owner.
 
 ```yaml
 podDisruptionBudget:

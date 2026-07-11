@@ -47,7 +47,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 2
   
   resources:
     limits:

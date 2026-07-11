@@ -284,11 +284,6 @@
           "type": "boolean",
           "description": "Enable the realtime service"
         },
-        "replicaCount": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of realtime replicas"
-        },
         "resources": {
           "type": "object",
           "properties": {

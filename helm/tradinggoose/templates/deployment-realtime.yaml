@@ -8,7 +8,9 @@ metadata:
   labels:
     {{- include "tradinggoose.realtime.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.realtime.replicaCount }}
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "tradinggoose.realtime.selectorLabels" . | nindent 6 }}

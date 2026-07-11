@@ -50,7 +50,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 2
   
   # Node selector for realtime pods (customize based on your EKS node labels)
   nodeSelector:
