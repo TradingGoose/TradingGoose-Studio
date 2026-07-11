@@ -177,8 +177,19 @@ export function isDashboardLayoutDirty(doc: Y.Doc): boolean {
   )
 }
 
-const readEntries = (map: Y.Map<Y.Map<unknown>>) =>
-  Object.fromEntries(Array.from(map.entries(), ([key, value]) => [key, value.toJSON()]))
+function readActiveWidgetEntries(
+  widgets: Y.Map<Y.Map<unknown>>,
+  node: DashboardLayoutTopologyNode,
+  entries: Record<string, unknown> = {}
+): Record<string, unknown> {
+  if (node.type === 'panel') {
+    const widget = widgets.get(node.identityId)
+    if (widget) entries[node.identityId] = widget.toJSON()
+    return entries
+  }
+  for (const child of node.children) readActiveWidgetEntries(widgets, child, entries)
+  return entries
+}
 
 export function readDashboardLayoutTopology(doc: Y.Doc): DashboardLayoutTopologyNode {
   return normalizeDashboardLayoutTopology(getDashboardLayoutMap(doc).get(TOPOLOGY_KEY))
@@ -217,9 +228,10 @@ export function readDashboardColorPairsState(doc: Y.Doc) {
 }
 
 export function readDashboardLayoutContent(doc: Y.Doc): DashboardLayoutDocumentContent {
+  const layout = readDashboardLayoutTopology(doc)
   return normalizeDashboardLayoutDocumentContent({
-    layout: readDashboardLayoutTopology(doc),
-    widgets: readEntries(getDashboardWidgetsMap(doc)),
+    layout,
+    widgets: readActiveWidgetEntries(getDashboardWidgetsMap(doc), layout),
     colorPairs: readDashboardColorPairsState(doc),
   })
 }
@@ -263,9 +275,6 @@ export function applyDashboardTopologyMutation(
     widgets,
   })
   doc.transact(() => {
-    for (const identityId of plan.removedIdentityIds) {
-      getDashboardWidgetsMap(doc).delete(identityId)
-    }
     for (const [identityId, widget] of Object.entries(plan.createdWidgets)) {
       setEntry(getDashboardWidgetsMap(doc), identityId, widget)
     }

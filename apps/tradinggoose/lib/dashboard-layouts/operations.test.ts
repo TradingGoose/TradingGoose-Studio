@@ -172,6 +172,11 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ operator: 'and', conditions })),
   asc: vi.fn((field: unknown) => ({ operator: 'asc', field })),
   eq: vi.fn((field: unknown, value: unknown) => ({ operator: 'eq', field, value })),
+  notInArray: vi.fn((field: unknown, values: unknown[]) => ({
+    operator: 'notInArray',
+    field,
+    values,
+  })),
   sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })),
 }))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => m.bridge)
@@ -551,10 +556,11 @@ describe('dashboard layout operations', () => {
     expect(m.mutations).toEqual([])
   })
 
-  it('writes only layout_maps for a topology-only dirty batch', async () => {
+  it('reconciles active widget rows when persisting topology', async () => {
     const content = channelContent()
-    m.txSelectResults.push([layoutRow({ layout: content.layout })])
-    m.updateReturning.mockResolvedValueOnce([{ id: 'layout-1' }])
+    m.updateReturning
+      .mockResolvedValueOnce([{ id: 'layout-1' }])
+      .mockResolvedValueOnce([{ id: 'widget-1' }])
 
     await persistDashboardLayoutDirtyChannels(
       scope,
@@ -565,12 +571,21 @@ describe('dashboard layout operations', () => {
 
     expect(m.mutations.map(({ kind, table }) => ({ kind, table }))).toEqual([
       { kind: 'update', table: 'layout_maps' },
+      { kind: 'update', table: 'layout_widgets' },
+      { kind: 'delete', table: 'layout_widgets' },
     ])
     expect(m.mutations[0]?.values).toEqual({
       layout: content.layout,
       updatedAt: expect.any(Date),
     })
     expect(m.mutations[0]?.predicate).toEqual(ownedCondition('layout-1'))
+    expect(m.mutations[2]?.predicate).toEqual(
+      andCondition(eqCondition('layout_widgets.layoutId', 'layout-1'), {
+        operator: 'notInArray',
+        field: 'layout_widgets.id',
+        values: ['widget-1'],
+      })
+    )
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
 
@@ -683,6 +698,7 @@ describe('dashboard layout operations', () => {
       'update:layout_maps',
       'insert:layout_pairs',
       'update:layout_widgets',
+      'delete:layout_widgets',
     ])
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
@@ -729,8 +745,12 @@ describe('dashboard layout operations', () => {
     expect(m.mutations[3]?.predicate).toEqual({
       operator: 'and',
       conditions: [
-        { operator: 'eq', field: 'layout_widgets.id', value: 'widget-old' },
         { operator: 'eq', field: 'layout_widgets.layoutId', value: 'layout-1' },
+        {
+          operator: 'notInArray',
+          field: 'layout_widgets.id',
+          values: ['widget-new'],
+        },
       ],
     })
   })

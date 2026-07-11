@@ -56,6 +56,12 @@ function trackedDoc(initial = content()): Y.Doc {
   return doc
 }
 
+function cloneDoc(source: Y.Doc): Y.Doc {
+  const clone = new Y.Doc()
+  Y.applyUpdate(clone, Y.encodeStateAsUpdate(source), YJS_ORIGINS.SYSTEM)
+  return clone
+}
+
 describe('dashboard layout Yjs session', () => {
   it('round-trips topology, widget documents, and color pairs through separate maps', () => {
     const doc = new Y.Doc()
@@ -267,20 +273,95 @@ describe('dashboard layout Yjs session', () => {
       if (next.layout.type !== 'panel') throw new Error('Expected panel layout')
       expect(next.layout.widgetKey).toBe('watchlist')
       expect(next.layout.identityId).not.toBe('chart-widget')
-      expect(getDashboardWidgetsMap(doc).has('chart-widget')).toBe(false)
+      expect(getDashboardWidgetsMap(doc).has('chart-widget')).toBe(true)
       expect(getDashboardWidgetsMap(doc).has(next.layout.identityId)).toBe(true)
 
       const batch = beginDashboardLayoutDirtyFlush(doc)
       expect(batch).toMatchObject({ generation: 1, layout: true })
-      expect([...batch!.widgetIdentityIds].sort()).toEqual(
-        ['chart-widget', next.layout.identityId].sort()
-      )
+      expect([...batch!.widgetIdentityIds]).toEqual([next.layout.identityId])
       expect([...batch!.pairColors]).toEqual([])
       expect(onUpdate).toHaveBeenCalledTimes(1)
       completeDashboardLayoutDirtyFlush(doc, batch!)
     } finally {
       doc.off('update', onUpdate)
       doc.destroy()
+    }
+  })
+
+  it('projects only the winning topology widgets after concurrent replacements', () => {
+    const base = new Y.Doc()
+    const left = new Y.Doc()
+    const right = new Y.Doc()
+    const leftFirst = new Y.Doc()
+    const rightFirst = new Y.Doc()
+    try {
+      seedDashboardLayoutSession(base, content(), YJS_ORIGINS.SYSTEM)
+      const baseUpdate = Y.encodeStateAsUpdate(base)
+      const baseVector = Y.encodeStateVector(base)
+      for (const doc of [left, right, leftFirst, rightFirst]) {
+        Y.applyUpdate(doc, baseUpdate, YJS_ORIGINS.SYSTEM)
+      }
+
+      applyDashboardTopologyMutation(
+        left,
+        replaceDashboardPanelWidget(readDashboardLayoutContent(left), 'chart-panel', 'watchlist')
+      )
+      applyDashboardTopologyMutation(
+        right,
+        replaceDashboardPanelWidget(readDashboardLayoutContent(right), 'chart-panel', 'copilot')
+      )
+      const leftUpdate = Y.encodeStateAsUpdate(left, baseVector)
+      const rightUpdate = Y.encodeStateAsUpdate(right, baseVector)
+      Y.applyUpdate(leftFirst, leftUpdate)
+      Y.applyUpdate(leftFirst, rightUpdate)
+      Y.applyUpdate(rightFirst, rightUpdate)
+      Y.applyUpdate(rightFirst, leftUpdate)
+
+      const leftContent = readDashboardLayoutContent(leftFirst)
+      expect(readDashboardLayoutContent(rightFirst)).toEqual(leftContent)
+      expect(Object.keys(leftContent.widgets)).toEqual([
+        leftContent.layout.type === 'panel' ? leftContent.layout.identityId : '',
+      ])
+      expect(getDashboardWidgetsMap(leftFirst).size).toBe(3)
+    } finally {
+      for (const doc of [base, left, right, leftFirst, rightFirst]) doc.destroy()
+    }
+  })
+
+  it('keeps every potentially winning widget child during retain-replace convergence', () => {
+    const base = new Y.Doc()
+    let retained: Y.Doc | null = null
+    let replaced: Y.Doc | null = null
+    let merged: Y.Doc | null = null
+    try {
+      seedDashboardLayoutSession(base, content(), YJS_ORIGINS.SYSTEM)
+      retained = cloneDoc(base)
+      replaced = cloneDoc(base)
+      merged = cloneDoc(base)
+      const baseVector = Y.encodeStateVector(base)
+      const retainedContent = readDashboardLayoutContent(retained)
+      setDashboardLayoutTopology(retained, { ...retainedContent.layout, id: 'renamed-panel' })
+      applyDashboardTopologyMutation(
+        replaced,
+        replaceDashboardPanelWidget(
+          readDashboardLayoutContent(replaced),
+          'chart-panel',
+          'watchlist'
+        )
+      )
+      Y.applyUpdate(merged, Y.encodeStateAsUpdate(retained, baseVector))
+      Y.applyUpdate(merged, Y.encodeStateAsUpdate(replaced, baseVector))
+
+      const converged = readDashboardLayoutContent(merged)
+      expect(Object.keys(converged.widgets)).toHaveLength(1)
+      expect(getDashboardWidgetsMap(merged).has('chart-widget')).toBe(true)
+      if (converged.layout.type !== 'panel') throw new Error('Expected panel layout')
+      expect(getDashboardWidgetsMap(merged).has(converged.layout.identityId)).toBe(true)
+    } finally {
+      merged?.destroy()
+      replaced?.destroy()
+      retained?.destroy()
+      base.destroy()
     }
   })
 

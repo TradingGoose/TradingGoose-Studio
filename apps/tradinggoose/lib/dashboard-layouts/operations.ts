@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { layoutMaps, layoutPairs, layoutWidgets } from '@tradinggoose/db/schema'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, notInArray, sql } from 'drizzle-orm'
 import { isEqual } from 'lodash'
 import type * as Y from 'yjs'
 import {
@@ -480,6 +480,18 @@ async function persistLayoutWidgetsInTx(
   }
 }
 
+async function reconcileLayoutWidgetsInTx(
+  tx: DashboardLayoutWriteStore,
+  layoutId: string,
+  content: DashboardLayoutDocumentContent
+): Promise<void> {
+  const identityIds = Object.keys(content.widgets)
+  await persistLayoutWidgetsInTx(tx, layoutId, content, new Set(identityIds))
+  await tx
+    .delete(layoutWidgets)
+    .where(and(eq(layoutWidgets.layoutId, layoutId), notInArray(layoutWidgets.id, identityIds)))
+}
+
 export async function persistDashboardLayoutDirtyChannels(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
@@ -501,7 +513,9 @@ export async function persistDashboardLayoutDirtyChannels(
     if (batch.pairColors.size > 0) {
       await persistLayoutPairsInTx(tx, layoutId, content, batch.pairColors)
     }
-    if (batch.widgetIdentityIds.size > 0) {
+    if (batch.layout) {
+      await reconcileLayoutWidgetsInTx(tx, layoutId, content)
+    } else if (batch.widgetIdentityIds.size > 0) {
       await persistLayoutWidgetsInTx(tx, layoutId, content, batch.widgetIdentityIds)
     }
   })
