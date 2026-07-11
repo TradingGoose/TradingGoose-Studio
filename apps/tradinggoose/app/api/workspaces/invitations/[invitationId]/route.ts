@@ -11,7 +11,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
-import { checkWorkspaceAccess, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
@@ -113,19 +113,6 @@ export async function GET(
 
       if (!isValidMatch) {
         return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=email-mismatch`))
-      }
-
-      const existingAccess = await checkWorkspaceAccess(invitation.workspaceId, session.user.id)
-      if (existingAccess.hasAccess) {
-        await db
-          .update(workspaceInvitation)
-          .set({
-            status: 'accepted' as WorkspaceInvitationStatus,
-            updatedAt: new Date(),
-          })
-          .where(eq(workspaceInvitation.id, invitation.id))
-
-        return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
       }
 
       await db.transaction(async (tx) => {

@@ -26,10 +26,9 @@ describe('grantWorkspaceAccessInTx', () => {
   })
 
   it('provisions the reader-owned default layout in the access-grant transaction', async () => {
-    const where = vi.fn().mockResolvedValue(undefined)
-    const values = vi.fn().mockResolvedValue(undefined)
+    const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined)
+    const values = vi.fn(() => ({ onConflictDoUpdate }))
     const tx = {
-      delete: vi.fn(() => ({ where })),
       insert: vi.fn(() => ({ values })),
     }
 
@@ -47,6 +46,13 @@ describe('grantWorkspaceAccessInTx', () => {
         permissionType: 'read',
       })
     )
+    expect(onConflictDoUpdate).toHaveBeenCalledWith({
+      target: ['permissions.userId', 'permissions.entityType', 'permissions.entityId'],
+      set: {
+        permissionType: expect.anything(),
+        updatedAt: expect.any(Date),
+      },
+    })
     expect(mocks.provisionLayout).toHaveBeenCalledWith(tx, {
       workspaceId: 'workspace-1',
       ownerUserId: 'reader-1',
@@ -55,4 +61,35 @@ describe('grantWorkspaceAccessInTx', () => {
       mocks.provisionLayout.mock.invocationCallOrder[0]!
     )
   })
+
+  it.each(['read', 'write', 'admin'] as const)(
+    'atomically merges an invited %s grant with the existing permission',
+    async (permissionType) => {
+      const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined)
+      const tx = {
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({ onConflictDoUpdate })),
+        })),
+      }
+
+      await grantWorkspaceAccessInTx(tx as never, {
+        workspaceId: 'workspace-1',
+        userId: 'member-1',
+        permissionType,
+      })
+
+      expect(onConflictDoUpdate).toHaveBeenCalledWith({
+        target: ['permissions.userId', 'permissions.entityType', 'permissions.entityId'],
+        set: {
+          permissionType: expect.anything(),
+          updatedAt: expect.any(Date),
+        },
+      })
+      expect(tx).not.toHaveProperty('delete')
+      expect(mocks.provisionLayout).toHaveBeenCalledWith(tx, {
+        workspaceId: 'workspace-1',
+        ownerUserId: 'member-1',
+      })
+    }
+  )
 })

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workspace } from '@tradinggoose/db/schema'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { provisionDashboardLayoutForWorkspaceUserInTx } from '@/lib/dashboard-layouts/operations'
 import { buildWorkspaceAccessScope, type PermissionType } from '@/lib/permissions/utils'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
@@ -106,24 +106,29 @@ export async function grantWorkspaceAccessInTx(
 ) {
   const now = new Date()
   await tx
-    .delete(permissions)
-    .where(
-      and(
-        eq(permissions.userId, input.userId),
-        eq(permissions.entityType, 'workspace'),
-        eq(permissions.entityId, input.workspaceId)
-      )
-    )
-
-  await tx.insert(permissions).values({
-    id: crypto.randomUUID(),
-    userId: input.userId,
-    entityType: 'workspace' as const,
-    entityId: input.workspaceId,
-    permissionType: input.permissionType,
-    createdAt: now,
-    updatedAt: now,
-  })
+    .insert(permissions)
+    .values({
+      id: crypto.randomUUID(),
+      userId: input.userId,
+      entityType: 'workspace' as const,
+      entityId: input.workspaceId,
+      permissionType: input.permissionType,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [permissions.userId, permissions.entityType, permissions.entityId],
+      set: {
+        permissionType: sql<PermissionType>`case
+          when ${permissions.permissionType} = 'admin' or excluded.permission_type = 'admin'
+            then 'admin'::permission_type
+          when ${permissions.permissionType} = 'write' or excluded.permission_type = 'write'
+            then 'write'::permission_type
+          else 'read'::permission_type
+        end`,
+        updatedAt: now,
+      },
+    })
 
   await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
     workspaceId: input.workspaceId,
