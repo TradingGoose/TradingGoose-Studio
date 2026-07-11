@@ -26,6 +26,7 @@ const socketRouteMocks = vi.hoisted(() => ({
   seedEntitySession: vi.fn(),
   getEntityFields: vi.fn(),
   importWatchlistDocument: vi.fn(),
+  ensureDashboardLayoutDirtyTracker: vi.fn(),
   applyDashboardTopologyMutation: vi.fn(),
   applyDashboardWidgetConfigPatch: vi.fn(),
   readDashboardLayoutContent: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock('@/lib/dashboard-layouts/operations', () => ({
 vi.mock('@/lib/yjs/dashboard-layout-session', () => ({
   applyDashboardTopologyMutation: socketRouteMocks.applyDashboardTopologyMutation,
   applyDashboardWidgetConfigPatch: socketRouteMocks.applyDashboardWidgetConfigPatch,
+  ensureDashboardLayoutDirtyTracker: socketRouteMocks.ensureDashboardLayoutDirtyTracker,
   readDashboardLayoutContent: socketRouteMocks.readDashboardLayoutContent,
 }))
 
@@ -435,7 +437,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(response.status).toBe(409)
     expect(response.body.code).toBe('stale_server_tool_review')
     expect(socketRouteMocks.applyDashboardTopologyMutation).not.toHaveBeenCalled()
-    expect(socketRouteMocks.flushDocumentPersistence).not.toHaveBeenCalled()
+    expect(socketRouteMocks.flushDocumentPersistence).toHaveBeenCalledTimes(1)
   })
 
   it('applies an accepted widget edit through the canonical dashboard patch helper', async () => {
@@ -455,6 +457,17 @@ describe('socket internal HTTP Yjs routes', () => {
         pairColor: 'blue',
       })
     )
+    const liveDoc = createDashboardDoc()
+    socketRouteMocks.getExistingDocument.mockResolvedValue(liveDoc)
+    socketRouteMocks.applyDashboardWidgetConfigPatch.mockImplementationOnce((doc: Y.Doc) => {
+      doc.getMap('test').set('reviewed-edit', true)
+    })
+    socketRouteMocks.saveDashboardLayoutYjsDocToDb.mockImplementationOnce(async (_id, staged) => {
+      expect(staged).not.toBe(liveDoc)
+      expect(staged.getMap('test').get('reviewed-edit')).toBe(true)
+      expect(liveDoc.getMap('test').has('reviewed-edit')).toBe(false)
+      return { ok: true }
+    })
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -472,6 +485,50 @@ describe('socket internal HTTP Yjs routes', () => {
       { pairColor: 'blue', params: undefined, colorPair: undefined }
     )
     expect(socketRouteMocks.flushDocumentPersistence).toHaveBeenCalledTimes(1)
+    expect(liveDoc.getMap('test').get('reviewed-edit')).toBe(true)
+    expect(socketRouteMocks.markDocumentPersisted).toHaveBeenCalledWith(liveDoc)
+    liveDoc.destroy()
+  })
+
+  it('leaves the live dashboard unchanged when reviewed persistence fails', async () => {
+    const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
+    const { buildDashboardWidgetReviewBase } = await import('@/lib/dashboard-layouts/review-base')
+    const { applyWidgetConfigMutation } = await import('@/widgets/widget-mutations')
+    const liveDoc = createDashboardDoc()
+    socketRouteMocks.getExistingDocument.mockResolvedValue(liveDoc)
+    const content = socketRouteMocks.readDashboardLayoutContent()
+    const patch = { pairColor: 'blue' as const }
+    const mutation = applyWidgetConfigMutation({
+      widgetKey: 'copilot',
+      widget: content.widgets['widget-1'],
+      colorPairs: content.colorPairs,
+      panelId: 'panel-1',
+      patch,
+    })
+    const expectedReviewBaseStateHash = hashServerToolReviewBase(
+      buildDashboardWidgetReviewBase(content, 'panel-1', mutation.reviewBase, patch)
+    )
+    socketRouteMocks.applyDashboardWidgetConfigPatch.mockImplementationOnce((doc: Y.Doc) => {
+      doc.getMap('test').set('reviewed-edit', true)
+    })
+    socketRouteMocks.saveDashboardLayoutYjsDocToDb.mockRejectedValueOnce(
+      new Error('database offline')
+    )
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'widget',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      panelId: 'panel-1',
+      patch,
+    })
+
+    expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
+    expect(liveDoc.getMap('test').has('reviewed-edit')).toBe(false)
+    expect(socketRouteMocks.saveDashboardLayoutYjsDocToDb.mock.calls[0]?.[1]).not.toBe(liveDoc)
+    expect(socketRouteMocks.markDocumentPersisted).not.toHaveBeenCalled()
+    liveDoc.destroy()
   })
 
   it('preserves the latest credential when accepting a redacted widget patch', async () => {
@@ -597,6 +654,6 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(response.status).toBe(409)
     expect(response.body.code).toBe('stale_server_tool_review')
     expect(socketRouteMocks.applyDashboardWidgetConfigPatch).not.toHaveBeenCalled()
-    expect(socketRouteMocks.flushDocumentPersistence).not.toHaveBeenCalled()
+    expect(socketRouteMocks.flushDocumentPersistence).toHaveBeenCalledTimes(1)
   })
 })

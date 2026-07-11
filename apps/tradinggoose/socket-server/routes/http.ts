@@ -27,6 +27,7 @@ import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
   applyDashboardTopologyMutation,
   applyDashboardWidgetConfigPatch,
+  ensureDashboardLayoutDirtyTracker,
   readDashboardLayoutContent,
 } from '@/lib/yjs/dashboard-layout-session'
 import {
@@ -684,7 +685,9 @@ async function handleInternalDashboardEditRequest(
     })
     const doc = await getBootstrappedApplyDocument(descriptor)
     const committed = await runDocumentMutation(doc, async () => {
+      await flushDocumentPersistence(doc)
       const current = readDashboardLayoutContent(doc)
+      let mutateStaged: (staged: Y.Doc) => void
 
       if (body.mutation === 'layout') {
         if (typeof body.entityDocument !== 'string') {
@@ -698,7 +701,7 @@ async function handleInternalDashboardEditRequest(
           { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
           hashServerToolReviewBase(buildDashboardLayoutReviewBase(current, plan))
         )
-        applyDashboardTopologyMutation(doc, plan)
+        mutateStaged = (staged) => applyDashboardTopologyMutation(staged, plan)
       } else if (body.mutation === 'widget') {
         const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''
         if (
@@ -738,18 +741,24 @@ async function handleInternalDashboardEditRequest(
             buildDashboardWidgetReviewBase(current, panelId, planned.reviewBase, requestedPatch)
           )
         )
-        applyDashboardWidgetConfigPatch(doc, panelId, mutationPatch)
+        mutateStaged = (staged) => {
+          applyDashboardWidgetConfigPatch(staged, panelId, mutationPatch)
+        }
       } else {
         throw new InvalidInternalYjsRequestError('Unknown dashboard mutation')
       }
 
-      await flushDocumentPersistence(doc, async (docId, target) => {
-        await saveDashboardLayoutYjsDocToDb(docId, target)
-      })
+      await applyThroughStaging(
+        doc,
+        (staged) => {
+          ensureDashboardLayoutDirtyTracker(staged)
+          mutateStaged(staged)
+        },
+        (staged) => saveDashboardLayoutYjsDocToDb(entityId, staged)
+      )
       return readDashboardLayoutContent(doc)
     })
     sendJson(res, 200, { success: true, content: committed })
-    discardDocumentIfIdle(entityId)
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
     if (error instanceof StructuredServerToolError) {
@@ -770,6 +779,8 @@ async function handleInternalDashboardEditRequest(
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
     })
+  } finally {
+    discardDocumentIfIdle(entityId)
   }
 }
 
