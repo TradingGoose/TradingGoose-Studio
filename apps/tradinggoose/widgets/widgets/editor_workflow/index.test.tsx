@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowEditorWidget } from './index'
 
-const { mockEditorApp, mockControlBar } = vi.hoisted(() => ({
+const { mockEditorApp, mockControlBar, mockToolbar } = vi.hoisted(() => ({
   mockEditorApp: vi.fn(),
   mockControlBar: vi.fn(),
+  mockToolbar: vi.fn(),
 }))
 
 vi.mock('next-intl', () => ({
@@ -47,7 +48,10 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-controlbar', () =
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-toolbar', () => ({
-  WorkflowToolbar: () => <div>toolbar</div>,
+  WorkflowToolbar: (props: Record<string, unknown>) => {
+    mockToolbar(props)
+    return <div>toolbar</div>
+  },
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-ui-context', () => ({
@@ -86,15 +90,16 @@ describe('workflowEditorWidget', () => {
         panelId: 'panel-1',
       } as any)
     )
-    renderToStaticMarkup(
-      workflowEditorWidget.renderHeader?.({
-        context: { workspaceId: 'ws-1', canWrite: false },
-        widget: { key: 'editor_workflow' } as any,
-        panelId: 'panel-1',
-      })?.right
-    )
+    const header = workflowEditorWidget.renderHeader?.({
+      context: { workspaceId: 'ws-1', canWrite: false },
+      widget: { key: 'editor_workflow' } as any,
+      panelId: 'panel-1',
+    })
+    renderToStaticMarkup(header?.left)
+    renderToStaticMarkup(header?.right)
 
     expect(mockEditorApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
+    expect(mockToolbar).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
     expect(mockControlBar).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 

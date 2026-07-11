@@ -291,8 +291,7 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
 
   // User permissions - get current user's specific permissions from context
   const userPermissions = useUserPermissionsContext()
-
-  const effectivePermissions = userPermissions
+  const canMutateWorkflow = workflowSession?.accessMode === 'write' && userPermissions.canEdit
 
   // Workspace permissions - get all users and their permissions for this workspace
   const { workspacePermissions, permissionsError } = useWorkspacePermissionsContext()
@@ -618,7 +617,7 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
   useEffect(() => {
     const handleAddBlockFromToolbar = (detail: ToolbarAddBlockRequest) => {
       // Check if user has permission to interact with blocks
-      if (!effectivePermissions.canEdit) {
+      if (!canMutateWorkflow) {
         return
       }
 
@@ -747,7 +746,7 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
     addBlock,
     findClosestOutput,
     determineSourceHandle,
-    effectivePermissions.canEdit,
+    canMutateWorkflow,
     setTriggerWarning,
     projectViewportCenter,
     toolbarScopeId,
@@ -1565,12 +1564,12 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
           edges={edgesWithSelection}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={effectivePermissions.canEdit ? onConnect : undefined}
+          onConnect={canMutateWorkflow ? onConnect : undefined}
           onNodeClick={onNodeClick}
           nodeTypes={workflowNodeTypes}
           edgeTypes={workflowEdgeTypes}
-          onDrop={effectivePermissions.canEdit ? onDrop : undefined}
-          onDragOver={effectivePermissions.canEdit ? onDragOver : undefined}
+          onDrop={canMutateWorkflow ? onDrop : undefined}
+          onDragOver={canMutateWorkflow ? onDragOver : undefined}
           onInit={(instance) => {
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
@@ -1590,16 +1589,16 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
           onEdgeClick={onEdgeClick}
           elementsSelectable={true}
           selectNodesOnDrag={false}
-          nodesConnectable={effectivePermissions.canEdit}
-          nodesDraggable={effectivePermissions.canEdit}
+          nodesConnectable={canMutateWorkflow}
+          nodesDraggable={canMutateWorkflow}
           draggable={false}
           noWheelClassName='allow-scroll'
           edgesFocusable={true}
-          edgesReconnectable={effectivePermissions.canEdit}
+          edgesReconnectable={canMutateWorkflow}
           className='workflow-container h-full'
-          onNodeDrag={effectivePermissions.canEdit ? onNodeDrag : undefined}
-          onNodeDragStop={effectivePermissions.canEdit ? onNodeDragStop : undefined}
-          onNodeDragStart={effectivePermissions.canEdit ? onNodeDragStart : undefined}
+          onNodeDrag={canMutateWorkflow ? onNodeDrag : undefined}
+          onNodeDragStop={canMutateWorkflow ? onNodeDragStop : undefined}
+          onNodeDragStart={canMutateWorkflow ? onNodeDragStart : undefined}
           snapToGrid={false}
           snapGrid={snapGrid}
           elevateEdgesOnSelect={true}
@@ -1607,8 +1606,8 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
           onlyRenderVisibleElements={true}
           deleteKeyCode={null}
           elevateNodesOnSelect={true}
-          autoPanOnConnect={effectivePermissions.canEdit}
-          autoPanOnNodeDrag={effectivePermissions.canEdit}
+          autoPanOnConnect={canMutateWorkflow}
+          autoPanOnNodeDrag={canMutateWorkflow}
           style={{
             backgroundColor: 'transparent',
           }}
@@ -1628,10 +1627,9 @@ const WorkflowCanvas = React.memo(({ ui, toolbarScopeId, viewportBounds }: Workf
         />
 
         {/* Trigger list for empty workflows - only show after workflow has loaded and hydrated */}
-        {uiConfig.triggerList &&
-          isWorkflowReady &&
-          isWorkflowEmpty &&
-          effectivePermissions.canEdit && <TriggerList onSelect={handleTriggerSelect} />}
+        {uiConfig.triggerList && isWorkflowReady && isWorkflowEmpty && canMutateWorkflow && (
+          <TriggerList onSelect={handleTriggerSelect} />
+        )}
       </div>
     </div>
   )

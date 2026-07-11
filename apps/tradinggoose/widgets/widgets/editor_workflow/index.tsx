@@ -196,18 +196,6 @@ const WorkflowEditorHeaderSelector = ({
   )
 }
 
-type WorkflowEditorHeaderControlsProps = {
-  workspaceId?: string
-  toolbarScopeId: string
-}
-
-const WorkflowEditorHeaderControls = ({
-  workspaceId,
-  toolbarScopeId,
-}: WorkflowEditorHeaderControlsProps) => {
-  return <WorkflowToolbar workspaceId={workspaceId} toolbarScopeId={toolbarScopeId} />
-}
-
 export const workflowEditorWidget: DashboardWidgetDefinition = {
   contract: workflowEditorWidgetContract,
   icon: Workflow,
@@ -218,9 +206,10 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
 
     return {
       left: (
-        <WorkflowEditorHeaderControls
+        <WorkflowToolbar
           workspaceId={context?.workspaceId}
           toolbarScopeId={toolbarScopeId}
+          accessMode={context?.canWrite === false ? 'read' : 'write'}
         />
       ),
       center: (
