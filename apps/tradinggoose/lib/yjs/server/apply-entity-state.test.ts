@@ -154,7 +154,7 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })
-    mockDbTransaction.mockImplementation(async (callback) => callback('tx'))
+    mockDbTransaction.mockImplementation(async (callback) => callback({ update: mockDbUpdate }))
     mockMaterializeWatchlistDocumentInTx.mockResolvedValue({
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
@@ -351,7 +351,7 @@ describe('applySavedEntityState', () => {
 
     expect(mockDbTransaction).toHaveBeenCalledTimes(1)
     expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledWith(
-      'tx',
+      { update: mockDbUpdate },
       'workspace-1',
       'watchlist-1',
       {

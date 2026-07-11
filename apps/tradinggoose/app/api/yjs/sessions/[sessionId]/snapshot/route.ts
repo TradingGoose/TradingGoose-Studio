@@ -114,9 +114,8 @@ export async function POST(
   }
 
   try {
-    const { updateBase64 } = (await request.json().catch(() => ({}))) as {
-      updateBase64?: unknown
-    }
+    const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    const { updateBase64, identity } = rawBody
     if (typeof updateBase64 !== 'string' || !updateBase64) {
       return NextResponse.json({ error: 'updateBase64 is required' }, { status: 400 })
     }
@@ -128,7 +127,8 @@ export async function POST(
     await applyYjsUpdateInSocketServer(
       descriptor.yjsSessionId,
       `?${params.toString()}`,
-      updateBase64
+      updateBase64,
+      identity
     )
 
     return NextResponse.json({ success: true })

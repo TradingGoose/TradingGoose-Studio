@@ -104,7 +104,6 @@ export function EditorSkillWidgetBody({
         doc={skillSession.doc}
         save={skillSession.save}
         skillId={skillId}
-        workspaceId={workspaceId}
         entityName={selectedSkillMember?.entityName ?? ''}
         exportRef={exportRef}
         saveRef={saveRef}

@@ -7,6 +7,7 @@ import {
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
@@ -21,6 +22,7 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   normalizeSavedEntityIdentity,
   renameSavedEntityIdentity,
+  SavedEntityIdentityError,
 } from '@/lib/saved-entities/identity'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
@@ -84,14 +86,6 @@ type CreateEntityFromDocument = (
   fields: Record<string, unknown>,
   context: EntityCreateContext
 ) => Promise<EntityCreateResult>
-
-type ApplyEntityDocument = (input: {
-  entityId: string
-  fields: Record<string, unknown>
-  workspaceId: string
-}) => Promise<Record<string, unknown>>
-
-type PrepareEntityDocumentFields = (fields: Record<string, unknown>) => Record<string, unknown>
 
 const ENTITY_KIND_LABELS: Record<ReviewEntityKind, string> = {
   workflow: 'workflow',
@@ -302,8 +296,7 @@ export async function executeCreateEntityDocumentMutation(
   kind: GenericSavedEntityDocumentKind,
   args: EntityDocumentArgs,
   context: ServerToolExecutionContext | undefined,
-  create: CreateEntityFromDocument,
-  prepareFields?: PrepareEntityDocumentFields
+  create: CreateEntityFromDocument
 ) {
   if (args.entityId?.trim()) {
     throw new Error(`create_${kind} does not accept entityId`)
@@ -316,8 +309,7 @@ export async function executeCreateEntityDocumentMutation(
     userId,
     workspaceId,
   }
-  const parsedFields = parseEntityMutationDocument(kind, args)
-  const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
+  const fields = parseEntityMutationDocument(kind, args)
   const name = normalizeSavedEntityIdentity(kind, args.name ?? '')
 
   if (shouldStageServerToolMutationForReview(context)) {
@@ -351,12 +343,9 @@ export async function executeUpdateEntityDocumentMutation(
   kind: GenericSavedEntityDocumentKind,
   toolName: string,
   args: EntityDocumentArgs,
-  context: ServerToolExecutionContext | undefined,
-  apply?: ApplyEntityDocument,
-  prepareFields?: PrepareEntityDocumentFields
+  context: ServerToolExecutionContext | undefined
 ) {
-  const parsedFields = parseEntityMutationDocument(kind, args)
-  const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
+  const fields = parseEntityMutationDocument(kind, args)
   const entityId = requireEntityId(args, toolName)
   const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
   const requiresReview = shouldStageServerToolMutationForReview(context)
@@ -374,17 +363,12 @@ export async function executeUpdateEntityDocumentMutation(
     }
   }
 
-  let entityName: string
-  if (context?.acceptedReviewBaseStateHash) {
-    const current = await readSavedEntityDocument(kind, entityId, workspaceId)
-    assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(current.fields))
-    entityName = current.entityName
-  } else {
-    entityName = await readSavedEntityName(kind, entityId, workspaceId)
-  }
+  const entityName = await readSavedEntityName(kind, entityId, workspaceId)
 
-  const persistedFields = apply
-    ? await apply({ entityId, fields, workspaceId })
+  const persistedFields = context?.acceptedReviewBaseStateHash
+    ? await applySavedEntityState(kind, entityId, fields, {
+        expectedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
+      })
     : await applySavedEntityState(kind, entityId, fields)
   return {
     success: true,
@@ -437,7 +421,29 @@ export async function executeRenameEntityMutation(
     assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(reviewBase))
   }
 
-  await renameSavedEntityIdentity({ entityKind: kind, entityId, workspaceId, ownerUserId, name })
+  try {
+    await renameSavedEntityIdentity({
+      entityKind: kind,
+      entityId,
+      workspaceId,
+      ownerUserId,
+      name,
+      expectedCurrentName: context?.acceptedReviewBaseStateHash ? currentName : undefined,
+    })
+  } catch (error) {
+    if (error instanceof SavedEntityIdentityError && error.code === 'stale_server_tool_review') {
+      throw new StructuredServerToolError({
+        status: 409,
+        body: {
+          code: error.code,
+          error: error.message,
+          hint: 'Ask Copilot to read the current target and prepare the rename again.',
+          retryable: true,
+        },
+      })
+    }
+    throw error
+  }
   return result
 }
 

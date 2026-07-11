@@ -61,7 +61,10 @@ function closeYjsSession(result: YjsProviderBootstrapResult): void {
   result.doc.destroy()
 }
 
-async function saveYjsSessionSnapshot(result: YjsProviderBootstrapResult): Promise<void> {
+async function saveYjsSessionSnapshot(
+  result: YjsProviderBootstrapResult,
+  identityName?: string
+): Promise<void> {
   const { descriptor } = result
   const params = new URLSearchParams({
     ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
@@ -74,7 +77,10 @@ async function saveYjsSessionSnapshot(result: YjsProviderBootstrapResult): Promi
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ updateBase64 }),
+      body: JSON.stringify({
+        updateBase64,
+        ...(identityName ? { identity: { name: identityName } } : {}),
+      }),
     }
   )
   if (!response.ok) {
@@ -341,17 +347,20 @@ export function useSavedEntityYjsSession(
     sessionKey ? openSession : null,
     'Failed to open entity session'
   )
-  const save = useCallback(async () => {
-    if (accessModeRef.current === 'read') {
-      throw new Error('Cannot save a read-only Yjs session')
-    }
-    if (!activeState?.result || !entityId || !workspaceId) {
-      throw new Error('Yjs session is not ready')
-    }
+  const save = useCallback(
+    async (identityName?: string) => {
+      if (accessModeRef.current === 'read') {
+        throw new Error('Cannot save a read-only Yjs session')
+      }
+      if (!activeState?.result || !entityId || !workspaceId) {
+        throw new Error('Yjs session is not ready')
+      }
 
-    await saveYjsSessionSnapshot(activeState.result)
-    invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
-  }, [accessModeRef, activeState?.result, entityId, entityKind, workspaceId])
+      await saveYjsSessionSnapshot(activeState.result, identityName)
+      invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
+    },
+    [accessModeRef, activeState?.result, entityId, entityKind, workspaceId]
+  )
 
   return {
     doc: activeState?.result?.doc ?? null,

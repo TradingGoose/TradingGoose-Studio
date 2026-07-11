@@ -159,7 +159,9 @@ describe('entity document mutation helpers', () => {
       }
     )
 
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields, {
+      expectedReviewBaseStateHash: hashServerToolReviewBase(currentFields),
+    })
   })
 
   it('renames only the identity field and reviews only identity state', async () => {

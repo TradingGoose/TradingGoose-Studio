@@ -11,6 +11,7 @@ import type {
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
@@ -171,24 +172,36 @@ export async function notifyWorkspaceYjsAccessChanged(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
-  fields: Record<string, unknown>
-): Promise<Record<string, unknown>> {
-  const response = await postJsonToSocketServerWithResponse<{
-    success?: unknown
-    fields?: unknown
-  }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
-    entityKind,
-    fields,
-  })
-  if (
-    response.success !== true ||
-    !response.fields ||
-    typeof response.fields !== 'object' ||
-    Array.isArray(response.fields)
-  ) {
-    throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
+  fields: Record<string, unknown>,
+  options?: {
+    expectedReviewBaseStateHash?: string
+    identity?: SavedEntityIdentityMutation
   }
-  return response.fields as Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  try {
+    const response = await postJsonToSocketServerWithResponse<{
+      success?: unknown
+      fields?: unknown
+    }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
+      entityKind,
+      fields,
+      ...(options?.expectedReviewBaseStateHash
+        ? { expectedReviewBaseStateHash: options.expectedReviewBaseStateHash }
+        : {}),
+      ...(options?.identity ? { identity: options.identity } : {}),
+    })
+    if (
+      response.success !== true ||
+      !response.fields ||
+      typeof response.fields !== 'object' ||
+      Array.isArray(response.fields)
+    ) {
+      throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
+    }
+    return response.fields as Record<string, unknown>
+  } catch (error) {
+    rethrowStructuredBridgeError(error)
+  }
 }
 
 export async function importWatchlistDocumentInSocketServer(
@@ -302,11 +315,12 @@ export function applyDashboardWidgetEditInSocketServer(input: {
 export async function applyYjsUpdateInSocketServer(
   sessionId: string,
   search: string,
-  updateBase64: string
+  updateBase64: string,
+  identity?: unknown
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/apply-update${search}`,
-    { updateBase64 }
+    { updateBase64, ...(identity ? { identity } : {}) }
   )
 }
 

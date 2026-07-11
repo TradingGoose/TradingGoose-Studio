@@ -10,12 +10,6 @@ import * as Y from 'yjs'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
 
-const mockRenameSavedEntityAction = vi.hoisted(() => vi.fn())
-
-vi.mock('@/lib/saved-entities/actions', () => ({
-  renameSavedEntityAction: (...args: unknown[]) => mockRenameSavedEntityAction(...args),
-}))
-
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
@@ -26,7 +20,6 @@ describe('SkillEditor save', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRenameSavedEntityAction.mockResolvedValue(undefined)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -40,7 +33,7 @@ describe('SkillEditor save', () => {
     container.remove()
   })
 
-  it('renames the identity and saves content through their canonical owners', async () => {
+  it('saves identity and content through one session mutation', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
     const exportRef = createRef<() => void>()
     const saveRef = createRef<() => void>()
@@ -58,7 +51,6 @@ describe('SkillEditor save', () => {
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
           skillId='skill-1'
-          workspaceId='workspace-1'
           entityName='Market Research'
           doc={doc}
           save={save}
@@ -81,12 +73,7 @@ describe('SkillEditor save', () => {
     })
 
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
-    expect(mockRenameSavedEntityAction).toHaveBeenCalledWith({
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      workspaceId: 'workspace-1',
-      name: 'Market Research Updated',
-    })
+    expect(save).toHaveBeenCalledWith('Market Research Updated')
     doc.destroy()
   })
 
@@ -105,7 +92,6 @@ describe('SkillEditor save', () => {
         exportRef={exportRef as MutableRefObject<() => void>}
         saveRef={saveRef as MutableRefObject<() => void>}
         skillId='skill-1'
-        workspaceId='workspace-1'
         entityName='Market Research'
         doc={doc}
         save={save}
@@ -136,7 +122,6 @@ describe('SkillEditor save', () => {
     })
 
     expect(String(doc.getMap('fields').get('description'))).toBe('Original description')
-    expect(mockRenameSavedEntityAction).not.toHaveBeenCalled()
     expect(save).not.toHaveBeenCalled()
     doc.destroy()
   })

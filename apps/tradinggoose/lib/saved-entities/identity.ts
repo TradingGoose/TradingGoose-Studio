@@ -10,15 +10,20 @@ import {
   workflow,
 } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
-export type SavedEntityIdentityInput = {
+export type SavedEntityIdentityMutation = {
+  name: string
+}
+
+export type SavedEntityIdentityInput = SavedEntityIdentityMutation & {
   entityKind: ReviewEntityKind
   entityId: string
   workspaceId: string
   ownerUserId?: string | null
-  name: string
+  expectedCurrentName?: string
 }
 
 type SavedEntityIdentityWriter = Pick<typeof db, 'update'>
@@ -26,7 +31,8 @@ type SavedEntityIdentityWriter = Pick<typeof db, 'update'>
 export class SavedEntityIdentityError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public code?: string
   ) {
     super(message)
     this.name = 'SavedEntityIdentityError'
@@ -52,6 +58,12 @@ export async function renameSavedEntityIdentityInTx(
   const { entityKind, entityId, workspaceId } = input
   const ownerUserId = input.ownerUserId?.trim() || null
   const name = normalizeSavedEntityIdentity(entityKind, input.name)
+  const expectedCurrentName =
+    input.expectedCurrentName === undefined
+      ? undefined
+      : normalizeSavedEntityIdentity(entityKind, input.expectedCurrentName)
+  const expectedNameWhere = (column: AnyPgColumn) =>
+    expectedCurrentName === undefined ? undefined : eq(column, expectedCurrentName)
   const updatedAt = new Date()
 
   try {
@@ -61,28 +73,52 @@ export async function renameSavedEntityIdentityInTx(
         rows = await writer
           .update(workflow)
           .set({ name, updatedAt })
-          .where(and(eq(workflow.id, entityId), eq(workflow.workspaceId, workspaceId)))
+          .where(
+            and(
+              eq(workflow.id, entityId),
+              eq(workflow.workspaceId, workspaceId),
+              expectedNameWhere(workflow.name)
+            )
+          )
           .returning({ id: workflow.id })
         break
       case 'skill':
         rows = await writer
           .update(skill)
           .set({ name, updatedAt })
-          .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
+          .where(
+            and(
+              eq(skill.id, entityId),
+              eq(skill.workspaceId, workspaceId),
+              expectedNameWhere(skill.name)
+            )
+          )
           .returning({ id: skill.id })
         break
       case 'custom_tool':
         rows = await writer
           .update(customTools)
           .set({ title: name, updatedAt })
-          .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
+          .where(
+            and(
+              eq(customTools.id, entityId),
+              eq(customTools.workspaceId, workspaceId),
+              expectedNameWhere(customTools.title)
+            )
+          )
           .returning({ id: customTools.id })
         break
       case 'indicator':
         rows = await writer
           .update(pineIndicators)
           .set({ name, updatedAt })
-          .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
+          .where(
+            and(
+              eq(pineIndicators.id, entityId),
+              eq(pineIndicators.workspaceId, workspaceId),
+              expectedNameWhere(pineIndicators.name)
+            )
+          )
           .returning({ id: pineIndicators.id })
         break
       case 'knowledge_base':
@@ -93,7 +129,8 @@ export async function renameSavedEntityIdentityInTx(
             and(
               eq(knowledgeBase.id, entityId),
               eq(knowledgeBase.workspaceId, workspaceId),
-              isNull(knowledgeBase.deletedAt)
+              isNull(knowledgeBase.deletedAt),
+              expectedNameWhere(knowledgeBase.name)
             )
           )
           .returning({ id: knowledgeBase.id })
@@ -106,7 +143,8 @@ export async function renameSavedEntityIdentityInTx(
             and(
               eq(mcpServers.id, entityId),
               eq(mcpServers.workspaceId, workspaceId),
-              isNull(mcpServers.deletedAt)
+              isNull(mcpServers.deletedAt),
+              expectedNameWhere(mcpServers.name)
             )
           )
           .returning({ id: mcpServers.id })
@@ -120,7 +158,8 @@ export async function renameSavedEntityIdentityInTx(
               eq(watchlistTable.id, entityId),
               eq(watchlistTable.workspaceId, workspaceId),
               isNull(watchlistTable.userId),
-              isNull(watchlistTable.parentId)
+              isNull(watchlistTable.parentId),
+              expectedNameWhere(watchlistTable.name)
             )
           )
           .returning({ id: watchlistTable.id })
@@ -136,7 +175,8 @@ export async function renameSavedEntityIdentityInTx(
             and(
               eq(layoutMaps.id, entityId),
               eq(layoutMaps.workspaceId, workspaceId),
-              eq(layoutMaps.userId, ownerUserId)
+              eq(layoutMaps.userId, ownerUserId),
+              expectedNameWhere(layoutMaps.name)
             )
           )
           .returning({ id: layoutMaps.id })
@@ -144,6 +184,13 @@ export async function renameSavedEntityIdentityInTx(
     }
 
     if (rows.length === 0) {
+      if (expectedCurrentName !== undefined) {
+        throw new SavedEntityIdentityError(
+          409,
+          'This reviewed Copilot rename is stale because the target changed after review.',
+          'stale_server_tool_review'
+        )
+      }
       throw new SavedEntityIdentityError(
         404,
         `Saved ${entityKind} ${entityId} was not found while renaming`

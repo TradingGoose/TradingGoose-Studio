@@ -25,6 +25,7 @@ describe('Workflow By ID API Route', () => {
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
   const mockDbUpdateSet = vi.fn()
+  const mockDbUpdate = vi.fn()
   const mockRenameSavedEntityIdentity = vi.fn()
 
   class MockSavedEntityIdentityError extends Error {
@@ -62,9 +63,8 @@ describe('Workflow By ID API Route', () => {
             where: vi.fn().mockResolvedValue([]),
           }),
         }),
-        update: vi.fn().mockReturnValue({
-          set: mockDbUpdateSet,
-        }),
+        update: mockDbUpdate,
+        transaction: vi.fn(async (callback) => callback({ update: mockDbUpdate })),
       },
     }))
 
@@ -80,7 +80,7 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/saved-entities/identity', () => ({
-      renameSavedEntityIdentity: mockRenameSavedEntityIdentity,
+      renameSavedEntityIdentityInTx: mockRenameSavedEntityIdentity,
       SavedEntityIdentityError: MockSavedEntityIdentityError,
     }))
 
@@ -93,11 +93,13 @@ describe('Workflow By ID API Route', () => {
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
+    mockDbUpdate.mockReset()
     mockRenameSavedEntityIdentity.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
     mockRefreshWorkflowListForWorkflow.mockResolvedValue(undefined)
     mockDbUpdateWhere.mockReturnValue({ returning: mockDbUpdateReturning })
     mockDbUpdateSet.mockReturnValue({ where: mockDbUpdateWhere })
+    mockDbUpdate.mockReturnValue({ set: mockDbUpdateSet })
     mockDbUpdateReturning.mockResolvedValue([
       {
         id: 'workflow-123',
@@ -127,13 +129,16 @@ describe('Workflow By ID API Route', () => {
 
   function expectWorkflowRenameApplied() {
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
-      entityKind: 'workflow',
-      entityId: 'workflow-123',
-      workspaceId: 'workspace-456',
-      name: 'Updated Workflow',
-    })
-    expect(mockRefreshWorkflowListForWorkflow).not.toHaveBeenCalled()
+    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({ update: mockDbUpdate }),
+      {
+        entityKind: 'workflow',
+        entityId: 'workflow-123',
+        workspaceId: 'workspace-456',
+        name: 'Updated Workflow',
+      }
+    )
+    expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
   }
 
   describe('GET /api/workflows/[id]', () => {

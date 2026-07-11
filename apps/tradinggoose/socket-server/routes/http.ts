@@ -20,6 +20,7 @@ import {
   buildDashboardWidgetReviewBase,
 } from '@/lib/dashboard-layouts/review-base'
 import { env } from '@/lib/env'
+import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
 import { importWatchlistDocument, WatchlistOperationError } from '@/lib/watchlists/operations'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
@@ -101,6 +102,8 @@ type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
   fields: Record<string, any>
+  expectedReviewBaseStateHash?: string
+  identity?: SavedEntityIdentityMutation
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -232,6 +235,24 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   }
 }
 
+function parseSavedEntityIdentityMutation(value: unknown): SavedEntityIdentityMutation | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InvalidInternalYjsRequestError('identity must be an object')
+  }
+  const rawIdentity = value as Record<string, unknown>
+  const unsupportedField = Object.keys(rawIdentity).find((key) => key !== 'name')
+  if (unsupportedField) {
+    throw new InvalidInternalYjsRequestError(
+      `Unsupported saved entity identity field: ${unsupportedField}`
+    )
+  }
+  if (typeof rawIdentity.name !== 'string' || !rawIdentity.name.trim()) {
+    throw new InvalidInternalYjsRequestError('identity.name is required')
+  }
+  return { name: rawIdentity.name }
+}
+
 function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new InvalidInternalYjsRequestError('Invalid apply entity state body')
@@ -239,7 +260,11 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
 
   const candidate = body as Record<string, unknown>
   const unsupportedField = Object.keys(candidate).find(
-    (key) => key !== 'entityKind' && key !== 'fields'
+    (key) =>
+      key !== 'entityKind' &&
+      key !== 'fields' &&
+      key !== 'expectedReviewBaseStateHash' &&
+      key !== 'identity'
   )
   if (unsupportedField) {
     throw new InvalidInternalYjsRequestError(
@@ -265,9 +290,23 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
+  const expectedReviewBaseStateHash =
+    candidate.expectedReviewBaseStateHash === undefined
+      ? undefined
+      : typeof candidate.expectedReviewBaseStateHash === 'string'
+        ? candidate.expectedReviewBaseStateHash.trim()
+        : ''
+  if (candidate.expectedReviewBaseStateHash !== undefined && !expectedReviewBaseStateHash) {
+    throw new InvalidInternalYjsRequestError('expectedReviewBaseStateHash must be a string')
+  }
+
+  const identity = parseSavedEntityIdentityMutation(candidate.identity)
+
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
+    ...(expectedReviewBaseStateHash ? { expectedReviewBaseStateHash } : {}),
+    ...(identity ? { identity } : {}),
   }
 }
 
@@ -312,23 +351,22 @@ async function getBootstrappedApplyDocument(
  * Applies a server-authored mutation durably: the change is staged on a detached
  * copy and persisted before it is reflected into the live collaborative document.
  */
-async function applyWorkflowThroughStaging(
+async function applyThroughStaging<T>(
   doc: Y.Doc,
-  sessionId: string,
   mutate: (target: Y.Doc) => void,
-  persist: (staged: Y.Doc) => Promise<void>
-): Promise<void> {
+  persist: (staged: Y.Doc) => Promise<T>
+): Promise<T> {
   const liveState = Y.encodeStateVector(doc)
   const staging = new Y.Doc()
-  Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc))
+  Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
   try {
     mutate(staging)
-    await persist(staging)
+    const persisted = await persist(staging)
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging, liveState), YJS_ORIGINS.SYSTEM)
     markDocumentPersisted(doc)
+    return persisted
   } finally {
     staging.destroy()
-    discardDocumentIfIdle(sessionId)
   }
 }
 
@@ -367,6 +405,34 @@ async function refreshSavedEntityListDoc(
   } catch {
     discardDocument(descriptor.yjsSessionId)
   }
+}
+
+async function applySavedEntityThroughStaging(input: {
+  doc: Y.Doc
+  entityId: string
+  entityKind: SavedEntityKind
+  identity?: SavedEntityIdentityMutation
+  validate?: (current: Y.Doc) => void
+  mutate: (staged: Y.Doc) => void
+}): Promise<Record<string, unknown>> {
+  await flushDocumentPersistence(input.doc)
+  input.validate?.(input.doc)
+  const persisted = await applyThroughStaging(
+    input.doc,
+    (staged) => {
+      input.mutate(staged)
+      clearSessionReseededFromCanonical(staged)
+    },
+    (staged) =>
+      saveSavedEntityYjsDocToDb(
+        input.entityKind,
+        input.entityId,
+        staged,
+        input.identity ? { identity: input.identity } : undefined
+      )
+  )
+  await refreshSavedEntityListDoc(input.entityKind, input.doc)
+  return persisted
 }
 
 async function handleInternalYjsEntityListMembersRequest(
@@ -429,9 +495,8 @@ async function handleInternalYjsWorkflowApplyRequest(
     } as const
     const doc = await getBootstrappedApplyDocument(descriptor)
     await runDocumentMutation(doc, () =>
-      applyWorkflowThroughStaging(
+      applyThroughStaging(
         doc,
-        workflowId,
         (target) => applyWorkflowApplyRequest(target, body),
         (staged) => saveWorkflowYjsDocToDb(workflowId, staged)
       )
@@ -443,6 +508,8 @@ async function handleInternalYjsWorkflowApplyRequest(
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply workflow state',
     })
+  } finally {
+    discardDocumentIfIdle(workflowId)
   }
 }
 
@@ -464,32 +531,57 @@ async function handleInternalYjsEntityApplyRequest(
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
     const doc = await getBootstrappedApplyDocument(descriptor)
-    const persistedFields = await runDocumentMutation(doc, async () => {
-      seedEntitySession(
+    const persistedFields = await runDocumentMutation(doc, () =>
+      applySavedEntityThroughStaging({
         doc,
-        { entityKind: body.entityKind, payload: normalizedFields },
-        YJS_ORIGINS.SAVE
-      )
-      clearSessionReseededFromCanonical(doc)
-      await flushDocumentPersistence(doc, async (docId, target) => {
-        await saveSavedEntityYjsDocToDb(body.entityKind, docId, target)
+        entityId,
+        entityKind: body.entityKind,
+        identity: body.identity,
+        validate: body.expectedReviewBaseStateHash
+          ? (current) =>
+              assertAcceptedServerToolReviewBase(
+                {
+                  userId: 'internal-realtime',
+                  acceptedReviewBaseStateHash: body.expectedReviewBaseStateHash,
+                },
+                hashServerToolReviewBase(getEntityFields(current, body.entityKind))
+              )
+          : undefined,
+        mutate: (staged) => {
+          seedEntitySession(
+            staged,
+            { entityKind: body.entityKind, payload: normalizedFields },
+            YJS_ORIGINS.SAVE
+          )
+        },
       })
-      await refreshSavedEntityListDoc(body.entityKind, doc)
-      return getEntityFields(doc, body.entityKind)
-    })
+    )
 
     sendJson(res, 200, { success: true, fields: persistedFields })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
+    if (error instanceof StructuredServerToolError) {
+      sendJson(res, error.status, {
+        error: error.message,
+        code: error.code,
+        ...(error.hint ? { hint: error.hint } : {}),
+        ...(typeof error.retryable === 'boolean' ? { retryable: error.retryable } : {}),
+      })
+      return
+    }
     const status =
       error instanceof InvalidInternalYjsRequestError
         ? 400
         : error instanceof SavedEntityPersistenceError
           ? error.status
           : 500
-    sendJson(res, status, {
-      error: error instanceof Error ? error.message : 'Failed to apply entity state',
-    })
+    sendJson(
+      res,
+      status,
+      error instanceof SavedEntityPersistenceError
+        ? error.responseBody()
+        : { error: error instanceof Error ? error.message : 'Failed to apply entity state' }
+    )
   } finally {
     discardDocumentIfIdle(entityId)
   }
@@ -533,22 +625,17 @@ async function handleInternalWatchlistImportRequest(
         throw new WatchlistOperationError('Watchlist not found', 404)
       }
       await flushDocumentPersistence(doc)
-      const liveState = Y.encodeStateVector(doc)
-      const staged = new Y.Doc()
-      Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
-      try {
-        seedEntitySession(staged, {
-          entityKind: 'watchlist',
-          payload: { settings: fields.settings, items: fields.items },
-        })
-        const persisted = await importWatchlistDocument({ workspaceId }, entityId, fields)
-        Y.applyUpdate(doc, Y.encodeStateAsUpdate(staged, liveState), YJS_ORIGINS.SYSTEM)
-        markDocumentPersisted(doc)
-        await refreshSavedEntityListDoc('watchlist', doc)
-        return persisted
-      } finally {
-        staged.destroy()
-      }
+      const persisted = await applyThroughStaging(
+        doc,
+        (staged) =>
+          seedEntitySession(staged, {
+            entityKind: 'watchlist',
+            payload: { settings: fields.settings, items: fields.items },
+          }),
+        () => importWatchlistDocument({ workspaceId }, entityId, fields)
+      )
+      await refreshSavedEntityListDoc('watchlist', doc)
+      return persisted
     })
 
     sendJson(res, 200, { success: true, fields: committed })
@@ -701,34 +788,49 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     }
 
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    const body = await readJsonBody(req)
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    const rawBody = await readJsonBody(req)
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
       throw new InvalidInternalYjsRequestError('Invalid apply session update body')
     }
-    const updateBase64 = (body as Record<string, unknown>).updateBase64
+    const body = rawBody as Record<string, unknown>
+    const unsupportedField = Object.keys(body).find(
+      (key) => key !== 'updateBase64' && key !== 'identity'
+    )
+    if (unsupportedField) {
+      throw new InvalidInternalYjsRequestError(
+        `Unsupported apply session update field: ${unsupportedField}`
+      )
+    }
+    const updateBase64 = body.updateBase64
     if (typeof updateBase64 !== 'string' || !updateBase64) {
       throw new InvalidInternalYjsRequestError('updateBase64 is required')
+    }
+    const identity = parseSavedEntityIdentityMutation(body.identity)
+    if (identity && descriptor.entityKind === 'dashboard_layout') {
+      throw new InvalidInternalYjsRequestError('Dashboard layout identity is not saved here')
     }
     try {
       const doc = await getBootstrappedApplyDocument(descriptor)
       await runDocumentMutation(doc, async () => {
-        // Client explicit-save flush: merge the user's collaborative draft first,
-        // then materialize it. Persistence failure keeps the draft for correction.
-        Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
-        clearSessionReseededFromCanonical(doc)
-        if (descriptor.entityId && descriptor.entityKind !== 'workflow') {
-          if (descriptor.entityKind === 'dashboard_layout') {
-            await flushDocumentPersistence(doc, async (docId, target) => {
-              await saveDashboardLayoutYjsDocToDb(docId, target)
-            })
-          } else {
-            const entityKind: SavedEntityKind = descriptor.entityKind
-            await flushDocumentPersistence(doc, async (docId, target) => {
-              await saveSavedEntityYjsDocToDb(entityKind, docId, target)
-              await refreshSavedEntityListDoc(entityKind, target)
-            })
-          }
+        if (!descriptor.entityId || descriptor.entityKind === 'workflow') return
+        if (descriptor.entityKind === 'dashboard_layout') {
+          Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
+          clearSessionReseededFromCanonical(doc)
+          await flushDocumentPersistence(doc, async (docId, target) => {
+            await saveDashboardLayoutYjsDocToDb(docId, target)
+          })
+          return
         }
+
+        const entityKind: SavedEntityKind = descriptor.entityKind
+        await applySavedEntityThroughStaging({
+          doc,
+          entityId: descriptor.entityId,
+          entityKind,
+          identity,
+          mutate: (staged) =>
+            Y.applyUpdate(staged, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE),
+        })
       })
       discardDocumentIfIdle(sessionId)
     } catch (error) {
@@ -745,9 +847,13 @@ async function handleInternalYjsSessionApplyUpdateRequest(
         : error instanceof SavedEntityPersistenceError
           ? error.status
           : 500
-    sendJson(res, status, {
-      error: error instanceof Error ? error.message : 'Failed to apply session update',
-    })
+    sendJson(
+      res,
+      status,
+      error instanceof SavedEntityPersistenceError
+        ? error.responseBody()
+        : { error: error instanceof Error ? error.message : 'Failed to apply session update' }
+    )
   }
 }
 

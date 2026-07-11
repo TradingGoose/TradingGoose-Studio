@@ -7,30 +7,42 @@ import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 
 const m = vi.hoisted(() => {
   const tables = {
-    workflow: { id: 'workflow.id', workspaceId: 'workflow.workspaceId' },
-    skill: { id: 'skill.id', workspaceId: 'skill.workspaceId' },
-    customTools: { id: 'customTools.id', workspaceId: 'customTools.workspaceId' },
-    pineIndicators: { id: 'pineIndicators.id', workspaceId: 'pineIndicators.workspaceId' },
+    workflow: { id: 'workflow.id', workspaceId: 'workflow.workspaceId', name: 'workflow.name' },
+    skill: { id: 'skill.id', workspaceId: 'skill.workspaceId', name: 'skill.name' },
+    customTools: {
+      id: 'customTools.id',
+      workspaceId: 'customTools.workspaceId',
+      title: 'customTools.title',
+    },
+    pineIndicators: {
+      id: 'pineIndicators.id',
+      workspaceId: 'pineIndicators.workspaceId',
+      name: 'pineIndicators.name',
+    },
     knowledgeBase: {
       id: 'knowledgeBase.id',
       workspaceId: 'knowledgeBase.workspaceId',
       deletedAt: 'knowledgeBase.deletedAt',
+      name: 'knowledgeBase.name',
     },
     mcpServers: {
       id: 'mcpServers.id',
       workspaceId: 'mcpServers.workspaceId',
       deletedAt: 'mcpServers.deletedAt',
+      name: 'mcpServers.name',
     },
     watchlistTable: {
       id: 'watchlistTable.id',
       workspaceId: 'watchlistTable.workspaceId',
       userId: 'watchlistTable.userId',
       parentId: 'watchlistTable.parentId',
+      name: 'watchlistTable.name',
     },
     layoutMaps: {
       id: 'layoutMaps.id',
       workspaceId: 'layoutMaps.workspaceId',
       userId: 'layoutMaps.userId',
+      name: 'layoutMaps.name',
     },
   }
   const state: {
@@ -68,7 +80,7 @@ const m = vi.hoisted(() => {
 vi.mock('@tradinggoose/db', () => ({ db: { update: m.update } }))
 vi.mock('@tradinggoose/db/schema', () => m.tables)
 vi.mock('drizzle-orm', () => ({
-  and: (...conditions: unknown[]) => ({ and: conditions }),
+  and: (...conditions: unknown[]) => ({ and: conditions.filter(Boolean) }),
   eq: (field: unknown, value: unknown) => ({ field, value }),
   isNull: (field: unknown) => ({ field, isNull: true }),
 }))
@@ -198,5 +210,26 @@ describe('renameSavedEntityIdentity', () => {
         name: 'Skill',
       })
     ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('makes an accepted rename conditional on its reviewed identity', async () => {
+    m.state.rows = []
+    await expect(
+      renameSavedEntityIdentity({
+        entityKind: 'skill',
+        entityId: 'entity-1',
+        workspaceId: 'workspace-1',
+        name: 'Renamed Skill',
+        expectedCurrentName: 'Reviewed Skill',
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'stale_server_tool_review' })
+
+    expect(m.state.last?.condition).toEqual({
+      and: [
+        { field: 'skill.id', value: 'entity-1' },
+        { field: 'skill.workspaceId', value: 'workspace-1' },
+        { field: 'skill.name', value: 'Reviewed Skill' },
+      ],
+    })
   })
 })

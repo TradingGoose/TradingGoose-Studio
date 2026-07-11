@@ -8,7 +8,10 @@ import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
-import { renameSavedEntityIdentity, SavedEntityIdentityError } from '@/lib/saved-entities/identity'
+import {
+  renameSavedEntityIdentityInTx,
+  SavedEntityIdentityError,
+} from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
 import {
   refreshWorkflowList,
@@ -325,36 +328,43 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    let updatedWorkflow = workflowData
     const hasRowUpdates = updates.description !== undefined || updates.folderId !== undefined
-    if (hasRowUpdates) {
-      const [row] = await db
-        .update(workflow)
-        .set({
-          ...(updates.description !== undefined ? { description: updates.description } : {}),
-          ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(workflow.id, workflowId))
-        .returning()
-      if (!row) {
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-      updatedWorkflow = { ...updatedWorkflow, ...row }
+    if (updates.name && !workflowData.workspaceId) {
+      throw new SavedEntityIdentityError(400, 'Workflow workspace is required')
     }
-    let renamedName: string | null = null
-    if (updates.name) {
-      if (!workflowData.workspaceId) {
-        throw new SavedEntityIdentityError(400, 'Workflow workspace is required')
-      }
-      renamedName = await renameSavedEntityIdentity({
-        entityKind: 'workflow',
-        entityId: workflowId,
-        workspaceId: workflowData.workspaceId,
-        name: updates.name,
-      })
-    }
-    if (!renamedName && hasRowUpdates) {
+    const updatedWorkflow =
+      hasRowUpdates || updates.name
+        ? await db.transaction(async (tx) => {
+            let row = workflowData
+            if (hasRowUpdates) {
+              const [updated] = await tx
+                .update(workflow)
+                .set({
+                  ...(updates.description !== undefined
+                    ? { description: updates.description }
+                    : {}),
+                  ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+                  updatedAt: new Date(),
+                })
+                .where(eq(workflow.id, workflowId))
+                .returning()
+              if (!updated) {
+                throw new SavedEntityIdentityError(404, 'Workflow not found')
+              }
+              row = { ...row, ...updated }
+            }
+
+            if (!updates.name) return row
+            const name = await renameSavedEntityIdentityInTx(tx, {
+              entityKind: 'workflow',
+              entityId: workflowId,
+              workspaceId: workflowData.workspaceId as string,
+              name: updates.name,
+            })
+            return { ...row, name }
+          })
+        : workflowData
+    if (hasRowUpdates || updates.name) {
       await refreshWorkflowListForWorkflow(workflowId)
     }
 
@@ -363,10 +373,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       updates,
     })
 
-    return NextResponse.json(
-      { workflow: renamedName ? { ...updatedWorkflow, name: renamedName } : updatedWorkflow },
-      { status: 200 }
-    )
+    return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     if (error instanceof z.ZodError) {

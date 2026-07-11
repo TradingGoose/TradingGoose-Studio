@@ -65,4 +65,29 @@ describe('dashboard layout Yjs snapshot route', () => {
     expect(response?.status).toBe(400)
     expect(mocks.verify).not.toHaveBeenCalled()
   })
+
+  it('forwards a saved-entity identity sidecar with the Yjs update', async () => {
+    const query =
+      'targetKind=entity&sessionId=skill-1&workspaceId=workspace-1' +
+      '&entityKind=skill&entityId=skill-1&accessMode=write'
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest(`http://localhost/api/yjs/sessions/skill-1/snapshot?${query}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          updateBase64: 'dXBkYXRl',
+          identity: { name: 'Renamed Skill' },
+        }),
+      }),
+      { params: Promise.resolve({ sessionId: 'skill-1' }) }
+    )
+
+    expect(response?.status).toBe(200)
+    expect(mocks.applyUpdate).toHaveBeenCalledWith(
+      'skill-1',
+      expect.stringContaining('accessMode=write'),
+      'dXBkYXRl',
+      { name: 'Renamed Skill' }
+    )
+  })
 })

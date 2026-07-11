@@ -21,7 +21,6 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
   deleteYjsSessionInSocketServer,
@@ -365,16 +364,15 @@ export async function applyKnowledgeBaseMetadata(
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  await renameSavedEntityIdentity({
-    entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
-    entityId: knowledgeBaseId,
-    workspaceId: existing.workspaceId,
-    name: fields.name,
-  })
-  await applySavedEntityState(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, {
-    description: fields.description,
-    chunkingConfig: fields.chunkingConfig,
-  })
+  await applySavedEntityState(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    knowledgeBaseId,
+    {
+      description: fields.description,
+      chunkingConfig: fields.chunkingConfig,
+    },
+    { identity: { name: fields.name } }
+  )
 
   logger.info(`[${requestId}] Applied knowledge base metadata through Yjs: ${knowledgeBaseId}`)
 

@@ -649,7 +649,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
     })
 
-    it('keeps an idle saved entity draft available for persistence retry', async () => {
+    it('does not publish an idle saved entity update when persistence fails', async () => {
       mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
       const response = await applySkillSessionUpdate(
         PORT,
@@ -661,12 +661,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(getEntityFields((await getExistingDocument('skill-update-failed'))!, 'skill')).toEqual(
-        {
-          description: 'Draft',
-          content: 'Draft content',
-        }
-      )
+      expect(await getExistingDocument('skill-update-failed')).toBeNull()
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {

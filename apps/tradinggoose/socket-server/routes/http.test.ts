@@ -128,7 +128,9 @@ describe('socket internal HTTP Yjs routes', () => {
     socketRouteMocks.discardDocumentIfIdle.mockImplementation(() => undefined)
     socketRouteMocks.discardDocument.mockImplementation(() => undefined)
     socketRouteMocks.saveDashboardLayoutYjsDocToDb.mockResolvedValue({ ok: true })
-    socketRouteMocks.saveSavedEntityYjsDocToDb.mockResolvedValue({ ok: true })
+    socketRouteMocks.saveSavedEntityYjsDocToDb.mockImplementation(
+      async (_kind: string, _entityId: string, doc: Y.Doc) => doc.getMap('test').get('fields')
+    )
     socketRouteMocks.flushDocumentPersistence.mockImplementation(
       async (doc: Y.Doc, persist?: (docId: string, target: Y.Doc) => Promise<void>) => {
         if (persist) await persist('layout-1', doc)
@@ -221,6 +223,59 @@ describe('socket internal HTTP Yjs routes', () => {
       headers: { Authorization: 'Bearer replacement' },
       env: { TOKEN: 'replacement-token' },
     })
+  })
+
+  it('checks accepted entity review hashes inside the queued mutation', async () => {
+    const doc = new Y.Doc()
+    doc.getMap('metadata').set('workspaceId', 'workspace-1')
+    doc.getMap('test').set('fields', { description: 'Changed after review', content: 'Current' })
+    socketRouteMocks.getExistingDocument.mockResolvedValue(doc)
+
+    const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+      entityKind: 'skill',
+      fields: { description: 'Reviewed edit', content: 'Next' },
+      expectedReviewBaseStateHash: 'stale-review-hash',
+    })
+
+    expect(response).toMatchObject({
+      status: 409,
+      body: { code: 'stale_server_tool_review' },
+    })
+    expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
+    doc.destroy()
+  })
+
+  it('does not merge staged entity fields when transactional persistence fails', async () => {
+    const doc = new Y.Doc()
+    doc.getMap('metadata').set('workspaceId', 'workspace-1')
+    const current = { description: 'Current', content: 'Current content' }
+    doc.getMap('test').set('fields', current)
+    socketRouteMocks.getExistingDocument.mockResolvedValue(doc)
+    socketRouteMocks.saveSavedEntityYjsDocToDb.mockRejectedValueOnce(
+      new Error('transaction failed')
+    )
+
+    const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+      entityKind: 'skill',
+      fields: { description: 'Next', content: 'Next content' },
+      identity: { name: 'Renamed Skill' },
+    })
+
+    expect(response.status).toBe(500)
+    expect(doc.getMap('test').get('fields')).toEqual(current)
+    expect(socketRouteMocks.markDocumentPersisted).not.toHaveBeenCalled()
+    doc.destroy()
+  })
+
+  it('rejects unsupported saved-entity identity fields at the realtime boundary', async () => {
+    const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+      entityKind: 'skill',
+      fields: { description: 'Next', content: 'Next content' },
+      identity: { name: 'Renamed Skill', fields: {} },
+    })
+
+    expect(response.status).toBe(400)
+    expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
   })
 
   it('forwards dashboard owner scope when bootstrapping entity-list snapshots', async () => {

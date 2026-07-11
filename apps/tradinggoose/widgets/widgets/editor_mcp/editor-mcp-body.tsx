@@ -12,7 +12,6 @@ import {
 import { useMessages } from 'next-intl'
 import type * as Y from 'yjs'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
@@ -285,17 +284,12 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
 
     try {
-      if (formDataState.name.trim() !== selectedServerMember?.entityName) {
-        if (!canEditRef.current) return
-        await renameSavedEntityAction({
-          entityKind: 'mcp_server',
-          entityId: selectedServerId,
-          workspaceId,
-          name: formDataState.name,
-        })
-      }
       if (!canEditRef.current) return
-      await serverSession.save()
+      await serverSession.save(
+        formDataState.name.trim() !== selectedServerMember?.entityName
+          ? formDataState.name.trim()
+          : undefined
+      )
       if (!canEditRef.current) return
       initialFormDataRef.current = formDataState
       if (formDataState.enabled === false || !formDataState.url?.trim()) {

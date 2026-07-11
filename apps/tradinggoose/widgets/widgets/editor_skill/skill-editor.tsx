@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
-import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { isValidSkillName } from '@/hooks/queries/skills'
@@ -17,10 +16,9 @@ const logger = createLogger('SkillEditor')
 
 interface SkillEditorProps {
   skillId: string
-  workspaceId: string
   entityName: string
   doc: Y.Doc | null
-  save: () => Promise<void>
+  save: (identityName?: string) => Promise<void>
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
   readOnly?: boolean
@@ -28,7 +26,6 @@ interface SkillEditorProps {
 
 export function SkillEditor({
   skillId,
-  workspaceId,
   entityName,
   doc,
   save,
@@ -80,17 +77,8 @@ export function SkillEditor({
     setError(null)
 
     try {
-      if (trimmedName !== entityName) {
-        if (readOnlyRef.current) return
-        await renameSavedEntityAction({
-          entityKind: 'skill',
-          entityId: skillId,
-          workspaceId,
-          name: trimmedName,
-        })
-      }
       if (readOnlyRef.current) return
-      await save()
+      await save(trimmedName !== entityName ? trimmedName : undefined)
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
       logger.error('Failed to save skill', { error: saveError, skillId })
@@ -98,18 +86,7 @@ export function SkillEditor({
     } finally {
       setIsSaving(false)
     }
-  }, [
-    content,
-    copy.validation,
-    description,
-    doc,
-    entityName,
-    name,
-    readOnlyRef,
-    save,
-    skillId,
-    workspaceId,
-  ])
+  }, [content, copy.validation, description, doc, entityName, name, readOnlyRef, save, skillId])
 
   const handleExport = useCallback(() => {
     if (!doc) return

@@ -9,12 +9,21 @@ import {
 import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import {
   DashboardLayoutOperationError,
   persistDashboardLayoutDirtyChannels,
 } from '@/lib/dashboard-layouts/operations'
-import { materializeWatchlistDocumentInTx } from '@/lib/watchlists/document'
+import {
+  renameSavedEntityIdentityInTx,
+  SavedEntityIdentityError,
+  type SavedEntityIdentityMutation,
+} from '@/lib/saved-entities/identity'
+import {
+  materializeWatchlistDocumentInTx,
+  type WatchlistDocumentTx,
+} from '@/lib/watchlists/document'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   beginDashboardLayoutDirtyFlush,
@@ -74,7 +83,8 @@ function normalizeSavedEntityFields(
   }
 }
 
-async function persistSavedEntityState(
+export async function persistSavedEntityStateInTx(
+  tx: WatchlistDocumentTx,
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
   fields: Record<string, unknown>,
@@ -85,7 +95,7 @@ async function persistSavedEntityState(
 
   switch (entityKind) {
     case 'skill': {
-      persisted = await db
+      persisted = await tx
         .update(skill)
         .set({
           description: String(fields.description ?? ''),
@@ -97,7 +107,7 @@ async function persistSavedEntityState(
       break
     }
     case 'custom_tool': {
-      persisted = await db
+      persisted = await tx
         .update(customTools)
         .set({
           schema: parseCustomToolSchemaText(fields.schemaText),
@@ -109,7 +119,7 @@ async function persistSavedEntityState(
       break
     }
     case 'indicator':
-      persisted = await db
+      persisted = await tx
         .update(pineIndicators)
         .set({
           color: String(fields.color ?? ''),
@@ -120,7 +130,7 @@ async function persistSavedEntityState(
         .returning({ id: pineIndicators.id })
       break
     case 'knowledge_base':
-      persisted = await db
+      persisted = await tx
         .update(knowledgeBase)
         .set({
           description: String(fields.description ?? ''),
@@ -142,7 +152,7 @@ async function persistSavedEntityState(
               toolCount: 0,
             }
           : {}
-      persisted = await db
+      persisted = await tx
         .update(mcpServers)
         .set({
           description: String(fields.description ?? '') || null,
@@ -164,9 +174,7 @@ async function persistSavedEntityState(
     }
     case 'watchlist':
       try {
-        return await db.transaction((tx) =>
-          materializeWatchlistDocumentInTx(tx, workspaceId, entityId, fields)
-        )
+        return await materializeWatchlistDocumentInTx(tx, workspaceId, entityId, fields)
       } catch (error) {
         if (error instanceof WatchlistDocumentError) {
           throw new SavedEntityPersistenceError(error.status, error.message)
@@ -191,12 +199,19 @@ async function persistSavedEntityState(
 export async function applySavedEntityState(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  options?: {
+    expectedReviewBaseStateHash?: string
+    identity?: SavedEntityIdentityMutation
+  }
 ): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    return await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    return options
+      ? await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields, options)
+      : await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   } catch (error) {
+    if (error instanceof StructuredServerToolError) throw error
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
       throw new SavedEntityPersistenceError(
@@ -215,7 +230,8 @@ export async function applySavedEntityState(
 export async function saveSavedEntityYjsDocToDb(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
-  doc: Y.Doc
+  doc: Y.Doc,
+  options?: { identity?: SavedEntityIdentityMutation }
 ): Promise<Record<string, unknown>> {
   let entityFields: Record<string, unknown>
   try {
@@ -234,7 +250,25 @@ export async function saveSavedEntityYjsDocToDb(
       `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
     )
   }
-  return persistSavedEntityState(entityKind, entityId, normalizedFields, workspaceId)
+  try {
+    return await db.transaction(async (tx) => {
+      if (options?.identity) {
+        await renameSavedEntityIdentityInTx(tx, {
+          entityKind,
+          entityId,
+          workspaceId,
+          name: options.identity.name,
+        })
+      }
+      return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
+    })
+  } catch (error) {
+    if (error instanceof SavedEntityPersistenceError) throw error
+    if (error instanceof SavedEntityIdentityError) {
+      throw new SavedEntityPersistenceError(error.status, error.message, error.code)
+    }
+    throw error
+  }
 }
 
 export async function saveDashboardLayoutYjsDocToDb(
