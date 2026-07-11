@@ -22,7 +22,7 @@ app:
     repository: tradinggoose/tradinggoose
     tag: latest
     pullPolicy: Always
-  
+
   # Number of replicas
   replicaCount: 1
   
