@@ -11,7 +11,6 @@ import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watc
 const mockWatchlistTable = vi.fn()
 const mockRefetchQuotes = vi.fn()
 const mockSetWatchlistItems = vi.fn()
-const mockSaveWatchlistDocument = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn((_request: unknown) => ({
   data: {},
   refetch: mockRefetchQuotes,
@@ -61,7 +60,6 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       items: record?.items ?? [],
       updateItems: (update: (items: unknown[]) => unknown[]) =>
         mockSetWatchlistItems(update(record?.items ?? [])),
-      save: mockSaveWatchlistDocument,
       isLoading: false,
       error: null,
       members: currentWatchlists.map((entry) => ({
@@ -113,7 +111,6 @@ describe('WatchlistWidgetBody', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSaveWatchlistDocument.mockResolvedValue(undefined)
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     currentWatchlists = [watchlist]
     lastSelectedWatchlistArgs = undefined
@@ -520,6 +517,5 @@ describe('WatchlistWidgetBody', () => {
         },
       },
     ])
-    expect(mockSaveWatchlistDocument).toHaveBeenCalled()
   })
 })

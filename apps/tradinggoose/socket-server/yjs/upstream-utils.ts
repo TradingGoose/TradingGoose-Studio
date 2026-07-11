@@ -576,3 +576,25 @@ export function cleanupAllDocuments(): void {
     removeDocument(docId)
   }
 }
+
+export async function drainAllDocuments(): Promise<void> {
+  const activeDocuments = Array.from(docs.values())
+  for (const doc of activeDocuments) {
+    for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
+  }
+
+  await Promise.all(
+    activeDocuments.map(async (doc) => {
+      await doc.mutationQueue
+      if (docs.get(doc.name) !== doc) return
+      if (doc.persistTimer) {
+        clearTimeout(doc.persistTimer)
+        doc.persistTimer = null
+      }
+      const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
+      if (hasDirtyState(doc) && persist) await enqueueDocumentPersistence(doc, persist)
+      await doc.persistenceQueue
+      if (docs.get(doc.name) === doc) cleanupDocument(doc)
+    })
+  )
+}

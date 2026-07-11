@@ -24,7 +24,7 @@ export function useWatchlistYjsDocument(args: {
 }) {
   const { workspaceId, watchlistId, member, accessMode = 'write' } = args
   const accessModeRef = useLatestRef(accessMode)
-  const { doc, save, isLoading, error } = useSavedEntityYjsSession(
+  const { doc, isLoading, error } = useSavedEntityYjsSession(
     'watchlist',
     watchlistId,
     workspaceId,
@@ -72,7 +72,6 @@ export function useWatchlistYjsDocument(args: {
     settings,
     items: Array.isArray(items) ? items : [],
     updateItems,
-    save,
     isLoading,
     error,
   }

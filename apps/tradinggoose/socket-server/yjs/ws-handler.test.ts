@@ -23,6 +23,8 @@ const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
 const mockSaveDashboardLayoutYjsDocToDb = vi.fn()
+const mockSaveSavedEntityYjsDocToDb = vi.fn()
+const mockRefreshEntityListSession = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -95,6 +97,8 @@ beforeEach(() => {
   mockGetExistingDocument.mockReset()
   mockSetupWSConnection.mockReset()
   mockSaveDashboardLayoutYjsDocToDb.mockReset()
+  mockSaveSavedEntityYjsDocToDb.mockReset()
+  mockRefreshEntityListSession.mockReset().mockResolvedValue(undefined)
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -125,6 +129,11 @@ beforeEach(() => {
 
   vi.doMock('@/lib/yjs/server/apply-entity-state', () => ({
     saveDashboardLayoutYjsDocToDb: mockSaveDashboardLayoutYjsDocToDb,
+    saveSavedEntityYjsDocToDb: mockSaveSavedEntityYjsDocToDb,
+  }))
+
+  vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+    refreshEntityListSession: mockRefreshEntityListSession,
   }))
 
   vi.doMock('./upstream-utils', () => ({
@@ -313,6 +322,62 @@ describe('handleYjsUpgrade', () => {
         onDocumentUpdate: undefined,
       })
     )
+  })
+
+  it('persists writable watchlist updates through the saved-document lifecycle', async () => {
+    const sessionId = 'watchlist-write'
+    const request = createRequest(sessionId, 'write', 'watchlist')
+    const socket = createSocket()
+    const wss = createWebSocketServer()
+    mockAuthenticateYjsConnection.mockResolvedValue({
+      userId: 'user-1',
+      envelope: {
+        targetKind: 'entity',
+        sessionId,
+        reviewSessionId: null,
+        workspaceId: 'workspace-1',
+        ownerUserId: null,
+        entityKind: 'watchlist',
+        entityId: sessionId,
+        draftSessionId: null,
+      },
+    })
+    mockVerifyReviewTargetAccess.mockResolvedValue({
+      hasAccess: true,
+      userPermission: 'write',
+      workspaceId: 'workspace-1',
+    })
+    mockGetExistingDocument.mockResolvedValue(null)
+    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
+      descriptor: { entityKind: 'watchlist', entityId: sessionId },
+      runtime: { docState: 'active' },
+      state: new Uint8Array([1, 2]),
+    })
+
+    const { handleYjsUpgrade } = await loadModule()
+    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const options = mockSetupWSConnection.mock.calls[0]?.[2]
+    expect(options).toEqual(
+      expect.objectContaining({
+        docId: sessionId,
+        onDocumentIdle: expect.any(Function),
+        onDocumentUpdate: expect.any(Function),
+      })
+    )
+    const doc = new Y.Doc()
+    const metadata = doc.getMap('metadata')
+    metadata.set('entityKind', 'watchlist')
+    metadata.set('entityId', sessionId)
+    metadata.set('workspaceId', 'workspace-1')
+    metadata.set('draftSessionId', null)
+    metadata.set('reviewSessionId', null)
+    await options.onDocumentIdle(sessionId, doc)
+
+    expect(mockSaveSavedEntityYjsDocToDb).toHaveBeenCalledWith('watchlist', sessionId, doc)
+    expect(mockRefreshEntityListSession).toHaveBeenCalledWith('watchlist', 'workspace-1')
+    doc.destroy()
   })
 
   it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {

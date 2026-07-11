@@ -15,6 +15,7 @@ import {
   isYjsUpgradeRequest,
   shieldNonYjsUpgradeListeners,
 } from '@/socket-server/yjs/upgrade-routing'
+import { drainAllDocuments } from '@/socket-server/yjs/upstream-utils'
 import { handleYjsUpgrade } from '@/socket-server/yjs/ws-handler'
 
 const logger = createLogger('CollaborativeSocketServer')
@@ -24,11 +25,16 @@ const httpServer = createServer()
 
 // Yjs WebSocket server - noServer mode, upgrade handled manually
 const yjsWss = new WebSocketServer({ noServer: true })
+let isShuttingDown = false
 
 // Register the Yjs upgrade handler before Socket.IO and then shield the
 // remaining upgrade listeners so Engine.IO never sees /yjs/* requests.
 const yjsUpgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
   if (!isYjsUpgradeRequest(request)) {
+    return
+  }
+  if (isShuttingDown) {
+    socket.destroy()
     return
   }
 
@@ -139,33 +145,32 @@ httpServer.on('error', (error) => {
   process.exit(1)
 })
 
-let isShuttingDown = false
-const shutdown = () => {
+const shutdown = async () => {
   if (isShuttingDown) return
   isShuttingDown = true
 
   logger.info('Shutting down Socket.IO server...')
   tradingPortfolioStreamManager.stop()
-  void Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.stop()))
-    .catch((error) => {
-      logger.error('Failed to stop monitor runtimes cleanly', { error })
+  try {
+    await Promise.all([
+      ...Object.values(monitorRuntimes).map((runtime) => runtime.stop()),
+      drainAllDocuments(),
+    ])
+  } catch (error) {
+    logger.error('Failed to drain realtime state cleanly', { error })
+  }
+  await new Promise<void>((resolve) => {
+    io.close((error) => {
+      if (error) logger.error('Failed to close Socket.IO server cleanly', { error })
+      resolve()
     })
-    .finally(() => {
-      void io.close((error) => {
-        if (error) {
-          logger.error('Failed to close Socket.IO server cleanly', { error })
-        }
-        void closeRedisConnection()
-          .catch((error) => {
-            logger.error('Failed to close Redis connection cleanly', { error })
-          })
-          .finally(() => {
-            logger.info('Socket.IO server closed')
-            process.exit(0)
-          })
-      })
-    })
+  })
+  await closeRedisConnection().catch((error) => {
+    logger.error('Failed to close Redis connection cleanly', { error })
+  })
+  logger.info('Socket.IO server closed')
+  process.exit(0)
 }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+process.on('SIGINT', () => void shutdown())
+process.on('SIGTERM', () => void shutdown())

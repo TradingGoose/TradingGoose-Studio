@@ -14,17 +14,21 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import { saveDashboardLayoutYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
+import {
+  saveDashboardLayoutYjsDocToDb,
+  saveSavedEntityYjsDocToDb,
+} from '@/lib/yjs/server/apply-entity-state'
 import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
-const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
+const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
@@ -53,6 +57,15 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
   const entityKind = metadata.get('entityKind')
   if (entityKind === 'workflow') {
     await saveWorkflowYjsDocToDb(docId, doc)
+    return
+  }
+
+  if (entityKind === 'watchlist') {
+    await saveSavedEntityYjsDocToDb('watchlist', docId, doc)
+    const workspaceId = metadata.get('workspaceId')
+    if (typeof workspaceId === 'string') {
+      await refreshEntityListSession('watchlist', workspaceId)
+    }
     return
   }
 
@@ -195,6 +208,7 @@ async function authenticateAndPrepareUpgrade(
     persistLiveUpdates:
       accessMode === 'write' &&
       (canonicalDescriptor.entityKind === 'workflow' ||
+        canonicalDescriptor.entityKind === 'watchlist' ||
         canonicalDescriptor.entityKind === 'dashboard_layout') &&
       canonicalDescriptor.entityId === pathSessionId,
   }
@@ -246,7 +260,7 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         bootstrapState: yjsReq.yjsBootstrapState,
         onDocumentIdle: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
         onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,
-        onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
+        onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
       })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })

@@ -305,7 +305,6 @@ export const WatchlistHeaderCenterControls = ({
         listing: pendingListing,
       }
       selectedDocument.updateItems((items) => [...items, item])
-      await selectedDocument.save()
       clearPendingListing()
     } catch {
       // Save errors leave the selector state intact so the user can retry.
@@ -628,7 +627,6 @@ export const WatchlistHeaderRightControls = ({
           label: resolveNextSectionName(selectedWatchlist, copy.header.defaultSectionPrefix),
         },
       ])
-      await selectedDocument.save()
     } catch {
       // Save errors leave the existing containers unchanged.
     } finally {

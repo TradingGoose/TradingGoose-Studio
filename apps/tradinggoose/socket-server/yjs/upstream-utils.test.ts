@@ -19,6 +19,7 @@ import { createDefaultDashboardLayoutContent } from '@/widgets/layout-document'
 import {
   cleanupAllDocuments,
   discardDocumentIfIdle,
+  drainAllDocuments,
   flushDocumentPersistence,
   getDocument,
   peekDocument,
@@ -155,6 +156,36 @@ describe('dashboard document persistence queue', () => {
   })
 })
 
+describe('realtime shutdown', () => {
+  it('waits for queued mutations and persists dirty documents before cleanup', async () => {
+    const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-drain', 'workspace-1')
+    const socket = new TestSocket()
+    const mutation = deferred()
+    const persisted = vi.fn()
+    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+      docId: 'watchlist-drain',
+      userId: 'user-1',
+      accessMode: 'write',
+      descriptor,
+      onDocumentIdle: async (_docId, doc) => persisted(doc.getMap('fields').toJSON()),
+      onDocumentUpdateDebounceMs: 60_000,
+    })
+    const doc = peekDocument('watchlist-drain')!
+    doc.getMap('fields').set('pending', true)
+    const queued = runDocumentMutation(doc, () => mutation.promise)
+
+    const draining = drainAllDocuments()
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(persisted).not.toHaveBeenCalled()
+    mutation.resolve()
+    await queued
+    await draining
+
+    expect(persisted).toHaveBeenCalledWith({ pending: true })
+    expect(peekDocument('watchlist-drain')).toBeNull()
+  })
+})
+
 describe('document mutation queue', () => {
   it('serializes WebSocket writes behind an import and recovers after import failure', async () => {
     const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-1', 'workspace-1')
@@ -225,22 +256,23 @@ describe('document mutation queue', () => {
     socket.emit('close')
   })
 
-  it('persists dirty state after a pending mutation fails during idle cleanup', async () => {
-    const descriptor = buildSavedEntityDescriptor('skill', 'skill-cleanup', 'workspace-1')
+  it('persists dirty watchlist state after a pending mutation fails during disconnect cleanup', async () => {
+    const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-cleanup', 'workspace-1')
     const socket = new TestSocket()
     const persistedValue = vi.fn()
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
       persistedValue(target.getMap('fields').get('dirty'))
     })
     setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'skill-cleanup',
+      docId: 'watchlist-cleanup',
       userId: 'user-1',
       accessMode: 'write',
       descriptor,
+      onDocumentIdle: persist,
       onDocumentUpdate: persist,
       onDocumentUpdateDebounceMs: 60_000,
     })
-    const doc = peekDocument('skill-cleanup')!
+    const doc = peekDocument('watchlist-cleanup')!
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'dirty', true)))
     await vi.waitFor(() => expect(doc.getMap('fields').get('dirty')).toBe(true))
     expect(persist).not.toHaveBeenCalled()
@@ -255,7 +287,7 @@ describe('document mutation queue', () => {
 
     await expect(failedMutation).rejects.toThrow('mutation failed')
     await vi.waitFor(() => expect(persistedValue).toHaveBeenCalledWith(true))
-    await vi.waitFor(() => expect(peekDocument('skill-cleanup')).toBeNull())
+    await vi.waitFor(() => expect(peekDocument('watchlist-cleanup')).toBeNull())
   })
 })
 

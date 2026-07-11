@@ -15,7 +15,6 @@ import {
 } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 const mockSetWatchlistItems = vi.fn()
-const mockSaveWatchlistDocument = vi.fn()
 const mockPatchWidgetParams = vi.fn()
 
 const rootWatchlist: WatchlistRecord = {
@@ -45,7 +44,6 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       items: record?.items ?? [],
       updateItems: (update: (items: unknown[]) => unknown[]) =>
         mockSetWatchlistItems(update(record?.items ?? [])),
-      save: mockSaveWatchlistDocument,
       isLoading: false,
       error: null,
       members: currentWatchlists.map((watchlist) => ({
@@ -152,7 +150,6 @@ describe('watchlist header controls', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     currentWatchlist = rootWatchlist
     currentWatchlists = [rootWatchlist]
-    mockSaveWatchlistDocument.mockResolvedValue(undefined)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -215,7 +212,6 @@ describe('watchlist header controls', () => {
         },
       }),
     ])
-    expect(mockSaveWatchlistDocument).toHaveBeenCalledTimes(1)
   })
 
   it('creates the next section name through the selected Yjs document', async () => {
@@ -293,7 +289,6 @@ describe('watchlist header controls', () => {
       runtime: { refreshAt: expect.any(Number) },
     })
     expect(mockSetWatchlistItems).not.toHaveBeenCalled()
-    expect(mockSaveWatchlistDocument).not.toHaveBeenCalled()
   })
 
   it('does not fall back to the first watchlist when the widget references a stale watchlist id', async () => {

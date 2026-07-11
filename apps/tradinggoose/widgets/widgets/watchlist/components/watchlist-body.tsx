@@ -71,18 +71,17 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
 
   const isMutating = !canWrite
 
-  const persistItems = async (
+  const persistItems = (
     updater: (items: typeof selectedDocument.items) => typeof selectedDocument.items
   ) => {
     if (!workspaceId || !selectedWatchlist || !canWrite) return
     selectedDocument.updateItems(updater)
-    await selectedDocument.save()
   }
 
   const handleUpdateItemListing = async (itemId: string, listing: ListingIdentity) => {
     if (!canWrite) return false
     try {
-      await persistItems((items) =>
+      persistItems((items) =>
         items.map((item) =>
           item.type === 'listing' && item.id === itemId ? { ...item, listing } : item
         )
