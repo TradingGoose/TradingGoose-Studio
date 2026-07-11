@@ -23,6 +23,7 @@ import {
   executeRenameEntityMutation,
   type RenameEntityArgs,
   requireEntityId,
+  verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
@@ -116,7 +117,12 @@ export const readLayoutServerTool: EntityServerTool<{ entityId: string }> = {
   name: 'read_layout',
   async execute(args, context) {
     const entityId = requireEntityId(args, 'read_layout')
-    const { userId, workspaceId } = await verifyWorkspaceContext(context, 'read')
+    const { userId, workspaceId } = await verifySavedEntityContext(
+      context,
+      ENTITY_KIND_DASHBOARD_LAYOUT,
+      entityId,
+      'read'
+    )
     const metadata = await readDashboardLayoutMetadata(
       { workspaceId, ownerUserId: userId },
       entityId

@@ -7,7 +7,7 @@ vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_wid
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
 vi.mock('@/lib/dashboard-layouts/operations', () => fx.mockDashboardOperationsModule(toolMocks))
-vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
+vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule(toolMocks))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => fx.mockSnapshotBridgeModule(toolMocks))
 
@@ -69,8 +69,14 @@ describe('edit_widget server tool', () => {
   })
 
   it('applies edit_widget without pruning the independent color store', async () => {
-    const result = await execute({ pairColor: 'gray' })
+    const result = await execute({ pairColor: 'gray' }, { workspaceId: undefined })
 
+    expect(toolMocks.verifySavedEntityContext).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', workspaceId: undefined }),
+      'dashboard_layout',
+      'layout-1',
+      'write'
+    )
     expect(toolMocks.applyWidgetEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         entityId: 'layout-1',

@@ -5,7 +5,10 @@ import {
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
 import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
-import { requireEntityId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
+import {
+  requireEntityId,
+  verifySavedEntityContext,
+} from '@/lib/copilot/tools/server/entities/shared'
 import { readDashboardLayoutMetadata } from '@/lib/dashboard-layouts/operations'
 import { projectDashboardLayoutValueForCopilot } from '@/lib/dashboard-layouts/read-projection'
 import {
@@ -35,7 +38,12 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
   name: CopilotTool.edit_widget,
   async execute(args, context) {
     const entityId = requireEntityId(args, 'edit_widget')
-    const { userId: ownerUserId, workspaceId } = await verifyWorkspaceContext(context, 'read')
+    const { userId: ownerUserId, workspaceId } = await verifySavedEntityContext(
+      context,
+      'dashboard_layout',
+      entityId,
+      'write'
+    )
     const metadata = await readDashboardLayoutMetadata({ workspaceId, ownerUserId }, entityId)
     const rawCurrent = await readBootstrappedSavedEntityFields(
       'dashboard_layout',

@@ -63,6 +63,7 @@ export function createDashboardToolMocks() {
     },
     readFields: vi.fn(async () => currentContent),
     readMetadata: vi.fn(async () => ({ name: 'Layout 1', isActive: true, sortOrder: 0 })),
+    verifySavedEntityContext: vi.fn(async () => ({ ...TEST_SCOPE, userId: 'user-1' })),
     shouldStage: vi.fn(),
     applyLayoutEdit: vi.fn(async (input: any) => {
       if (input.expectedReviewBaseStateHash !== 'base-hash') {
@@ -136,9 +137,9 @@ export const mockReadProjectionModule = () => ({
   preserveDashboardLayoutCredentialPlaceholders: vi.fn((value) => value),
 })
 
-export const mockEntitiesSharedModule = () => ({
+export const mockEntitiesSharedModule = (mocks: DashboardToolMocks) => ({
   requireEntityId: vi.fn((args: any) => args.entityId),
-  verifyWorkspaceContext: vi.fn(async () => ({ ...TEST_SCOPE, userId: 'user-1' })),
+  verifySavedEntityContext: mocks.verifySavedEntityContext,
 })
 
 export const mockBootstrapModule = (mocks: DashboardToolMocks) => ({

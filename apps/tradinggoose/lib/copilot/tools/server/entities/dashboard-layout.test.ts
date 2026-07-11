@@ -10,12 +10,16 @@ import {
 const mocks = vi.hoisted(() => ({
   projection: vi.fn(),
   access: vi.fn(),
+  entityAccess: vi.fn(),
   read: vi.fn(),
   metadata: vi.fn(),
   list: vi.fn(),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
+vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
+  verifyReviewTargetAccess: mocks.entityAccess,
+}))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedSavedEntityFields: mocks.read,
 }))
@@ -34,6 +38,7 @@ describe('dashboard layout server tools', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.access.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
+    mocks.entityAccess.mockResolvedValue({ hasAccess: true, workspaceId: 'workspace-1' })
     mocks.metadata.mockResolvedValue({ name: 'Layout 1', isActive: true, sortOrder: 0 })
     mocks.list.mockResolvedValue([
       { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
@@ -47,9 +52,21 @@ describe('dashboard layout server tools', () => {
   })
 
   it('reads a dashboard layout from the live owner-scoped document', async () => {
-    const result = await readLayoutServerTool.execute({ entityId: 'layout-1' }, context)
+    const result = await readLayoutServerTool.execute(
+      { entityId: 'layout-1' },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
 
-    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.entityAccess).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        workspaceId: null,
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+      }),
+      'read'
+    )
     expect(mocks.metadata).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1'
@@ -77,11 +94,12 @@ describe('dashboard layout server tools', () => {
   })
 
   it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
-    mocks.metadata.mockRejectedValueOnce(new Error('Dashboard layout not found'))
+    mocks.entityAccess.mockResolvedValueOnce({ hasAccess: false, workspaceId: null })
 
     await expect(readLayoutServerTool.execute({ entityId: 'layout-1' }, context)).rejects.toThrow(
-      'Dashboard layout not found'
+      'Access denied'
     )
+    expect(mocks.metadata).not.toHaveBeenCalled()
     expect(mocks.read).not.toHaveBeenCalled()
   })
 
