@@ -372,7 +372,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_layout: {
     description:
-      'Create a new inactive, empty user-owned dashboard layout shell in the current workspace. Use the returned `entityId` with `edit_layout` to assign widgets and edit topology, then use `edit_widget` for existing-widget parameter edits.',
+      'Create an empty user-owned dashboard layout shell in the current workspace. The first layout is active automatically; later layouts are inactive until activated. Use the returned `entityId` with `edit_layout` to assign widgets and edit topology, then use `edit_widget` for existing-widget parameter edits.',
     kind: 'create',
     entityKind: 'dashboard_layout',
   },

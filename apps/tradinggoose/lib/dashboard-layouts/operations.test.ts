@@ -401,6 +401,15 @@ describe('dashboard layout operations', () => {
     ])
   })
 
+  it('does not treat an inactive row as the active layout', async () => {
+    m.dbSelectResults.push([layoutRow({ isActive: false })])
+
+    await expect(readActiveDashboardLayoutProjection(scope)).resolves.toEqual({
+      activeLayout: null,
+      layouts: [expect.objectContaining({ id: 'layout-1', isActive: false })],
+    })
+  })
+
   it.each([
     [
       'duplicate node ids',
@@ -475,7 +484,7 @@ describe('dashboard layout operations', () => {
       id: rootValues.id,
       name: 'Layout 1',
       sortOrder: 0,
-      isActive: false,
+      isActive: true,
       topology: rootValues.layout,
     })
     expect(defaultPanels.length).toBeGreaterThan(0)
@@ -495,6 +504,28 @@ describe('dashboard layout operations', () => {
       'dashboard_layout',
       scope.workspaceId,
       scope.ownerUserId
+    )
+  })
+
+  it('creates later layouts inactive without replacing the active layout', async () => {
+    m.txSelectResults.push([layoutRow({ id: 'layout-existing' })])
+    m.insertReturning.mockImplementationOnce((_table, values) =>
+      Promise.resolve([
+        {
+          ...(values as Record<string, unknown>),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ])
+    )
+
+    const created = await createDashboardLayout(scope)
+    const rootMutations = m.mutations.filter((mutation) => mutation.table === 'layout_maps')
+
+    expect(created).toMatchObject({ name: 'Layout 2', sortOrder: 1, isActive: false })
+    expect(rootMutations.map((mutation) => mutation.kind)).toEqual(['insert'])
+    expect(rootMutations[0]?.values).toEqual(
+      expect.objectContaining({ name: 'Layout 2', sortOrder: 1, isActive: false })
     )
   })
 

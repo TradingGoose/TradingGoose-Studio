@@ -249,7 +249,7 @@ export async function readDashboardLayoutMetadata(
 
 export async function createDashboardLayout(
   scope: DashboardLayoutOwnerScope,
-  options?: { name?: string; isActive?: boolean }
+  options?: { name?: string }
 ): Promise<DashboardLayoutProjection> {
   const created = await withDashboardLayoutOwnerLock(scope, async (tx) => {
     const rows = await readDashboardLayoutRows(scope, tx)
@@ -262,7 +262,7 @@ export async function createDashboardLayout(
 
 export async function readActiveDashboardLayoutProjection(scope: DashboardLayoutOwnerScope) {
   const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope))
-  const active = orderedRows.find((row) => row.isActive) ?? orderedRows[0]
+  const active = orderedRows.find((row) => row.isActive)
   return {
     activeLayout: active ? projectLayoutRow(active) : null,
     layouts: orderedRows.map(toLayoutTab),
@@ -277,10 +277,7 @@ export async function provisionDashboardLayoutForWorkspaceUserInTx(
   const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
   if (orderedRows.length > 0) return false
 
-  await insertDashboardLayoutRow(tx, scope, [], {
-    name: 'Default Layout',
-    isActive: true,
-  })
+  await insertDashboardLayoutRow(tx, scope, [], { name: 'Default Layout' })
   return true
 }
 
@@ -363,19 +360,12 @@ async function insertDashboardLayoutRow(
   tx: DashboardLayoutWriteStore,
   scope: DashboardLayoutOwnerScope,
   rows: LayoutRow[],
-  options?: { name?: string; isActive?: boolean }
+  options?: { name?: string }
 ): Promise<LayoutRow> {
   const highestSortOrder = rows.reduce((max, row) => Math.max(max, readLayoutSortOrder(row)), -1)
   const content = createDefaultDashboardLayoutContent()
   const layoutId = randomUUID()
-  const makeActive = options?.isActive === true
-
-  if (makeActive) {
-    await tx
-      .update(layoutMaps)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(ownedWhere(scope))
-  }
+  const isActive = rows.length === 0
 
   const [row] = await tx
     .insert(layoutMaps)
@@ -386,7 +376,7 @@ async function insertDashboardLayoutRow(
       name: options?.name?.trim() || `Layout ${rows.length + 1}`,
       sortOrder: highestSortOrder + 1,
       layout: content.layout,
-      isActive: makeActive,
+      isActive,
     })
     .returning()
   if (!row) throw new DashboardLayoutOperationError(500, 'Layout insert did not return a row')

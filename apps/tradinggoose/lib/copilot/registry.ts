@@ -300,7 +300,9 @@ const CreateDashboardLayoutArgs = z
     workspaceId: RequiredId,
   })
   .strict()
-  .describe('Create a new inactive dashboard layout shell in the current workspace.')
+  .describe(
+    'Create a dashboard layout shell. The first user-owned layout in the workspace is active automatically; later layouts are inactive until activated.'
+  )
 const DashboardLayoutTargetArgs = EntityTargetArgs.strict()
 const EditDashboardLayoutArgs = EntityTargetArgs.extend({
   entityDocument: z

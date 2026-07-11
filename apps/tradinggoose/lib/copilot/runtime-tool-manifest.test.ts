@@ -353,6 +353,9 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
       'same non-gray `pairColor`'
     )
+    expect(manifest.tools.find((tool) => tool.name === 'create_layout')?.description).toContain(
+      'first layout is active automatically; later layouts are inactive'
+    )
     const mcpServerDescriptions = ['read_mcp_server', 'edit_mcp_server']
       .map((name) => manifest.tools.find((tool) => tool.name === name)?.description)
       .join(' ')
