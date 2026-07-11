@@ -25,6 +25,7 @@ import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
 import {
   CHEAT_SHEET_GROUPS,
@@ -42,6 +43,7 @@ type IndicatorCodePanelProps = {
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
   verifyRef: MutableRefObject<() => void>
+  readOnly?: boolean
 }
 
 const PINE_WAND_PROMPT = `# Role
@@ -168,8 +170,10 @@ export function IndicatorCodePanel({
   exportRef,
   saveRef,
   verifyRef,
+  readOnly = false,
 }: IndicatorCodePanelProps) {
   const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
+  const readOnlyRef = useLatestRef(readOnly)
 
   const [verifyStatus, setVerifyStatus] = useState<
     | { state: 'idle' }
@@ -201,7 +205,7 @@ export function IndicatorCodePanel({
 
   const calcWand = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       generationType: 'javascript-function-body',
       prompt: PINE_WAND_PROMPT,
@@ -209,9 +213,11 @@ export function IndicatorCodePanel({
     },
     currentValue: pineCode,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       setPineCode(content)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setPineCode((prev) => prev + chunk)
     },
   })
@@ -246,6 +252,7 @@ export function IndicatorCodePanel({
   }
 
   const handleCodeChange = (value: string) => {
+    if (readOnlyRef.current) return
     setPineCode(value)
     const offset = codeEditorHandleRef.current?.getCursorOffset() ?? value.length
     const coords = codeEditorHandleRef.current?.getCursorCoords() ?? null
@@ -261,7 +268,7 @@ export function IndicatorCodePanel({
   }
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !indicatorId || !doc) return
+    if (readOnlyRef.current || !workspaceId || !indicatorId || !doc) return
     const currentPineCode = codeEditorHandleRef.current?.getEditor()?.getValue() ?? pineCode
     const disallowedMessage = validateNoDollarGlobals(currentPineCode)
     if (disallowedMessage) {
@@ -282,7 +289,7 @@ export function IndicatorCodePanel({
       setSaveError(err instanceof Error ? err.message : 'Failed to save indicator.')
       console.error('Failed to update indicator', err)
     }
-  }, [workspaceId, indicatorId, doc, pineCode, save, setPineCode])
+  }, [workspaceId, indicatorId, doc, pineCode, readOnlyRef, save, setPineCode])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -473,7 +480,7 @@ export function IndicatorCodePanel({
 
       <div ref={codeEditorRef} className='relative mt-2 flex min-h-0 flex-1 flex-col rounded-md'>
         <WandPromptBar
-          isVisible={calcWand.isPromptVisible}
+          isVisible={!readOnly && calcWand.isPromptVisible}
           isLoading={calcWand.isLoading}
           isStreaming={calcWand.isStreaming}
           promptValue={calcWand.promptInputValue}
@@ -498,17 +505,20 @@ export function IndicatorCodePanel({
           editorOptions={{
             scrollbar: { alwaysConsumeMouseWheel: true },
           }}
-          showWandButton
+          showWandButton={!readOnly}
           onWandClick={() => {
             calcWand.isPromptVisible ? calcWand.hidePromptInline() : calcWand.showPromptInline()
           }}
-          wandButtonDisabled={calcWand.isLoading || calcWand.isStreaming}
+          wandButtonDisabled={readOnly || calcWand.isLoading || calcWand.isStreaming}
           onCursorChange={handleCursorChange}
+          disabled={readOnly}
         />
-        {showEnvVars && (
+        {!readOnly && showEnvVars && (
           <EnvVarDropdown
             visible={showEnvVars}
-            onSelect={setPineCode}
+            onSelect={(value) => {
+              if (!readOnlyRef.current) setPineCode(value)
+            }}
             searchTerm={envVarSearchTerm}
             inputValue={pineCode}
             cursorPosition={cursorPosition}

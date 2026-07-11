@@ -53,6 +53,7 @@ interface IndicatorEditorActionButtonProps {
   panelId?: string
   widgetKey?: string
   pairColor?: PairColor
+  canEditEntity?: boolean
 }
 
 export function IndicatorEditorExportButton({
@@ -84,11 +85,12 @@ export function IndicatorEditorSaveButton({
   panelId,
   widgetKey,
   pairColor = 'gray',
+  canEditEntity = true,
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedIndicatorId = indicatorId ?? null
-  const saveDisabled = !workspaceId || !resolvedIndicatorId
+  const saveDisabled = !canEditEntity || !workspaceId || !resolvedIndicatorId
 
   return (
     <EntityEditorHeaderButton

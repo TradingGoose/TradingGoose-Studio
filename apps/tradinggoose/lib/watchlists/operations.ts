@@ -1,6 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { watchlistTable } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
+import {
+  renameSavedEntityIdentityInTx,
+  SavedEntityIdentityError,
+} from '@/lib/saved-entities/identity'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
@@ -40,6 +44,23 @@ function mapDocumentError(error: unknown): never {
     throw new WatchlistOperationError(error.message, error.status)
   }
   throw error
+}
+
+function isDuplicateWatchlistNameViolation(error: unknown): boolean {
+  const seen = new Set<object>()
+  let current = error
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
+    seen.add(current)
+    const record = current as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (
+      record.code === '23505' &&
+      record.constraint_name === 'watchlist_table_workspace_user_name_unique'
+    ) {
+      return true
+    }
+    current = record.cause
+  }
+  return false
 }
 
 const rootWatchlistWhere = (workspaceId: string, watchlistId: string) =>
@@ -124,13 +145,6 @@ export async function createWatchlistFromDocument(
   try {
     const created = await db.transaction(async (tx) => {
       const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-      if (roots.some((root) => root.name === fields.name)) {
-        throw new WatchlistDocumentError(
-          `A watchlist with the name "${fields.name}" already exists`,
-          409
-        )
-      }
-
       const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
       const [createdRoot] = await tx
         .insert(watchlistTable)
@@ -164,6 +178,40 @@ export async function createWatchlistFromDocument(
     await refreshEntityListSession('watchlist', scope.workspaceId)
     return created
   } catch (error) {
+    if (isDuplicateWatchlistNameViolation(error)) {
+      throw new WatchlistOperationError(
+        `A watchlist with the name "${fields.name}" already exists`,
+        409
+      )
+    }
+    mapDocumentError(error)
+  }
+}
+
+export async function importWatchlistDocument(
+  scope: WatchlistScope,
+  watchlistId: string,
+  rawFields: Record<string, unknown>
+): Promise<WatchlistDocumentFields> {
+  const fields = normalizeWatchlistDocumentFields(rawFields)
+  try {
+    return await db.transaction(async (tx) => {
+      const name = await renameSavedEntityIdentityInTx(tx, {
+        entityKind: 'watchlist',
+        entityId: watchlistId,
+        workspaceId: scope.workspaceId,
+        name: fields.name,
+      })
+      const content = await materializeWatchlistDocumentInTx(tx, scope.workspaceId, watchlistId, {
+        settings: fields.settings,
+        items: fields.items,
+      })
+      return { name, ...content }
+    })
+  } catch (error) {
+    if (error instanceof SavedEntityIdentityError) {
+      throw new WatchlistOperationError(error.message, error.status)
+    }
     mapDocumentError(error)
   }
 }

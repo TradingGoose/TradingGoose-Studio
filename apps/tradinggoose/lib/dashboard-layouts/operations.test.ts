@@ -543,9 +543,9 @@ describe('dashboard layout operations', () => {
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
 
-  it('upserts only the requested layout_pairs row for a pair-only dirty batch', async () => {
+  it('touches the parent before upserting a requested layout_pairs row', async () => {
     const content = channelContent()
-    m.txSelectResults.push([layoutRow({ layout: content.layout })])
+    m.updateReturning.mockResolvedValueOnce([{ id: 'layout-1' }])
 
     await persistDashboardLayoutDirtyChannels(
       scope,
@@ -555,6 +555,12 @@ describe('dashboard layout operations', () => {
     )
 
     expect(m.mutations).toEqual([
+      {
+        kind: 'update',
+        table: 'layout_maps',
+        values: { updatedAt: expect.any(Date) },
+        predicate: ownedCondition('layout-1'),
+      },
       {
         kind: 'insert',
         table: 'layout_pairs',
@@ -574,12 +580,12 @@ describe('dashboard layout operations', () => {
         },
       },
     ])
-    expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
 
-  it('deletes only the requested absent layout_pairs row', async () => {
+  it('touches the parent before deleting a requested absent layout_pairs row', async () => {
     const content = { ...channelContent(), colorPairs: { pairs: [] } }
-    m.txSelectResults.push([layoutRow({ layout: content.layout })])
+    m.updateReturning.mockResolvedValueOnce([{ id: 'layout-1' }])
 
     await persistDashboardLayoutDirtyChannels(
       scope,
@@ -589,21 +595,23 @@ describe('dashboard layout operations', () => {
     )
 
     expect(m.mutations.map(({ kind, table }) => ({ kind, table }))).toEqual([
+      { kind: 'update', table: 'layout_maps' },
       { kind: 'delete', table: 'layout_pairs' },
     ])
-    expect(m.mutations[0]?.predicate).toEqual(
+    expect(m.mutations[1]?.predicate).toEqual(
       andCondition(
         eqCondition('layout_pairs.layoutId', 'layout-1'),
         eqCondition('layout_pairs.color', 'blue')
       )
     )
-    expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
 
-  it('updates only the requested layout_widgets row for a widget-only dirty batch', async () => {
+  it('touches the parent before updating a requested layout_widgets row', async () => {
     const content = channelContent()
-    m.txSelectResults.push([layoutRow({ layout: content.layout })])
-    m.updateReturning.mockResolvedValueOnce([{ id: 'widget-1' }])
+    m.updateReturning
+      .mockResolvedValueOnce([{ id: 'layout-1' }])
+      .mockResolvedValueOnce([{ id: 'widget-1' }])
 
     await persistDashboardLayoutDirtyChannels(
       scope,
@@ -613,16 +621,17 @@ describe('dashboard layout operations', () => {
     )
 
     expect(m.mutations.map(({ kind, table }) => ({ kind, table }))).toEqual([
+      { kind: 'update', table: 'layout_maps' },
       { kind: 'update', table: 'layout_widgets' },
     ])
-    expect(m.mutations[0]?.values).toEqual({ pairColor: 'gray', params: null })
-    expect(m.mutations[0]?.predicate).toEqual(
+    expect(m.mutations[1]?.values).toEqual({ pairColor: 'gray', params: null })
+    expect(m.mutations[1]?.predicate).toEqual(
       andCondition(
         eqCondition('layout_widgets.id', 'widget-1'),
         eqCondition('layout_widgets.layoutId', 'layout-1')
       )
     )
-    expect(m.bridge.refreshEntityListSession).not.toHaveBeenCalled()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledTimes(1)
   })
 
   it('orders selected mixed writers as layout_maps, layout_pairs, then layout_widgets', async () => {
@@ -698,8 +707,7 @@ describe('dashboard layout operations', () => {
   it('rejects a cross-layout widget id collision without overwriting or deleting that row', async () => {
     const content = channelContent()
     const uniqueViolation = Object.assign(new Error('duplicate widget id'), { code: '23505' })
-    m.txSelectResults.push([layoutRow({ layout: content.layout })])
-    m.updateReturning.mockResolvedValueOnce([])
+    m.updateReturning.mockResolvedValueOnce([{ id: 'layout-1' }]).mockResolvedValueOnce([])
     m.plainInsert.mockRejectedValueOnce(uniqueViolation)
 
     await expect(
@@ -712,16 +720,17 @@ describe('dashboard layout operations', () => {
     ).rejects.toBe(uniqueViolation)
 
     expect(m.mutations.map(({ kind, table }) => `${kind}:${table}`)).toEqual([
+      'update:layout_maps',
       'update:layout_widgets',
       'insert:layout_widgets',
     ])
-    expect(m.mutations[0]?.predicate).toEqual(
+    expect(m.mutations[1]?.predicate).toEqual(
       andCondition(
         eqCondition('layout_widgets.id', 'widget-1'),
         eqCondition('layout_widgets.layoutId', 'layout-1')
       )
     )
-    expect(m.mutations[1]?.values).toEqual({
+    expect(m.mutations[2]?.values).toEqual({
       id: 'widget-1',
       layoutId: 'layout-1',
       pairColor: 'gray',

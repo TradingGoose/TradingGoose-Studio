@@ -80,12 +80,14 @@ type WorkflowVariablesHeaderActionsProps = {
   workspaceId?: string
   widget?: WidgetInstance | null
   panelId?: string
+  canEditEntity: boolean
 }
 
 const WorkflowVariablesHeaderActions = ({
   workspaceId,
   widget,
   panelId,
+  canEditEntity,
 }: WorkflowVariablesHeaderActionsProps) => {
   const copy = useWorkflowVariablesMessages()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
@@ -95,7 +97,7 @@ const WorkflowVariablesHeaderActions = ({
     params: widget?.params ?? null,
   })
 
-  const isDisabled = !workspaceId || !resolvedWorkflowId
+  const isDisabled = !canEditEntity || !workspaceId || !resolvedWorkflowId
 
   const handleAddVariable = useCallback(() => {
     if (isDisabled || !resolvedWorkflowId) return
@@ -186,6 +188,7 @@ export const workflowVariablesWidget: DashboardWidgetDefinition = {
           workspaceId={context?.workspaceId}
           widget={widget}
           panelId={panelId}
+          canEditEntity={context?.canWrite !== false}
         />
       ),
     }

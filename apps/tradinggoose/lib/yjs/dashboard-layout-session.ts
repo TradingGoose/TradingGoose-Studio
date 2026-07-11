@@ -2,7 +2,6 @@ import { isEqual } from 'lodash'
 import * as Y from 'yjs'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import type { PairColorContext } from '@/widgets/color-pairs'
-import type { LinkedPairColor } from '@/widgets/layout'
 import {
   normalizeColorPairsState,
   normalizePersistedColorPairFields,
@@ -272,49 +271,6 @@ export function applyDashboardTopologyMutation(
     }
     setIfChanged(getDashboardLayoutMap(doc), TOPOLOGY_KEY, normalized.layout)
   }, origin)
-}
-
-export function applyDashboardWidgetMutation(
-  doc: Y.Doc,
-  mutation: {
-    identityId: string
-    widget: DashboardWidgetDocument
-    colorPairs?: Array<{ color: LinkedPairColor; value: PairColorContext | null }>
-  },
-  origin?: unknown
-): void {
-  const layout = readDashboardLayoutTopology(doc)
-  const panel = findDashboardPanelByIdentityId(layout, mutation.identityId)
-  if (!panel?.widgetKey) {
-    throw new Error(`Dashboard layout does not reference widget ${mutation.identityId}`)
-  }
-  const widget = normalizeDashboardWidgetDocument(panel.widgetKey, mutation.widget)
-  doc.transact(() => {
-    setEntry(getDashboardWidgetsMap(doc), mutation.identityId, widget)
-    for (const change of mutation.colorPairs ?? []) {
-      if (!change.value || Object.keys(change.value).length === 0) {
-        getDashboardColorPairsMap(doc).delete(change.color)
-      } else {
-        setEntry(
-          getDashboardColorPairsMap(doc),
-          change.color,
-          normalizePersistedColorPairFields(change.value)
-        )
-      }
-    }
-  }, origin)
-}
-
-function findDashboardPanelByIdentityId(
-  node: DashboardLayoutTopologyNode,
-  identityId: string
-): Extract<DashboardLayoutTopologyNode, { type: 'panel' }> | null {
-  if (node.type === 'panel') return node.identityId === identityId ? node : null
-  for (const child of node.children) {
-    const found = findDashboardPanelByIdentityId(child, identityId)
-    if (found) return found
-  }
-  return null
 }
 
 export function applyDashboardWidgetConfigPatch(

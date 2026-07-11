@@ -8,6 +8,7 @@ import {
   assertKnownWidgetParamFields,
   defineWidgetContract,
   isRecord,
+  projectLocalParamsReviewBase,
   sanitizeLocalParamsByFields,
   type WidgetParamsNormalizationOptions,
 } from '@/widgets/widget-contract-types'
@@ -79,19 +80,21 @@ export type DataChartWidgetParams = {
 
 const DATA_CHART_FIELDS = ['listing', 'data', 'view', 'runtime'] as const
 
-const normalizeDrawToolsSnapshotById = (raw: unknown): Map<string, ManualOwnerSnapshot> => {
+type DrawToolsSnapshotSource = { index: number; snapshot: ManualOwnerSnapshot }
+
+const resolveDrawToolsSnapshotSources = (raw: unknown): Map<string, DrawToolsSnapshotSource> => {
   if (!Array.isArray(raw)) return new Map()
 
-  const snapshotById = new Map<string, ManualOwnerSnapshot>()
-  raw.forEach((entry) => {
+  const sourceById = new Map<string, DrawToolsSnapshotSource>()
+  raw.forEach((entry, index) => {
     if (!isRecord(entry)) return
     const id = typeof entry.id === 'string' ? entry.id.trim() : ''
     if (!id) return
     const snapshot = normalizeManualOwnerSnapshot(entry.snapshot)
     if (!snapshot) return
-    snapshotById.set(id, snapshot)
+    sourceById.set(id, { index, snapshot })
   })
-  return snapshotById
+  return sourceById
 }
 
 const mergeDrawToolsSnapshots = (
@@ -101,8 +104,8 @@ const mergeDrawToolsSnapshots = (
   if (!Array.isArray(incomingDrawTools)) return incomingDrawTools
   if (!Array.isArray(currentDrawTools)) return incomingDrawTools
 
-  const snapshotById = normalizeDrawToolsSnapshotById(currentDrawTools)
-  if (snapshotById.size === 0) return incomingDrawTools
+  const sourceById = resolveDrawToolsSnapshotSources(currentDrawTools)
+  if (sourceById.size === 0) return incomingDrawTools
 
   let changed = false
   const merged = incomingDrawTools.map((entry) => {
@@ -114,14 +117,54 @@ const mergeDrawToolsSnapshots = (
     if (Object.hasOwn(entry, 'snapshot')) return entry
     if (normalizeManualOwnerSnapshot(entry.snapshot) !== null) return entry
 
-    const snapshot = snapshotById.get(id)
-    if (snapshot === undefined) return entry
+    const source = sourceById.get(id)
+    if (!source) return entry
 
     changed = true
-    return { ...entry, snapshot }
+    return { ...entry, snapshot: source.snapshot }
   })
 
   return changed ? merged : incomingDrawTools
+}
+
+const projectDataChartParamsReviewBase = (
+  currentParams: Record<string, unknown> | null | undefined,
+  incomingParams: Record<string, unknown>
+): Record<string, unknown> => {
+  const reviewBase = projectLocalParamsReviewBase(currentParams, incomingParams, [
+    'data',
+    'view',
+    'runtime',
+  ])
+  const currentView = isRecord(currentParams?.view) ? currentParams.view : null
+  const incomingView = isRecord(incomingParams.view) ? incomingParams.view : null
+  const currentDrawTools = currentView?.drawTools
+  const incomingDrawTools = incomingView?.drawTools
+  if (!Array.isArray(currentDrawTools) || !Array.isArray(incomingDrawTools)) return reviewBase
+
+  const sourceById = resolveDrawToolsSnapshotSources(currentDrawTools)
+  const carriedSourceIndexes = new Set<number>()
+  incomingDrawTools.forEach((entry) => {
+    if (!isRecord(entry) || Object.hasOwn(entry, 'snapshot')) return
+    const id = typeof entry.id === 'string' ? entry.id.trim() : ''
+    const source = sourceById.get(id)
+    if (source) carriedSourceIndexes.add(source.index)
+  })
+  if (carriedSourceIndexes.size === 0) return reviewBase
+
+  const reviewView = isRecord(reviewBase.view) ? reviewBase.view : null
+  if (!reviewView) return reviewBase
+  return {
+    ...reviewBase,
+    view: {
+      ...reviewView,
+      drawTools: currentDrawTools.map((entry, index) =>
+        carriedSourceIndexes.has(index) && isRecord(entry)
+          ? Object.fromEntries(Object.entries(entry).filter(([key]) => key !== 'snapshot'))
+          : entry
+      ),
+    },
+  }
 }
 
 export const sanitizeDataChartParams = (
@@ -214,4 +257,5 @@ export const dataChartWidgetContract = defineWidgetContract({
   defaultParams: null,
   sanitizeLocalParams: sanitizeDataChartParams,
   mergeLocalParams: mergeDataChartParams,
+  projectLocalParamsReviewBase: projectDataChartParamsReviewBase,
 })

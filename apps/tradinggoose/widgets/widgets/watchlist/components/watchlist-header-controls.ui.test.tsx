@@ -15,8 +15,6 @@ import {
 } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
 const mockSetWatchlistItems = vi.fn()
-const mockSetWatchlistName = vi.fn()
-const mockSetWatchlistSettings = vi.fn()
 const mockSaveWatchlistDocument = vi.fn()
 const mockPatchWidgetParams = vi.fn()
 
@@ -45,9 +43,8 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       name: record?.name ?? '',
       settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
       items: record?.items ?? [],
-      setName: mockSetWatchlistName,
-      setSettings: mockSetWatchlistSettings,
-      setItems: mockSetWatchlistItems,
+      updateItems: (update: (items: unknown[]) => unknown[]) =>
+        mockSetWatchlistItems(update(record?.items ?? [])),
       save: mockSaveWatchlistDocument,
       isLoading: false,
       error: null,

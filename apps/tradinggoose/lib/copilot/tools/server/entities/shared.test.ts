@@ -400,7 +400,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
     )
   })
 
-  it('redacts MCP server secret values in Copilot documents', async () => {
+  it('round-trips MCP server credentials for authorized workspace readers', async () => {
     const readEnvelope = buildDocumentEnvelope('mcp_server', 'mcp-1', 'Private MCP', {
       description: 'Uses auth',
       transport: 'http',
@@ -453,13 +453,11 @@ const length = input.int(14, 'Length', 1, 50, 1)
       JSON.parse(after)
     )
 
-    expect(readEnvelope.entityDocument).toContain('[redacted]')
-    expect(readEnvelope.entityDocument).not.toContain('read-secret')
-    expect(readEnvelope.entityDocument).not.toContain('read-secret-env')
-    expect(after).toContain('[redacted]')
-    expect(after).not.toContain('secret-token')
-    expect(after).not.toContain('secret-env')
-    expect(diff.before).not.toContain('old-secret')
-    expect(diff.after).not.toContain('secret-token')
+    expect(readEnvelope.entityDocument).toContain('read-secret')
+    expect(readEnvelope.entityDocument).toContain('read-secret-env')
+    expect(after).toContain('secret-token')
+    expect(after).toContain('secret-env')
+    expect(diff.before).toContain('old-secret')
+    expect(diff.after).toContain('secret-token')
   })
 })

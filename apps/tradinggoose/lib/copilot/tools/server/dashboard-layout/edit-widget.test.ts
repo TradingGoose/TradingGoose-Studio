@@ -6,6 +6,7 @@ const toolMocks = fx.createDashboardToolMocks()
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_widget' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
+vi.mock('@/lib/dashboard-layouts/operations', () => fx.mockDashboardOperationsModule(toolMocks))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => fx.mockSnapshotBridgeModule(toolMocks))
@@ -70,14 +71,14 @@ describe('edit_widget server tool', () => {
   it('applies edit_widget without pruning the independent color store', async () => {
     const result = await execute({ pairColor: 'gray' })
 
-    expect(toolMocks.applyWidget).toHaveBeenCalledWith(
+    expect(toolMocks.applyWidgetEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         entityId: 'layout-1',
-        identityId: 'chart-widget',
-        widget: expect.objectContaining({ pairColor: 'gray' }),
+        panelId: 'chart-panel',
+        patch: { pairColor: 'gray' },
+        expectedReviewBaseStateHash: 'base-hash',
       })
     )
-    expect(toolMocks.applyWidget.mock.calls[0]?.[0]).not.toHaveProperty('layout')
     expect(JSON.parse(result.entityDocument)).toMatchObject({
       widgets: {
         'chart-widget': { pairColor: 'gray', params: { data: { provider: 'alpaca' } } },
@@ -85,6 +86,13 @@ describe('edit_widget server tool', () => {
       },
       colorPairs: { pairs: [{ color: 'red', listing: fx.AAPL_LISTING }] },
     })
+  })
+
+  it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
+    toolMocks.readMetadata.mockRejectedValueOnce(new Error('Dashboard layout not found'))
+
+    await expect(execute({ pairColor: 'gray' })).rejects.toThrow('Dashboard layout not found')
+    expect(toolMocks.readFields).not.toHaveBeenCalled()
   })
 
   it('rejects empty panels instead of creating a layout binding', async () => {
@@ -104,7 +112,7 @@ describe('edit_widget server tool', () => {
     await expect(execute({ params: { view: { interval: '1h' } } })).rejects.toThrow(
       'has no widget; use edit_layout'
     )
-    expect(toolMocks.applyWidget).not.toHaveBeenCalled()
+    expect(toolMocks.applyWidgetEdit).not.toHaveBeenCalled()
   })
 
   it('patches public edit_widget params without replacing unrelated quick-order params', async () => {
@@ -163,10 +171,10 @@ describe('edit_widget server tool', () => {
     toolMocks.shouldStage.mockReturnValue(false)
     const applied = await execute({ colorPair: { listing: null } })
     expect(JSON.parse(applied.entityDocument).colorPairs).toEqual({ pairs: [] })
-    expect(toolMocks.applyWidget).toHaveBeenCalledWith(
+    expect(toolMocks.applyWidgetEdit).toHaveBeenCalledWith(
       expect.objectContaining({
-        widget: expect.objectContaining({ params: { data: { provider: 'alpaca' } } }),
-        colorPairs: [{ color: 'red', value: null }],
+        panelId: 'chart-panel',
+        patch: { colorPair: { listing: null } },
       })
     )
   })

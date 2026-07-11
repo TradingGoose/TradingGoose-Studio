@@ -28,6 +28,7 @@ import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
 import type { Variable, VariableType } from '@/stores/variables/types'
@@ -46,6 +47,8 @@ export function Variables({
   const copy = useWorkflowVariablesMessages()
   const workflowId = workflowIdProp ?? null
   const yjsVariables = useWorkflowVariables()
+  const { accessMode } = useWorkflowSession()
+  const readOnly = accessMode === 'read'
   const {
     collaborativeUpdateVariable,
     collaborativeAddVariable,
@@ -78,12 +81,13 @@ export function Variables({
 
   // Handle variable name change with validation
   const handleVariableNameChange = (variableId: string, newName: string) => {
+    if (readOnly) return
     const validatedName = validateName(newName)
     collaborativeUpdateVariable(variableId, 'name', validatedName)
   }
 
   const handleAddVariable = () => {
-    if (!workflowId) return
+    if (!workflowId || readOnly) return
 
     const id = collaborativeAddVariable({
       name: '',
@@ -149,6 +153,7 @@ export function Variables({
   }
 
   const handleEditorChange = (variable: Variable, newValue: string) => {
+    if (readOnly) return
     collaborativeUpdateVariable(variable.id, 'value', newValue)
   }
 
@@ -244,6 +249,7 @@ export function Variables({
           <div className='flex h-full items-center justify-center'>
             <Button
               onClick={handleAddVariable}
+              disabled={readOnly}
               className='h-9 rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
               variant='outline'
             >
@@ -263,22 +269,29 @@ export function Variables({
                     className='h-9 flex-1 rounded-lg border-none bg-secondary/50 px-3 font-normal text-sm ring-0 ring-offset-0 placeholder:text-muted-foreground focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0'
                     placeholder='Variable name'
                     value={variable.name}
+                    disabled={readOnly}
                     onChange={(e) => handleVariableNameChange(variable.id, e.target.value)}
                   />
 
                   {/* Type selector */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3'>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        disabled={readOnly}
+                        className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3'
+                      >
                         <span className='font-normal text-sm'>{getTypeIcon(variable.type)}</span>
                         <ChevronDown className='ml-1 h-3 w-3 text-muted-foreground' />
-                      </div>
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
                       className='min-w-32 rounded-lg border-[#E5E5E5] bg-background shadow-xs dark:border-[#414141] '
                     >
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'plain')}
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -286,6 +299,7 @@ export function Variables({
                         <span className='font-[380]'>Plain</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'number')}
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -293,6 +307,7 @@ export function Variables({
                         <span className='font-[380]'>Number</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'boolean')}
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -300,6 +315,7 @@ export function Variables({
                         <span className='font-[380]'>Boolean</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'object')}
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -307,6 +323,7 @@ export function Variables({
                         <span className='font-[380]'>Object</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeUpdateVariable(variable.id, 'type', 'array')}
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -314,6 +331,7 @@ export function Variables({
                         <span className='font-[380]'>Array</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() =>
                           collaborativeUpdateVariable(
                             variable.id,
@@ -356,6 +374,7 @@ export function Variables({
                         {(collapsedById[variable.id] ?? false) ? 'Expand' : 'Collapse'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeDuplicateVariable(variable.id)}
                         className='cursor-pointer rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
@@ -363,6 +382,7 @@ export function Variables({
                         Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        disabled={readOnly}
                         onClick={() => collaborativeDeleteVariable(variable.id)}
                         className='cursor-pointer rounded-md px-3 py-2 font-[380] text-destructive text-sm hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive'
                       >
@@ -419,6 +439,7 @@ export function Variables({
                           minHeight={20}
                           className='w-full font-[380] text-foreground text-sm leading-normal'
                           options={{
+                            readOnly,
                             lineNumbers: 'off',
                             scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
                             padding: { top: 0, bottom: 0 },
@@ -435,6 +456,7 @@ export function Variables({
             {!hideAddButtons ? (
               <Button
                 onClick={handleAddVariable}
+                disabled={readOnly}
                 className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
                 variant='outline'
               >

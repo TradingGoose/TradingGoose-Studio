@@ -11,18 +11,19 @@ const mocks = vi.hoisted(() => ({
   projection: vi.fn(),
   access: vi.fn(),
   read: vi.fn(),
+  metadata: vi.fn(),
   list: vi.fn(),
-  verify: vi.fn(),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
-vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyReviewTargetAccess: mocks.verify,
-}))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedSavedEntityFields: mocks.read,
 }))
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({ readEntityListMembersFromDb: mocks.list }))
+vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  createDashboardLayout: vi.fn(),
+  readDashboardLayoutMetadata: mocks.metadata,
+}))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => ({
   buildDashboardLayoutReadProjection: mocks.projection,
 }))
@@ -33,7 +34,7 @@ describe('dashboard layout server tools', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.access.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
-    mocks.verify.mockResolvedValue({ hasAccess: true, workspaceId: 'workspace-1' })
+    mocks.metadata.mockResolvedValue({ name: 'Layout 1', isActive: true, sortOrder: 0 })
     mocks.list.mockResolvedValue([
       { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
     ])
@@ -48,16 +49,10 @@ describe('dashboard layout server tools', () => {
   it('reads a dashboard layout from the live owner-scoped document', async () => {
     const result = await readLayoutServerTool.execute({ entityId: 'layout-1' }, context)
 
-    expect(mocks.verify).toHaveBeenCalledWith(
-      'user-1',
-      expect.objectContaining({
-        entityKind: 'dashboard_layout',
-        entityId: 'layout-1',
-        ownerUserId: 'user-1',
-        workspaceId: 'workspace-1',
-        yjsSessionId: 'layout-1',
-      }),
-      'read'
+    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.metadata).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      'layout-1'
     )
     expect(mocks.read).toHaveBeenCalledWith('dashboard_layout', 'layout-1', 'workspace-1', 'user-1')
     expect(result).toMatchObject({
@@ -79,6 +74,15 @@ describe('dashboard layout server tools', () => {
     })
     expect(JSON.parse(result.entityDocument)).not.toHaveProperty('name')
     expect(result.effectiveLayout).toMatchObject({ id: 'root', type: 'group' })
+  })
+
+  it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
+    mocks.metadata.mockRejectedValueOnce(new Error('Dashboard layout not found'))
+
+    await expect(readLayoutServerTool.execute({ entityId: 'layout-1' }, context)).rejects.toThrow(
+      'Dashboard layout not found'
+    )
+    expect(mocks.read).not.toHaveBeenCalled()
   })
 
   it('lists owner-scoped dashboard layouts using the shared entities shape', async () => {

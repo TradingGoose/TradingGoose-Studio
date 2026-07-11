@@ -21,6 +21,8 @@ export type SavedEntityIdentityInput = {
   name: string
 }
 
+type SavedEntityIdentityWriter = Pick<typeof db, 'update'>
+
 export class SavedEntityIdentityError extends Error {
   constructor(
     public status: number,
@@ -43,7 +45,10 @@ export function normalizeSavedEntityIdentity(entityKind: ReviewEntityKind, value
   return name
 }
 
-export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput): Promise<string> {
+export async function renameSavedEntityIdentityInTx(
+  writer: SavedEntityIdentityWriter,
+  input: SavedEntityIdentityInput
+): Promise<string> {
   const { entityKind, entityId, workspaceId } = input
   const ownerUserId = input.ownerUserId?.trim() || null
   const name = normalizeSavedEntityIdentity(entityKind, input.name)
@@ -53,35 +58,35 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
     let rows: Array<{ id: string }>
     switch (entityKind) {
       case 'workflow':
-        rows = await db
+        rows = await writer
           .update(workflow)
           .set({ name, updatedAt })
           .where(and(eq(workflow.id, entityId), eq(workflow.workspaceId, workspaceId)))
           .returning({ id: workflow.id })
         break
       case 'skill':
-        rows = await db
+        rows = await writer
           .update(skill)
           .set({ name, updatedAt })
           .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
           .returning({ id: skill.id })
         break
       case 'custom_tool':
-        rows = await db
+        rows = await writer
           .update(customTools)
           .set({ title: name, updatedAt })
           .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
           .returning({ id: customTools.id })
         break
       case 'indicator':
-        rows = await db
+        rows = await writer
           .update(pineIndicators)
           .set({ name, updatedAt })
           .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
           .returning({ id: pineIndicators.id })
         break
       case 'knowledge_base':
-        rows = await db
+        rows = await writer
           .update(knowledgeBase)
           .set({ name, updatedAt })
           .where(
@@ -94,7 +99,7 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
           .returning({ id: knowledgeBase.id })
         break
       case 'mcp_server':
-        rows = await db
+        rows = await writer
           .update(mcpServers)
           .set({ name, updatedAt })
           .where(
@@ -107,7 +112,7 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
           .returning({ id: mcpServers.id })
         break
       case 'watchlist':
-        rows = await db
+        rows = await writer
           .update(watchlistTable)
           .set({ name, updatedAt })
           .where(
@@ -124,7 +129,7 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
         if (!ownerUserId) {
           throw new SavedEntityIdentityError(400, 'Dashboard layout ownerUserId is required')
         }
-        rows = await db
+        rows = await writer
           .update(layoutMaps)
           .set({ name, updatedAt })
           .where(
@@ -151,6 +156,15 @@ export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput)
     throw error
   }
 
-  await refreshEntityListSession(entityKind, workspaceId, ownerUserId)
+  return name
+}
+
+export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput): Promise<string> {
+  const name = await renameSavedEntityIdentityInTx(db, input)
+  await refreshEntityListSession(
+    input.entityKind,
+    input.workspaceId,
+    input.ownerUserId?.trim() || null
+  )
   return name
 }

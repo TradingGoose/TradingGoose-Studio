@@ -32,6 +32,7 @@ import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 
 type SavedEntityYjsSessionState = {
   key: string | null
@@ -314,6 +315,7 @@ export function useSavedEntityYjsSession(
   ownerUserId: string | null | undefined,
   accessMode: ReviewAccessMode
 ) {
+  const accessModeRef = useLatestRef(accessMode)
   const descriptor = useMemo(
     () =>
       entityId && workspaceId
@@ -340,13 +342,16 @@ export function useSavedEntityYjsSession(
     'Failed to open entity session'
   )
   const save = useCallback(async () => {
+    if (accessModeRef.current === 'read') {
+      throw new Error('Cannot save a read-only Yjs session')
+    }
     if (!activeState?.result || !entityId || !workspaceId) {
       throw new Error('Yjs session is not ready')
     }
 
     await saveYjsSessionSnapshot(activeState.result)
     invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
-  }, [activeState?.result, entityId, entityKind, workspaceId])
+  }, [accessModeRef, activeState?.result, entityId, entityKind, workspaceId])
 
   return {
     doc: activeState?.result?.doc ?? null,

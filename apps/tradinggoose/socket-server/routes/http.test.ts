@@ -24,6 +24,12 @@ const socketRouteMocks = vi.hoisted(() => ({
   discardDocument: vi.fn(),
   flushDocumentPersistence: vi.fn(),
   seedEntitySession: vi.fn(),
+  getEntityFields: vi.fn(),
+  importWatchlistDocument: vi.fn(),
+  applyDashboardTopologyMutation: vi.fn(),
+  applyDashboardWidgetConfigPatch: vi.fn(),
+  readDashboardLayoutContent: vi.fn(),
+  runDocumentMutation: vi.fn(),
 }))
 
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'internal-secret' } }))
@@ -46,8 +52,31 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => socketRouteMocks)
 vi.mock('@/socket-server/yjs/upstream-utils', () => socketRouteMocks)
 
+vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  DashboardLayoutOperationError: class DashboardLayoutOperationError extends Error {},
+}))
+
+vi.mock('@/lib/yjs/dashboard-layout-session', () => ({
+  applyDashboardTopologyMutation: socketRouteMocks.applyDashboardTopologyMutation,
+  applyDashboardWidgetConfigPatch: socketRouteMocks.applyDashboardWidgetConfigPatch,
+  readDashboardLayoutContent: socketRouteMocks.readDashboardLayoutContent,
+}))
+
+vi.mock('@/lib/watchlists/operations', () => ({
+  WatchlistOperationError: class WatchlistOperationError extends Error {
+    constructor(
+      message: string,
+      public status = 400
+    ) {
+      super(message)
+    }
+  },
+  importWatchlistDocument: socketRouteMocks.importWatchlistDocument,
+}))
+
 vi.mock('@/lib/yjs/entity-session', () => ({
   seedEntitySession: socketRouteMocks.seedEntitySession,
+  getEntityFields: socketRouteMocks.getEntityFields,
   getEntityWorkspaceId: (doc: any) => doc.getMap('metadata').get('workspaceId') ?? null,
   getEntityOwnerUserId: (doc: any) => doc.getMap('metadata').get('ownerUserId') ?? null,
 }))
@@ -93,11 +122,16 @@ async function invoke(method: string, url: string, body?: unknown) {
 describe('socket internal HTTP Yjs routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    socketRouteMocks.runDocumentMutation.mockImplementation(
+      async (_doc: Y.Doc, mutation: () => Promise<unknown> | unknown) => mutation()
+    )
+    socketRouteMocks.discardDocumentIfIdle.mockImplementation(() => undefined)
+    socketRouteMocks.discardDocument.mockImplementation(() => undefined)
     socketRouteMocks.saveDashboardLayoutYjsDocToDb.mockResolvedValue({ ok: true })
     socketRouteMocks.saveSavedEntityYjsDocToDb.mockResolvedValue({ ok: true })
     socketRouteMocks.flushDocumentPersistence.mockImplementation(
-      async (doc: Y.Doc, persist: (docId: string, target: Y.Doc) => Promise<void>) => {
-        await persist('layout-1', doc)
+      async (doc: Y.Doc, persist?: (docId: string, target: Y.Doc) => Promise<void>) => {
+        if (persist) await persist('layout-1', doc)
       }
     )
     socketRouteMocks.getDocument.mockImplementation(() => createDashboardDoc())
@@ -106,6 +140,22 @@ describe('socket internal HTTP Yjs routes', () => {
         ? createDashboardDoc()
         : null
     )
+    socketRouteMocks.seedEntitySession.mockImplementation((doc: Y.Doc, options: any) => {
+      doc.getMap('test').set('fields', options.payload)
+    })
+    socketRouteMocks.getEntityFields.mockImplementation((doc: Y.Doc) =>
+      doc.getMap('test').get('fields')
+    )
+    socketRouteMocks.readDashboardLayoutContent.mockReturnValue({
+      layout: {
+        id: 'panel-1',
+        type: 'panel',
+        identityId: 'widget-1',
+        widgetKey: 'copilot',
+      },
+      widgets: { 'widget-1': { pairColor: 'gray', params: null } },
+      colorPairs: { pairs: [] },
+    })
   })
 
   it('rejects dashboard documents on the generic entity apply route', async () => {
@@ -119,7 +169,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
   })
 
-  it('rejects entityName outside the watchlist apply contract', async () => {
+  it('rejects the removed entityName apply-state field', async () => {
     const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
       entityKind: 'skill',
       fields: { description: '', content: '' },
@@ -127,8 +177,50 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(400)
-    expect(response.body.error).toBe('entityName is only supported for watchlist')
+    expect(response.body.error).toBe('Unsupported apply entity state field: entityName')
     expect(socketRouteMocks.saveSavedEntityYjsDocToDb).not.toHaveBeenCalled()
+  })
+
+  it('applies MCP credentials directly through the saved-entity document contract', async () => {
+    const doc = createDashboardDoc()
+    doc.getMap('metadata').set('entityKind', 'mcp_server')
+    doc.getMap('metadata').set('entityId', 'mcp-1')
+    doc.getMap('metadata').delete('ownerUserId')
+    doc.getMap('test').set('fields', {
+      description: 'Current',
+      transport: 'http',
+      url: 'https://mcp.example.com',
+      headers: { Authorization: 'Bearer stored' },
+      command: '',
+      args: [],
+      env: { TOKEN: 'stored-token' },
+      timeout: 30000,
+      retries: 3,
+      enabled: true,
+    })
+    socketRouteMocks.getExistingDocument.mockResolvedValue(doc)
+
+    const response = await invoke('POST', '/internal/yjs/entities/mcp-1/apply-state', {
+      entityKind: 'mcp_server',
+      fields: {
+        description: 'Updated',
+        transport: 'http',
+        url: 'https://mcp.example.com',
+        headers: { Authorization: 'Bearer replacement' },
+        command: '',
+        args: [],
+        env: { TOKEN: 'replacement-token' },
+        timeout: 30000,
+        retries: 3,
+        enabled: true,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.fields).toMatchObject({
+      headers: { Authorization: 'Bearer replacement' },
+      env: { TOKEN: 'replacement-token' },
+    })
   })
 
   it('forwards dashboard owner scope when bootstrapping entity-list snapshots', async () => {
@@ -243,5 +335,213 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(response.status).toBe(500)
     expect(response.body.error).toBe('database offline')
     expect(socketRouteMocks.discardDocumentIfIdle).toHaveBeenCalledWith('layout-1')
+  })
+
+  it('rejects an accepted layout edit after its doomed widget document changes', async () => {
+    const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
+    const { buildDashboardLayoutReviewBase } = await import('@/lib/dashboard-layouts/review-base')
+    const { applyLayoutEditDocument } = await import('@/widgets/layout-document')
+    const entityDocument = JSON.stringify({
+      layout: { id: 'panel-1', type: 'panel', widget: { key: 'watchlist' } },
+    })
+    const reviewed = {
+      ...socketRouteMocks.readDashboardLayoutContent(),
+      layout: {
+        id: 'panel-1',
+        type: 'panel' as const,
+        identityId: 'widget-1',
+        widgetKey: 'data_chart' as const,
+      },
+      widgets: {
+        'widget-1': { pairColor: 'gray' as const, params: { view: { interval: '15m' } } },
+      },
+    }
+    const plan = applyLayoutEditDocument(reviewed, entityDocument)
+    const expectedReviewBaseStateHash = hashServerToolReviewBase(
+      buildDashboardLayoutReviewBase(reviewed, plan)
+    )
+    socketRouteMocks.readDashboardLayoutContent.mockReturnValue({
+      ...reviewed,
+      widgets: {
+        ...reviewed.widgets,
+        'widget-1': { pairColor: 'gray', params: { view: { interval: '1h' } } },
+      },
+    })
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'layout',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      entityDocument,
+      removedPanelIds: [],
+    })
+
+    expect(response.status).toBe(409)
+    expect(response.body.code).toBe('stale_server_tool_review')
+    expect(socketRouteMocks.applyDashboardTopologyMutation).not.toHaveBeenCalled()
+    expect(socketRouteMocks.flushDocumentPersistence).not.toHaveBeenCalled()
+  })
+
+  it('applies an accepted widget edit through the canonical dashboard patch helper', async () => {
+    const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
+    const { buildDashboardWidgetReviewBase } = await import('@/lib/dashboard-layouts/review-base')
+    const { applyWidgetConfigMutation } = await import('@/widgets/widget-mutations')
+    const content = socketRouteMocks.readDashboardLayoutContent()
+    const mutation = applyWidgetConfigMutation({
+      widgetKey: 'copilot',
+      widget: content.widgets['widget-1'],
+      colorPairs: content.colorPairs,
+      panelId: 'panel-1',
+      patch: { pairColor: 'blue' },
+    })
+    const expectedReviewBaseStateHash = hashServerToolReviewBase(
+      buildDashboardWidgetReviewBase(content, 'panel-1', mutation.reviewBase, {
+        pairColor: 'blue',
+      })
+    )
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'widget',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      panelId: 'panel-1',
+      patch: { pairColor: 'blue' },
+    })
+
+    expect(response.status).toBe(200)
+    expect(socketRouteMocks.applyDashboardWidgetConfigPatch).toHaveBeenCalledWith(
+      expect.any(Y.Doc),
+      'panel-1',
+      { pairColor: 'blue', params: undefined, colorPair: undefined }
+    )
+    expect(socketRouteMocks.flushDocumentPersistence).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves the latest credential when accepting a redacted widget patch', async () => {
+    const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
+    const { buildDashboardWidgetReviewBase } = await import('@/lib/dashboard-layouts/review-base')
+    const { applyWidgetConfigMutation } = await import('@/widgets/widget-mutations')
+    const patch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
+    const reviewed = {
+      layout: {
+        id: 'panel-1',
+        type: 'panel' as const,
+        identityId: 'widget-1',
+        widgetKey: 'data_chart' as const,
+      },
+      widgets: {
+        'widget-1': {
+          pairColor: 'gray' as const,
+          params: {
+            data: { auth: { apiKey: 'reviewed-key', apiSecret: 'shared-secret' } },
+          },
+        },
+      },
+      colorPairs: { pairs: [] },
+    }
+    const mutation = applyWidgetConfigMutation({
+      widgetKey: 'data_chart',
+      widget: reviewed.widgets['widget-1'],
+      colorPairs: reviewed.colorPairs,
+      panelId: 'panel-1',
+      patch,
+    })
+    const expectedReviewBaseStateHash = hashServerToolReviewBase(
+      buildDashboardWidgetReviewBase(reviewed, 'panel-1', mutation.reviewBase, patch)
+    )
+    socketRouteMocks.readDashboardLayoutContent.mockReturnValue({
+      ...reviewed,
+      widgets: {
+        'widget-1': {
+          ...reviewed.widgets['widget-1'],
+          params: {
+            data: { auth: { apiKey: 'latest-key', apiSecret: 'shared-secret' } },
+          },
+        },
+      },
+    })
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'widget',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      panelId: 'panel-1',
+      patch,
+    })
+
+    expect(response.status).toBe(200)
+    expect(socketRouteMocks.applyDashboardWidgetConfigPatch).toHaveBeenCalledWith(
+      expect.any(Y.Doc),
+      'panel-1',
+      {
+        pairColor: undefined,
+        params: { data: { auth: { apiKey: 'latest-key' } } },
+        colorPair: undefined,
+      }
+    )
+  })
+
+  it('rejects an accepted widget edit after its destination color-pair field changes', async () => {
+    const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
+    const { buildDashboardWidgetReviewBase } = await import('@/lib/dashboard-layouts/review-base')
+    const { applyWidgetConfigMutation } = await import('@/widgets/widget-mutations')
+    const listing = (listingId: string) => ({
+      listing_type: 'default' as const,
+      listing_id: listingId,
+      base_id: '',
+      quote_id: '',
+    })
+    const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
+    const reviewed = {
+      layout: {
+        id: 'panel-1',
+        type: 'panel' as const,
+        identityId: 'widget-1',
+        widgetKey: 'data_chart' as const,
+      },
+      widgets: { 'widget-1': { pairColor: 'red' as const, params: null } },
+      colorPairs: {
+        pairs: [
+          { color: 'blue' as const, listing: listing('MSFT') },
+          { color: 'red' as const, listing: listing('AAPL') },
+        ],
+      },
+    }
+    const mutation = applyWidgetConfigMutation({
+      widgetKey: 'data_chart',
+      widget: reviewed.widgets['widget-1'],
+      colorPairs: reviewed.colorPairs,
+      panelId: 'panel-1',
+      patch,
+    })
+    const expectedReviewBaseStateHash = hashServerToolReviewBase(
+      buildDashboardWidgetReviewBase(reviewed, 'panel-1', mutation.reviewBase, patch)
+    )
+    socketRouteMocks.readDashboardLayoutContent.mockReturnValue({
+      ...reviewed,
+      colorPairs: {
+        pairs: [
+          { color: 'blue', listing: listing('GOOG') },
+          { color: 'red', listing: listing('AAPL') },
+        ],
+      },
+    })
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'widget',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      panelId: 'panel-1',
+      patch,
+    })
+
+    expect(response.status).toBe(409)
+    expect(response.body.code).toBe('stale_server_tool_review')
+    expect(socketRouteMocks.applyDashboardWidgetConfigPatch).not.toHaveBeenCalled()
+    expect(socketRouteMocks.flushDocumentPersistence).not.toHaveBeenCalled()
   })
 })

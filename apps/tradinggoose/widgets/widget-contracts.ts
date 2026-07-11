@@ -48,7 +48,6 @@ export type {
   WidgetMetadataProfile,
   WidgetParamField,
   WidgetParamFieldContract,
-  WidgetParamMutationMode,
   WidgetParamsNormalizationOptions,
   WidgetReferenceParamField,
   WidgetSanitizeResult,
@@ -137,8 +136,7 @@ export function mergeWidgetParams(
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>
 ): Record<string, unknown> | null {
-  return getWidgetContract(widgetKey).mergeLocalParams(currentParams, incomingParams, 'patch')
-    .params
+  return getWidgetContract(widgetKey).mergeLocalParams(currentParams, incomingParams).params
 }
 
 export function resolveEffectiveWidgetParams(

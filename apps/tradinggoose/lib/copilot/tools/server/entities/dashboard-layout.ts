@@ -6,7 +6,10 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
-import { createDashboardLayout } from '@/lib/dashboard-layouts/operations'
+import {
+  createDashboardLayout,
+  readDashboardLayoutMetadata,
+} from '@/lib/dashboard-layouts/operations'
 import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
@@ -20,7 +23,6 @@ import {
   executeRenameEntityMutation,
   type RenameEntityArgs,
   requireEntityId,
-  verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
@@ -114,27 +116,20 @@ export const readLayoutServerTool: EntityServerTool<{ entityId: string }> = {
   name: 'read_layout',
   async execute(args, context) {
     const entityId = requireEntityId(args, 'read_layout')
-    const { userId, workspaceId } = await verifySavedEntityContext(
-      context,
+    const { userId, workspaceId } = await verifyWorkspaceContext(context, 'read')
+    const metadata = await readDashboardLayoutMetadata(
+      { workspaceId, ownerUserId: userId },
+      entityId
+    )
+    const content = await readBootstrappedSavedEntityFields(
       ENTITY_KIND_DASHBOARD_LAYOUT,
       entityId,
-      'read'
+      workspaceId,
+      userId
     )
-    const [content, entity] = await Promise.all([
-      readBootstrappedSavedEntityFields(
-        ENTITY_KIND_DASHBOARD_LAYOUT,
-        entityId,
-        workspaceId,
-        userId
-      ),
-      buildSavedEntityListInfo(ENTITY_KIND_DASHBOARD_LAYOUT, workspaceId, userId).then((entries) =>
-        entries.find((entry) => entry.entityId === entityId)
-      ),
-    ])
-    if (!entity) throw new Error('Dashboard layout not found')
     return buildDashboardLayoutResult({
       entityId,
-      entityName: entity.entityName,
+      entityName: metadata.name,
       workspaceId,
       ownerUserId: userId,
       content: normalizeDashboardLayoutDocumentContent(content),

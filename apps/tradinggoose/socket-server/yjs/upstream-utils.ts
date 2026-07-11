@@ -15,7 +15,8 @@ import * as encoding from 'lib0/encoding'
 import * as map from 'lib0/map'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
+import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type { ReviewAccessMode, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import {
   ensureDashboardLayoutDirtyTracker,
   isDashboardLayoutDirty,
@@ -32,20 +33,29 @@ const PING_TIMEOUT = 30_000
 
 const docs = new Map<string, WSSharedDoc>()
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+type ConnectionState = {
+  awarenessIds: Set<number>
+  userId: string
+  accessMode: ReviewAccessMode
+  descriptor: ReviewTargetDescriptor
+}
 
 class WSSharedDoc extends Y.Doc {
   name: string
-  conns: Map<WebSocket, Set<number>>
+  conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
   whenInitialized: Promise<void>
   onDocumentIdle?: DocumentPersistenceHandler
   onDocumentUpdate?: DocumentPersistenceHandler
+  retryPersistence?: DocumentPersistenceHandler
   onDocumentUpdateDebounceMs = 0
   hasUnsavedChanges = false
   changeGeneration = 0
   isPersisting = false
   pendingPersistRequests = 0
   persistenceQueue: Promise<void> = Promise.resolve()
+  pendingMutations = 0
+  mutationQueue: Promise<void> = Promise.resolve()
   persistTimer: ReturnType<typeof setTimeout> | null = null
   cleanupRequested = false
 
@@ -65,10 +75,10 @@ class WSSharedDoc extends Y.Doc {
         const changedClients = added.concat(updated, removed)
 
         if (conn !== null) {
-          const controlledIds = this.conns.get(conn)
-          if (controlledIds !== undefined) {
-            added.forEach((clientId) => controlledIds.add(clientId))
-            removed.forEach((clientId) => controlledIds.delete(clientId))
+          const connection = this.conns.get(conn)
+          if (connection !== undefined) {
+            added.forEach((clientId) => connection.awarenessIds.add(clientId))
+            removed.forEach((clientId) => connection.awarenessIds.delete(clientId))
           }
         }
 
@@ -133,21 +143,25 @@ function hasDirtyState(doc: WSSharedDoc): boolean {
   return doc.hasUnsavedChanges || (hasDashboardTracker(doc) && isDashboardLayoutDirty(doc))
 }
 
-function isPersistenceClean(doc: WSSharedDoc): boolean {
+function isDocumentIdle(doc: WSSharedDoc): boolean {
   return (
     !hasDirtyState(doc) &&
     !doc.isPersisting &&
     doc.pendingPersistRequests === 0 &&
+    doc.pendingMutations === 0 &&
     doc.persistTimer === null
   )
 }
 
 function schedulePersistenceRetry(doc: WSSharedDoc): void {
-  if (doc.persistTimer || doc.pendingPersistRequests > 0 || !doc.onDocumentUpdate) return
+  const persist = doc.onDocumentUpdate ?? doc.retryPersistence
+  if (doc.persistTimer || doc.pendingPersistRequests > 0 || !persist) return
   doc.persistTimer = setTimeout(
     () => {
       doc.persistTimer = null
-      scheduleDocumentPersistence(doc)
+      void enqueueDocumentPersistence(doc, persist).catch((error) => {
+        console.error('[yjs upstream-utils] Failed to retry document persistence', error)
+      })
     },
     Math.max(doc.onDocumentUpdateDebounceMs, 1000)
   )
@@ -159,14 +173,14 @@ function enqueueDocumentPersistence(
 ): Promise<void> {
   if (!persist) return doc.persistenceQueue
 
+  const requestedGeneration = doc.changeGeneration
   doc.pendingPersistRequests += 1
   const run = doc.persistenceQueue.then(async () => {
     if (!hasDirtyState(doc)) return
-    const generation = doc.changeGeneration
     doc.isPersisting = true
     try {
       await persist(doc.name, doc)
-      const hasNewerChanges = doc.changeGeneration !== generation
+      const hasNewerChanges = doc.changeGeneration !== requestedGeneration
       const dashboardDirty = hasDashboardTracker(doc) && isDashboardLayoutDirty(doc)
       doc.hasUnsavedChanges = hasNewerChanges || dashboardDirty
     } catch (error) {
@@ -180,7 +194,7 @@ function enqueueDocumentPersistence(
   const settled = run.finally(() => {
     doc.pendingPersistRequests -= 1
     if (hasDirtyState(doc)) schedulePersistenceRetry(doc)
-    if (doc.cleanupRequested && doc.conns.size === 0 && isPersistenceClean(doc)) {
+    if (doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
       cleanupDocument(doc)
     }
   })
@@ -206,12 +220,13 @@ function finalizeDocumentCleanup(doc: WSSharedDoc): void {
   }
 
   doc.cleanupRequested = true
-  if (isPersistenceClean(doc)) {
+  if (doc.pendingMutations > 0) return
+  if (isDocumentIdle(doc)) {
     cleanupDocument(doc)
     return
   }
 
-  const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate
+  const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
   if (!persist) {
     cleanupDocument(doc)
     return
@@ -240,7 +255,7 @@ function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
 
 function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
   if (doc.conns.has(conn)) {
-    const controlledIds = doc.conns.get(conn) ?? new Set<number>()
+    const controlledIds = doc.conns.get(conn)?.awarenessIds ?? new Set<number>()
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
 
@@ -256,32 +271,48 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
   }
 }
 
-function handleMessage(
-  conn: WebSocket,
-  doc: WSSharedDoc,
-  message: Uint8Array,
-  accessMode: ReviewAccessMode
-): void {
+function applySyncMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): void {
+  const encoder = encoding.createEncoder()
+  const decoder = decoding.createDecoder(message)
+  decoding.readVarUint(decoder)
+  encoding.writeVarUint(encoder, messageSync)
+  syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
+  if (encoding.length(encoder) > 1) {
+    send(doc, conn, encoding.toUint8Array(encoder))
+  }
+}
+
+function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): void {
   try {
-    const encoder = encoding.createEncoder()
+    const connection = doc.conns.get(conn)
+    if (!connection) return
     const decoder = decoding.createDecoder(message)
     const messageType = decoding.readVarUint(decoder)
 
     switch (messageType) {
-      case messageSync:
-        if (
-          accessMode === 'read' &&
-          decoding.peekVarUint(decoder) !== syncProtocol.messageYjsSyncStep1
-        ) {
+      case messageSync: {
+        const syncMessageType = decoding.peekVarUint(decoder)
+        if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
+          applySyncMessage(conn, doc, message)
+          break
+        }
+        if (connection.accessMode === 'read') {
           closeConn(doc, conn)
           break
         }
-        encoding.writeVarUint(encoder, messageSync)
-        syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
-        if (encoding.length(encoder) > 1) {
-          send(doc, conn, encoding.toUint8Array(encoder))
-        }
+        void runDocumentMutation(doc, () => {
+          const current = doc.conns.get(conn)
+          if (!current) return
+          if (current.accessMode !== 'write') {
+            closeConn(doc, conn)
+            return
+          }
+          applySyncMessage(conn, doc, message)
+        }).catch((error) => {
+          console.error('[yjs upstream-utils] Error applying queued sync message', error)
+        })
         break
+      }
       case messageAwareness:
         awarenessProtocol.applyAwarenessUpdate(
           doc.awareness,
@@ -315,6 +346,24 @@ export function markDocumentPersisted(doc: Y.Doc): void {
   }
 }
 
+export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | T): Promise<T> {
+  if (!(doc instanceof WSSharedDoc)) return Promise.resolve().then(mutation)
+
+  doc.pendingMutations += 1
+  const result = doc.mutationQueue.then(mutation)
+  const settled = result.finally(() => {
+    doc.pendingMutations -= 1
+    if (doc.cleanupRequested && doc.conns.size === 0) {
+      finalizeDocumentCleanup(doc)
+    }
+  })
+  doc.mutationQueue = settled.then(
+    () => undefined,
+    () => undefined
+  )
+  return settled
+}
+
 export async function flushDocumentPersistence(
   doc: Y.Doc,
   persist?: DocumentPersistenceHandler
@@ -323,7 +372,7 @@ export async function flushDocumentPersistence(
     if (persist) await persist('', doc)
     return
   }
-  if (persist) doc.onDocumentUpdate = persist
+  if (persist) doc.retryPersistence = persist
   if (hasDashboardTracker(doc)) ensureDashboardLayoutDirtyTracker(doc)
   if (doc.persistTimer) {
     clearTimeout(doc.persistTimer)
@@ -351,7 +400,9 @@ export function setupWSConnection(
   _req: IncomingMessage,
   opts: {
     docId: string
+    userId: string
     accessMode: ReviewAccessMode
+    descriptor: ReviewTargetDescriptor
     gc?: boolean
     bootstrapState?: Uint8Array
     onDocumentIdle?: DocumentPersistenceHandler
@@ -361,7 +412,9 @@ export function setupWSConnection(
 ): void {
   const {
     docId,
+    userId,
     accessMode,
+    descriptor,
     gc = true,
     bootstrapState,
     onDocumentIdle,
@@ -378,11 +431,11 @@ export function setupWSConnection(
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
-  doc.conns.set(conn, new Set())
+  doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor })
 
   conn.on('message', (data: ArrayBuffer) => {
     void doc.whenInitialized.then(() => {
-      handleMessage(conn, doc, new Uint8Array(data), accessMode)
+      handleMessage(conn, doc, new Uint8Array(data))
     })
   })
 
@@ -400,6 +453,10 @@ export function setupWSConnection(
       pongReceived = false
       try {
         conn.ping()
+        const connection = doc.conns.get(conn)
+        if (connection) {
+          void reconcileConnection(doc, conn, connection).catch(() => closeConn(doc, conn))
+        }
       } catch {
         closeConn(doc, conn)
         clearInterval(pingInterval)
@@ -479,12 +536,39 @@ export function discardDocument(docId: string): void {
 export function discardDocumentIfIdle(docId: string): void {
   const doc = docs.get(docId)
   if (!doc || doc.conns.size > 0) return
-  if (hasDashboardTracker(doc)) {
-    doc.cleanupRequested = true
-    if (!isPersistenceClean(doc)) return
-  }
+  doc.cleanupRequested = true
+  if (!isDocumentIdle(doc)) return
 
   cleanupDocument(doc)
+}
+
+async function reconcileConnection(
+  doc: WSSharedDoc,
+  conn: WebSocket,
+  connection: ConnectionState
+): Promise<void> {
+  const access = await verifyReviewTargetAccess(
+    connection.userId,
+    connection.descriptor,
+    connection.accessMode
+  )
+  if (!access.hasAccess && doc.conns.get(conn) === connection) closeConn(doc, conn)
+}
+
+export async function reconcileWorkspaceConnections(
+  workspaceId: string,
+  userIds?: ReadonlySet<string>
+): Promise<void> {
+  const checks: Promise<void>[] = []
+  for (const doc of docs.values()) {
+    for (const [conn, connection] of doc.conns) {
+      if (connection.descriptor.workspaceId !== workspaceId) continue
+      if (userIds && !userIds.has(connection.userId)) continue
+
+      checks.push(reconcileConnection(doc, conn, connection))
+    }
+  }
+  await Promise.all(checks)
 }
 
 export function cleanupAllDocuments(): void {

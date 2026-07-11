@@ -33,6 +33,7 @@ interface YjsIncomingMessage extends IncomingMessage {
   yjsPersistLiveUpdates?: boolean
   yjsAccessMode?: ReviewAccessMode
   yjsEntityKind?: ReviewEntityKind
+  yjsDescriptor?: ReviewTargetDescriptor
 }
 
 async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void> {
@@ -86,6 +87,7 @@ export function handleYjsUpgrade(
         resolvedSessionId,
         persistLiveUpdates,
         entityKind,
+        descriptor,
       }) => {
         const yjsReq = request as YjsIncomingMessage
         yjsReq.yjsSessionId = resolvedSessionId
@@ -94,6 +96,7 @@ export function handleYjsUpgrade(
         yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
         yjsReq.yjsAccessMode = accessMode
         yjsReq.yjsEntityKind = entityKind
+        yjsReq.yjsDescriptor = descriptor
 
         ensureConnectionHandler(wss)
         wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
@@ -122,6 +125,7 @@ async function authenticateAndPrepareUpgrade(
   persistLiveUpdates: boolean
   accessMode: ReviewAccessMode
   entityKind: ReviewEntityKind
+  descriptor: ReviewTargetDescriptor
 }> {
   const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
@@ -151,6 +155,10 @@ async function authenticateAndPrepareUpgrade(
   if (!access.hasAccess) {
     throw new YjsAuthError(403, 'Forbidden')
   }
+  const canonicalDescriptor: ReviewTargetDescriptor = {
+    ...descriptor,
+    workspaceId: access.workspaceId ?? descriptor.workspaceId,
+  }
 
   // Every list connect follows a fresh snapshot fetch, which reseeds live
   // list docs from DB (routes/http.ts), so no upgrade-time reseed is needed.
@@ -160,12 +168,12 @@ async function authenticateAndPrepareUpgrade(
     ? null
     : isListTarget
       ? await createEntityListBootstrapUpdate(
-          descriptor.entityKind,
-          descriptor.workspaceId as string,
-          descriptor.ownerUserId ?? null
+          canonicalDescriptor.entityKind,
+          canonicalDescriptor.workspaceId as string,
+          canonicalDescriptor.ownerUserId ?? null
         )
-      : descriptor.entityId
-        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+      : canonicalDescriptor.entityId
+        ? await createSavedReviewTargetBootstrapUpdate(canonicalDescriptor)
         : null
   const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : bootstrapped?.runtime
 
@@ -182,11 +190,13 @@ async function authenticateAndPrepareUpgrade(
     userId,
     resolvedSessionId: pathSessionId,
     accessMode,
-    entityKind: descriptor.entityKind,
+    entityKind: canonicalDescriptor.entityKind,
+    descriptor: canonicalDescriptor,
     persistLiveUpdates:
       accessMode === 'write' &&
-      (descriptor.entityKind === 'workflow' || descriptor.entityKind === 'dashboard_layout') &&
-      descriptor.entityId === pathSessionId,
+      (canonicalDescriptor.entityKind === 'workflow' ||
+        canonicalDescriptor.entityKind === 'dashboard_layout') &&
+      canonicalDescriptor.entityId === pathSessionId,
   }
 }
 
@@ -220,7 +230,7 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
     const yjsReq = req as YjsIncomingMessage
     const docId = yjsReq.yjsSessionId
 
-    if (!docId || !yjsReq.yjsAccessMode) {
+    if (!docId || !yjsReq.yjsAccessMode || !yjsReq.yjsUserId || !yjsReq.yjsDescriptor) {
       ws.close(4409, 'Missing session access')
       return
     }
@@ -229,7 +239,9 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
       logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
       setupWSConnection(ws, req, {
         docId,
+        userId: yjsReq.yjsUserId,
         accessMode: yjsReq.yjsAccessMode,
+        descriptor: yjsReq.yjsDescriptor,
         gc: true,
         bootstrapState: yjsReq.yjsBootstrapState,
         onDocumentIdle: yjsReq.yjsPersistLiveUpdates ? persistLiveSavedDocument : undefined,

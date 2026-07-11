@@ -1,7 +1,6 @@
 'use client'
 
 import { SquareFunction } from 'lucide-react'
-import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
   IndicatorEditorExportButton,
@@ -9,6 +8,7 @@ import {
   IndicatorEditorSelector,
   IndicatorEditorVerifyButton,
 } from '@/widgets/widgets/editor_indicator/components/indicator-editor-header'
+import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
 import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/editor-indicator-body'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
@@ -55,6 +55,7 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
             panelId={panelId}
             widgetKey={widget?.key}
             pairColor={widget?.pairColor}
+            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

@@ -14,7 +14,6 @@ import {
   isWidgetKey,
   mergeWidgetParams,
   normalizeWidgetColorPairPatch,
-  resolveEffectiveWidgetParams,
   sanitizeWidgetParams,
   type WidgetKey,
 } from '@/widgets/widget-contracts'
@@ -22,7 +21,6 @@ import {
 export type WidgetConfigMutationPatch = {
   pairColor?: unknown
   params?: Record<string, unknown> | null
-  paramsMode?: 'patch' | 'replace'
   colorPair?: Record<string, unknown> | null
 }
 
@@ -68,17 +66,24 @@ function withWidgetConfigErrors<T>(path: string, run: () => T): T {
   }
 }
 
-export type PlannedWidgetConfigMutation = {
+type PlannedWidgetConfigMutation = {
   panelId: string
-  beforeWidgetDocument: DashboardWidgetDocument
   widgetKey: WidgetKey
   widgetDocument: DashboardWidgetDocument
 }
 
+export type WidgetConfigMutationReviewBase = {
+  pairColor?: PairColor
+  params?: Record<string, unknown> | null
+  colorPair?: {
+    color: LinkedPairColor
+    context: PairColorContext
+  }
+}
+
 export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
+  reviewBase: WidgetConfigMutationReviewBase
   colorPairs: PersistedColorPairsState
-  beforeEffectiveParams: Record<string, unknown> | null
-  afterEffectiveParams: Record<string, unknown> | null
   colorPairDiff: Array<{
     color: PairColor
     before: PairColorContext
@@ -86,8 +91,6 @@ export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
     changedFields: string[]
   }>
   changedPaths: string[]
-  warnings: string[]
-  issues: string[]
 }
 
 type WidgetConfigMutationInput = {
@@ -101,6 +104,7 @@ type WidgetConfigMutationInput = {
 function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
   plan: PlannedWidgetConfigMutation
   pairPatch: Record<string, unknown>
+  reviewBase: WidgetConfigMutationReviewBase
 } {
   const currentKey = isWidgetKey(input.widgetKey)
     ? input.widgetKey
@@ -126,11 +130,19 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
       ? normalizeWidgetColorPairPatch(nextKey, input.patch.colorPair)
       : {}
   )
+  const reviewBase = buildWidgetConfigMutationReviewBase({
+    widgetKey: nextKey,
+    current,
+    currentPairColor,
+    nextPairColor,
+    colorPairs: input.colorPairs,
+    patch: input.patch,
+    pairPatch,
+  })
 
   return {
     plan: {
       panelId: input.panelId,
-      beforeWidgetDocument: input.widget,
       widgetKey: nextKey,
       widgetDocument: {
         pairColor: nextPairColor,
@@ -138,16 +150,17 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
       },
     },
     pairPatch,
+    reviewBase,
   }
 }
 
 export function applyWidgetConfigMutation(
   input: WidgetConfigMutationInput
 ): AppliedWidgetConfigMutation {
-  const { plan, pairPatch } = computeWidgetConfigMutation(input)
+  const { plan, pairPatch, reviewBase } = computeWidgetConfigMutation(input)
   const beforeWidget: NonNullable<WidgetInstance> = {
     key: plan.widgetKey,
-    ...plan.beforeWidgetDocument,
+    ...input.widget,
   }
   const widget: NonNullable<WidgetInstance> = {
     key: plan.widgetKey,
@@ -165,13 +178,57 @@ export function applyWidgetConfigMutation(
 
   return {
     ...plan,
+    reviewBase,
     colorPairs,
-    beforeEffectiveParams: resolveEffectiveWidgetParams(beforeWidget, input.colorPairs),
-    afterEffectiveParams: resolveEffectiveWidgetParams(widget, colorPairs),
     colorPairDiff,
     changedPaths: buildChangedPaths(beforeWidget, widget, colorPairDiff),
-    warnings: [],
-    issues: [],
+  }
+}
+
+function buildWidgetConfigMutationReviewBase(input: {
+  widgetKey: WidgetKey
+  current: NonNullable<WidgetInstance>
+  currentPairColor: PairColor
+  nextPairColor: PairColor
+  colorPairs: PersistedColorPairsState
+  patch: WidgetConfigMutationPatch
+  pairPatch: Record<string, unknown>
+}): WidgetConfigMutationReviewBase {
+  const params =
+    input.patch.params === undefined
+      ? undefined
+      : input.patch.params === null
+        ? (input.current.params ?? null)
+        : getWidgetContract(input.widgetKey).projectLocalParamsReviewBase(
+            input.current.params,
+            input.patch.params
+          )
+  const currentColorPair =
+    input.patch.colorPair === undefined
+      ? undefined
+      : readPairColorContext(input.colorPairs, input.nextPairColor)
+  const colorPair =
+    input.patch.colorPair === undefined
+      ? undefined
+      : {
+          color: input.nextPairColor as LinkedPairColor,
+          context:
+            input.patch.colorPair === null
+              ? currentColorPair!
+              : Object.fromEntries(
+                  Object.keys(input.pairPatch).map((field) => [
+                    field,
+                    currentColorPair?.[field as keyof PairColorContext] ?? null,
+                  ])
+                ),
+        }
+
+  return {
+    ...(input.patch.pairColor !== undefined || input.patch.colorPair !== undefined
+      ? { pairColor: input.currentPairColor }
+      : {}),
+    ...(params === undefined ? {} : { params }),
+    ...(colorPair === undefined ? {} : { colorPair }),
   }
 }
 
@@ -198,13 +255,7 @@ function resolveMutationParams(
 
   if (patch.params === undefined) return baseParams ?? null
   if (patch.params === null) return null
-
-  const mode = patch.paramsMode === undefined ? 'patch' : patch.paramsMode
-  if (mode !== 'patch' && mode !== 'replace') {
-    failWidgetConfig('paramsMode', `Unknown widget params mutation mode "${String(mode)}"`)
-  }
-
-  return mode === 'replace' ? patch.params : mergeWidgetParams(nextKey, baseParams, patch.params)
+  return mergeWidgetParams(nextKey, baseParams, patch.params)
 }
 
 function assertLinkedParamsUseColorPair(

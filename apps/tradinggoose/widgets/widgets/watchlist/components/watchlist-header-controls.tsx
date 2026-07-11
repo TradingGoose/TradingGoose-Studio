@@ -304,7 +304,7 @@ export const WatchlistHeaderCenterControls = ({
         parentId: null,
         listing: pendingListing,
       }
-      selectedDocument.setItems([...selectedDocument.items, item])
+      selectedDocument.updateItems((items) => [...items, item])
       await selectedDocument.save()
       clearPendingListing()
     } catch {
@@ -619,8 +619,8 @@ export const WatchlistHeaderRightControls = ({
 
     try {
       setPendingAction('section')
-      selectedDocument.setItems([
-        ...selectedDocument.items,
+      selectedDocument.updateItems((items) => [
+        ...items,
         {
           id: crypto.randomUUID(),
           type: 'section',

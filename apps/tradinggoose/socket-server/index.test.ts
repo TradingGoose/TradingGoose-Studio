@@ -10,6 +10,10 @@ import * as encoding from 'lib0/encoding'
 import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import {
+  buildEntityListDescriptor,
+  buildSavedEntityDescriptor,
+} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getEntityFields,
@@ -45,7 +49,6 @@ const {
     entityKind: string
     entityId: string
     fields: Record<string, unknown>
-    entityName?: string
   }>,
   savedWorkflowStates: [] as Array<ReturnType<typeof extractPersistedStateFromDoc>>,
 }))
@@ -105,9 +108,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
     async (doc) => {
       const latest = savedEntityStates.at(-1)
       if (!latest) return
-      const name =
-        latest.entityName ??
-        (latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name)
+      const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
       if (typeof name !== 'string') return
       replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
     }
@@ -134,19 +135,6 @@ vi.mock('@tradinggoose/db', () => ({
     update: vi.fn(),
     delete: vi.fn(),
     transaction: vi.fn(),
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflowBlocks: {
-    id: 'workflowBlocks.id',
-    workflowId: 'workflowBlocks.workflowId',
-  },
-  workflowEdges: {
-    id: 'workflowEdges.id',
-    sourceBlockId: 'workflowEdges.sourceBlockId',
-    targetBlockId: 'workflowEdges.targetBlockId',
-    workflowId: 'workflowEdges.workflowId',
   },
 }))
 
@@ -275,7 +263,16 @@ async function connectTestDocument(docId: string) {
   conn.send = vi.fn((_message, _options, callback) => callback?.())
   conn.ping = vi.fn()
   conn.close = vi.fn()
-  setupWSConnection(conn, {} as any, { docId, accessMode: 'write' })
+  const listMatch = /^list:([^:]+):(.+)$/.exec(docId)
+  const descriptor = listMatch
+    ? buildEntityListDescriptor(listMatch[1] as any, listMatch[2])
+    : buildSavedEntityDescriptor('skill', docId, 'workspace-1')
+  setupWSConnection(conn, {} as any, {
+    docId,
+    userId: 'user-1',
+    accessMode: listMatch ? 'read' : 'write',
+    descriptor,
+  })
   return { conn, doc: (await getExistingDocument(docId))! }
 }
 
@@ -296,14 +293,9 @@ describe('Socket Server Index Integration', () => {
     mockSaveWorkflowYjsDocToDb.mockImplementation(async (_workflowId, doc) => {
       savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
     })
-    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc, options) => {
+    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
       const fields = getEntityFields(doc, entityKind)
-      savedEntityStates.push({
-        entityKind,
-        entityId,
-        fields,
-        ...(options?.entityName === undefined ? {} : { entityName: options.entityName }),
-      })
+      savedEntityStates.push({ entityKind, entityId, fields })
       return fields
     })
 
@@ -534,7 +526,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
     })
 
-    it('applies watchlist state and refreshes the open watchlist entity list', async () => {
+    it('applies watchlist content without changing its list identity', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
 
@@ -549,7 +541,6 @@ describe('Socket Server Index Integration', () => {
           },
           body: JSON.stringify({
             entityKind: 'watchlist',
-            entityName: 'Imported Watchlist',
             fields: {
               settings: { showLogo: true, showTicker: true, showDescription: false },
               items: [],
@@ -574,13 +565,12 @@ describe('Socket Server Index Integration', () => {
             settings: { showLogo: true, showTicker: true, showDescription: false },
             items: [],
           },
-          entityName: 'Imported Watchlist',
         },
       ])
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
-          entityName: 'Imported Watchlist',
+          entityName: 'Old Watchlist',
         },
       ])
 
@@ -659,7 +649,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
     })
 
-    it('should discard an idle saved entity document when update materialization fails', async () => {
+    it('keeps an idle saved entity draft available for persistence retry', async () => {
       mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
       const response = await applySkillSessionUpdate(
         PORT,
@@ -671,7 +661,12 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(await getExistingDocument('skill-update-failed')).toBeNull()
+      expect(getEntityFields((await getExistingDocument('skill-update-failed'))!, 'skill')).toEqual(
+        {
+          description: 'Draft',
+          content: 'Draft content',
+        }
+      )
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {
@@ -917,7 +912,9 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'list:skill:workspace-1',
+        userId: 'user-1',
         accessMode: 'read',
+        descriptor: buildEntityListDescriptor('skill', 'workspace-1'),
         bootstrapState,
       })
 
@@ -945,7 +942,9 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-clean',
+        userId: 'user-1',
         accessMode: 'write',
+        descriptor: buildSavedEntityDescriptor('skill', 'idle-clean', 'workspace-1'),
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-clean')).not.toBeNull()
@@ -967,7 +966,9 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-save-failed',
+        userId: 'user-1',
         accessMode: 'write',
+        descriptor: buildSavedEntityDescriptor('skill', 'idle-save-failed', 'workspace-1'),
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-save-failed')).not.toBeNull()

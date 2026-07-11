@@ -2,6 +2,7 @@ import type { ListingIdentity } from '@/lib/listing/identity'
 import {
   defineWidgetContract,
   mergeParamsWithRuntime,
+  projectLocalParamsReviewBase,
   sanitizeLocalParamsByFields,
   type WidgetParamsNormalizationOptions,
 } from '@/widgets/widget-contract-types'
@@ -45,4 +46,6 @@ export const watchlistWidgetContract = defineWidgetContract({
   defaultParams: null,
   sanitizeLocalParams: sanitizeWatchlistParams,
   mergeLocalParams: mergeWatchlistParams,
+  projectLocalParamsReviewBase: (currentParams, incomingParams) =>
+    projectLocalParamsReviewBase(currentParams, incomingParams, ['runtime']),
 })

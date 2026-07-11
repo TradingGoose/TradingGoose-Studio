@@ -57,12 +57,14 @@ const McpEditorHeaderActions = ({
   params,
   pairColor = 'gray',
   widgetKey,
+  canEditEntity,
 }: {
   workspaceId?: string | null
   panelId?: string
   params?: Record<string, unknown> | null
   pairColor?: PairColor
   widgetKey?: string
+  canEditEntity: boolean
 }) => {
   const copy = useMessages().workspace.widgets.mcpEditor
   const selectionState = readEntitySelectionState({
@@ -86,7 +88,7 @@ const McpEditorHeaderActions = ({
         label={copy.refreshTools}
         icon={RefreshCw}
         onClick={() => emitAction('refresh')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
@@ -94,7 +96,7 @@ const McpEditorHeaderActions = ({
         label={copy.testConnection}
         icon={Play}
         onClick={() => emitAction('test')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
@@ -102,7 +104,7 @@ const McpEditorHeaderActions = ({
         label={copy.resetForm}
         icon={RotateCcw}
         onClick={() => emitAction('reset')}
-        disabled={!hasSelection}
+        disabled={!canEditEntity || !hasSelection}
         variant='secondary'
       />
       <EntityEditorHeaderButton
@@ -110,7 +112,7 @@ const McpEditorHeaderActions = ({
         label={copy.saveServer}
         icon={Save}
         onClick={() => emitAction('save')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='default'
       />
       <EntityEditorHeaderButton
@@ -152,6 +154,7 @@ export const editorMcpWidget: DashboardWidgetDefinition = {
           params={params}
           pairColor={widget?.pairColor}
           widgetKey={widget?.key}
+          canEditEntity={context?.canWrite !== false}
         />
       ),
     }

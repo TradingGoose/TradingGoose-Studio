@@ -239,6 +239,39 @@ export const normalizeWatchlistDocumentInputItems = (
   return normalized
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function assignWatchlistDocumentItemIds(
+  items: WatchlistDocumentInputItem[],
+  preserveUuids: boolean
+): WatchlistItem[] {
+  const resolvedIds = new Map<string, string>()
+  for (const item of items) {
+    if (item.id) {
+      resolvedIds.set(
+        item.id,
+        preserveUuids && UUID_PATTERN.test(item.id) ? item.id : crypto.randomUUID()
+      )
+    }
+  }
+
+  return items.map((item) => {
+    const id = item.id ? (resolvedIds.get(item.id) as string) : crypto.randomUUID()
+    if (item.type === 'section') return { ...item, id, parentId: null }
+    return {
+      ...item,
+      id,
+      parentId: item.parentId ? (resolvedIds.get(item.parentId) ?? item.parentId) : null,
+    }
+  })
+}
+
+export const resolveWatchlistDocumentItemIds = (items: WatchlistDocumentInputItem[]) =>
+  assignWatchlistDocumentItemIds(items, true)
+
+export const remapImportedWatchlistDocumentItemIds = (items: WatchlistDocumentInputItem[]) =>
+  assignWatchlistDocumentItemIds(items, false)
+
 const countWatchlistSymbols = (items: WatchlistItem[]) =>
   items.reduce((count, item) => (item.type === 'listing' ? count + 1 : count), 0)
 

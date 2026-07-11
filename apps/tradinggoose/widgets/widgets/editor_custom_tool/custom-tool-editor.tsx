@@ -14,6 +14,7 @@ import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
@@ -34,6 +35,7 @@ interface CustomToolEditorProps {
   onSectionChange: (section: CustomToolEditorSection) => void
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
+  readOnly?: boolean
 }
 
 export function CustomToolEditor({
@@ -46,6 +48,7 @@ export function CustomToolEditor({
   onSectionChange,
   exportRef,
   saveRef,
+  readOnly = false,
 }: CustomToolEditorProps) {
   const copy = useWorkspaceWidgetsMessages().customToolEditor
   const workspaceId = useWorkspaceId()
@@ -64,11 +67,21 @@ export function CustomToolEditor({
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
+  const readOnlyRef = useLatestRef(readOnly)
 
   useEffect(() => {
     setSchemaError(null)
     setCodeError(null)
   }, [toolId])
+
+  useEffect(() => {
+    if (!readOnly) return
+    setShowEnvVars(false)
+    setShowTags(false)
+    setShowSchemaParams(false)
+    setSearchTerm('')
+    setActiveSourceBlockId(null)
+  }, [readOnly])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,7 +98,7 @@ export function CustomToolEditor({
   }, [])
 
   const handleJsonSchemaChange = (value: string) => {
-    if (schemaGeneration.isLoading || schemaGeneration.isStreaming) return
+    if (readOnlyRef.current || schemaGeneration.isLoading || schemaGeneration.isStreaming) return
     setJsonSchema(value)
 
     if (!value.trim()) {
@@ -140,6 +153,7 @@ export function CustomToolEditor({
   }
 
   const handleFunctionCodeChange = (value: string) => {
+    if (readOnlyRef.current) return
     setFunctionCode(value)
     if (codeError) {
       setCodeError(null)
@@ -148,7 +162,7 @@ export function CustomToolEditor({
 
   const schemaGeneration = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       prompt: `You are an expert programmer specializing in creating OpenAI function calling format JSON schemas for custom tools.
 Generate ONLY the JSON schema based on the user's request.
@@ -170,10 +184,12 @@ Do not include any explanations, markdown formatting, or other text outside the 
     },
     currentValue: jsonSchema,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       handleJsonSchemaChange(content)
       setSchemaError(null)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setJsonSchema((prev) => {
         const nextSchema = prev + chunk
         if (schemaError) {
@@ -186,7 +202,7 @@ Do not include any explanations, markdown formatting, or other text outside the 
 
   const codeGeneration = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       prompt: `You are an expert JavaScript programmer.
 Generate ONLY the raw body of a JavaScript function based on the user's request.
@@ -209,10 +225,12 @@ IMPORTANT FORMATTING RULES:
     },
     currentValue: functionCode,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       handleFunctionCodeChange(content)
       setCodeError(null)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setFunctionCode((prev) => {
         const nextCode = prev + chunk
         if (codeError) {
@@ -330,7 +348,7 @@ IMPORTANT FORMATTING RULES:
   }, [jsonSchema, onSectionChange])
 
   const handleSave = useCallback(async () => {
-    if (!doc) return
+    if (!doc || readOnlyRef.current) return
 
     setCodeError(null)
 
@@ -368,6 +386,7 @@ IMPORTANT FORMATTING RULES:
     toolTitle,
     toolId,
     workspaceId,
+    readOnlyRef,
   ])
 
   const handleExport = useCallback(() => {
@@ -426,6 +445,14 @@ IMPORTANT FORMATTING RULES:
     offset: number,
     coords: { top: number; left: number; height: number } | null
   ) => {
+    if (readOnlyRef.current) {
+      setShowEnvVars(false)
+      setShowTags(false)
+      setShowSchemaParams(false)
+      setSearchTerm('')
+      setActiveSourceBlockId(null)
+      return
+    }
     const currentValue = codeEditorHandleRef.current?.getEditor()?.getValue() ?? functionCode
 
     setCursorPosition(offset)
@@ -479,6 +506,7 @@ IMPORTANT FORMATTING RULES:
   }
 
   const handleSchemaParamSelect = (paramName: string) => {
+    if (readOnlyRef.current) return
     const editorHandle = codeEditorHandleRef.current
     const currentValue = editorHandle?.getEditor()?.getValue() ?? functionCode
     const beforeCursor = currentValue.substring(0, cursorPosition)
@@ -488,7 +516,7 @@ IMPORTANT FORMATTING RULES:
     const wordStart = beforeCursor.lastIndexOf(currentWord)
     const nextValue = beforeCursor.substring(0, wordStart) + paramName + afterCursor
 
-    setFunctionCode(nextValue)
+    handleFunctionCodeChange(nextValue)
     setShowSchemaParams(false)
     setCursorPosition(wordStart + paramName.length)
 
@@ -562,7 +590,7 @@ IMPORTANT FORMATTING RULES:
     return (
       <div className='flex h-full w-full flex-col overflow-hidden p-3'>
         <WandPromptBar
-          isVisible={schemaGeneration.isPromptVisible}
+          isVisible={!readOnly && schemaGeneration.isPromptVisible}
           isLoading={schemaGeneration.isLoading}
           isStreaming={schemaGeneration.isStreaming}
           promptValue={schemaGeneration.promptInputValue}
@@ -602,7 +630,7 @@ IMPORTANT FORMATTING RULES:
               language='json'
               height='100%'
               minHeight='0'
-              showWandButton={true}
+              showWandButton={!readOnly}
               onWandClick={() => {
                 if (schemaGeneration.isPromptVisible) {
                   schemaGeneration.hidePromptInline()
@@ -610,7 +638,9 @@ IMPORTANT FORMATTING RULES:
                   schemaGeneration.showPromptInline()
                 }
               }}
-              wandButtonDisabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              wandButtonDisabled={
+                readOnly || schemaGeneration.isLoading || schemaGeneration.isStreaming
+              }
               placeholder={`{
   "type": "function",
   "function": {
@@ -626,7 +656,7 @@ IMPORTANT FORMATTING RULES:
                 (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
                   'cursor-not-allowed opacity-50'
               )}
-              disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              disabled={readOnly || schemaGeneration.isLoading || schemaGeneration.isStreaming}
               onKeyDown={handleKeyDown}
             />
           </div>
@@ -638,7 +668,7 @@ IMPORTANT FORMATTING RULES:
   return (
     <div className='flex h-full w-full flex-col overflow-hidden p-3'>
       <WandPromptBar
-        isVisible={codeGeneration.isPromptVisible}
+        isVisible={!readOnly && codeGeneration.isPromptVisible}
         isLoading={codeGeneration.isLoading}
         isStreaming={codeGeneration.isStreaming}
         promptValue={codeGeneration.promptInputValue}
@@ -691,7 +721,7 @@ IMPORTANT FORMATTING RULES:
             language='javascript'
             editorHandleRef={codeEditorHandleRef}
             onCursorChange={handleCursorChange}
-            showWandButton={true}
+            showWandButton={!readOnly}
             onWandClick={() => {
               if (codeGeneration.isPromptVisible) {
                 codeGeneration.hidePromptInline()
@@ -699,7 +729,7 @@ IMPORTANT FORMATTING RULES:
                 codeGeneration.showPromptInline()
               }
             }}
-            wandButtonDisabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+            wandButtonDisabled={readOnly || codeGeneration.isLoading || codeGeneration.isStreaming}
             placeholder={copy.form.codeComment}
             height='100%'
             minHeight='0'
@@ -709,17 +739,17 @@ IMPORTANT FORMATTING RULES:
                 'cursor-not-allowed opacity-50'
             )}
             highlightVariables={true}
-            disabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+            disabled={readOnly || codeGeneration.isLoading || codeGeneration.isStreaming}
             onKeyDown={handleKeyDown}
             schemaParameters={schemaParameters}
             diagnosticSourceBuilder={codeDiagnosticSourceBuilder}
           />
 
-          {showEnvVars ? (
+          {!readOnly && showEnvVars ? (
             <EnvVarDropdown
               visible={showEnvVars}
               onSelect={(nextValue: string) => {
-                setFunctionCode(nextValue)
+                handleFunctionCodeChange(nextValue)
                 setShowEnvVars(false)
               }}
               searchTerm={searchTerm}
@@ -739,11 +769,11 @@ IMPORTANT FORMATTING RULES:
             />
           ) : null}
 
-          {showTags ? (
+          {!readOnly && showTags ? (
             <TagDropdown
               visible={showTags}
               onSelect={(nextValue: string) => {
-                setFunctionCode(nextValue)
+                handleFunctionCodeChange(nextValue)
                 setShowTags(false)
                 setActiveSourceBlockId(null)
               }}
@@ -764,7 +794,7 @@ IMPORTANT FORMATTING RULES:
             />
           ) : null}
 
-          {showSchemaParams && schemaParameters.length > 0 ? (
+          {!readOnly && showSchemaParams && schemaParameters.length > 0 ? (
             <div
               ref={schemaParamsDropdownRef}
               className='absolute z-[9999] mt-1 w-64 overflow-visible rounded-md border bg-popover shadow-md'

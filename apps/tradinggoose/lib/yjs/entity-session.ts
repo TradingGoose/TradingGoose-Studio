@@ -27,7 +27,12 @@
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { normalizeWatchlistDocumentContent } from '@/lib/watchlists/validation'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
+import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
+import {
+  normalizeWatchlistDocumentContent,
+  resolveWatchlistDocumentItemIds,
+} from '@/lib/watchlists/validation'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -37,6 +42,161 @@ import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
 export function getFieldsMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap('fields')
+}
+
+function getWatchlistItemsMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  const fields = getFieldsMap(doc)
+  const current = fields.get('items')
+  if (current instanceof Y.Map) return current as Y.Map<Y.Map<unknown>>
+  if (current !== undefined) throw new Error('Watchlist items must be a Y.Map')
+
+  const items = new Y.Map<Y.Map<unknown>>()
+  fields.set('items', items)
+  return items
+}
+
+const setMapValue = (map: Y.Map<unknown>, key: string, value: unknown) => {
+  if (map.get(key) !== value) map.set(key, value)
+}
+
+function writeWatchlistItem(
+  items: Y.Map<Y.Map<unknown>>,
+  item: WatchlistDocumentInputItem & { id: string },
+  order: number
+): void {
+  let entry = items.get(item.id)
+  if (!(entry instanceof Y.Map)) {
+    entry = new Y.Map<unknown>()
+    items.set(item.id, entry)
+  }
+  setMapValue(entry, 'type', item.type)
+  setMapValue(entry, 'parentId', item.parentId ?? null)
+  setMapValue(entry, 'order', order)
+  if (item.type === 'section') {
+    setMapValue(entry, 'label', item.label)
+    entry.delete('listing')
+  } else {
+    const currentListing = entry.get('listing') as ListingIdentity | undefined
+    if (!areListingIdentitiesEqual(currentListing, item.listing)) {
+      entry.set('listing', item.listing)
+    }
+    entry.delete('label')
+  }
+}
+
+function siblingOrders(
+  items: WatchlistDocumentInputItem[]
+): Map<WatchlistDocumentInputItem, number> {
+  const result = new Map<WatchlistDocumentInputItem, number>()
+  const nextByParent = new Map<string, number>()
+  for (const item of items) {
+    const parent = item.parentId ?? '__root__'
+    const next = nextByParent.get(parent) ?? 0
+    nextByParent.set(parent, next + 1)
+    result.set(item, next)
+  }
+  return result
+}
+
+export function replaceWatchlistItems(
+  doc: Y.Doc,
+  rawItems: unknown,
+  origin: unknown = YJS_ORIGINS.USER
+): void {
+  const normalized = normalizeWatchlistDocumentContent({
+    settings: { showLogo: true, showTicker: true, showDescription: true },
+    items: rawItems,
+  }).items
+  const items = resolveWatchlistDocumentItemIds(normalized)
+  const orders = siblingOrders(items)
+  doc.transact(() => {
+    const map = getWatchlistItemsMap(doc)
+    const ids = new Set(items.map((item) => item.id))
+    map.forEach((_entry, id) => {
+      if (!ids.has(id)) map.delete(id)
+    })
+    for (const item of items) writeWatchlistItem(map, item, orders.get(item) ?? 0)
+  }, origin)
+}
+
+export function updateWatchlistItems(
+  doc: Y.Doc,
+  update: (items: WatchlistItem[]) => WatchlistItem[],
+  origin: unknown = YJS_ORIGINS.USER
+): void {
+  const before = readWatchlistItems(doc)
+  const after = update(before)
+  const normalized = resolveWatchlistDocumentItemIds(
+    normalizeWatchlistDocumentContent({
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: after,
+    }).items
+  )
+  const beforeIds = new Set(before.map((item) => item.id))
+  const afterIds = new Set(normalized.map((item) => item.id))
+  const orders = siblingOrders(normalized)
+
+  doc.transact(() => {
+    const map = getWatchlistItemsMap(doc)
+    for (const id of beforeIds) {
+      if (!afterIds.has(id)) map.delete(id)
+    }
+    for (const item of normalized) writeWatchlistItem(map, item, orders.get(item) ?? 0)
+  }, origin)
+}
+
+export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
+  const entries: Array<WatchlistItem & { order: number }> = []
+  const items = getFieldsMap(doc).get('items')
+  if (items === undefined) return []
+  if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
+  const itemMap = items as Y.Map<Y.Map<unknown>>
+  itemMap.forEach((entry, id) => {
+    const type = entry.get('type')
+    const order = Number(entry.get('order') ?? 0)
+    if (type === 'section') {
+      const label = entry.get('label')
+      if (typeof label === 'string' && label.trim()) {
+        entries.push({ id, type, parentId: null, label, order })
+      }
+      return
+    }
+    if (type !== 'listing') return
+    const listing = entry.get('listing')
+    const parentId = entry.get('parentId')
+    entries.push({
+      id,
+      type,
+      parentId: typeof parentId === 'string' && parentId ? parentId : null,
+      listing: listing as ListingIdentity,
+      order,
+    })
+  })
+
+  const sections = new Set(entries.filter((item) => item.type === 'section').map((item) => item.id))
+  const byParent = new Map<string, Array<WatchlistItem & { order: number }>>()
+  for (const item of entries) {
+    const parentId =
+      item.type === 'listing' && item.parentId && sections.has(item.parentId)
+        ? item.parentId
+        : '__root__'
+    byParent.set(parentId, [...(byParent.get(parentId) ?? []), item])
+  }
+  const sortItems = (items: Array<WatchlistItem & { order: number }>) =>
+    items.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+
+  const output: WatchlistItem[] = []
+  for (const item of sortItems(byParent.get('__root__') ?? [])) {
+    const { order: _order, ...value } = item
+    output.push(value)
+    if (value.type === 'section') {
+      for (const child of sortItems(byParent.get(value.id) ?? [])) {
+        const { order: _childOrder, ...childValue } = child
+        output.push(childValue)
+      }
+    }
+  }
+  return output
 }
 
 function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
@@ -214,7 +374,11 @@ interface EntitySessionSeedOptions {
 /**
  * Seeds an entity Yjs doc from canonical saved fields or draft defaults.
  */
-export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions): void {
+export function seedEntitySession(
+  doc: Y.Doc,
+  options: EntitySessionSeedOptions,
+  origin: unknown = YJS_ORIGINS.SYSTEM
+): void {
   const { entityKind, payload } = options
 
   doc.transact(() => {
@@ -277,11 +441,11 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
       case 'watchlist': {
         const watchlist = normalizeWatchlistDocumentContent(payload)
         fields.set('settings', watchlist.settings)
-        fields.set('items', watchlist.items)
+        replaceWatchlistItems(doc, watchlist.items, YJS_ORIGINS.SYSTEM)
         break
       }
     }
-  }, YJS_ORIGINS.SYSTEM)
+  }, origin)
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +502,7 @@ export function getEntityFields(
     case 'watchlist':
       return normalizeWatchlistDocumentContent({
         settings: fields.get('settings'),
-        items: fields.get('items'),
+        items: readWatchlistItems(doc),
       })
   }
 

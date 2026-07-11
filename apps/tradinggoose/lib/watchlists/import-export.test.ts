@@ -215,11 +215,13 @@ describe('watchlist import/export', () => {
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [
         {
+          id: expect.any(String),
           type: 'section',
           parentId: null,
           label: 'Tech',
         },
         {
+          id: expect.any(String),
           type: 'listing',
           parentId: null,
           listing: {
@@ -269,11 +271,13 @@ describe('watchlist import/export', () => {
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [
         {
+          id: expect.any(String),
           type: 'section',
           parentId: null,
           label: 'Tech',
         },
         {
+          id: expect.any(String),
           type: 'listing',
           parentId: null,
           listing: {

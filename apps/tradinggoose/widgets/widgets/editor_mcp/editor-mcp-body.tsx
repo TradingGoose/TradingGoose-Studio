@@ -1,6 +1,14 @@
 'use client'
 
-import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useMessages } from 'next-intl'
 import type * as Y from 'yjs'
 import { LoadingAgent } from '@/components/ui/loading-agent'
@@ -9,6 +17,7 @@ import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
@@ -73,7 +82,8 @@ function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpSer
 function useMcpServerYjsFormData(
   doc: Y.Doc | null,
   fallback: McpServerFormData,
-  setName: (name: string) => void
+  setName: (name: string) => void,
+  canEditRef: RefObject<boolean>
 ): [McpServerFormData, (next: SetStateAction<McpServerFormData>) => void] {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
@@ -87,7 +97,7 @@ function useMcpServerYjsFormData(
   const formData = useYjsSubscription(subscribe, read, fallback)
   const setFormData = useCallback(
     (next: SetStateAction<McpServerFormData>) => {
-      if (!doc) return
+      if (!doc || !canEditRef.current) return
       const value = typeof next === 'function' ? next(formData) : next
       setName(value.name)
       for (const [key, fieldValue] of Object.entries(value)) {
@@ -95,7 +105,7 @@ function useMcpServerYjsFormData(
         setEntityField(doc, key, fieldValue)
       }
     },
-    [doc, formData, setName]
+    [canEditRef, doc, formData, setName]
   )
 
   return [formData, setFormData]
@@ -132,6 +142,8 @@ export function EditorMcpWidgetBody({
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
+  const canEditEntity = context?.canWrite !== false
+  const canEditRef = useLatestRef(canEditEntity)
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const patchLinkedParams =
     resolvedPairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
@@ -180,7 +192,8 @@ export function EditorMcpWidgetBody({
   const [formDataState, setFormDataState] = useMcpServerYjsFormData(
     serverSession.doc,
     formFallback,
-    setIdentityName
+    setIdentityName,
+    canEditRef
   )
 
   useEffect(() => {
@@ -211,13 +224,16 @@ export function EditorMcpWidgetBody({
   }, [patchLinkedParams])
 
   const handleResetForm = useCallback(() => {
+    if (!canEditRef.current) return
     setFormDataState(initialFormDataRef.current)
     clearTestResult()
     setSaveError(null)
-  }, [clearTestResult, setFormDataState])
+  }, [canEditRef, clearTestResult, setFormDataState])
 
   const handleTestConnection = useCallback(async () => {
-    if (!workspaceId || !selectedServerId || !formDataState.url?.trim()) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !formDataState.url?.trim()) {
+      return
+    }
 
     await testConnection({
       name: formDataState.name.trim() || copy.unnamedServer,
@@ -227,12 +243,13 @@ export function EditorMcpWidgetBody({
       timeout: formDataState.timeout,
       workspaceId,
     })
-  }, [copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
+  }, [canEditRef, copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
 
   const handleRefreshTools = useCallback(async () => {
     if (
       !workspaceId ||
       !selectedServerId ||
+      !canEditRef.current ||
       formDataState.enabled === false ||
       !formDataState.url?.trim()
     ) {
@@ -241,13 +258,15 @@ export function EditorMcpWidgetBody({
 
     try {
       await refreshServerApi(selectedServerId, workspaceId, copy.failedToRefreshMcpServer)
+      if (!canEditRef.current) return
       await refreshTools()
     } catch (refreshError) {
       console.error('Failed to refresh MCP server tools', refreshError)
-      setSaveError(copy.failedToRefreshMcpServer)
+      if (canEditRef.current) setSaveError(copy.failedToRefreshMcpServer)
     }
   }, [
     copy.failedToRefreshMcpServer,
+    canEditRef,
     formDataState.enabled,
     formDataState.url,
     refreshTools,
@@ -256,7 +275,7 @@ export function EditorMcpWidgetBody({
   ])
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !selectedServerId || !serverSession.doc) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !serverSession.doc) return
 
     if (!formDataState.name.trim()) {
       setSaveError(copy.serverNameRequired)
@@ -267,6 +286,7 @@ export function EditorMcpWidgetBody({
 
     try {
       if (formDataState.name.trim() !== selectedServerMember?.entityName) {
+        if (!canEditRef.current) return
         await renameSavedEntityAction({
           entityKind: 'mcp_server',
           entityId: selectedServerId,
@@ -274,7 +294,9 @@ export function EditorMcpWidgetBody({
           name: formDataState.name,
         })
       }
+      if (!canEditRef.current) return
       await serverSession.save()
+      if (!canEditRef.current) return
       initialFormDataRef.current = formDataState
       if (formDataState.enabled === false || !formDataState.url?.trim()) {
         await refreshTools()
@@ -288,6 +310,7 @@ export function EditorMcpWidgetBody({
   }, [
     copy.failedToSaveMcpServer,
     copy.serverNameRequired,
+    canEditRef,
     formDataState,
     handleRefreshTools,
     refreshTools,
@@ -391,6 +414,7 @@ export function EditorMcpWidgetBody({
           isTestingConnection={isTestingConnection}
           workspaceId={workspaceId}
           clearTestResult={clearTestResult}
+          disabled={!canEditEntity}
           className='p-5'
         />
 

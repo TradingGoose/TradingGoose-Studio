@@ -178,12 +178,7 @@ export const useWidgetConfigRuntimeActions = () => {
       },
       patchWidgetParams: (params: Record<string, unknown>) => {
         if (!canWrite) return
-        applyDashboardWidgetConfigPatch(
-          doc,
-          panelId,
-          { params, paramsMode: 'patch' },
-          YJS_ORIGINS.USER
-        )
+        applyDashboardWidgetConfigPatch(doc, panelId, { params }, YJS_ORIGINS.USER)
       },
       patchWidgetColorPair: (colorPair: Record<string, unknown> | null) => {
         const widget = readPanelWidget(doc, panelId)

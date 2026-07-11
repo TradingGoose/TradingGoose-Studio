@@ -75,7 +75,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     updater: (items: typeof selectedDocument.items) => typeof selectedDocument.items
   ) => {
     if (!workspaceId || !selectedWatchlist || !canWrite) return
-    selectedDocument.setItems(updater(selectedDocument.items))
+    selectedDocument.updateItems(updater)
     await selectedDocument.save()
   }
 

@@ -7,18 +7,37 @@ import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { replaceEntityTextField, seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  getEntityFields,
+  replaceEntityTextField,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
 const mockUseWand = vi.fn()
+const editorMocks = vi.hoisted(() => ({
+  checkEnvVarTrigger: vi.fn((_text: string, _cursorPosition: number) => ({
+    show: false,
+    searchTerm: '',
+  })),
+  cursorChange: null as
+    | ((offset: number, coords: { top: number; left: number; height: number } | null) => void)
+    | null,
+  envVarOnSelect: null as ((value: string) => void) | null,
+  wandInputs: [] as Array<{ onStreamChunk?: (chunk: string) => void }>,
+}))
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
   useWand: (...args: unknown[]) => mockUseWand(...args),
 }))
 
 vi.mock('@/components/ui/env-var-dropdown', () => ({
-  checkEnvVarTrigger: () => ({ show: false, searchTerm: '' }),
-  EnvVarDropdown: () => null,
+  checkEnvVarTrigger: (text: string, cursorPosition: number) =>
+    editorMocks.checkEnvVarTrigger(text, cursorPosition),
+  EnvVarDropdown: ({ onSelect }: { onSelect: (value: string) => void }) => {
+    editorMocks.envVarOnSelect = onSelect
+    return <div data-testid='env-var-dropdown' />
+  },
 }))
 
 vi.mock('@/components/ui/tag-dropdown', () => ({
@@ -49,17 +68,27 @@ vi.mock(
       value,
       onChange,
       language,
+      onCursorChange,
+      disabled,
     }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
       value?: string
       onChange?: (value: string) => void
       language?: string
-    }) => (
-      <textarea
-        data-testid={`code-editor-${language}`}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-      />
-    ),
+      onCursorChange?: (
+        offset: number,
+        coords: { top: number; left: number; height: number } | null
+      ) => void
+    }) => {
+      editorMocks.cursorChange = onCursorChange ?? null
+      return (
+        <textarea
+          data-testid={`code-editor-${language}`}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange?.(event.target.value)}
+        />
+      )
+    },
   })
 )
 
@@ -106,7 +135,7 @@ const createCustomToolDoc = (initialValues: { schema: unknown; code: string }) =
   return doc
 }
 
-describe('CustomToolEditor export', () => {
+describe('CustomToolEditor', () => {
   let container: HTMLDivElement
   let root: Root
   let createObjectUrlSpy: ReturnType<typeof vi.fn>
@@ -115,13 +144,20 @@ describe('CustomToolEditor export', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    editorMocks.cursorChange = null
+    editorMocks.envVarOnSelect = null
+    editorMocks.wandInputs.length = 0
+    editorMocks.checkEnvVarTrigger.mockReturnValue({ show: false, searchTerm: '' })
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
     capturedDownloadName = ''
 
-    mockUseWand.mockImplementation(() => createWandState())
+    mockUseWand.mockImplementation((input) => {
+      editorMocks.wandInputs.push(input)
+      return createWandState()
+    })
 
     createObjectUrlSpy = vi.fn(() => 'blob:custom-tool-export')
     revokeObjectUrlSpy = vi.fn()
@@ -324,6 +360,57 @@ describe('CustomToolEditor export', () => {
 
     expect(createObjectUrlSpy).not.toHaveBeenCalled()
     expect(onSectionChange).toHaveBeenCalledWith('schema')
+    doc.destroy()
+  })
+
+  it('closes autocomplete and blocks its retained callback after becoming read-only', async () => {
+    const exportRef = createRef<() => void>()
+    const saveRef = createRef<() => void>()
+    exportRef.current = () => {}
+    saveRef.current = () => {}
+    const doc = createCustomToolDoc({
+      schema: {
+        type: 'function',
+        function: {
+          description: 'Test tool',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      code: 'return 1',
+    })
+    const props = {
+      activeSection: 'code' as const,
+      blockId: 'dashboard-custom-tool-editor',
+      toolId: 'tool-1',
+      toolTitle: 'Tool 1',
+      onSectionChange: vi.fn(),
+      exportRef: exportRef as MutableRefObject<() => void>,
+      saveRef: saveRef as MutableRefObject<() => void>,
+      doc,
+      save: vi.fn(),
+    }
+    editorMocks.checkEnvVarTrigger.mockReturnValue({ show: true, searchTerm: 'TOKEN' })
+
+    await act(async () => {
+      root.render(<CustomToolEditor {...props} />)
+    })
+    act(() => {
+      editorMocks.cursorChange?.(8, { top: 0, left: 0, height: 16 })
+    })
+    expect(container.querySelector('[data-testid="env-var-dropdown"]')).not.toBeNull()
+    const retainedOnSelect = editorMocks.envVarOnSelect
+    const retainedStreamChunk = editorMocks.wandInputs[1]?.onStreamChunk
+
+    await act(async () => {
+      root.render(<CustomToolEditor {...props} readOnly={true} />)
+    })
+    expect(container.querySelector('[data-testid="env-var-dropdown"]')).toBeNull()
+
+    act(() => {
+      retainedOnSelect?.('return 2')
+      retainedStreamChunk?.('return 3')
+    })
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 1')
     doc.destroy()
   })
 })

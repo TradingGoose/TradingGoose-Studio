@@ -48,12 +48,26 @@ const yjsMocks = vi.hoisted(() => ({
   readSavedEntityListFieldsForExecution: vi.fn(),
 }))
 
+const permissionMocks = vi.hoisted(() => ({
+  checkWorkspaceAccess: vi.fn(),
+}))
+
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => yjsMocks)
+vi.mock(import('@/lib/permissions/utils'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  checkWorkspaceAccess: permissionMocks.checkWorkspaceAccess,
+}))
+
+beforeEach(() => {
+  permissionMocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: true, canWrite: true })
+  yjsMocks.readSavedEntityListFieldsForExecution.mockClear()
+})
 
 // Helper function to create mock ExecutionContext
 const createMockExecutionContext = (overrides?: Partial<ExecutionContext>): ExecutionContext => ({
   workflowId: 'test-workflow',
   workspaceId: 'workspace-456',
+  userId: 'user-123',
   blockStates: new Map(),
   blockLogs: [],
   metadata: { startTime: new Date().toISOString(), duration: 0 },
@@ -134,12 +148,29 @@ describe('Tools Registry', () => {
     await expect(
       executeTool('watchlist_read_list_items', {
         watchlistId: 'watchlist-b',
-        _context: { workspaceId: 'workspace-456' },
+        _context: { userId: 'user-123', workspaceId: 'workspace-456' },
       })
     ).resolves.toMatchObject({
       success: true,
       output: { watchlist: { id: 'watchlist-b', name: 'Second' } },
     })
+  })
+
+  it('rejects direct watchlist reads when the authenticated user lacks workspace access', async () => {
+    permissionMocks.checkWorkspaceAccess.mockResolvedValueOnce({
+      hasAccess: false,
+      canWrite: false,
+    })
+
+    await expect(
+      executeTool('watchlist_read_lists', {
+        _context: { userId: 'user-123', workspaceId: 'workspace-other' },
+      })
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'watchlist_read_lists requires read access to the workspace',
+    })
+    expect(yjsMocks.readSavedEntityListFieldsForExecution).not.toHaveBeenCalled()
   })
 })
 
@@ -1266,7 +1297,7 @@ describe('MCP Tool Execution', () => {
     const result = await executeTool('mcp-123-test_tool', { param: 'value' })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Missing workspaceId in execution context for MCP tool')
+    expect(result.error).toContain('requires workspace execution context')
   })
 
   it('should handle invalid MCP tool ID format', async () => {

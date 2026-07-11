@@ -141,8 +141,6 @@ export const FIELD_CONTRACTS = Object.fromEntries(
 
 export type WidgetParamsNormalizationOptions = { strictUnknown?: boolean }
 
-export type WidgetParamMutationMode = 'patch' | 'replace'
-
 export type WidgetValidationIssue = { path: string; message: string }
 
 export class WidgetContractValidationError extends Error {
@@ -214,9 +212,12 @@ export type WidgetContract = {
   ) => WidgetSanitizeResult
   mergeLocalParams: (
     currentParams: Record<string, unknown> | null | undefined,
-    incomingParams: Record<string, unknown>,
-    mode?: WidgetParamMutationMode
+    incomingParams: Record<string, unknown>
   ) => WidgetSanitizeResult
+  projectLocalParamsReviewBase: (
+    currentParams: Record<string, unknown> | null | undefined,
+    incomingParams: Record<string, unknown>
+  ) => Record<string, unknown>
   resolveEffectiveParams: (
     widget: WidgetInstance,
     pairContext: PairColorContext
@@ -229,6 +230,7 @@ type ContractInput = Omit<
   | 'createDefaultInstance'
   | 'sanitizeLocalParams'
   | 'mergeLocalParams'
+  | 'projectLocalParamsReviewBase'
   | 'resolveEffectiveParams'
 > & {
   sanitizeLocalParams?: (
@@ -239,6 +241,7 @@ type ContractInput = Omit<
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
   ) => Record<string, unknown> | null
+  projectLocalParamsReviewBase?: WidgetContract['projectLocalParamsReviewBase']
   paramContract?: WidgetParamFieldContract[]
 }
 
@@ -274,13 +277,12 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
       params: sanitize(params, options),
       issues: [],
     }),
-    mergeLocalParams: (currentParams, incomingParams, mode = 'patch') => ({
-      params:
-        mode === 'replace'
-          ? sanitize(incomingParams, { strictUnknown: true })
-          : merge(currentParams, incomingParams),
+    mergeLocalParams: (currentParams, incomingParams) => ({
+      params: merge(currentParams, incomingParams),
       issues: [],
     }),
+    projectLocalParamsReviewBase:
+      input.projectLocalParamsReviewBase ?? projectLocalParamsReviewBase,
     resolveEffectiveParams(widget, pairContext) {
       const localParams = sanitize(widget?.params, { strictUnknown: false }) ?? {}
       const normalizedPairContext = normalizePairColorContext(pairContext)
@@ -300,6 +302,38 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
       }
     },
   }
+}
+
+export function projectLocalParamsReviewBase(
+  currentParams: Record<string, unknown> | null | undefined,
+  incomingParams: Record<string, unknown>,
+  nestedFields: readonly string[] = []
+): Record<string, unknown> {
+  const current = currentParams ?? {}
+  const nested = new Set(nestedFields)
+  const reviewBase = Object.fromEntries(
+    Object.entries(incomingParams).map(([field, incomingValue]) => {
+      const currentValue = Object.hasOwn(current, field) ? current[field] : null
+      if (nested.has(field) && isRecord(incomingValue)) {
+        return [
+          field,
+          projectLocalParamsReviewBase(isRecord(currentValue) ? currentValue : null, incomingValue),
+        ]
+      }
+      return [field, currentValue]
+    })
+  )
+
+  for (const [selector, dependent] of [
+    ['provider', 'providerParams'],
+    ['marketProvider', 'marketProviderParams'],
+  ] as const) {
+    if (Object.hasOwn(incomingParams, selector) && !Object.hasOwn(reviewBase, dependent)) {
+      reviewBase[dependent] = Object.hasOwn(current, dependent) ? current[dependent] : null
+    }
+  }
+
+  return reviewBase
 }
 
 export function defineEntityWidgetContract(

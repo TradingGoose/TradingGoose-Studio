@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { GenerationType } from '@/blocks/types'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 
 const logger = createLogger('useWand')
 
@@ -87,6 +88,14 @@ export function useWand({
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([])
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const requestIdRef = useRef(0)
+  const enabledRef = useLatestRef(wandConfig.enabled)
+  const callbacksRef = useLatestRef({
+    onGeneratedContent,
+    onStreamChunk,
+    onStreamStart,
+    onGenerationComplete,
+  })
 
   const showPromptInline = useCallback(() => {
     setIsPromptVisible(true)
@@ -104,14 +113,27 @@ export function useWand({
   }, [])
 
   const cancelGeneration = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
+    requestIdRef.current += 1
+    const controller = abortControllerRef.current
+    abortControllerRef.current = null
+    controller?.abort()
     setIsStreaming(false)
     setIsLoading(false)
     setError(null)
   }, [])
+
+  useEffect(() => {
+    if (!wandConfig.enabled) cancelGeneration()
+  }, [cancelGeneration, wandConfig.enabled])
+
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+    },
+    []
+  )
 
   const openPrompt = useCallback(() => {
     setIsPromptVisible(true)
@@ -131,22 +153,28 @@ export function useWand({
         return
       }
 
-      if (!wandConfig.enabled) {
+      if (!enabledRef.current) {
         setError('Wand is not enabled.')
         return
       }
+
+      abortControllerRef.current?.abort()
+      const requestId = requestIdRef.current + 1
+      requestIdRef.current = requestId
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      const isCurrentRequest = () =>
+        requestIdRef.current === requestId &&
+        abortControllerRef.current === controller &&
+        enabledRef.current
 
       setIsLoading(true)
       setIsStreaming(true)
       setError(null)
       setPromptInputValue('')
 
-      abortControllerRef.current = new AbortController()
-
       // Signal the start of streaming to clear previous content
-      if (onStreamStart) {
-        onStreamStart()
-      }
+      callbacksRef.current.onStreamStart?.()
 
       try {
         // Build context-aware message
@@ -177,12 +205,14 @@ export function useWand({
             history: wandConfig.maintainHistory ? conversationHistory : [], // Include history if enabled
             generationType: wandConfig.generationType,
           }),
-          signal: abortControllerRef.current.signal,
+          signal: controller.signal,
           cache: 'no-store',
         })
+        if (!isCurrentRequest()) return
 
         if (!response.ok) {
           const errorText = await response.text()
+          if (!isCurrentRequest()) return
           throw new Error(errorText || `HTTP error! status: ${response.status}`)
         }
 
@@ -197,6 +227,7 @@ export function useWand({
         try {
           while (true) {
             const { done, value } = await reader.read()
+            if (!isCurrentRequest()) return
             if (done) break
 
             const chunk = decoder.decode(value)
@@ -219,9 +250,7 @@ export function useWand({
 
                   if (data.chunk) {
                     accumulatedContent += data.chunk
-                    if (onStreamChunk) {
-                      onStreamChunk(data.chunk)
-                    }
+                    callbacksRef.current.onStreamChunk?.(data.chunk)
                   }
 
                   if (data.done) {
@@ -237,8 +266,9 @@ export function useWand({
           reader.releaseLock()
         }
 
-        if (accumulatedContent) {
-          onGeneratedContent(accumulatedContent)
+        if (accumulatedContent && isCurrentRequest()) {
+          callbacksRef.current.onGeneratedContent(accumulatedContent)
+          if (!isCurrentRequest()) return
 
           if (wandConfig.maintainHistory) {
             setConversationHistory((prev) => [
@@ -248,9 +278,8 @@ export function useWand({
             ])
           }
 
-          if (onGenerationComplete) {
-            onGenerationComplete(currentPrompt, accumulatedContent)
-          }
+          if (!isCurrentRequest()) return
+          callbacksRef.current.onGenerationComplete?.(currentPrompt, accumulatedContent)
         }
 
         logger.debug('Wand generation completed', {
@@ -258,26 +287,21 @@ export function useWand({
           contentLength: accumulatedContent.length,
         })
       } catch (error: any) {
-        if (error.name === 'AbortError') {
+        if (error.name === 'AbortError' || !isCurrentRequest()) {
           logger.debug('Wand generation cancelled')
         } else {
           logger.error('Wand generation failed', { error })
           setError(error.message || 'Generation failed')
         }
       } finally {
-        setIsLoading(false)
-        setIsStreaming(false)
-        abortControllerRef.current = null
+        if (requestIdRef.current === requestId && abortControllerRef.current === controller) {
+          setIsLoading(false)
+          setIsStreaming(false)
+          abortControllerRef.current = null
+        }
       }
     },
-    [
-      wandConfig,
-      currentValue,
-      onGeneratedContent,
-      onStreamChunk,
-      onStreamStart,
-      onGenerationComplete,
-    ]
+    [callbacksRef, conversationHistory, currentValue, enabledRef, wandConfig]
   )
 
   return {

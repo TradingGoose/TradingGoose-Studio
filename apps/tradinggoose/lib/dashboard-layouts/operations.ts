@@ -416,15 +416,15 @@ function projectLayoutRow(row: LayoutRow): DashboardLayoutProjection {
   }
 }
 
-async function persistLayoutTopologyInTx(
+async function touchLayoutInTx(
   tx: DashboardLayoutWriteStore,
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  layout: DashboardLayoutTopologyNode
+  layout?: DashboardLayoutTopologyNode
 ): Promise<void> {
   const rows = await tx
     .update(layoutMaps)
-    .set({ layout, updatedAt: new Date() })
+    .set({ ...(layout ? { layout } : {}), updatedAt: new Date() })
     .where(ownedWhere(scope, layoutId))
     .returning({ id: layoutMaps.id })
   if (rows.length === 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
@@ -507,10 +507,7 @@ export async function persistDashboardLayoutDirtyChannels(
   }
 
   await db.transaction(async (tx) => {
-    await readOwnedLayoutRow(scope, layoutId, tx)
-    if (batch.layout) {
-      await persistLayoutTopologyInTx(tx, scope, layoutId, content.layout)
-    }
+    await touchLayoutInTx(tx, scope, layoutId, batch.layout ? content.layout : undefined)
     if (batch.pairColors.size > 0) {
       await persistLayoutPairsInTx(tx, layoutId, content, batch.pairColors)
     }
@@ -519,7 +516,7 @@ export async function persistDashboardLayoutDirtyChannels(
     }
   })
 
-  if (batch.layout) await refreshLayoutList(scope)
+  await refreshLayoutList(scope)
   return content
 }
 

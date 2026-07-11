@@ -6,6 +6,7 @@ const toolMocks = fx.createDashboardToolMocks()
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_layout: 'edit_layout' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
+vi.mock('@/lib/dashboard-layouts/operations', () => fx.mockDashboardOperationsModule(toolMocks))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule())
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => fx.mockSnapshotBridgeModule(toolMocks))
@@ -51,7 +52,14 @@ describe('edit_layout server tool', () => {
     )
 
     expect(toolMocks.shouldStage).not.toHaveBeenCalled()
-    expect(toolMocks.applyTopology).not.toHaveBeenCalled()
+    expect(toolMocks.applyLayoutEdit).not.toHaveBeenCalled()
+  })
+
+  it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
+    toolMocks.readMetadata.mockRejectedValueOnce(new Error('Dashboard layout not found'))
+
+    await expect(execute(currentStructure())).rejects.toThrow('Dashboard layout not found')
+    expect(toolMocks.readFields).not.toHaveBeenCalled()
   })
 
   it('applies raw structure edits while preserving retained widgets and initializing new widgets', async () => {
@@ -71,13 +79,14 @@ describe('edit_layout server tool', () => {
       { removedPanelIds: ['order-panel'] }
     )
 
-    expect(toolMocks.applyTopology).toHaveBeenCalledWith(
+    expect(toolMocks.applyLayoutEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         entityId: 'layout-1',
-        plan: expect.objectContaining({ layout: expect.any(Object) }),
+        removedPanelIds: ['order-panel'],
+        expectedReviewBaseStateHash: 'base-hash',
+        entityDocument: expect.any(String),
       })
     )
-    const plan = toolMocks.applyTopology.mock.calls[0]?.[0]?.plan
     const document = JSON.parse(result.entityDocument)
     expect(document.layout).toMatchObject({
       children: expect.arrayContaining([
@@ -89,9 +98,6 @@ describe('edit_layout server tool', () => {
         expect.objectContaining({ widgetKey: 'watchlist' }),
       ]),
     })
-    expect(Object.values(plan.createdWidgets)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ pairColor: 'gray' })])
-    )
     const addedPanel = document.layout.children.find(
       (panel: { widgetKey?: string }) => panel.widgetKey === 'watchlist'
     )
@@ -116,15 +122,13 @@ describe('edit_layout server tool', () => {
       },
     })
 
-    const plan = toolMocks.applyTopology.mock.calls[0]?.[0]?.plan
     const document = JSON.parse(result.entityDocument)
     const chartPanel = document.layout.children.find(
       (panel: { id?: string }) => panel.id === 'chart-panel'
     )
     expect(chartPanel).toMatchObject({ widgetKey: 'watchlist' })
     expect(chartPanel.identityId).not.toBe('chart-widget')
-    expect(plan.removedIdentityIds).toEqual(['chart-widget'])
-    expect(Object.values(plan.createdWidgets)).toEqual([{ pairColor: 'gray', params: null }])
+    expect(document.widgets).not.toHaveProperty('chart-widget')
     expect(document.widgets[chartPanel.identityId]).toEqual({ pairColor: 'gray', params: null })
   })
 
@@ -171,6 +175,6 @@ describe('edit_layout server tool', () => {
     })
     expect(result).not.toHaveProperty('layout')
     expect(result).not.toHaveProperty('colorPairs')
-    expect(toolMocks.applyTopology).not.toHaveBeenCalled()
+    expect(toolMocks.applyLayoutEdit).not.toHaveBeenCalled()
   })
 })

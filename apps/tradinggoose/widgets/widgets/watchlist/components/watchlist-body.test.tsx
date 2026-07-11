@@ -59,9 +59,8 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       name: record?.name ?? '',
       settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
       items: record?.items ?? [],
-      setName: vi.fn(),
-      setSettings: vi.fn(),
-      setItems: mockSetWatchlistItems,
+      updateItems: (update: (items: unknown[]) => unknown[]) =>
+        mockSetWatchlistItems(update(record?.items ?? [])),
       save: mockSaveWatchlistDocument,
       isLoading: false,
       error: null,

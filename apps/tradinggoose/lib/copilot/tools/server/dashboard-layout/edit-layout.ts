@@ -1,24 +1,21 @@
 import { CopilotTool } from '@/lib/copilot/registry'
 import {
-  assertAcceptedServerToolReviewBase,
   type BaseServerTool,
   hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
 import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
-import {
-  buildSavedEntityListInfo,
-  requireEntityId,
-  verifySavedEntityContext,
-} from '@/lib/copilot/tools/server/entities/shared'
+import { requireEntityId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
+import { readDashboardLayoutMetadata } from '@/lib/dashboard-layouts/operations'
+import { serializeDashboardLayoutForCopilot } from '@/lib/dashboard-layouts/read-projection'
+import { buildDashboardLayoutReviewBase } from '@/lib/dashboard-layouts/review-base'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { applyDashboardTopologyMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { applyDashboardLayoutEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   applyLayoutEditDocument,
   DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
   type DashboardLayoutDocumentContent,
   normalizeDashboardLayoutDocumentContent,
-  serializeDashboardLayoutDocument,
 } from '@/widgets/layout-document'
 
 type EditLayoutArgs = {
@@ -37,19 +34,14 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
         `Unsupported documentFormat "${args.documentFormat}". Expected ${DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT}`
       )
     }
-    const { userId: ownerUserId, workspaceId } = await verifySavedEntityContext(
-      context,
+    const { userId: ownerUserId, workspaceId } = await verifyWorkspaceContext(context, 'read')
+    const metadata = await readDashboardLayoutMetadata({ workspaceId, ownerUserId }, entityId)
+    const rawCurrent = await readBootstrappedSavedEntityFields(
       'dashboard_layout',
       entityId,
-      'write'
+      workspaceId,
+      ownerUserId
     )
-    const [rawCurrent, entity] = await Promise.all([
-      readBootstrappedSavedEntityFields('dashboard_layout', entityId, workspaceId, ownerUserId),
-      buildSavedEntityListInfo('dashboard_layout', workspaceId, ownerUserId).then((entries) =>
-        entries.find((entry) => entry.entityId === entityId)
-      ),
-    ])
-    if (!entity) throw new Error('Dashboard layout not found')
     const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
     const plan = applyLayoutEditDocument(current, args.entityDocument, args.removedPanelIds ?? [])
     const widgets = { ...current.widgets, ...plan.createdWidgets }
@@ -59,12 +51,12 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
       layout: plan.layout,
       widgets,
     })
-    const reviewBase = { layout: current.layout }
+    const reviewBase = buildDashboardLayoutReviewBase(current, plan)
     const result = {
       success: true,
       ...(await buildDashboardLayoutResult({
         entityId,
-        entityName: entity.entityName,
+        entityName: metadata.name,
         workspaceId,
         ownerUserId,
         content: next,
@@ -78,22 +70,31 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
         reviewBaseStateHash: hashServerToolReviewBase(reviewBase),
         preview: {
           documentDiff: {
-            before: serializeDashboardLayoutDocument(current),
+            before: serializeDashboardLayoutForCopilot(current),
             after: result.entityDocument,
           },
         },
       }
     }
 
-    if (context?.acceptedReviewBaseStateHash) {
-      assertAcceptedServerToolReviewBase(context, hashServerToolReviewBase(reviewBase))
-    }
-    await applyDashboardTopologyMutationInSocketServer({
+    const committed = await applyDashboardLayoutEditInSocketServer({
       entityId,
       workspaceId,
       ownerUserId,
-      plan,
+      entityDocument: args.entityDocument,
+      removedPanelIds: args.removedPanelIds ?? [],
+      expectedReviewBaseStateHash:
+        context?.acceptedReviewBaseStateHash ?? hashServerToolReviewBase(reviewBase),
     })
-    return result
+    return {
+      success: true,
+      ...(await buildDashboardLayoutResult({
+        entityId,
+        entityName: metadata.name,
+        workspaceId,
+        ownerUserId,
+        content: committed,
+      })),
+    }
   },
 }

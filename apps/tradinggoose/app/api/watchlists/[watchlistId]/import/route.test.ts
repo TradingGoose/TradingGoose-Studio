@@ -7,19 +7,14 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
-const mockApplySavedEntityState = vi.fn()
-class MockSavedEntityPersistenceError extends Error {
+const mockImportWatchlistDocumentInSocketServer = vi.fn()
+class MockSocketServerBridgeError extends Error {
   constructor(
     public status: number,
-    message: string,
-    public code?: string
+    message: string
   ) {
     super(message)
-    this.name = 'SavedEntityPersistenceError'
-  }
-
-  responseBody() {
-    return { error: this.message, ...(this.code ? { code: this.code } : {}) }
+    this.name = 'SocketServerBridgeError'
   }
 }
 
@@ -47,9 +42,10 @@ vi.mock('@/lib/watchlists/operations', async () => {
   }
 })
 
-vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  applySavedEntityState: (...args: unknown[]) => mockApplySavedEntityState(...args),
-  SavedEntityPersistenceError: MockSavedEntityPersistenceError,
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  importWatchlistDocumentInSocketServer: (...args: unknown[]) =>
+    mockImportWatchlistDocumentInSocketServer(...args),
+  SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
 const importedFile = {
@@ -64,11 +60,15 @@ const importedFile = {
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [
         {
+          id: '00000000-0000-4000-8000-000000000001',
           type: 'section',
+          parentId: null,
           label: 'Tech',
         },
         {
+          id: '00000000-0000-4000-8000-000000000002',
           type: 'listing',
+          parentId: '00000000-0000-4000-8000-000000000001',
           listing: {
             listing_id: 'aapl-id',
             base_id: '',
@@ -95,13 +95,13 @@ describe('Watchlist import API route', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
-    mockApplySavedEntityState.mockResolvedValue({
+    mockImportWatchlistDocumentInSocketServer.mockResolvedValue({
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [],
     })
   })
 
-  it('imports one full watchlist document through saved-entity apply', async () => {
+  it('imports one full watchlist document through the atomic socket mutation', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
@@ -116,31 +116,17 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(200)
     expect(payload.watchlist.id).toBe('watchlist-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'watchlist-1')
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
-      'watchlist',
-      'watchlist-1',
-      {
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        items: [
-          {
-            type: 'section',
-            parentId: null,
-            label: 'Tech',
-          },
-          {
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_id: 'aapl-id',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          },
-        ],
-      },
-      { entityName: 'Imported Watchlist' }
-    )
+    expect(mockImportWatchlistDocumentInSocketServer).toHaveBeenCalledTimes(1)
+    const [entityId, workspaceId, fields] = mockImportWatchlistDocumentInSocketServer.mock.calls[0]!
+    expect([entityId, workspaceId]).toEqual(['watchlist-1', 'workspace-1'])
+    expect(fields).toMatchObject({
+      name: 'Imported Watchlist',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+    })
+    const [section, listing] = fields.items
+    expect(section.id).not.toBe('00000000-0000-4000-8000-000000000001')
+    expect(listing.id).not.toBe('00000000-0000-4000-8000-000000000002')
+    expect(listing.parentId).toBe(section.id)
   })
 
   it('returns 400 when the watchlist document is invalid', async () => {
@@ -172,7 +158,7 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(400)
     expect(payload.error).toBe('Invalid watchlist import file')
-    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
+    expect(mockImportWatchlistDocumentInSocketServer).not.toHaveBeenCalled()
   })
 
   it('returns a validation error for duplicate imported listing identities', async () => {
@@ -217,13 +203,13 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(409)
     expect(payload.error).toBe('Listing already exists in watchlist')
-    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
+    expect(mockImportWatchlistDocumentInSocketServer).not.toHaveBeenCalled()
   })
 
-  it('returns saved-entity persistence validation errors from import apply', async () => {
+  it('returns socket-owned import validation errors', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
-    mockApplySavedEntityState.mockRejectedValueOnce(
-      new MockSavedEntityPersistenceError(409, 'Watchlist contains a duplicate listing')
+    mockImportWatchlistDocumentInSocketServer.mockRejectedValueOnce(
+      new MockSocketServerBridgeError(409, 'Watchlist contains a duplicate listing')
     )
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
@@ -238,11 +224,10 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(409)
     expect(payload.error).toBe('Watchlist contains a duplicate listing')
     expect(mockGetWatchlist).toHaveBeenCalledTimes(1)
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
-      'watchlist',
+    expect(mockImportWatchlistDocumentInSocketServer).toHaveBeenCalledWith(
       'watchlist-1',
-      expect.any(Object),
-      { entityName: 'Imported Watchlist' }
+      'workspace-1',
+      expect.any(Object)
     )
   })
 })

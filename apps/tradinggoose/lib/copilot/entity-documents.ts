@@ -68,16 +68,12 @@ const McpServerDocumentSchema = z
     url: z.string(),
     headers: z
       .record(z.string())
-      .describe(
-        'MCP server headers. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
-      ),
+      .describe('MCP server headers shared with authorized workspace readers.'),
     command: z.string(),
     args: z.array(z.string()),
     env: z
       .record(z.string())
-      .describe(
-        'MCP server environment variables. Secret values are returned as [redacted]; keep [redacted] to preserve an existing value, send a concrete value to replace it, or omit a key to delete it.'
-      ),
+      .describe('MCP server environment variables shared with authorized workspace readers.'),
     timeout: z.number(),
     retries: z.number(),
     enabled: z.boolean(),
@@ -111,20 +107,9 @@ const EntityDocumentSchemas = {
 
 type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<(typeof EntityDocumentSchemas)[K]>
 
-export const ENTITY_SECRET_PLACEHOLDER = '[redacted]'
 const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
 
-function redactStringRecordValues(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {}
-  }
-
-  return Object.fromEntries(
-    Object.keys(value as Record<string, unknown>).map((key) => [key, ENTITY_SECRET_PLACEHOLDER])
-  )
-}
-
-export function normalizeStringRecord(value: unknown): Record<string, string> {
+function normalizeStringRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {}
   }
@@ -243,26 +228,17 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
   return EntityDocumentSchemas[kind].parse(normalized) as EntityDocumentFields<K>
 }
 
-function redactEntityDocumentSecretFields<K extends EntityDocumentKind>(
+function normalizeEntityDocumentFields<K extends EntityDocumentKind>(
   kind: K,
   fields: Record<string, unknown> | null | undefined
 ): EntityDocumentFields<K> {
   const normalized = normalizeEntityFields(kind, fields)
-  const redacted =
-    kind === 'mcp_server'
-      ? {
-          ...normalized,
-          headers: redactStringRecordValues(normalized.headers),
-          env: redactStringRecordValues(normalized.env),
-        }
-      : normalized
-
-  return EntityDocumentSchemas[kind].parse(redacted) as EntityDocumentFields<K>
+  return EntityDocumentSchemas[kind].parse(normalized) as EntityDocumentFields<K>
 }
 
 export function serializeEntityDocument<K extends EntityDocumentKind>(
   kind: K,
   fields: Record<string, unknown> | null | undefined
 ): string {
-  return JSON.stringify(redactEntityDocumentSecretFields(kind, fields), null, 2)
+  return JSON.stringify(normalizeEntityDocumentFields(kind, fields), null, 2)
 }

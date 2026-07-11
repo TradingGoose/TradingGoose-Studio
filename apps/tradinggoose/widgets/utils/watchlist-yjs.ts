@@ -1,11 +1,17 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import type { WatchlistItem, WatchlistRecord, WatchlistSettings } from '@/lib/watchlists/types'
-import type { EntityListMember } from '@/lib/yjs/entity-session'
+import {
+  type EntityListMember,
+  readWatchlistItems,
+  updateWatchlistItems,
+} from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession, useYjsField } from '@/lib/yjs/use-entity-fields'
+import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { resolveEntityIdFromList } from '@/widgets/widget-entity-selection'
 
 const EMPTY_WATCHLIST_ITEMS: WatchlistItem[] = []
@@ -17,6 +23,7 @@ export function useWatchlistYjsDocument(args: {
   accessMode?: ReviewAccessMode
 }) {
   const { workspaceId, watchlistId, member, accessMode = 'write' } = args
+  const accessModeRef = useLatestRef(accessMode)
   const { doc, save, isLoading, error } = useSavedEntityYjsSession(
     'watchlist',
     watchlistId,
@@ -25,12 +32,26 @@ export function useWatchlistYjsDocument(args: {
     accessMode
   )
   const name = member?.entityName ?? 'Watchlist'
-  const [settings, setSettings] = useYjsField<WatchlistSettings>(
-    doc,
-    'settings',
-    DEFAULT_WATCHLIST_SETTINGS
+  const [settings] = useYjsField<WatchlistSettings>(doc, 'settings', DEFAULT_WATCHLIST_SETTINGS)
+  const subscribeItems = useMemo(() => {
+    if (!doc) return (callback: () => void) => () => {}
+    return (callback: () => void) => {
+      doc.on('update', callback)
+      return () => doc.off('update', callback)
+    }
+  }, [doc])
+  const readItems = useCallback(
+    () => (doc ? readWatchlistItems(doc) : EMPTY_WATCHLIST_ITEMS),
+    [doc]
   )
-  const [items, setItems] = useYjsField<WatchlistItem[]>(doc, 'items', EMPTY_WATCHLIST_ITEMS)
+  const items = useYjsSubscription(subscribeItems, readItems, EMPTY_WATCHLIST_ITEMS)
+  const updateItems = useCallback(
+    (update: (current: WatchlistItem[]) => WatchlistItem[]) => {
+      if (!doc || accessModeRef.current === 'read') return
+      updateWatchlistItems(doc, update)
+    },
+    [accessModeRef, doc]
+  )
 
   const record = useMemo<WatchlistRecord | null>(() => {
     if (!workspaceId || !watchlistId) return null
@@ -46,13 +67,11 @@ export function useWatchlistYjsDocument(args: {
   }, [items, member?.createdAt, member?.updatedAt, name, settings, watchlistId, workspaceId])
 
   return {
-    doc,
     record,
     name,
     settings,
     items: Array.isArray(items) ? items : [],
-    setSettings,
-    setItems,
+    updateItems,
     save,
     isLoading,
     error,

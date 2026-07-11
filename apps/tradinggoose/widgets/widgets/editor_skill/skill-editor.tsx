@@ -9,6 +9,7 @@ import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { isValidSkillName } from '@/hooks/queries/skills'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
@@ -22,6 +23,7 @@ interface SkillEditorProps {
   save: () => Promise<void>
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
+  readOnly?: boolean
 }
 
 export function SkillEditor({
@@ -32,6 +34,7 @@ export function SkillEditor({
   save,
   exportRef,
   saveRef,
+  readOnly = false,
 }: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
   const [name, setName] = useState(entityName)
@@ -39,6 +42,7 @@ export function SkillEditor({
   const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const readOnlyRef = useLatestRef(readOnly)
 
   useEffect(() => {
     setError(null)
@@ -46,7 +50,7 @@ export function SkillEditor({
   }, [doc, entityName, skillId])
 
   const handleSave = useCallback(async () => {
-    if (!doc) return
+    if (!doc || readOnlyRef.current) return
 
     const trimmedName = name.trim()
     const trimmedDescription = description.trim()
@@ -77,6 +81,7 @@ export function SkillEditor({
 
     try {
       if (trimmedName !== entityName) {
+        if (readOnlyRef.current) return
         await renameSavedEntityAction({
           entityKind: 'skill',
           entityId: skillId,
@@ -84,6 +89,7 @@ export function SkillEditor({
           name: trimmedName,
         })
       }
+      if (readOnlyRef.current) return
       await save()
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
@@ -92,7 +98,18 @@ export function SkillEditor({
     } finally {
       setIsSaving(false)
     }
-  }, [content, copy.validation, description, doc, entityName, name, save, skillId, workspaceId])
+  }, [
+    content,
+    copy.validation,
+    description,
+    doc,
+    entityName,
+    name,
+    readOnlyRef,
+    save,
+    skillId,
+    workspaceId,
+  ])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -135,9 +152,11 @@ export function SkillEditor({
           <Input
             id='skill-editor-name'
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setName(event.target.value)
+            }}
             placeholder={copy.form.namePlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
           <p className='text-muted-foreground text-xs'>{copy.form.helperText}</p>
@@ -148,9 +167,11 @@ export function SkillEditor({
           <Input
             id='skill-editor-description'
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setDescription(event.target.value)
+            }}
             placeholder={copy.form.descriptionPlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={1024}
           />
         </div>
@@ -160,9 +181,11 @@ export function SkillEditor({
           <Textarea
             id='skill-editor-content'
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setContent(event.target.value)
+            }}
             placeholder={copy.form.instructionsPlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             className='min-h-[320px] resize-y font-mono text-sm'
             maxLength={50000}
           />

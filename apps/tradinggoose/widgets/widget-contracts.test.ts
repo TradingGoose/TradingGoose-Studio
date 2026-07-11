@@ -80,8 +80,7 @@ describe('dashboard widget contracts', () => {
         {
           data: { providerParams: { apiKey: 'secret' } },
           view: { theme: 'dark' },
-        },
-        'patch'
+        }
       ).params
     ).toEqual({
       data: { provider: 'polygon', symbol: 'AAPL' },

@@ -8,6 +8,7 @@ import type { WatchlistDocumentFields, WatchlistDocumentInputFields } from '@/li
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentFields,
+  remapImportedWatchlistDocumentItemIds,
   WatchlistDocumentSchema,
 } from '@/lib/watchlists/validation'
 
@@ -31,7 +32,8 @@ export const WatchlistImportFileSchema = TradingGooseExportEnvelopeSchema.extend
 
 export function parseImportedWatchlistFile(input: unknown): WatchlistDocumentInputFields {
   const parsed = WatchlistImportFileSchema.parse(input)
-  return normalizeWatchlistDocumentFields(parsed.watchlists[0])
+  const fields = normalizeWatchlistDocumentFields(parsed.watchlists[0])
+  return { ...fields, items: remapImportedWatchlistDocumentItemIds(fields.items) }
 }
 
 export function createWatchlistExportFile({

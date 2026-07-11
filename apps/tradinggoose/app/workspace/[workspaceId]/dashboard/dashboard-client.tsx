@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import type { ImperativePanelGroupHandle } from 'react-resizable-panels'
 import type { Doc } from 'yjs'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -77,6 +78,11 @@ interface DashboardNodeProps {
 
 const PANEL_MIN_SIZE = 10
 const MIN_SPLIT_SIZE = PANEL_MIN_SIZE * 2
+const PANEL_SIZE_EPSILON = 0.01
+
+const arePanelSizesEqual = (left: number[], right: number[]) =>
+  left.length === right.length &&
+  left.every((value, index) => Math.abs(value - (right[index] ?? 0)) < PANEL_SIZE_EPSILON)
 
 interface DropdownItem {
   id: string
@@ -99,6 +105,33 @@ const DashboardNode = memo(function DashboardNode({
   closePanel,
   replacePanelWidget,
 }: DashboardNodeProps) {
+  const groupRef = useRef<ImperativePanelGroupHandle>(null)
+  const appliedLayoutRef = useRef<number[] | null>(null)
+  const groupSizes = node.type === 'group' ? node.sizes : null
+
+  useEffect(() => {
+    if (!groupSizes || !groupRef.current) return
+    const mounted = groupRef.current.getLayout()
+    if (arePanelSizesEqual(mounted, groupSizes)) return
+    appliedLayoutRef.current = groupSizes
+    groupRef.current.setLayout(groupSizes)
+  }, [groupSizes])
+
+  const handleGroupLayout = useCallback(
+    (sizes: number[]) => {
+      if (node.type !== 'group') return
+      const applied = appliedLayoutRef.current
+      if (applied && arePanelSizesEqual(applied, sizes)) {
+        appliedLayoutRef.current = null
+        return
+      }
+      appliedLayoutRef.current = null
+      if (arePanelSizesEqual(node.sizes, sizes)) return
+      persistGroup?.(node.id, sizes)
+    },
+    [node, persistGroup]
+  )
+
   if (node.type === 'panel') {
     const canSplitVertical = availableHeight >= MIN_SPLIT_SIZE
     const canSplitHorizontal = availableWidth >= MIN_SPLIT_SIZE
@@ -120,9 +153,10 @@ const DashboardNode = memo(function DashboardNode({
 
   return (
     <ResizablePanelGroup
+      ref={groupRef}
       key={node.id}
       direction={node.direction}
-      onLayout={persistGroup ? (sizes) => persistGroup(node.id, sizes) : undefined}
+      onLayout={persistGroup ? handleGroupLayout : undefined}
       className='h-full w-full'
     >
       {node.children.map((child, index) => {

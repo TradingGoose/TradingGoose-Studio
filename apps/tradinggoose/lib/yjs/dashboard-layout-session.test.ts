@@ -3,7 +3,6 @@ import * as Y from 'yjs'
 import {
   applyDashboardTopologyMutation,
   applyDashboardWidgetConfigPatch,
-  applyDashboardWidgetMutation,
   beginDashboardLayoutDirtyFlush,
   completeDashboardLayoutDirtyFlush,
   ensureDashboardLayoutDirtyTracker,
@@ -137,15 +136,19 @@ describe('dashboard layout Yjs session', () => {
     const onUpdate = vi.fn()
     doc.on('update', onUpdate)
     try {
-      applyDashboardWidgetMutation(
+      applyDashboardWidgetConfigPatch(
         doc,
+        'chart-panel',
         {
-          identityId: 'chart-widget',
-          widget: {
-            pairColor: 'red',
-            params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
+          params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
+          colorPair: {
+            listing: {
+              listing_type: 'default',
+              listing_id: 'MSFT',
+              base_id: '',
+              quote_id: '',
+            },
           },
-          colorPairs: [{ color: 'red', value: { watchlistId: 'watchlist-1' } }],
         },
         YJS_ORIGINS.USER
       )
@@ -174,12 +177,8 @@ describe('dashboard layout Yjs session', () => {
       getDashboardWidgetsMap(doc).observeDeep(onWidgets)
       getDashboardColorPairsMap(doc).observeDeep(onColorPairs)
 
-      applyDashboardWidgetMutation(doc, {
-        identityId: 'chart-widget',
-        widget: {
-          pairColor: 'red',
-          params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
-        },
+      applyDashboardWidgetConfigPatch(doc, 'chart-panel', {
+        params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
       })
 
       expect(onWidgets).toHaveBeenCalled()
@@ -348,16 +347,7 @@ describe('dashboard layout Yjs session', () => {
     const doc = trackedDoc()
     let roundTrip: Y.Doc | null = null
     try {
-      const current = readDashboardLayoutContent(doc)
-      applyDashboardWidgetMutation(
-        doc,
-        {
-          identityId: 'chart-widget',
-          widget: current.widgets['chart-widget']!,
-          colorPairs: [{ color: 'red', value: null }],
-        },
-        YJS_ORIGINS.USER
-      )
+      applyDashboardWidgetConfigPatch(doc, 'chart-panel', { colorPair: null }, YJS_ORIGINS.USER)
 
       expect(getDashboardColorPairsMap(doc).has('red')).toBe(false)
       const persisted = readDashboardLayoutContent(doc)

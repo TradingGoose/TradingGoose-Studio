@@ -54,6 +54,7 @@ interface SkillEditorActionButtonProps {
   widgetKey?: string
   pairColor?: PairColor
   params?: Record<string, unknown> | null
+  canEditEntity?: boolean
 }
 
 export function SkillEditorExportButton({
@@ -86,11 +87,12 @@ export function SkillEditorSaveButton({
   widgetKey,
   pairColor = 'gray',
   params,
+  canEditEntity = true,
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
   const resolvedSkillId = skillId ?? null
-  const disabled = !workspaceId || !resolvedSkillId
+  const disabled = !canEditEntity || !workspaceId || !resolvedSkillId
 
   return (
     <EntityEditorHeaderButton

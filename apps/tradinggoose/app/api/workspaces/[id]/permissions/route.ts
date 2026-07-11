@@ -11,6 +11,7 @@ import {
   getUsersWithPermissions,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
+import { notifyWorkspaceYjsAccessChanged } from '@/lib/yjs/server/snapshot-bridge'
 import { assertWorkspaceBillingOwnerRetainsAdminAccess } from '../../../../../lib/workspaces/billing-owner'
 
 const logger = createLogger('WorkspacesPermissionsAPI')
@@ -195,6 +196,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         })
       }
     })
+
+    await notifyWorkspaceYjsAccessChanged(
+      workspaceId,
+      body.updates.map((update) => update.userId)
+    )
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
     const currentUserPermission = await getUserEntityPermissions(

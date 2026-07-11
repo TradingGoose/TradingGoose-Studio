@@ -216,6 +216,7 @@ function EditorCustomToolWidgetBody({
           exportRef={exportRef}
           saveRef={saveRef}
           blockId='dashboard-custom-tool-editor'
+          readOnly={context?.canWrite === false}
         />
       </div>
     </WorkflowRouteProvider>
@@ -334,17 +335,19 @@ function CustomToolEditorSaveButton({
   panelId,
   widgetKey,
   pairColor = 'gray',
+  canEditEntity,
 }: {
   workspaceId?: string
   customToolId?: string | null
   panelId?: string
   widgetKey?: string
   pairColor?: PairColor
+  canEditEntity: boolean
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
   const resolvedCustomToolId = customToolId ?? null
-  const saveDisabled = !workspaceId || !resolvedCustomToolId || !panelId
+  const saveDisabled = !canEditEntity || !workspaceId || !resolvedCustomToolId || !panelId
 
   return (
     <Tooltip>
@@ -469,6 +472,7 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
             panelId={panelId}
             widgetKey={widget?.key}
             pairColor={widget?.pairColor}
+            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

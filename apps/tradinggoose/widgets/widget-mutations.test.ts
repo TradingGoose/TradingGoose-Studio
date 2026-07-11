@@ -185,13 +185,6 @@ describe('applyWidgetConfigMutation', () => {
     }
   )
 
-  it('replaces params only when the internal params mode is explicit', () => {
-    const result = apply({
-      patch: { paramsMode: 'replace', params: { view: { interval: '1h' } } },
-    })
-    expect(widgetOf(result).params).toEqual({ view: { interval: '1h' } })
-  })
-
   it('rejects unsupported widget params before persistence', () => {
     expect(() => apply({ patch: { params: { invented: true } } })).toThrow(
       'params.invented: Widget "data_chart" does not support this field'

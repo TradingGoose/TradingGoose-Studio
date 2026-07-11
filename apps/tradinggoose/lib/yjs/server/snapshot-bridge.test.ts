@@ -53,15 +53,10 @@ describe('applyEntityStateInSocketServer', () => {
     const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
 
     await expect(
-      applyEntityStateInSocketServer(
-        'watchlist-1',
-        'watchlist',
-        {
-          settings: { showLogo: true, showTicker: true, showDescription: false },
-          items: [],
-        },
-        { entityName: 'Imported Watchlist' }
-      )
+      applyEntityStateInSocketServer('watchlist-1', 'watchlist', {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [],
+      })
     ).resolves.toEqual(persistedFields)
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -78,7 +73,6 @@ describe('applyEntityStateInSocketServer', () => {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       },
-      entityName: 'Imported Watchlist',
     })
   })
 

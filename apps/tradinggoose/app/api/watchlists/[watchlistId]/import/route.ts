@@ -7,9 +7,9 @@ import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
-  applySavedEntityState,
-  SavedEntityPersistenceError,
-} from '@/lib/yjs/server/apply-entity-state'
+  importWatchlistDocumentInSocketServer,
+  SocketServerBridgeError,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WatchlistImportAPI')
 
@@ -60,8 +60,8 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
       { status: 400 }
     )
   }
-  if (error instanceof SavedEntityPersistenceError) {
-    return NextResponse.json(error.responseBody(), { status: error.status })
+  if (error instanceof SocketServerBridgeError) {
+    return NextResponse.json({ error: error.message }, { status: error.status })
   }
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
@@ -80,15 +80,7 @@ export async function POST(
     const fields = parseImportedWatchlistDocument(parsed.file)
 
     await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
-    await applySavedEntityState(
-      'watchlist',
-      watchlistId,
-      {
-        settings: fields.settings,
-        items: fields.items,
-      },
-      { entityName: fields.name }
-    )
+    await importWatchlistDocumentInSocketServer(watchlistId, parsed.workspaceId, fields)
     const watchlist = await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
 
     return NextResponse.json({ watchlist }, { status: 200 })

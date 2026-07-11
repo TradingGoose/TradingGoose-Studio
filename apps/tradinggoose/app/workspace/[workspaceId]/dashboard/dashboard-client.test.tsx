@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 
-import { act, type InputHTMLAttributes, type ReactNode } from 'react'
+import {
+  act,
+  forwardRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  useImperativeHandle,
+} from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -38,6 +44,10 @@ let mockDashboardLayoutList: {
 let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
 let mockDocuments = new Set<Y.Doc>()
 const mockLayoutMutation = vi.fn()
+const mockSetPanelGroupLayout = vi.fn((sizes: number[]) => {
+  mockPanelGroupLayout = sizes
+})
+let mockPanelGroupLayout: number[] = []
 const dashboardPermissions = {
   workspaceCanWrite: true,
 } as const
@@ -160,7 +170,16 @@ vi.mock('@/components/ui/input', () => ({
 }))
 
 vi.mock('@/components/ui/resizable', () => ({
-  ResizablePanelGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  ResizablePanelGroup: forwardRef(function MockResizablePanelGroup(
+    { children }: { children: ReactNode },
+    ref
+  ) {
+    useImperativeHandle(ref, () => ({
+      getLayout: () => mockPanelGroupLayout,
+      setLayout: mockSetPanelGroupLayout,
+    }))
+    return <div>{children}</div>
+  }),
   ResizablePanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   ResizableHandle: () => null,
 }))
@@ -245,6 +264,8 @@ describe('DashboardClient', () => {
     mockTopologyDocuments = new WeakMap()
     mockDocuments = new Set()
     mockLayoutMutation.mockClear()
+    mockSetPanelGroupLayout.mockClear()
+    mockPanelGroupLayout = []
     dashboardClientMocks.activateDashboardLayoutAction.mockClear()
     dashboardClientMocks.createDashboardLayoutAction.mockClear()
     dashboardClientMocks.deleteDashboardLayoutAction.mockClear()
@@ -384,6 +405,39 @@ describe('DashboardClient', () => {
       pairColor: 'red',
     })
     expect(readWidgetRuntimeContext(container).canWrite).toBe(false)
+  })
+
+  it('applies remote group-size changes to the mounted panel group', async () => {
+    mockPanelGroupLayout = [50, 50]
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createGroupLayout([50, 50])}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+    expect(mockSetPanelGroupLayout).not.toHaveBeenCalled()
+
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createGroupLayout([35, 65])}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+
+    expect(mockSetPanelGroupLayout).toHaveBeenCalledWith([35, 65])
+    expect(mockLayoutMutation).not.toHaveBeenCalled()
   })
 
   it('routes widget selection through the layout document owner', async () => {
@@ -639,6 +693,41 @@ function createPanelLayout(
     layout: topology,
     widgets: {
       [`${panelId}-widget`]: { pairColor, params: { workflowId } },
+    },
+    colorPairs: { pairs: [] },
+  })
+  mockTopologyDocuments.set(topology, doc)
+  mockDocuments.add(doc)
+  return topology
+}
+
+function createGroupLayout(sizes: number[]): DashboardLayoutTopologyNode {
+  const topology: DashboardLayoutTopologyNode = {
+    id: 'group-a',
+    type: 'group',
+    direction: 'horizontal',
+    sizes,
+    children: [
+      {
+        id: 'panel-left',
+        type: 'panel',
+        identityId: 'widget-left',
+        widgetKey: 'copilot',
+      },
+      {
+        id: 'panel-right',
+        type: 'panel',
+        identityId: 'widget-right',
+        widgetKey: 'copilot',
+      },
+    ],
+  }
+  const doc = new Y.Doc()
+  seedDashboardLayoutSession(doc, {
+    layout: topology,
+    widgets: {
+      'widget-left': { pairColor: 'gray', params: null },
+      'widget-right': { pairColor: 'gray', params: null },
     },
     colorPairs: { pairs: [] },
   })

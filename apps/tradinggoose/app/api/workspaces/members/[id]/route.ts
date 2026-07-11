@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { assertWorkspaceBillingOwnerCanBeRemoved } from '@/lib/workspaces/billing-owner'
+import { notifyWorkspaceYjsAccessChanged } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkspaceMemberAPI')
 
@@ -94,6 +95,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
           eq(permissions.entityId, workspaceId)
         )
       )
+
+    await notifyWorkspaceYjsAccessChanged(workspaceId, [userId])
 
     return NextResponse.json({ success: true })
   } catch (error) {

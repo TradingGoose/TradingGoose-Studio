@@ -42,7 +42,11 @@ const WorkflowVariablesApp = ({
         user={user}
       >
         <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
-          <WorkflowVariablesAppContent workflowId={workflowId} panelId={panelId} />
+          <WorkflowVariablesAppContent
+            workflowId={workflowId}
+            panelId={panelId}
+            accessMode={accessMode}
+          />
         </WorkflowRouteProvider>
       </WorkflowSessionProvider>
     </Providers>
@@ -52,14 +56,16 @@ const WorkflowVariablesApp = ({
 const WorkflowVariablesAppContent = ({
   workflowId,
   panelId,
+  accessMode,
 }: {
   workflowId: string
   panelId?: string
+  accessMode: ReviewAccessMode
 }) => {
   const { collaborativeAddVariable } = useWorkflowEditorActions()
 
   const handleAddVariable = useCallback(() => {
-    if (!workflowId) return
+    if (!workflowId || accessMode !== 'write') return
 
     collaborativeAddVariable({
       name: '',
@@ -67,9 +73,10 @@ const WorkflowVariablesAppContent = ({
       value: '',
       workflowId,
     })
-  }, [collaborativeAddVariable, workflowId])
+  }, [accessMode, collaborativeAddVariable, workflowId])
 
   useEffect(() => {
+    if (accessMode !== 'write') return
     const handleEvent = (event: Event) => {
       const detail = (event as CustomEvent<any>).detail
       if (!detail) return
@@ -82,7 +89,7 @@ const WorkflowVariablesAppContent = ({
     return () => {
       window.removeEventListener(WORKFLOW_VARIABLES_ADD_EVENT, handleEvent as EventListener)
     }
-  }, [workflowId, panelId, handleAddVariable])
+  }, [accessMode, workflowId, panelId, handleAddVariable])
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden px-3 py-2'>

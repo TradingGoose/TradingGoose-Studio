@@ -108,6 +108,7 @@ export function EditorSkillWidgetBody({
         entityName={selectedSkillMember?.entityName ?? ''}
         exportRef={exportRef}
         saveRef={saveRef}
+        readOnly={context?.canWrite === false}
       />
     </div>
   )

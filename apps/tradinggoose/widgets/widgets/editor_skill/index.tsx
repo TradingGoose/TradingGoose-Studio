@@ -1,7 +1,6 @@
 'use client'
 
 import { ToolCase } from 'lucide-react'
-import { skillEditorWidgetContract } from '@/widgets/widgets/editor_skill/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import {
@@ -9,6 +8,7 @@ import {
   SkillEditorSaveButton,
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
+import { skillEditorWidgetContract } from '@/widgets/widgets/editor_skill/contract'
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
 
 export const editorSkillWidget: DashboardWidgetDefinition = {
@@ -49,6 +49,7 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
             widgetKey={widget?.key}
             pairColor={widget?.pairColor}
             params={params}
+            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

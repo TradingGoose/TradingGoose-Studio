@@ -16,6 +16,7 @@ import {
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { notifyWorkspaceYjsAccessChanged } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -194,6 +195,8 @@ export async function DELETE(
 
       logger.info(`Successfully deleted workspace ${workspaceId} and all related data`)
     })
+
+    await notifyWorkspaceYjsAccessChanged(workspaceId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

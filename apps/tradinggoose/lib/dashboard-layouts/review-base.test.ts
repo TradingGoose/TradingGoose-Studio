@@ -1,0 +1,330 @@
+import { describe, expect, it } from 'vitest'
+import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
+import {
+  buildDashboardLayoutReviewBase,
+  buildDashboardWidgetReviewBase,
+} from '@/lib/dashboard-layouts/review-base'
+import {
+  applyLayoutEditDocument,
+  type DashboardLayoutDocumentContent,
+  findDashboardTopologyPanel,
+} from '@/widgets/layout-document'
+import {
+  applyWidgetConfigMutation,
+  type WidgetConfigMutationPatch,
+} from '@/widgets/widget-mutations'
+
+const listing = (listingId: string) => ({
+  listing_type: 'default' as const,
+  listing_id: listingId,
+  base_id: '',
+  quote_id: '',
+})
+
+const drawingSnapshot = (price: number) => ({
+  tools: [
+    {
+      id: 'line-1',
+      toolType: 'trend_line',
+      points: [{ timestamp: 1, price }],
+    },
+  ],
+})
+
+const drawToolsOf = (content: DashboardLayoutDocumentContent) =>
+  (content.widgets['chart-widget'].params!.view as Record<string, unknown>).drawTools as Array<
+    Record<string, unknown>
+  >
+
+const createContent = (): DashboardLayoutDocumentContent => ({
+  layout: {
+    id: 'root',
+    type: 'group',
+    direction: 'horizontal',
+    sizes: [50, 50],
+    children: [
+      {
+        id: 'chart-panel',
+        type: 'panel',
+        identityId: 'chart-widget',
+        widgetKey: 'data_chart',
+      },
+      {
+        id: 'order-panel',
+        type: 'panel',
+        identityId: 'order-widget',
+        widgetKey: 'quick_order',
+      },
+    ],
+  },
+  widgets: {
+    'chart-widget': { pairColor: 'red', params: { view: { interval: '15m' } } },
+    'order-widget': { pairColor: 'gray', params: { side: 'buy' } },
+  },
+  colorPairs: {
+    pairs: [
+      { color: 'blue', listing: listing('MSFT'), workflowId: 'workflow-1' },
+      { color: 'green', listing: listing('TSLA') },
+      { color: 'red', listing: listing('AAPL') },
+    ],
+  },
+})
+
+const buildWidgetReviewBase = (
+  content: DashboardLayoutDocumentContent,
+  patch: WidgetConfigMutationPatch
+) => {
+  const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
+  const mutation = applyWidgetConfigMutation({
+    widgetKey: panel.widgetKey!,
+    widget: content.widgets[panel.identityId],
+    colorPairs: content.colorPairs,
+    panelId: panel.id,
+    patch,
+  })
+  return buildDashboardWidgetReviewBase(content, panel.id, mutation.reviewBase, patch)
+}
+
+describe('dashboard review bases', () => {
+  it('tracks widget documents destroyed by a layout plan without locking retained widgets', () => {
+    const content = createContent()
+    const plan = applyLayoutEditDocument(
+      content,
+      JSON.stringify({
+        layout: {
+          id: 'root',
+          type: 'group',
+          direction: 'horizontal',
+          sizes: [100],
+          children: [{ id: 'chart-panel', type: 'panel' }],
+        },
+      }),
+      ['order-panel']
+    )
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildDashboardLayoutReviewBase(current, plan))
+
+    const doomedWidgetChanged = structuredClone(content)
+    doomedWidgetChanged.widgets['order-widget'].params = { side: 'sell' }
+    const retainedWidgetChanged = structuredClone(content)
+    retainedWidgetChanged.widgets['chart-widget'].params = { view: { interval: '1h' } }
+
+    expect(hash(doomedWidgetChanged)).not.toBe(hash(content))
+    expect(hash(retainedWidgetChanged)).toBe(hash(content))
+  })
+
+  it('tracks only destination color-pair fields overwritten by a widget patch', () => {
+    const content = createContent()
+    const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+
+    const destinationChanged = structuredClone(content)
+    destinationChanged.colorPairs.pairs[0].listing = listing('GOOG')
+    const unrelatedFieldChanged = structuredClone(content)
+    unrelatedFieldChanged.colorPairs.pairs[0].workflowId = 'workflow-2'
+    const unrelatedChannelChanged = structuredClone(content)
+    unrelatedChannelChanged.colorPairs.pairs[1].listing = listing('AMZN')
+
+    expect(hash(destinationChanged)).not.toBe(hash(content))
+    expect(hash(unrelatedFieldChanged)).toBe(hash(content))
+    expect(hash(unrelatedChannelChanged)).toBe(hash(content))
+  })
+
+  it('tracks the complete destination color pair when deleting it', () => {
+    const content = createContent()
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(
+        buildWidgetReviewBase(current, {
+          pairColor: 'blue',
+          colorPair: null,
+        })
+      )
+    const destinationChanged = structuredClone(content)
+    destinationChanged.colorPairs.pairs[0].workflowId = 'workflow-2'
+
+    expect(hash(destinationChanged)).not.toBe(hash(content))
+  })
+
+  it('allows unrelated params changes during a pairColor-only edit', () => {
+    const content = createContent()
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, { pairColor: 'blue' }))
+    const paramsChanged = structuredClone(content)
+    paramsChanged.widgets['chart-widget'].params = { view: { interval: '1h' } }
+    const pairColorChanged = structuredClone(content)
+    pairColorChanged.widgets['chart-widget'].pairColor = 'green'
+
+    expect(hash(paramsChanged)).toBe(hash(content))
+    expect(hash(pairColorChanged)).not.toBe(hash(content))
+  })
+
+  it('tracks only nested params fields selected by the widget contract merger', () => {
+    const content = createContent()
+    content.widgets['chart-widget'].params = {
+      data: { provider: 'alpaca' },
+      view: { interval: '15m', candleType: 'candle_solid' },
+      runtime: { refreshAt: 1 },
+    }
+    const patch = { params: { view: { interval: '1h' } } }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const touchedFieldChanged = structuredClone(content)
+    ;(
+      touchedFieldChanged.widgets['chart-widget'].params!.view as Record<string, unknown>
+    ).interval = '30m'
+    const siblingFieldChanged = structuredClone(content)
+    ;(
+      siblingFieldChanged.widgets['chart-widget'].params!.view as Record<string, unknown>
+    ).candleType = 'area'
+    const unrelatedFieldChanged = structuredClone(content)
+    ;(
+      unrelatedFieldChanged.widgets['chart-widget'].params!.runtime as Record<string, unknown>
+    ).refreshAt = 2
+
+    expect(hash(touchedFieldChanged)).not.toBe(hash(content))
+    expect(hash(siblingFieldChanged)).toBe(hash(content))
+    expect(hash(unrelatedFieldChanged)).toBe(hash(content))
+  })
+
+  it('tracks params that contract normalization can rewrite through a selector change', () => {
+    const content = createContent()
+    content.widgets['chart-widget'].params = {
+      data: {
+        provider: 'alpaca',
+        providerParams: { feed: 'iex' },
+        auth: { apiKey: 'stored-key' },
+      },
+    }
+    const patch = { params: { data: { provider: 'polygon' } } }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const dependentChanged = structuredClone(content)
+    ;(
+      dependentChanged.widgets['chart-widget'].params!.data as Record<string, unknown>
+    ).providerParams = { feed: 'sip' }
+    const unrelatedChanged = structuredClone(content)
+    ;(unrelatedChanged.widgets['chart-widget'].params!.data as Record<string, unknown>).auth = {
+      apiKey: 'concurrent-key',
+    }
+
+    expect(hash(dependentChanged)).not.toBe(hash(content))
+    expect(hash(unrelatedChanged)).toBe(hash(content))
+  })
+
+  it('omits only credential values represented by preservation placeholders', () => {
+    const content = createContent()
+    content.widgets['chart-widget'].params = {
+      data: {
+        auth: {
+          apiKey: 'stored-key',
+          apiSecret: 'stored-secret',
+          account: 'primary',
+        },
+      },
+    }
+    const preservedPatch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
+    const preservedHash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, preservedPatch))
+    const credentialChanged = structuredClone(content)
+    ;(
+      (credentialChanged.widgets['chart-widget'].params!.data as Record<string, unknown>)
+        .auth as Record<string, unknown>
+    ).apiKey = 'concurrent-key'
+    const overwrittenSiblingChanged = structuredClone(content)
+    ;(
+      (overwrittenSiblingChanged.widgets['chart-widget'].params!.data as Record<string, unknown>)
+        .auth as Record<string, unknown>
+    ).apiSecret = 'concurrent-secret'
+
+    expect(preservedHash(credentialChanged)).toBe(preservedHash(content))
+    expect(preservedHash(overwrittenSiblingChanged)).not.toBe(preservedHash(content))
+
+    const replacementPatch = { params: { data: { auth: { apiKey: 'replacement-key' } } } }
+    const replacementHash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, replacementPatch))
+    expect(replacementHash(credentialChanged)).not.toBe(replacementHash(content))
+  })
+
+  it('excludes only the draw-tools snapshot carried by the contract merger', () => {
+    const content = createContent()
+    content.widgets['chart-widget'].params = {
+      view: {
+        drawTools: [
+          { id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(100) },
+          { id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(200) },
+        ],
+      },
+    }
+    const patch = {
+      params: { view: { drawTools: [{ id: 'manual-1', pane: 'price' }] } },
+    }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const overwrittenSnapshotChanged = structuredClone(content)
+    drawToolsOf(overwrittenSnapshotChanged)[0].snapshot = drawingSnapshot(101)
+    const carriedSnapshotChanged = structuredClone(content)
+    drawToolsOf(carriedSnapshotChanged)[1].snapshot = drawingSnapshot(201)
+
+    expect(hash(overwrittenSnapshotChanged)).not.toBe(hash(content))
+    expect(hash(carriedSnapshotChanged)).toBe(hash(content))
+
+    for (const mutate of [
+      (drawTools: Array<Record<string, unknown>>) => {
+        drawTools[0].pane = 'indicator'
+        drawTools[0].indicatorId = 'RSI'
+      },
+      (drawTools: Array<Record<string, unknown>>) => drawTools.reverse(),
+      (drawTools: Array<Record<string, unknown>>) =>
+        drawTools.push({ id: 'manual-2', pane: 'price' }),
+      (drawTools: Array<Record<string, unknown>>) => drawTools.shift(),
+    ]) {
+      const structureChanged = structuredClone(content)
+      mutate(drawToolsOf(structureChanged))
+      expect(hash(structureChanged)).not.toBe(hash(content))
+    }
+
+    const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
+    const mutation = applyWidgetConfigMutation({
+      widgetKey: panel.widgetKey!,
+      widget: content.widgets[panel.identityId],
+      colorPairs: content.colorPairs,
+      panelId: panel.id,
+      patch,
+    })
+    expect(
+      (
+        (mutation.widgetDocument.params!.view as Record<string, unknown>).drawTools as Array<
+          Record<string, unknown>
+        >
+      )[0].snapshot
+    ).toEqual(drawingSnapshot(200))
+
+    const explicitSnapshotPatch = {
+      params: {
+        view: {
+          drawTools: [{ id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(300) }],
+        },
+      },
+    }
+    const explicitHash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, explicitSnapshotPatch))
+    expect(explicitHash(carriedSnapshotChanged)).not.toBe(explicitHash(content))
+  })
+
+  it('allows unrelated fields in the same color pair and rejects target rebinding', () => {
+    const content = createContent()
+    const patch = { colorPair: { listing: listing('NVDA') } }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const unrelatedPairFieldChanged = structuredClone(content)
+    unrelatedPairFieldChanged.colorPairs.pairs[2].workflowId = 'workflow-2'
+    const rebound = structuredClone(content)
+    const panel = findDashboardTopologyPanel(rebound.layout, 'chart-panel')!
+    panel.identityId = 'replacement-widget'
+    rebound.widgets['replacement-widget'] = structuredClone(rebound.widgets['chart-widget'])
+
+    expect(hash(unrelatedPairFieldChanged)).toBe(hash(content))
+    expect(hash(rebound)).not.toBe(hash(content))
+  })
+})

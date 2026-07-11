@@ -13,8 +13,8 @@ import type {
 import {
   normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentContent,
-  normalizeWatchlistName,
   normalizeWatchlistSettings,
+  resolveWatchlistDocumentItemIds,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
 
@@ -22,7 +22,6 @@ type WatchlistContainerRow = typeof watchlistTable.$inferSelect
 type WatchlistItemRow = typeof watchlistItem.$inferSelect
 export type WatchlistDocumentTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type WatchlistContainerInputItem = Extract<WatchlistDocumentInputItem, { type: 'section' }>
-type WatchlistContainerItem = Extract<WatchlistItem, { type: 'section' }>
 type WatchlistSiblingRow =
   | { type: 'section'; row: WatchlistContainerRow }
   | { type: 'listing'; row: WatchlistItemRow }
@@ -38,9 +37,6 @@ const ensureFound = <T>(row: T | undefined, message = 'Watchlist not found'): T 
 const isDuplicateListingViolation = (error: unknown) =>
   error instanceof Error &&
   error.message.includes('watchlist_item_watchlist_listing_identity_unique')
-
-const isDuplicateWatchlistNameViolation = (error: unknown) =>
-  error instanceof Error && error.message.includes('watchlist_table_workspace_user_name_unique')
 
 export const workspaceContainerCondition = (workspaceId: string) =>
   and(eq(watchlistTable.workspaceId, workspaceId), isNull(watchlistTable.userId))
@@ -200,17 +196,6 @@ export const mapWatchlistDocumentFieldsInTx = async (
   })
 }
 
-async function deleteWatchlistDocumentChildren(
-  tx: WatchlistDocumentTx,
-  workspaceId: string,
-  watchlistId: string
-) {
-  await tx.delete(watchlistItem).where(documentItemCondition(workspaceId, watchlistId))
-  await tx
-    .delete(watchlistTable)
-    .where(and(workspaceContainerCondition(workspaceId), eq(watchlistTable.parentId, watchlistId)))
-}
-
 function readContainerKind(row: WatchlistContainerRow): void {
   const settings = row.settings
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
@@ -223,45 +208,74 @@ function readContainerKind(row: WatchlistContainerRow): void {
   }
 }
 
-async function insertContainer(
+async function persistContainer(
   tx: WatchlistDocumentTx,
   workspaceId: string,
-  item: WatchlistContainerInputItem,
+  item: WatchlistContainerInputItem & { id: string },
   parentId: string,
   sortOrder: number
 ): Promise<string> {
+  const values = {
+    workspaceId,
+    userId: null,
+    parentId,
+    name: item.label,
+    sortOrder,
+    settings: { kind: item.type },
+    updatedAt: new Date(),
+  }
+  const [updated] = await tx
+    .update(watchlistTable)
+    .set(values)
+    .where(
+      and(
+        eq(watchlistTable.id, item.id),
+        workspaceContainerCondition(workspaceId),
+        eq(watchlistTable.parentId, parentId)
+      )
+    )
+    .returning()
+  if (updated) return updated.id
+
   const [created] = await tx
     .insert(watchlistTable)
     .values({
-      workspaceId,
-      userId: null,
-      parentId,
-      name: item.label,
-      sortOrder,
-      settings: { kind: item.type },
-      updatedAt: new Date(),
+      id: item.id,
+      ...values,
     })
     .returning()
   return ensureFound(created).id
 }
 
-async function insertListingItem(
+async function persistListingItem(
   tx: WatchlistDocumentTx,
   workspaceId: string,
   watchlistId: string,
-  item: Extract<WatchlistDocumentInputItem, { type: 'listing' }>,
+  item: Extract<WatchlistDocumentInputItem, { type: 'listing' }> & { id: string },
   containerId: string,
   sortOrder: number
 ): Promise<string> {
+  const values = {
+    workspaceId,
+    userId: null,
+    watchlistId,
+    containerId,
+    listing: item.listing,
+    sortOrder,
+    updatedAt: new Date(),
+  }
+  const [updated] = await tx
+    .update(watchlistItem)
+    .set(values)
+    .where(and(documentItemCondition(workspaceId, watchlistId), eq(watchlistItem.id, item.id)))
+    .returning()
+  if (updated) return updated.id
+
   const [created] = await tx
     .insert(watchlistItem)
     .values({
-      workspaceId,
-      userId: null,
-      watchlistId,
-      containerId,
-      listing: item.listing,
-      sortOrder,
+      id: item.id,
+      ...values,
     })
     .returning()
   return ensureFound(created).id
@@ -271,25 +285,31 @@ export async function materializeWatchlistDocumentInTx(
   tx: WatchlistDocumentTx,
   workspaceId: string,
   watchlistId: string,
-  rawFields: Record<string, unknown>,
-  identity?: { name?: string }
+  rawFields: Record<string, unknown>
 ): Promise<WatchlistDocumentContent> {
   const fields = normalizeWatchlistDocumentContent(rawFields)
-  let name: string | undefined
-  try {
-    name = identity?.name === undefined ? undefined : normalizeWatchlistName(identity.name)
-  } catch (error) {
-    throw new WatchlistDocumentError(
-      error instanceof Error ? error.message : 'Watchlist name is required'
-    )
+  const currentRoot = await fetchRootWatchlistRow(tx, workspaceId, watchlistId)
+  const currentRows = await loadWatchlistRows(tx, currentRoot)
+  const currentSections = currentRows.containers.filter(
+    (container) => container.parentId === currentRoot.id
+  )
+  currentSections.forEach(readContainerKind)
+  const currentSectionIds = new Set(currentSections.map((section) => section.id))
+  const currentListingIds = new Set(currentRows.items.map((item) => item.id))
+  const resolvedItems = resolveWatchlistDocumentItemIds(fields.items)
+  for (const item of resolvedItems) {
+    if (item.type === 'section' && currentListingIds.has(item.id)) {
+      throw new WatchlistDocumentError('Watchlist item id cannot change type')
+    }
+    if (item.type === 'listing' && currentSectionIds.has(item.id)) {
+      throw new WatchlistDocumentError('Watchlist item id cannot change type')
+    }
   }
-  await fetchRootWatchlistRow(tx, workspaceId, watchlistId)
 
   try {
     const [updatedRoot] = await tx
       .update(watchlistTable)
       .set({
-        ...(name === undefined ? {} : { name }),
         settings: fields.settings,
         updatedAt: new Date(),
       })
@@ -297,55 +317,33 @@ export async function materializeWatchlistDocumentInTx(
       .returning()
 
     const root = normalizeRootRow(ensureFound(updatedRoot))
-    await deleteWatchlistDocumentChildren(tx, workspaceId, root.id)
-
-    const persistedItems: WatchlistItem[] = []
-    const persistedContainerIds = new Map<string, string>()
-    const persistedContainers = new Map<WatchlistDocumentInputItem, WatchlistContainerItem>()
-    const siblingSortOrders = new Map<WatchlistDocumentInputItem, number>()
+    const siblingSortOrders = new Map<(typeof resolvedItems)[number], number>()
     const nextSiblingSortOrders = new Map<string, number>()
-    for (const item of fields.items) {
+    for (const item of resolvedItems) {
       const key = item.parentId ?? root.id
       const next = nextSiblingSortOrders.get(key) ?? 0
       nextSiblingSortOrders.set(key, next + 1)
       siblingSortOrders.set(item, next)
     }
-    const submittedSortOrder = (item: WatchlistDocumentInputItem) =>
+    const submittedSortOrder = (item: (typeof resolvedItems)[number]) =>
       siblingSortOrders.get(item) ?? 0
 
-    for (const item of fields.items) {
+    const submittedSectionIds = new Set<string>()
+    for (const item of resolvedItems) {
       if (item.type !== 'section') continue
-      const persistedId = await insertContainer(
-        tx,
-        workspaceId,
-        item,
-        root.id,
-        submittedSortOrder(item)
-      )
-      if (item.id) persistedContainerIds.set(item.id, persistedId)
-      persistedContainers.set(item, {
-        id: persistedId,
-        type: 'section',
-        parentId: null,
-        label: item.label,
-      })
+      await persistContainer(tx, workspaceId, item, root.id, submittedSortOrder(item))
+      submittedSectionIds.add(item.id)
     }
 
-    for (const item of fields.items) {
-      if (item.type === 'section') {
-        const persistedContainer = persistedContainers.get(item)
-        if (persistedContainer) {
-          persistedItems.push(persistedContainer)
-        }
-        continue
-      }
-
-      const containerId = item.parentId ? persistedContainerIds.get(item.parentId) : null
-      if (item.parentId && !containerId) {
+    const submittedListingIds = new Set<string>()
+    for (const item of resolvedItems) {
+      if (item.type !== 'listing') continue
+      const containerId = item.parentId ?? null
+      if (containerId && !submittedSectionIds.has(containerId)) {
         throw new WatchlistDocumentError('Watchlist item parentId must reference a section')
       }
       const dbContainerId = containerId ?? root.id
-      const persistedId = await insertListingItem(
+      await persistListingItem(
         tx,
         workspaceId,
         root.id,
@@ -353,24 +351,35 @@ export async function materializeWatchlistDocumentInTx(
         dbContainerId,
         submittedSortOrder(item)
       )
-      persistedItems.push({
-        id: persistedId,
-        type: 'listing',
-        parentId: containerId ?? null,
-        listing: item.listing,
-      })
+      submittedListingIds.add(item.id)
+    }
+
+    for (const item of currentRows.items) {
+      if (submittedListingIds.has(item.id)) continue
+      await tx
+        .delete(watchlistItem)
+        .where(and(documentItemCondition(workspaceId, root.id), eq(watchlistItem.id, item.id)))
+    }
+    for (const section of currentSections) {
+      if (submittedSectionIds.has(section.id)) continue
+      await tx
+        .delete(watchlistTable)
+        .where(
+          and(
+            workspaceContainerCondition(workspaceId),
+            eq(watchlistTable.parentId, root.id),
+            eq(watchlistTable.id, section.id)
+          )
+        )
     }
 
     const { name: _name, ...content } = normalizePersistedWatchlistDocumentFields({
       name: root.name,
       settings: root.settings,
-      items: persistedItems,
+      items: resolvedItems,
     })
     return content
   } catch (error) {
-    if (isDuplicateWatchlistNameViolation(error)) {
-      throw new WatchlistDocumentError(`A watchlist with the name "${name}" already exists`, 409)
-    }
     if (isDuplicateListingViolation(error)) {
       throw new WatchlistDocumentError('Watchlist contains a duplicate listing', 409)
     }

@@ -128,6 +128,7 @@ export function EditorIndicatorWidgetBody({
         exportRef={codeExportRef}
         saveRef={codeSaveRef}
         verifyRef={codeVerifyRef}
+        readOnly={context?.canWrite === false}
       />
     </div>
   )
