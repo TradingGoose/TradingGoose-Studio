@@ -3,11 +3,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  deleteWatchlist,
-  getWatchlist,
-  WatchlistOperationError,
-} from '@/lib/watchlists/operations'
+import { deleteWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistByIdAPI')
 
@@ -45,28 +41,6 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
   }
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
-}
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ watchlistId: string }> }
-) {
-  try {
-    const userId = await requireSessionUser()
-    const { watchlistId } = await params
-    const workspaceId = request.nextUrl.searchParams.get('workspaceId')?.trim()
-    if (!workspaceId) {
-      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
-    }
-
-    await requireWorkspacePermission(userId, workspaceId)
-
-    const watchlist = await getWatchlist({ workspaceId }, watchlistId)
-
-    return NextResponse.json({ watchlist }, { status: 200 })
-  } catch (error) {
-    return handleRouteError(error, 'Failed to load watchlist')
-  }
 }
 
 export async function DELETE(

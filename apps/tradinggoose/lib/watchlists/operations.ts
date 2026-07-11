@@ -103,22 +103,6 @@ export async function loadWatchlistDocument(
   }
 }
 
-export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRecord[]> {
-  try {
-    return await db.transaction(async (tx) => {
-      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-      const records: WatchlistRecord[] = []
-      for (const root of roots) {
-        const fields = await mapWatchlistDocumentFieldsInTx(tx, root)
-        records.push(buildWatchlistRecordFromDocument(root, fields))
-      }
-      return records
-    })
-  } catch (error) {
-    mapDocumentError(error)
-  }
-}
-
 export async function createWatchlist(
   scope: WatchlistScope,
   input: { name: string }

@@ -41,8 +41,8 @@ export async function loadWorkspaceEntityMentionItems(
   workspaceId: string,
   ownerUserId?: string | null
 ): Promise<WorkspaceEntityItem[]> {
-  if (entityKind === 'dashboard_layout') {
-    return loadDashboardLayoutMentionItems(workspaceId, ownerUserId)
+  if (entityKind === 'dashboard_layout' || entityKind === 'watchlist') {
+    return loadYjsEntityMentionItems(entityKind, workspaceId, ownerUserId)
   }
 
   let path = ''
@@ -62,9 +62,6 @@ export async function loadWorkspaceEntityMentionItems(
       break
     case 'mcp_server':
       path = `/api/mcp/servers?workspaceId=${encodeURIComponent(workspaceId)}`
-      break
-    case 'watchlist':
-      path = `/api/watchlists?workspaceId=${encodeURIComponent(workspaceId)}`
       break
   }
 
@@ -123,45 +120,44 @@ export async function loadWorkspaceEntityMentionItems(
           name: toTrimmedString(item.name),
           enabled: item.enabled !== false,
         }))
-    case 'watchlist':
-      return sortByRecent(Array.isArray(data?.watchlists) ? data.watchlists : [])
-        .filter((item: any) => item.id)
-        .map((item: any) => ({
-          entityKind,
-          id: item.id,
-          name: toTrimmedString(item.name),
-          ownerUserId: toTrimmedString(data?.ownerUserId) || undefined,
-          createdAt: toTrimmedString(item.createdAt) || undefined,
-          updatedAt: toTrimmedString(item.updatedAt) || undefined,
-        }))
   }
 }
 
-async function loadDashboardLayoutMentionItems(
+async function loadYjsEntityMentionItems(
+  entityKind: 'dashboard_layout' | 'watchlist',
   workspaceId: string,
   ownerUserId?: string | null
 ): Promise<WorkspaceEntityItem[]> {
   const ownerId = toTrimmedString(ownerUserId)
-  if (!ownerId) return []
+  if (entityKind === 'dashboard_layout' && !ownerId) return []
 
   const result = await bootstrapYjsProvider(
-    buildEntityListDescriptor('dashboard_layout', workspaceId, { ownerUserId: ownerId }),
+    buildEntityListDescriptor(
+      entityKind,
+      workspaceId,
+      entityKind === 'dashboard_layout' ? { ownerUserId: ownerId } : undefined
+    ),
     undefined,
     'read'
   )
   try {
-    return sortDashboardLayoutMentionItems(
-      getEntityListMembers(result.doc, 'dashboard_layout').map((item) => ({
-        entityKind: 'dashboard_layout',
-        id: item.entityId,
-        name: toTrimmedString(item.entityName),
-        ownerUserId: ownerId,
-        sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : undefined,
-        isActive: item.isActive === true,
-        createdAt: toTrimmedString(item.createdAt) || undefined,
-        updatedAt: toTrimmedString(item.updatedAt) || undefined,
-      }))
-    )
+    const items = getEntityListMembers(result.doc, entityKind).map((item) => ({
+      entityKind,
+      id: item.entityId,
+      name: toTrimmedString(item.entityName),
+      createdAt: toTrimmedString(item.createdAt) || undefined,
+      updatedAt: toTrimmedString(item.updatedAt) || undefined,
+      ...(entityKind === 'dashboard_layout'
+        ? {
+            ownerUserId: ownerId,
+            sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : undefined,
+            isActive: item.isActive === true,
+          }
+        : {}),
+    }))
+    return entityKind === 'dashboard_layout'
+      ? sortDashboardLayoutMentionItems(items)
+      : sortByRecent(items)
   } finally {
     result.provider.disconnect()
     result.provider.destroy()

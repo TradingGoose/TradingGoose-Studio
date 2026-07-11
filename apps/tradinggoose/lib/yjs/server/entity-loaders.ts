@@ -15,7 +15,8 @@ import {
   listDashboardLayouts,
   readPersistedDashboardLayoutContent,
 } from '@/lib/dashboard-layouts/operations'
-import { listWatchlists, loadWatchlistDocument } from '@/lib/watchlists/operations'
+import { listRootWatchlistRowsInTx } from '@/lib/watchlists/document'
+import { loadWatchlistDocument } from '@/lib/watchlists/operations'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
@@ -147,7 +148,13 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'watchlist') {
-    return listWatchlists({ workspaceId })
+    const roots = await listRootWatchlistRowsInTx(db, workspaceId)
+    return roots.map((row) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.createdAt?.toISOString(),
+      updatedAt: row.updatedAt?.toISOString(),
+    }))
   }
 
   if (entityKind === 'dashboard_layout') {

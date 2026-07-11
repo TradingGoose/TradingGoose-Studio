@@ -3,11 +3,7 @@ import { z } from 'zod'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  createWatchlist,
-  listWatchlists,
-  WatchlistOperationError,
-} from '@/lib/watchlists/operations'
+import { createWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 
 const logger = createLogger('WatchlistsAPI')
 const CreateWatchlistSchema = z.object({
@@ -49,24 +45,6 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
   }
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const userId = await requireSessionUser(request)
-    const workspaceId = request.nextUrl.searchParams.get('workspaceId')?.trim()
-    if (!workspaceId) {
-      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
-    }
-
-    await requireWorkspacePermission(userId, workspaceId)
-
-    const watchlists = await listWatchlists({ workspaceId })
-
-    return NextResponse.json({ watchlists }, { status: 200 })
-  } catch (error) {
-    return handleRouteError(error, 'Failed to fetch watchlists')
-  }
 }
 
 export async function POST(request: NextRequest) {

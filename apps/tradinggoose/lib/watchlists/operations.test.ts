@@ -63,7 +63,10 @@ vi.mock('@/lib/saved-entities/identity', () => ({
   renameSavedEntityIdentityInTx: mockRenameSavedEntityIdentityInTx,
 }))
 
-import { composeWatchlistDocumentFromRows } from '@/lib/watchlists/document'
+import {
+  composeWatchlistDocumentFromRows,
+  listRootWatchlistRowsInTx,
+} from '@/lib/watchlists/document'
 import {
   createWatchlistFromDocument,
   importWatchlistDocument,
@@ -106,11 +109,12 @@ function queryChain(result: unknown[]) {
 }
 
 function materializerTx(input: {
+  roots?: unknown[]
   containers?: unknown[]
   items?: unknown[]
   updateResults: unknown[][]
 }) {
-  const selectResults = [[rootRow], input.containers ?? [], input.items ?? []]
+  const selectResults = [input.roots ?? [rootRow], input.containers ?? [], input.items ?? []]
   const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
   const updates: Array<{ table: any; values: Record<string, unknown> }> = []
   const deletes: Array<{ table: any }> = []
@@ -242,6 +246,13 @@ describe('watchlist operations', () => {
         { name: 'Growth', settings: rootRow.settings, items: [] }
       )
     ).rejects.toBe(wrappedOther)
+  })
+
+  it('discovers watchlist entity identities with one root query', async () => {
+    const store = materializerTx({ roots: [rootRow], updateResults: [] })
+
+    await expect(listRootWatchlistRowsInTx(store.tx, 'workspace-1')).resolves.toEqual([rootRow])
+    expect(store.tx.select).toHaveBeenCalledTimes(1)
   })
 
   it('runs canonical rename and content materialization in one import transaction', async () => {
