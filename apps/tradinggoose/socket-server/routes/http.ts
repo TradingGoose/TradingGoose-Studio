@@ -317,17 +317,6 @@ function clearSessionReseededFromCanonical(doc: Y.Doc): void {
   }, YJS_ORIGINS.SYSTEM)
 }
 
-async function getInitializedSessionDocument(
-  sessionId: string,
-  bootstrapState?: Uint8Array
-): Promise<Y.Doc> {
-  const doc = getDocument(sessionId, true, bootstrapState) as Y.Doc & {
-    whenInitialized?: Promise<void>
-  }
-  await doc.whenInitialized
-  return doc
-}
-
 async function getBootstrappedApplyDocument(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
 ): Promise<Y.Doc> {
@@ -345,7 +334,7 @@ async function getBootstrappedApplyDocument(
     throw new Error('Yjs review target is not active')
   }
 
-  return getInitializedSessionDocument(descriptor.yjsSessionId, bootstrapped.state)
+  return getDocument(descriptor.yjsSessionId, true, bootstrapped.state)
 }
 
 /**
@@ -909,7 +898,7 @@ async function handleInternalYjsSnapshotRequest(
           sendJson(res, 410, { error: 'Session expired', sessionId })
           return
         }
-        liveDoc = await getInitializedSessionDocument(sessionId, bootstrapped.state)
+        liveDoc = getDocument(sessionId, true, bootstrapped.state)
         bootstrappedForRequest = true
       }
     }

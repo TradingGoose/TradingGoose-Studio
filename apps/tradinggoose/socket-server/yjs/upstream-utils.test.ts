@@ -157,32 +157,74 @@ describe('dashboard document persistence queue', () => {
 })
 
 describe('realtime shutdown', () => {
-  it('waits for queued mutations and persists dirty documents before cleanup', async () => {
-    const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-drain', 'workspace-1')
+  it('persists an already-queued writer update before closing its socket', async () => {
+    const descriptor = buildSavedEntityDescriptor(
+      'watchlist',
+      'watchlist-queued-drain',
+      'workspace-1'
+    )
     const socket = new TestSocket()
-    const mutation = deferred()
-    const persisted = vi.fn()
+    const gate = deferred()
+    const persistenceStarted = deferred()
+    const persistence = deferred()
+    const persisted = vi.fn(async (_docId: string, _doc: Y.Doc) => {
+      persistenceStarted.resolve()
+      await persistence.promise
+    })
     setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-drain',
+      docId: 'watchlist-queued-drain',
       userId: 'user-1',
       accessMode: 'write',
       descriptor,
-      onDocumentIdle: async (_docId, doc) => persisted(doc.getMap('fields').toJSON()),
+      onDocumentIdle: persisted,
       onDocumentUpdateDebounceMs: 60_000,
     })
-    const doc = peekDocument('watchlist-drain')!
-    doc.getMap('fields').set('pending', true)
-    const queued = runDocumentMutation(doc, () => mutation.promise)
+    const doc = peekDocument('watchlist-queued-drain')!
+    const blocker = runDocumentMutation(doc, () => gate.promise)
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'received', true)))
+    expect(doc.getMap('fields').has('received')).toBe(false)
 
     const draining = drainAllDocuments()
-    await new Promise((resolve) => setImmediate(resolve))
-    expect(persisted).not.toHaveBeenCalled()
-    mutation.resolve()
-    await queued
+    gate.resolve()
+    await blocker
+    await persistenceStarted.promise
+
+    expect(socket.close).not.toHaveBeenCalled()
+    expect(peekDocument('watchlist-queued-drain')).toBe(doc)
+    expect(doc.getMap('fields').get('received')).toBe(true)
+
+    persistence.resolve()
     await draining
 
-    expect(persisted).toHaveBeenCalledWith({ pending: true })
-    expect(peekDocument('watchlist-drain')).toBeNull()
+    expect(persisted).toHaveBeenCalledWith('watchlist-queued-drain', doc)
+    expect(socket.close).toHaveBeenCalledTimes(1)
+    expect(peekDocument('watchlist-queued-drain')).toBeNull()
+  })
+
+  it('keeps every document connected when one persistence barrier fails', async () => {
+    const sockets = [new TestSocket(), new TestSocket()]
+    const persist = [vi.fn(), vi.fn().mockRejectedValue(new Error('database offline'))]
+    for (const [index, socket] of sockets.entries()) {
+      const docId = `watchlist-drain-${index}`
+      setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        docId,
+        userId: 'user-1',
+        accessMode: 'write',
+        descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
+        onDocumentIdle: persist[index],
+        onDocumentUpdateDebounceMs: 60_000,
+      })
+      peekDocument(docId)!.getMap('fields').set('pending', true)
+    }
+
+    await expect(drainAllDocuments()).rejects.toThrow('database offline')
+
+    expect(persist[0]).toHaveBeenCalledTimes(1)
+    expect(persist[1]).toHaveBeenCalledTimes(1)
+    expect(sockets.every((socket) => socket.close.mock.calls.length === 0)).toBe(true)
+    expect(peekDocument('watchlist-drain-0')).not.toBeNull()
+    expect(peekDocument('watchlist-drain-1')).not.toBeNull()
+    sockets.forEach((socket) => socket.emit('close'))
   })
 })
 

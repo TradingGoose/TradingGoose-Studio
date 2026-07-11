@@ -150,15 +150,26 @@ const shutdown = async () => {
   isShuttingDown = true
 
   logger.info('Shutting down Socket.IO server...')
-  tradingPortfolioStreamManager.stop()
   try {
-    await Promise.all([
-      ...Object.values(monitorRuntimes).map((runtime) => runtime.stop()),
-      drainAllDocuments(),
-    ])
+    await drainAllDocuments()
   } catch (error) {
     logger.error('Failed to drain realtime state cleanly', { error })
+    return
   }
+
+  tradingPortfolioStreamManager.stop()
+  const monitorEntries = Object.entries(monitorRuntimes)
+  const monitorResults = await Promise.allSettled(
+    monitorEntries.map(([, runtime]) => runtime.stop())
+  )
+  monitorResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logger.error(`Failed to stop ${monitorEntries[index][0]} monitor runtime cleanly`, {
+        error: result.reason,
+      })
+    }
+  })
+
   await new Promise<void>((resolve) => {
     io.close((error) => {
       if (error) logger.error('Failed to close Socket.IO server cleanly', { error })

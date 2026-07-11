@@ -44,7 +44,6 @@ class WSSharedDoc extends Y.Doc {
   name: string
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
-  whenInitialized: Promise<void>
   onDocumentIdle?: DocumentPersistenceHandler
   onDocumentUpdate?: DocumentPersistenceHandler
   retryPersistence?: DocumentPersistenceHandler
@@ -56,6 +55,7 @@ class WSSharedDoc extends Y.Doc {
   persistenceQueue: Promise<void> = Promise.resolve()
   pendingMutations = 0
   mutationQueue: Promise<void> = Promise.resolve()
+  isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
   cleanupRequested = false
 
@@ -105,8 +105,6 @@ class WSSharedDoc extends Y.Doc {
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((_ids, conn) => send(this, conn, message))
     })
-
-    this.whenInitialized = Promise.resolve()
   }
 }
 
@@ -194,7 +192,7 @@ function enqueueDocumentPersistence(
   const settled = run.finally(() => {
     doc.pendingPersistRequests -= 1
     if (hasDirtyState(doc)) schedulePersistenceRetry(doc)
-    if (doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
+    if (!doc.isDraining && doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
       cleanupDocument(doc)
     }
   })
@@ -214,12 +212,14 @@ function cleanupDocument(doc: WSSharedDoc): void {
 }
 
 function finalizeDocumentCleanup(doc: WSSharedDoc): void {
+  doc.cleanupRequested = true
+  if (doc.isDraining) return
+
   if (doc.persistTimer) {
     clearTimeout(doc.persistTimer)
     doc.persistTimer = null
   }
 
-  doc.cleanupRequested = true
   if (doc.pendingMutations > 0) return
   if (isDocumentIdle(doc)) {
     cleanupDocument(doc)
@@ -348,6 +348,7 @@ export function markDocumentPersisted(doc: Y.Doc): void {
 
 export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | T): Promise<T> {
   if (!(doc instanceof WSSharedDoc)) return Promise.resolve().then(mutation)
+  if (doc.isDraining) return Promise.reject(new Error('Yjs document is draining'))
 
   doc.pendingMutations += 1
   const result = doc.mutationQueue.then(mutation)
@@ -386,13 +387,7 @@ export function peekDocument(docId: string): Y.Doc | null {
 }
 
 export async function getExistingDocument(docId: string): Promise<Y.Doc | null> {
-  const doc = docs.get(docId)
-  if (!doc) {
-    return null
-  }
-
-  await doc.whenInitialized
-  return doc
+  return docs.get(docId) ?? null
 }
 
 export function setupWSConnection(
@@ -434,9 +429,7 @@ export function setupWSConnection(
   doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor })
 
   conn.on('message', (data: ArrayBuffer) => {
-    void doc.whenInitialized.then(() => {
-      handleMessage(conn, doc, new Uint8Array(data))
-    })
+    handleMessage(conn, doc, new Uint8Array(data))
   })
 
   let pongReceived = true
@@ -473,27 +466,25 @@ export function setupWSConnection(
     pongReceived = true
   })
 
-  void doc.whenInitialized.then(() => {
-    const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageSync)
-    if (accessMode === 'read') {
-      syncProtocol.writeSyncStep2(encoder, doc)
-    } else {
-      syncProtocol.writeSyncStep1(encoder, doc)
-    }
-    send(doc, conn, encoding.toUint8Array(encoder))
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, messageSync)
+  if (accessMode === 'read') {
+    syncProtocol.writeSyncStep2(encoder, doc)
+  } else {
+    syncProtocol.writeSyncStep1(encoder, doc)
+  }
+  send(doc, conn, encoding.toUint8Array(encoder))
 
-    const awarenessStates = doc.awareness.getStates()
-    if (awarenessStates.size > 0) {
-      const awarenessEncoder = encoding.createEncoder()
-      encoding.writeVarUint(awarenessEncoder, messageAwareness)
-      encoding.writeVarUint8Array(
-        awarenessEncoder,
-        awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys()))
-      )
-      send(doc, conn, encoding.toUint8Array(awarenessEncoder))
-    }
-  })
+  const awarenessStates = doc.awareness.getStates()
+  if (awarenessStates.size > 0) {
+    const awarenessEncoder = encoding.createEncoder()
+    encoding.writeVarUint(awarenessEncoder, messageAwareness)
+    encoding.writeVarUint8Array(
+      awarenessEncoder,
+      awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys()))
+    )
+    send(doc, conn, encoding.toUint8Array(awarenessEncoder))
+  }
 }
 
 export function removeDocument(docId: string): void {
@@ -579,11 +570,9 @@ export function cleanupAllDocuments(): void {
 
 export async function drainAllDocuments(): Promise<void> {
   const activeDocuments = Array.from(docs.values())
-  for (const doc of activeDocuments) {
-    for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
-  }
+  for (const doc of activeDocuments) doc.isDraining = true
 
-  await Promise.all(
+  const persistenceResults = await Promise.allSettled(
     activeDocuments.map(async (doc) => {
       await doc.mutationQueue
       if (docs.get(doc.name) !== doc) return
@@ -594,7 +583,15 @@ export async function drainAllDocuments(): Promise<void> {
       const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
       if (hasDirtyState(doc) && persist) await enqueueDocumentPersistence(doc, persist)
       await doc.persistenceQueue
-      if (docs.get(doc.name) === doc) cleanupDocument(doc)
     })
   )
+
+  const failedPersistence = persistenceResults.find((result) => result.status === 'rejected')
+  if (failedPersistence?.status === 'rejected') throw failedPersistence.reason
+
+  for (const doc of activeDocuments) {
+    if (docs.get(doc.name) !== doc) continue
+    for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
+    if (docs.get(doc.name) === doc) cleanupDocument(doc)
+  }
 }
