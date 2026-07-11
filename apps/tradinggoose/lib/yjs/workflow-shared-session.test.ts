@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockBootstrapYjsProvider = vi.fn()
@@ -46,14 +47,8 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
   return {
     doc,
     provider,
-    descriptor: {
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: 'workflow-1',
-    },
+    accessMode: 'write' as const,
+    descriptor: buildSavedEntityDescriptor('workflow', 'workflow-1', 'workspace-1'),
     runtime: {
       docState: 'active',
       replaySafe: true,
@@ -309,39 +304,50 @@ describe('workflow shared session lifecycle', () => {
     releaseRead()
   })
 
-  it('rebootstraps a reader session from a fresh snapshot after connection loss', async () => {
-    const staleDoc = new Y.Doc()
-    const freshDoc = new Y.Doc()
-    const staleProvider = createMockProvider()
-    const freshProvider = createMockProvider()
-    mockBootstrapYjsProvider
-      .mockResolvedValueOnce(createBootstrapResult(staleDoc, staleProvider))
-      .mockResolvedValueOnce(createBootstrapResult(freshDoc, freshProvider))
+  it.each(['read', 'write'] as const)(
+    'rebootstraps a lost %s session with a fresh document',
+    async (accessMode) => {
+      const staleDoc = new Y.Doc()
+      const freshDoc = new Y.Doc()
+      const staleProvider = createMockProvider()
+      const freshProvider = createMockProvider()
+      mockBootstrapYjsProvider
+        .mockResolvedValueOnce(createBootstrapResult(staleDoc, staleProvider))
+        .mockResolvedValueOnce(createBootstrapResult(freshDoc, freshProvider))
 
-    const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
-      './workflow-shared-session'
-    )
-    const release = acquireSharedWorkflowSession({
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      accessMode: 'read',
-    })
+      const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
+        './workflow-shared-session'
+      )
+      const release = acquireSharedWorkflowSession({
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        accessMode,
+      })
 
-    await waitForCondition(() => {
-      expect(getSharedWorkflowSessionState('workflow-1', 'read').doc).toBe(staleDoc)
-    })
-    staleProvider.emit('connection-close')
-    expect(getSharedWorkflowSessionState('workflow-1', 'read').isLoading).toBe(true)
+      await waitForCondition(() => {
+        expect(getSharedWorkflowSessionState('workflow-1', accessMode).doc).toBe(staleDoc)
+      })
+      staleProvider.emit('connection-close')
+      await waitForCondition(() => {
+        expect(getSharedWorkflowSessionState('workflow-1', accessMode)).toMatchObject({
+          doc: null,
+          isLoading: true,
+        })
+      })
+      if (accessMode === 'write') {
+        expect(mockUnregisterWorkflowSession).toHaveBeenCalledWith('workflow-1', staleDoc)
+      }
 
-    await vi.advanceTimersByTimeAsync(1_000)
-    await waitForCondition(() => {
-      expect(getSharedWorkflowSessionState('workflow-1', 'read').doc).toBe(freshDoc)
-    })
-    expect(staleProvider.destroy).toHaveBeenCalledTimes(1)
-    expect(mockRegisterWorkflowSession).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1_000)
+      await waitForCondition(() => {
+        expect(getSharedWorkflowSessionState('workflow-1', accessMode).doc).toBe(freshDoc)
+      })
+      expect(staleProvider.destroy).toHaveBeenCalledTimes(1)
+      expect(mockRegisterWorkflowSession).toHaveBeenCalledTimes(accessMode === 'write' ? 2 : 0)
 
-    release()
-  })
+      release()
+    }
+  )
 
   it('tracks undo/redo for explicit workflow edit origins', async () => {
     const doc = new Y.Doc()

@@ -169,9 +169,7 @@ function initializeSharedYjsSessionEntry(
       entry.result = next
       entry.error = null
       entry.failedInitialOpenCount = 0
-      if (next.accessMode === 'read') {
-        attachReadSessionReopen(entry, next, openSession, errorMessage)
-      }
+      attachSessionReopen(entry, next, openSession, errorMessage)
       if (staleResult) {
         emitSharedYjsSessionEntry(entry)
         closeYjsSession(staleResult)
@@ -199,28 +197,31 @@ function initializeSharedYjsSessionEntry(
 
 const SESSION_REOPEN_RETRY_MS = 1_000
 
-function attachReadSessionReopen(
+function attachSessionReopen(
   entry: SharedYjsSessionEntry,
   result: YjsProviderBootstrapResult,
   openSession: () => Promise<YjsProviderBootstrapResult>,
   errorMessage: string
 ): void {
-  let handled = false
   const handleConnectionLoss = () => {
-    if (handled) return
-    handled = true
-    result.provider.off('connection-close', handleConnectionLoss)
-    result.provider.off('connection-error', handleConnectionLoss)
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== result) return
-    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
+    if (result.accessMode === 'read') {
+      scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
+      return
+    }
+
+    entry.result = null
+    entry.error = null
+    emitSharedYjsSessionEntry(entry)
+    closeYjsSession(result)
+    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
   }
   result.provider.on('connection-close', handleConnectionLoss)
   result.provider.on('connection-error', handleConnectionLoss)
 }
 
-// A subscribed session converges to live: every failed open — initial or
-// after connection loss — retries at the same 1s cadence write sessions use
-// for token rotation, until the session is live or the entry is released.
+// Every subscribed session reboots from a fresh canonical snapshot after
+// connection loss. Failed opens retry until the session is live or released.
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,

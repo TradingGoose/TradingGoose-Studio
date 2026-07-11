@@ -2,10 +2,12 @@
  * @vitest-environment jsdom
  */
 
+import { EventEmitter } from 'node:events'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { updateWatchlistItems } from '@/lib/yjs/entity-session'
 import {
@@ -27,13 +29,25 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
+const createMockProvider = () =>
+  Object.assign(new EventEmitter(), {
+    disconnect: providerMocks.disconnect,
+    destroy: providerMocks.destroy,
+  })
+
 describe('useSavedEntityYjsSession access mode', () => {
   let container: HTMLDivElement
   let root: Root
   let current: ReturnType<typeof useSavedEntityYjsSession>
 
-  const Harness = ({ accessMode }: { accessMode: ReviewAccessMode }) => {
-    current = useSavedEntityYjsSession('watchlist', 'watchlist-1', 'workspace-1', null, accessMode)
+  const Harness = ({
+    accessMode,
+    entityId = 'watchlist-1',
+  }: {
+    accessMode: ReviewAccessMode
+    entityId?: string
+  }) => {
+    current = useSavedEntityYjsSession('watchlist', entityId, 'workspace-1', null, accessMode)
     return null
   }
 
@@ -43,13 +57,11 @@ describe('useSavedEntityYjsSession access mode', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    providerMocks.bootstrap.mockImplementation(async (descriptor) => ({
+    providerMocks.bootstrap.mockImplementation(async (descriptor, _origin, accessMode) => ({
       descriptor,
+      accessMode,
       doc: new Y.Doc(),
-      provider: {
-        disconnect: providerMocks.disconnect,
-        destroy: providerMocks.destroy,
-      },
+      provider: createMockProvider(),
     }))
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -57,11 +69,12 @@ describe('useSavedEntityYjsSession access mode', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
   it('rejects a retained writer save after rerendering as a reader', async () => {
-    await act(async () => root.render(<Harness accessMode='write' />))
+    await act(async () => root.render(<Harness accessMode='write' entityId='watchlist-restart' />))
     await vi.waitFor(() => expect(current.doc).toBeInstanceOf(Y.Doc))
     const retainedSave = current.save
 
@@ -111,5 +124,32 @@ describe('useSavedEntityYjsSession access mode', () => {
       expect([...collection.documents.keys()].sort()).toEqual(['list-2', 'list-3'])
     })
     expect(providerMocks.bootstrap).toHaveBeenCalledTimes(3)
+  })
+
+  it('unpublishes a lost writer document before opening a fresh lineage', async () => {
+    vi.useFakeTimers()
+    const staleDoc = new Y.Doc()
+    const freshDoc = new Y.Doc()
+    const staleProvider = createMockProvider()
+    const result = (doc: Y.Doc, provider = createMockProvider()) => ({
+      accessMode: 'write' as const,
+      descriptor: buildSavedEntityDescriptor('watchlist', 'watchlist-lineage', 'workspace-1'),
+      doc,
+      provider,
+    })
+    providerMocks.bootstrap
+      .mockResolvedValueOnce(result(staleDoc, staleProvider))
+      .mockResolvedValueOnce(result(freshDoc))
+
+    await act(async () => root.render(<Harness accessMode='write' entityId='watchlist-lineage' />))
+    await vi.waitFor(() => expect(current.doc).toBe(staleDoc))
+
+    await act(async () => staleProvider.emit('connection-close'))
+    expect(current.doc).toBeNull()
+    expect(current.isLoading).toBe(true)
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    await vi.waitFor(() => expect(current.doc).toBe(freshDoc))
+    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(2)
   })
 })

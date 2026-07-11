@@ -4,10 +4,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as Y from 'yjs'
-import type {
-  ReviewTargetDescriptor,
-  ReviewTargetRuntimeState,
-} from '@/lib/copilot/review-sessions/types'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import type { ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
 
 const fetchMock = vi.fn()
 
@@ -23,12 +21,11 @@ class MockWebsocketProvider {
   doc: Y.Doc
   listeners = new Map<string, Set<(...args: any[]) => void>>()
   params: Record<string, string>
-  protocols: string[]
   roomname: string
   serverUrl: string
   shouldConnect = false
   synced = false
-  ws: object | null = null
+  disableBc: boolean
 
   constructor(
     serverUrl: string,
@@ -36,6 +33,7 @@ class MockWebsocketProvider {
     doc: Y.Doc,
     opts: {
       connect?: boolean
+      disableBc?: boolean
       params?: Record<string, string>
       protocols?: string[]
     } = {}
@@ -44,8 +42,7 @@ class MockWebsocketProvider {
     this.roomname = roomname
     this.doc = doc
     this.params = opts.params ?? {}
-    this.protocols = opts.protocols ?? []
-
+    this.disableBc = opts.disableBc ?? false
     if (opts.connect !== false) {
       this.connect()
     }
@@ -102,15 +99,7 @@ async function waitForCondition(assertion: () => void, timeoutMs = 1000) {
 }
 
 describe('bootstrapYjsProvider', () => {
-  const descriptor: ReviewTargetDescriptor = {
-    workspaceId: 'workspace-1',
-    ownerUserId: null,
-    entityKind: 'workflow',
-    entityId: 'workflow-1',
-    draftSessionId: null,
-    reviewSessionId: null,
-    yjsSessionId: 'workflow-1',
-  }
+  const descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', 'workspace-1')
 
   const runtime: ReviewTargetRuntimeState = {
     docState: 'active',
@@ -137,18 +126,15 @@ describe('bootstrapYjsProvider', () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
-  it('refreshes the one-time token before reconnecting after a close', async () => {
-    const tokens = ['token-1', 'token-2']
-
+  it('ends a provider lineage on connection loss without reconnecting the same document', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: tokens.shift() })
+        return jsonResponse({ token: 'token-1' })
       }
 
       if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
@@ -165,133 +151,14 @@ describe('bootstrapYjsProvider', () => {
     const { provider } = await bootstrapSyncedProvider()
 
     expect(provider.params.token).toBe('token-1')
+    expect(provider.disableBc).toBe(true)
     expect(provider.connect).toHaveBeenCalledTimes(1)
 
     provider.emit('connection-close', null, provider)
-    await waitForCondition(() => {
-      expect(provider.params.token).toBe('token-2')
-    })
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/auth/socket-token', {
-      method: 'POST',
-      cache: 'no-store',
-      credentials: 'include',
-      headers: { 'cache-control': 'no-store' },
-    })
-    expect(provider.connect).toHaveBeenCalledTimes(2)
-  })
-
-  it('does not rotate the token after an intentional disconnect', async () => {
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: 'token-1' })
-      }
-
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({
-          snapshotBase64: '',
-          descriptor,
-          runtime,
-        })
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    const { provider } = await bootstrapSyncedProvider()
-
-    provider.shouldConnect = false
-    provider.emit('connection-close', null, provider)
-    await Promise.resolve()
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(provider.connect).toHaveBeenCalledTimes(1)
-    expect(provider.params.token).toBe('token-1')
-  })
-
-  it('retries token refresh instead of reconnecting with a stale token', async () => {
-    const tokens = ['token-1', 'token-2']
-
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        const nextToken = tokens.shift()
-        if (!nextToken) {
-          throw new Error('auth outage')
-        }
-        return jsonResponse({ token: nextToken })
-      }
-
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({
-          snapshotBase64: '',
-          descriptor,
-          runtime,
-        })
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    const { provider } = await bootstrapSyncedProvider()
-
-    expect(provider.params.accessMode).toBe('write')
-
-    vi.useFakeTimers()
-
-    provider.emit('connection-close', null, provider)
-    await Promise.resolve()
-
-    expect(provider.connect).toHaveBeenCalledTimes(1)
-    expect(provider.params.token).toBe('token-1')
-
-    await vi.advanceTimersByTimeAsync(1_000)
-
-    expect(provider.connect).toHaveBeenCalledTimes(2)
-    expect(provider.params.token).toBe('token-2')
-    expect(provider.params.accessMode).toBe('write')
-
-    consoleErrorSpy.mockRestore()
-  })
-
-  it('ends read sessions on connection loss instead of resyncing a dead projection', async () => {
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: 'token-1' })
-      }
-
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        expect(url).toContain('accessMode=read')
-        return jsonResponse({
-          snapshotBase64: '',
-          descriptor,
-          runtime,
-        })
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
-    const provider = result.provider as unknown as MockWebsocketProvider
-
-    expect(result.accessMode).toBe('read')
-    const tokenFetches = fetchMock.mock.calls.length
-
-    provider.emit('connection-close', null, provider)
-    provider.emit('connection-error', new Event('error'), provider)
-    await Promise.resolve()
-
-    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches)
-    expect(provider.connect).toHaveBeenCalledTimes(1)
+    expect(provider.shouldConnect).toBe(false)
     expect(provider.params.token).toBe('token-1')
   })
 

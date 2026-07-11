@@ -72,7 +72,7 @@ export const EMPTY_SHARED_WORKFLOW_SESSION_STATE: SharedWorkflowSessionState = {
 }
 
 const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
-const READ_SESSION_REOPEN_RETRY_MS = 1_000
+const SESSION_REOPEN_RETRY_MS = 1_000
 
 const getSharedSessionKey = (workflowId: string, accessMode: ReviewAccessMode) =>
   `${accessMode}:${workflowId}`
@@ -222,34 +222,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     const syncStatus = (synced: boolean) => {
       setEntryState(entry, { isSynced: synced })
     }
-
-    let readConnectionLost: (() => void) | null = null
-    if (entry.accessMode === 'read') {
-      let handled = false
-      readConnectionLost = () => {
-        if (handled) return
-        handled = true
-        if (
-          entry.refCount === 0 ||
-          getSharedSessionEntries().get(entry.key) !== entry ||
-          entry.result !== result
-        ) {
-          return
-        }
-
-        entry.cleanup?.()
-        entry.cleanup = null
-        entry.result = null
-        setEntryState(entry, {
-          ...EMPTY_SHARED_WORKFLOW_SESSION_STATE,
-          isLoading: true,
-        })
-        destroyBootstrappedSession(result)
-        scheduleReadSessionReopen(entry)
-      }
-      result.provider.on('connection-close', readConnectionLost)
-      result.provider.on('connection-error', readConnectionLost)
-    }
+    const handleConnectionLoss = () => replaceLostSession(entry, result)
 
     if (syncUndoState) {
       undoManager?.on('stack-item-added', syncUndoState)
@@ -257,6 +230,8 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       undoManager?.on('stack-cleared', syncUndoState)
     }
     result.provider.on('sync', syncStatus)
+    result.provider.on('connection-close', handleConnectionLoss)
+    result.provider.on('connection-error', handleConnectionLoss)
 
     entry.result = result
     entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
@@ -269,10 +244,8 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
         undoManager?.off('stack-cleared', syncUndoState)
       }
       result.provider.off('sync', syncStatus)
-      if (readConnectionLost) {
-        result.provider.off('connection-close', readConnectionLost)
-        result.provider.off('connection-error', readConnectionLost)
-      }
+      result.provider.off('connection-close', handleConnectionLoss)
+      result.provider.off('connection-error', handleConnectionLoss)
     }
 
     if (entry.accessMode === 'write') {
@@ -302,19 +275,48 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to initialize workflow session',
     })
-    scheduleReadSessionReopen(entry)
+    scheduleSessionReopen(entry)
   } finally {
     entry.initPromise = null
   }
 }
 
-function scheduleReadSessionReopen(entry: SharedWorkflowSessionEntry): void {
-  if (entry.accessMode !== 'read' || entry.reopenTimeout || entry.refCount === 0) return
+function replaceLostSession(
+  entry: SharedWorkflowSessionEntry,
+  result: YjsProviderBootstrapResult
+): void {
+  if (
+    entry.refCount === 0 ||
+    getSharedSessionEntries().get(entry.key) !== entry ||
+    entry.result !== result
+  ) {
+    return
+  }
+
+  entry.cleanup?.()
+  entry.cleanup = null
+  if (entry.accessMode === 'write') {
+    unregisterWorkflowSession(entry.workflowId, result.doc)
+  }
+  entry.undoManager?.destroy()
+  entry.undoManager = null
+  entry.syncUndoState = null
+  entry.result = null
+  setEntryState(entry, {
+    ...EMPTY_SHARED_WORKFLOW_SESSION_STATE,
+    isLoading: true,
+  })
+  destroyBootstrappedSession(result)
+  scheduleSessionReopen(entry)
+}
+
+function scheduleSessionReopen(entry: SharedWorkflowSessionEntry): void {
+  if (entry.reopenTimeout || entry.refCount === 0) return
   entry.reopenTimeout = setTimeout(() => {
     entry.reopenTimeout = null
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.key) !== entry) return
     ensureSharedSessionInitialized(entry)
-  }, READ_SESSION_REOPEN_RETRY_MS)
+  }, SESSION_REOPEN_RETRY_MS)
 }
 
 function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void {
@@ -350,6 +352,7 @@ function releaseSharedSession(key: string): void {
 
     currentEntry.cleanup?.()
     currentEntry.cleanup = null
+    currentEntry.undoManager?.destroy()
     currentEntry.undoManager = null
     currentEntry.syncUndoState = null
 
