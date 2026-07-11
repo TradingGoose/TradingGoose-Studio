@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
@@ -8,9 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -24,17 +22,6 @@ interface CreateCustomToolsParams {
   }>
   workspaceId: string
   userId: string
-  requestId?: string
-}
-
-interface SaveCustomToolParams {
-  tool: {
-    id: string
-    title: string
-    schema: Record<string, any>
-    code: string
-  }
-  workspaceId: string
   requestId?: string
 }
 
@@ -112,34 +99,6 @@ export async function createCustomTools({
   await refreshEntityListSession('custom_tool', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} custom tool(s)`)
   return created
-}
-
-export async function saveCustomTool({
-  tool,
-  workspaceId,
-  requestId = generateRequestId(),
-}: SaveCustomToolParams) {
-  const [existingTool] = await db
-    .select({ id: customTools.id })
-    .from(customTools)
-    .where(and(eq(customTools.id, tool.id), eq(customTools.workspaceId, workspaceId)))
-    .limit(1)
-  if (!existingTool) {
-    throw new Error(`Custom tool ${tool.id} was not found`)
-  }
-
-  await renameSavedEntityIdentity({
-    entityKind: 'custom_tool',
-    entityId: tool.id,
-    workspaceId,
-    name: tool.title,
-  })
-  await applySavedEntityState('custom_tool', tool.id, {
-    schemaText: JSON.stringify(tool.schema, null, 2),
-    codeText: tool.code,
-  })
-  logger.info(`[${requestId}] Saved custom tool ${tool.id}`)
-  return listCustomTools({ workspaceId })
 }
 
 export async function importCustomTools({

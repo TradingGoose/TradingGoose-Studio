@@ -3,14 +3,12 @@ import { skill } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import {
   type ImportedSkillTransferRecord,
   resolveImportedSkillName,
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
@@ -27,17 +25,6 @@ interface CreateSkillsParams {
   }>
   workspaceId: string
   userId: string
-  requestId?: string
-}
-
-interface SaveSkillParams {
-  skill: {
-    id: string
-    name: string
-    description: string
-    content: string
-  }
-  workspaceId: string
   requestId?: string
 }
 
@@ -137,34 +124,6 @@ export async function createSkills({
   await refreshEntityListSession('skill', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} skill(s)`)
   return created
-}
-
-export async function saveSkill({
-  skill: currentSkill,
-  workspaceId,
-  requestId = generateRequestId(),
-}: SaveSkillParams) {
-  const [existingSkill] = await db
-    .select({ id: skill.id })
-    .from(skill)
-    .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
-    .limit(1)
-  if (!existingSkill) {
-    throw new Error(`Skill ${currentSkill.id} was not found`)
-  }
-
-  await renameSavedEntityIdentity({
-    entityKind: 'skill',
-    entityId: currentSkill.id,
-    workspaceId,
-    name: currentSkill.name,
-  })
-  await applySavedEntityState('skill', currentSkill.id, {
-    description: currentSkill.description,
-    content: currentSkill.content,
-  })
-  logger.info(`[${requestId}] Saved skill ${currentSkill.id}`)
-  return listSkills({ workspaceId })
 }
 
 export async function importSkills({

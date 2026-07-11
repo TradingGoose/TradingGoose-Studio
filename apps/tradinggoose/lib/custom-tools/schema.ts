@@ -71,20 +71,21 @@ export const CustomToolTransferSchema = z
   })
   .strict()
 
-export const CustomToolWriteRequestSchema = z.object({
+export const CustomToolCreateRequestSchema = z.object({
   workspaceId: z
     .string({ required_error: 'workspaceId is required' })
     .min(1, 'workspaceId is required'),
   tools: z.array(
-    z.object({
-      id: z.string().optional(),
-      title: z
-        .string()
-        .transform(normalizeInlineWhitespace)
-        .pipe(z.string().min(1, 'Tool title is required')),
-      schema: CustomToolOpenAiSchema,
-      code: z.string(),
-    })
+    z
+      .object({
+        title: z
+          .string()
+          .transform(normalizeInlineWhitespace)
+          .pipe(z.string().min(1, 'Tool title is required')),
+        schema: CustomToolOpenAiSchema,
+        code: z.string(),
+      })
+      .strict()
   ),
 })
 

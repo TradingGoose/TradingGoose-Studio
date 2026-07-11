@@ -9,7 +9,6 @@ vi.setConfig({ testTimeout: 15000 })
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockCreateCustomTools = vi.fn()
-const mockSaveCustomTool = vi.fn()
 const mockListCustomTools = vi.fn()
 const mockReadWorkflowAccessContext = vi.fn()
 
@@ -23,7 +22,6 @@ vi.mock('@/lib/permissions/utils', () => ({
 
 vi.mock('@/lib/custom-tools/operations', () => ({
   createCustomTools: mockCreateCustomTools,
-  saveCustomTool: mockSaveCustomTool,
   listCustomTools: mockListCustomTools,
 }))
 
@@ -61,7 +59,6 @@ describe('Custom Tools API Routes', () => {
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockCreateCustomTools.mockResolvedValue([])
-    mockSaveCustomTool.mockResolvedValue([])
     mockListCustomTools.mockResolvedValue([])
     mockReadWorkflowAccessContext.mockResolvedValue(null)
   })

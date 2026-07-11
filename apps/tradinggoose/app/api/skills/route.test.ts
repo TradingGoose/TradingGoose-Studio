@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockCreateSkills = vi.fn()
-const mockSaveSkill = vi.fn()
 const mockListSkills = vi.fn()
 const mockDeleteSkill = vi.fn()
 
@@ -21,7 +20,6 @@ vi.mock('@/lib/permissions/utils', () => ({
 
 vi.mock('@/lib/skills/operations', () => ({
   createSkills: mockCreateSkills,
-  saveSkill: mockSaveSkill,
   listSkills: mockListSkills,
   deleteSkill: mockDeleteSkill,
 }))
@@ -52,7 +50,6 @@ describe('Skills API Routes', () => {
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockCreateSkills.mockResolvedValue([])
-    mockSaveSkill.mockResolvedValue([])
     mockListSkills.mockResolvedValue([])
     mockDeleteSkill.mockResolvedValue(true)
   })

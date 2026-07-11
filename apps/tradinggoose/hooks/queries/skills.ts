@@ -135,16 +135,6 @@ export function useCreateSkill() {
   })
 }
 
-interface UpdateSkillParams {
-  workspaceId: string
-  skillId: string
-  updates: {
-    name?: string
-    description?: string
-    content?: string
-  }
-}
-
 interface ImportSkillsParams {
   workspaceId: string
   file: unknown
@@ -178,56 +168,6 @@ export function useImportSkills() {
       return data as ImportSkillsResponse
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
-    },
-  })
-}
-
-export function useUpdateSkill() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, skillId, updates }: UpdateSkillParams) => {
-      logger.info(`Updating skill: ${skillId} in workspace ${workspaceId}`)
-
-      const currentSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-      const currentSkill = currentSkills?.find((skill) => skill.id === skillId)
-
-      if (!currentSkill) {
-        throw new Error('Skill not found')
-      }
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skills: [
-            {
-              id: skillId,
-              name: updates.name ?? currentSkill.name,
-              description: updates.description ?? currentSkill.description,
-              content: updates.content ?? currentSkill.content,
-            },
-          ],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update skill')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing skills data')
-      }
-
-      return data.data
-    },
-    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
     },
   })
