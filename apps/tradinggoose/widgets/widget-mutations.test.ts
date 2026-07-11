@@ -155,6 +155,10 @@ describe('applyWidgetConfigMutation', () => {
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
     expect(result.changedPaths).toEqual(['widget.pairColor'])
+    expect(result.reviewBase).toEqual({
+      pairColor: 'red',
+      colorPair: { color: 'blue', context: { listing: normalizedListing } },
+    })
   })
 
   it('preserves gray local linked params when selecting a shared pair', () => {

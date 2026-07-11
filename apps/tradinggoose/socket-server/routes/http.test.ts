@@ -484,7 +484,7 @@ describe('socket internal HTTP Yjs routes', () => {
     )
   })
 
-  it('rejects an accepted widget edit after its destination color-pair field changes', async () => {
+  it('rejects an accepted pairColor-only edit after its destination linked field changes', async () => {
     const { hashServerToolReviewBase } = await import('@/lib/copilot/tools/server/base-tool')
     const { buildDashboardWidgetReviewBase } = await import('@/lib/dashboard-layouts/review-base')
     const { applyWidgetConfigMutation } = await import('@/widgets/widget-mutations')
@@ -494,7 +494,7 @@ describe('socket internal HTTP Yjs routes', () => {
       base_id: '',
       quote_id: '',
     })
-    const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
+    const patch = { pairColor: 'blue' }
     const reviewed = {
       layout: {
         id: 'panel-1',

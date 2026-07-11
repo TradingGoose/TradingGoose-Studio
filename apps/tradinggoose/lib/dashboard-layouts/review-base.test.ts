@@ -146,17 +146,73 @@ describe('dashboard review bases', () => {
     expect(hash(destinationChanged)).not.toBe(hash(content))
   })
 
-  it('allows unrelated params changes during a pairColor-only edit', () => {
+  it('tracks only linked destination fields activated by a pairColor-only edit', () => {
     const content = createContent()
     const hash = (current: DashboardLayoutDocumentContent) =>
       hashServerToolReviewBase(buildWidgetReviewBase(current, { pairColor: 'blue' }))
+    const destinationChanged = structuredClone(content)
+    destinationChanged.colorPairs.pairs[0].listing = listing('GOOG')
+    const destinationUnrelatedChanged = structuredClone(content)
+    destinationUnrelatedChanged.colorPairs.pairs[0].workflowId = 'workflow-2'
+    const sourceChanged = structuredClone(content)
+    sourceChanged.colorPairs.pairs[2].listing = listing('NVDA')
+    const otherChannelChanged = structuredClone(content)
+    otherChannelChanged.colorPairs.pairs[1].listing = listing('AMZN')
     const paramsChanged = structuredClone(content)
     paramsChanged.widgets['chart-widget'].params = { view: { interval: '1h' } }
     const pairColorChanged = structuredClone(content)
     pairColorChanged.widgets['chart-widget'].pairColor = 'green'
+    const destinationMissing = structuredClone(content)
+    destinationMissing.colorPairs.pairs[0].listing = undefined
+    const destinationAdded = structuredClone(destinationMissing)
+    destinationAdded.colorPairs.pairs[0].listing = listing('GOOG')
 
+    expect(hash(destinationChanged)).not.toBe(hash(content))
+    expect(hash(destinationUnrelatedChanged)).toBe(hash(content))
+    expect(hash(sourceChanged)).toBe(hash(content))
+    expect(hash(otherChannelChanged)).toBe(hash(content))
     expect(hash(paramsChanged)).toBe(hash(content))
     expect(hash(pairColorChanged)).not.toBe(hash(content))
+    expect(hash(destinationAdded)).not.toBe(hash(destinationMissing))
+    expect(
+      hashServerToolReviewBase(buildWidgetReviewBase(sourceChanged, { pairColor: 'red' }))
+    ).toBe(hashServerToolReviewBase(buildWidgetReviewBase(content, { pairColor: 'red' })))
+  })
+
+  it('tracks only local linked fields activated when unlinking to gray', () => {
+    const content = createContent()
+    content.widgets['chart-widget'].params = {
+      listing: listing('MSFT'),
+      view: { interval: '15m' },
+    }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, { pairColor: 'gray' }))
+    const linkedChanged = structuredClone(content)
+    linkedChanged.widgets['chart-widget'].params!.listing = listing('GOOG')
+    const unrelatedChanged = structuredClone(content)
+    ;(unrelatedChanged.widgets['chart-widget'].params!.view as Record<string, unknown>).interval =
+      '1h'
+
+    expect(hash(linkedChanged)).not.toBe(hash(content))
+    expect(hash(unrelatedChanged)).toBe(hash(content))
+  })
+
+  it('tracks untouched linked fields when rebinding with a partial color-pair patch', () => {
+    const content = createContent()
+    const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
+    panel.widgetKey = 'watchlist'
+    content.widgets['chart-widget'].params = null
+    content.colorPairs.pairs[0].watchlistId = 'watchlist-1'
+    const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
+    const hash = (current: DashboardLayoutDocumentContent) =>
+      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const linkedChanged = structuredClone(content)
+    linkedChanged.colorPairs.pairs[0].watchlistId = 'watchlist-2'
+    const unrelatedChanged = structuredClone(content)
+    unrelatedChanged.colorPairs.pairs[0].workflowId = 'workflow-2'
+
+    expect(hash(linkedChanged)).not.toBe(hash(content))
+    expect(hash(unrelatedChanged)).toBe(hash(content))
   })
 
   it('tracks only nested params fields selected by the widget contract merger', () => {

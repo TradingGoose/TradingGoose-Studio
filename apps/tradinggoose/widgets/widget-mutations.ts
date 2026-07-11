@@ -194,34 +194,50 @@ function buildWidgetConfigMutationReviewBase(input: {
   patch: WidgetConfigMutationPatch
   pairPatch: Record<string, unknown>
 }): WidgetConfigMutationReviewBase {
-  const params =
+  const contract = getWidgetContract(input.widgetKey)
+  const changesPairColor =
+    input.patch.pairColor !== undefined && input.currentPairColor !== input.nextPairColor
+  const paramsPatchBase =
     input.patch.params === undefined
       ? undefined
       : input.patch.params === null
         ? (input.current.params ?? null)
-        : getWidgetContract(input.widgetKey).projectLocalParamsReviewBase(
-            input.current.params,
-            input.patch.params
-          )
-  const currentColorPair =
-    input.patch.colorPair === undefined
-      ? undefined
-      : readPairColorContext(input.colorPairs, input.nextPairColor)
-  const colorPair =
-    input.patch.colorPair === undefined
-      ? undefined
-      : {
-          color: input.nextPairColor as LinkedPairColor,
-          context:
-            input.patch.colorPair === null
-              ? currentColorPair!
-              : Object.fromEntries(
-                  Object.keys(input.pairPatch).map((field) => [
-                    field,
-                    currentColorPair?.[field as keyof PairColorContext] ?? null,
-                  ])
-                ),
-        }
+        : contract.projectLocalParamsReviewBase(input.current.params, input.patch.params)
+  const linkedFields = changesPairColor ? contract.linkedParamFields : []
+  const localLinkedBase =
+    input.nextPairColor === 'gray' && linkedFields.length > 0
+      ? contract.projectLocalParamsReviewBase(
+          input.current.params,
+          Object.fromEntries(linkedFields.map((field) => [field, null]))
+        )
+      : undefined
+  const params =
+    localLinkedBase === undefined || paramsPatchBase === null
+      ? paramsPatchBase
+      : { ...localLinkedBase, ...(paramsPatchBase ?? {}) }
+  const colorPairFields = new Set([
+    ...(input.nextPairColor === 'gray' ? [] : linkedFields),
+    ...Object.keys(input.pairPatch),
+  ])
+  const tracksColorPair =
+    input.nextPairColor !== 'gray' && (input.patch.colorPair === null || colorPairFields.size > 0)
+  const currentColorPair = tracksColorPair
+    ? readPairColorContext(input.colorPairs, input.nextPairColor)
+    : undefined
+  const colorPair = tracksColorPair
+    ? {
+        color: input.nextPairColor as LinkedPairColor,
+        context:
+          input.patch.colorPair === null
+            ? currentColorPair!
+            : Object.fromEntries(
+                [...colorPairFields].map((field) => [
+                  field,
+                  currentColorPair?.[field as keyof PairColorContext] ?? null,
+                ])
+              ),
+      }
+    : undefined
 
   return {
     ...(input.patch.pairColor !== undefined || input.patch.colorPair !== undefined
