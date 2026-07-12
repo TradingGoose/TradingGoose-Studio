@@ -116,11 +116,14 @@ describe('dashboard document persistence queue', () => {
 
   it('does not discard a replacement document through a stale reference', async () => {
     const stale = getDocument('layout-replaced').doc
-    await discardDocument('layout-replaced')
+    discardDocumentIfIdle(stale)
     const replacement = getDocument('layout-replaced').doc
+    const mutation = vi.fn()
 
     await discardDocumentIfCurrent(stale)
+    await expect(runDocumentMutation(stale, mutation)).rejects.toThrow('draining')
 
+    expect(mutation).not.toHaveBeenCalled()
     expect(peekDocument('layout-replaced')).toBe(replacement)
   })
 

@@ -370,7 +370,9 @@ export function markDocumentPersisted(doc: Y.Doc): void {
 
 export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | T): Promise<T> {
   if (!(doc instanceof WSSharedDoc)) return Promise.resolve().then(mutation)
-  if (doc.isDraining) return Promise.reject(new YjsDocumentDrainingError())
+  if (docs.get(doc.name) !== doc || doc.isDraining) {
+    return Promise.reject(new YjsDocumentDrainingError())
+  }
 
   doc.pendingMutations += 1
   const result = doc.mutationQueue.then(mutation)
