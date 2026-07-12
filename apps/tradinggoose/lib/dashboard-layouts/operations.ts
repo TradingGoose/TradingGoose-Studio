@@ -301,10 +301,11 @@ export async function readDashboardLayoutMetadata(
 
 export async function createDashboardLayout(
   scope: DashboardLayoutOwnerScope,
-  options?: { name?: string }
+  options?: { name?: string; beforeInsert?: (layouts: readonly DashboardLayoutTab[]) => void }
 ): Promise<DashboardLayoutProjection> {
   const created = await withDashboardLayoutOwnerLock(scope, async (tx) => {
     const rows = await readDashboardLayoutRows(scope, tx)
+    options?.beforeInsert?.(sortLayoutRows(rows).map(toLayoutTab))
     return insertDashboardLayoutRow(tx, scope, rows, options)
   })
   await refreshLayoutList(scope)

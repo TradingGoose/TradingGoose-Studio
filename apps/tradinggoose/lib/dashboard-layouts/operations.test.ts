@@ -181,6 +181,15 @@ describe('dashboard layout operations', () => {
   })
 
   it('creates a default root and every null-widget child in one transaction', async () => {
+    const staleReview = () => {
+      throw new Error('stale review')
+    }
+    m.selectResults.push([])
+    await expect(createDashboardLayout(scope, { beforeInsert: staleReview })).rejects.toThrow(
+      'stale review'
+    )
+    expect(m.mutations).toEqual([])
+
     m.selectResults.push([])
     m.returningResults.push([layoutRow()])
 

@@ -8,6 +8,9 @@ import {
 import { buildDashboardLayoutResult } from '@/lib/copilot/tools/server/dashboard-layout/layout-result'
 import {
   createDashboardLayout,
+  type DashboardLayoutOwnerScope,
+  type DashboardLayoutTab,
+  listDashboardLayouts,
   readDashboardLayoutMetadata,
 } from '@/lib/dashboard-layouts/operations'
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
@@ -21,6 +24,15 @@ import {
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
+
+const buildCreateReviewBase = (
+  scope: DashboardLayoutOwnerScope,
+  layouts: readonly DashboardLayoutTab[]
+) => ({
+  kind: ENTITY_KIND_DASHBOARD_LAYOUT,
+  ...scope,
+  entities: layouts.map(({ id, name, ...meta }) => ({ entityId: id, entityName: name, ...meta })),
+})
 
 export const listLayoutsServerTool: EntityServerTool<{ workspaceId: string }> = {
   name: 'list_layout',
@@ -52,19 +64,12 @@ export const createLayoutServerTool: EntityServerTool<{
     const scopedContext = withWorkspaceArgContext(context, args)
     const { userId: ownerUserId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
     const name = args.name?.trim() || 'New layout'
-    const existingLayouts = await buildSavedEntityListInfo(
-      ENTITY_KIND_DASHBOARD_LAYOUT,
-      workspaceId,
-      ownerUserId
-    )
-    const reviewBaseStateHash = hashServerToolReviewBase({
-      kind: ENTITY_KIND_DASHBOARD_LAYOUT,
-      workspaceId,
-      ownerUserId,
-      entities: existingLayouts,
-    })
+    const createReviewBaseHash = (layouts: readonly DashboardLayoutTab[]) =>
+      hashServerToolReviewBase(buildCreateReviewBase({ workspaceId, ownerUserId }, layouts))
 
     if (shouldStageServerToolMutationForReview(context)) {
+      const existingLayouts = await listDashboardLayouts({ workspaceId, ownerUserId })
+      const reviewBaseStateHash = createReviewBaseHash(existingLayouts)
       const content = createDefaultDashboardLayoutProjection()
       const result = buildDashboardLayoutResult({
         entityName: name,
@@ -86,11 +91,14 @@ export const createLayoutServerTool: EntityServerTool<{
       }
     }
 
-    if (context?.acceptedReviewBaseStateHash) {
-      assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
-    }
-
-    const created = await createDashboardLayout({ workspaceId, ownerUserId }, { name })
+    const createOptions = context?.acceptedReviewBaseStateHash
+      ? {
+          name,
+          beforeInsert: (layouts: readonly DashboardLayoutTab[]) =>
+            assertAcceptedServerToolReviewBase(context, createReviewBaseHash(layouts)),
+        }
+      : { name }
+    const created = await createDashboardLayout({ workspaceId, ownerUserId }, createOptions)
     const content = await readBootstrappedDashboardLayoutProjection(
       created.id,
       workspaceId,

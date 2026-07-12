@@ -27,6 +27,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({ readEntityListMembersFromDb: mocks.list }))
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
   createDashboardLayout: mocks.create,
+  listDashboardLayouts: mocks.list,
   readDashboardLayoutMetadata: mocks.metadata,
 }))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => ({
@@ -135,14 +136,22 @@ describe('dashboard layout server tools', () => {
   })
 
   it('returns the complete read_layout projection after creating a layout', async () => {
+    const staged = await createLayoutServerTool.execute(
+      { workspaceId: 'workspace-1', name: 'New Desk' },
+      { ...context, accessLevel: 'limited' }
+    )
+    mocks.create.mockImplementationOnce(async (_scope: any, options: any) => {
+      options.beforeInsert?.([{ id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true }])
+      return { id: 'layout-created', name: 'New Desk' }
+    })
     const result = await createLayoutServerTool.execute(
       { workspaceId: 'workspace-1', name: 'New Desk' },
-      { ...context, accessLevel: 'full' }
+      { ...context, accessLevel: 'full', acceptedReviewBaseStateHash: staged.reviewBaseStateHash }
     )
 
     expect(mocks.create).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-      { name: 'New Desk' }
+      { name: 'New Desk', beforeInsert: expect.any(Function) }
     )
     expect(mocks.read).toHaveBeenCalledWith('layout-created', 'workspace-1', 'user-1')
     expect(result).toMatchObject({
