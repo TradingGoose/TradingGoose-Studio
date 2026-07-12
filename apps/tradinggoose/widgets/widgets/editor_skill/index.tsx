@@ -23,16 +23,7 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
     const skillId = getSkillIdFromParams(params)
 
     return {
-      center: (
-        <SkillEditorSelector
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          skillId={skillId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
-          params={params}
-        />
-      ),
+      center: <SkillEditorSelector workspaceId={context?.workspaceId} skillId={skillId} />,
       right: (
         <div className='flex items-center gap-1'>
           <SkillEditorExportButton
@@ -40,15 +31,12 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
             skillId={skillId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
           />
           <SkillEditorSaveButton
             workspaceId={context?.workspaceId}
             skillId={skillId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-            params={params}
             canEditEntity={context?.canWrite !== false}
           />
         </div>

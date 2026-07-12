@@ -16,7 +16,11 @@ import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import type { ReviewAccessMode, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type {
+  ReviewAccessMode,
+  ReviewEntityKind,
+  ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
 import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import {
   type EntityListMember,
@@ -26,7 +30,11 @@ import {
   setEntityField,
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import {
+  bootstrapYjsProvider,
+  disposeYjsProvider,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -52,19 +60,14 @@ type SharedYjsSessionEntry = {
   error: string | null
   refCount: number
   initPromise: Promise<void> | null
-  destroyTimeout: ReturnType<typeof setTimeout> | null
-  failedInitialOpenCount: number
   listeners: Set<() => void>
 }
 
 const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
 const EMPTY_ENTITY_LIST_MEMBERS: EntityListMember[] = []
-const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
 
 function closeYjsSession(result: YjsProviderBootstrapResult): void {
-  result.provider.disconnect()
-  result.provider.destroy()
-  result.doc.destroy()
+  disposeYjsProvider(result)
 }
 
 async function saveYjsSessionSnapshot(
@@ -118,10 +121,7 @@ function emitSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
 
 function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
   const current = sharedYjsSessionEntries.get(sessionKey)
-  if (current) {
-    cancelSharedYjsSessionDestroy(current)
-    return current
-  }
+  if (current) return current
 
   const entry: SharedYjsSessionEntry = {
     key: sessionKey,
@@ -129,18 +129,10 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
     error: null,
     refCount: 0,
     initPromise: null,
-    destroyTimeout: null,
-    failedInitialOpenCount: 0,
     listeners: new Set(),
   }
   sharedYjsSessionEntries.set(sessionKey, entry)
   return entry
-}
-
-function cancelSharedYjsSessionDestroy(entry: SharedYjsSessionEntry): void {
-  if (!entry.destroyTimeout) return
-  clearTimeout(entry.destroyTimeout)
-  entry.destroyTimeout = null
 }
 
 function initializeSharedYjsSessionEntry(
@@ -168,8 +160,9 @@ function initializeSharedYjsSessionEntry(
 
       entry.result = next
       entry.error = null
-      entry.failedInitialOpenCount = 0
-      attachSessionReopen(entry, next, openSession, errorMessage)
+      if (next.accessMode === 'read') {
+        attachReadSessionReopen(entry, next, openSession, errorMessage)
+      }
       if (staleResult) {
         emitSharedYjsSessionEntry(entry)
         closeYjsSession(staleResult)
@@ -177,13 +170,7 @@ function initializeSharedYjsSessionEntry(
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      const message = nextError instanceof Error ? nextError.message : errorMessage
-      if (staleResult) {
-        entry.error = message
-        return
-      }
-      entry.failedInitialOpenCount += 1
-      entry.error = entry.failedInitialOpenCount >= 3 ? message : null
+      entry.error = nextError instanceof Error ? nextError.message : errorMessage
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
@@ -197,31 +184,29 @@ function initializeSharedYjsSessionEntry(
 
 const SESSION_REOPEN_RETRY_MS = 1_000
 
-function attachSessionReopen(
+function attachReadSessionReopen(
   entry: SharedYjsSessionEntry,
   result: YjsProviderBootstrapResult,
   openSession: () => Promise<YjsProviderBootstrapResult>,
   errorMessage: string
 ): void {
+  let handled = false
   const handleConnectionLoss = () => {
+    if (handled) return
+    handled = true
+    result.provider.off('connection-close', handleConnectionLoss)
+    result.provider.off('connection-error', handleConnectionLoss)
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== result) return
-    if (result.accessMode === 'read') {
-      scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
-      return
-    }
-
-    entry.result = null
-    entry.error = null
-    emitSharedYjsSessionEntry(entry)
-    closeYjsSession(result)
-    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+    result.provider.disconnect()
+    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
   }
   result.provider.on('connection-close', handleConnectionLoss)
   result.provider.on('connection-error', handleConnectionLoss)
 }
 
-// Every subscribed session reboots from a fresh canonical snapshot after
-// connection loss. Failed opens retry until the session is live or released.
+// A subscribed session converges to live: every failed open — initial or
+// after connection loss — retries at the same 1s cadence write sessions use
+// for token rotation, until the session is live or the entry is released.
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
@@ -238,18 +223,12 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
   entry.refCount = Math.max(0, entry.refCount - 1)
   if (entry.refCount > 0) return
 
-  cancelSharedYjsSessionDestroy(entry)
-  entry.destroyTimeout = setTimeout(() => {
-    if (entry.refCount > 0 || sharedYjsSessionEntries.get(entry.key) !== entry) return
-
-    sharedYjsSessionEntries.delete(entry.key)
-    entry.destroyTimeout = null
-    if (entry.result) {
-      closeYjsSession(entry.result)
-      entry.result = null
-    }
-    entry.listeners.clear()
-  }, SHARED_SESSION_DESTROY_GRACE_MS)
+  sharedYjsSessionEntries.delete(entry.key)
+  if (entry.result) {
+    closeYjsSession(entry.result)
+    entry.result = null
+  }
+  entry.listeners.clear()
 }
 
 function retainSharedYjsSession(
@@ -328,6 +307,33 @@ function useYjsSession(
   return state.key === sessionKey ? state : null
 }
 
+export function useYjsTargetSession(
+  descriptor: ReviewTargetDescriptor | null,
+  accessMode: ReviewAccessMode,
+  errorMessage = 'Failed to open Yjs session'
+) {
+  const sessionKey = descriptor
+    ? [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
+    : null
+  const openSession = useCallback(
+    () => bootstrapYjsProvider(descriptor!, undefined, accessMode),
+    [accessMode, descriptor]
+  )
+  const activeState = useYjsSession(sessionKey, sessionKey ? openSession : null, errorMessage)
+  return {
+    result: activeState?.result ?? null,
+    doc: activeState?.result?.doc ?? null,
+    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
+    error: activeState?.error ?? null,
+  }
+}
+
 export function useSavedEntityYjsSession(
   entityKind: SavedEntityKind,
   entityId: string | null | undefined,
@@ -343,44 +349,27 @@ export function useSavedEntityYjsSession(
         : null,
     [entityId, entityKind, ownerUserId, workspaceId]
   )
-  const sessionKey = descriptor
-    ? [
-        descriptor.entityKind,
-        accessMode,
-        descriptor.workspaceId ?? '',
-        descriptor.ownerUserId ?? '',
-        descriptor.yjsSessionId,
-      ].join(':')
-    : null
-  const openSession = useCallback(
-    () => bootstrapYjsProvider(descriptor!, undefined, accessMode),
-    [accessMode, descriptor]
-  )
-  const activeState = useYjsSession(
-    sessionKey,
-    sessionKey ? openSession : null,
-    'Failed to open entity session'
-  )
+  const targetSession = useYjsTargetSession(descriptor, accessMode, 'Failed to open entity session')
   const save = useCallback(
     async (identityName?: string) => {
       if (accessModeRef.current === 'read') {
         throw new Error('Cannot save a read-only Yjs session')
       }
-      if (!activeState?.result || !entityId || !workspaceId) {
+      if (!targetSession.result || !entityId || !workspaceId) {
         throw new Error('Yjs session is not ready')
       }
 
-      await saveYjsSessionSnapshot(activeState.result, identityName)
+      await saveYjsSessionSnapshot(targetSession.result, identityName)
       invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
     },
-    [accessModeRef, activeState?.result, entityId, entityKind, workspaceId]
+    [accessModeRef, entityId, entityKind, targetSession.result, workspaceId]
   )
 
   return {
-    doc: activeState?.result?.doc ?? null,
+    doc: targetSession.doc,
     save,
-    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error ?? null,
+    isLoading: targetSession.isLoading,
+    error: targetSession.error,
   }
 }
 

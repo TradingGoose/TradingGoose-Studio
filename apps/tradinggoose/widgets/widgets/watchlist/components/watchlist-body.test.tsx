@@ -127,18 +127,19 @@ describe('WatchlistWidgetBody', () => {
 
   it('writes selected listings through the explicit pair callback when linked', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -157,19 +158,20 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: selectedListing }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -181,18 +183,21 @@ describe('WatchlistWidgetBody', () => {
     )
   })
 
-  it('uses a read Yjs session while persisting gray listing selection to widget params', async () => {
+  it('uses a read Yjs session while routing gray listing selection through linked params', async () => {
     const onWidgetParamsPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1', canWrite: false }}
           panelId='panel-1'
           pairColor='gray'
           widget={{ key: 'watchlist', pairColor: 'gray' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -207,7 +212,8 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         selectedListing: null,
@@ -218,18 +224,19 @@ describe('WatchlistWidgetBody', () => {
 
   it('uses a read Yjs session but writes linked selection through the pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1', canWrite: false }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -244,30 +251,31 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: selectedListing })
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
   it('does not auto-claim the first watchlist when the widget is linked without a pair watchlist', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca' }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
 
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
-    expect(onWidgetColorPairPatch).not.toHaveBeenCalled()
+    expect(onWidgetLinkedParamsPatch).not.toHaveBeenCalled()
     expect(mockWatchlistTable).toHaveBeenCalledWith(
       expect.objectContaining({
         watchlist,
@@ -279,18 +287,19 @@ describe('WatchlistWidgetBody', () => {
 
   it('clears linked selections through the explicit pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: selectedListing }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -309,19 +318,20 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: null })
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: null })
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='red'
           widget={{ key: 'watchlist', pairColor: 'red' } as any}
           params={{ provider: 'alpaca', listing: null }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -337,6 +347,7 @@ describe('WatchlistWidgetBody', () => {
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='gray'
@@ -370,6 +381,7 @@ describe('WatchlistWidgetBody', () => {
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='gray'
@@ -385,6 +397,7 @@ describe('WatchlistWidgetBody', () => {
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='gray'
@@ -457,6 +470,7 @@ describe('WatchlistWidgetBody', () => {
     await act(async () => {
       root.render(
         <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           panelId='panel-1'
           pairColor='gray'

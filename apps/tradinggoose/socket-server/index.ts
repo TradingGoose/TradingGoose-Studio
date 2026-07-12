@@ -38,7 +38,7 @@ const yjsUpgradeListener = (request: IncomingMessage, socket: Duplex, head: Buff
     return
   }
 
-  handleYjsUpgrade(yjsWss, request, socket, head)
+  handleYjsUpgrade(yjsWss, request, socket, head, () => !isShuttingDown)
 }
 
 httpServer.on('upgrade', yjsUpgradeListener)
@@ -154,6 +154,7 @@ const shutdown = async () => {
     await drainAllDocuments()
   } catch (error) {
     logger.error('Failed to drain realtime state cleanly', { error })
+    isShuttingDown = false
     return
   }
 

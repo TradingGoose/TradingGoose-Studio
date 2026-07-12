@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { adaptPreviewPayloadToCanvas } from './preview-payload-adapter'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const mockGetBlock = vi.fn()
 
@@ -112,9 +112,7 @@ describe('adaptPreviewPayloadToCanvas', () => {
     })
     expect(agentNode?.parentId).toBeUndefined()
     expect(agentNode?.extent).toBeUndefined()
-    expect((agentNode as any)?.data?.subBlockValues).toEqual(
-      workflowState.blocks.agent_inside_loop.subBlocks
-    )
+    expect((agentNode as any)?.data?.subBlockValues).toEqual(workflowState.blocks.agent_inside_loop.subBlocks)
   })
 
   it('skips unsupported block types and defaults missing edge type to workflowEdge', () => {

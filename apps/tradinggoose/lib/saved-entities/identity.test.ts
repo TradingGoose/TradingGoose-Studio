@@ -7,29 +7,43 @@ import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 
 const m = vi.hoisted(() => {
   const tables = {
-    workflow: { id: 'workflow.id', workspaceId: 'workflow.workspaceId', name: 'workflow.name' },
-    skill: { id: 'skill.id', workspaceId: 'skill.workspaceId', name: 'skill.name' },
+    workflow: {
+      id: 'workflow.id',
+      workspaceId: 'workflow.workspaceId',
+      name: 'workflow.name',
+      updatedAt: 'workflow.updatedAt',
+    },
+    skill: {
+      id: 'skill.id',
+      workspaceId: 'skill.workspaceId',
+      name: 'skill.name',
+      updatedAt: 'skill.updatedAt',
+    },
     customTools: {
       id: 'customTools.id',
       workspaceId: 'customTools.workspaceId',
       title: 'customTools.title',
+      updatedAt: 'customTools.updatedAt',
     },
     pineIndicators: {
       id: 'pineIndicators.id',
       workspaceId: 'pineIndicators.workspaceId',
       name: 'pineIndicators.name',
+      updatedAt: 'pineIndicators.updatedAt',
     },
     knowledgeBase: {
       id: 'knowledgeBase.id',
       workspaceId: 'knowledgeBase.workspaceId',
       deletedAt: 'knowledgeBase.deletedAt',
       name: 'knowledgeBase.name',
+      updatedAt: 'knowledgeBase.updatedAt',
     },
     mcpServers: {
       id: 'mcpServers.id',
       workspaceId: 'mcpServers.workspaceId',
       deletedAt: 'mcpServers.deletedAt',
       name: 'mcpServers.name',
+      updatedAt: 'mcpServers.updatedAt',
     },
     watchlistTable: {
       id: 'watchlistTable.id',
@@ -37,16 +51,19 @@ const m = vi.hoisted(() => {
       userId: 'watchlistTable.userId',
       parentId: 'watchlistTable.parentId',
       name: 'watchlistTable.name',
+      updatedAt: 'watchlistTable.updatedAt',
     },
     layoutMaps: {
       id: 'layoutMaps.id',
       workspaceId: 'layoutMaps.workspaceId',
       userId: 'layoutMaps.userId',
       name: 'layoutMaps.name',
+      updatedAt: 'layoutMaps.updatedAt',
     },
   }
+  const persistedAt = new Date('2026-07-11T12:34:56.789Z')
   const state: {
-    rows: Array<{ id: string }>
+    rows: Array<{ id: string; updatedAt: Date }>
     error: unknown
     last: null | {
       table: unknown
@@ -54,7 +71,7 @@ const m = vi.hoisted(() => {
       condition: unknown
     }
   } = {
-    rows: [{ id: 'entity-1' }],
+    rows: [{ id: 'entity-1', updatedAt: persistedAt }],
     error: null,
     last: null,
   }
@@ -71,6 +88,7 @@ const m = vi.hoisted(() => {
   }))
   return {
     tables,
+    persistedAt,
     state,
     update,
     refreshEntityListSession: vi.fn((..._args: unknown[]) => Promise.resolve()),
@@ -91,7 +109,7 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
 describe('renameSavedEntityIdentity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    m.state.rows = [{ id: 'entity-1' }]
+    m.state.rows = [{ id: 'entity-1', updatedAt: m.persistedAt }]
     m.state.error = null
     m.state.last = null
   })
@@ -111,14 +129,14 @@ describe('renameSavedEntityIdentity', () => {
         workspaceId: string
         deletedAt?: string
       }
-      await expect(
-        renameSavedEntityIdentity({
-          entityKind,
-          entityId: 'entity-1',
-          workspaceId: 'workspace-1',
-          name: inputName,
-        })
-      ).resolves.toBe(expectedName)
+      const result = await renameSavedEntityIdentity({
+        entityKind,
+        entityId: 'entity-1',
+        workspaceId: 'workspace-1',
+        name: inputName,
+      })
+      expect(result).toEqual({ name: expectedName, updatedAt: m.persistedAt })
+      expect(result.updatedAt).not.toBe(m.state.last?.values.updatedAt)
 
       expect(m.state.last).toMatchObject({
         table,
@@ -200,7 +218,7 @@ describe('renameSavedEntityIdentity', () => {
       })
     ).rejects.toMatchObject({ status: 404 })
 
-    m.state.rows = [{ id: 'entity-1' }]
+    m.state.rows = [{ id: 'entity-1', updatedAt: m.persistedAt }]
     m.state.error = Object.assign(new Error('duplicate key'), { code: '23505' })
     await expect(
       renameSavedEntityIdentity({

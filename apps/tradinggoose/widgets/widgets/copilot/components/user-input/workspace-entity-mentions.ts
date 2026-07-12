@@ -1,6 +1,6 @@
 import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { getEntityListMembers } from '@/lib/yjs/entity-session'
-import { bootstrapYjsProvider } from '@/lib/yjs/provider'
+import { bootstrapYjsProvider, disposeYjsProvider } from '@/lib/yjs/provider'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 import type { WorkspaceEntityItem } from './types'
 
@@ -159,8 +159,6 @@ async function loadYjsEntityMentionItems(
       ? sortDashboardLayoutMentionItems(items)
       : sortByRecent(items)
   } finally {
-    result.provider.disconnect()
-    result.provider.destroy()
-    result.doc.destroy()
+    disposeYjsProvider(result)
   }
 }

@@ -163,7 +163,7 @@ describe('edit_layout server tool', () => {
       requiresReview: true,
       entityKind: 'dashboard_layout',
       reviewBaseStateHash: 'base-hash',
-      documentFormat: 'tg-dashboard-layout-document-v2',
+      documentFormat: 'tg-dashboard-layout-document-v3',
       preview: {
         documentDiff: {
           before: expect.stringContaining('"widgets"'),

@@ -111,10 +111,13 @@ describe('Workflow By ID API Route', () => {
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
-    mockRenameSavedEntityIdentity.mockResolvedValue('Updated Workflow')
+    mockRenameSavedEntityIdentity.mockResolvedValue({
+      name: 'Updated Workflow',
+      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+    })
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      deleteYjsSessionInSocketServer: mockDeleteYjsSession,
+      discardYjsSessionInSocketServer: mockDeleteYjsSession,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -627,6 +630,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
+      expect(data.workflow.updatedAt).toBe('2026-03-17T11:00:00.000Z')
       expectWorkflowRenameApplied()
       expect(mockDbUpdateSet).not.toHaveBeenCalled()
     })

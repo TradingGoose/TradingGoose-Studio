@@ -21,7 +21,6 @@ vi.mock('@/components/ui/loading-agent', () => ({
 }))
 
 let mockWorkflowWidgetState: any = {
-  resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
   loadError: null,
@@ -54,7 +53,6 @@ vi.mock('@/components/ui/tooltip', () => ({
 describe('workflowVariablesWidget', () => {
   beforeEach(() => {
     mockWorkflowWidgetState = {
-      resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
       loadError: null,
@@ -65,18 +63,6 @@ describe('workflowVariablesWidget', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('opens workflow variables in read mode for workspace readers', () => {
-    renderToStaticMarkup(
-      createElement(workflowVariablesWidget.component, {
-        context: { workspaceId: 'ws-1', canWrite: false },
-        widget: { key: 'workflow_variables' },
-        panelId: 'panel-1',
-      } as any)
-    )
-
-    expect(mockVariablesApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 
   it('maps workflow load errors through localized widget copy', () => {
@@ -94,5 +80,20 @@ describe('workflowVariablesWidget', () => {
       getPublicCopy('es').workspace.widgets.workflowVariables.unableToLoadWorkflows
     )
     expect(markup).not.toContain('unableToLoadWorkflows')
+  })
+
+  it('forwards the runtime channel to the variables app', () => {
+    renderToStaticMarkup(
+      createElement(workflowVariablesWidget.component, {
+        channelId: 'pair-green',
+        context: { workspaceId: 'ws-1' },
+        params: { workflowId: 'wf-1' },
+        panelId: 'panel-1',
+      } as any)
+    )
+
+    expect(mockVariablesApp).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'pair-green', workflowId: 'wf-1' })
+    )
   })
 })

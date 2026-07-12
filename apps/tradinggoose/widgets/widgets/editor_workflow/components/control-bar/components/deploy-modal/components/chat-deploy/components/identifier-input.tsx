@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { Input, Label } from '@/components/ui'
 import { getEmailDomain } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
-import { useIdentifierValidation } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-identifier-validation'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
+import { useIdentifierValidation } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-identifier-validation'
 
 interface IdentifierInputProps {
   value: string

@@ -25,13 +25,7 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
 
     return {
       center: (
-        <IndicatorEditorSelector
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          indicatorId={indicatorId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
-        />
+        <IndicatorEditorSelector workspaceId={context?.workspaceId} indicatorId={indicatorId} />
       ),
       right: (
         <div className='flex items-center gap-1'>
@@ -40,21 +34,18 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
             indicatorId={indicatorId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
           />
           <IndicatorEditorExportButton
             workspaceId={context?.workspaceId}
             indicatorId={indicatorId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
           />
           <IndicatorEditorSaveButton
             workspaceId={context?.workspaceId}
             indicatorId={indicatorId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
             canEditEntity={context?.canWrite !== false}
           />
         </div>

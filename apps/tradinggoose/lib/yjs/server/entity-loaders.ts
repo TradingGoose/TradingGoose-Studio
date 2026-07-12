@@ -13,7 +13,7 @@ import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   listDashboardLayouts,
-  readPersistedDashboardLayoutContent,
+  readPersistedDashboardLayoutDocument,
 } from '@/lib/dashboard-layouts/operations'
 import { listRootWatchlistRowsInTx } from '@/lib/watchlists/document'
 import { loadWatchlistDocument } from '@/lib/watchlists/operations'
@@ -263,7 +263,7 @@ export async function readSavedEntityFieldsFromDb(
     if (!ownerUserId) {
       throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
     }
-    return readPersistedDashboardLayoutContent({ workspaceId, ownerUserId }, entityId)
+    return readPersistedDashboardLayoutDocument({ workspaceId, ownerUserId }, entityId)
   }
 
   const { table } = entityConfig(entityKind)

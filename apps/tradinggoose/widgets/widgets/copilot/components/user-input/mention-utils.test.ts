@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { stripCopilotWorkspaceEntityMentions } from '@/lib/copilot/chat-contexts'
 import enMessages from '../../../../../i18n/messages/en.json'
 import esMessages from '../../../../../i18n/messages/es.json'
 import zhMessages from '../../../../../i18n/messages/zh.json'
@@ -156,5 +157,26 @@ describe('mention-utils', () => {
     ])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'custom_tool:tool-1'])
+  })
+
+  it('prefers the longest exact mention label when labels share a prefix', () => {
+    const ranges = buildMentionRanges('@Alpha Workflow, then @Alpha.', [
+      { kind: 'workflow', workflowId: 'workflow-1', label: 'Alpha' },
+      { kind: 'skill', skillId: 'skill-1', label: 'Alpha Workflow' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'skill:skill-1',
+      'workflow:workflow-1',
+    ])
+  })
+
+  it('strips only workspace-entity ranges from model-bound text', () => {
+    const contexts = [
+      { kind: 'docs' as const, label: 'Shared' },
+      { kind: 'workflow' as const, workflowId: 'workflow-1', label: 'Shared' },
+    ]
+
+    expect(stripCopilotWorkspaceEntityMentions('@Shared @Shared', contexts)).toBe('@Shared ')
   })
 })

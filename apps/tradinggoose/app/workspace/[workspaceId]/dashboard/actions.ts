@@ -8,6 +8,8 @@ import {
   reorderDashboardLayout,
 } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
+import { applyDashboardStructureMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import type { DashboardLayoutStructureMutation } from '@/widgets/layout-document'
 
 async function requireDashboardLayoutScope(workspaceId: string) {
   const session = await getSession()
@@ -47,4 +49,17 @@ export async function reorderDashboardLayoutAction(
 ) {
   const scope = await requireDashboardLayoutScope(workspaceId)
   await reorderDashboardLayout(scope, layoutId, sortOrder)
+}
+
+export async function mutateDashboardLayoutStructureAction(
+  workspaceId: string,
+  layoutId: string,
+  mutation: DashboardLayoutStructureMutation
+) {
+  const scope = await requireDashboardLayoutScope(workspaceId)
+  return applyDashboardStructureMutationInSocketServer({
+    entityId: layoutId,
+    ...scope,
+    mutation,
+  })
 }

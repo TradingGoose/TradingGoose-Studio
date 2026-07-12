@@ -1086,7 +1086,6 @@ describe('Database Helpers', () => {
         workspaceId: null,
         entityKind: 'workflow',
         entityId: mockWorkflowId,
-        ownerUserId: null,
         draftSessionId: null,
         reviewSessionId: null,
         yjsSessionId: mockWorkflowId,

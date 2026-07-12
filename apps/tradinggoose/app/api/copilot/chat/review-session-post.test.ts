@@ -13,6 +13,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
   const mockLoadReviewSessionForUser = vi.fn()
   const mockProxyCopilotRequest = vi.fn()
   const mockProcessContextsServer = vi.fn()
+  const mockRequestCopilotTitle = vi.fn().mockResolvedValue(null)
   const mockMirrorLocalCopilotCompletionUsageReports = vi.fn()
   const mockBuildAppendReviewTurn = vi.fn(() => ({
     turn: {
@@ -211,7 +212,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     }))
 
     vi.doMock('@/lib/copilot/agent/utils', () => ({
-      requestCopilotTitle: vi.fn().mockResolvedValue(null),
+      requestCopilotTitle: mockRequestCopilotTitle,
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({
@@ -233,6 +234,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
+      ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
+      ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
+      ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_MCP_SERVER: 'mcp_server',
+      ENTITY_KIND_SKILL: 'skill',
+      ENTITY_KIND_WATCHLIST: 'watchlist',
+      ENTITY_KIND_WORKFLOW: 'workflow',
       REVIEW_ENTITY_KINDS: [
         'workflow',
         'skill',
@@ -461,8 +469,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     mockProcessContextsServer.mockResolvedValue([
       {
         type: 'current_indicator',
-        tag: '@Current Indicator',
-        content: '{"id":"indicator-1"}',
+        content: '{"entityId":"indicator-1"}',
       },
     ])
     mockProxyCopilotRequest.mockResolvedValue({
@@ -518,14 +525,70 @@ describe('Copilot Chat POST Generic Sessions', () => {
           context: [
             {
               type: 'current_indicator',
-              tag: '@Current Indicator',
-              content: '{"id":"indicator-1"}',
+              content: '{"entityId":"indicator-1"}',
             },
           ],
         }),
         signal: expect.any(AbortSignal),
       })
     )
+  })
+
+  it('keeps entity labels in the saved message but omits all seven kinds from model text', async () => {
+    const contexts = [
+      { kind: 'workflow', workflowId: 'workflow-1', label: 'Workflow' },
+      { kind: 'skill', skillId: 'skill-1', label: 'Skill' },
+      { kind: 'indicator', indicatorId: 'indicator-1', label: 'Indicator' },
+      { kind: 'custom_tool', customToolId: 'tool-1', label: 'Tool' },
+      { kind: 'mcp_server', mcpServerId: 'mcp-1', label: 'MCP' },
+      { kind: 'watchlist', watchlistId: 'watchlist-1', label: 'Watchlist' },
+      {
+        kind: 'dashboard_layout',
+        dashboardLayoutId: 'layout-1',
+        ownerUserId: 'collaborator-user',
+        workspaceId: 'workspace-1',
+        label: 'Layout',
+      },
+    ]
+    const message = '@Workflow @Skill @Indicator @Tool @MCP @Watchlist @Layout'
+    const modelMessage = 'Use the attached workspace entity context.'
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'copilot',
+      entityId: null,
+      workspaceId: 'workspace-1',
+      title: null,
+      conversationId: null,
+    })
+    mockProcessContextsServer.mockResolvedValue([
+      { type: 'workflow', content: '{"entityId":"workflow-1"}' },
+    ])
+
+    const request = createMockRequest('POST', {
+      message,
+      reviewSessionId: 'review-session-1',
+      workspaceId: 'workspace-1',
+      stream: false,
+      contexts,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockProcessContextsServer.mock.calls[0]?.[2]).toBe(modelMessage)
+    expect(mockProxyCopilotRequest.mock.calls[0]?.[0].body.message).toBe(modelMessage)
+    expect(mockRequestCopilotTitle).toHaveBeenCalledWith(
+      expect.objectContaining({ message: modelMessage })
+    )
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userMessage: expect.objectContaining({ content: message, contexts }),
+      })
+    )
+    expect(body.metadata.message).toBe(message)
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {

@@ -162,6 +162,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('renders provider/account controls in left slot and BUY/SELL tabs in center slot', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       context: { workspaceId: 'workspace-1' } as any,
       widget: {
@@ -206,6 +207,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('emits scoped provider resets and side changes', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -249,6 +251,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('emits scoped market provider settings independently from trading account settings', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -274,6 +277,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('does not infer market provider settings from the trading provider', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -301,6 +305,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('shows the account selector after a trading provider is selected', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -319,6 +324,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('hides account selection before a trading provider is selected', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -340,6 +346,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('updates the account id from account selection', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',

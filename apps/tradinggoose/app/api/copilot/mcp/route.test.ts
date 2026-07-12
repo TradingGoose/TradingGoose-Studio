@@ -300,6 +300,50 @@ describe('Copilot MCP route', () => {
     expect(body.result.content[0].text).toBe(JSON.stringify({ results: [] }, null, 2))
   })
 
+  it.each([
+    ['create_layout', { workspaceId: 'workspace-1', name: 'Trading Desk' }, true],
+    ['read_layout', { entityId: 'layout-1' }, false],
+    ['edit_layout', { entityId: 'layout-1', entityDocument: '{"layout":{}}' }, true],
+    ['edit_widget', { entityId: 'layout-1', panelId: 'panel-1', params: null }, true],
+  ] as const)(
+    'returns the complete %s layout document unchanged through MCP',
+    async (toolName, args, isMutation) => {
+      const { POST } = await import('./route')
+      const result = {
+        ...(isMutation ? { success: true } : {}),
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        entityName: 'Trading Desk',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        documentFormat: 'tg-dashboard-layout-document-v3',
+        entityDocument: JSON.stringify({
+          layout: { id: 'panel-1', type: 'panel' },
+          widgets: { 'widget-1': { pairColor: 'gray', params: null } },
+          colorPairs: { pairs: [] },
+        }),
+      }
+      mockGetMcpServerToolIds.mockReturnValueOnce([toolName])
+      mockRouteExecution.mockResolvedValueOnce(result)
+
+      const response = await POST(
+        createMcpRequest({
+          jsonrpc: '2.0',
+          id: 4,
+          method: 'tools/call',
+          params: {
+            name: toolName,
+            arguments: args,
+          },
+        })
+      )
+      const body = await response.json()
+
+      expect(body.result.structuredContent).toEqual(result)
+      expect(body.result.content[0].text).toBe(JSON.stringify(result, null, 2))
+    }
+  )
+
   it('dispatches external MCP mutation tools with full personal-agent access', async () => {
     const { POST } = await import('./route')
     mockGetMcpServerToolIds.mockReturnValueOnce(['edit_workflow'])

@@ -309,7 +309,7 @@ const EditDashboardLayoutArgs = EntityTargetArgs.extend({
     .string()
     .min(1)
     .describe(
-      'Raw tg-dashboard-layout-structure-v2 JSON document. Existing panels use id/type to retain their widget or add widget.key to replace it; new panels use widget.key.'
+      'Raw tg-dashboard-layout-structure-v3 JSON document. Existing panels use id/type to retain their widget or add widget.key to replace it; new panels use widget.key.'
     ),
   documentFormat: z.literal(DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT).optional(),
   removedPanelIds: z
@@ -820,6 +820,7 @@ const SavedEntityRenameResult = DocumentDiffReviewMetadata.extend({
   entityKind: z.enum(REVIEW_ENTITY_KINDS),
   entityId: z.string(),
   entityName: z.string(),
+  updatedAt: z.string().optional(),
 })
 
 const WorkflowMutationResult = WorkflowTargetEnvelope.merge(DocumentDiffReviewMetadata).extend({
@@ -865,28 +866,25 @@ const WatchlistDocumentMutationResult = EditEntityDocumentResultBase.merge(
   })
 )
 
-const DashboardLayoutDocumentEnvelope = z.object({
+const DashboardLayoutProjectionEnvelope = z.object({
   entityKind: z.literal('dashboard_layout'),
-  entityId: z.string(),
   entityName: z.string(),
   workspaceId: z.string(),
   ownerUserId: z.string(),
   documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT),
   entityDocument: z.string(),
-  effectiveLayout: z.any().optional(),
 })
 
-const DashboardLayoutCreateMutationResult = DocumentDiffReviewMetadata.extend({
-  success: z.boolean(),
-  entityKind: z.literal('dashboard_layout'),
-  entityId: z.string().optional(),
-  entityName: z.string(),
-  workspaceId: z.string(),
-  ownerUserId: z.string(),
-  documentFormat: z.literal(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).optional(),
-  entityDocument: z.string().optional(),
-  effectiveLayout: z.any().optional(),
+const DashboardLayoutDocumentEnvelope = DashboardLayoutProjectionEnvelope.extend({
+  entityId: z.string(),
 })
+
+const DashboardLayoutCreateMutationResult = DocumentDiffReviewMetadata.merge(
+  DashboardLayoutProjectionEnvelope.extend({
+    success: z.boolean(),
+    entityId: z.string().optional(),
+  })
+)
 
 const DashboardLayoutDocumentMutationResult = EditEntityDocumentResultBase.merge(
   DashboardLayoutDocumentEnvelope

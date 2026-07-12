@@ -7,8 +7,8 @@ import {
 } from '@/lib/watchlists/validation'
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  DashboardLayoutDocumentContentSchema,
-  normalizeDashboardLayoutDocumentContent,
+  DashboardLayoutProjectionSchema,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 
 export { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
@@ -102,7 +102,7 @@ const EntityDocumentSchemas = {
   mcp_server: McpServerDocumentSchema,
   knowledge_base: KnowledgeBaseDocumentSchema,
   watchlist: WatchlistContentDocumentSchema,
-  dashboard_layout: DashboardLayoutDocumentContentSchema,
+  dashboard_layout: DashboardLayoutProjectionSchema,
 } as const
 
 type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<(typeof EntityDocumentSchemas)[K]>
@@ -203,7 +203,7 @@ export function normalizeEntityFields(
     case 'watchlist':
       return normalizeWatchlistDocumentContent(source)
     case 'dashboard_layout':
-      return normalizeDashboardLayoutDocumentContent(source)
+      return normalizeDashboardLayoutProjection(source)
   }
 }
 
@@ -221,7 +221,7 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
 ): EntityDocumentFields<K> {
   const raw = JSON.parse(entityDocument)
   if (kind === 'dashboard_layout') {
-    return normalizeDashboardLayoutDocumentContent(raw) as EntityDocumentFields<K>
+    return normalizeDashboardLayoutProjection(raw) as EntityDocumentFields<K>
   }
   const parsedJson = EntityDocumentSchemas[kind].parse(raw)
   const normalized = normalizeEntityFields(kind, parsedJson)

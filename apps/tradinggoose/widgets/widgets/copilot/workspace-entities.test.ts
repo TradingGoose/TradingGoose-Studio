@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCopilotWorkspaceEntityContext,
-  COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS,
+  COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
   COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
-  getCopilotWorkspaceEntityIdFromPairContext,
+  getCopilotWorkspaceEntityIdFromEffectiveParams,
   getCopilotWorkspaceEntityKindFromContext,
   matchesCopilotWorkspaceEntityContext,
   readCopilotWorkspaceEntityContext,
 } from './workspace-entities'
 
 describe('workspace-entities', () => {
-  it('keeps dashboard layouts mentionable but out of pair-context entity configs', () => {
+  it('keeps dashboard layouts mentionable but out of effective-param entity configs', () => {
     expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
       'dashboard_layout'
     )
-    expect(COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
+    expect(COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
       'dashboard_layout'
     )
   })
@@ -152,9 +152,9 @@ describe('workspace-entities', () => {
     })
   })
 
-  it('reads entity ids from pair context consistently', () => {
+  it('reads entity ids from effective params consistently', () => {
     expect(
-      getCopilotWorkspaceEntityIdFromPairContext(
+      getCopilotWorkspaceEntityIdFromEffectiveParams(
         {
           workflowId: 'workflow-1',
           customToolId: 'tool-1',
@@ -164,7 +164,7 @@ describe('workspace-entities', () => {
     ).toBe('workflow-1')
 
     expect(
-      getCopilotWorkspaceEntityIdFromPairContext(
+      getCopilotWorkspaceEntityIdFromEffectiveParams(
         {
           workflowId: 'workflow-1',
           customToolId: 'tool-1',
@@ -175,7 +175,7 @@ describe('workspace-entities', () => {
     ).toBe('tool-1')
 
     expect(
-      getCopilotWorkspaceEntityIdFromPairContext(
+      getCopilotWorkspaceEntityIdFromEffectiveParams(
         {
           workflowId: 'workflow-1',
           customToolId: 'tool-1',

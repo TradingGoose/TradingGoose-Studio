@@ -6,7 +6,7 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session'
-import { bootstrapYjsProvider } from '@/lib/yjs/provider'
+import { bootstrapYjsProvider, disposeYjsProvider } from '@/lib/yjs/provider'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
@@ -25,10 +25,7 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 export function IndicatorList({
   context,
   params,
-  pairColor = 'gray',
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
-  panelId,
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
@@ -45,13 +42,11 @@ export function IndicatorList({
     entityIds: members.map((member) => member.entityId),
     useDefaultEntity: false,
   })
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
-
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
-      patchLinkedParams?.({ indicatorId })
+      onWidgetLinkedParamsPatch?.({ indicatorId })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
 
   const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)
@@ -108,9 +103,7 @@ export function IndicatorList({
         try {
           pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
         } finally {
-          sourceSession.provider.disconnect()
-          sourceSession.provider.destroy()
-          sourceSession.doc.destroy()
+          disposeYjsProvider(sourceSession)
         }
 
         const createdIndicators = await createMutation.mutateAsync({

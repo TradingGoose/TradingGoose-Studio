@@ -183,7 +183,7 @@ export function buildCopilotServerToolErrorResponse(
       body: {
         code: 'invalid_dashboard_layout_edit',
         error: error.message,
-        hint: 'Send one complete tg-dashboard-layout-structure-v2 layout document. Retain existing panels by id, add or replace their widget with widget.key, add new panels with widget.key, and list intentionally omitted existing panels in removedPanelIds.',
+        hint: 'Send one complete tg-dashboard-layout-structure-v3 layout document. Retain existing panels by id, add or replace their widget with widget.key, add new panels with widget.key, and list intentionally omitted existing panels in removedPanelIds.',
         retryable: true,
         issues: error.issues,
       },

@@ -2,23 +2,16 @@
 
 import { useCallback, useMemo } from 'react'
 import {
-  applyDashboardTopologyMutation,
   getDashboardLayoutMap,
-  readDashboardLayoutContent,
   readDashboardLayoutTopology,
-  setDashboardLayoutTopology,
 } from '@/lib/yjs/dashboard-layout-session'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { mutateDashboardLayoutStructureAction } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
-  closeDashboardTopologyPanel,
   type DashboardLayoutTopologyNode,
   normalizeDashboardLayoutTopology,
-  replaceDashboardPanelWidget,
-  splitDashboardTopologyPanel,
-  updateDashboardTopologyGroupSizes,
 } from '@/widgets/layout-document'
 
 export type DashboardLayoutListEntry = {
@@ -76,7 +69,7 @@ export function useDashboardLayoutDocument(input: {
     input.layoutId,
     input.workspaceId,
     input.ownerUserId,
-    'write'
+    'read'
   )
   const fallback = useMemo<DashboardLayoutTopologyNode | null>(
     () => (input.initialTopology ? normalizeDashboardLayoutTopology(input.initialTopology) : null),
@@ -97,53 +90,50 @@ export function useDashboardLayoutDocument(input: {
   const topology = useYjsSubscription(subscribe, read, fallback, snapshotsEqual)
 
   const updateGroupSizes = useCallback(
-    (groupId: string, sizes: number[]) => {
-      if (!doc) return
-      const current = readDashboardLayoutContent(doc)
-      const layout = updateDashboardTopologyGroupSizes(current.layout, groupId, sizes)
-      if (layout !== current.layout) setDashboardLayoutTopology(doc, layout, YJS_ORIGINS.USER)
+    async (groupId: string, sizes: number[]) => {
+      if (!input.workspaceId || !input.layoutId) return
+      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+        type: 'resize',
+        groupId,
+        sizes,
+      })
     },
-    [doc]
+    [input.layoutId, input.workspaceId]
   )
 
   const splitPanel = useCallback(
-    (panelId: string, direction: 'horizontal' | 'vertical') => {
-      if (!doc) return
-      const current = readDashboardLayoutContent(doc)
-      const plan = splitDashboardTopologyPanel(current.layout, current.widgets, panelId, direction)
-      if (plan.layout !== current.layout) {
-        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
-      }
+    async (panelId: string, direction: 'horizontal' | 'vertical') => {
+      if (!input.workspaceId || !input.layoutId) return
+      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+        type: 'split',
+        panelId,
+        direction,
+      })
     },
-    [doc]
+    [input.layoutId, input.workspaceId]
   )
 
   const closePanel = useCallback(
-    (panelId: string) => {
-      if (!doc) return
-      const current = readDashboardLayoutContent(doc)
-      const plan = closeDashboardTopologyPanel(current.layout, panelId)
-      if (plan.layout !== current.layout) {
-        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
-      }
+    async (panelId: string) => {
+      if (!input.workspaceId || !input.layoutId) return
+      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+        type: 'close',
+        panelId,
+      })
     },
-    [doc]
+    [input.layoutId, input.workspaceId]
   )
 
   const replacePanelWidget = useCallback(
-    (panelId: string, widgetKey: string) => {
-      if (!doc) return
-      const current = readDashboardLayoutContent(doc)
-      const plan = replaceDashboardPanelWidget(current, panelId, widgetKey)
-      if (
-        plan.layout !== current.layout ||
-        plan.removedIdentityIds.length > 0 ||
-        Object.keys(plan.createdWidgets).length > 0
-      ) {
-        applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
-      }
+    async (panelId: string, widgetKey: string) => {
+      if (!input.workspaceId || !input.layoutId) return
+      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+        type: 'replace',
+        panelId,
+        widgetKey,
+      })
     },
-    [doc]
+    [input.layoutId, input.workspaceId]
   )
 
   return {

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   getWidgetContract,
   listWidgetCatalogItems,
-  readEntitySelectionState,
   readWidgetMetadataProfiles,
+  resolveEntityId,
   resolveEntityIdFromList,
   sanitizeWidgetInstance,
   WIDGET_KEYS,
@@ -120,24 +120,14 @@ describe('dashboard widget contracts', () => {
   })
 
   it('resolves entity selections through the widget contract helpers', () => {
-    expect(
-      readEntitySelectionState({
-        pairContext: { skillId: 'skill-linked' },
-        params: { skillId: 'skill-param' },
-        entityIdKey: 'skillId',
-      })
-    ).toEqual({ selectedEntityId: 'skill-linked' })
+    expect(resolveEntityId('skillId', { params: { skillId: 'skill-param' } })).toBe('skill-param')
 
     const entityIds = ['a', 'b']
-    expect(
-      resolveEntityIdFromList({
-        requestedEntityId: 'deleted',
-        currentEntityId: 'a',
-        entityIds,
-      })
-    ).toBeNull()
+    expect(resolveEntityIdFromList({ requestedEntityId: 'b', entityIds })).toBe('b')
     expect(resolveEntityIdFromList({ requestedEntityId: 'deleted', entityIds })).toBeNull()
-    expect(resolveEntityIdFromList({ currentEntityId: 'b', entityIds })).toBe('b')
+    expect(
+      resolveEntityIdFromList({ requestedEntityId: 'deleted', entityIds, useDefaultEntity: false })
+    ).toBeNull()
     expect(resolveEntityIdFromList({ entityIds })).toBe('a')
     expect(resolveEntityIdFromList({ requestedEntityId: '', entityIds })).toBe('a')
     expect(resolveEntityIdFromList({ entityIds, useDefaultEntity: false })).toBeNull()

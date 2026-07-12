@@ -2,7 +2,6 @@
 
 import { Download, Save } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
-import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
@@ -10,30 +9,17 @@ import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
 
 interface SkillEditorSelectorProps {
   workspaceId?: string
-  panelId?: string
   skillId?: string | null
-  pairColor?: PairColor
-  widgetKey?: string
-  params?: Record<string, unknown> | null
 }
 
-export function SkillEditorSelector({
-  workspaceId,
-  panelId,
-  skillId,
-  pairColor = 'gray',
-  widgetKey,
-  params,
-}: SkillEditorSelectorProps) {
+export function SkillEditorSelector({ workspaceId, skillId }: SkillEditorSelectorProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
   const actions = useWidgetConfigRuntimeActions()
-  const patchLinkedParams =
-    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const resolvedSkillId = skillId ?? null
 
   const handleSkillChange = (nextSkillId: string | null) => {
-    patchLinkedParams({ skillId: nextSkillId })
+    actions.patchWidgetLinkedParams?.({ skillId: nextSkillId })
   }
 
   return (
@@ -52,8 +38,6 @@ interface SkillEditorActionButtonProps {
   skillId?: string | null
   panelId?: string
   widgetKey?: string
-  pairColor?: PairColor
-  params?: Record<string, unknown> | null
   canEditEntity?: boolean
 }
 
@@ -62,7 +46,6 @@ export function SkillEditorExportButton({
   skillId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
@@ -85,8 +68,6 @@ export function SkillEditorSaveButton({
   skillId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
-  params,
   canEditEntity = true,
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()

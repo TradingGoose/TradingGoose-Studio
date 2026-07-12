@@ -6,7 +6,7 @@ import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 export const useDataChartParamsPatch = () => {
   const { patchWidgetParams } = useWidgetConfigRuntimeActions()
   return useCallback(
-    (params: Record<string, unknown>) => patchWidgetParams(params),
+    (params: Record<string, unknown>) => patchWidgetParams?.(params),
     [patchWidgetParams]
   )
 }

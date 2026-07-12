@@ -9,7 +9,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import {
-  deleteYjsSessionInSocketServer,
+  discardYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
@@ -186,7 +186,7 @@ export const DELETE = withMcpAuth('write')(
         )
 
       await refreshEntityListSession('mcp_server', workspaceId)
-      await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])
+      await Promise.allSettled([discardYjsSessionInSocketServer(serverId)])
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({

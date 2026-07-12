@@ -22,8 +22,10 @@ vi.mock('@/widgets/widget-config-runtime', async () => {
   const actual = await vi.importActual<any>('@/widgets/widget-config-runtime')
   return {
     ...actual,
-    useWidgetPairContext: () => null,
-    useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
+    useWidgetConfigRuntimeActions: () => ({
+      patchWidgetParams: vi.fn(),
+      patchWidgetLinkedParams: vi.fn(),
+    }),
   }
 })
 

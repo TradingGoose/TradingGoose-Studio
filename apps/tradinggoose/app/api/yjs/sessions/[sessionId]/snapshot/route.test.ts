@@ -66,6 +66,23 @@ describe('dashboard layout Yjs snapshot route', () => {
     expect(mocks.verify).not.toHaveBeenCalled()
   })
 
+  it('rejects dashboard layout writes on the generic snapshot route', async () => {
+    const query =
+      'targetKind=entity&sessionId=layout-1&workspaceId=workspace-1' +
+      '&entityKind=dashboard_layout&entityId=layout-1&ownerUserId=user-1&accessMode=write'
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest(`http://localhost/api/yjs/sessions/layout-1/snapshot?${query}`, {
+        method: 'POST',
+        body: JSON.stringify({ updateBase64: 'dXBkYXRl' }),
+      }),
+      { params: Promise.resolve({ sessionId: 'layout-1' }) }
+    )
+
+    expect(response?.status).toBe(400)
+    expect(mocks.applyUpdate).not.toHaveBeenCalled()
+  })
+
   it('forwards a saved-entity identity sidecar with the Yjs update', async () => {
     const query =
       'targetKind=entity&sessionId=skill-1&workspaceId=workspace-1' +

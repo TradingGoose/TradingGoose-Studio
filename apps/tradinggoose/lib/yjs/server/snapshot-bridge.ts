@@ -15,8 +15,9 @@ import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
-  type DashboardLayoutDocumentContent,
-  normalizeDashboardLayoutDocumentContent,
+  type DashboardLayoutProjectionContent,
+  type DashboardLayoutStructureMutation,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 
 const logger = createLogger('YjsSnapshotBridge')
@@ -257,7 +258,7 @@ function rethrowStructuredBridgeError(error: unknown): never {
 async function applyDashboardEditInSocketServer(
   entityId: string,
   body: Record<string, unknown>
-): Promise<DashboardLayoutDocumentContent> {
+): Promise<DashboardLayoutProjectionContent> {
   try {
     const response = await postJsonToSocketServerWithResponse<{
       success?: unknown
@@ -266,7 +267,7 @@ async function applyDashboardEditInSocketServer(
     if (response.success !== true || !response.content) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed dashboard content')
     }
-    return normalizeDashboardLayoutDocumentContent(response.content)
+    return normalizeDashboardLayoutProjection(response.content)
   } catch (error) {
     rethrowStructuredBridgeError(error)
   }
@@ -279,7 +280,7 @@ export function applyDashboardLayoutEditInSocketServer(input: {
   entityDocument: string
   removedPanelIds: string[]
   expectedReviewBaseStateHash: string
-}): Promise<DashboardLayoutDocumentContent> {
+}): Promise<DashboardLayoutProjectionContent> {
   return applyDashboardEditInSocketServer(input.entityId, {
     mutation: 'layout',
     workspaceId: input.workspaceId,
@@ -301,7 +302,7 @@ export function applyDashboardWidgetEditInSocketServer(input: {
     colorPair?: Record<string, unknown> | null
   }
   expectedReviewBaseStateHash: string
-}): Promise<DashboardLayoutDocumentContent> {
+}): Promise<DashboardLayoutProjectionContent> {
   return applyDashboardEditInSocketServer(input.entityId, {
     mutation: 'widget',
     workspaceId: input.workspaceId,
@@ -309,6 +310,20 @@ export function applyDashboardWidgetEditInSocketServer(input: {
     panelId: input.panelId,
     patch: input.patch,
     expectedReviewBaseStateHash: input.expectedReviewBaseStateHash,
+  })
+}
+
+export function applyDashboardStructureMutationInSocketServer(input: {
+  entityId: string
+  workspaceId: string
+  ownerUserId: string
+  mutation: DashboardLayoutStructureMutation
+}): Promise<DashboardLayoutProjectionContent> {
+  return applyDashboardEditInSocketServer(input.entityId, {
+    mutation: 'structure',
+    workspaceId: input.workspaceId,
+    ownerUserId: input.ownerUserId,
+    structure: input.mutation,
   })
 }
 
@@ -328,9 +343,8 @@ export async function applyYjsUpdateInSocketServer(
  * Converge the live entity-list projection after a committed membership
  * mutation. The DB rows are canonical and the list doc is a disposable
  * projection, so this never rejects: a mutation's success must not depend on
- * projection fan-out. On refresh failure the projection is discarded instead,
- * which closes subscriber connections so every viewer rebootstraps a fresh
- * doc from canonical DB state.
+ * projection fan-out. The socket server owns any failed-refresh cleanup because
+ * it alone captured the exact live document instance.
  */
 export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
@@ -348,20 +362,50 @@ export async function refreshEntityListSession(
     )
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
-    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch((discardError) => {
-      logger.error('Failed to discard stale entity-list projection', {
-        entityKind,
-        workspaceId,
-        error: discardError,
-      })
-    })
   }
 }
 
-export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
+export async function discardYjsSessionInSocketServer(sessionId: string): Promise<void> {
   await fetchFromSocketServer(
     new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getSocketServerUrl()),
     { method: 'DELETE' },
     10000
   )
+}
+
+export async function withYjsSessionDeletionLease<T>(
+  sessionIds: readonly string[],
+  mutate: () => Promise<T>
+): Promise<T> {
+  if (sessionIds.length === 0) return mutate()
+  const { leaseId } = await postJsonToSocketServerWithResponse<{ leaseId?: unknown }>(
+    '/internal/yjs/session-deletions',
+    { sessionIds }
+  )
+  if (typeof leaseId !== 'string' || !leaseId) {
+    throw new SocketServerBridgeError(502, 'Socket server returned malformed deletion lease')
+  }
+
+  let result: T
+  try {
+    result = await mutate()
+  } catch (error) {
+    await fetchFromSocketServer(
+      new URL(
+        `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
+        getSocketServerUrl()
+      ),
+      { method: 'DELETE' },
+      10000
+    ).catch((abortError) => {
+      logger.error('Failed to abort Yjs deletion lease', { leaseId, abortError })
+    })
+    throw error
+  }
+
+  await postJsonToSocketServer(
+    `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}/commit`,
+    {}
+  )
+  return result
 }

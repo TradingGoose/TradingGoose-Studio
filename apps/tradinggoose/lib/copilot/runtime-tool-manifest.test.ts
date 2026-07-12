@@ -321,7 +321,7 @@ describe('copilot runtime tool manifest', () => {
         | Record<string, any>
         | undefined) ?? {}
     expect(editLayoutProperties).toHaveProperty('removedPanelIds')
-    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v2')
+    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v3')
     const editLayoutSemanticValidator = manifest.tools
       .find((tool) => tool.name === 'edit_layout')
       ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')
@@ -332,7 +332,7 @@ describe('copilot runtime tool manifest', () => {
         }
       | undefined
     const editLayoutSchemaText = JSON.stringify(editLayoutSchema)
-    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v2')
+    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v3')
     expect(editLayoutSchema?.required).toEqual(['layout'])
     expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
     expect(editLayoutSchemaText).not.toContain('pairColor')
@@ -345,7 +345,7 @@ describe('copilot runtime tool manifest', () => {
     expect(editWidgetProperties).toHaveProperty('panelId')
     expect(editWidgetProperties).toHaveProperty('params')
     expect(manifest.tools.find((tool) => tool.name === 'read_layout')?.description).toContain(
-      'params` is persisted local state'
+      "owns that widget's local `params`"
     )
     expect(manifest.tools.find((tool) => tool.name === 'edit_layout')?.description).toContain(
       'same complete layout document shape as `read_layout`'

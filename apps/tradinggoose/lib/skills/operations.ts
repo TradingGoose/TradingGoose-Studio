@@ -11,7 +11,7 @@ import {
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
-  deleteYjsSessionInSocketServer,
+  discardYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -63,7 +63,7 @@ export async function deleteSkill(params: {
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
 
   await refreshEntityListSession('skill', params.workspaceId)
-  await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])
+  await Promise.allSettled([discardYjsSessionInSocketServer(params.skillId)])
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true

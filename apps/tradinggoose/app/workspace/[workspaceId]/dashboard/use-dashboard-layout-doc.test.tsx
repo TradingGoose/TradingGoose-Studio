@@ -8,12 +8,14 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
-  readDashboardLayoutContent,
+  readDashboardLayoutDocument,
   seedDashboardLayoutSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 
 let mockLayoutDoc: Y.Doc | null = null
+const mockMutateStructure = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+const mockUseSavedEntityYjsSession = vi.hoisted(() => vi.fn())
 
 const topology: DashboardLayoutTopologyNode = {
   id: 'panel-chart',
@@ -39,14 +41,13 @@ function installRawBunDom() {
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useEntityList: () => ({ members: [], isLoading: true, error: null }),
-  useSavedEntityYjsSession: () => ({
-    doc: mockLayoutDoc,
-    save: vi.fn(),
-    isLoading: false,
-    error: null,
-  }),
+  useSavedEntityYjsSession: (...args: unknown[]) => mockUseSavedEntityYjsSession(...args),
   useYjsField: (_doc: unknown, _field: string, initial: unknown) => [initial, vi.fn()],
   useYjsStringField: (_doc: unknown, _field: string, initial: string) => [initial, vi.fn()],
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
+  mutateDashboardLayoutStructureAction: mockMutateStructure,
 }))
 
 describe('useDashboardLayoutDocument live fields', () => {
@@ -55,6 +56,14 @@ describe('useDashboardLayoutDocument live fields', () => {
 
   beforeEach(() => {
     installRawBunDom()
+    mockMutateStructure.mockClear()
+    mockUseSavedEntityYjsSession.mockClear()
+    mockUseSavedEntityYjsSession.mockImplementation(() => ({
+      doc: mockLayoutDoc,
+      save: vi.fn(),
+      isLoading: false,
+      error: null,
+    }))
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -91,6 +100,13 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest?.topology).toEqual(topology)
     expect(latest?.doc).toBeNull()
     expect(latest?.isProviderReady).toBe(false)
+    expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith(
+      'dashboard_layout',
+      'layout-1',
+      'workspace-1',
+      'user-1',
+      'read'
+    )
   })
 
   it('does not fabricate topology without a matching SSR document', async () => {
@@ -114,12 +130,10 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest?.isProviderReady).toBe(false)
   })
 
-  it('routes widget selection through a layout-owned replacement plan', async () => {
+  it('routes widget selection through the server structural commit boundary', async () => {
     mockLayoutDoc = new Y.Doc()
     seedDashboardLayoutSession(mockLayoutDoc, {
       layout: topology,
-      widgets: { 'widget-chart': { pairColor: 'gray', params: null } },
-      colorPairs: { pairs: [] },
     })
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
@@ -133,13 +147,38 @@ describe('useDashboardLayoutDocument live fields', () => {
     }
 
     act(() => root?.render(<Capture />))
-    act(() => latest.replacePanelWidget('panel-chart', 'watchlist'))
+    await act(async () => latest.replacePanelWidget('panel-chart', 'watchlist'))
 
-    const next = readDashboardLayoutContent(mockLayoutDoc)
-    if (next.layout.type !== 'panel') throw new Error('Expected panel layout')
-    expect(next.layout).toMatchObject({ widgetKey: 'watchlist' })
-    expect(next.layout.identityId).not.toBe('widget-chart')
-    expect(next.widgets).not.toHaveProperty('widget-chart')
-    expect(next.widgets).toHaveProperty(next.layout.identityId!)
+    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
+      type: 'replace',
+      panelId: 'panel-chart',
+      widgetKey: 'watchlist',
+    })
+    expect(readDashboardLayoutDocument(mockLayoutDoc).layout).toEqual(topology)
+    expect(mockLayoutDoc.share.has('widget')).toBe(false)
+  })
+
+  it('routes group resizing through the server structural commit boundary', async () => {
+    mockLayoutDoc = new Y.Doc()
+    seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
+    const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
+    let latest: any = null
+    const Capture = () => {
+      latest = useDashboardLayoutDocument({
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        layoutId: 'layout-1',
+      })
+      return null
+    }
+
+    act(() => root?.render(<Capture />))
+    await act(async () => latest.updateGroupSizes('group-1', [35, 65]))
+
+    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
+      type: 'resize',
+      groupId: 'group-1',
+      sizes: [35, 65],
+    })
   })
 })

@@ -1,18 +1,8 @@
-import { hydrateDashboardListingData } from '@/lib/listing/hydrate-ui'
 import {
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-  type DashboardLayoutDocumentContent,
-  normalizeDashboardLayoutDocumentContent,
-  resolveDashboardLayout,
-  serializeDashboardLayoutDocument,
+  type DashboardLayoutProjectionContent,
+  serializeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { resolveEffectiveDashboardLayout } from '@/widgets/widget-contracts'
-
-export type DashboardLayoutReadProjection = {
-  documentFormat: typeof DASHBOARD_LAYOUT_DOCUMENT_FORMAT
-  entityDocument: string
-  effectiveLayout: unknown
-}
 
 export const DASHBOARD_CREDENTIAL_PLACEHOLDER = '[redacted]'
 
@@ -62,29 +52,16 @@ export function preserveDashboardLayoutCredentialPlaceholders(
 }
 
 export function serializeDashboardLayoutForCopilot(
-  content: DashboardLayoutDocumentContent
+  content: DashboardLayoutProjectionContent
 ): string {
-  return serializeDashboardLayoutDocument(
-    projectDashboardLayoutValueForCopilot(content) as DashboardLayoutDocumentContent
+  return serializeDashboardLayoutProjection(
+    projectDashboardLayoutValueForCopilot(content) as DashboardLayoutProjectionContent
   )
 }
 
-export async function buildDashboardLayoutReadProjection(
-  content: DashboardLayoutDocumentContent
-): Promise<DashboardLayoutReadProjection> {
-  const canonicalContent = normalizeDashboardLayoutDocumentContent(content)
-  const resolvedLayout = resolveDashboardLayout(canonicalContent.layout, canonicalContent.widgets)
-  const effectiveLayoutSource = resolveEffectiveDashboardLayout(
-    resolvedLayout,
-    canonicalContent.colorPairs
-  )
-  const { layout: effectiveLayout } = await hydrateDashboardListingData(effectiveLayoutSource, {
-    pairs: [],
-  })
-
+export function buildDashboardLayoutReadProjection(content: DashboardLayoutProjectionContent) {
   return {
     documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
-    entityDocument: serializeDashboardLayoutForCopilot(canonicalContent),
-    effectiveLayout: projectDashboardLayoutValueForCopilot(effectiveLayout),
+    entityDocument: serializeDashboardLayoutForCopilot(content),
   }
 }

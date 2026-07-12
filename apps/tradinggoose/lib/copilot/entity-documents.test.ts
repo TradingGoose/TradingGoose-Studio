@@ -73,7 +73,7 @@ describe('copilot entity documents', () => {
       },
     }
 
-    expect(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).toBe('tg-dashboard-layout-document-v2')
+    expect(DASHBOARD_LAYOUT_DOCUMENT_FORMAT).toBe('tg-dashboard-layout-document-v3')
     expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
 
     const serialized = JSON.parse(serializeEntityDocument('dashboard_layout', document))
@@ -139,7 +139,7 @@ describe('copilot entity documents', () => {
         'dashboard_layout',
         JSON.stringify({ layout, widgets: {}, colorPairs: { pairs: [] } })
       )
-    ).toThrow(/missing widget widget-empty/i)
+    ).toThrow(/widget widget-empty is missing/i)
     expect(() =>
       parseEntityDocument(
         'dashboard_layout',

@@ -3,8 +3,8 @@ import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@/components/ui'
 import type { ChatAuthType } from '@/lib/chat/deployment-config'
 import { getEnv, isTruthy } from '@/lib/env'
-import { cn, generatePassword } from '@/lib/utils'
 import { formatTemplate } from '@/i18n/utils'
+import { cn, generatePassword } from '@/lib/utils'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface AuthSelectorProps {
@@ -107,7 +107,9 @@ export function AuthSelector({
                 disabled={disabled}
               />
               <div className='justify-center text-center align-middle'>
-                <h3 className='font-medium text-sm'>{getAccessTypeLabel(type)}</h3>
+                <h3 className='font-medium text-sm'>
+                  {getAccessTypeLabel(type)}
+                </h3>
                 <p className='text-muted-foreground text-xs'>
                   {type === 'public' && copy.publicAccessDescription}
                   {type === 'password' && copy.passwordProtectedDescription}
@@ -138,7 +140,11 @@ export function AuthSelector({
             <div className='relative'>
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder={isExistingChat ? copy.enterNewPasswordKeepCurrent : copy.enterPassword}
+                placeholder={
+                  isExistingChat
+                    ? copy.enterNewPasswordKeepCurrent
+                    : copy.enterPassword
+                }
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
                 disabled={disabled}
@@ -278,7 +284,9 @@ export function AuthSelector({
             )}
 
             <p className='mt-2 text-muted-foreground text-xs'>
-              {authType === 'email' ? copy.emailAccessHelp : copy.ssoAccessHelp}
+              {authType === 'email'
+                ? copy.emailAccessHelp
+                : copy.ssoAccessHelp}
             </p>
           </CardContent>
         </Card>
@@ -288,7 +296,9 @@ export function AuthSelector({
         <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
             <h3 className='mb-2 font-medium text-sm'>{copy.publicAccessSettings}</h3>
-            <p className='text-muted-foreground text-xs'>{copy.publicAccessHelp}</p>
+            <p className='text-muted-foreground text-xs'>
+              {copy.publicAccessHelp}
+            </p>
           </CardContent>
         </Card>
       )}

@@ -71,3 +71,4 @@ export function serializeBlocks(blocks: Record<string, any>): Record<string, Ser
   }
   return result
 }
+

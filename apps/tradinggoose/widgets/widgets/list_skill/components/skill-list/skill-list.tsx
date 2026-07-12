@@ -18,14 +18,7 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 
 export const SkillListMessage = WidgetStateMessage
 
-export function SkillList({
-  context,
-  params,
-  pairColor = 'gray',
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
-  panelId,
-}: WidgetComponentProps) {
+export function SkillList({ context, params, onWidgetLinkedParamsPatch }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.skillList
   const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
@@ -56,13 +49,11 @@ export function SkillList({
     entityIds: listSkills.map((skill) => skill.id),
     useDefaultEntity: false,
   })
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
-
   const handleSelect = useCallback(
     (skillId: string | null) => {
-      patchLinkedParams?.({ skillId })
+      onWidgetLinkedParamsPatch?.({ skillId })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
 
   const handleDelete = useCallback(

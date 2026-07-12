@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatWorkflowTemplate } from '@/i18n/workflow-inspector-core'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
 interface EvalMetric {
   id: string
@@ -32,7 +32,11 @@ const createDefaultMetric = (): EvalMetric => ({
   range: { min: 0, max: 1 },
 })
 
-export function EvalInput({ blockId, subBlockId, disabled = false }: EvalInputProps) {
+export function EvalInput({
+  blockId,
+  subBlockId,
+  disabled = false,
+}: EvalInputProps) {
   const copy = useWorkflowBlockEditorCopy().evalInput
   const [storeValue, setStoreValue] = useSubBlockValue<EvalMetric[]>(blockId, subBlockId)
 

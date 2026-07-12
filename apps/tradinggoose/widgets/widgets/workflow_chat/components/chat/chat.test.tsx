@@ -23,15 +23,9 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
 }))
 
 vi.mock('@/stores/execution/store', () => ({
-  selectWorkflowExecutionState: () => ({
+  useExecutionStore: () => ({
     isExecuting: false,
-    activeBlockIds: new Set<string>(),
-    isDebugging: false,
-    pendingBlocks: [],
-    autoPanDisabled: false,
   }),
-  useExecutionStore: (selector?: (state: any) => unknown) =>
-    typeof selector === 'function' ? selector({ byWorkflowId: {} }) : { isExecuting: false },
 }))
 
 vi.mock('@/components/ui/scroll-area', () => ({

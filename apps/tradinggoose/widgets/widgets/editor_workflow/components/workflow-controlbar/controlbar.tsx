@@ -2,11 +2,9 @@
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { WidgetInstance } from '@/widgets/layout'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
@@ -15,23 +13,19 @@ const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/
 
 interface WorkflowWidgetControlBarProps {
   workspaceId?: string
-  widget?: WidgetInstance | null
-  panelId?: string
-  accessMode: ReviewAccessMode
+  params?: Record<string, unknown> | null
+  channelId: string
 }
 
 export function WorkflowWidgetControlBar({
   workspaceId,
-  widget,
-  panelId,
-  accessMode,
+  params,
+  channelId,
 }: WorkflowWidgetControlBarProps) {
   const copy = useWorkflowEditorCopy()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    params: widget?.params ?? null,
+    params,
   })
 
   if (!workspaceId || !resolvedWorkflowId) {
@@ -41,12 +35,12 @@ export function WorkflowWidgetControlBar({
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
-        <WorkflowSessionProvider
-          workspaceId={workspaceId}
-          workflowId={resolvedWorkflowId}
-          accessMode={accessMode}
-        >
-          <WorkflowRouteProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
+        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
+          <WorkflowRouteProvider
+            workspaceId={workspaceId}
+            workflowId={resolvedWorkflowId}
+            channelId={channelId}
+          >
             <ControlBar
               variant='widget'
               className='inline-flex items-center gap-1 whitespace-nowrap'

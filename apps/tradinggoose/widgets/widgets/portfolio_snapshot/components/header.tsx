@@ -54,6 +54,7 @@ export function PortfolioSnapshotHeaderControls({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
+  if (!patchParams) return null
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -115,6 +116,7 @@ function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderC
   const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
   const patchParams = usePatchPortfolioSnapshotParams()
+  if (!patchParams) return null
 
   return (
     <WidgetHeaderRefreshButton

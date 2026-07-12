@@ -20,7 +20,6 @@ import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
@@ -132,20 +131,16 @@ const refreshServerApi = async (
 
 export function EditorMcpWidgetBody({
   params,
-  context,
   pairColor = 'gray',
+  context,
   panelId,
   widget,
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
+  onWidgetLinkedParamsPatch,
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const canEditEntity = context?.canWrite !== false
   const canEditRef = useLatestRef(canEditEntity)
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const patchLinkedParams =
-    resolvedPairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
   const [saveError, setSaveError] = useState<string | null>(null)
   const [identityName, setIdentityName] = useState('')
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
@@ -219,8 +214,8 @@ export function EditorMcpWidgetBody({
   }, [clearTestResult, defaultFormData, formDataState, selectedServerId, serverSession.doc])
 
   const handleClose = useCallback(() => {
-    patchLinkedParams?.({ mcpServerId: null })
-  }, [patchLinkedParams])
+    onWidgetLinkedParamsPatch?.({ mcpServerId: null })
+  }, [onWidgetLinkedParamsPatch])
 
   const handleResetForm = useCallback(() => {
     if (!canEditRef.current) return
@@ -354,9 +349,7 @@ export function EditorMcpWidgetBody({
   if (!selectedServerId) {
     return (
       <WidgetStateMessage
-        message={
-          resolvedPairColor !== 'gray' ? copy.noSharedMcpServerSelected : copy.selectServerToEdit
-        }
+        message={pairColor !== 'gray' ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
       />
     )
   }

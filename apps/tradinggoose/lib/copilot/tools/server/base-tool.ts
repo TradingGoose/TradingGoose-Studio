@@ -81,6 +81,10 @@ export function assertAcceptedServerToolReviewBase(
     return
   }
 
+  throwStaleServerToolReview()
+}
+
+export function throwStaleServerToolReview(): never {
   throw new StructuredServerToolError({
     status: 409,
     body: {

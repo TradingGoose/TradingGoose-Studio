@@ -1,9 +1,9 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import Workflow from '@/widgets/widgets/editor_workflow/components/workflow'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -11,8 +11,8 @@ import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context
 interface WorkflowEditorAppProps {
   workspaceId: string
   workflowId: string
-  accessMode: ReviewAccessMode
   ui?: WorkflowCanvasUIConfig
+  channelId?: string
   toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
 }
@@ -20,8 +20,8 @@ interface WorkflowEditorAppProps {
 const WorkflowEditorApp = ({
   workspaceId,
   workflowId,
-  accessMode,
   ui,
+  channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   toolbarScopeId,
   viewportBounds,
 }: WorkflowEditorAppProps) => {
@@ -34,18 +34,19 @@ const WorkflowEditorApp = ({
         email: session.data.user.email,
       }
     : undefined
+  const workflowRenderKey = `${channelId}:${workflowId}`
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        accessMode={accessMode}
-        user={user}
-      >
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId}>
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           <Workflow
-            key={workflowId}
+            key={workflowRenderKey}
+            channelId={channelId}
             toolbarScopeId={toolbarScopeId}
             ui={ui}
             viewportBounds={viewportBounds}

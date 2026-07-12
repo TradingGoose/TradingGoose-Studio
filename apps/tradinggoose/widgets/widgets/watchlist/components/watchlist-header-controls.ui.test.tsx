@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import {
   WatchlistHeaderCenterControls,
   WatchlistHeaderRightControls,
@@ -16,6 +17,7 @@ import {
 
 const mockSetWatchlistItems = vi.fn()
 const mockPatchWidgetParams = vi.fn()
+const mockPatchWidgetLinkedParams = vi.fn()
 
 const rootWatchlist: WatchlistRecord = {
   id: 'watchlist-1',
@@ -33,9 +35,10 @@ const createWidget = (widget: NonNullable<WidgetInstance>): WidgetInstance => wi
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
   useSelectedWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
-    const selectedId = watchlistId
-      ? (currentWatchlists.find((watchlist) => watchlist.id === watchlistId)?.id ?? null)
-      : (currentWatchlists[0]?.id ?? null)
+    const selectedId = resolveEntityIdFromList({
+      requestedEntityId: watchlistId,
+      entityIds: currentWatchlists.map((watchlist) => watchlist.id),
+    })
     const record = currentWatchlists.find((watchlist) => watchlist.id === selectedId) ?? null
     return {
       record,
@@ -60,6 +63,7 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
 vi.mock('@/widgets/widget-config-runtime', () => ({
   useWidgetConfigRuntimeActions: () => ({
     patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+    patchWidgetLinkedParams: (...args: unknown[]) => mockPatchWidgetLinkedParams(...args),
   }),
 }))
 
@@ -313,7 +317,7 @@ describe('watchlist header controls', () => {
     expect(mockSetWatchlistItems).not.toHaveBeenCalled()
   })
 
-  it('does not fall back to the first watchlist when the widget references a stale watchlist id', async () => {
+  it('does not substitute the first watchlist for a stale widget selection', async () => {
     currentWatchlist = { ...rootWatchlist, name: 'Primary Watchlist' }
     currentWatchlists = [currentWatchlist]
 
@@ -333,9 +337,9 @@ describe('watchlist header controls', () => {
       candidate.textContent?.includes('Watchlist')
     )
 
-    expect(watchlistButton?.textContent).toContain('Watchlist')
     expect(watchlistButton?.textContent).not.toContain(currentWatchlist.name)
-    expect(watchlistButton?.hasAttribute('disabled')).toBe(true)
+    expect(watchlistButton?.hasAttribute('disabled')).toBe(false)
+    expect(mockPatchWidgetLinkedParams).not.toHaveBeenCalled()
   })
 
   it('deletes the sole watchlist and clears the widget selection', async () => {
@@ -383,6 +387,6 @@ describe('watchlist header controls', () => {
     })
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    expect(mockPatchWidgetParams).toHaveBeenCalledWith({ watchlistId: null })
+    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: null })
   })
 })

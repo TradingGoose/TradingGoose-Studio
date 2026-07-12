@@ -446,7 +446,7 @@ describe('Socket Server Index Integration', () => {
         })
       )
 
-      const liveDoc = getDocument('workflow-1', true) as Y.Doc
+      const liveDoc = getDocument('workflow-1', true).doc
       setWorkflowState(
         liveDoc,
         {
@@ -820,7 +820,7 @@ describe('Socket Server Index Integration', () => {
       }
     })
 
-    it('serves an existing entity-list snapshot when DB reseed fails', async () => {
+    it('rejects and discards an existing entity-list snapshot when DB reseed fails', async () => {
       const sessionId = 'list:skill:workspace-1'
       getDocument(sessionId)
       const liveDoc = await getExistingDocument(sessionId)
@@ -839,24 +839,15 @@ describe('Socket Server Index Integration', () => {
         }
       )
 
-      expect(response.statusCode).toBe(200)
+      expect(response.statusCode).toBe(500)
       expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
         liveDoc,
         'skill',
         'workspace-1',
         null
       )
-
-      const data = JSON.parse(response.body)
-      const snapshotDoc = new Y.Doc()
-      try {
-        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
-        expect(getEntityListMembers(snapshotDoc, 'skill').map((member) => member.entityId)).toEqual(
-          ['skill-live']
-        )
-      } finally {
-        snapshotDoc.destroy()
-      }
+      expect(JSON.parse(response.body)).toEqual({ error: 'database unavailable' })
+      expect(await getExistingDocument(sessionId)).toBeNull()
     })
 
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {

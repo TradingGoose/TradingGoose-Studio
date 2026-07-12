@@ -135,37 +135,17 @@ vi.mock('@/stores/console/store', () => ({
   },
 }))
 
-vi.mock('@/stores/execution/store', () => {
-  const executionStoreState = {
-    byWorkflowId: {},
-    setIsExecuting: vi.fn(),
-    setIsDebugging: vi.fn(),
-    setPendingBlocks: vi.fn(),
-    reset: vi.fn(),
-    setActiveBlocks: vi.fn(),
-    resetWorkflowExecution: vi.fn(),
-  }
-
-  const useExecutionStore = Object.assign(
-    vi.fn((selector?: (state: typeof executionStoreState) => unknown) =>
-      typeof selector === 'function' ? selector(executionStoreState) : executionStoreState
-    ),
-    {
-      getState: vi.fn().mockReturnValue(executionStoreState),
-    }
-  )
-
-  return {
-    selectWorkflowExecutionState: () => ({
-      activeBlockIds: new Set(),
-      isExecuting: false,
-      isDebugging: false,
-      pendingBlocks: [],
-      autoPanDisabled: false,
+vi.mock('@/stores/execution/store', () => ({
+  useExecutionStore: {
+    getState: vi.fn().mockReturnValue({
+      setIsExecuting: vi.fn(),
+      setIsDebugging: vi.fn(),
+      setPendingBlocks: vi.fn(),
+      reset: vi.fn(),
+      setActiveBlocks: vi.fn(),
     }),
-    useExecutionStore,
-  }
-})
+  },
+}))
 
 vi.mock('@/blocks/registry', () => {
   const fallbackBlock = {

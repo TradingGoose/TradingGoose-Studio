@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { type ConnectionLineComponentProps, getBezierPath } from '@xyflow/react'
+import { getBezierPath, type ConnectionLineComponentProps } from '@xyflow/react'
 
 /**
  * Custom connection line so the preview matches WorkflowEdge's geometry.

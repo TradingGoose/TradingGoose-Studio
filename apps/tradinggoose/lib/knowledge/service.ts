@@ -23,7 +23,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
-  deleteYjsSessionInSocketServer,
+  discardYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -444,7 +444,7 @@ export async function deleteKnowledgeBase(
 
   if (existing?.workspaceId) {
     await refreshEntityListSession('knowledge_base', existing.workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(knowledgeBaseId)])
+    await Promise.allSettled([discardYjsSessionInSocketServer(knowledgeBaseId)])
   }
 
   logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)

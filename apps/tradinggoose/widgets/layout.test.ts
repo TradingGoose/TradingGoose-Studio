@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeColorPairsState, normalizeDashboardLayout } from '@/widgets/layout'
 import {
+  applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
   closeDashboardTopologyPanel,
-  createDefaultDashboardLayoutContent,
-  type DashboardLayoutDocumentContent,
+  createDefaultDashboardLayoutProjection,
+  type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
   findDashboardTopologyParentGroupId,
-  normalizeDashboardLayoutDocumentContent,
+  normalizeDashboardLayoutProjection,
   normalizeDashboardLayoutTopology,
   replaceDashboardPanelWidget,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
-  updateDashboardTopologyGroupSizes,
 } from '@/widgets/layout-document'
 import { getDefaultWidgetInstance, WIDGET_KEYS } from '@/widgets/widget-contracts'
 
@@ -168,7 +168,7 @@ describe('dashboard layout tree operations', () => {
       },
     ],
   })
-  const content = (): DashboardLayoutDocumentContent => ({
+  const content = (): DashboardLayoutProjectionContent => ({
     layout: layout(),
     widgets: {
       'widget-a': { pairColor: 'blue', params: { watchlistId: 'watchlist-1' } },
@@ -183,7 +183,7 @@ describe('dashboard layout tree operations', () => {
     node.type === 'panel' ? [node] : node.children.flatMap(panels)
 
   it('creates one real canonical null-widget child for every default panel', () => {
-    const created = createDefaultDashboardLayoutContent()
+    const created = createDefaultDashboardLayoutProjection()
     const defaultPanels = panels(created.layout)
 
     expect(defaultPanels.length).toBeGreaterThan(0)
@@ -194,7 +194,7 @@ describe('dashboard layout tree operations', () => {
       expect(panel.widgetKey).toBeNull()
       expect(created.widgets[panel.identityId]).toEqual({ pairColor: 'gray', params: null })
     }
-    expect(normalizeDashboardLayoutDocumentContent(created)).toEqual(created)
+    expect(normalizeDashboardLayoutProjection(created)).toEqual(created)
     expect(created.colorPairs).toEqual({ pairs: [] })
   })
 
@@ -222,7 +222,7 @@ describe('dashboard layout tree operations', () => {
     )
   })
 
-  it('requires exactly one child row for every keyed or null-key panel', () => {
+  it('requires every panel child and excludes inactive child rows from the projection', () => {
     const nullPanel = {
       layout: {
         id: 'panel-empty',
@@ -234,34 +234,34 @@ describe('dashboard layout tree operations', () => {
         'widget-empty': { pairColor: 'gray', params: null },
       },
       colorPairs: { pairs: [] },
-    } satisfies DashboardLayoutDocumentContent
+    } satisfies DashboardLayoutProjectionContent
 
-    expect(normalizeDashboardLayoutDocumentContent(nullPanel)).toEqual(nullPanel)
+    expect(normalizeDashboardLayoutProjection(nullPanel)).toEqual(nullPanel)
     expect(resolveDashboardLayout(nullPanel.layout, nullPanel.widgets)).toEqual({
       id: 'panel-empty',
       type: 'panel',
       widget: null,
     })
-    expect(() => normalizeDashboardLayoutDocumentContent({ ...nullPanel, widgets: {} })).toThrow(
-      /references missing widget widget-empty/i
+    expect(() => normalizeDashboardLayoutProjection({ ...nullPanel, widgets: {} })).toThrow(
+      /widget widget-empty is missing/i
     )
-    expect(() =>
-      normalizeDashboardLayoutDocumentContent({
+    expect(
+      normalizeDashboardLayoutProjection({
         ...nullPanel,
         widgets: {
           ...nullPanel.widgets,
           orphan: { pairColor: 'gray', params: null },
         },
-      })
-    ).toThrow(/orphan widget orphan/i)
+      }).widgets
+    ).toEqual(nullPanel.widgets)
   })
 
   it('accepts only the exact canonical child state for a null widget key', () => {
-    const document = createDefaultDashboardLayoutContent()
+    const document = createDefaultDashboardLayoutProjection()
     const panel = panels(document.layout)[0]!
 
     expect(() =>
-      normalizeDashboardLayoutDocumentContent({
+      normalizeDashboardLayoutProjection({
         ...document,
         widgets: {
           ...document.widgets,
@@ -270,7 +270,7 @@ describe('dashboard layout tree operations', () => {
       })
     ).toThrow(/null-key dashboard widget/i)
     expect(() =>
-      normalizeDashboardLayoutDocumentContent({
+      normalizeDashboardLayoutProjection({
         ...document,
         widgets: {
           ...document.widgets,
@@ -283,7 +283,7 @@ describe('dashboard layout tree operations', () => {
   it('reports document validation through a writable domain error', () => {
     let caught: unknown
     try {
-      normalizeDashboardLayoutDocumentContent({
+      normalizeDashboardLayoutProjection({
         layout: {},
         widgets: {},
         colorPairs: { pairs: [] },
@@ -303,24 +303,27 @@ describe('dashboard layout tree operations', () => {
   it('updates group sizes without replacing unchanged layout nodes', () => {
     const current = layout()
 
-    expect(updateDashboardTopologyGroupSizes(current, 'root', [40, 60])).toBe(current)
-    expect(updateDashboardTopologyGroupSizes(current, 'root', [35, 65])).toMatchObject({
+    expect(
+      applyDashboardLayoutStructureMutation(current, {
+        type: 'resize',
+        groupId: 'root',
+        sizes: [40, 60],
+      }).layout
+    ).toBe(current)
+    expect(
+      applyDashboardLayoutStructureMutation(current, {
+        type: 'resize',
+        groupId: 'root',
+        sizes: [35, 65],
+      }).layout
+    ).toMatchObject({
       id: 'root',
       sizes: [35, 65],
     })
   })
 
   it('splits a panel and creates an independent child widget document', () => {
-    const sourceWidget = {
-      pairColor: 'blue' as const,
-      params: { watchlistId: 'watchlist-1' },
-    }
-    const result = splitDashboardTopologyPanel(
-      layout(),
-      { 'widget-a': sourceWidget, 'widget-b': { pairColor: 'red', params: null } },
-      'panel-a',
-      'vertical'
-    )
+    const result = splitDashboardTopologyPanel(layout(), 'panel-a', 'vertical')
     const next = result.layout
 
     expect(findDashboardTopologyParentGroupId(next, 'panel-b')).toBe('root')
@@ -331,30 +334,29 @@ describe('dashboard layout tree operations', () => {
     if (splitNode.type !== 'group') throw new Error('Expected split group')
     expect(splitNode.direction).toBe('vertical')
     expect(splitNode.children).toHaveLength(2)
-    const clone = Object.entries(result.createdWidgets)[0]
-    expect(clone?.[1]).toEqual(sourceWidget)
-    expect(clone?.[0]).not.toBe('widget-a')
+    const clone = result.createdBindings[0]
+    expect(clone?.sourceIdentityId).toBe('widget-a')
+    expect(clone?.identityId).not.toBe('widget-a')
   })
 
   it('splits a null-key panel by cloning its real null-widget child', () => {
-    const current = createDefaultDashboardLayoutContent()
+    const current = createDefaultDashboardLayoutProjection()
     const source = panels(current.layout)[0]!
-    const result = splitDashboardTopologyPanel(
-      current.layout,
-      current.widgets,
-      source.id,
-      'horizontal'
-    )
-    const [cloneIdentityId, clone] = Object.entries(result.createdWidgets)[0] ?? []
+    const result = splitDashboardTopologyPanel(current.layout, source.id, 'horizontal')
+    const clone = result.createdBindings[0]
+    const cloneIdentityId = clone?.identityId
 
     expect(cloneIdentityId).toBeTruthy()
     expect(cloneIdentityId).not.toBe(source.identityId)
-    expect(clone).toEqual({ pairColor: 'gray', params: null })
+    expect(clone).toMatchObject({ widgetKey: null, sourceIdentityId: source.identityId })
     expect(
-      normalizeDashboardLayoutDocumentContent({
+      normalizeDashboardLayoutProjection({
         ...current,
         layout: result.layout,
-        widgets: { ...current.widgets, ...result.createdWidgets },
+        widgets: {
+          ...current.widgets,
+          [cloneIdentityId!]: { pairColor: 'gray', params: null },
+        },
       })
     ).toBeDefined()
   })
@@ -385,10 +387,10 @@ describe('dashboard layout tree operations', () => {
       params: sourceWidget.params ?? null,
     }
 
-    const result = replaceDashboardPanelWidget(current, 'panel-a', key)
+    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', key)
     const panel = result.layout.type === 'group' ? result.layout.children[0] : null
-    const [identityId, widget] = Object.entries(result.createdWidgets)[0] ?? []
-    const defaultWidget = getDefaultWidgetInstance(key)
+    const binding = result.createdBindings[0]
+    const identityId = binding?.identityId
 
     expect(panel).toMatchObject({
       id: 'panel-a',
@@ -396,25 +398,22 @@ describe('dashboard layout tree operations', () => {
       widgetKey: key,
     })
     expect(identityId).not.toBe('widget-a')
-    expect(widget).toEqual({
-      pairColor: defaultWidget.pairColor ?? 'gray',
-      params: defaultWidget.params ?? null,
-    })
+    expect(binding?.widgetKey).toBe(key)
     expect(result.removedIdentityIds).toEqual(['widget-a'])
   })
 
   it('preserves an existing widget binding when the selected key is unchanged', () => {
     const current = content()
-    const result = replaceDashboardPanelWidget(current, 'panel-a', 'watchlist')
+    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', 'watchlist')
 
     expect(result.layout).toBe(current.layout)
-    expect(result.createdWidgets).toEqual({})
+    expect(result.createdBindings).toEqual([])
     expect(result.removedIdentityIds).toEqual([])
   })
 
   it('lets edit_layout replace an existing panel widget binding', () => {
     const result = applyLayoutEditDocument(
-      content(),
+      { layout: content().layout },
       JSON.stringify({
         layout: {
           id: 'root',
@@ -430,6 +429,8 @@ describe('dashboard layout tree operations', () => {
     )
 
     expect(result.removedIdentityIds).toEqual(['widget-a'])
-    expect(Object.values(result.createdWidgets)).toEqual([{ pairColor: 'gray', params: null }])
+    expect(result.createdBindings).toEqual([
+      expect.objectContaining({ widgetKey: 'list_workflow' }),
+    ])
   })
 })

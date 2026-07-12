@@ -9,11 +9,16 @@ import {
 import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import {
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
+} from '@/lib/copilot/review-sessions/identity'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import {
   DashboardLayoutOperationError,
-  persistDashboardLayoutDirtyChannels,
+  persistDashboardColorPairDocument,
+  persistDashboardWidgetDocument,
 } from '@/lib/dashboard-layouts/operations'
 import {
   renameSavedEntityIdentityInTx,
@@ -26,10 +31,8 @@ import {
 } from '@/lib/watchlists/document'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
-  beginDashboardLayoutDirtyFlush,
-  completeDashboardLayoutDirtyFlush,
-  failDashboardLayoutDirtyFlush,
-  readDashboardLayoutContent,
+  readDashboardColorPairDocument,
+  readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import {
   getEntityFields,
@@ -271,65 +274,61 @@ export async function saveSavedEntityYjsDocToDb(
   }
 }
 
-export async function saveDashboardLayoutYjsDocToDb(
-  entityId: string,
+function requireDashboardOwnerScope(doc: Y.Doc): {
+  workspaceId: string
+  ownerUserId: string
+} {
+  const workspaceId = getEntityWorkspaceId(doc)
+  const ownerUserId = getEntityOwnerUserId(doc)
+  if (!workspaceId) {
+    throw new SavedEntityPersistenceError(404, 'Dashboard document workspace is missing')
+  }
+  if (!ownerUserId) {
+    throw new SavedEntityPersistenceError(400, 'Dashboard document ownerUserId is required')
+  }
+  return { workspaceId, ownerUserId }
+}
+
+export async function saveDashboardWidgetYjsDocToDb(
+  sessionId: string,
   doc: Y.Doc
 ): Promise<Record<string, unknown>> {
-  const workspaceId = getEntityWorkspaceId(doc)
-  if (!workspaceId) {
-    throw new SavedEntityPersistenceError(
-      404,
-      `Saved dashboard_layout ${entityId} workspace is missing while materializing Yjs state`
-    )
-  }
-  const ownerUserId = getEntityOwnerUserId(doc)
-  if (!ownerUserId) {
-    throw new SavedEntityPersistenceError(400, 'Dashboard layout ownerUserId is required')
-  }
-
-  let batch
+  const target = parseDashboardWidgetSessionId(sessionId)
+  if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard widget session')
+  const scope = requireDashboardOwnerScope(doc)
   try {
-    batch = beginDashboardLayoutDirtyFlush(doc)
-  } catch (error) {
-    throw new SavedEntityPersistenceError(
-      500,
-      error instanceof Error ? error.message : 'Dashboard layout persistence tracker is missing'
+    return await persistDashboardWidgetDocument(
+      scope,
+      target.layoutId,
+      target.identityId,
+      readDashboardWidgetDocument(doc)
     )
-  }
-  if (!batch) {
-    try {
-      return readDashboardLayoutContent(doc)
-    } catch (error) {
-      throw new SavedEntityPersistenceError(
-        400,
-        error instanceof Error ? error.message : 'Dashboard layout Yjs state is invalid'
-      )
-    }
-  }
-
-  try {
-    const content = await persistDashboardLayoutDirtyChannels(
-      { workspaceId, ownerUserId },
-      entityId,
-      doc,
-      batch
-    )
-    completeDashboardLayoutDirtyFlush(doc, batch)
-    return content
   } catch (error) {
-    failDashboardLayoutDirtyFlush(doc, batch)
     if (error instanceof DashboardLayoutOperationError) {
       throw new SavedEntityPersistenceError(error.status, error.message)
     }
-    if (isUniqueConstraintViolation(error)) {
-      throw new SavedEntityPersistenceError(
-        409,
-        'Dashboard widget identity conflicts with another layout'
-      )
-    }
-    throw new SavedEntityPersistenceError(
-      500,
-      error instanceof Error ? error.message : 'Dashboard layout persistence failed'
+    throw error
+  }
+}
+
+export async function saveDashboardColorPairYjsDocToDb(
+  sessionId: string,
+  doc: Y.Doc
+): Promise<Record<string, unknown>> {
+  const target = parseDashboardColorPairSessionId(sessionId)
+  if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard color-pair session')
+  const scope = requireDashboardOwnerScope(doc)
+  try {
+    return await persistDashboardColorPairDocument(
+      scope,
+      target.layoutId,
+      target.color,
+      readDashboardColorPairDocument(doc)
     )
+  } catch (error) {
+    if (error instanceof DashboardLayoutOperationError) {
+      throw new SavedEntityPersistenceError(error.status, error.message)
+    }
+    throw error
   }
 }

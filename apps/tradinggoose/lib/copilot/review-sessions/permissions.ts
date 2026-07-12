@@ -1,11 +1,15 @@
 import { db } from '@tradinggoose/db'
 import { copilotReviewSessions, layoutMaps, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { isEntityListSessionId } from '@/lib/copilot/review-sessions/identity'
+import {
+  isEntityListSessionId,
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
+} from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewAccessMode,
-  ReviewEntityKind,
   ReviewTargetDescriptor,
+  YjsDocumentKind,
 } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
@@ -23,7 +27,7 @@ export interface ReviewAccessResult {
 }
 
 interface ReviewTargetAccessInput {
-  entityKind: ReviewEntityKind
+  entityKind: YjsDocumentKind
   entityId: string | null
   draftSessionId?: string | null
   reviewSessionId?: string | null
@@ -235,17 +239,35 @@ async function verifySavedEntityTargetAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
-  if (reviewTarget.entityKind === 'dashboard_layout') {
+  if (
+    reviewTarget.entityKind === 'dashboard_layout' ||
+    reviewTarget.entityKind === 'dashboard_widget' ||
+    reviewTarget.entityKind === 'dashboard_color_pair'
+  ) {
     const ownerUserId = reviewTarget.ownerUserId ?? null
     if (!ownerUserId || ownerUserId !== userId) {
       logger.warn('Dashboard layout review target owner mismatch', { userId, reviewTarget })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
+    const layoutId =
+      reviewTarget.entityKind === 'dashboard_layout'
+        ? reviewTarget.entityId
+        : reviewTarget.entityKind === 'dashboard_widget'
+          ? parseDashboardWidgetSessionId(reviewTarget.yjsSessionId ?? '')?.layoutId
+          : parseDashboardColorPairSessionId(reviewTarget.yjsSessionId ?? '')?.layoutId
+    if (!layoutId) {
+      logger.warn('Dashboard child review target has invalid session identity', {
+        userId,
+        reviewTarget,
+      })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+
     const [layout] = await db
       .select({ workspaceId: layoutMaps.workspaceId, userId: layoutMaps.userId })
       .from(layoutMaps)
-      .where(eq(layoutMaps.id, reviewTarget.entityId))
+      .where(eq(layoutMaps.id, layoutId))
       .limit(1)
     if (!layout || layout.userId !== ownerUserId) {
       logger.warn('Dashboard layout review target not found', { userId, reviewTarget })

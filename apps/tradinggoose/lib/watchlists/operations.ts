@@ -19,8 +19,8 @@ import {
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
 import {
-  deleteYjsSessionInSocketServer,
   refreshEntityListSession,
+  withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 type WatchlistScope = {
@@ -180,7 +180,7 @@ export async function importWatchlistDocument(
   const fields = normalizeWatchlistDocumentFields(rawFields)
   try {
     return await db.transaction(async (tx) => {
-      const name = await renameSavedEntityIdentityInTx(tx, {
+      const { name } = await renameSavedEntityIdentityInTx(tx, {
         entityKind: 'watchlist',
         entityId: watchlistId,
         workspaceId: scope.workspaceId,
@@ -220,21 +220,29 @@ export async function deleteWatchlist(
   watchlistId: string
 ): Promise<boolean> {
   try {
-    const deleted = await db.transaction(async (tx) => {
-      const [root] = await tx
-        .select({ id: watchlistTable.id })
-        .from(watchlistTable)
-        .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-        .limit(1)
-      if (!root) return false
+    const [existing] = await db
+      .select({ id: watchlistTable.id })
+      .from(watchlistTable)
+      .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
+      .limit(1)
+    if (!existing) return false
 
-      await tx.delete(watchlistTable).where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-      return true
-    })
+    const deleted = await withYjsSessionDeletionLease([watchlistId], () =>
+      db.transaction(async (tx) => {
+        const [root] = await tx
+          .select({ id: watchlistTable.id })
+          .from(watchlistTable)
+          .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
+          .limit(1)
+        if (!root) return false
+
+        await tx.delete(watchlistTable).where(rootWatchlistWhere(scope.workspaceId, watchlistId))
+        return true
+      })
+    )
 
     if (deleted) {
       await refreshEntityListSession('watchlist', scope.workspaceId)
-      await Promise.allSettled([deleteYjsSessionInSocketServer(watchlistId)])
     }
     return deleted
   } catch (error) {

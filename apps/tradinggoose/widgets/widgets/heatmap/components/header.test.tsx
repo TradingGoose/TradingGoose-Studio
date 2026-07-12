@@ -144,6 +144,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('does not normalize an invalid market provider to a default provider', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -175,6 +176,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('shows the account selector after a portfolio trading provider is selected', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -207,6 +209,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('switches source mode from the header button group', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -233,6 +236,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('switches watchlist tile size metric from the header button group', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -260,6 +264,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('updates the account id from account selection', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',

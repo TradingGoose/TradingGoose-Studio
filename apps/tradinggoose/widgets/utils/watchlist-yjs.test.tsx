@@ -9,17 +9,21 @@ import * as Y from 'yjs'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import { readWatchlistItems, seedEntitySession } from '@/lib/yjs/entity-session'
-import { useWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
+import {
+  useSelectedWatchlistYjsDocument,
+  useWatchlistYjsDocument,
+} from '@/widgets/utils/watchlist-yjs'
 
 const fieldMocks = vi.hoisted(() => ({
   session: vi.fn(),
   setField: vi.fn(),
+  members: [] as Array<{ entityId: string; entityName: string }>,
 }))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useSavedEntityYjsSession: (...args: unknown[]) => fieldMocks.session(...args),
   useYjsField: () => [DEFAULT_WATCHLIST_SETTINGS, fieldMocks.setField],
-  useEntityList: () => ({ members: [], isLoading: false, error: null }),
+  useEntityList: () => ({ members: fieldMocks.members, isLoading: false, error: null }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -31,6 +35,7 @@ describe('useWatchlistYjsDocument access mode', () => {
   let root: Root
   let doc: Y.Doc
   let current: ReturnType<typeof useWatchlistYjsDocument>
+  let selected: ReturnType<typeof useSelectedWatchlistYjsDocument>
 
   const Harness = ({ accessMode }: { accessMode: ReviewAccessMode }) => {
     current = useWatchlistYjsDocument({
@@ -73,6 +78,7 @@ describe('useWatchlistYjsDocument access mode', () => {
       isLoading: false,
       error: null,
     })
+    fieldMocks.members = []
   })
 
   afterEach(() => {
@@ -106,5 +112,34 @@ describe('useWatchlistYjsDocument access mode', () => {
     expect(readWatchlistItems(doc)).toHaveLength(1)
     expect(current).not.toHaveProperty('doc')
     expect(current).not.toHaveProperty('setSettings')
+  })
+
+  it('does not open another watchlist when an explicit reference is stale', async () => {
+    fieldMocks.members = [{ entityId: 'watchlist-available', entityName: 'Available' }]
+    fieldMocks.session.mockImplementation((_kind, entityId) => ({
+      doc: entityId ? doc : null,
+      save: vi.fn(async () => {}),
+      isLoading: false,
+      error: null,
+    }))
+    const StaleSelectionHarness = () => {
+      selected = useSelectedWatchlistYjsDocument({
+        workspaceId: 'workspace-1',
+        watchlistId: 'watchlist-deleted',
+      })
+      return null
+    }
+
+    await act(async () => root.render(<StaleSelectionHarness />))
+
+    expect(selected.selectedWatchlistId).toBeNull()
+    expect(selected.record).toBeNull()
+    expect(fieldMocks.session).toHaveBeenLastCalledWith(
+      'watchlist',
+      null,
+      'workspace-1',
+      null,
+      'write'
+    )
   })
 })

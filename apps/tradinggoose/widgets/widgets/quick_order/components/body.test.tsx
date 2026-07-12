@@ -213,6 +213,7 @@ const renderBody = async (
   await act(async () => {
     root.render(
       <QuickOrderWidgetBody
+        channelId='quick-order-panel-1'
         context={{ workspaceId: 'workspace-1' } as any}
         widget={{ key: 'quick_order' } as any}
         panelId='panel-1'
@@ -664,6 +665,7 @@ describe('QuickOrderWidgetBody', () => {
     await act(async () => {
       root.render(
         <QuickOrderWidgetBody
+          channelId='quick-order-panel-1'
           context={{ workspaceId: 'workspace-1' } as any}
           widget={{ key: 'quick_order' } as any}
           panelId='panel-1'

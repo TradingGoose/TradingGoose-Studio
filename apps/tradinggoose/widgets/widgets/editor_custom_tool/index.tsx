@@ -91,7 +91,6 @@ function EditorCustomToolWidgetBody({
   context,
   params,
   pairColor = 'gray',
-  onWidgetParamsPatch,
   panelId,
   widget,
 }: WidgetComponentProps) {
@@ -224,30 +223,19 @@ function EditorCustomToolWidgetBody({
 }
 
 type CustomToolEditorSelectorProps = {
-  panelId?: string
   workspaceId?: string
-  pairColor?: PairColor
   params?: Record<string, unknown> | null
-  widgetKey?: string
 }
 
-function CustomToolEditorSelector({
-  panelId,
-  workspaceId,
-  pairColor = 'gray',
-  params,
-  widgetKey,
-}: CustomToolEditorSelectorProps) {
+function CustomToolEditorSelector({ workspaceId, params }: CustomToolEditorSelectorProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
   const actions = useWidgetConfigRuntimeActions()
-  const patchLinkedParams =
-    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectedToolId = resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
-    patchLinkedParams({ customToolId })
+    actions.patchWidgetLinkedParams?.({ customToolId })
   }
 
   return (
@@ -269,12 +257,10 @@ const CUSTOM_TOOL_EDITOR_SECTIONS: Array<{ id: CustomToolEditorSection; label: s
 function CustomToolEditorSectionSwitch({
   panelId,
   params,
-  pairColor = 'gray',
   widgetKey,
 }: {
   panelId?: string
   params?: Record<string, unknown> | null
-  pairColor?: PairColor
   widgetKey?: string
 }) {
   const locale = useLocale() as LocaleCode
@@ -334,14 +320,12 @@ function CustomToolEditorSaveButton({
   customToolId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
   canEditEntity,
 }: {
   workspaceId?: string
   customToolId?: string | null
   panelId?: string
   widgetKey?: string
-  pairColor?: PairColor
   canEditEntity: boolean
 }) {
   const locale = useLocale() as LocaleCode
@@ -382,13 +366,11 @@ function CustomToolEditorExportButton({
   customToolId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
 }: {
   workspaceId?: string
   customToolId?: string | null
   panelId?: string
   widgetKey?: string
-  pairColor?: PairColor
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
@@ -436,10 +418,7 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
     return {
       center: (
         <CustomToolEditorSelector
-          panelId={panelId}
           workspaceId={context?.workspaceId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
           params={
             widget?.params && typeof widget.params === 'object'
               ? (widget.params as Record<string, unknown>)
@@ -456,7 +435,6 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
                 ? (widget.params as Record<string, unknown>)
                 : null
             }
-            pairColor={widget?.pairColor}
             widgetKey={widget?.key}
           />
           <CustomToolEditorExportButton
@@ -464,14 +442,12 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
             customToolId={customToolId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
           />
           <CustomToolEditorSaveButton
             workspaceId={context?.workspaceId}
             customToolId={customToolId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
             canEditEntity={context?.canWrite !== false}
           />
         </div>

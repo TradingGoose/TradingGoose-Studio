@@ -10,7 +10,6 @@ import {
 } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import type { PairColorContext } from '@/widgets/color-pairs'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
@@ -24,7 +23,7 @@ type CopilotWorkspaceEntityConfig = {
     | 'dashboardLayoutId'
 }
 
-export const COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS = [
+export const COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS = [
   {
     entityKind: ENTITY_KIND_WORKFLOW,
     idField: 'workflowId',
@@ -52,7 +51,7 @@ export const COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS = [
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
 
 export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
-  ...COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS,
+  ...COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
   {
     entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
     idField: 'dashboardLayoutId',
@@ -61,8 +60,8 @@ export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
 
 export type CopilotWorkspaceEntityKind =
   (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]['entityKind']
-export type CopilotPairContextEntityKind =
-  (typeof COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS)[number]['entityKind']
+export type CopilotEffectiveParamEntityKind =
+  (typeof COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS)[number]['entityKind']
 type CopilotWorkspaceEntityContextDetails = {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string | null
@@ -167,27 +166,27 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
   }
 }
 
-export function getCopilotWorkspaceEntityIdFromPairContext(
-  pairContext: PairColorContext | null | undefined,
-  entityKind: CopilotPairContextEntityKind
+export function getCopilotWorkspaceEntityIdFromEffectiveParams(
+  effectiveParams: Record<string, unknown> | null | undefined,
+  entityKind: CopilotEffectiveParamEntityKind
 ): string | null {
-  if (!pairContext) {
+  if (!effectiveParams) {
     return null
   }
 
   switch (entityKind) {
     case ENTITY_KIND_WORKFLOW:
-      return normalizeOptionalString(pairContext.workflowId) ?? null
+      return normalizeOptionalString(effectiveParams.workflowId) ?? null
     case ENTITY_KIND_SKILL:
-      return normalizeOptionalString(pairContext.skillId) ?? null
+      return normalizeOptionalString(effectiveParams.skillId) ?? null
     case ENTITY_KIND_INDICATOR:
-      return normalizeOptionalString(pairContext.indicatorId) ?? null
+      return normalizeOptionalString(effectiveParams.indicatorId) ?? null
     case ENTITY_KIND_CUSTOM_TOOL:
-      return normalizeOptionalString(pairContext.customToolId) ?? null
+      return normalizeOptionalString(effectiveParams.customToolId) ?? null
     case ENTITY_KIND_MCP_SERVER:
-      return normalizeOptionalString(pairContext.mcpServerId) ?? null
+      return normalizeOptionalString(effectiveParams.mcpServerId) ?? null
     case ENTITY_KIND_WATCHLIST:
-      return normalizeOptionalString(pairContext.watchlistId) ?? null
+      return normalizeOptionalString(effectiveParams.watchlistId) ?? null
   }
 }
 

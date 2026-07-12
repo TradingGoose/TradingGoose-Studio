@@ -20,11 +20,6 @@ const mockCopilot = vi.fn((props: any) => (
     copilot
   </div>
 ))
-let mockPairContext: any = {
-  workflowId: null,
-  skillId: null,
-}
-
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
     data: { user: { id: 'user-1', email: 'user@example.com', name: 'User' } },
@@ -39,17 +34,11 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
   WorkflowSessionProvider: ({
     children,
     workflowId,
-    accessMode,
   }: {
     children: React.ReactNode
     workflowId: string
-    accessMode: string
   }) => (
-    <div
-      data-testid='workflow-session-host'
-      data-workflow-id={workflowId}
-      data-access-mode={accessMode}
-    >
+    <div data-testid='workflow-session-host' data-workflow-id={workflowId}>
       {children}
     </div>
   ),
@@ -60,16 +49,6 @@ vi.mock('@/stores/copilot/store', () => ({
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/widgets/widget-config-runtime', async () => {
-  const actual = await vi.importActual<typeof import('@/widgets/widget-config-runtime')>(
-    '@/widgets/widget-config-runtime'
-  )
-  return {
-    ...actual,
-    useWidgetPairContext: () => mockPairContext,
-  }
-})
-
 vi.mock('./copilot/copilot', () => ({
   Copilot: (props: any) => mockCopilot(props),
 }))
@@ -78,10 +57,10 @@ describe('CopilotApp', () => {
   let container: HTMLDivElement
   let root: Root
 
-  const renderApp = async () => {
+  const renderApp = async (effectiveParams?: Record<string, unknown> | null) => {
     await act(async () => {
       root.render(
-        <CopilotApp workspaceId='ws-1' panelWidth={480} pairColor='gray' accessMode='write' />
+        <CopilotApp workspaceId='ws-1' panelWidth={480} effectiveParams={effectiveParams} />
       )
     })
   }
@@ -91,10 +70,6 @@ describe('CopilotApp', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    mockPairContext = {
-      workflowId: null,
-      skillId: null,
-    }
     mockCopilot.mockClear()
   })
 
@@ -113,31 +88,23 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
   })
 
-  it('mounts the workflow session host for the current pair-color workflow', async () => {
-    mockPairContext = {
+  it('mounts the workflow session host for the effective workflow', async () => {
+    await renderApp({
       workflowId: 'workflow-current',
       skillId: null,
-    }
-
-    await renderApp()
+    })
 
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
       'data-workflow-id',
       'workflow-current'
     )
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
-      'data-access-mode',
-      'write'
-    )
   })
 
-  it('does not derive editable review sessions from pair-color entity context', async () => {
-    mockPairContext = {
+  it('does not derive editable review sessions from effective entity references', async () => {
+    await renderApp({
       workflowId: null,
       skillId: 'skill-current',
-    }
-
-    await renderApp()
+    })
 
     expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
       'data-review-session-id',

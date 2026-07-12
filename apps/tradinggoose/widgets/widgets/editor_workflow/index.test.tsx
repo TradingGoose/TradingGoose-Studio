@@ -4,10 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowEditorWidget } from './index'
 
-const { mockEditorApp, mockControlBar, mockToolbar } = vi.hoisted(() => ({
-  mockEditorApp: vi.fn(),
+const { mockControlBar, mockEditorApp } = vi.hoisted(() => ({
   mockControlBar: vi.fn(),
-  mockToolbar: vi.fn(),
+  mockEditorApp: vi.fn(),
 }))
 
 vi.mock('next-intl', () => ({
@@ -24,7 +23,6 @@ vi.mock('@/components/ui/loading-agent', () => ({
 }))
 
 let mockWorkflowWidgetState: any = {
-  resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
   loadError: null,
@@ -48,10 +46,7 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-controlbar', () =
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-toolbar', () => ({
-  WorkflowToolbar: (props: Record<string, unknown>) => {
-    mockToolbar(props)
-    return <div>toolbar</div>
-  },
+  WorkflowToolbar: () => <div>toolbar</div>,
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-ui-context', () => ({
@@ -69,7 +64,6 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-editor-app', () =
 describe('workflowEditorWidget', () => {
   beforeEach(() => {
     mockWorkflowWidgetState = {
-      resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
       loadError: null,
@@ -80,27 +74,6 @@ describe('workflowEditorWidget', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('opens the workflow body and control bar in read mode for workspace readers', () => {
-    renderToStaticMarkup(
-      createElement(workflowEditorWidget.component, {
-        context: { workspaceId: 'ws-1', canWrite: false },
-        widget: { key: 'editor_workflow' },
-        panelId: 'panel-1',
-      } as any)
-    )
-    const header = workflowEditorWidget.renderHeader?.({
-      context: { workspaceId: 'ws-1', canWrite: false },
-      widget: { key: 'editor_workflow' } as any,
-      panelId: 'panel-1',
-    })
-    renderToStaticMarkup(header?.left)
-    renderToStaticMarkup(header?.right)
-
-    expect(mockEditorApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
-    expect(mockToolbar).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
-    expect(mockControlBar).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
   })
 
   it('maps workflow load errors through localized widget copy', () => {
@@ -118,5 +91,31 @@ describe('workflowEditorWidget', () => {
       getPublicCopy('es').workspace.widgets.workflowEditor.unableToLoadWorkflows
     )
     expect(markup).not.toContain('unableToLoadWorkflows')
+  })
+
+  it('forwards the runtime channel to the editor and control bar', () => {
+    renderToStaticMarkup(
+      createElement(workflowEditorWidget.component, {
+        channelId: 'pair-red',
+        context: { workspaceId: 'ws-1' },
+        params: { workflowId: 'wf-1' },
+        widget: { key: 'editor_workflow' },
+        panelId: 'panel-1',
+      } as any)
+    )
+    const header = workflowEditorWidget.renderHeader?.({
+      channelId: 'pair-red',
+      context: { workspaceId: 'ws-1' },
+      panelId: 'panel-1',
+      widget: { key: 'editor_workflow', params: { workflowId: 'wf-1' } },
+    } as any)
+    renderToStaticMarkup(<>{header?.right}</>)
+
+    expect(mockEditorApp).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'pair-red', workflowId: 'wf-1' })
+    )
+    expect(mockControlBar).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'pair-red', params: { workflowId: 'wf-1' } })
+    )
   })
 })

@@ -235,6 +235,12 @@ describe('Copilot Chat Review Session GET', () => {
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
+      ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
+      ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
+      ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_MCP_SERVER: 'mcp_server',
+      ENTITY_KIND_SKILL: 'skill',
+      ENTITY_KIND_WATCHLIST: 'watchlist',
       ENTITY_KIND_WORKFLOW: 'workflow',
       REVIEW_ENTITY_KINDS: [
         'workflow',

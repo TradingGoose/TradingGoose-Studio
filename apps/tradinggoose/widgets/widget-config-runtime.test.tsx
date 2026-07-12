@@ -1,253 +1,246 @@
-/**
- * @vitest-environment jsdom
- */
+/** @vitest-environment jsdom */
 
 import { act } from 'react'
-import { JSDOM } from 'jsdom'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
-  getDashboardColorPairsMap,
-  readDashboardLayoutContent,
-  seedDashboardLayoutSession,
+  readDashboardColorPairDocument,
+  readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
+  seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
-import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
+import {
+  useDashboardWidgetRenderState,
+  useWidgetConfigRuntimeActions,
+  WidgetConfigRuntimeProvider,
+} from '@/widgets/widget-config-runtime'
 
-let rawBunDom: JSDOM | null = null
+const sessions = vi.hoisted(() => ({
+  widgets: new Map<string, Y.Doc>(),
+  pairs: new Map<string, Y.Doc>(),
+}))
 
-function defineRawBunDomGlobal(key: string, value: unknown) {
-  Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useYjsTargetSession: (descriptor: { entityKind: string; entityId: string } | null) => ({
+    result: null,
+    doc:
+      descriptor?.entityKind === 'dashboard_widget'
+        ? (sessions.widgets.get(descriptor.entityId) ?? null)
+        : descriptor?.entityKind === 'dashboard_color_pair'
+          ? (sessions.pairs.get(descriptor.entityId) ?? null)
+          : null,
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+const AAPL = {
+  listing_type: 'default' as const,
+  listing_id: 'AAPL',
+  base_id: '',
+  quote_id: '',
 }
 
-function installRawBunDom() {
-  defineRawBunDomGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  if (typeof document !== 'undefined') return
-  rawBunDom = new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'http://localhost',
-  })
-  defineRawBunDomGlobal('window', rawBunDom.window)
-  defineRawBunDomGlobal('document', rawBunDom.window.document)
-  defineRawBunDomGlobal('HTMLElement', rawBunDom.window.HTMLElement)
-  defineRawBunDomGlobal('Element', rawBunDom.window.Element)
-  defineRawBunDomGlobal('Node', rawBunDom.window.Node)
-  defineRawBunDomGlobal('Event', rawBunDom.window.Event)
-  defineRawBunDomGlobal('CustomEvent', rawBunDom.window.CustomEvent)
-  defineRawBunDomGlobal('navigator', rawBunDom.window.navigator)
-  defineRawBunDomGlobal('location', rawBunDom.window.location)
-}
-
-const content = (): DashboardLayoutDocumentContent => ({
-  layout: {
-    id: 'root',
-    type: 'group',
-    direction: 'horizontal',
-    sizes: [50, 50],
-    children: [
-      {
-        id: 'panel-a',
-        type: 'panel',
-        identityId: 'widget-a',
-        widgetKey: 'watchlist',
-      },
-      {
-        id: 'panel-b',
-        type: 'panel',
-        identityId: 'widget-b',
-        widgetKey: 'watchlist',
-      },
-    ],
-  },
-  widgets: {
-    'widget-a': { pairColor: 'red', params: { provider: 'alpaca' } },
-    'widget-b': { pairColor: 'blue', params: { provider: 'alpaca' } },
-  },
-  colorPairs: {
-    pairs: [
-      { color: 'red', watchlistId: 'watchlist-red' },
-      { color: 'blue', watchlistId: 'watchlist-blue' },
-    ],
-  },
-})
-
-describe('WidgetConfigRuntimeProvider', () => {
+describe('independent widget config runtime owners', () => {
   let container: HTMLDivElement
   let root: Root
-  let doc: Y.Doc
+  let widgetDoc: Y.Doc
+  let pairDoc: Y.Doc
+  let bluePairDoc: Y.Doc
+  let renderState: ReturnType<typeof useDashboardWidgetRenderState> | null = null
+  let actions: ReturnType<typeof useWidgetConfigRuntimeActions> | null = null
+
+  const Capture = () => {
+    renderState = useDashboardWidgetRenderState()
+    actions = useWidgetConfigRuntimeActions()
+    return null
+  }
+
+  const render = (canWrite = true) => {
+    act(() => {
+      root.render(
+        <WidgetConfigRuntimeProvider
+          workspaceId='workspace-1'
+          ownerUserId='user-1'
+          layoutId='layout-1'
+          identityId='widget-1'
+          widgetKey='data_chart'
+          canWrite={canWrite}
+        >
+          <Capture />
+        </WidgetConfigRuntimeProvider>
+      )
+    })
+  }
 
   beforeEach(() => {
-    installRawBunDom()
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    doc = new Y.Doc()
-    seedDashboardLayoutSession(doc, content())
+    widgetDoc = new Y.Doc()
+    pairDoc = new Y.Doc()
+    bluePairDoc = new Y.Doc()
+    seedDashboardWidgetSession(widgetDoc, {
+      pairColor: 'red',
+      params: { view: { interval: '1m' } },
+    })
+    seedDashboardColorPairSession(pairDoc, { listing: AAPL })
+    seedDashboardColorPairSession(bluePairDoc, {
+      listing: { ...AAPL, listing_id: 'MSFT' },
+    })
+    sessions.widgets.set('widget-1', widgetDoc)
+    sessions.pairs.set('red', pairDoc)
+    sessions.pairs.set('blue', bluePairDoc)
+    renderState = null
+    actions = null
   })
 
   afterEach(() => {
     act(() => root.unmount())
-    doc.destroy()
     container.remove()
+    widgetDoc.destroy()
+    pairDoc.destroy()
+    bluePairDoc.destroy()
+    sessions.widgets.clear()
+    sessions.pairs.clear()
   })
 
-  it('keeps local params patches in the selected widget map', async () => {
-    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let patchWidgetParams: ((params: Record<string, unknown>) => void) | null = null
-
-    const CaptureActions = () => {
-      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
-      return null
-    }
-
-    act(() => {
-      root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite>
-          <CaptureActions />
-        </WidgetConfigRuntimeProvider>
-      )
-    })
-    act(() => patchWidgetParams?.({ provider: 'polygon' }))
-
-    const next = readDashboardLayoutContent(doc)
-    expect(next.widgets['widget-a']).toEqual({
-      pairColor: 'red',
-      params: { provider: 'polygon' },
-    })
-    expect(next.colorPairs.pairs).toContainEqual({
-      color: 'red',
-      watchlistId: 'watchlist-red',
-    })
-    expect(next.colorPairs.pairs).toContainEqual({
-      color: 'blue',
-      watchlistId: 'watchlist-blue',
+  it('composes effective params from independent widget and pair subscriptions', () => {
+    render()
+    expect(renderState).toMatchObject({
+      isWidgetReady: true,
+      isEffectiveParamsReady: true,
+      renderWidget: {
+        key: 'data_chart',
+        pairColor: 'red',
+        params: { view: { interval: '1m' }, listing: AAPL },
+      },
     })
   })
 
-  it('uses the explicit pair action to clear a linked field in the selected pair map only', async () => {
-    getDashboardColorPairsMap(doc).get('red')?.set('indicatorId', 'indicator-red')
-    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let patchWidgetColorPair: ((params: Record<string, unknown> | null) => void) | null = null
+  it('local parameter edits mutate only the widget document', () => {
+    render()
+    const pairVector = Y.encodeStateVector(pairDoc)
 
-    const CaptureActions = () => {
-      patchWidgetColorPair = useWidgetConfigRuntimeActions().patchWidgetColorPair
-      return null
-    }
+    act(() => actions?.patchWidgetParams?.({ view: { interval: '1h' } }))
 
-    act(() => {
-      root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite>
-          <CaptureActions />
-        </WidgetConfigRuntimeProvider>
-      )
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toMatchObject({
+      view: { interval: '1h' },
     })
-    act(() => patchWidgetColorPair?.({ watchlistId: null }))
+    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
+  })
 
-    const next = readDashboardLayoutContent(doc)
-    expect(next.widgets['widget-a']).toEqual({
-      pairColor: 'red',
-      params: { provider: 'alpaca' },
+  it('shared parameter edits mutate only the selected pair document', () => {
+    render()
+    const widgetVector = Y.encodeStateVector(widgetDoc)
+    const MSFT = { ...AAPL, listing_id: 'MSFT' }
+
+    act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
+
+    expect(readDashboardColorPairDocument(pairDoc)).toEqual({ listing: MSFT })
+    expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
+  })
+
+  it('waits for the selected pair owner before exposing effective params or linked edits', () => {
+    sessions.pairs.delete('red')
+    render()
+
+    expect(renderState).toMatchObject({
+      isWidgetReady: true,
+      isEffectiveParamsReady: false,
+      renderWidget: null,
     })
-    expect(next.colorPairs.pairs).toContainEqual({
-      color: 'red',
-      indicatorId: 'indicator-red',
+    expect(actions?.patchWidgetLinkedParams).toBeUndefined()
+
+    sessions.pairs.set('red', pairDoc)
+    render()
+
+    expect(renderState).toMatchObject({
+      isEffectiveParamsReady: true,
+      renderWidget: {
+        params: { view: { interval: '1m' }, listing: AAPL },
+      },
     })
-    expect(next.colorPairs.pairs).toContainEqual({
-      color: 'blue',
-      watchlistId: 'watchlist-blue',
+    expect(actions?.patchWidgetLinkedParams).toBeTypeOf('function')
+
+    const MSFT = { ...AAPL, listing_id: 'MSFT' }
+    act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
+    expect(readDashboardColorPairDocument(pairDoc)).toEqual({ listing: MSFT })
+  })
+
+  it('unlinked parameter edits mutate only the widget document', () => {
+    render()
+    act(() => actions?.changeWidgetPairColor?.('gray'))
+    const pairVector = Y.encodeStateVector(pairDoc)
+    const MSFT = { ...AAPL, listing_id: 'MSFT' }
+
+    act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
+
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toMatchObject({
+      listing: MSFT,
     })
-    expect(next.colorPairs.pairs.find((pair) => pair.color === 'red')).not.toHaveProperty(
-      'watchlistId'
+    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
+  })
+
+  it('rejects fields outside the widget linked-parameter contract', () => {
+    render()
+
+    expect(() => actions?.patchWidgetLinkedParams?.({ view: { interval: '1h' } })).toThrow(
+      'does not support this linked color-pair field'
     )
   })
 
-  it('does not mutate child maps when writes are disabled', async () => {
-    const { useWidgetConfigRuntimeActions, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let patchWidgetParams: ((params: Record<string, unknown>) => void) | null = null
-    const before = readDashboardLayoutContent(doc)
+  it('changing pair selection writes only the widget owner', () => {
+    render()
+    const pairVector = Y.encodeStateVector(pairDoc)
 
-    const CaptureActions = () => {
-      patchWidgetParams = useWidgetConfigRuntimeActions().patchWidgetParams
-      return null
-    }
-    act(() => {
-      root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite={false}>
-          <CaptureActions />
-        </WidgetConfigRuntimeProvider>
-      )
-    })
-    act(() => patchWidgetParams?.({ provider: 'blocked' }))
+    act(() => actions?.changeWidgetPairColor?.('blue'))
 
-    expect(readDashboardLayoutContent(doc)).toEqual(before)
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').pairColor).toBe('blue')
+    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
   })
 
-  it('isolates widget subscriptions by panel identity', async () => {
-    const {
-      useDashboardWidgetRenderConfig,
-      useWidgetConfigRuntimeActions,
-      WidgetConfigRuntimeProvider,
-    } = await import('@/widgets/widget-config-runtime')
-    let patchPanelA: ((params: Record<string, unknown>) => void) | null = null
-    let panelARenders = 0
-    let panelBRenders = 0
+  it('rebinds only the selected pair subscription when pairColor changes', () => {
+    render()
+    const redVector = Y.encodeStateVector(pairDoc)
 
-    const PanelA = () => {
-      panelARenders += 1
-      patchPanelA = useWidgetConfigRuntimeActions().patchWidgetParams
-      return <span>{useDashboardWidgetRenderConfig()?.key}</span>
-    }
-    const PanelB = () => {
-      panelBRenders += 1
-      return <span>{useDashboardWidgetRenderConfig()?.key}</span>
-    }
-    act(() => {
-      root.render(
-        <>
-          <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite>
-            <PanelA />
-          </WidgetConfigRuntimeProvider>
-          <WidgetConfigRuntimeProvider doc={doc} panelId='panel-b' canWrite>
-            <PanelB />
-          </WidgetConfigRuntimeProvider>
-        </>
-      )
+    act(() => actions?.changeWidgetPairColor?.('blue'))
+    expect(renderState?.renderWidget?.params).toMatchObject({
+      listing: { ...AAPL, listing_id: 'MSFT' },
     })
-    const beforePanelB = panelBRenders
-    act(() => patchPanelA?.({ provider: 'polygon' }))
+    expect(Y.encodeStateVector(pairDoc)).toEqual(redVector)
 
-    expect(panelARenders).toBeGreaterThan(1)
-    expect(panelBRenders).toBe(beforePanelB)
+    act(() =>
+      seedDashboardColorPairSession(pairDoc, {
+        listing: { ...AAPL, listing_id: 'TSLA' },
+      })
+    )
+    expect(renderState?.renderWidget?.params).toMatchObject({
+      listing: { ...AAPL, listing_id: 'MSFT' },
+    })
+
+    act(() =>
+      seedDashboardColorPairSession(bluePairDoc, {
+        listing: { ...AAPL, listing_id: 'NVDA' },
+      })
+    )
+    expect(renderState?.renderWidget?.params).toMatchObject({
+      listing: { ...AAPL, listing_id: 'NVDA' },
+    })
   })
 
-  it('subscribes render config only to the widget selected color pair', async () => {
-    const { useDashboardWidgetRenderConfig, WidgetConfigRuntimeProvider } = await import(
-      '@/widgets/widget-config-runtime'
-    )
-    let renders = 0
-    const RenderConfig = () => {
-      renders += 1
-      const widget = useDashboardWidgetRenderConfig()
-      return <span>{String(widget?.params?.watchlistId ?? '')}</span>
-    }
-    act(() => {
-      root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-a' canWrite>
-          <RenderConfig />
-        </WidgetConfigRuntimeProvider>
-      )
-    })
-    const beforeBlue = renders
-    act(() => getDashboardColorPairsMap(doc).get('blue')?.set('watchlistId', 'blue-next'))
-    expect(renders).toBe(beforeBlue)
+  it('read-only runtime actions leave both owners unchanged', () => {
+    render(false)
+    const widgetVector = Y.encodeStateVector(widgetDoc)
+    const pairVector = Y.encodeStateVector(pairDoc)
 
-    act(() => getDashboardColorPairsMap(doc).get('red')?.set('watchlistId', 'red-next'))
-    expect(renders).toBeGreaterThan(beforeBlue)
-    expect(container.textContent).toContain('red-next')
+    act(() => {
+      actions?.patchWidgetParams?.({ view: { interval: '1h' } })
+      actions?.patchWidgetLinkedParams?.({ watchlistId: 'watchlist-1' })
+    })
+
+    expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
+    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
   })
 })

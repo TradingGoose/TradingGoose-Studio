@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { GoogleCalendarIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleCalendarSelector')

@@ -7,14 +7,13 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { chatWidget } from './index'
 
+const mockChatApp = vi.hoisted(() => vi.fn())
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const mockChatApp = vi.hoisted(() => vi.fn())
-
 let mockWorkflowWidgetState: any = {
-  resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
   loadError: null,
@@ -75,21 +74,21 @@ vi.mock('./components/workflow-chat-app', () => ({
     return <div data-testid='workflow-chat-app'>workflow-chat-app</div>
   },
   WorkflowChatSessionProviders: ({
+    channelId,
     workspaceId,
     workflowId,
-    accessMode,
     children,
   }: {
+    channelId?: string
     workspaceId: string
     workflowId: string
-    accessMode: string
     children: React.ReactNode
   }) => (
     <div
       data-testid='workflow-chat-session-providers'
+      data-channel-id={channelId}
       data-workspace-id={workspaceId}
       data-workflow-id={workflowId}
-      data-access-mode={accessMode}
     >
       {children}
     </div>
@@ -106,7 +105,6 @@ describe('chatWidget header', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockWorkflowWidgetState = {
-      resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
       loadError: null,
@@ -115,7 +113,6 @@ describe('chatWidget header', () => {
     }
     mockChatStore.setSelectedWorkflowOutput.mockClear()
     mockChatStore.clearChat.mockClear()
-    mockChatApp.mockClear()
   })
 
   afterEach(() => {
@@ -128,6 +125,7 @@ describe('chatWidget header', () => {
 
   it('wraps the header output selector with the workflow chat session providers', async () => {
     const slots = chatWidget.renderHeader?.({
+      channelId: 'pair-blue',
       widget: {
         key: 'workflow_chat',
         pairColor: 'gray',
@@ -150,17 +148,25 @@ describe('chatWidget header', () => {
     expect(provider).not.toBeNull()
     expect(provider?.getAttribute('data-workspace-id')).toBe('ws-1')
     expect(provider?.getAttribute('data-workflow-id')).toBe('wf-1')
-    expect(provider?.getAttribute('data-access-mode')).toBe('read')
+    expect(provider?.getAttribute('data-channel-id')).toBe('pair-blue')
     expect(container.querySelector('[data-testid="output-select"]')).not.toBeNull()
   })
 
-  it('opens the workflow chat body in read mode for workspace readers', async () => {
+  it('forwards the runtime channel to the chat app', async () => {
     await act(async () => {
       root.render(
-        <>{chatWidget.component({ context: { workspaceId: 'ws-1', canWrite: false } })}</>
+        <>
+          {chatWidget.component({
+            channelId: 'workflow_chat-panel-1',
+            context: { workspaceId: 'ws-1' },
+            params: { workflowId: 'wf-1' },
+          })}
+        </>
       )
     })
 
-    expect(mockChatApp).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read' }))
+    expect(mockChatApp).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'workflow_chat-panel-1', workflowId: 'wf-1' })
+    )
   })
 })

@@ -17,6 +17,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { stripCopilotWorkspaceEntityMentions } from '@/lib/copilot/chat-contexts'
 import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
@@ -47,6 +48,7 @@ import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import type { ProviderId } from '@/providers/ai/types'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotChatAPI')
 
@@ -675,7 +677,8 @@ const ChatContextSchema = z
       if (!context.dashboardLayoutId || !context.ownerUserId || !context.workspaceId) {
         issue.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'dashboard_layout contexts require dashboardLayoutId, ownerUserId, and workspaceId',
+          message:
+            'dashboard_layout contexts require dashboardLayoutId, ownerUserId, and workspaceId',
         })
       }
       return
@@ -742,6 +745,7 @@ export async function POST(req: NextRequest) {
       workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
+    const modelMessage = stripCopilotWorkspaceEntityMentions(message, contexts as ChatContext[])
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
       logger.info(`[${tracker.requestId}] Received chat POST`, {
@@ -765,7 +769,7 @@ export async function POST(req: NextRequest) {
         const processed = await processContextsServer(
           contexts as any,
           authenticatedUserId,
-          message,
+          modelMessage,
           incomingWorkspaceId
         )
         agentContexts = processed
@@ -862,7 +866,7 @@ export async function POST(req: NextRequest) {
     const { getCopilotRuntimeToolManifest } = await import('@/lib/copilot/runtime-tool-manifest')
 
     const requestPayload = {
-      message: message, // Just send the current user message text
+      message: modelMessage,
       userId: authenticatedUserId,
       stream: stream,
       streamToolCalls: true,
@@ -884,7 +888,7 @@ export async function POST(req: NextRequest) {
         contextCount: agentContexts.length,
         hasConversationId: !!effectiveConversationId,
         hasFileAttachments: processedFileContents.length > 0,
-        messageLength: message.length,
+        messageLength: modelMessage.length,
       })
     } catch {}
 
@@ -1058,7 +1062,7 @@ export async function POST(req: NextRequest) {
                           titleRequested = true
                           generateAndPersistTitle({
                             reviewSessionId: actualReviewSessionId!,
-                            message,
+                            message: modelMessage,
                             userId: authenticatedUserId,
                             model,
                             provider: runtimeProvider,
@@ -1373,7 +1377,7 @@ export async function POST(req: NextRequest) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
         generateAndPersistTitle({
           reviewSessionId: actualReviewSessionId,
-          message,
+          message: modelMessage,
           userId: authenticatedUserId,
           model: providerConfig?.model ?? model,
           provider: providerConfig?.provider,

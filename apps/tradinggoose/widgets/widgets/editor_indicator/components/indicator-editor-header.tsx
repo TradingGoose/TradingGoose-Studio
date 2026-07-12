@@ -2,7 +2,6 @@
 
 import { Check, Download, Save } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
-import type { PairColor } from '@/widgets/pair-colors'
 import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
@@ -10,29 +9,21 @@ import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-d
 
 interface IndicatorEditorSelectorProps {
   workspaceId?: string
-  panelId?: string
   indicatorId?: string | null
-  pairColor?: PairColor
-  widgetKey?: string
 }
 
 export function IndicatorEditorSelector({
   workspaceId,
-  panelId,
   indicatorId,
-  pairColor = 'gray',
-  widgetKey,
 }: IndicatorEditorSelectorProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
   const actions = useWidgetConfigRuntimeActions()
-  const patchLinkedParams =
-    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const resolvedIndicatorId = indicatorId ?? null
 
   const handleIndicatorChange = (ids: string[]) => {
     const nextId = ids[0] ?? null
-    patchLinkedParams({ indicatorId: nextId })
+    actions.patchWidgetLinkedParams?.({ indicatorId: nextId })
   }
 
   return (
@@ -52,7 +43,6 @@ interface IndicatorEditorActionButtonProps {
   indicatorId?: string | null
   panelId?: string
   widgetKey?: string
-  pairColor?: PairColor
   canEditEntity?: boolean
 }
 
@@ -61,7 +51,6 @@ export function IndicatorEditorExportButton({
   indicatorId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
@@ -84,7 +73,6 @@ export function IndicatorEditorSaveButton({
   indicatorId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
   canEditEntity = true,
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
@@ -109,7 +97,6 @@ export function IndicatorEditorVerifyButton({
   indicatorId,
   panelId,
   widgetKey,
-  pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header

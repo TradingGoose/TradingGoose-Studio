@@ -7,7 +7,7 @@ import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
 import { useConsoleStore } from '@/stores/console/store'
-import { selectWorkflowExecutionState, useExecutionStore } from '@/stores/execution/store'
+import { useExecutionStore } from '@/stores/execution/store'
 import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -68,14 +68,8 @@ export function useWorkflowExecution() {
   const { doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
   const abortControllerRef = useRef<AbortController | null>(null)
-  const isExecuting = useExecutionStore(
-    (state) => selectWorkflowExecutionState(state, activeWorkflowId).isExecuting
-  )
-  const setIsExecuting = useExecutionStore((state) => state.setIsExecuting)
-  const setIsDebugging = useExecutionStore((state) => state.setIsDebugging)
-  const setPendingBlocks = useExecutionStore((state) => state.setPendingBlocks)
-  const setActiveBlocks = useExecutionStore((state) => state.setActiveBlocks)
-  const resetWorkflowExecution = useExecutionStore((state) => state.resetWorkflowExecution)
+  const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
+    useExecutionStore()
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
   const isWorkflowSessionReady = Boolean(doc) && !isLoading && !error
 
@@ -84,22 +78,16 @@ export function useWorkflowExecution() {
       useConsoleStore.getState().ingestWorkflowExecutionEvent(event)
 
       if (event.type === 'block:started') {
-        const activeBlockIds = new Set(
-          selectWorkflowExecutionState(useExecutionStore.getState(), event.workflowId)
-            .activeBlockIds
-        )
+        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
         activeBlockIds.add(event.data.blockId)
-        setActiveBlocks(event.workflowId, activeBlockIds)
+        setActiveBlocks(activeBlockIds)
         return
       }
 
       if (event.type === 'block:completed' || event.type === 'block:error') {
-        const activeBlockIds = new Set(
-          selectWorkflowExecutionState(useExecutionStore.getState(), event.workflowId)
-            .activeBlockIds
-        )
+        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
         activeBlockIds.delete(event.data.blockId)
-        setActiveBlocks(event.workflowId, activeBlockIds)
+        setActiveBlocks(activeBlockIds)
         return
       }
 
@@ -108,16 +96,19 @@ export function useWorkflowExecution() {
         event.type === 'execution:error' ||
         event.type === 'execution:cancelled'
       ) {
-        resetWorkflowExecution(event.workflowId)
+        setActiveBlocks(new Set())
       }
     },
-    [resetWorkflowExecution, setActiveBlocks]
+    [setActiveBlocks]
   )
 
   const resetExecutionState = useCallback(() => {
     abortControllerRef.current = null
-    resetWorkflowExecution(activeWorkflowId)
-  }, [activeWorkflowId, resetWorkflowExecution])
+    setIsExecuting(false)
+    setIsDebugging(false)
+    setPendingBlocks([])
+    setActiveBlocks(new Set())
+  }, [setActiveBlocks, setIsDebugging, setIsExecuting, setPendingBlocks])
 
   const handleExecutionError = useCallback(
     (error: unknown, options?: { executionId?: string }) => {
@@ -129,7 +120,10 @@ export function useWorkflowExecution() {
       }
 
       setExecutionResult(errorResult)
-      resetWorkflowExecution(activeWorkflowId)
+      setIsExecuting(false)
+      setIsDebugging(false)
+      setPendingBlocks([])
+      setActiveBlocks(new Set())
 
       if (activeWorkflowId) {
         useConsoleStore.getState().addConsole({
@@ -150,7 +144,7 @@ export function useWorkflowExecution() {
 
       return errorResult
     },
-    [activeWorkflowId, resetWorkflowExecution]
+    [activeWorkflowId, setActiveBlocks, setIsDebugging, setIsExecuting, setPendingBlocks]
   )
 
   const buildExecutionRequest = useCallback(
@@ -287,9 +281,9 @@ export function useWorkflowExecution() {
 
       const executionId = createExecutionId()
       setExecutionResult(null)
-      setIsExecuting(activeWorkflowId, true)
-      setIsDebugging(activeWorkflowId, false)
-      setPendingBlocks(activeWorkflowId, [])
+      setIsExecuting(true)
+      setIsDebugging(false)
+      setPendingBlocks([])
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController

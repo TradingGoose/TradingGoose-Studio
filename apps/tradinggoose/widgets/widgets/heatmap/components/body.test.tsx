@@ -198,6 +198,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1', canWrite: false }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -236,6 +237,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -269,6 +271,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -309,6 +312,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -349,6 +353,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -387,6 +392,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -405,6 +411,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -425,6 +432,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -456,6 +464,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -531,6 +540,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -557,6 +567,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -627,6 +638,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -651,9 +663,9 @@ describe('HeatmapWidgetBody', () => {
     )
   })
 
-  it('writes selected heatmap listings through the explicit pair callback', async () => {
+  it('writes selected heatmap listings through the linked-parameter callback', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
     currentWatchlists = [
       {
         id: 'watchlist-1',
@@ -675,6 +687,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
@@ -684,7 +697,7 @@ describe('HeatmapWidgetBody', () => {
             marketProvider: 'alpaca',
           }}
           onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetColorPairPatch={onWidgetColorPairPatch}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
         />
       )
     })
@@ -696,7 +709,7 @@ describe('HeatmapWidgetBody', () => {
       onListingSelect(createListing('AAPL'))
     })
 
-    expect(onWidgetColorPairPatch).toHaveBeenCalledWith({ listing: createListing('AAPL') })
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: createListing('AAPL') })
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
@@ -711,6 +724,7 @@ describe('HeatmapWidgetBody', () => {
     await act(async () => {
       root.render(
         <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'

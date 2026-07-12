@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardLayoutPreviewCanvasProps } from '@/components/dashboard-layout-preview'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LayoutNode } from '@/widgets/layout'
-import type { DashboardLayoutTopologyNode, DashboardWidgetsState } from '@/widgets/layout-document'
+import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 
 const canvasState = vi.hoisted(() => ({ current: null as unknown }))
 const splitCalls = vi.hoisted(() => [] as unknown[][])
@@ -97,18 +97,15 @@ describe('LayoutPreview', () => {
     act(() => latestCanvasProps().splitPanelVertical?.(finalPanelId))
 
     expect(splitCalls).toHaveLength(3)
-    for (const [layout, widgets] of splitCalls as Array<
-      [DashboardLayoutTopologyNode, DashboardWidgetsState]
-    >) {
+    for (const [layout] of splitCalls as Array<[DashboardLayoutTopologyNode]>) {
       const panels = topologyPanels(layout)
-      expect(Object.keys(widgets)).toHaveLength(panels.length)
-      expect(widgets).not.toEqual({})
       for (const panel of panels) {
         expect(panel.widgetKey).toBeNull()
-        expect(widgets[panel.identityId]).toEqual({ pairColor: 'gray', params: null })
       }
     }
 
-    expect(resolvedPanels(latestCanvasProps().layout)).toHaveLength(5)
+    const finalPanels = resolvedPanels(latestCanvasProps().layout)
+    expect(finalPanels).toHaveLength(5)
+    expect(finalPanels.every((panel) => panel.widget === null)).toBe(true)
   })
 })

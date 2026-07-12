@@ -525,7 +525,6 @@ describe('InlineToolCall', () => {
                           pairColor: 'red',
                           params: null,
                         },
-                        effectiveParams: null,
                         colorPair: { workflowId: 'workflow-1' },
                       },
                       null,
@@ -539,7 +538,6 @@ describe('InlineToolCall', () => {
                           pairColor: 'red',
                           params: { provider: 'alpaca' },
                         },
-                        effectiveParams: { provider: 'alpaca' },
                         colorPair: { watchlistId: 'watchlist-1' },
                       },
                       null,
@@ -557,7 +555,6 @@ describe('InlineToolCall', () => {
       expect(container.textContent).toContain('panel-a')
       expect(container.textContent).toContain('editor_workflow')
       expect(container.textContent).toContain('watchlist')
-      expect(container.textContent).toContain('effectiveParams')
       expect(container.textContent).toContain('watchlist-1')
       expect(container.textContent).not.toContain('Dashboard Widget')
     }

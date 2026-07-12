@@ -170,7 +170,6 @@ describe('edit_widget server tool', () => {
     const staged = await execute({ colorPair: { listing: null } }, { accessLevel: 'limited' })
     const after = JSON.parse(staged.preview.documentDiff.after)
 
-    expect(after.effectiveParams).not.toHaveProperty('listing')
     expect(after.colorPair).toEqual({})
     expect(JSON.parse(staged.entityDocument).colorPairs).toEqual({ pairs: [] })
 
@@ -194,7 +193,7 @@ describe('edit_widget server tool', () => {
     )
 
     expect(Object.keys(result.preview)).toEqual(['documentDiff'])
-    expect(result.documentFormat).toBe('tg-dashboard-layout-document-v2')
+    expect(result.documentFormat).toBe('tg-dashboard-layout-document-v3')
     expect(JSON.parse(result.entityDocument)).toMatchObject({
       layout: { id: 'root', type: 'group' },
       widgets: {
@@ -214,9 +213,11 @@ describe('edit_widget server tool', () => {
     expect(after).toMatchObject({
       panelId: 'chart-panel',
       widgetKey: 'data_chart',
-      widgetDocument: { pairColor: 'red' },
+      widgetDocument: {
+        pairColor: 'red',
+        params: { data: { provider: 'polygon' } },
+      },
     })
-    expect(after.effectiveParams).toMatchObject({ data: { provider: 'polygon' } })
   })
 
   it('rejects accepted edit_widget when the reviewed base hash is stale', async () => {

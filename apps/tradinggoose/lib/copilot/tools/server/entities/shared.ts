@@ -422,7 +422,7 @@ export async function executeRenameEntityMutation(
   }
 
   try {
-    await renameSavedEntityIdentity({
+    const persisted = await renameSavedEntityIdentity({
       entityKind: kind,
       entityId,
       workspaceId,
@@ -430,6 +430,7 @@ export async function executeRenameEntityMutation(
       name,
       expectedCurrentName: context?.acceptedReviewBaseStateHash ? currentName : undefined,
     })
+    return { ...result, updatedAt: persisted.updatedAt.toISOString() }
   } catch (error) {
     if (error instanceof SavedEntityIdentityError && error.code === 'stale_server_tool_review') {
       throw new StructuredServerToolError({
@@ -444,7 +445,6 @@ export async function executeRenameEntityMutation(
     }
     throw error
   }
-  return result
 }
 
 export type EntityServerTool<TArgs = EntityDocumentArgs> = BaseServerTool<TArgs, any>

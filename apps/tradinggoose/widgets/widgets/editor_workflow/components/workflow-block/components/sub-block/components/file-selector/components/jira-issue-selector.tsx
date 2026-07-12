@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
 import { JiraIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import type { LocaleCode } from '@/i18n/utils'
+import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraIssueSelector')
 
@@ -458,7 +459,10 @@ export function JiraIssueSelector({
               )}
 
               <Command>
-                <CommandInput placeholder={copy.searchIssues} onValueChange={handleSearch} />
+                <CommandInput
+                  placeholder={copy.searchIssues}
+                  onValueChange={handleSearch}
+                />
                 <CommandList>
                   <CommandEmpty>
                     {isLoading ? (
@@ -482,9 +486,7 @@ export function JiraIssueSelector({
                     ) : (
                       <div className='p-4 text-center'>
                         <p className='font-medium text-sm'>
-                          {formatTemplate(copy.noItemsFound, {
-                            itemName: copy.issues.toLowerCase(),
-                          })}
+                          {formatTemplate(copy.noItemsFound, { itemName: copy.issues.toLowerCase() })}
                         </p>
                         <p className='text-muted-foreground text-xs'>
                           {copy.tryDifferentSearchOrAccount}

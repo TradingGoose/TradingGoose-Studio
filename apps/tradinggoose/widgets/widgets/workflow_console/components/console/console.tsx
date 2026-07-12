@@ -3,10 +3,10 @@
 import { useMemo } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
-import { useConsoleStore } from '@/stores/console/store'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ConsoleEntry } from '..'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useConsoleStore } from '@/stores/console/store'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 interface ConsoleProps {
   panelWidth: number

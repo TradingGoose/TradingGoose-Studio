@@ -61,14 +61,12 @@ export function HeatmapWidgetBody({
   panelId,
   widget,
   params,
-  pairColor = 'gray',
   onWidgetParamsPatch,
-  onWidgetColorPairPatch,
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
   const canEditWidgetParams = Boolean(onWidgetParamsPatch)
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
@@ -185,9 +183,9 @@ export function HeatmapWidgetBody({
   })
   const handleListingSelect = useCallback(
     (listing: ListingIdentity) => {
-      patchLinkedParams?.({ listing })
+      onWidgetLinkedParamsPatch?.({ listing })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
   const chartItems = useMemo(
     () =>
@@ -347,9 +345,7 @@ export function HeatmapWidgetBody({
           errorMessage={quoteErrorMessage}
           isLoading={quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data}
           items={chartItems}
-          onListingSelect={
-            canEditWidgetParams && pairColor !== 'gray' ? handleListingSelect : undefined
-          }
+          onListingSelect={onWidgetLinkedParamsPatch ? handleListingSelect : undefined}
           totalCount={totalCount}
         />
       </div>

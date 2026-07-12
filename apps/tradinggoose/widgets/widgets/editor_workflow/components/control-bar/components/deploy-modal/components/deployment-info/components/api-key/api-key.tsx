@@ -26,7 +26,11 @@ export function ApiKey({ apiKey, showLabel = true }: ApiKeyProps) {
 
   const { name, type } = getKeyInfo(apiKey)
   const typeLabel =
-    type === 'workspace' ? copy.workspaceLabel : type === 'personal' ? copy.personalLabel : type
+    type === 'workspace'
+      ? copy.workspaceLabel
+      : type === 'personal'
+        ? copy.personalLabel
+        : type
 
   return (
     <div className='space-y-1.5'>

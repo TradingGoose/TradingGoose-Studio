@@ -10,14 +10,9 @@ import {
   createDashboardLayout,
   readDashboardLayoutMetadata,
 } from '@/lib/dashboard-layouts/operations'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
+import { createDefaultDashboardLayoutProjection } from '@/widgets/layout-document'
 import {
-  createDefaultDashboardLayoutContent,
-  normalizeDashboardLayoutDocumentContent,
-} from '@/widgets/layout-document'
-import {
-  buildDocumentEnvelope,
   buildSavedEntityListInfo,
   type EntityServerTool,
   executeRenameEntityMutation,
@@ -70,20 +65,22 @@ export const createLayoutServerTool: EntityServerTool<{
     })
 
     if (shouldStageServerToolMutationForReview(context)) {
-      const content = createDefaultDashboardLayoutContent()
-      const projection = await buildDashboardLayoutReadProjection(content)
+      const content = createDefaultDashboardLayoutProjection()
+      const result = buildDashboardLayoutResult({
+        entityName: name,
+        workspaceId,
+        ownerUserId,
+        content,
+      })
       return {
         requiresReview: true,
         success: true,
-        ...buildDocumentEnvelope(ENTITY_KIND_DASHBOARD_LAYOUT, undefined, name, content),
-        workspaceId,
-        ownerUserId,
-        effectiveLayout: projection.effectiveLayout,
+        ...result,
         reviewBaseStateHash,
         preview: {
           documentDiff: {
             before: '',
-            after: projection.entityDocument,
+            after: result.entityDocument,
           },
         },
       }
@@ -94,14 +91,21 @@ export const createLayoutServerTool: EntityServerTool<{
     }
 
     const created = await createDashboardLayout({ workspaceId, ownerUserId }, { name })
+    const content = await readBootstrappedDashboardLayoutProjection(
+      created.id,
+      workspaceId,
+      ownerUserId
+    )
 
     return {
       success: true,
-      entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
-      entityId: created.id,
-      entityName: created.name,
-      workspaceId,
-      ownerUserId,
+      ...buildDashboardLayoutResult({
+        entityId: created.id,
+        entityName: created.name,
+        workspaceId,
+        ownerUserId,
+        content,
+      }),
     }
   },
 }
@@ -127,18 +131,13 @@ export const readLayoutServerTool: EntityServerTool<{ entityId: string }> = {
       { workspaceId, ownerUserId: userId },
       entityId
     )
-    const content = await readBootstrappedSavedEntityFields(
-      ENTITY_KIND_DASHBOARD_LAYOUT,
-      entityId,
-      workspaceId,
-      userId
-    )
+    const content = await readBootstrappedDashboardLayoutProjection(entityId, workspaceId, userId)
     return buildDashboardLayoutResult({
       entityId,
       entityName: metadata.name,
       workspaceId,
       ownerUserId: userId,
-      content: normalizeDashboardLayoutDocumentContent(content),
+      content,
     })
   },
 }

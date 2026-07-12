@@ -5,12 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-const GENERIC_CONTEXT_ENTITY_KINDS = [
+const WORKSPACE_CONTEXT_ENTITY_KINDS = [
+  'workflow',
   'skill',
   'indicator',
   'custom_tool',
   'mcp_server',
   'watchlist',
+  'dashboard_layout',
 ] as const
 
 const mockGetBlocksMetadataExecute = vi.fn()
@@ -18,9 +20,7 @@ const mockVerifyWorkflowAccess = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
 const mockReadBootstrappedSavedEntityFields = vi.fn()
-const mockReadEntityListMembersFromDb = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
-const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
@@ -106,16 +106,8 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedSavedEntityFields: mockReadBootstrappedSavedEntityFields,
 }))
 
-vi.mock('@/lib/yjs/server/entity-loaders', () => ({
-  readEntityListMembersFromDb: mockReadEntityListMembersFromDb,
-}))
-
 vi.mock('@/lib/yjs/workflow-session', () => ({
   readWorkflowSnapshot: mockReadWorkflowSnapshot,
-}))
-
-vi.mock('@/lib/workflows/json-sanitizer', () => ({
-  sanitizeForCopilot: mockSanitizeForCopilot,
 }))
 
 describe('processContextsServer', () => {
@@ -126,9 +118,7 @@ describe('processContextsServer', () => {
     mockVerifyReviewTargetAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockReadBootstrappedSavedEntityFields.mockReset()
-    mockReadEntityListMembersFromDb.mockReset()
     mockReadWorkflowSnapshot.mockReset()
-    mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -193,7 +183,7 @@ describe('processContextsServer', () => {
     expect(result).toEqual([])
   })
 
-  it.each(GENERIC_CONTEXT_ENTITY_KINDS)(
+  it.each(WORKSPACE_CONTEXT_ENTITY_KINDS)(
     'emits attached and current %s contexts as entity references',
     async (entityKind) => {
       const entityId = `${entityKind}-1`
@@ -205,6 +195,7 @@ describe('processContextsServer', () => {
           entityKind,
           entityId,
           workspaceId: 'workspace-1',
+          ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
           label,
           current,
         })
@@ -213,99 +204,35 @@ describe('processContextsServer', () => {
         expect(result).toEqual([
           {
             type: context.kind,
-            tag: `@${label}`,
             content: JSON.stringify({ entityId }, null, 2),
           },
         ])
+        expect(Object.keys(JSON.parse(result[0]!.content))).toEqual(['entityId'])
+        expect(result[0]).not.toHaveProperty('tag')
       }
 
-      expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
-        'user-1',
-        {
-          entityKind,
-          entityId,
-          draftSessionId: null,
-          reviewSessionId: null,
-          ownerUserId: null,
-          workspaceId: 'workspace-1',
-          yjsSessionId: entityId,
-        },
-        'read'
-      )
+      if (entityKind === 'workflow') {
+        expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', entityId, 'read')
+        expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
+      } else {
+        expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
+          'user-1',
+          {
+            entityKind,
+            entityId,
+            draftSessionId: null,
+            reviewSessionId: null,
+            ownerUserId: entityKind === 'dashboard_layout' ? 'user-1' : null,
+            workspaceId: 'workspace-1',
+            yjsSessionId: entityId,
+          },
+          'read'
+        )
+      }
+      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
       expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     }
   )
-
-  it('hydrates current dashboard layout contexts through the read-layout projection shape', async () => {
-    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
-      layout: {
-        id: 'root',
-        type: 'panel',
-        identityId: 'widget-1',
-        widgetKey: null,
-      },
-      widgets: {
-        'widget-1': { pairColor: 'gray', params: null },
-      },
-      colorPairs: { pairs: [] },
-    })
-    mockReadEntityListMembersFromDb.mockResolvedValue([
-      { id: 'layout-1', name: 'Trading Desk', sortOrder: 0, isActive: true },
-    ])
-
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_dashboard_layout',
-          label: 'Current Layout',
-          workspaceId: 'workspace-1',
-          ownerUserId: 'user-1',
-          dashboardLayoutId: 'layout-1',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
-      'user-1',
-      {
-        entityKind: 'dashboard_layout',
-        entityId: 'layout-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        ownerUserId: 'user-1',
-        workspaceId: 'workspace-1',
-        yjsSessionId: 'layout-1',
-      },
-      'read'
-    )
-    expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'layout-1',
-      'workspace-1',
-      'user-1'
-    )
-    expect(result).toHaveLength(1)
-    const content = JSON.parse(result[0]!.content)
-    expect(content).toMatchObject({
-      entityKind: 'dashboard_layout',
-      entityId: 'layout-1',
-      entityName: 'Trading Desk',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      documentFormat: 'tg-dashboard-layout-document-v2',
-    })
-    expect(content.entityDocument).not.toContain('"name"')
-    expect(content.effectiveLayout).toMatchObject({
-      id: 'root',
-      type: 'panel',
-      widget: null,
-    })
-    expect(content.canonicalFields).toBeUndefined()
-    expect(content.hydratedLayout).toBeUndefined()
-    expect(content.hydratedColorPairs).toBeUndefined()
-  })
 
   it('skips dashboard layout contexts outside the authenticated owner scope', async () => {
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
@@ -353,7 +280,7 @@ describe('processContextsServer', () => {
     expect(result).toEqual([])
   })
 
-  it('hydrates workflow contexts from Yjs after verifying workflow read access', async () => {
+  it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
     const snapshotBase64 = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
     doc.destroy()
@@ -364,10 +291,7 @@ describe('processContextsServer', () => {
     })
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
-        trigger: {
-          id: 'trigger',
-          type: 'trigger',
-        },
+        'block-1': { id: 'block-1', type: 'function', name: 'Inspect' },
       },
       edges: [],
       loops: {},
@@ -378,55 +302,25 @@ describe('processContextsServer', () => {
     const result = await processContextsServer(
       [
         {
-          kind: 'workflow',
+          kind: 'workflow_block',
           workflowId: 'workflow-1',
-          workspaceId: 'workspace-1',
-          label: 'Attached Workflow',
+          blockId: 'block-1',
+          label: 'Attached Block',
         },
       ],
       'user-1'
     )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
-    expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      ownerUserId: null,
-      yjsSessionId: 'workflow-1',
-    })
-    expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
-      blocks: {
-        trigger: {
-          id: 'trigger',
-          type: 'trigger',
-        },
-      },
-      edges: [],
-      loops: {},
-      parallels: {},
-    })
+    expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledTimes(1)
     expect(result).toEqual([
       {
-        type: 'workflow',
-        tag: '@Attached Workflow',
-        content: JSON.stringify(
-          {
-            blocks: {
-              trigger: {
-                id: 'trigger',
-                type: 'trigger',
-              },
-            },
-            edges: [],
-            loops: {},
-            parallels: {},
-          },
-          null,
-          2
-        ),
+        type: 'workflow_block',
+        tag: '@Attached Block in Workflow',
+        content: JSON.stringify({
+          workflowId: 'workflow-1',
+          block: { id: 'block-1', type: 'function', name: 'Inspect' },
+        }),
       },
     ])
   })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { hasListingDisplayDetails } from '@/components/listing-selector/listing/row'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import {
@@ -14,7 +14,6 @@ import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import type { PairColor } from '@/widgets/pair-colors'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 
@@ -22,7 +21,6 @@ type DataChartListingControlProps = {
   widgetKey?: string
   panelId?: string
   params: DataChartWidgetParams
-  pairColor: PairColor
 }
 
 type DataChartListingSelectorProps = {
@@ -50,7 +48,6 @@ export const DataChartListingControl = ({
   widgetKey,
   panelId,
   params,
-  pairColor,
 }: DataChartListingControlProps) => {
   const providerId = params.data?.provider
   const rawListing = params.listing ?? null
@@ -72,13 +69,6 @@ export const DataChartListingControl = ({
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const actions = useWidgetConfigRuntimeActions()
-  const patchListing = useCallback(
-    (nextParams: Record<string, unknown>) => {
-      const patch = pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
-      patch(nextParams)
-    },
-    [actions, pairColor]
-  )
   const previousProviderRef = useRef<string | undefined>(undefined)
   const syncedInstanceIdRef = useRef<string | null>(null)
   const syncedListingIdentityRef = useRef<ListingIdentity | null | undefined>(undefined)
@@ -142,7 +132,7 @@ export const DataChartListingControl = ({
 
   const handleListingChange = (selected: ListingOption | null) => {
     const normalized = toListingValue(selected)
-    patchListing({ listing: normalized ?? null })
+    actions.patchWidgetLinkedParams?.({ listing: normalized ?? null })
   }
 
   return (

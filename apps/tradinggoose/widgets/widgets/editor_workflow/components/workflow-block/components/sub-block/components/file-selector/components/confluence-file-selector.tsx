@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
 import { ConfluenceIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import type { LocaleCode } from '@/i18n/utils'
+import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('ConfluenceFileSelector')
 
@@ -434,9 +435,7 @@ export function ConfluenceFileSelector({
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
                         <span className='ml-2'>
-                          {formatTemplate(copy.loadingItems, {
-                            itemName: copy.pages.toLowerCase(),
-                          })}
+                          {formatTemplate(copy.loadingItems, { itemName: copy.pages.toLowerCase() })}
                         </span>
                       </div>
                     ) : errorMessage ? (
@@ -455,9 +454,7 @@ export function ConfluenceFileSelector({
                     ) : (
                       <div className='p-4 text-center'>
                         <p className='font-medium text-sm'>
-                          {formatTemplate(copy.noItemsFound, {
-                            itemName: copy.pages.toLowerCase(),
-                          })}
+                          {formatTemplate(copy.noItemsFound, { itemName: copy.pages.toLowerCase() })}
                         </p>
                         <p className='text-muted-foreground text-xs'>
                           {copy.tryDifferentSearchOrAccount}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
+import { normalizeWatchlistDocumentContent } from '@/lib/watchlists/validation'
 import {
   getEntityListMembers,
   readWatchlistItems,
@@ -96,6 +97,78 @@ describe('watchlist entity sessions', () => {
     }
   })
 
+  it('converges concurrent additions of the same listing to one canonical row', () => {
+    const source = new Y.Doc()
+    const left = new Y.Doc()
+    const right = new Y.Doc()
+    try {
+      seedEntitySession(source, {
+        entityKind: 'watchlist',
+        payload: {
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [],
+        },
+      })
+      const state = Y.encodeStateAsUpdate(source)
+      Y.applyUpdate(left, state)
+      Y.applyUpdate(right, state)
+      const leftBase = Y.encodeStateVector(left)
+      const rightBase = Y.encodeStateVector(right)
+
+      updateWatchlistItems(left, (items) => [
+        ...items,
+        listing('00000000-0000-4000-8000-000000000001', 'AAPL'),
+      ])
+      updateWatchlistItems(right, (items) => [
+        ...items,
+        listing('00000000-0000-4000-8000-000000000002', 'AAPL'),
+      ])
+      const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
+      const rightUpdate = Y.encodeStateAsUpdate(right, rightBase)
+      Y.applyUpdate(left, rightUpdate)
+      Y.applyUpdate(right, leftUpdate)
+
+      const leftItems = readWatchlistItems(left)
+      const rightItems = readWatchlistItems(right)
+      expect(leftItems).toEqual(rightItems)
+      expect(leftItems).toHaveLength(1)
+      expect(
+        normalizeWatchlistDocumentContent({
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: leftItems,
+        }).items
+      ).toHaveLength(1)
+    } finally {
+      source.destroy()
+      left.destroy()
+      right.destroy()
+    }
+  })
+
+  it('keeps the same listing distinct when it belongs to different sections', () => {
+    const doc = new Y.Doc()
+    const firstSection = '00000000-0000-4000-8000-000000000001'
+    const secondSection = '00000000-0000-4000-8000-000000000002'
+    try {
+      seedEntitySession(doc, {
+        entityKind: 'watchlist',
+        payload: {
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [
+            { id: firstSection, type: 'section', parentId: null, label: 'First' },
+            { id: secondSection, type: 'section', parentId: null, label: 'Second' },
+            { ...listing('00000000-0000-4000-8000-000000000003', 'AAPL'), parentId: firstSection },
+            { ...listing('00000000-0000-4000-8000-000000000004', 'AAPL'), parentId: secondSection },
+          ],
+        },
+      })
+
+      expect(readWatchlistItems(doc).filter((item) => item.type === 'listing')).toHaveLength(2)
+    } finally {
+      doc.destroy()
+    }
+  })
+
   it('merges concurrent edits to different listing rows', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
@@ -133,6 +206,72 @@ describe('watchlist entity sessions', () => {
         )
       expect(symbols(left)).toEqual(['GOOG', 'NVDA'])
       expect(symbols(right)).toEqual(['GOOG', 'NVDA'])
+    } finally {
+      source.destroy()
+      left.destroy()
+      right.destroy()
+    }
+  })
+
+  it('merges a concurrent move and listing edit into the same durable item', () => {
+    const source = new Y.Doc()
+    const left = new Y.Doc()
+    const right = new Y.Doc()
+    const firstSection = '00000000-0000-4000-8000-000000000001'
+    const secondSection = '00000000-0000-4000-8000-000000000002'
+    const itemId = '00000000-0000-4000-8000-000000000003'
+    try {
+      seedEntitySession(source, {
+        entityKind: 'watchlist',
+        payload: {
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [
+            { id: firstSection, type: 'section', parentId: null, label: 'First' },
+            { id: secondSection, type: 'section', parentId: null, label: 'Second' },
+            { ...listing(itemId, 'AAPL'), parentId: firstSection },
+          ],
+        },
+      })
+      const state = Y.encodeStateAsUpdate(source)
+      Y.applyUpdate(left, state)
+      Y.applyUpdate(right, state)
+      const leftBase = Y.encodeStateVector(left)
+      const rightBase = Y.encodeStateVector(right)
+
+      updateWatchlistItems(left, (items) =>
+        items.map((item) =>
+          item.id === itemId && item.type === 'listing'
+            ? { ...item, parentId: secondSection }
+            : item
+        )
+      )
+      updateWatchlistItems(right, (items) =>
+        items.map((item) =>
+          item.id === itemId ? { ...listing(itemId, 'GOOG'), parentId: firstSection } : item
+        )
+      )
+      const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
+      const rightUpdate = Y.encodeStateAsUpdate(right, rightBase)
+      Y.applyUpdate(left, rightUpdate)
+      Y.applyUpdate(right, leftUpdate)
+
+      for (const doc of [left, right]) {
+        const item = readWatchlistItems(doc).find((entry) => entry.id === itemId)
+        expect(item).toMatchObject({
+          id: itemId,
+          type: 'listing',
+          parentId: secondSection,
+          listing: { listing_id: 'GOOG' },
+        })
+        const rawItems = doc.getMap('fields').get('items') as Y.Map<Y.Map<unknown>>
+        expect(rawItems.get(itemId)?.has('id')).toBe(false)
+        expect(
+          normalizeWatchlistDocumentContent({
+            settings: { showLogo: true, showTicker: true, showDescription: true },
+            items: readWatchlistItems(doc),
+          }).items
+        ).toHaveLength(3)
+      }
     } finally {
       source.destroy()
       left.destroy()

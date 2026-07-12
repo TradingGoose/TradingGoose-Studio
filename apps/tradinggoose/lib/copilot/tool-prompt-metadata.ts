@@ -16,10 +16,10 @@ const WATCHLIST_DOCUMENT_GUIDANCE =
 const DASHBOARD_COLOR_STORE_GUIDANCE =
   'The layout color store is `colorPairs`: each non-gray color is one layout-scoped shared channel, while `gray` means the widget is unlinked and uses only local `params`. Widgets synchronize a field only when they select the same non-gray `pairColor` and both list that field in `get_widgets_metadata.linkedParamFields`; other fields remain local. Set both widgets to the same `pairColor`, then update shared fields through `colorPair`, not `params`. Changing `pairColor` only changes the subscription and preserves both local params and stored color channels.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
-  'Returns `tg-dashboard-layout-document-v2` content JSON with exactly the `layout`, `widgets`, and `colorPairs` child channels. Layout identity is returned separately as `entityName`. `widgets[identityId].params` is persisted local state and may canonically be `null`, meaning no local overrides rather than a missing widget. `effectiveLayout` is the resolved local-plus-color-store state. Use it to inspect panel ids, widget identities, and effective widget state; do not submit this full document to `edit_layout`. ' +
+  "Returns a complete `tg-dashboard-layout-document-v3` inspection document with exactly `layout`, `widgets`, and `colorPairs`. These are independent owners: `layout` selects each panel's `identityId` and `widgetKey`, `widgets[identityId]` owns that widget's local `params` and selected `pairColor`, and each non-gray `colorPairs` entry owns shared parameters for that layout/color. This response is never one persisted or Yjs document. Layout identity is returned separately as `entityName`. `widgets[identityId].params` may canonically be `null`, meaning no local overrides rather than a missing widget. At runtime, the mounted widget combines its local params with its selected color-pair params. An entity ID in those params is only a reference; the mounted entity independently connects to its own entity Yjs document. Do not submit this complete read document to `edit_layout`. " +
   DASHBOARD_COLOR_STORE_GUIDANCE
 const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
-  'Use raw `tg-dashboard-layout-structure-v2` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget params and color-pair edits belong to `edit_widget`.'
+  'Use raw `tg-dashboard-layout-structure-v3` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget params and color-pair edits belong to `edit_widget`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -377,7 +377,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'dashboard_layout',
   },
   read_layout: {
-    description: `Return one user-owned dashboard layout by exact \`entityId\` as an editable document payload with \`entityDocument\`, \`effectiveLayout\`, and \`documentFormat\`. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
+    description: `Return one user-owned dashboard layout by exact \`entityId\` with \`entityDocument\` and \`documentFormat\`. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
     kind: 'read',
     entityKind: 'dashboard_layout',
   },

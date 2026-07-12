@@ -20,6 +20,18 @@ export interface YjsProviderBootstrapResult {
   accessMode: ReviewAccessMode
 }
 
+type YjsProviderLifecycle = { dispose: () => void }
+const providerLifecycles = new WeakMap<YjsProviderBootstrapResult, YjsProviderLifecycle>()
+
+export function disposeYjsProvider(result: YjsProviderBootstrapResult): void {
+  const lifecycle = providerLifecycles.get(result)
+  if (!lifecycle) {
+    throw new Error('Yjs provider result is not owned by this provider lifecycle')
+  }
+  lifecycle.dispose()
+}
+
+const SOCKET_TOKEN_RETRY_MS = 1_000
 const SYNC_TIMEOUT_MS = 10_000
 
 async function fetchSocketToken(): Promise<string> {
@@ -75,6 +87,8 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
         timeout = null
       }
       provider.off('sync', handleSync)
+      provider.off('connection-close', handleConnectionFailure)
+      provider.off('connection-error', handleConnectionFailure)
       error ? reject(error) : resolve()
     }
 
@@ -84,12 +98,14 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
       }
     }
 
-    const handleSyncTimeout = () => {
+    const handleConnectionFailure = () => {
       finish(new Error('Failed to establish authorized Yjs sync'))
     }
 
-    timeout = setTimeout(handleSyncTimeout, SYNC_TIMEOUT_MS)
+    timeout = setTimeout(handleConnectionFailure, SYNC_TIMEOUT_MS)
     provider.on('sync', handleSync)
+    provider.on('connection-close', handleConnectionFailure)
+    provider.on('connection-error', handleConnectionFailure)
 
     if (provider.synced) {
       finish()
@@ -124,32 +140,86 @@ export async function bootstrapYjsProvider(
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
     params: { token, accessMode, ...envelopeParams },
     connect: true,
-    disableBc: true,
   })
-  const handleConnectionLoss = () => {
+  let deactivated = false
+  let disposed = false
+  let reconnectDesired = accessMode === 'write'
+  let reconnectGeneration = 0
+  let tokenRefreshInFlight: Promise<void> | null = null
+  let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
+
+  const reconnectWithFreshToken = () => {
+    if (!reconnectDesired || deactivated || tokenRefreshInFlight || tokenRefreshRetryTimeout) return
+
     provider.shouldConnect = false
+    const generation = reconnectGeneration
+    tokenRefreshInFlight = (async () => {
+      try {
+        const nextToken = await fetchSocketToken()
+        if (deactivated || !reconnectDesired || generation !== reconnectGeneration) return
+        provider.params = { token: nextToken, accessMode, ...envelopeParams }
+        provider.connect()
+      } catch (error) {
+        console.error('[YjsProvider] Failed to refresh socket token', error)
+        if (deactivated || !reconnectDesired || generation !== reconnectGeneration) return
+        tokenRefreshRetryTimeout = setTimeout(() => {
+          tokenRefreshRetryTimeout = null
+          reconnectWithFreshToken()
+        }, SOCKET_TOKEN_RETRY_MS)
+      } finally {
+        tokenRefreshInFlight = null
+      }
+    })()
   }
-  provider.on('connection-close', handleConnectionLoss)
-  provider.on('connection-error', handleConnectionLoss)
+
+  const handleConnectionLoss = () => {
+    if (!provider.shouldConnect) return
+    reconnectWithFreshToken()
+  }
+  if (accessMode === 'write') {
+    provider.on('connection-close', handleConnectionLoss)
+    provider.on('connection-error', handleConnectionLoss)
+  }
+
+  const deactivate = () => {
+    if (deactivated) return
+    deactivated = true
+    reconnectDesired = false
+    reconnectGeneration += 1
+    if (tokenRefreshRetryTimeout) clearTimeout(tokenRefreshRetryTimeout)
+    tokenRefreshRetryTimeout = null
+    provider.off('connection-close', handleConnectionLoss)
+    provider.off('connection-error', handleConnectionLoss)
+    doc.off('destroy', deactivate)
+  }
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    deactivate()
+    provider.disconnect()
+    provider.destroy()
+    doc.destroy()
+  }
+  doc.on('destroy', deactivate)
 
   if (accessMode === 'write') {
     try {
       await waitForYjsSync(provider)
     } catch (error) {
-      provider.disconnect()
-      provider.destroy()
-      doc.destroy()
+      dispose()
       throw error
     }
   }
 
-  return {
+  const result: YjsProviderBootstrapResult = {
     doc,
     provider,
     descriptor: resolvedDescriptor,
     runtime,
     accessMode,
   }
+  providerLifecycles.set(result, { dispose })
+  return result
 }
 
 function getDefaultWsOrigin(): string {

@@ -12,7 +12,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -33,11 +32,9 @@ const buildNewIndicator = (defaults: { name: string }) => {
 const IndicatorListHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
@@ -45,14 +42,12 @@ const IndicatorListHeaderRight = ({
   const importMutation = useImportIndicators()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('indicator', workspaceId)
-  const patchLinkedParams =
-    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectIndicator = useCallback(
     (createdIndicatorId: string) => {
-      patchLinkedParams({ indicatorId: createdIndicatorId })
+      actions.patchWidgetLinkedParams?.({ indicatorId: createdIndicatorId })
     },
-    [patchLinkedParams]
+    [actions]
   )
   const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 
@@ -124,11 +119,9 @@ const IndicatorListHeaderRight = ({
 const ListIndicatorHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.indicatorList
   if (!workspaceId) {
@@ -138,11 +131,7 @@ const ListIndicatorHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <IndicatorListHeaderRight
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <IndicatorListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -166,15 +155,9 @@ export const listIndicatorWidget: DashboardWidgetDefinition = {
   contract: indicatorListWidgetContract,
   icon: ListChecks,
   component: (props) => <ListIndicatorWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ context, panelId }) => {
     return {
-      right: (
-        <ListIndicatorHeaderRight
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          pairColor={widget?.pairColor}
-        />
-      ),
+      right: <ListIndicatorHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
     }
   },
 }

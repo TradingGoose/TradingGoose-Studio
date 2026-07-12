@@ -1,8 +1,12 @@
 import * as Y from 'yjs'
 import {
+  buildDashboardColorPairDescriptor,
+  buildDashboardWidgetDescriptor,
   buildEntityListDescriptor,
   buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
@@ -12,10 +16,18 @@ import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
+import {
+  readPersistedDashboardColorPairDocument,
+  readPersistedDashboardWidgetDocument,
+} from '@/lib/dashboard-layouts/operations'
 import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import {
-  readDashboardLayoutContent,
+  readDashboardColorPairDocument,
+  readDashboardLayoutDocument,
+  readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
   seedDashboardLayoutSession,
+  seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import {
   type EntityListMember,
@@ -39,7 +51,13 @@ import {
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
-import { normalizeDashboardLayoutDocumentContent } from '@/widgets/layout-document'
+import {
+  type DashboardLayoutProjectionContent,
+  type DashboardLayoutTopologyNode,
+  normalizeDashboardLayoutDocument,
+  normalizeDashboardLayoutProjection,
+} from '@/widgets/layout-document'
+import { PAIR_COLORS } from '@/widgets/pair-colors'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -199,11 +217,70 @@ export async function readBootstrappedSavedEntityFields(
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
     return entityKind === 'dashboard_layout'
-      ? readDashboardLayoutContent(doc)
+      ? readDashboardLayoutDocument(doc)
       : getEntityFields(doc, entityKind)
   } finally {
     doc.destroy()
   }
+}
+
+export async function readBootstrappedDashboardLayoutProjection(
+  layoutId: string,
+  workspaceId: string,
+  ownerUserId: string
+): Promise<DashboardLayoutProjectionContent> {
+  const document = normalizeDashboardLayoutDocument(
+    await readBootstrappedSavedEntityFields('dashboard_layout', layoutId, workspaceId, ownerUserId)
+  )
+  const panels: Array<Extract<DashboardLayoutTopologyNode, { type: 'panel' }>> = []
+  const collect = (node: DashboardLayoutTopologyNode) => {
+    if (node.type === 'panel') panels.push(node)
+    else node.children.forEach(collect)
+  }
+  collect(document.layout)
+  const widgets = Object.fromEntries(
+    await Promise.all(
+      panels.map(async (panel) => {
+        const snapshot = await readBootstrappedReviewTargetSnapshot(
+          buildDashboardWidgetDescriptor({
+            layoutId,
+            identityId: panel.identityId,
+            workspaceId,
+            ownerUserId,
+          })
+        ).catch(mapSavedEntitySnapshotError)
+        const doc = new Y.Doc()
+        try {
+          Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+          return [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
+        } finally {
+          doc.destroy()
+        }
+      })
+    )
+  )
+  const pairs = (
+    await Promise.all(
+      PAIR_COLORS.filter((color) => color !== 'gray').map(async (color) => {
+        const snapshot = await readBootstrappedReviewTargetSnapshot(
+          buildDashboardColorPairDescriptor({ layoutId, color, workspaceId, ownerUserId })
+        ).catch(mapSavedEntitySnapshotError)
+        const doc = new Y.Doc()
+        try {
+          Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+          const context = readDashboardColorPairDocument(doc)
+          return Object.keys(context).length > 0 ? { color, ...context } : null
+        } finally {
+          doc.destroy()
+        }
+      })
+    )
+  ).filter((pair) => pair !== null)
+  return normalizeDashboardLayoutProjection({
+    ...document,
+    widgets,
+    colorPairs: { pairs },
+  })
 }
 
 export async function createSavedReviewTargetBootstrapUpdate(
@@ -235,6 +312,40 @@ export async function createSavedReviewTargetBootstrapUpdate(
         YJS_ORIGINS.SYSTEM
       )
       setVariables(doc, workflowState.variables, YJS_ORIGINS.SYSTEM)
+    } else if (descriptor.entityKind === 'dashboard_widget') {
+      const target = parseDashboardWidgetSessionId(descriptor.yjsSessionId)
+      if (!target || target.identityId !== descriptor.entityId) {
+        throw new ReviewTargetBootstrapError(400, 'Invalid dashboard widget session')
+      }
+      if (!descriptor.workspaceId || !descriptor.ownerUserId) {
+        throw new ReviewTargetBootstrapError(400, 'Dashboard widget owner scope is required')
+      }
+      seedDashboardWidgetSession(
+        doc,
+        await readPersistedDashboardWidgetDocument(
+          { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+          target.layoutId,
+          target.identityId
+        ),
+        YJS_ORIGINS.SYSTEM
+      )
+    } else if (descriptor.entityKind === 'dashboard_color_pair') {
+      const target = parseDashboardColorPairSessionId(descriptor.yjsSessionId)
+      if (!target || target.color !== descriptor.entityId) {
+        throw new ReviewTargetBootstrapError(400, 'Invalid dashboard color-pair session')
+      }
+      if (!descriptor.workspaceId || !descriptor.ownerUserId) {
+        throw new ReviewTargetBootstrapError(400, 'Dashboard color-pair owner scope is required')
+      }
+      seedDashboardColorPairSession(
+        doc,
+        await readPersistedDashboardColorPairDocument(
+          { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+          target.layoutId,
+          target.color
+        ),
+        YJS_ORIGINS.SYSTEM
+      )
     } else {
       const entityKind = descriptor.entityKind as SavedEntityKind
       const workspaceId =
@@ -254,7 +365,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
       if (entityKind === 'dashboard_layout') {
         seedDashboardLayoutSession(
           doc,
-          normalizeDashboardLayoutDocumentContent(payload),
+          normalizeDashboardLayoutDocument(payload),
           YJS_ORIGINS.SYSTEM
         )
       } else {

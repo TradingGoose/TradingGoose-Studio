@@ -5,13 +5,10 @@ import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  createCustomToolRuntimeId,
-  getCustomToolEntityIdFromRuntimeId,
-} from '@/lib/custom-tools/schema'
+import { createCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider } from '@/lib/oauth/oauth'
-import { getEntityIconColor, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import {
   getProviderIdsForBlocks,
@@ -31,9 +28,9 @@ import {
   getToolInputCopy,
   localizeWorkflowSubBlockConfig,
 } from '@/i18n/block-editor'
+import { formatTemplate } from '@/i18n/utils'
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
-import { formatTemplate } from '@/i18n/utils'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
@@ -849,13 +846,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                     <div className='flex min-w-0 flex-shrink-1 items-center gap-2 overflow-hidden'>
                       {(() => {
                         const toolColor = isCustomTool
-                          ? sanitizeSolidIconColor(
-                              getEntityIconColor(getCustomToolEntityIdFromRuntimeId(tool.toolId))
-                            )
+                          ? sanitizeSolidIconColor('#3B82F6')
                           : isMcpTool
-                            ? sanitizeSolidIconColor(
-                                getEntityIconColor(tool.toolId, mcpTool?.bgColor)
-                              )
+                            ? (sanitizeSolidIconColor(mcpTool?.bgColor) ??
+                              sanitizeSolidIconColor('#6366F1'))
                             : sanitizeSolidIconColor(toolBlock?.bgColor)
                         const iconColor = toolColor || 'undefined'
                         return (

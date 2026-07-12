@@ -398,10 +398,23 @@ describe('copilot contract registry', () => {
       ownerUserId: 'user-1',
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
       entityDocument: JSON.stringify({ layout: {}, widgets: {}, colorPairs: { pairs: [] } }),
-      effectiveLayout: { id: 'root', type: 'panel', widget: null },
     }
 
     expect(getToolContract('read_layout')?.result.parse(envelope)).toEqual(envelope)
+    expect(getToolContract('create_layout')?.result.parse({ success: true, ...envelope })).toEqual({
+      success: true,
+      ...envelope,
+    })
+    expect(() =>
+      getToolContract('create_layout')?.result.parse({
+        success: true,
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        entityName: 'Layout 1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      })
+    ).toThrow()
     for (const toolName of ['edit_layout', 'edit_widget'] as const) {
       expect(getToolContract(toolName)?.result.parse({ success: true, ...envelope })).toEqual({
         success: true,

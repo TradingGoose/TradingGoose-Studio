@@ -42,6 +42,7 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
   useOptionalWorkflowRoute: () => ({
     workspaceId: 'workspace-1',
     workflowId: 'workflow-1',
+    channelId: 'channel-1',
   }),
 }))
 
@@ -122,14 +123,14 @@ describe('ListingSelectorInput', () => {
   it('keeps empty fetched listing candidates stable while options load', () => {
     const fetchedConfig = {
       ...unscopedConfig,
-      fetchOptionsCondition: { field: 'operation', value: 'loadCandidates' },
+      fetchOptionsCondition: { field: 'operation', value: 'removeListing' },
       fetchOptions: vi.fn(() => new Promise<never>(() => {})),
     } satisfies SubBlockConfig
     const props = {
       blockId: 'block-1',
       subBlockId: 'listing',
       config: fetchedConfig,
-      contextValues: { operation: 'loadCandidates' },
+      contextValues: { operation: 'removeListing' },
     }
 
     act(() => {
@@ -142,7 +143,7 @@ describe('ListingSelectorInput', () => {
         <ListingSelectorInput
           {...props}
           config={{ ...fetchedConfig }}
-          contextValues={{ operation: 'loadCandidates' }}
+          contextValues={{ operation: 'removeListing' }}
         />
       )
     })

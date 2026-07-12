@@ -7,21 +7,24 @@ import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
-  beginDashboardLayoutDirtyFlush,
-  completeDashboardLayoutDirtyFlush,
-  failDashboardLayoutDirtyFlush,
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
   seedDashboardLayoutSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { createDefaultDashboardLayoutContent } from '@/widgets/layout-document'
+import { createDefaultDashboardLayoutProjection } from '@/widgets/layout-document'
 import {
+  abortYjsSessionDeletion,
+  beginYjsSessionDeletion,
   cleanupAllDocuments,
+  commitYjsSessionDeletion,
+  discardDocument,
+  discardDocumentIfCurrent,
   discardDocumentIfIdle,
   drainAllDocuments,
   flushDocumentPersistence,
   getDocument,
+  isYjsSessionAdmissionBlocked,
   peekDocument,
   reconcileWorkspaceConnections,
   runDocumentMutation,
@@ -69,7 +72,11 @@ function createFieldsUpdate(doc: Y.Doc, key: string, value: unknown): Uint8Array
 
 function createDashboardDocument(docId: string): Y.Doc {
   const source = new Y.Doc()
-  seedDashboardLayoutSession(source, createDefaultDashboardLayoutContent(), YJS_ORIGINS.SYSTEM)
+  seedDashboardLayoutSession(
+    source,
+    { layout: createDefaultDashboardLayoutProjection().layout },
+    YJS_ORIGINS.SYSTEM
+  )
   source.transact(() => {
     const metadata = source.getMap('metadata')
     metadata.set('entityKind', 'dashboard_layout')
@@ -79,7 +86,7 @@ function createDashboardDocument(docId: string): Y.Doc {
   }, YJS_ORIGINS.SYSTEM)
   const state = Y.encodeStateAsUpdate(source)
   source.destroy()
-  return getDocument(docId, true, state)
+  return getDocument(docId, true, state).doc
 }
 
 function changeTopology(doc: Y.Doc, id: string): void {
@@ -99,18 +106,33 @@ beforeEach(() => {
 })
 
 describe('dashboard document persistence queue', () => {
+  it('reports one atomic creator for a shared document id', () => {
+    const first = getDocument('layout-bootstrap-race')
+    const second = getDocument('layout-bootstrap-race')
+
+    expect(first.created).toBe(true)
+    expect(second).toEqual({ doc: first.doc, created: false })
+  })
+
+  it('does not discard a replacement document through a stale reference', async () => {
+    const stale = getDocument('layout-replaced').doc
+    await discardDocument('layout-replaced')
+    const replacement = getDocument('layout-replaced').doc
+
+    await discardDocumentIfCurrent(stale)
+
+    expect(peekDocument('layout-replaced')).toBe(replacement)
+  })
+
   it('serializes explicit flushes and preserves a newer generation during an in-flight save', async () => {
     const doc = createDashboardDocument('layout-serialized')
     const firstWrite = deferred()
     const savedTopologyIds: string[] = []
     let callCount = 0
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
-      const batch = beginDashboardLayoutDirtyFlush(target)
-      expect(batch?.layout).toBe(true)
       callCount += 1
       savedTopologyIds.push(readDashboardLayoutTopology(target).id)
       if (callCount === 1) await firstWrite.promise
-      completeDashboardLayoutDirtyFlush(target, batch!)
     })
 
     changeTopology(doc, 'first-generation')
@@ -119,7 +141,7 @@ describe('dashboard document persistence queue', () => {
 
     changeTopology(doc, 'second-generation')
     const secondFlush = flushDocumentPersistence(doc, persist)
-    discardDocumentIfIdle('layout-serialized')
+    discardDocumentIfIdle(doc)
     expect(peekDocument('layout-serialized')).toBe(doc)
 
     firstWrite.resolve()
@@ -127,7 +149,7 @@ describe('dashboard document persistence queue', () => {
 
     expect(persist).toHaveBeenCalledTimes(2)
     expect(savedTopologyIds).toEqual(['first-generation', 'second-generation'])
-    discardDocumentIfIdle('layout-serialized')
+    discardDocumentIfIdle(doc)
     expect(peekDocument('layout-serialized')).toBeNull()
   })
 
@@ -135,19 +157,16 @@ describe('dashboard document persistence queue', () => {
     vi.useFakeTimers()
     const doc = createDashboardDocument('layout-retry')
     let attempts = 0
-    const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
-      const batch = beginDashboardLayoutDirtyFlush(target)
+    const persist = vi.fn(async () => {
       attempts += 1
       if (attempts === 1) {
-        failDashboardLayoutDirtyFlush(target, batch!)
         throw new Error('database offline')
       }
-      completeDashboardLayoutDirtyFlush(target, batch!)
     })
 
     changeTopology(doc, 'retry-generation')
     await expect(flushDocumentPersistence(doc, persist)).rejects.toThrow('database offline')
-    discardDocumentIfIdle('layout-retry')
+    discardDocumentIfIdle(doc)
     expect(peekDocument('layout-retry')).toBe(doc)
 
     await vi.advanceTimersByTimeAsync(1000)
@@ -201,9 +220,9 @@ describe('realtime shutdown', () => {
     expect(peekDocument('watchlist-queued-drain')).toBeNull()
   })
 
-  it('keeps every document connected when one persistence barrier fails', async () => {
+  it('rolls back a failed drain so mutations and a later drain can succeed', async () => {
     const sockets = [new TestSocket(), new TestSocket()]
-    const persist = [vi.fn(), vi.fn().mockRejectedValue(new Error('database offline'))]
+    const persist = [vi.fn(), vi.fn().mockRejectedValueOnce(new Error('database offline'))]
     for (const [index, socket] of sockets.entries()) {
       const docId = `watchlist-drain-${index}`
       setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
@@ -224,7 +243,57 @@ describe('realtime shutdown', () => {
     expect(sockets.every((socket) => socket.close.mock.calls.length === 0)).toBe(true)
     expect(peekDocument('watchlist-drain-0')).not.toBeNull()
     expect(peekDocument('watchlist-drain-1')).not.toBeNull()
-    sockets.forEach((socket) => socket.emit('close'))
+
+    await runDocumentMutation(peekDocument('watchlist-drain-0')!, () => {
+      peekDocument('watchlist-drain-0')!.getMap('fields').set('after-failure', true)
+    })
+    await drainAllDocuments()
+
+    expect(sockets.every((socket) => socket.close.mock.calls.length === 1)).toBe(true)
+    expect(peekDocument('watchlist-drain-0')).toBeNull()
+    expect(peekDocument('watchlist-drain-1')).toBeNull()
+  })
+
+  it('closes a write rejected by drain so the client can replay after rollback', async () => {
+    const descriptor = buildSavedEntityDescriptor(
+      'watchlist',
+      'watchlist-drain-replay',
+      'workspace-1'
+    )
+    const socket = new TestSocket()
+    const persist = vi.fn().mockRejectedValueOnce(new Error('database offline'))
+    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+      docId: 'watchlist-drain-replay',
+      userId: 'user-1',
+      accessMode: 'write',
+      descriptor,
+      onDocumentIdle: persist,
+      onDocumentUpdateDebounceMs: 60_000,
+    })
+    const doc = peekDocument('watchlist-drain-replay')!
+    doc.getMap('fields').set('pending', true)
+    const replayedUpdate = createFieldsUpdate(doc, 'replayed', true)
+
+    const draining = drainAllDocuments()
+    const failedDrain = expect(draining).rejects.toThrow('database offline')
+    socket.emit('message', createSyncUpdateMessage(replayedUpdate))
+    await vi.waitFor(() => expect(socket.close).toHaveBeenCalledOnce())
+    await failedDrain
+    expect(doc.getMap('fields').has('replayed')).toBe(false)
+
+    const reconnected = new TestSocket()
+    setupWSConnection(reconnected as unknown as WebSocket, {} as IncomingMessage, {
+      docId: 'watchlist-drain-replay',
+      userId: 'user-1',
+      accessMode: 'write',
+      descriptor,
+      onDocumentIdle: persist,
+      onDocumentUpdateDebounceMs: 60_000,
+    })
+    const reconnectedDoc = peekDocument('watchlist-drain-replay')!
+    reconnected.emit('message', createSyncUpdateMessage(replayedUpdate))
+    await vi.waitFor(() => expect(reconnectedDoc.getMap('fields').get('replayed')).toBe(true))
+    reconnected.emit('close')
   })
 })
 
@@ -330,6 +399,73 @@ describe('document mutation queue', () => {
     await expect(failedMutation).rejects.toThrow('mutation failed')
     await vi.waitFor(() => expect(persistedValue).toHaveBeenCalledWith(true))
     await vi.waitFor(() => expect(peekDocument('watchlist-cleanup')).toBeNull())
+  })
+})
+
+describe('orderly document discard', () => {
+  it('rejects new mutations and waits for active mutation and persistence queues', async () => {
+    const descriptor = buildSavedEntityDescriptor('watchlist', 'discard-watchlist', 'workspace-1')
+    const socket = new TestSocket()
+    const mutationGate = deferred()
+    const persistenceGate = deferred()
+    const persist = vi.fn(async () => persistenceGate.promise)
+    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+      docId: 'discard-watchlist',
+      userId: 'user-1',
+      accessMode: 'write',
+      descriptor,
+      onDocumentUpdate: persist,
+    })
+    const doc = peekDocument('discard-watchlist')!
+    const mutation = runDocumentMutation(doc, async () => {
+      doc.getMap('fields').set('dirty', true)
+      await mutationGate.promise
+    })
+    await vi.waitFor(() => expect(persist).toHaveBeenCalled())
+
+    const discarding = discardDocument('discard-watchlist')
+    await expect(runDocumentMutation(doc, () => undefined)).rejects.toThrow('draining')
+    expect(peekDocument('discard-watchlist')).toBe(doc)
+
+    mutationGate.resolve()
+    await mutation
+    await Promise.resolve()
+    expect(peekDocument('discard-watchlist')).toBe(doc)
+
+    persistenceGate.resolve()
+    await discarding
+    expect(peekDocument('discard-watchlist')).toBeNull()
+  })
+
+  it('fences exact sessions until deletion abort or commit', async () => {
+    const descriptor = buildSavedEntityDescriptor('watchlist', 'leased-watchlist', 'workspace-1')
+    const socket = new TestSocket()
+    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+      docId: 'leased-watchlist',
+      userId: 'user-1',
+      accessMode: 'write',
+      descriptor,
+    })
+
+    const abortedLease = await beginYjsSessionDeletion(['leased-watchlist'])
+    expect(socket.close).toHaveBeenCalledOnce()
+    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
+    expect(() =>
+      setupWSConnection(new TestSocket() as unknown as WebSocket, {} as IncomingMessage, {
+        docId: 'leased-watchlist',
+        userId: 'user-1',
+        accessMode: 'write',
+        descriptor,
+      })
+    ).toThrow('not accepting connections')
+
+    abortYjsSessionDeletion(abortedLease)
+    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(false)
+
+    const committedLease = await beginYjsSessionDeletion(['deleted-watchlist'])
+    commitYjsSessionDeletion(committedLease)
+    expect(isYjsSessionAdmissionBlocked('deleted-watchlist')).toBe(true)
+    expect(() => getDocument('deleted-watchlist')).toThrow('not accepting connections')
   })
 })
 

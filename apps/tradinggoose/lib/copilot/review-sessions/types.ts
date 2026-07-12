@@ -6,6 +6,8 @@ export const ENTITY_KIND_INDICATOR = 'indicator' as const
 export const ENTITY_KIND_KNOWLEDGE_BASE = 'knowledge_base' as const
 export const ENTITY_KIND_WATCHLIST = 'watchlist' as const
 export const ENTITY_KIND_DASHBOARD_LAYOUT = 'dashboard_layout' as const
+export const YJS_KIND_DASHBOARD_WIDGET = 'dashboard_widget' as const
+export const YJS_KIND_DASHBOARD_COLOR_PAIR = 'dashboard_color_pair' as const
 
 export const REVIEW_ENTITY_KINDS = [
   ENTITY_KIND_WORKFLOW,
@@ -19,12 +21,18 @@ export const REVIEW_ENTITY_KINDS = [
 ] as const
 
 export type ReviewEntityKind = (typeof REVIEW_ENTITY_KINDS)[number]
+export const YJS_DOCUMENT_KINDS = [
+  ...REVIEW_ENTITY_KINDS,
+  YJS_KIND_DASHBOARD_WIDGET,
+  YJS_KIND_DASHBOARD_COLOR_PAIR,
+] as const
+export type YjsDocumentKind = (typeof YJS_DOCUMENT_KINDS)[number]
 export type ReviewAccessMode = 'read' | 'write'
 
 export interface ReviewTargetDescriptor {
   workspaceId: string | null
-  ownerUserId: string | null
-  entityKind: ReviewEntityKind
+  ownerUserId?: string | null
+  entityKind: YjsDocumentKind
   entityId: string | null
   draftSessionId: string | null
   reviewSessionId: string | null
@@ -54,7 +62,7 @@ export interface YjsTransportEnvelope {
   reviewSessionId: string | null
   workspaceId: string | null
   ownerUserId: string | null
-  entityKind: ReviewEntityKind
+  entityKind: YjsDocumentKind
   entityId: string | null
   draftSessionId: string | null
 }

@@ -19,7 +19,7 @@ import {
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { discardYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -254,7 +254,7 @@ export async function DELETE(
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
     }
-    await Promise.allSettled([deleteYjsSessionInSocketServer(workflowId)])
+    await Promise.allSettled([discardYjsSessionInSocketServer(workflowId)])
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -355,13 +355,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             }
 
             if (!updates.name) return row
-            const name = await renameSavedEntityIdentityInTx(tx, {
+            const identity = await renameSavedEntityIdentityInTx(tx, {
               entityKind: 'workflow',
               entityId: workflowId,
               workspaceId: workflowData.workspaceId as string,
               name: updates.name,
             })
-            return { ...row, name }
+            return { ...row, ...identity }
           })
         : workflowData
     if (hasRowUpdates || updates.name) {

@@ -2,6 +2,8 @@ import type { Edge } from '@xyflow/react'
 import type { BlockOutput, SubBlockType } from '@/blocks/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 
+export const DEFAULT_WORKFLOW_CHANNEL_ID = 'default'
+
 export const SUBFLOW_TYPES = {
   LOOP: 'loop',
   PARALLEL: 'parallel',
@@ -184,7 +186,9 @@ export interface WorkflowActions {
   updateBlockPositions: (updates: Array<{ id: string; position: Position }>) => void
   updateNodeDimensions: (id: string, dimensions: { width: number; height: number }) => void
   updateParentId: (id: string, parentId: string, extent: 'parent') => void
-  updateParentIds: (updates: Array<{ id: string; parentId: string; extent: 'parent' }>) => void
+  updateParentIds: (
+    updates: Array<{ id: string; parentId: string; extent: 'parent' }>
+  ) => void
   removeBlock: (id: string) => void
   addEdge: (edge: Edge) => void
   removeEdge: (edgeId: string) => void

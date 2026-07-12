@@ -4,11 +4,8 @@ import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import {
-  getDashboardWidgetsMap,
-  seedDashboardLayoutSession,
-} from '@/lib/yjs/dashboard-layout-session'
-import { WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
+import { LocalWidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 const registryState = vi.hoisted(() => ({
@@ -55,20 +52,9 @@ describe('WidgetSurface', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     doc = new Y.Doc()
-    seedDashboardLayoutSession(doc, {
-      layout: {
-        id: 'panel-1',
-        type: 'panel',
-        identityId: 'widget-1',
-        widgetKey: 'data_chart',
-      },
-      widgets: {
-        'widget-1': {
-          pairColor: 'red',
-          params: { data: { provider: 'alpaca' } },
-        },
-      },
-      colorPairs: { pairs: [] },
+    seedDashboardWidgetSession(doc, {
+      pairColor: 'red',
+      params: { data: { provider: 'alpaca' } },
     })
   })
 
@@ -83,7 +69,7 @@ describe('WidgetSurface', () => {
 
   it('forwards widget runtime context and patch callback to the selected widget', async () => {
     const onWidgetParamsPatch = vi.fn()
-    const onWidgetColorPairPatch = vi.fn()
+    const onWidgetLinkedParamsPatch = vi.fn()
     const context = {
       workspaceId: 'workspace-1',
       dashboardLayoutId: 'layout-1',
@@ -93,83 +79,50 @@ describe('WidgetSurface', () => {
 
     await act(async () => {
       root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
+        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart' canWrite>
           <WidgetSurface
             context={context}
             panelId='panel-1'
             onWidgetParamsPatch={onWidgetParamsPatch}
-            onWidgetColorPairPatch={onWidgetColorPairPatch}
+            onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
           />
-        </WidgetConfigRuntimeProvider>
+        </LocalWidgetConfigRuntimeProvider>
       )
     })
 
     expect(container.textContent).toContain('registry-header')
-    expect(registryState.headerArgs).toMatchObject({ context, panelId: 'panel-1' })
+    expect(registryState.headerArgs).toMatchObject({
+      channelId: 'pair-red',
+      context,
+      panelId: 'panel-1',
+    })
     expect(registryState.componentProps).toMatchObject({
+      channelId: 'pair-red',
       context,
       panelId: 'panel-1',
       pairColor: 'red',
       onWidgetParamsPatch,
-      onWidgetColorPairPatch,
+      onWidgetLinkedParamsPatch,
     })
   })
 
   it('keeps the empty-widget render fallback and layout selection callback', async () => {
     const onWidgetChange = vi.fn()
-    seedDashboardLayoutSession(doc, {
-      layout: {
-        id: 'panel-1',
-        type: 'panel',
-        identityId: 'widget-empty',
-        widgetKey: null,
-      },
-      widgets: {
-        'widget-empty': { pairColor: 'gray', params: null },
-      },
-      colorPairs: { pairs: [] },
-    })
+    seedDashboardWidgetSession(doc, { pairColor: 'gray', params: null })
 
     await act(async () => {
       root.render(
-        <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
+        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={null} canWrite>
           <WidgetSurface panelId='panel-1' onWidgetChange={onWidgetChange} />
-        </WidgetConfigRuntimeProvider>
+        </LocalWidgetConfigRuntimeProvider>
       )
     })
 
     expect(container.querySelector('[data-testid="widget-empty"]')).toBeTruthy()
-    expect(registryState.componentProps).toMatchObject({ onWidgetChange })
-  })
-
-  it('rejects a missing child instead of rendering it as an empty widget', () => {
-    seedDashboardLayoutSession(doc, {
-      layout: {
-        id: 'panel-1',
-        type: 'panel',
-        identityId: 'widget-empty',
-        widgetKey: null,
-      },
-      widgets: {
-        'widget-empty': { pairColor: 'gray', params: null },
-      },
-      colorPairs: { pairs: [] },
+    expect(registryState.headerArgs).toMatchObject({ channelId: 'empty-panel-1' })
+    expect(registryState.componentProps).toMatchObject({
+      channelId: 'empty-panel-1',
+      onWidgetChange,
     })
-    getDashboardWidgetsMap(doc).delete('widget-empty')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-
-    try {
-      expect(() => {
-        act(() => {
-          root.render(
-            <WidgetConfigRuntimeProvider doc={doc} panelId='panel-1' canWrite>
-              <WidgetSurface panelId='panel-1' />
-            </WidgetConfigRuntimeProvider>
-          )
-        })
-      }).toThrow('Dashboard panel panel-1 references a missing widget')
-    } finally {
-      consoleError.mockRestore()
-    }
   })
 })

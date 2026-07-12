@@ -11,7 +11,7 @@ export async function renameSavedEntityAction(input: {
   entityId: string
   workspaceId: string
   name: string
-}): Promise<string> {
+}): Promise<{ name: string; updatedAt: Date }> {
   const userId = (await getSession())?.user?.id
   if (!userId) throw new Error('Unauthorized')
 

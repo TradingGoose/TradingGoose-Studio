@@ -179,7 +179,7 @@ describe('copilot server tool errors', () => {
         ],
       }),
     })
-    expect(response.body.hint).toContain('tg-dashboard-layout-structure-v2')
+    expect(response.body.hint).toContain('tg-dashboard-layout-structure-v3')
     expect(response.body.hint).toContain('removedPanelIds')
   })
 

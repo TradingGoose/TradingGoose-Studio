@@ -14,6 +14,7 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -96,9 +97,14 @@ export function Dropdown({
   }
 
   const routeContext = useOptionalWorkflowRoute()
+  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const resolvedWorkflowId = routeContext?.workflowId ?? null
   const allBlocks = useWorkflowBlocks()
-  const entityListKind = resolvedConfig.entityListKind ?? null
+  const blockType = allBlocks[blockId]?.type
+  const isWorkflowSelector =
+    subBlockId === 'workflowId' && (blockType === 'workflow' || blockType === 'workflow_input')
+  const isWatchlistSelector = subBlockId === 'watchlistId' && blockType === 'watchlist'
+  const entityListKind = isWorkflowSelector ? 'workflow' : isWatchlistSelector ? 'watchlist' : null
   const {
     members: entityListMembers,
     isLoading: isLoadingEntityListOptions,
@@ -141,6 +147,7 @@ export function Dropdown({
     try {
       const resolvedContextValues = contextValues ?? blockContextValues
       const options = await fetchOptions(blockId, subBlockId, {
+        channelId: resolvedChannelId,
         workflowId: resolvedWorkflowId ?? null,
         workspaceId: routeContext?.workspaceId,
         contextValues: resolvedContextValues as Record<string, unknown> | undefined,
@@ -161,6 +168,7 @@ export function Dropdown({
     finalDisabled,
     contextValues,
     blockContextValues,
+    resolvedChannelId,
     resolvedWorkflowId,
     routeContext?.workspaceId,
   ])
@@ -193,16 +201,14 @@ export function Dropdown({
   const entityListOptions = useMemo<DropdownOptionObject[]>(
     () =>
       entityListMembers
-        .filter(
-          (member) => !resolvedConfig.excludeCurrentEntity || member.entityId !== resolvedWorkflowId
-        )
+        .filter((member) => !isWorkflowSelector || member.entityId !== resolvedWorkflowId)
         .map((member) => ({
           id: member.entityId,
           label:
             member.entityName || `${entityListKind ?? 'Entity'} ${member.entityId.slice(0, 8)}`,
           searchLabel: [member.entityName, member.entityDescription].filter(Boolean).join(' '),
         })),
-    [entityListKind, resolvedConfig.excludeCurrentEntity, resolvedWorkflowId, entityListMembers]
+    [entityListKind, entityListMembers, isWorkflowSelector, resolvedWorkflowId]
   )
 
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {

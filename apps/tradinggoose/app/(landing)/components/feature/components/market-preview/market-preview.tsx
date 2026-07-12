@@ -13,10 +13,11 @@ import {
   evolveMockMarketBar,
   generateMockMarketSeries,
 } from '@/lib/market/mock-series'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
-import { createDefaultColorPairsState } from '@/widgets/color-pairs'
-import type { DashboardLayoutDocumentContent } from '@/widgets/layout-document'
-import { useWidgetLocalParams, WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
+import {
+  LocalWidgetConfigRuntimeProvider,
+  useWidgetLocalParams,
+} from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from '@/widgets/widgets/data_chart/components/chart-controls'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
@@ -53,7 +54,6 @@ const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
 const MARKET_LISTING_LABEL = 'TradingGoose Data Chart'
 const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
-const LANDING_MARKET_WIDGET_ID = 'landing-market-preview-widget'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
 const LANDING_MARKET_WIDGET_KEY = 'data_chart' as const
 const LANDING_MARKET_LISTING: ListingOption = {
@@ -196,34 +196,21 @@ function MarketHeaderChartControls({
   )
 }
 
-const buildInitialPreviewDocument = (): DashboardLayoutDocumentContent => ({
-  layout: {
-    id: LANDING_MARKET_PANEL_ID,
-    type: 'panel',
-    identityId: LANDING_MARKET_WIDGET_ID,
-    widgetKey: LANDING_MARKET_WIDGET_KEY,
-  },
-  widgets: {
-    [LANDING_MARKET_WIDGET_ID]: {
-      pairColor: 'gray',
-      params: buildInitialMarketParams() as Record<string, unknown>,
-    },
-  },
-  colorPairs: createDefaultColorPairsState(),
-})
-
 export function MarketPreview() {
   const doc = React.useMemo(() => {
     const next = new Y.Doc()
-    seedDashboardLayoutSession(next, buildInitialPreviewDocument())
+    seedDashboardWidgetSession(next, {
+      pairColor: 'gray',
+      params: buildInitialMarketParams() as Record<string, unknown>,
+    })
     return next
   }, [])
   React.useEffect(() => () => doc.destroy(), [doc])
 
   return (
-    <WidgetConfigRuntimeProvider doc={doc} panelId={LANDING_MARKET_PANEL_ID} canWrite>
+    <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={LANDING_MARKET_WIDGET_KEY} canWrite>
       <MarketPreviewContent />
-    </WidgetConfigRuntimeProvider>
+    </LocalWidgetConfigRuntimeProvider>
   )
 }
 

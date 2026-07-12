@@ -38,7 +38,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
@@ -134,24 +133,20 @@ const McpCreateMenu = ({
 const ListMcpHeaderRightContent = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('mcp_server', workspaceId)
-  const patchLinkedParams =
-    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectServer = useCallback(
     (serverId: string) => {
-      patchLinkedParams({ mcpServerId: serverId })
+      actions.patchWidgetLinkedParams?.({ mcpServerId: serverId })
     },
-    [patchLinkedParams]
+    [actions]
   )
   const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
@@ -177,11 +172,9 @@ const ListMcpHeaderRightContent = ({
 const ListMcpHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.mcpList
   if (!workspaceId) {
@@ -191,11 +184,7 @@ const ListMcpHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <ListMcpHeaderRightContent
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <ListMcpHeaderRightContent workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -204,9 +193,7 @@ const ListMcpHeaderRight = ({
 const ListMcpWidgetContent = ({
   context,
   params,
-  pairColor = 'gray',
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
+  onWidgetLinkedParamsPatch,
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
@@ -240,13 +227,11 @@ const ListMcpWidgetContent = ({
     entityIds: workspaceServers.map((server) => server.id),
     useDefaultEntity: false,
   })
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
-
   const handleSelectServer = useCallback(
     (serverId: string | null) => {
-      patchLinkedParams?.({ mcpServerId: serverId })
+      onWidgetLinkedParamsPatch?.({ mcpServerId: serverId })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
 
   const handleRenameServer = useCallback(
@@ -586,13 +571,7 @@ export const listMcpWidget: DashboardWidgetDefinition = {
       </WorkspacePermissionsProvider>
     )
   },
-  renderHeader: ({ widget, context, panelId }) => ({
-    right: (
-      <ListMcpHeaderRight
-        workspaceId={context?.workspaceId}
-        panelId={panelId}
-        pairColor={widget?.pairColor}
-      />
-    ),
+  renderHeader: ({ context, panelId }) => ({
+    right: <ListMcpHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
   }),
 }

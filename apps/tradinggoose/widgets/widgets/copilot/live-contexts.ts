@@ -1,30 +1,29 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import { normalizePairColorContext, type PairColorContext } from '@/widgets/color-pairs'
 import {
   buildCopilotWorkspaceEntityContext,
-  COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS,
+  COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
   type CopilotWorkspaceEntityKind,
-  getCopilotWorkspaceEntityIdFromPairContext,
+  getCopilotWorkspaceEntityIdFromEffectiveParams,
 } from './workspace-entities'
 
 type BuildImplicitCopilotContextsOptions = {
   workspaceId?: string | null
-  pairContext?: PairColorContext | null
+  effectiveParams?: Record<string, unknown> | null
   currentLayoutId?: string | null
   currentLayoutOwnerUserId?: string | null
   currentLabels: Partial<Record<CopilotWorkspaceEntityKind, string>>
 }
 
 export function resolveCopilotWorkflowId(
-  pairContext?: PairColorContext | null
+  effectiveParams?: Record<string, unknown> | null
 ): string | undefined {
-  return getCopilotWorkspaceEntityIdFromPairContext(pairContext, 'workflow') ?? undefined
+  return getCopilotWorkspaceEntityIdFromEffectiveParams(effectiveParams, 'workflow') ?? undefined
 }
 
 export const buildImplicitCopilotContexts = ({
   workspaceId,
-  pairContext,
+  effectiveParams,
   currentLayoutId,
   currentLayoutOwnerUserId,
   currentLabels,
@@ -32,12 +31,11 @@ export const buildImplicitCopilotContexts = ({
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
-  const currentPairContext = normalizePairColorContext(pairContext)
   const contexts: ChatContext[] = []
 
-  for (const config of COPILOT_PAIR_CONTEXT_ENTITY_CONFIGS) {
-    const entityId = getCopilotWorkspaceEntityIdFromPairContext(
-      currentPairContext,
+  for (const config of COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS) {
+    const entityId = getCopilotWorkspaceEntityIdFromEffectiveParams(
+      effectiveParams,
       config.entityKind
     )
     if (!entityId) {

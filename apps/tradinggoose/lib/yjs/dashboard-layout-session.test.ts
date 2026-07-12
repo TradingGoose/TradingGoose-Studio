@@ -1,478 +1,149 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
-  applyDashboardTopologyMutation,
-  applyDashboardWidgetConfigPatch,
-  beginDashboardLayoutDirtyFlush,
-  completeDashboardLayoutDirtyFlush,
-  ensureDashboardLayoutDirtyTracker,
-  failDashboardLayoutDirtyFlush,
-  getDashboardColorPairsMap,
+  getDashboardColorPairMap,
   getDashboardLayoutMap,
-  getDashboardWidgetsMap,
-  isDashboardLayoutDirty,
-  readDashboardLayoutContent,
+  getDashboardWidgetMap,
+  readDashboardColorPairDocument,
+  readDashboardLayoutDocument,
+  readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
   seedDashboardLayoutSession,
+  seedDashboardWidgetSession,
+  setDashboardColorPairDocument,
   setDashboardLayoutTopology,
+  setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  type DashboardLayoutDocumentContent,
-  replaceDashboardPanelWidget,
-} from '@/widgets/layout-document'
+import { replaceDashboardPanelWidget } from '@/widgets/layout-document'
 
-const content = (): DashboardLayoutDocumentContent => ({
+const layout = {
   layout: {
     id: 'chart-panel',
-    type: 'panel',
+    type: 'panel' as const,
     identityId: 'chart-widget',
-    widgetKey: 'data_chart',
+    widgetKey: 'data_chart' as const,
   },
-  widgets: {
-    'chart-widget': {
-      pairColor: 'red',
-      params: { data: { provider: 'alpaca' }, view: { interval: '1m' } },
-    },
-  },
-  colorPairs: {
-    pairs: [
-      {
-        color: 'red',
-        listing: {
-          listing_type: 'default',
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-        },
-      },
-    ],
-  },
-})
-
-function trackedDoc(initial = content()): Y.Doc {
-  const doc = new Y.Doc()
-  ensureDashboardLayoutDirtyTracker(doc)
-  seedDashboardLayoutSession(doc, initial, YJS_ORIGINS.SYSTEM)
-  return doc
 }
 
-function cloneDoc(source: Y.Doc): Y.Doc {
-  const clone = new Y.Doc()
-  Y.applyUpdate(clone, Y.encodeStateAsUpdate(source), YJS_ORIGINS.SYSTEM)
-  return clone
+const widget = {
+  pairColor: 'red' as const,
+  params: { data: { provider: 'alpaca' }, view: { interval: '1m' } },
 }
 
-describe('dashboard layout Yjs session', () => {
-  it('round-trips topology, widget documents, and color pairs through separate maps', () => {
-    const doc = new Y.Doc()
+const pair = {
+  listing: {
+    listing_type: 'default' as const,
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
+}
+
+describe('dashboard Yjs document owners', () => {
+  it('round-trips layout, widget, and pair state through distinct documents', () => {
+    const layoutDoc = new Y.Doc()
+    const widgetDoc = new Y.Doc()
+    const pairDoc = new Y.Doc()
     try {
-      seedDashboardLayoutSession(doc, content())
-      expect(readDashboardLayoutContent(doc)).toEqual(content())
-      expect(getDashboardLayoutMap(doc).has('topology')).toBe(true)
-      expect(getDashboardWidgetsMap(doc).has('chart-widget')).toBe(true)
-      expect(getDashboardColorPairsMap(doc).has('red')).toBe(true)
-      expect(doc.share.has('fields')).toBe(false)
+      seedDashboardLayoutSession(layoutDoc, layout)
+      seedDashboardWidgetSession(widgetDoc, widget)
+      seedDashboardColorPairSession(pairDoc, pair)
+
+      expect(readDashboardLayoutDocument(layoutDoc)).toEqual(layout)
+      expect(readDashboardWidgetDocument(widgetDoc, 'data_chart')).toEqual(widget)
+      expect(readDashboardColorPairDocument(pairDoc)).toEqual(pair)
+      expect(layoutDoc.share.has('widget')).toBe(false)
+      expect(layoutDoc.share.has('colorPair')).toBe(false)
+      expect(widgetDoc.share.has('layout')).toBe(false)
+      expect(pairDoc.share.has('layout')).toBe(false)
     } finally {
-      doc.destroy()
+      layoutDoc.destroy()
+      widgetDoc.destroy()
+      pairDoc.destroy()
     }
   })
 
-  it('keeps system-origin bootstrap outside the durable dirty generations', () => {
-    const doc = trackedDoc()
+  it('mutating one owner leaves the other documents and subscriptions untouched', () => {
+    const layoutDoc = new Y.Doc()
+    const widgetDoc = new Y.Doc()
+    const pairDoc = new Y.Doc()
+    const layoutUpdate = vi.fn()
+    const pairUpdate = vi.fn()
     try {
-      expect(isDashboardLayoutDirty(doc)).toBe(false)
-      expect(beginDashboardLayoutDirtyFlush(doc)).toBeNull()
-    } finally {
-      doc.destroy()
-    }
-  })
+      seedDashboardLayoutSession(layoutDoc, layout, YJS_ORIGINS.SYSTEM)
+      seedDashboardWidgetSession(widgetDoc, widget, YJS_ORIGINS.SYSTEM)
+      seedDashboardColorPairSession(pairDoc, pair, YJS_ORIGINS.SYSTEM)
+      layoutDoc.on('update', layoutUpdate)
+      pairDoc.on('update', pairUpdate)
+      const layoutVector = Y.encodeStateVector(layoutDoc)
+      const pairVector = Y.encodeStateVector(pairDoc)
 
-  it('tracks deep changes and deletions only under their owning durable channel keys', () => {
-    const doc = trackedDoc()
-    try {
-      const initial = readDashboardLayoutContent(doc)
-      setDashboardLayoutTopology(
-        doc,
-        { ...initial.layout, id: 'chart-panel-renamed' },
-        YJS_ORIGINS.USER
-      )
-      const layoutBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(layoutBatch).toMatchObject({ generation: 1, layout: true })
-      expect([...layoutBatch!.widgetIdentityIds]).toEqual([])
-      expect([...layoutBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, layoutBatch!)
-
-      getDashboardWidgetsMap(doc)
-        .get('chart-widget')!
-        .set('params', { data: { provider: 'polygon' }, view: { interval: '1m' } })
-      const widgetBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(widgetBatch).toMatchObject({ generation: 2, layout: false })
-      expect([...widgetBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...widgetBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, widgetBatch!)
-
-      getDashboardColorPairsMap(doc).get('red')!.set('watchlistId', 'watchlist-1')
-      const pairBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(pairBatch).toMatchObject({ generation: 3, layout: false })
-      expect([...pairBatch!.widgetIdentityIds]).toEqual([])
-      expect([...pairBatch!.pairColors]).toEqual(['red'])
-      completeDashboardLayoutDirtyFlush(doc, pairBatch!)
-
-      getDashboardColorPairsMap(doc).delete('red')
-      const deletedPairBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(deletedPairBatch).toMatchObject({ generation: 4, layout: false })
-      expect([...deletedPairBatch!.widgetIdentityIds]).toEqual([])
-      expect([...deletedPairBatch!.pairColors]).toEqual(['red'])
-      completeDashboardLayoutDirtyFlush(doc, deletedPairBatch!)
-
-      getDashboardWidgetsMap(doc).delete('chart-widget')
-      const deletedWidgetBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(deletedWidgetBatch).toMatchObject({ generation: 5, layout: false })
-      expect([...deletedWidgetBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...deletedWidgetBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, deletedWidgetBatch!)
-      expect(isDashboardLayoutDirty(doc)).toBe(false)
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('uses one generation and one Yjs update for one logical widget-and-pair transaction', () => {
-    const doc = trackedDoc()
-    const onUpdate = vi.fn()
-    doc.on('update', onUpdate)
-    try {
-      applyDashboardWidgetConfigPatch(
-        doc,
-        'chart-panel',
-        {
-          params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
-          colorPair: {
-            listing: {
-              listing_type: 'default',
-              listing_id: 'MSFT',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        },
+      setDashboardWidgetDocument(
+        widgetDoc,
+        'data_chart',
+        { ...widget, params: { ...widget.params, view: { interval: '1h' } } },
         YJS_ORIGINS.USER
       )
 
-      const batch = beginDashboardLayoutDirtyFlush(doc)
-      expect(batch).toMatchObject({ generation: 1, layout: false })
-      expect([...batch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...batch!.pairColors]).toEqual(['red'])
-      expect(onUpdate).toHaveBeenCalledTimes(1)
-      completeDashboardLayoutDirtyFlush(doc, batch!)
-    } finally {
-      doc.off('update', onUpdate)
-      doc.destroy()
-    }
-  })
-
-  it('patches widget params without mutating topology or color-pair collections', () => {
-    const doc = new Y.Doc()
-    try {
-      const initial = content()
-      seedDashboardLayoutSession(doc, initial)
-      const onLayout = vi.fn()
-      const onWidgets = vi.fn()
-      const onColorPairs = vi.fn()
-      getDashboardLayoutMap(doc).observeDeep(onLayout)
-      getDashboardWidgetsMap(doc).observeDeep(onWidgets)
-      getDashboardColorPairsMap(doc).observeDeep(onColorPairs)
-
-      applyDashboardWidgetConfigPatch(doc, 'chart-panel', {
-        params: { data: { provider: 'polygon' }, view: { interval: '1m' } },
-      })
-
-      expect(onWidgets).toHaveBeenCalled()
-      expect(onLayout).not.toHaveBeenCalled()
-      expect(onColorPairs).not.toHaveBeenCalled()
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('assigns params-only, pairColor-only, and explicit pair patches to their channels', () => {
-    const doc = trackedDoc()
-    try {
-      applyDashboardWidgetConfigPatch(
-        doc,
-        'chart-panel',
-        { params: { view: { interval: '1h' } } },
-        YJS_ORIGINS.USER
-      )
-      const paramsBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(paramsBatch).toMatchObject({ generation: 1, layout: false })
-      expect([...paramsBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...paramsBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, paramsBatch!)
-
-      applyDashboardWidgetConfigPatch(doc, 'chart-panel', { pairColor: 'blue' }, YJS_ORIGINS.USER)
-      const pairColorBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(pairColorBatch).toMatchObject({ generation: 2, layout: false })
-      expect([...pairColorBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...pairColorBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, pairColorBatch!)
-
-      applyDashboardWidgetConfigPatch(
-        doc,
-        'chart-panel',
-        {
-          colorPair: {
-            listing: {
-              listing_type: 'default',
-              listing_id: 'MSFT',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        },
-        YJS_ORIGINS.USER
-      )
-      const explicitPairBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(explicitPairBatch).toMatchObject({ generation: 3, layout: false })
-      expect([...explicitPairBatch!.widgetIdentityIds]).toEqual([])
-      expect([...explicitPairBatch!.pairColors]).toEqual(['blue'])
-      completeDashboardLayoutDirtyFlush(doc, explicitPairBatch!)
-
-      const current = readDashboardLayoutContent(doc)
-      expect(current.widgets['chart-widget']?.pairColor).toBe('blue')
-      expect(current.widgets['chart-widget']?.params).toMatchObject({
+      expect(layoutUpdate).not.toHaveBeenCalled()
+      expect(pairUpdate).not.toHaveBeenCalled()
+      expect(Y.encodeStateVector(layoutDoc)).toEqual(layoutVector)
+      expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
+      expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toMatchObject({
         view: { interval: '1h' },
       })
-      expect(current.colorPairs.pairs).toContainEqual({
-        color: 'blue',
-        listing: {
-          listing_type: 'default',
-          listing_id: 'MSFT',
-          base_id: '',
-          quote_id: '',
-        },
+    } finally {
+      layoutDoc.destroy()
+      widgetDoc.destroy()
+      pairDoc.destroy()
+    }
+  })
+
+  it('a topology replacement changes only the layout binding', () => {
+    const layoutDoc = new Y.Doc()
+    const widgetDoc = new Y.Doc()
+    try {
+      seedDashboardLayoutSession(layoutDoc, layout)
+      seedDashboardWidgetSession(widgetDoc, widget)
+      const widgetVector = Y.encodeStateVector(widgetDoc)
+      const plan = replaceDashboardPanelWidget(layout.layout, 'chart-panel', 'watchlist')
+
+      setDashboardLayoutTopology(layoutDoc, plan.layout, YJS_ORIGINS.USER)
+
+      const next = readDashboardLayoutDocument(layoutDoc).layout
+      expect(next).toMatchObject({ widgetKey: 'watchlist' })
+      expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
+      expect(getDashboardLayoutMap(layoutDoc).has('topology')).toBe(true)
+      expect(getDashboardWidgetMap(layoutDoc).size).toBe(0)
+    } finally {
+      layoutDoc.destroy()
+      widgetDoc.destroy()
+    }
+  })
+
+  it('color-pair edits never update their subscribing widget document', () => {
+    const widgetDoc = new Y.Doc()
+    const pairDoc = new Y.Doc()
+    try {
+      seedDashboardWidgetSession(widgetDoc, widget)
+      seedDashboardColorPairSession(pairDoc, pair)
+      const widgetVector = Y.encodeStateVector(widgetDoc)
+
+      setDashboardColorPairDocument(
+        pairDoc,
+        { ...pair, watchlistId: 'watchlist-1' },
+        YJS_ORIGINS.USER
+      )
+
+      expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
+      expect(readDashboardColorPairDocument(pairDoc)).toMatchObject({
+        watchlistId: 'watchlist-1',
       })
+      expect(getDashboardColorPairMap(pairDoc).has('watchlistId')).toBe(true)
     } finally {
-      doc.destroy()
-    }
-  })
-
-  it('tracks widget replacement as one layout-and-widgets generation with no pair ownership', () => {
-    const doc = trackedDoc()
-    const onUpdate = vi.fn()
-    doc.on('update', onUpdate)
-    try {
-      const plan = replaceDashboardPanelWidget(
-        readDashboardLayoutContent(doc),
-        'chart-panel',
-        'watchlist'
-      )
-      applyDashboardTopologyMutation(doc, plan, YJS_ORIGINS.USER)
-
-      const next = readDashboardLayoutContent(doc)
-      if (next.layout.type !== 'panel') throw new Error('Expected panel layout')
-      expect(next.layout.widgetKey).toBe('watchlist')
-      expect(next.layout.identityId).not.toBe('chart-widget')
-      expect(getDashboardWidgetsMap(doc).has('chart-widget')).toBe(true)
-      expect(getDashboardWidgetsMap(doc).has(next.layout.identityId)).toBe(true)
-
-      const batch = beginDashboardLayoutDirtyFlush(doc)
-      expect(batch).toMatchObject({ generation: 1, layout: true })
-      expect([...batch!.widgetIdentityIds]).toEqual([next.layout.identityId])
-      expect([...batch!.pairColors]).toEqual([])
-      expect(onUpdate).toHaveBeenCalledTimes(1)
-      completeDashboardLayoutDirtyFlush(doc, batch!)
-    } finally {
-      doc.off('update', onUpdate)
-      doc.destroy()
-    }
-  })
-
-  it('projects only the winning topology widgets after concurrent replacements', () => {
-    const base = new Y.Doc()
-    const left = new Y.Doc()
-    const right = new Y.Doc()
-    const leftFirst = new Y.Doc()
-    const rightFirst = new Y.Doc()
-    try {
-      seedDashboardLayoutSession(base, content(), YJS_ORIGINS.SYSTEM)
-      const baseUpdate = Y.encodeStateAsUpdate(base)
-      const baseVector = Y.encodeStateVector(base)
-      for (const doc of [left, right, leftFirst, rightFirst]) {
-        Y.applyUpdate(doc, baseUpdate, YJS_ORIGINS.SYSTEM)
-      }
-
-      applyDashboardTopologyMutation(
-        left,
-        replaceDashboardPanelWidget(readDashboardLayoutContent(left), 'chart-panel', 'watchlist')
-      )
-      applyDashboardTopologyMutation(
-        right,
-        replaceDashboardPanelWidget(readDashboardLayoutContent(right), 'chart-panel', 'copilot')
-      )
-      const leftUpdate = Y.encodeStateAsUpdate(left, baseVector)
-      const rightUpdate = Y.encodeStateAsUpdate(right, baseVector)
-      Y.applyUpdate(leftFirst, leftUpdate)
-      Y.applyUpdate(leftFirst, rightUpdate)
-      Y.applyUpdate(rightFirst, rightUpdate)
-      Y.applyUpdate(rightFirst, leftUpdate)
-
-      const leftContent = readDashboardLayoutContent(leftFirst)
-      expect(readDashboardLayoutContent(rightFirst)).toEqual(leftContent)
-      expect(Object.keys(leftContent.widgets)).toEqual([
-        leftContent.layout.type === 'panel' ? leftContent.layout.identityId : '',
-      ])
-      expect(getDashboardWidgetsMap(leftFirst).size).toBe(3)
-    } finally {
-      for (const doc of [base, left, right, leftFirst, rightFirst]) doc.destroy()
-    }
-  })
-
-  it('keeps every potentially winning widget child during retain-replace convergence', () => {
-    const base = new Y.Doc()
-    let retained: Y.Doc | null = null
-    let replaced: Y.Doc | null = null
-    let merged: Y.Doc | null = null
-    try {
-      seedDashboardLayoutSession(base, content(), YJS_ORIGINS.SYSTEM)
-      retained = cloneDoc(base)
-      replaced = cloneDoc(base)
-      merged = cloneDoc(base)
-      const baseVector = Y.encodeStateVector(base)
-      const retainedContent = readDashboardLayoutContent(retained)
-      setDashboardLayoutTopology(retained, { ...retainedContent.layout, id: 'renamed-panel' })
-      applyDashboardTopologyMutation(
-        replaced,
-        replaceDashboardPanelWidget(
-          readDashboardLayoutContent(replaced),
-          'chart-panel',
-          'watchlist'
-        )
-      )
-      Y.applyUpdate(merged, Y.encodeStateAsUpdate(retained, baseVector))
-      Y.applyUpdate(merged, Y.encodeStateAsUpdate(replaced, baseVector))
-
-      const converged = readDashboardLayoutContent(merged)
-      expect(Object.keys(converged.widgets)).toHaveLength(1)
-      expect(getDashboardWidgetsMap(merged).has('chart-widget')).toBe(true)
-      if (converged.layout.type !== 'panel') throw new Error('Expected panel layout')
-      expect(getDashboardWidgetsMap(merged).has(converged.layout.identityId)).toBe(true)
-    } finally {
-      merged?.destroy()
-      replaced?.destroy()
-      retained?.destroy()
-      base.destroy()
-    }
-  })
-
-  it('preserves a newer generation when an older in-flight batch succeeds', () => {
-    const doc = trackedDoc()
-    try {
-      const current = readDashboardLayoutContent(doc)
-      setDashboardLayoutTopology(
-        doc,
-        { ...current.layout, id: 'chart-panel-renamed' },
-        YJS_ORIGINS.USER
-      )
-      const firstBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(firstBatch).toMatchObject({ generation: 1, layout: true })
-
-      applyDashboardWidgetConfigPatch(
-        doc,
-        'chart-panel-renamed',
-        { params: { view: { interval: '1h' } } },
-        YJS_ORIGINS.USER
-      )
-      completeDashboardLayoutDirtyFlush(doc, firstBatch!)
-      expect(isDashboardLayoutDirty(doc)).toBe(true)
-
-      const nextBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(nextBatch).toMatchObject({ generation: 2, layout: false })
-      expect([...nextBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...nextBatch!.pairColors]).toEqual([])
-      completeDashboardLayoutDirtyFlush(doc, nextBatch!)
-      expect(isDashboardLayoutDirty(doc)).toBe(false)
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('merges a failed batch with keys dirtied by a newer generation', () => {
-    const doc = trackedDoc()
-    try {
-      applyDashboardWidgetConfigPatch(
-        doc,
-        'chart-panel',
-        { params: { view: { interval: '1h' } } },
-        YJS_ORIGINS.USER
-      )
-      const failedBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(failedBatch).toMatchObject({ generation: 1, layout: false })
-
-      getDashboardColorPairsMap(doc).get('red')!.set('watchlistId', 'watchlist-1')
-      failDashboardLayoutDirtyFlush(doc, failedBatch!)
-      expect(isDashboardLayoutDirty(doc)).toBe(true)
-
-      const retryBatch = beginDashboardLayoutDirtyFlush(doc)
-      expect(retryBatch).toMatchObject({ generation: 2, layout: false })
-      expect([...retryBatch!.widgetIdentityIds]).toEqual(['chart-widget'])
-      expect([...retryBatch!.pairColors]).toEqual(['red'])
-      completeDashboardLayoutDirtyFlush(doc, retryBatch!)
-      expect(isDashboardLayoutDirty(doc)).toBe(false)
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('deletes empty pair contexts and keeps them absent after a Yjs round trip', () => {
-    const doc = trackedDoc()
-    let roundTrip: Y.Doc | null = null
-    try {
-      applyDashboardWidgetConfigPatch(doc, 'chart-panel', { colorPair: null }, YJS_ORIGINS.USER)
-
-      expect(getDashboardColorPairsMap(doc).has('red')).toBe(false)
-      const persisted = readDashboardLayoutContent(doc)
-      expect(persisted.colorPairs).toEqual({ pairs: [] })
-
-      const batch = beginDashboardLayoutDirtyFlush(doc)
-      expect(batch).toMatchObject({ generation: 1, layout: false })
-      expect([...batch!.widgetIdentityIds]).toEqual([])
-      expect([...batch!.pairColors]).toEqual(['red'])
-      completeDashboardLayoutDirtyFlush(doc, batch!)
-
-      roundTrip = trackedDoc(persisted)
-      expect(getDashboardColorPairsMap(roundTrip).has('red')).toBe(false)
-      expect(readDashboardLayoutContent(roundTrip).colorPairs).toEqual({ pairs: [] })
-      expect(isDashboardLayoutDirty(roundTrip)).toBe(false)
-    } finally {
-      roundTrip?.destroy()
-      doc.destroy()
-    }
-  })
-
-  it('rejects malformed raw widget state instead of repairing it', () => {
-    const doc = new Y.Doc()
-    try {
-      seedDashboardLayoutSession(doc, content())
-      getDashboardWidgetsMap(doc).get('chart-widget')?.set('pairColor', 'invalid')
-      expect(() => readDashboardLayoutContent(doc)).toThrow()
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('rejects raw widget params that would be normalized by the runtime contract', () => {
-    const doc = new Y.Doc()
-    try {
-      seedDashboardLayoutSession(doc, content())
-      getDashboardWidgetsMap(doc)
-        .get('chart-widget')
-        ?.set('params', {
-          data: { provider: 123 },
-        })
-      expect(() => readDashboardLayoutContent(doc)).toThrow('params must be canonical')
-    } finally {
-      doc.destroy()
+      widgetDoc.destroy()
+      pairDoc.destroy()
     }
   })
 })

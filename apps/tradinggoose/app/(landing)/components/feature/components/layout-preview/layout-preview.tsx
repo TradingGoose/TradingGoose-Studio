@@ -5,29 +5,36 @@ import { useLocale, useMessages } from 'next-intl'
 import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
 import type { LocaleCode } from '@/i18n/utils'
 import {
+  applyDashboardLayoutStructureMutation,
   closeDashboardTopologyPanel,
-  createDefaultDashboardLayoutContent,
-  type DashboardLayoutDocumentContent,
+  createDefaultDashboardLayoutProjection,
+  createDefaultDashboardWidgetDocument,
   type DashboardLayoutEditPlan,
+  type DashboardLayoutProjectionContent,
   findDashboardTopologyParentGroupId,
-  normalizeDashboardLayoutDocumentContent,
+  normalizeDashboardLayoutProjection,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
-  updateDashboardTopologyGroupSizes,
 } from '@/widgets/layout-document'
 
 function applyPreviewEditPlan(
-  current: DashboardLayoutDocumentContent,
+  current: DashboardLayoutProjectionContent,
   plan: DashboardLayoutEditPlan
-): DashboardLayoutDocumentContent {
-  const widgets = { ...current.widgets, ...plan.createdWidgets }
+): DashboardLayoutProjectionContent {
+  const widgets = { ...current.widgets }
+  for (const binding of plan.createdBindings) {
+    widgets[binding.identityId] = binding.sourceIdentityId
+      ? (current.widgets[binding.sourceIdentityId] ??
+        createDefaultDashboardWidgetDocument(binding.widgetKey))
+      : createDefaultDashboardWidgetDocument(binding.widgetKey)
+  }
   for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-  return normalizeDashboardLayoutDocumentContent({ ...current, layout: plan.layout, widgets })
+  return normalizeDashboardLayoutProjection({ ...current, layout: plan.layout, widgets })
 }
 
 export function LayoutPreview() {
   const [mounted, setMounted] = useState(false)
-  const [document, setDocument] = useState(createDefaultDashboardLayoutContent)
+  const [document, setDocument] = useState(createDefaultDashboardLayoutProjection)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
@@ -39,16 +46,18 @@ export function LayoutPreview() {
       return
     }
 
-    setDocument((current) => ({
-      ...current,
-      layout: updateDashboardTopologyGroupSizes(current.layout, groupId, sizes),
-    }))
+    setDocument((current) =>
+      applyPreviewEditPlan(
+        current,
+        applyDashboardLayoutStructureMutation(current.layout, { type: 'resize', groupId, sizes })
+      )
+    )
   }, [])
 
   const splitPanelVertical = useCallback((panelId: string) => {
     setDocument((current) => {
       const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
-      const plan = splitDashboardTopologyPanel(current.layout, current.widgets, panelId, 'vertical')
+      const plan = splitDashboardTopologyPanel(current.layout, panelId, 'vertical')
 
       if (plan.layout !== current.layout && parentId) {
         skipLayoutRef.current.add(parentId)
@@ -61,12 +70,7 @@ export function LayoutPreview() {
   const splitPanelHorizontal = useCallback((panelId: string) => {
     setDocument((current) => {
       const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
-      const plan = splitDashboardTopologyPanel(
-        current.layout,
-        current.widgets,
-        panelId,
-        'horizontal'
-      )
+      const plan = splitDashboardTopologyPanel(current.layout, panelId, 'horizontal')
 
       if (plan.layout !== current.layout && parentId) {
         skipLayoutRef.current.add(parentId)

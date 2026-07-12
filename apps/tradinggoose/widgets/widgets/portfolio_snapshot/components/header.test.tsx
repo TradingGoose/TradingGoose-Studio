@@ -155,6 +155,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
     }
   ) => {
     const slots = renderPortfolioSnapshotHeader?.({
+      channelId: 'portfolio-snapshot-panel-1',
       context: { workspaceId: 'workspace-1' } as any,
       panelId: 'panel-1',
       widget: {

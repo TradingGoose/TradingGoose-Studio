@@ -1,5 +1,5 @@
-import type { Edge, Node } from '@xyflow/react'
 import { describe, expect, it, vi } from 'vitest'
+import type { Edge, Node } from '@xyflow/react'
 import {
   createNodeIndex,
   deriveEdgesWithSelection,

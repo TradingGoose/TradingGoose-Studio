@@ -1,8 +1,4 @@
 export interface ExecutionState {
-  byWorkflowId: Record<string, WorkflowExecutionState>
-}
-
-export interface WorkflowExecutionState {
   activeBlockIds: Set<string>
   isExecuting: boolean
   isDebugging: boolean
@@ -11,30 +7,22 @@ export interface WorkflowExecutionState {
 }
 
 export interface ExecutionActions {
-  setActiveBlocks: (workflowId: string, blockIds: Set<string>) => void
-  setIsExecuting: (workflowId: string, isExecuting: boolean) => void
-  setIsDebugging: (workflowId: string, isDebugging: boolean) => void
-  setPendingBlocks: (workflowId: string, blockIds: string[]) => void
-  setAutoPanDisabled: (workflowId: string, disabled: boolean) => void
-  resetWorkflowExecution: (workflowId: string) => void
+  setActiveBlocks: (blockIds: Set<string>) => void
+  setIsExecuting: (isExecuting: boolean) => void
+  setIsDebugging: (isDebugging: boolean) => void
+  setPendingBlocks: (blockIds: string[]) => void
+  setAutoPanDisabled: (disabled: boolean) => void
   reset: () => void
 }
 
-export const createInitialWorkflowExecutionState = (): WorkflowExecutionState => ({
+export const initialState: ExecutionState = {
   activeBlockIds: new Set(),
   isExecuting: false,
   isDebugging: false,
   pendingBlocks: [],
   autoPanDisabled: false,
-})
-
-export const initialState: ExecutionState = {
-  byWorkflowId: {},
 }
 
 // Types for panning functionality
 export type PanToBlockCallback = (blockId: string) => void
-export type SetPanToBlockCallback = (
-  workflowId: string,
-  callback: PanToBlockCallback | null
-) => void
+export type SetPanToBlockCallback = (callback: PanToBlockCallback | null) => void

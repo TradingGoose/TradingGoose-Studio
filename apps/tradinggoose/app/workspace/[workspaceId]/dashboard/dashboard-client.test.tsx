@@ -12,7 +12,11 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import {
+  seedDashboardColorPairSession,
+  seedDashboardLayoutSession,
+  seedDashboardWidgetSession,
+} from '@/lib/yjs/dashboard-layout-session'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import type { LayoutTab } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -36,13 +40,23 @@ let mockPathname = '/workspace/ws-a/dashboard'
 let mockSearchParams = 'panel=left'
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
+let mockLayoutTabsIsBusy = false
 let mockDashboardLayoutList: {
   layouts: LayoutTab[]
   isLoading: boolean
   error: unknown
 } | null = null
+let mockLayoutDocumentState: {
+  doc: Y.Doc | null
+  topology: DashboardLayoutTopologyNode | null
+  isProviderReady: boolean
+  isLoading: boolean
+  error: unknown
+} | null = null
 let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
 let mockDocuments = new Set<Y.Doc>()
+let mockWidgetDocuments = new Map<string, Y.Doc>()
+let mockPairDocuments = new Map<string, Y.Doc>()
 const mockLayoutMutation = vi.fn()
 const mockSetPanelGroupLayout = vi.fn((sizes: number[]) => {
   mockPanelGroupLayout = sizes
@@ -89,6 +103,17 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
     isLoading: false,
     error: null,
   }),
+  useYjsTargetSession: (descriptor: { entityKind: string; entityId: string } | null) => ({
+    result: null,
+    doc:
+      descriptor?.entityKind === 'dashboard_widget'
+        ? (mockWidgetDocuments.get(descriptor.entityId) ?? null)
+        : descriptor?.entityKind === 'dashboard_color_pair'
+          ? (mockPairDocuments.get(descriptor.entityId) ?? null)
+          : null,
+    isLoading: false,
+    error: null,
+  }),
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
@@ -131,6 +156,15 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
     }: {
       initialTopology?: DashboardLayoutTopologyNode | null
     }) => {
+      if (mockLayoutDocumentState) {
+        return {
+          ...mockLayoutDocumentState,
+          updateGroupSizes: mockLayoutMutation,
+          splitPanel: mockLayoutMutation,
+          closePanel: mockLayoutMutation,
+          replacePanelWidget: mockLayoutMutation,
+        }
+      }
       const doc = initialTopology ? (mockTopologyDocuments.get(initialTopology) ?? null) : null
       return {
         doc,
@@ -155,11 +189,14 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
   LayoutTabs: ({
     layouts,
     onSelect,
+    isBusy,
   }: {
     layouts: LayoutTab[]
     onSelect: (layoutId: string) => void
+    isBusy: boolean
   }) => {
     mockLayoutTabsLayouts = layouts
+    mockLayoutTabsIsBusy = isBusy
     mockSelectLayout = onSelect
     return <div data-testid='layout-tabs' />
   },
@@ -185,7 +222,7 @@ vi.mock('@/components/ui/resizable', () => ({
 }))
 
 vi.mock('@/widgets/widget-surface', async () => {
-  const { useDashboardWidgetRenderConfig } = await import('@/widgets/widget-config-runtime')
+  const { useDashboardWidgetRenderState } = await import('@/widgets/widget-config-runtime')
 
   return {
     WidgetSurface: ({
@@ -205,7 +242,7 @@ vi.mock('@/widgets/widget-surface', async () => {
       onPairColorChange?: (color: PairColor) => void
       onWidgetChange?: (widgetKey: string) => void
     }) => {
-      const renderWidget = useDashboardWidgetRenderConfig()
+      const { renderWidget } = useDashboardWidgetRenderState()
       const pairColor = (renderWidget?.pairColor ?? 'gray') as PairColor
 
       return (
@@ -260,13 +297,24 @@ describe('DashboardClient', () => {
     mockSearchParams = 'panel=left'
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
+    mockLayoutTabsIsBusy = false
     mockDashboardLayoutList = null
+    mockLayoutDocumentState = null
     mockTopologyDocuments = new WeakMap()
     mockDocuments = new Set()
+    mockWidgetDocuments = new Map()
+    mockPairDocuments = new Map()
+    for (const color of ['red', 'blue']) {
+      const pairDoc = new Y.Doc()
+      seedDashboardColorPairSession(pairDoc, {})
+      mockPairDocuments.set(color, pairDoc)
+      mockDocuments.add(pairDoc)
+    }
     mockLayoutMutation.mockClear()
     mockSetPanelGroupLayout.mockClear()
     mockPanelGroupLayout = []
-    dashboardClientMocks.activateDashboardLayoutAction.mockClear()
+    dashboardClientMocks.activateDashboardLayoutAction.mockReset()
+    dashboardClientMocks.activateDashboardLayoutAction.mockResolvedValue(undefined)
     dashboardClientMocks.createDashboardLayoutAction.mockClear()
     dashboardClientMocks.deleteDashboardLayoutAction.mockClear()
     resetDashboardStores()
@@ -504,6 +552,159 @@ describe('DashboardClient', () => {
     })
   })
 
+  it('keeps activation busy until the selected list entry and its layout document are ready', async () => {
+    let resolveActivation: (() => void) | null = null
+    dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveActivation = resolve
+      })
+    )
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+
+    await act(async () => {
+      mockSelectLayout?.('layout-b')
+      await Promise.resolve()
+    })
+    expect(mockLayoutTabsIsBusy).toBe(true)
+
+    await act(async () => {
+      resolveActivation?.()
+      await Promise.resolve()
+    })
+    expect(mockLayoutTabsIsBusy).toBe(true)
+
+    mockDashboardLayoutList = {
+      layouts: createLayouts('layout-b'),
+      isLoading: false,
+      error: null,
+    }
+    mockLayoutDocumentState = {
+      doc: null,
+      topology: null,
+      isProviderReady: false,
+      isLoading: true,
+      error: null,
+    }
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+    expect(mockLayoutTabsIsBusy).toBe(true)
+
+    const nextTopology = createPanelLayout('panel-b', 'wf-b')
+    mockLayoutDocumentState = {
+      doc: mockTopologyDocuments.get(nextTopology) ?? null,
+      topology: nextTopology,
+      isProviderReady: true,
+      isLoading: false,
+      error: null,
+    }
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+      await Promise.resolve()
+    })
+    expect(mockLayoutTabsIsBusy).toBe(false)
+  })
+
+  it('clears activation busy state when the action rejects', async () => {
+    dashboardClientMocks.activateDashboardLayoutAction.mockRejectedValueOnce(
+      new Error('activation failed')
+    )
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+      mockSelectLayout?.('layout-b')
+      await Promise.resolve()
+    })
+
+    expect(mockLayoutTabsIsBusy).toBe(false)
+    consoleError.mockRestore()
+  })
+
+  it('keeps mutations disabled when target convergence errors after activation succeeds', async () => {
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+    await act(async () => {
+      mockSelectLayout?.('layout-b')
+      await Promise.resolve()
+    })
+
+    mockDashboardLayoutList = {
+      layouts: createLayouts('layout-b'),
+      isLoading: false,
+      error: new Error('list unavailable'),
+    }
+    mockLayoutDocumentState = {
+      doc: null,
+      topology: null,
+      isProviderReady: false,
+      isLoading: false,
+      error: new Error('document unavailable'),
+    }
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-a', 'wf-a')}
+          workspaceId='ws-a'
+          ownerUserId='user-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          {...dashboardPermissions}
+        />
+      )
+    })
+
+    expect(mockLayoutTabsIsBusy).toBe(true)
+    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
+  })
+
   it('does not write selected layout identity into the dashboard URL', async () => {
     mockDashboardLayoutList = {
       layouts: createLayouts('layout-a'),
@@ -691,11 +892,11 @@ function createPanelLayout(
   const doc = new Y.Doc()
   seedDashboardLayoutSession(doc, {
     layout: topology,
-    widgets: {
-      [`${panelId}-widget`]: { pairColor, params: { workflowId } },
-    },
-    colorPairs: { pairs: [] },
   })
+  const widgetDoc = new Y.Doc()
+  seedDashboardWidgetSession(widgetDoc, { pairColor, params: { workflowId } })
+  mockWidgetDocuments.set(`${panelId}-widget`, widgetDoc)
+  mockDocuments.add(widgetDoc)
   mockTopologyDocuments.set(topology, doc)
   mockDocuments.add(doc)
   return topology
@@ -725,12 +926,13 @@ function createGroupLayout(sizes: number[]): DashboardLayoutTopologyNode {
   const doc = new Y.Doc()
   seedDashboardLayoutSession(doc, {
     layout: topology,
-    widgets: {
-      'widget-left': { pairColor: 'gray', params: null },
-      'widget-right': { pairColor: 'gray', params: null },
-    },
-    colorPairs: { pairs: [] },
   })
+  for (const identityId of ['widget-left', 'widget-right']) {
+    const widgetDoc = new Y.Doc()
+    seedDashboardWidgetSession(widgetDoc, { pairColor: 'gray', params: null })
+    mockWidgetDocuments.set(identityId, widgetDoc)
+    mockDocuments.add(widgetDoc)
+  }
   mockTopologyDocuments.set(topology, doc)
   mockDocuments.add(doc)
   return topology

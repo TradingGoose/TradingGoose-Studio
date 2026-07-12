@@ -11,11 +11,13 @@ import type {
   ReviewAccessMode,
   ReviewEntityKind,
   ReviewTargetDescriptor,
+  YjsDocumentKind,
 } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
-  saveDashboardLayoutYjsDocToDb,
+  saveDashboardColorPairYjsDocToDb,
+  saveDashboardWidgetYjsDocToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -25,7 +27,11 @@ import {
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, setupWSConnection } from './upstream-utils'
+import {
+  getExistingDocument,
+  isYjsSessionAdmissionBlocked,
+  setupWSConnection,
+} from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -36,7 +42,7 @@ interface YjsIncomingMessage extends IncomingMessage {
   yjsBootstrapState?: Uint8Array
   yjsPersistLiveUpdates?: boolean
   yjsAccessMode?: ReviewAccessMode
-  yjsEntityKind?: ReviewEntityKind
+  yjsEntityKind?: YjsDocumentKind
   yjsDescriptor?: ReviewTargetDescriptor
 }
 
@@ -46,11 +52,7 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
   }
 
   const metadata = doc.getMap<unknown>('metadata')
-  if (
-    metadata.get('entityId') !== docId ||
-    metadata.get('draftSessionId') != null ||
-    metadata.get('reviewSessionId') != null
-  ) {
+  if (metadata.get('draftSessionId') != null || metadata.get('reviewSessionId') != null) {
     return
   }
 
@@ -69,8 +71,13 @@ async function persistLiveSavedDocument(docId: string, doc: Y.Doc): Promise<void
     return
   }
 
-  if (entityKind === 'dashboard_layout') {
-    await saveDashboardLayoutYjsDocToDb(docId, doc)
+  if (entityKind === 'dashboard_widget') {
+    await saveDashboardWidgetYjsDocToDb(docId, doc)
+    return
+  }
+
+  if (entityKind === 'dashboard_color_pair') {
+    await saveDashboardColorPairYjsDocToDb(docId, doc)
   }
 }
 
@@ -78,7 +85,8 @@ export function handleYjsUpgrade(
   wss: WebSocketServer,
   request: IncomingMessage,
   socket: Duplex,
-  head: Buffer
+  head: Buffer,
+  canAcceptConnection: () => boolean = () => true
 ): void {
   const url = new URL(request.url || '', `http://${request.headers.host}`)
   const pathname = url.pathname
@@ -90,6 +98,10 @@ export function handleYjsUpgrade(
   }
 
   const yjsSessionId = decodeURIComponent(match[1])
+  if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(yjsSessionId)) {
+    rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
+    return
+  }
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
     .then(
@@ -102,6 +114,10 @@ export function handleYjsUpgrade(
         entityKind,
         descriptor,
       }) => {
+        if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(resolvedSessionId)) {
+          rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
+          return
+        }
         const yjsReq = request as YjsIncomingMessage
         yjsReq.yjsSessionId = resolvedSessionId
         yjsReq.yjsUserId = userId
@@ -137,9 +153,12 @@ async function authenticateAndPrepareUpgrade(
   resolvedSessionId: string
   persistLiveUpdates: boolean
   accessMode: ReviewAccessMode
-  entityKind: ReviewEntityKind
+  entityKind: YjsDocumentKind
   descriptor: ReviewTargetDescriptor
 }> {
+  if (isYjsSessionAdmissionBlocked(pathSessionId)) {
+    throw new YjsAuthError(409, 'Yjs session is not accepting connections')
+  }
   const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -181,7 +200,7 @@ async function authenticateAndPrepareUpgrade(
     ? null
     : isListTarget
       ? await createEntityListBootstrapUpdate(
-          canonicalDescriptor.entityKind,
+          canonicalDescriptor.entityKind as ReviewEntityKind,
           canonicalDescriptor.workspaceId as string,
           canonicalDescriptor.ownerUserId ?? null
         )
@@ -197,6 +216,9 @@ async function authenticateAndPrepareUpgrade(
   if (runtime.docState === 'expired') {
     throw new YjsAuthError(409, 'Review target expired')
   }
+  if (isYjsSessionAdmissionBlocked(pathSessionId)) {
+    throw new YjsAuthError(409, 'Yjs session is not accepting connections')
+  }
 
   return {
     bootstrapState: bootstrapped?.state,
@@ -209,8 +231,8 @@ async function authenticateAndPrepareUpgrade(
       accessMode === 'write' &&
       (canonicalDescriptor.entityKind === 'workflow' ||
         canonicalDescriptor.entityKind === 'watchlist' ||
-        canonicalDescriptor.entityKind === 'dashboard_layout') &&
-      canonicalDescriptor.entityId === pathSessionId,
+        canonicalDescriptor.entityKind === 'dashboard_widget' ||
+        canonicalDescriptor.entityKind === 'dashboard_color_pair'),
   }
 }
 
@@ -232,6 +254,9 @@ function assertAccessModeAllowed(
     if (accessMode !== 'read') {
       throw new YjsAuthError(403, 'Entity-list websocket is read-only')
     }
+  }
+  if (descriptor.entityKind === 'dashboard_layout' && accessMode !== 'read') {
+    throw new YjsAuthError(403, 'Dashboard layout websocket is read-only')
   }
 }
 

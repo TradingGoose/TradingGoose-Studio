@@ -190,6 +190,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -239,6 +240,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -277,6 +279,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -299,6 +302,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -333,6 +337,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -370,6 +375,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -397,6 +403,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -418,6 +425,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
@@ -474,6 +482,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
@@ -536,6 +545,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
@@ -565,6 +575,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
@@ -601,6 +612,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -648,6 +660,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -663,6 +676,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -697,6 +711,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}
@@ -729,6 +744,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           onWidgetParamsPatch={mockOnWidgetParamsPatch}

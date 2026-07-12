@@ -169,7 +169,7 @@ export const WatchlistHeaderLeftControls = ({
   const actions = useWidgetConfigRuntimeActions()
   const patchWidgetParams = (nextParams: Record<string, unknown>) => {
     if (!canEditWidgetParams) return
-    actions.patchWidgetParams(nextParams)
+    actions.patchWidgetParams?.(nextParams)
   }
 
   const handleProviderChange = (nextProvider: string) => {
@@ -370,10 +370,6 @@ export const WatchlistHeaderRightControls = ({
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
   const actions = useWidgetConfigRuntimeActions()
-  const patchLinkedParams =
-    (widget?.pairColor ?? 'gray') === 'gray'
-      ? actions.patchWidgetParams
-      : actions.patchWidgetColorPair
   const requestedWatchlistId = resolveSelectedWatchlistId({
     params,
   })
@@ -401,7 +397,7 @@ export const WatchlistHeaderRightControls = ({
 
   const handleSelectList = (watchlistId: string | null) => {
     if (!canEditWidgetParams) return
-    patchLinkedParams({ watchlistId })
+    actions.patchWidgetLinkedParams?.({ watchlistId })
   }
 
   const selectListOption = (option: WatchlistListOption) => {
@@ -636,7 +632,7 @@ export const WatchlistHeaderRightControls = ({
 
   const handleRefreshData = () => {
     if (!canEditWidgetParams || !providerId) return
-    actions.patchWidgetParams({
+    actions.patchWidgetParams?.({
       runtime: {
         refreshAt: Date.now(),
       },
@@ -658,7 +654,7 @@ export const WatchlistHeaderRightControls = ({
                   <DropdownMenuTrigger asChild>
                     <button
                       type='button'
-                      disabled={!workspaceId || !selectedWatchlist || !canEditWidgetParams}
+                      disabled={!workspaceId || !canEditWidgetParams || listOptions.length === 0}
                       className={widgetHeaderControlClassName(
                         'group flex min-w-[240px] items-center justify-between gap-1'
                       )}
@@ -695,9 +691,7 @@ export const WatchlistHeaderRightControls = ({
                 </span>
               </TooltipTrigger>
               <TooltipContent side='top'>
-                {!workspaceId || !selectedWatchlist
-                  ? copy.header.selectWorkspace
-                  : copy.header.explorer}
+                {!workspaceId ? copy.header.selectWorkspace : copy.header.explorer}
               </TooltipContent>
             </Tooltip>
             <DropdownMenuContent

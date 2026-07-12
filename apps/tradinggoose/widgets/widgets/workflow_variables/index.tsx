@@ -9,7 +9,6 @@ import {
 } from '@/i18n/workspace-widget-hooks'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
@@ -23,11 +22,10 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
 )
 
 const WorkflowVariablesWidgetBody = ({
+  channelId,
   params,
   context,
-  pairColor = 'gray',
   panelId,
-  widget,
 }: WidgetComponentProps) => {
   const copy = useWorkflowVariablesMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
@@ -35,8 +33,6 @@ const WorkflowVariablesWidgetBody = ({
   const { resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
     useWorkflowWidgetState({
       workspaceId,
-      pairColor,
-      widget,
       params,
     })
 
@@ -69,7 +65,7 @@ const WorkflowVariablesWidgetBody = ({
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
-        accessMode={context?.canWrite === false ? 'read' : 'write'}
+        channelId={channelId}
         panelId={panelId}
       />
     </div>
@@ -77,24 +73,24 @@ const WorkflowVariablesWidgetBody = ({
 }
 
 type WorkflowVariablesHeaderActionsProps = {
+  channelId: string
   workspaceId?: string
-  widget?: WidgetInstance | null
+  params?: Record<string, unknown> | null
   panelId?: string
   canEditEntity: boolean
 }
 
 const WorkflowVariablesHeaderActions = ({
+  channelId,
   workspaceId,
-  widget,
+  params,
   panelId,
   canEditEntity,
 }: WorkflowVariablesHeaderActionsProps) => {
   const copy = useWorkflowVariablesMessages()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    params: widget?.params ?? null,
+    params,
   })
 
   const isDisabled = !canEditEntity || !workspaceId || !resolvedWorkflowId
@@ -104,10 +100,10 @@ const WorkflowVariablesHeaderActions = ({
 
     window.dispatchEvent(
       new CustomEvent(WORKFLOW_VARIABLES_ADD_EVENT, {
-        detail: { panelId, workflowId: resolvedWorkflowId },
+        detail: { channelId, panelId, workflowId: resolvedWorkflowId },
       })
     )
-  }, [isDisabled, panelId, resolvedWorkflowId])
+  }, [channelId, isDisabled, panelId, resolvedWorkflowId])
 
   return (
     <Tooltip>
@@ -131,33 +127,24 @@ const WorkflowVariablesHeaderActions = ({
 
 type WorkflowVariablesHeaderWorkflowSelectorProps = {
   workspaceId?: string
-  widget?: WidgetInstance | null
-  panelId?: string
+  params?: Record<string, unknown> | null
 }
 
 const WorkflowVariablesHeaderWorkflowSelector = ({
   workspaceId,
-  widget,
-  panelId,
+  params,
 }: WorkflowVariablesHeaderWorkflowSelectorProps) => {
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    params: widget?.params ?? null,
+    params,
   })
   const actions = useWidgetConfigRuntimeActions()
-  const widgetKey = widget?.key ?? 'workflow_variables'
-  const patchLinkedParams =
-    (widget?.pairColor ?? 'gray') === 'gray'
-      ? actions.patchWidgetParams
-      : actions.patchWidgetColorPair
 
   const handleWorkflowChange = useCallback(
     (workflowId: string) => {
-      patchLinkedParams({ workflowId })
+      actions.patchWidgetLinkedParams?.({ workflowId })
     },
-    [patchLinkedParams]
+    [actions]
   )
 
   return (
@@ -174,19 +161,19 @@ export const workflowVariablesWidget: DashboardWidgetDefinition = {
   contract: workflowVariablesWidgetContract,
   icon: Braces,
   component: (props) => <WorkflowVariablesWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ channelId, widget, context, panelId }) => {
     return {
       center: (
         <WorkflowVariablesHeaderWorkflowSelector
           workspaceId={context?.workspaceId}
-          widget={widget}
-          panelId={panelId}
+          params={widget?.params}
         />
       ),
       right: (
         <WorkflowVariablesHeaderActions
+          channelId={channelId}
           workspaceId={context?.workspaceId}
-          widget={widget}
+          params={widget?.params}
           panelId={panelId}
           canEditEntity={context?.canWrite !== false}
         />

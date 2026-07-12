@@ -154,7 +154,6 @@ export async function requireWorkflowRealtimeState(
   )
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: null,
-    ownerUserId: null,
     entityKind: 'workflow',
     entityId: workflowId,
     draftSessionId: null,

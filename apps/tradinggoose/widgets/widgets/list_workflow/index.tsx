@@ -10,7 +10,6 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -26,26 +25,20 @@ const WidgetMessage = ({ message }: { message: string }) => (
 )
 
 const WorkflowListWidgetBody = ({
+  channelId,
   context,
   params,
-  pairColor = 'gray',
-  widget,
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.workflowList
-  const widgetParams = params ?? widget?.params ?? null
   const { resolvedWorkflowId: selectedWorkflowId } = useWorkflowWidgetState({
     workspaceId: workspaceId ?? undefined,
-    pairColor,
-    widget,
-    params: widgetParams,
+    params,
   })
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
 
   // Workflows list newest-first; the projection's canonical name order is a
   // deterministic base, not the workflow list's presentation order.
@@ -70,9 +63,9 @@ const WorkflowListWidgetBody = ({
 
   const selectWorkflowId = useCallback(
     (workflowId: string) => {
-      patchLinkedParams?.({ workflowId })
+      onWidgetLinkedParamsPatch?.({ workflowId })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
@@ -132,6 +125,7 @@ const WorkflowListWidgetBody = ({
       <WorkflowRouteProvider
         workspaceId={workspaceId}
         workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
+        channelId={channelId}
       >
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree
@@ -153,42 +147,23 @@ export const workflowListWidget: DashboardWidgetDefinition = {
   contract: workflowListWidgetContract,
   icon: LayoutList,
   component: (props) => <WorkflowListWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => ({
-    right: (
-      <WorkflowListHeaderRight
-        workspaceId={context?.workspaceId}
-        panelId={panelId}
-        pairColor={widget?.pairColor}
-        widgetKey={widget?.key ?? 'list_workflow'}
-      />
-    ),
+  renderHeader: ({ context }) => ({
+    right: <WorkflowListHeaderRight workspaceId={context?.workspaceId} />,
   }),
 }
 
-const WorkflowListHeaderRight = ({
-  workspaceId,
-  panelId,
-  pairColor = 'gray',
-  widgetKey,
-}: {
-  workspaceId?: string
-  panelId?: string
-  pairColor?: PairColor
-  widgetKey: string
-}) => {
+const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   const copy = useMessages().workspace.widgets.workflowList
   const { members } = useEntityList('workflow', workspaceId)
   const actions = useWidgetConfigRuntimeActions()
-  const patchLinkedParams =
-    pairColor === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
   const selectWorkflowId = useCallback(
     (workflowId: string) => {
       if (!workflowId) {
         return
       }
-      patchLinkedParams({ workflowId })
+      actions.patchWidgetLinkedParams?.({ workflowId })
     },
-    [patchLinkedParams]
+    [actions]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 

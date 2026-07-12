@@ -9,7 +9,7 @@ import { generateRequestId } from '@/lib/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
-  deleteYjsSessionInSocketServer,
+  discardYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
@@ -224,7 +224,7 @@ export async function DELETE(request: NextRequest) {
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
     await refreshEntityListSession('indicator', workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(indicatorId)])
+    await Promise.allSettled([discardYjsSessionInSocketServer(indicatorId)])
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

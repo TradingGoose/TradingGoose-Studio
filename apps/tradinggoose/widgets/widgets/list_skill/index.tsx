@@ -12,7 +12,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -26,11 +25,9 @@ import { skillListWidgetContract } from '@/widgets/widgets/list_skill/contract'
 const SkillListHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
@@ -38,14 +35,12 @@ const SkillListHeaderRight = ({
   const importMutation = useImportSkills()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('skill', workspaceId)
-  const patchLinkedParams =
-    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectSkill = useCallback(
     (createdSkillId: string) => {
-      patchLinkedParams({ skillId: createdSkillId })
+      actions.patchWidgetLinkedParams?.({ skillId: createdSkillId })
     },
-    [patchLinkedParams]
+    [actions]
   )
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 
@@ -122,11 +117,9 @@ const SkillListHeaderRight = ({
 const ListSkillHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.skillList
   if (!workspaceId) {
@@ -136,7 +129,7 @@ const ListSkillHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
+        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -160,15 +153,9 @@ export const listSkillWidget: DashboardWidgetDefinition = {
   contract: skillListWidgetContract,
   icon: ToolCase,
   component: (props) => <ListSkillWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ context, panelId }) => {
     return {
-      right: (
-        <ListSkillHeaderRight
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          pairColor={widget?.pairColor}
-        />
-      ),
+      right: <ListSkillHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
     }
   },
 }

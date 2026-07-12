@@ -51,12 +51,9 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   useWorkflowBlocks: () => mockBlocks,
 }))
 
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus',
-  () => ({
-    emitRemoveFromSubflow: vi.fn(),
-  })
-)
+vi.mock('@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus', () => ({
+  emitRemoveFromSubflow: vi.fn(),
+}))
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -95,7 +92,14 @@ describe('ActionBar', () => {
     host.addEventListener('click', parentClick)
 
     await act(async () => {
-      root.render(<ActionBar blockId='block_1' blockType='agent' workflowId='workflow_1' />)
+      root.render(
+        <ActionBar
+          blockId='block_1'
+          blockType='agent'
+          workflowId='workflow_1'
+          channelId='channel_1'
+        />
+      )
     })
 
     const enableButton = container.querySelector('button')

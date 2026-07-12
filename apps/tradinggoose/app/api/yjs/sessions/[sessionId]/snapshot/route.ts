@@ -109,7 +109,12 @@ export async function POST(
   if ('response' in authorized) return authorized.response
 
   const { descriptor } = authorized
-  if (descriptor.entityKind === 'workflow' || !descriptor.entityId || !descriptor.workspaceId) {
+  if (
+    descriptor.entityKind === 'workflow' ||
+    descriptor.entityKind === 'dashboard_layout' ||
+    !descriptor.entityId ||
+    !descriptor.workspaceId
+  ) {
     return NextResponse.json({ error: 'Saved entity Yjs session required' }, { status: 400 })
   }
 

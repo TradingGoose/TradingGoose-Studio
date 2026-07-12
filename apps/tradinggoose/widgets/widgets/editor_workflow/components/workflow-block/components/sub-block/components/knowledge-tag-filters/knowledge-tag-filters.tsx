@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
@@ -13,8 +13,9 @@ import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-d
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import type { LocaleCode } from '@/i18n/utils'
+import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '../../hooks/use-sub-block-value'
 
 interface TagFilter {

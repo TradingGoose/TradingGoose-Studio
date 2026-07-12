@@ -15,11 +15,11 @@ import {
   buildDashboardWidgetReviewBase,
   buildDashboardWidgetReviewDocument,
 } from '@/lib/dashboard-layouts/review-base'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardWidgetEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   findDashboardTopologyPanel,
-  normalizeDashboardLayoutDocumentContent,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import {
   applyWidgetConfigMutation,
@@ -45,13 +45,11 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       'write'
     )
     const metadata = await readDashboardLayoutMetadata({ workspaceId, ownerUserId }, entityId)
-    const rawCurrent = await readBootstrappedSavedEntityFields(
-      'dashboard_layout',
+    const current = await readBootstrappedDashboardLayoutProjection(
       entityId,
       workspaceId,
       ownerUserId
     )
-    const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
     const panel = findDashboardTopologyPanel(current.layout, args.panelId)
     if (!panel) throw new Error(`Unknown dashboard panel ${args.panelId}`)
     if (!panel.widgetKey) {
@@ -72,7 +70,7 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     })
     const identityId = panel.identityId
     const widget = next.widgetDocument
-    const nextContent = normalizeDashboardLayoutDocumentContent({
+    const nextContent = normalizeDashboardLayoutProjection({
       ...current,
       widgets: { ...current.widgets, [identityId]: widget },
       colorPairs: next.colorPairs,
@@ -82,13 +80,13 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     const afterReview = buildDashboardWidgetReviewDocument(nextContent, args.panelId)
     const result = {
       success: true,
-      ...(await buildDashboardLayoutResult({
+      ...buildDashboardLayoutResult({
         entityId,
         entityName: metadata.name,
         workspaceId,
         ownerUserId,
         content: nextContent,
-      })),
+      }),
     }
 
     if (shouldStageServerToolMutationForReview(context)) {
@@ -116,13 +114,13 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     })
     return {
       success: true,
-      ...(await buildDashboardLayoutResult({
+      ...buildDashboardLayoutResult({
         entityId,
         entityName: metadata.name,
         workspaceId,
         ownerUserId,
         content: committed,
-      })),
+      }),
     }
   },
 }

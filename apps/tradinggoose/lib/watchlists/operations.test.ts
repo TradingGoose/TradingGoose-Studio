@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
+const mockDbSelect = vi.hoisted(() => vi.fn())
 const mockRenameSavedEntityIdentityInTx = vi.hoisted(() => vi.fn())
+const mockDeleteYjsSession = vi.hoisted(() => vi.fn())
+const mockRefreshEntityList = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
-  db: { transaction: mockDbTransaction },
+  db: { select: mockDbSelect, transaction: mockDbTransaction },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -47,8 +50,8 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  deleteYjsSessionInSocketServer: vi.fn(),
-  refreshEntityListSession: vi.fn(),
+  refreshEntityListSession: mockRefreshEntityList,
+  withYjsSessionDeletionLease: mockDeleteYjsSession,
 }))
 
 vi.mock('@/lib/saved-entities/identity', () => ({
@@ -69,6 +72,7 @@ import {
 } from '@/lib/watchlists/document'
 import {
   createWatchlistFromDocument,
+  deleteWatchlist,
   importWatchlistDocument,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/operations'
@@ -162,7 +166,14 @@ const content = {
 describe('watchlist operations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRenameSavedEntityIdentityInTx.mockResolvedValue('Imported Watchlist')
+    mockRenameSavedEntityIdentityInTx.mockResolvedValue({
+      name: 'Imported Watchlist',
+      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+    })
+    mockDeleteYjsSession.mockImplementation(
+      async (_sessionIds: string[], mutate: () => Promise<unknown>) => mutate()
+    )
+    mockRefreshEntityList.mockResolvedValue(undefined)
   })
 
   it('persists new canonical UUIDs unchanged and updates the same rows on the next save', async () => {
@@ -253,6 +264,32 @@ describe('watchlist operations', () => {
 
     await expect(listRootWatchlistRowsInTx(store.tx, 'workspace-1')).resolves.toEqual([rootRow])
     expect(store.tx.select).toHaveBeenCalledTimes(1)
+  })
+
+  it('leases the live watchlist before deleting its canonical root', async () => {
+    let releaseDiscard!: () => void
+    mockDeleteYjsSession.mockImplementationOnce(
+      async (_sessionIds: string[], mutate: () => Promise<unknown>) => {
+        await new Promise<void>((resolve) => {
+          releaseDiscard = resolve
+        })
+        return mutate()
+      }
+    )
+    mockDbSelect.mockReturnValueOnce(queryChain([rootRow]))
+    const store = materializerTx({ roots: [rootRow], updateResults: [] })
+    mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
+
+    const deletion = deleteWatchlist({ workspaceId: 'workspace-1' }, rootRow.id)
+    await vi.waitFor(() =>
+      expect(mockDeleteYjsSession).toHaveBeenCalledWith([rootRow.id], expect.any(Function))
+    )
+    expect(mockDbTransaction).not.toHaveBeenCalled()
+
+    releaseDiscard()
+    await expect(deletion).resolves.toBe(true)
+    expect(mockDbTransaction).toHaveBeenCalledTimes(1)
+    expect(mockRefreshEntityList).toHaveBeenCalledWith('watchlist', 'workspace-1')
   })
 
   it('runs canonical rename and content materialization in one import transaction', async () => {

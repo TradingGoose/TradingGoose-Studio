@@ -18,21 +18,20 @@ import {
 } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
-import { buildDashboardLayoutReadProjection } from '@/lib/dashboard-layouts/read-projection'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
   ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
   readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
-import { normalizeDashboardLayoutDocumentContent } from '@/widgets/layout-document'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import {
+  type CopilotWorkspaceEntityKind,
+  readCopilotWorkspaceEntityContext,
+} from '@/widgets/widgets/copilot/workspace-entities'
 
 type AgentContextType =
   | 'past_chat'
@@ -58,7 +57,7 @@ type AgentContextType =
 
 interface AgentContext {
   type: AgentContextType
-  tag: string
+  tag?: string
   content: string
 }
 
@@ -76,36 +75,13 @@ export async function processContextsServer(
     try {
       const entityContext = readCopilotWorkspaceEntityContext(ctx)
       if (entityContext?.entityId) {
-        const tag = ctx.label ? `@${ctx.label}` : '@'
-        const entityKind = entityContext.entityKind
-
-        if (entityKind === 'workflow') {
-          return await processWorkflowContext({
-            workflowId: entityContext.entityId,
-            userId,
-            tag,
-            kind: entityContext.current ? 'current_workflow' : 'workflow',
-          })
-        }
-
-        if (entityKind === 'dashboard_layout') {
-          return await processDashboardLayoutContext({
-            contextKind: entityContext.current ? 'current_dashboard_layout' : 'dashboard_layout',
-            entityId: entityContext.entityId,
-            userId,
-            ownerUserId: entityContext.ownerUserId,
-            workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
-            tag,
-          })
-        }
-
-        return await processEntityContext({
-          contextKind: ctx.kind as Parameters<typeof processEntityContext>[0]['contextKind'],
-          entityKind,
+        return await processWorkspaceEntityContext({
+          contextKind: ctx.kind as AgentContextType,
+          entityKind: entityContext.entityKind,
           entityId: entityContext.entityId,
           userId,
           workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
-          tag,
+          ownerUserId: entityContext.ownerUserId,
         })
       }
 
@@ -170,27 +146,47 @@ export async function processContextsServer(
   return filtered
 }
 
-async function processEntityContext(params: {
-  contextKind:
-    | 'skill'
-    | 'current_skill'
-    | 'indicator'
-    | 'current_indicator'
-    | 'custom_tool'
-    | 'current_custom_tool'
-    | 'mcp_server'
-    | 'current_mcp_server'
-    | 'watchlist'
-    | 'current_watchlist'
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server' | 'watchlist'
+async function processWorkspaceEntityContext(params: {
+  contextKind: AgentContextType
+  entityKind: CopilotWorkspaceEntityKind
   entityId: string
   userId: string
   workspaceId: string | null
-  tag: string
+  ownerUserId: string | null
 }): Promise<AgentContext | null> {
+  if (params.entityKind === 'workflow') {
+    const access = await verifyWorkflowAccess(params.userId, params.entityId, 'read')
+    if (!access.hasAccess) {
+      logger.warn('Skipping unauthorized copilot workflow context', {
+        entityId: params.entityId,
+        userId: params.userId,
+      })
+      return null
+    }
+    return {
+      type: params.contextKind,
+      content: JSON.stringify({ entityId: params.entityId }, null, 2),
+    }
+  }
+
+  if (
+    params.entityKind === 'dashboard_layout' &&
+    (!params.workspaceId || params.ownerUserId !== params.userId)
+  ) {
+    logger.warn('Skipping dashboard layout context outside authenticated owner scope', {
+      entityId: params.entityId,
+      workspaceId: params.workspaceId,
+      userId: params.userId,
+      ownerUserId: params.ownerUserId,
+    })
+    return null
+  }
+
   const access = await verifyReviewTargetAccess(
     params.userId,
-    buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId),
+    buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId, {
+      ownerUserId: params.ownerUserId,
+    }),
     'read'
   )
   if (!access.hasAccess || !access.workspaceId) {
@@ -205,88 +201,7 @@ async function processEntityContext(params: {
 
   return {
     type: params.contextKind,
-    tag: params.tag,
     content: JSON.stringify({ entityId: params.entityId }, null, 2),
-  }
-}
-
-async function processDashboardLayoutContext(params: {
-  contextKind: 'dashboard_layout' | 'current_dashboard_layout'
-  entityId: string
-  userId: string
-  ownerUserId: string | null
-  workspaceId: string | null
-  tag: string
-}): Promise<AgentContext | null> {
-  if (!params.workspaceId || params.ownerUserId !== params.userId) {
-    logger.warn('Skipping dashboard layout context outside authenticated owner scope', {
-      entityId: params.entityId,
-      workspaceId: params.workspaceId,
-      userId: params.userId,
-      ownerUserId: params.ownerUserId,
-    })
-    return null
-  }
-
-  try {
-    const access = await verifyReviewTargetAccess(
-      params.userId,
-      buildSavedEntityDescriptor('dashboard_layout', params.entityId, params.workspaceId, {
-        ownerUserId: params.ownerUserId,
-      }),
-      'read'
-    )
-    if (!access.hasAccess || !access.workspaceId) {
-      logger.warn('Skipping unauthorized dashboard layout context', {
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-        userId: params.userId,
-      })
-      return null
-    }
-
-    const [content, members] = await Promise.all([
-      readBootstrappedSavedEntityFields(
-        'dashboard_layout',
-        params.entityId,
-        access.workspaceId,
-        params.ownerUserId
-      ),
-      readEntityListMembersFromDb('dashboard_layout', access.workspaceId, params.ownerUserId),
-    ])
-    const entityName = members.find((member) => member.id === params.entityId)?.name
-    if (entityName === undefined) return null
-    const projection = await buildDashboardLayoutReadProjection(
-      normalizeDashboardLayoutDocumentContent(content)
-    )
-
-    return {
-      type: params.contextKind,
-      tag: params.tag,
-      content: JSON.stringify(
-        {
-          entityKind: 'dashboard_layout',
-          entityId: params.entityId,
-          entityName,
-          workspaceId: access.workspaceId,
-          ownerUserId: params.ownerUserId,
-          documentFormat: projection.documentFormat,
-          entityDocument: projection.entityDocument,
-          effectiveLayout: projection.effectiveLayout,
-        },
-        null,
-        2
-      ),
-    }
-  } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-      logger.warn('Skipping missing dashboard layout context', {
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-      })
-      return null
-    }
-    throw error
   }
 }
 
@@ -422,44 +337,6 @@ async function processPastChatContext(
     return { type: 'past_chat', tag, content }
   } catch (error) {
     logger.error('Error processing past chat context', { reviewSessionId, error })
-    return null
-  }
-}
-
-async function processWorkflowContext({
-  workflowId,
-  userId,
-  tag,
-  kind,
-}: {
-  workflowId: string
-  userId: string
-  tag: string
-  kind: 'workflow' | 'current_workflow'
-}): Promise<AgentContext | null> {
-  try {
-    const workflowState = await readCopilotWorkflowStateFromYjs(workflowId, userId)
-    if (!workflowState) {
-      return null
-    }
-
-    // Sanitize workflow state for copilot (remove UI-specific data like positions)
-    const sanitizedState = sanitizeForCopilot({
-      blocks: workflowState.blocks || {},
-      edges: workflowState.edges || [],
-      loops: workflowState.loops || {},
-      parallels: workflowState.parallels || {},
-    })
-    // Match read-workflow format: just the workflow state JSON
-    const content = JSON.stringify(sanitizedState, null, 2)
-    logger.info('Processed sanitized workflow context', {
-      workflowId,
-      blocks: Object.keys(sanitizedState.blocks || {}).length,
-    })
-    // Use the provided kind for the type
-    return { type: kind, tag, content }
-  } catch (error) {
-    logger.error('Error processing workflow context', { workflowId, error })
     return null
   }
 }

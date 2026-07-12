@@ -29,8 +29,10 @@ vi.mock('@/hooks/queries/skills', async () => {
 })
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
-  useWidgetPairContext: () => ({}),
-  useWidgetConfigRuntimeActions: () => ({ patchWidgetParams: vi.fn() }),
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({

@@ -20,6 +20,7 @@ export interface WidgetCategoryDefinition {
 }
 
 export interface WidgetComponentProps {
+  channelId: string
   params?: Record<string, unknown> | null
   context?: WidgetRuntimeContext
   pairColor?: PairColor
@@ -27,7 +28,7 @@ export interface WidgetComponentProps {
   widget?: WidgetInstance | null
   onWidgetChange?: (widgetKey: string) => void
   onWidgetParamsPatch?: (params: Record<string, unknown>) => void
-  onWidgetColorPairPatch?: (colorPair: Record<string, unknown> | null) => void
+  onWidgetLinkedParamsPatch?: (params: Record<string, unknown>) => void
 }
 
 export type DashboardWidgetComponent = (props: WidgetComponentProps) => ReactNode
@@ -39,6 +40,7 @@ export type WidgetHeaderSlots = {
 }
 
 export interface WidgetHeaderContext {
+  channelId: string
   widget: WidgetInstance
   context?: WidgetRuntimeContext
   panelId?: string

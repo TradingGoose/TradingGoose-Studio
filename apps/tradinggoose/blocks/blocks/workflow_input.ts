@@ -19,8 +19,6 @@ export const WorkflowInputBlock: BlockConfig = {
       id: 'workflowId',
       title: 'Select Workflow',
       type: 'dropdown',
-      entityListKind: 'workflow',
-      excludeCurrentEntity: true,
       required: true,
     },
     // Renders dynamic mapping UI based on selected child workflow's Input Trigger inputFormat

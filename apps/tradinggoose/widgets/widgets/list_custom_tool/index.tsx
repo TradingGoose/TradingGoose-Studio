@@ -34,7 +34,6 @@ import {
   useImportCustomTools,
 } from '@/hooks/queries/custom-tools'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -178,25 +177,21 @@ function CustomToolCreateMenu({
 function CustomToolListHeaderRight({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) {
   const permissions = useUserPermissionsContext()
   const createToolMutation = useCreateCustomTool()
   const importMutation = useImportCustomTools()
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('custom_tool', workspaceId)
-  const patchLinkedParams =
-    (pairColor ?? 'gray') === 'gray' ? actions.patchWidgetParams : actions.patchWidgetColorPair
 
   const selectTool = useCallback(
     (createdToolId: string) => {
-      patchLinkedParams({ customToolId: createdToolId })
+      actions.patchWidgetLinkedParams?.({ customToolId: createdToolId })
     },
-    [patchLinkedParams]
+    [actions]
   )
   const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
@@ -261,11 +256,9 @@ function CustomToolListHeaderRight({
 const ListCustomToolHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.customToolList.header
   if (!workspaceId) {
@@ -275,11 +268,7 @@ const ListCustomToolHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <CustomToolListHeaderRight
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <CustomToolListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -288,9 +277,7 @@ const ListCustomToolHeaderRight = ({
 function ListCustomToolWidgetBodyInner({
   context,
   params,
-  pairColor = 'gray',
-  onWidgetParamsPatch,
-  onWidgetColorPairPatch,
+  onWidgetLinkedParamsPatch,
   panelId,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
@@ -325,13 +312,11 @@ function ListCustomToolWidgetBodyInner({
     entityIds: tools.map((tool) => tool.id),
     useDefaultEntity: false,
   })
-  const patchLinkedParams = pairColor === 'gray' ? onWidgetParamsPatch : onWidgetColorPairPatch
-
   const syncSelection = useCallback(
     (customToolId: string | null) => {
-      patchLinkedParams?.({ customToolId })
+      onWidgetLinkedParamsPatch?.({ customToolId })
     },
-    [patchLinkedParams]
+    [onWidgetLinkedParamsPatch]
   )
 
   const handleDeleteTool = useCallback(
@@ -423,13 +408,7 @@ export const listCustomToolWidget: DashboardWidgetDefinition = {
   contract: customToolListWidgetContract,
   icon: Wrench,
   component: (props) => <ListCustomToolWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => ({
-    right: (
-      <ListCustomToolHeaderRight
-        workspaceId={context?.workspaceId}
-        panelId={panelId}
-        pairColor={widget?.pairColor}
-      />
-    ),
+  renderHeader: ({ context, panelId }) => ({
+    right: <ListCustomToolHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
   }),
 }

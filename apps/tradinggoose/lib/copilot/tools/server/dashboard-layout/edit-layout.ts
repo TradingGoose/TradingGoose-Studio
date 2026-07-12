@@ -12,13 +12,14 @@ import {
 import { readDashboardLayoutMetadata } from '@/lib/dashboard-layouts/operations'
 import { serializeDashboardLayoutForCopilot } from '@/lib/dashboard-layouts/read-projection'
 import { buildDashboardLayoutReviewBase } from '@/lib/dashboard-layouts/review-base'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardLayoutEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   applyLayoutEditDocument,
+  createDefaultDashboardWidgetDocument,
   DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-  type DashboardLayoutDocumentContent,
-  normalizeDashboardLayoutDocumentContent,
+  type DashboardLayoutProjectionContent,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 
 type EditLayoutArgs = {
@@ -44,17 +45,22 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
       'write'
     )
     const metadata = await readDashboardLayoutMetadata({ workspaceId, ownerUserId }, entityId)
-    const rawCurrent = await readBootstrappedSavedEntityFields(
-      'dashboard_layout',
+    const current = await readBootstrappedDashboardLayoutProjection(
       entityId,
       workspaceId,
       ownerUserId
     )
-    const current = normalizeDashboardLayoutDocumentContent(rawCurrent)
-    const plan = applyLayoutEditDocument(current, args.entityDocument, args.removedPanelIds ?? [])
-    const widgets = { ...current.widgets, ...plan.createdWidgets }
+    const plan = applyLayoutEditDocument(
+      { layout: current.layout },
+      args.entityDocument,
+      args.removedPanelIds ?? []
+    )
+    const widgets = { ...current.widgets }
+    for (const binding of plan.createdBindings) {
+      widgets[binding.identityId] = createDefaultDashboardWidgetDocument(binding.widgetKey)
+    }
     for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-    const next: DashboardLayoutDocumentContent = normalizeDashboardLayoutDocumentContent({
+    const next: DashboardLayoutProjectionContent = normalizeDashboardLayoutProjection({
       ...current,
       layout: plan.layout,
       widgets,
@@ -62,13 +68,13 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
     const reviewBase = buildDashboardLayoutReviewBase(current, plan)
     const result = {
       success: true,
-      ...(await buildDashboardLayoutResult({
+      ...buildDashboardLayoutResult({
         entityId,
         entityName: metadata.name,
         workspaceId,
         ownerUserId,
         content: next,
-      })),
+      }),
     }
 
     if (shouldStageServerToolMutationForReview(context)) {
@@ -96,13 +102,13 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
     })
     return {
       success: true,
-      ...(await buildDashboardLayoutResult({
+      ...buildDashboardLayoutResult({
         entityId,
         entityName: metadata.name,
         workspaceId,
         ownerUserId,
         content: committed,
-      })),
+      }),
     }
   },
 }

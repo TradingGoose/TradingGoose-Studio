@@ -53,6 +53,7 @@ describe('copilotWidget', () => {
 
   it('renders header slots safely when widget is null', async () => {
     const slots = copilotWidget.renderHeader?.({
+      channelId: 'copilot-panel-1',
       widget: null,
       panelId: 'panel-1',
     })
@@ -76,6 +77,7 @@ describe('copilotWidget', () => {
       root.render(
         <>
           {Component?.({
+            channelId: 'pair-blue',
             params: {
               workflowId: 'wf-stale',
             },
@@ -98,18 +100,21 @@ describe('copilotWidget', () => {
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
       channelId: 'pair-blue',
-      pairColor: 'blue',
-      accessMode: 'read',
+      effectiveParams: { workflowId: 'wf-stale' },
     })
+    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('pairColor')
+    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('accessMode')
+    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTarget')
   })
 
-  it('uses the pair runtime channel for linked copilot widgets', async () => {
+  it('forwards the pair runtime channel for linked copilot widgets', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
       root.render(
         <>
           {Component?.({
+            channelId: 'pair-red',
             params: null,
             context: { workspaceId: 'ws-1' },
             pairColor: 'red',
@@ -126,7 +131,7 @@ describe('copilotWidget', () => {
 
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       channelId: 'pair-red',
-      pairColor: 'red',
+      effectiveParams: null,
     })
   })
 
@@ -137,6 +142,7 @@ describe('copilotWidget', () => {
       root.render(
         <>
           {Component?.({
+            channelId: 'copilot-panel-1',
             params: null,
             context: { workspaceId: 'ws-1' },
             pairColor: 'gray',
@@ -154,17 +160,18 @@ describe('copilotWidget', () => {
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       workspaceId: 'ws-1',
       channelId: 'copilot-panel-1',
-      pairColor: 'gray',
+      effectiveParams: null,
     })
   })
 
-  it('uses a panel runtime channel when the widget is unpaired', async () => {
+  it('forwards a panel runtime channel when the widget is unpaired', async () => {
     const Component = copilotWidget.component
 
     await act(async () => {
       root.render(
         <>
           {Component?.({
+            channelId: 'copilot-panel-42',
             params: null,
             context: { workspaceId: 'ws-1' },
             pairColor: 'gray',
@@ -182,7 +189,7 @@ describe('copilotWidget', () => {
     expect(container.querySelector('[data-testid="copilot-app"]')).not.toBeNull()
     expect(copilotAppPropsSpy.mock.lastCall?.[0]).toMatchObject({
       channelId: 'copilot-panel-42',
-      pairColor: 'gray',
+      effectiveParams: null,
     })
   })
 })

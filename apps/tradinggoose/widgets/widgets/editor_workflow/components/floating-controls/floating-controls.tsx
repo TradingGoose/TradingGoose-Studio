@@ -1,11 +1,11 @@
 'use client'
 
-import { useReactFlow, useStore } from '@xyflow/react'
 import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
+import { useReactFlow, useStore } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { cn } from '@/lib/utils'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface FloatingControlsProps {

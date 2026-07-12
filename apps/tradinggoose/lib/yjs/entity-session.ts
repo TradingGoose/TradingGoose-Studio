@@ -21,13 +21,18 @@
  *   - mcp_server:   description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
  *   - watchlist:    settings, items
- *   - dashboard_layout: delegated to its owner-scoped layout session with
- *                       layout, widgets, and colorPairs child maps
+ *   - dashboard_layout: delegated to the topology-only layout document;
+ *                       widget and color-pair child documents have separate
+ *                       Yjs owners and never enter this entity fields map
  */
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  getListingIdentityKey,
+  type ListingIdentity,
+} from '@/lib/listing/identity'
 import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
 import {
   normalizeWatchlistDocumentContent,
@@ -111,9 +116,9 @@ export function replaceWatchlistItems(
   const orders = siblingOrders(items)
   doc.transact(() => {
     const map = getWatchlistItemsMap(doc)
-    const ids = new Set(items.map((item) => item.id))
-    map.forEach((_entry, id) => {
-      if (!ids.has(id)) map.delete(id)
+    const keys = new Set(items.map((item) => item.id))
+    map.forEach((_entry, key) => {
+      if (!keys.has(key)) map.delete(key)
     })
     for (const item of items) writeWatchlistItem(map, item, orders.get(item) ?? 0)
   }, origin)
@@ -124,25 +129,7 @@ export function updateWatchlistItems(
   update: (items: WatchlistItem[]) => WatchlistItem[],
   origin: unknown = YJS_ORIGINS.USER
 ): void {
-  const before = readWatchlistItems(doc)
-  const after = update(before)
-  const normalized = resolveWatchlistDocumentItemIds(
-    normalizeWatchlistDocumentContent({
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      items: after,
-    }).items
-  )
-  const beforeIds = new Set(before.map((item) => item.id))
-  const afterIds = new Set(normalized.map((item) => item.id))
-  const orders = siblingOrders(normalized)
-
-  doc.transact(() => {
-    const map = getWatchlistItemsMap(doc)
-    for (const id of beforeIds) {
-      if (!afterIds.has(id)) map.delete(id)
-    }
-    for (const item of normalized) writeWatchlistItem(map, item, orders.get(item) ?? 0)
-  }, origin)
+  replaceWatchlistItems(doc, update(readWatchlistItems(doc)), origin)
 }
 
 export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
@@ -152,6 +139,7 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
   if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
   const itemMap = items as Y.Map<Y.Map<unknown>>
   itemMap.forEach((entry, id) => {
+    if (!id) return
     const type = entry.get('type')
     const order = Number(entry.get('order') ?? 0)
     if (type === 'section') {
@@ -174,8 +162,21 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
   })
 
   const sections = new Set(entries.filter((item) => item.type === 'section').map((item) => item.id))
+  const canonicalListings = new Map<
+    string,
+    Extract<(typeof entries)[number], { type: 'listing' }>
+  >()
+  for (const item of entries) {
+    if (item.type !== 'listing') continue
+    const parentId = item.parentId && sections.has(item.parentId) ? item.parentId : '__root__'
+    const key = `${parentId}:${getListingIdentityKey(item.listing)}`
+    const current = canonicalListings.get(key)
+    if (!current || item.id.localeCompare(current.id) < 0) canonicalListings.set(key, item)
+  }
+  const canonicalListingIds = new Set([...canonicalListings.values()].map((item) => item.id))
   const byParent = new Map<string, Array<WatchlistItem & { order: number }>>()
   for (const item of entries) {
+    if (item.type === 'listing' && !canonicalListingIds.has(item.id)) continue
     const parentId =
       item.type === 'listing' && item.parentId && sections.has(item.parentId)
         ? item.parentId

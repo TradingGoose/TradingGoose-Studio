@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import {
+  buildDashboardColorPairDescriptor,
+  buildDashboardWidgetDescriptor,
   buildEntityListDescriptor,
   buildReviewTargetDescriptorFromEnvelope,
   buildSavedEntityDescriptor,
@@ -13,7 +15,9 @@ import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
+  throwStaleServerToolReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
 import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
@@ -25,10 +29,14 @@ import { importWatchlistDocument, WatchlistOperationError } from '@/lib/watchlis
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
-  applyDashboardTopologyMutation,
-  applyDashboardWidgetConfigPatch,
-  ensureDashboardLayoutDirtyTracker,
-  readDashboardLayoutContent,
+  readDashboardColorPairDocument,
+  readDashboardLayoutDocument,
+  readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
+  seedDashboardWidgetSession,
+  setDashboardColorPairDocument,
+  setDashboardLayoutTopology,
+  setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import {
   getEntityFields,
@@ -38,7 +46,8 @@ import {
 } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
-  saveDashboardLayoutYjsDocToDb,
+  saveDashboardColorPairYjsDocToDb,
+  saveDashboardWidgetYjsDocToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import {
@@ -52,7 +61,11 @@ import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/w
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
+  abortYjsSessionDeletion,
+  beginYjsSessionDeletion,
+  commitYjsSessionDeletion,
   discardDocument,
+  discardDocumentIfCurrent,
   discardDocumentIfIdle,
   flushDocumentPersistence,
   getDocument,
@@ -60,8 +73,21 @@ import {
   markDocumentPersisted,
   reconcileWorkspaceConnections,
   runDocumentMutation,
+  YjsSessionAdmissionError,
 } from '@/socket-server/yjs/upstream-utils'
-import { applyLayoutEditDocument, findDashboardTopologyPanel } from '@/widgets/layout-document'
+import { readPairColorContext } from '@/widgets/color-pairs'
+import {
+  applyDashboardLayoutStructureMutation,
+  applyLayoutEditDocument,
+  createDefaultDashboardWidgetDocument,
+  type DashboardLayoutEditPlan,
+  type DashboardLayoutProjectionContent,
+  type DashboardLayoutStructureMutation,
+  type DashboardLayoutTopologyNode,
+  findDashboardTopologyPanel,
+  normalizeDashboardLayoutProjection,
+} from '@/widgets/layout-document'
+import { PAIR_COLORS } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -89,6 +115,9 @@ const INTERNAL_YJS_WATCHLIST_IMPORT_PATH = /^\/internal\/yjs\/watchlists\/([^/]+
 const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/([^/]+)\/edit$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_SESSION_DELETE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
+const INTERNAL_YJS_DELETION_BEGIN_PATH = '/internal/yjs/session-deletions'
+const INTERNAL_YJS_DELETION_COMMIT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)\/commit$/
+const INTERNAL_YJS_DELETION_ABORT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)$/
 const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
 const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
 const INTERNAL_YJS_WORKSPACE_ACCESS_PATH = /^\/internal\/yjs\/workspaces\/([^/]+)\/access-changed$/
@@ -334,7 +363,7 @@ async function getBootstrappedApplyDocument(
     throw new Error('Yjs review target is not active')
   }
 
-  return getDocument(descriptor.yjsSessionId, true, bootstrapped.state)
+  return getDocument(descriptor.yjsSessionId, true, bootstrapped.state).doc
 }
 
 /**
@@ -391,9 +420,9 @@ async function refreshSavedEntityListDoc(
       typeof ownerUserId === 'string' ? ownerUserId : null
     )
     markDocumentPersisted(listDoc)
-    discardDocumentIfIdle(descriptor.yjsSessionId)
+    discardDocumentIfIdle(listDoc)
   } catch {
-    discardDocument(descriptor.yjsSessionId)
+    await discardDocumentIfCurrent(listDoc)
   }
 }
 
@@ -449,14 +478,19 @@ async function handleInternalYjsEntityListMembersRequest(
     // buildReviewTargetDescriptorFromEnvelope rejects entity_list envelopes
     // without a workspaceId, so the cast below cannot see null.
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    await reseedEntityListSessionFromDb(
-      liveDoc,
-      descriptor.entityKind,
-      descriptor.workspaceId as string,
-      descriptor.ownerUserId ?? null
-    )
+    try {
+      await reseedEntityListSessionFromDb(
+        liveDoc,
+        descriptor.entityKind as ReviewEntityKind,
+        descriptor.workspaceId as string,
+        descriptor.ownerUserId ?? null
+      )
+    } catch (error) {
+      await discardDocumentIfCurrent(liveDoc)
+      throw error
+    }
     markDocumentPersisted(liveDoc)
-    discardDocumentIfIdle(sessionId)
+    discardDocumentIfIdle(liveDoc)
     sendJson(res, 200, { success: true, applied: true })
   } catch (error) {
     logger.error('Error applying entity-list members', { error, sessionId })
@@ -472,6 +506,7 @@ async function handleInternalYjsWorkflowApplyRequest(
   logger: Logger,
   workflowId: string
 ): Promise<void> {
+  let cleanupDoc: Y.Doc | null = null
   try {
     const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
     const descriptor = {
@@ -484,6 +519,7 @@ async function handleInternalYjsWorkflowApplyRequest(
       yjsSessionId: workflowId,
     } as const
     const doc = await getBootstrappedApplyDocument(descriptor)
+    cleanupDoc = doc
     await runDocumentMutation(doc, () =>
       applyThroughStaging(
         doc,
@@ -499,7 +535,7 @@ async function handleInternalYjsWorkflowApplyRequest(
       error: error instanceof Error ? error.message : 'Failed to apply workflow state',
     })
   } finally {
-    discardDocumentIfIdle(workflowId)
+    if (cleanupDoc) discardDocumentIfIdle(cleanupDoc)
   }
 }
 
@@ -509,6 +545,7 @@ async function handleInternalYjsEntityApplyRequest(
   logger: Logger,
   entityId: string
 ): Promise<void> {
+  let cleanupDoc: Y.Doc | null = null
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
     let normalizedFields: Record<string, unknown>
@@ -521,6 +558,7 @@ async function handleInternalYjsEntityApplyRequest(
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
     const doc = await getBootstrappedApplyDocument(descriptor)
+    cleanupDoc = doc
     const persistedFields = await runDocumentMutation(doc, () =>
       applySavedEntityThroughStaging({
         doc,
@@ -573,7 +611,7 @@ async function handleInternalYjsEntityApplyRequest(
         : { error: error instanceof Error ? error.message : 'Failed to apply entity state' }
     )
   } finally {
-    discardDocumentIfIdle(entityId)
+    if (cleanupDoc) discardDocumentIfIdle(cleanupDoc)
   }
 }
 
@@ -583,6 +621,7 @@ async function handleInternalWatchlistImportRequest(
   logger: Logger,
   entityId: string
 ): Promise<void> {
+  let cleanupDoc: Y.Doc | null = null
   try {
     const raw = await readJsonBody(req)
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -610,6 +649,7 @@ async function handleInternalWatchlistImportRequest(
 
     const descriptor = buildSavedEntityDescriptor('watchlist', entityId, workspaceId)
     const doc = await getBootstrappedApplyDocument(descriptor)
+    cleanupDoc = doc
     const committed = await runDocumentMutation(doc, async () => {
       if (getEntityWorkspaceId(doc) !== workspaceId) {
         throw new WatchlistOperationError('Watchlist not found', 404)
@@ -641,8 +681,163 @@ async function handleInternalWatchlistImportRequest(
       error: error instanceof Error ? error.message : 'Failed to import watchlist document',
     })
   } finally {
-    discardDocumentIfIdle(entityId)
+    if (cleanupDoc) discardDocumentIfIdle(cleanupDoc)
   }
+}
+
+async function readDashboardProjectionFromLiveOwners(input: {
+  layoutDoc: Y.Doc
+  layoutId: string
+  workspaceId: string
+  ownerUserId: string
+}): Promise<DashboardLayoutProjectionContent> {
+  const document = readDashboardLayoutDocument(input.layoutDoc)
+  const panels: Array<Extract<DashboardLayoutTopologyNode, { type: 'panel' }>> = []
+  const collect = (node: DashboardLayoutTopologyNode) => {
+    if (node.type === 'panel') panels.push(node)
+    else node.children.forEach(collect)
+  }
+  collect(document.layout)
+  const widgets = Object.fromEntries(
+    await Promise.all(
+      panels.map(async (panel) => {
+        const descriptor = buildDashboardWidgetDescriptor({
+          layoutId: input.layoutId,
+          identityId: panel.identityId,
+          workspaceId: input.workspaceId,
+          ownerUserId: input.ownerUserId,
+        })
+        const doc = await getBootstrappedApplyDocument(descriptor)
+        try {
+          return [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
+        } finally {
+          discardDocumentIfIdle(doc)
+        }
+      })
+    )
+  )
+  const pairs = (
+    await Promise.all(
+      PAIR_COLORS.filter((color) => color !== 'gray').map(async (color) => {
+        const descriptor = buildDashboardColorPairDescriptor({
+          layoutId: input.layoutId,
+          color,
+          workspaceId: input.workspaceId,
+          ownerUserId: input.ownerUserId,
+        })
+        const doc = await getBootstrappedApplyDocument(descriptor)
+        try {
+          const context = readDashboardColorPairDocument(doc)
+          return Object.keys(context).length > 0 ? { color, ...context } : null
+        } finally {
+          discardDocumentIfIdle(doc)
+        }
+      })
+    )
+  ).filter((pair) => pair !== null)
+  return normalizeDashboardLayoutProjection({
+    ...document,
+    widgets,
+    colorPairs: { pairs },
+  })
+}
+
+function parseDashboardStructureMutation(value: unknown): DashboardLayoutStructureMutation {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InvalidInternalYjsRequestError('structure is required')
+  }
+  const structure = value as Record<string, unknown>
+  if (structure.type === 'resize') {
+    const groupId = typeof structure.groupId === 'string' ? structure.groupId.trim() : ''
+    const rawSizes = Array.isArray(structure.sizes) ? structure.sizes : []
+    const sizes = rawSizes.filter((size): size is number => typeof size === 'number')
+    if (
+      !groupId ||
+      sizes.length !== rawSizes.length ||
+      sizes.some((size) => !Number.isFinite(size))
+    ) {
+      throw new InvalidInternalYjsRequestError('structure resize is invalid')
+    }
+    return { type: 'resize', groupId, sizes }
+  }
+  const panelId = typeof structure.panelId === 'string' ? structure.panelId.trim() : ''
+  if (!panelId) throw new InvalidInternalYjsRequestError('structure.panelId is required')
+
+  if (structure.type === 'split') {
+    if (structure.direction !== 'horizontal' && structure.direction !== 'vertical') {
+      throw new InvalidInternalYjsRequestError('structure.direction is invalid')
+    }
+    return { type: 'split', panelId, direction: structure.direction }
+  }
+  if (structure.type === 'close') return { type: 'close', panelId }
+  if (structure.type === 'replace') {
+    if (typeof structure.widgetKey !== 'string' || !structure.widgetKey.trim()) {
+      throw new InvalidInternalYjsRequestError('structure.widgetKey is required')
+    }
+    return { type: 'replace', panelId, widgetKey: structure.widgetKey.trim() }
+  }
+  throw new InvalidInternalYjsRequestError('structure.type is invalid')
+}
+
+async function commitDashboardStructurePlan(input: {
+  layoutDoc: Y.Doc
+  layoutId: string
+  workspaceId: string
+  ownerUserId: string
+  current: DashboardLayoutProjectionContent
+  plan: DashboardLayoutEditPlan
+}): Promise<DashboardLayoutProjectionContent> {
+  const createdWidgets = input.plan.createdBindings.map((binding) => {
+    const source = binding.sourceIdentityId
+      ? input.current.widgets[binding.sourceIdentityId]
+      : undefined
+    if (binding.sourceIdentityId && !source) {
+      throw new Error(`Dashboard widget ${binding.sourceIdentityId} is missing`)
+    }
+    return {
+      binding,
+      document: source ?? createDefaultDashboardWidgetDocument(binding.widgetKey),
+    }
+  })
+  const removedSessionIds = input.plan.removedIdentityIds.map(
+    (identityId) =>
+      buildDashboardWidgetDescriptor({
+        layoutId: input.layoutId,
+        identityId,
+        workspaceId: input.workspaceId,
+        ownerUserId: input.ownerUserId,
+      }).yjsSessionId
+  )
+  const deletionLeaseId =
+    removedSessionIds.length > 0 ? await beginYjsSessionDeletion(removedSessionIds) : null
+
+  try {
+    await applyThroughStaging(
+      input.layoutDoc,
+      (staged) => setDashboardLayoutTopology(staged, input.plan.layout),
+      (staged) =>
+        commitDashboardLayoutStructure(
+          { workspaceId: input.workspaceId, ownerUserId: input.ownerUserId },
+          input.layoutId,
+          {
+            layout: readDashboardLayoutDocument(staged).layout,
+            createdWidgets,
+            removedIdentityIds: input.plan.removedIdentityIds,
+          }
+        )
+    )
+    if (deletionLeaseId) commitYjsSessionDeletion(deletionLeaseId)
+  } catch (error) {
+    if (deletionLeaseId) abortYjsSessionDeletion(deletionLeaseId)
+    throw error
+  }
+
+  return readDashboardProjectionFromLiveOwners({
+    layoutDoc: input.layoutDoc,
+    layoutId: input.layoutId,
+    workspaceId: input.workspaceId,
+    ownerUserId: input.ownerUserId,
+  })
 }
 
 async function handleInternalDashboardEditRequest(
@@ -651,6 +846,7 @@ async function handleInternalDashboardEditRequest(
   logger: Logger,
   entityId: string
 ): Promise<void> {
+  let cleanupLayoutDoc: Y.Doc | null = null
   try {
     const raw = await readJsonBody(req)
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -663,90 +859,208 @@ async function handleInternalDashboardEditRequest(
       typeof body.expectedReviewBaseStateHash === 'string'
         ? body.expectedReviewBaseStateHash.trim()
         : ''
-    if (!workspaceId || !ownerUserId || !expectedReviewBaseStateHash) {
-      throw new InvalidInternalYjsRequestError(
-        'workspaceId, ownerUserId, and expectedReviewBaseStateHash are required'
-      )
+    if (!workspaceId || !ownerUserId) {
+      throw new InvalidInternalYjsRequestError('workspaceId and ownerUserId are required')
+    }
+    if (body.mutation !== 'structure' && !expectedReviewBaseStateHash) {
+      throw new InvalidInternalYjsRequestError('expectedReviewBaseStateHash is required')
     }
 
     const descriptor = buildSavedEntityDescriptor('dashboard_layout', entityId, workspaceId, {
       ownerUserId,
     })
-    const doc = await getBootstrappedApplyDocument(descriptor)
-    const committed = await runDocumentMutation(doc, async () => {
-      await flushDocumentPersistence(doc)
-      const current = readDashboardLayoutContent(doc)
-      let mutateStaged: (staged: Y.Doc) => void
-
-      if (body.mutation === 'layout') {
+    const layoutDoc = await getBootstrappedApplyDocument(descriptor)
+    cleanupLayoutDoc = layoutDoc
+    let committed: DashboardLayoutProjectionContent
+    if (body.mutation === 'layout') {
+      committed = await runDocumentMutation(layoutDoc, async () => {
+        await flushDocumentPersistence(layoutDoc)
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
         }
         const removedPanelIds = Array.isArray(body.removedPanelIds)
           ? body.removedPanelIds.filter((value): value is string => typeof value === 'string')
           : []
+        const currentProjection = await readDashboardProjectionFromLiveOwners({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+        })
+        const current = { layout: currentProjection.layout }
         const plan = applyLayoutEditDocument(current, body.entityDocument, removedPanelIds)
         assertAcceptedServerToolReviewBase(
           { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
           hashServerToolReviewBase(buildDashboardLayoutReviewBase(current, plan))
         )
-        mutateStaged = (staged) => applyDashboardTopologyMutation(staged, plan)
-      } else if (body.mutation === 'widget') {
-        const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''
-        if (
-          !panelId ||
-          !body.patch ||
-          typeof body.patch !== 'object' ||
-          Array.isArray(body.patch)
-        ) {
-          throw new InvalidInternalYjsRequestError('panelId and patch are required')
-        }
-        const panel = findDashboardTopologyPanel(current.layout, panelId)
-        if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
-        const widget = current.widgets[panel.identityId]
-        if (!widget) throw new Error(`Dashboard widget ${panel.identityId} is missing`)
-        const requestedPatch = body.patch as WidgetConfigMutationPatch
-        const mutationPatch: WidgetConfigMutationPatch = {
-          pairColor: requestedPatch.pairColor,
-          params:
-            requestedPatch.params === undefined
-              ? undefined
-              : (preserveDashboardLayoutCredentialPlaceholders(
-                  requestedPatch.params,
-                  widget.params
-                ) as Record<string, unknown> | null),
-          colorPair: requestedPatch.colorPair === undefined ? undefined : requestedPatch.colorPair,
-        }
-        const planned = applyWidgetConfigMutation({
-          widgetKey: panel.widgetKey,
-          widget,
-          colorPairs: current.colorPairs,
-          panelId,
-          patch: mutationPatch,
+        return commitDashboardStructurePlan({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+          current: currentProjection,
+          plan,
         })
-        assertAcceptedServerToolReviewBase(
-          { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
-          hashServerToolReviewBase(
-            buildDashboardWidgetReviewBase(current, panelId, planned.reviewBase, requestedPatch)
-          )
-        )
-        mutateStaged = (staged) => {
-          applyDashboardWidgetConfigPatch(staged, panelId, mutationPatch)
-        }
-      } else {
-        throw new InvalidInternalYjsRequestError('Unknown dashboard mutation')
+      })
+    } else if (body.mutation === 'structure') {
+      const structure = parseDashboardStructureMutation(body.structure)
+      committed = await runDocumentMutation(layoutDoc, async () => {
+        await flushDocumentPersistence(layoutDoc)
+        const current = await readDashboardProjectionFromLiveOwners({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+        })
+        const plan = applyDashboardLayoutStructureMutation(current.layout, structure)
+        return commitDashboardStructurePlan({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+          current,
+          plan,
+        })
+      })
+    } else if (body.mutation === 'widget') {
+      const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''
+      if (!panelId || !body.patch || typeof body.patch !== 'object' || Array.isArray(body.patch)) {
+        throw new InvalidInternalYjsRequestError('panelId and patch are required')
       }
-
-      await applyThroughStaging(
-        doc,
-        (staged) => {
-          ensureDashboardLayoutDirtyTracker(staged)
-          mutateStaged(staged)
-        },
-        (staged) => saveDashboardLayoutYjsDocToDb(entityId, staged)
-      )
-      return readDashboardLayoutContent(doc)
-    })
+      const requestedPatch = body.patch as WidgetConfigMutationPatch
+      const initial = await readDashboardProjectionFromLiveOwners({
+        layoutDoc,
+        layoutId: entityId,
+        workspaceId,
+        ownerUserId,
+      })
+      const panel = findDashboardTopologyPanel(initial.layout, panelId)
+      if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
+      const widget = initial.widgets[panel.identityId]
+      if (!widget) throw new Error(`Dashboard widget ${panel.identityId} is missing`)
+      const initialMutationPatch: WidgetConfigMutationPatch = {
+        pairColor: requestedPatch.pairColor,
+        params:
+          requestedPatch.params === undefined
+            ? undefined
+            : (preserveDashboardLayoutCredentialPlaceholders(
+                requestedPatch.params,
+                widget.params
+              ) as Record<string, unknown> | null),
+        colorPair: requestedPatch.colorPair === undefined ? undefined : requestedPatch.colorPair,
+      }
+      const initialPlan = applyWidgetConfigMutation({
+        widgetKey: panel.widgetKey,
+        widget,
+        colorPairs: initial.colorPairs,
+        panelId,
+        patch: initialMutationPatch,
+      })
+      const widgetDescriptor = buildDashboardWidgetDescriptor({
+        layoutId: entityId,
+        identityId: panel.identityId,
+        workspaceId,
+        ownerUserId,
+      })
+      const widgetDoc = await getBootstrappedApplyDocument(widgetDescriptor)
+      const pairColor = initialPlan.reviewBase.colorPair?.color ?? null
+      const pairDescriptor = pairColor
+        ? buildDashboardColorPairDescriptor({
+            layoutId: entityId,
+            color: pairColor,
+            workspaceId,
+            ownerUserId,
+          })
+        : null
+      let pairDoc: Y.Doc | null = null
+      try {
+        pairDoc = pairDescriptor ? await getBootstrappedApplyDocument(pairDescriptor) : null
+        const applyLockedEdit = async () => {
+          if (pairDoc) await flushDocumentPersistence(pairDoc)
+          await flushDocumentPersistence(widgetDoc)
+          const current = await readDashboardProjectionFromLiveOwners({
+            layoutDoc,
+            layoutId: entityId,
+            workspaceId,
+            ownerUserId,
+          })
+          const currentPanel = findDashboardTopologyPanel(current.layout, panelId)
+          if (
+            !currentPanel?.widgetKey ||
+            currentPanel.identityId !== panel.identityId ||
+            currentPanel.widgetKey !== panel.widgetKey
+          ) {
+            throwStaleServerToolReview()
+          }
+          const currentWidget = current.widgets[currentPanel.identityId]
+          if (!currentWidget)
+            throw new Error(`Dashboard widget ${currentPanel.identityId} is missing`)
+          const mutationPatch: WidgetConfigMutationPatch = {
+            pairColor: requestedPatch.pairColor,
+            params:
+              requestedPatch.params === undefined
+                ? undefined
+                : (preserveDashboardLayoutCredentialPlaceholders(
+                    requestedPatch.params,
+                    currentWidget.params
+                  ) as Record<string, unknown> | null),
+            colorPair:
+              requestedPatch.colorPair === undefined ? undefined : requestedPatch.colorPair,
+          }
+          const planned = applyWidgetConfigMutation({
+            widgetKey: currentPanel.widgetKey,
+            widget: currentWidget,
+            colorPairs: current.colorPairs,
+            panelId,
+            patch: mutationPatch,
+          })
+          assertAcceptedServerToolReviewBase(
+            { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
+            hashServerToolReviewBase(
+              buildDashboardWidgetReviewBase(current, panelId, planned.reviewBase, requestedPatch)
+            )
+          )
+          if ((planned.reviewBase.colorPair?.color ?? null) !== pairColor) {
+            throwStaleServerToolReview()
+          }
+          if (planned.colorPairDiff.length > 0 && pairDoc && pairDescriptor) {
+            const nextContext = readPairColorContext(
+              planned.colorPairs,
+              planned.widgetDocument.pairColor
+            )
+            await applyThroughStaging(
+              pairDoc,
+              (staged) => setDashboardColorPairDocument(staged, nextContext),
+              (staged) => saveDashboardColorPairYjsDocToDb(pairDescriptor.yjsSessionId, staged)
+            )
+          }
+          if (planned.changedPaths.some((path) => path.startsWith('widget.'))) {
+            await applyThroughStaging(
+              widgetDoc,
+              (staged) =>
+                setDashboardWidgetDocument(staged, currentPanel.widgetKey, planned.widgetDocument),
+              (staged) => saveDashboardWidgetYjsDocToDb(widgetDescriptor.yjsSessionId, staged)
+            )
+          }
+        }
+        await runDocumentMutation(layoutDoc, () =>
+          pairDoc
+            ? runDocumentMutation(pairDoc, () => runDocumentMutation(widgetDoc, applyLockedEdit))
+            : runDocumentMutation(widgetDoc, applyLockedEdit)
+        )
+        committed = await readDashboardProjectionFromLiveOwners({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+        })
+      } finally {
+        if (pairDoc) discardDocumentIfIdle(pairDoc)
+        discardDocumentIfIdle(widgetDoc)
+      }
+    } else {
+      throw new InvalidInternalYjsRequestError('Unknown dashboard mutation')
+    }
     sendJson(res, 200, { success: true, content: committed })
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
@@ -769,7 +1083,7 @@ async function handleInternalDashboardEditRequest(
       error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
     })
   } finally {
-    discardDocumentIfIdle(entityId)
+    if (cleanupLayoutDoc) discardDocumentIfIdle(cleanupLayoutDoc)
   }
 }
 
@@ -780,6 +1094,7 @@ async function handleInternalYjsSessionApplyUpdateRequest(
   logger: Logger,
   sessionId: string
 ): Promise<void> {
+  let cleanupDoc: Y.Doc | null = null
   try {
     const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
     if (envelope.sessionId !== sessionId) {
@@ -788,6 +1103,12 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     }
 
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+    const entityKind = descriptor.entityKind
+    if (entityKind === 'dashboard_layout') {
+      throw new InvalidInternalYjsRequestError(
+        'Dashboard layout updates require the structural edit route'
+      )
+    }
     const rawBody = await readJsonBody(req)
     if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
       throw new InvalidInternalYjsRequestError('Invalid apply session update body')
@@ -806,36 +1127,56 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       throw new InvalidInternalYjsRequestError('updateBase64 is required')
     }
     const identity = parseSavedEntityIdentityMutation(body.identity)
-    if (identity && descriptor.entityKind === 'dashboard_layout') {
-      throw new InvalidInternalYjsRequestError('Dashboard layout identity is not saved here')
+    if (identity && (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair')) {
+      throw new InvalidInternalYjsRequestError('Dashboard document identity is not saved here')
     }
+    const doc = await getBootstrappedApplyDocument(descriptor)
+    cleanupDoc = doc
+    const submitted = new Y.Doc()
     try {
-      const doc = await getBootstrappedApplyDocument(descriptor)
+      Y.applyUpdate(submitted, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       await runDocumentMutation(doc, async () => {
-        if (!descriptor.entityId || descriptor.entityKind === 'workflow') return
-        if (descriptor.entityKind === 'dashboard_layout') {
-          Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
-          clearSessionReseededFromCanonical(doc)
-          await flushDocumentPersistence(doc, async (docId, target) => {
-            await saveDashboardLayoutYjsDocToDb(docId, target)
-          })
+        if (!descriptor.entityId || entityKind === 'workflow') return
+        if (entityKind === 'dashboard_widget') {
+          const content = readDashboardWidgetDocument(submitted)
+          await flushDocumentPersistence(doc)
+          await applyThroughStaging(
+            doc,
+            (staged) => {
+              seedDashboardWidgetSession(staged, content, YJS_ORIGINS.SAVE)
+              clearSessionReseededFromCanonical(staged)
+            },
+            (staged) => saveDashboardWidgetYjsDocToDb(descriptor.yjsSessionId, staged)
+          )
           return
         }
 
-        const entityKind: SavedEntityKind = descriptor.entityKind
+        if (entityKind === 'dashboard_color_pair') {
+          const content = readDashboardColorPairDocument(submitted)
+          await flushDocumentPersistence(doc)
+          await applyThroughStaging(
+            doc,
+            (staged) => {
+              seedDashboardColorPairSession(staged, content, YJS_ORIGINS.SAVE)
+              clearSessionReseededFromCanonical(staged)
+            },
+            (staged) => saveDashboardColorPairYjsDocToDb(descriptor.yjsSessionId, staged)
+          )
+          return
+        }
+
+        const fields = getEntityFields(submitted, entityKind)
         await applySavedEntityThroughStaging({
           doc,
           entityId: descriptor.entityId,
           entityKind,
           identity,
           mutate: (staged) =>
-            Y.applyUpdate(staged, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE),
+            seedEntitySession(staged, { entityKind, payload: fields }, YJS_ORIGINS.SAVE),
         })
       })
-      discardDocumentIfIdle(sessionId)
-    } catch (error) {
-      discardDocumentIfIdle(descriptor.yjsSessionId)
-      throw error
+    } finally {
+      submitted.destroy()
     }
 
     sendJson(res, 200, { success: true })
@@ -854,6 +1195,8 @@ async function handleInternalYjsSessionApplyUpdateRequest(
         ? error.responseBody()
         : { error: error instanceof Error ? error.message : 'Failed to apply session update' }
     )
+  } finally {
+    if (cleanupDoc) discardDocumentIfIdle(cleanupDoc)
   }
 }
 
@@ -880,13 +1223,14 @@ async function handleInternalYjsSnapshotRequest(
     return
   }
 
+  let requestCreatedDoc: Y.Doc | null = null
   try {
     let liveDoc = await getExistingDocument(sessionId)
     let bootstrappedForRequest = false
     if (!liveDoc) {
       const bootstrapped = isEntityListSessionId(descriptor.yjsSessionId)
         ? await createEntityListBootstrapUpdate(
-            descriptor.entityKind,
+            descriptor.entityKind as ReviewEntityKind,
             descriptor.workspaceId as string,
             descriptor.ownerUserId ?? null
           )
@@ -898,8 +1242,10 @@ async function handleInternalYjsSnapshotRequest(
           sendJson(res, 410, { error: 'Session expired', sessionId })
           return
         }
-        liveDoc = getDocument(sessionId, true, bootstrapped.state)
-        bootstrappedForRequest = true
+        const acquired = getDocument(sessionId, true, bootstrapped.state)
+        liveDoc = acquired.doc
+        bootstrappedForRequest = acquired.created
+        if (acquired.created) requestCreatedDoc = acquired.doc
       }
     }
 
@@ -912,16 +1258,18 @@ async function handleInternalYjsSnapshotRequest(
       try {
         await reseedEntityListSessionFromDb(
           liveDoc,
-          descriptor.entityKind,
+          descriptor.entityKind as ReviewEntityKind,
           descriptor.workspaceId as string,
           descriptor.ownerUserId ?? null
         )
         markDocumentPersisted(liveDoc)
       } catch (error) {
-        logger.warn('Failed to reseed existing entity-list snapshot; serving live projection', {
+        logger.warn('Failed to reseed existing entity-list snapshot', {
           error,
           sessionId,
         })
+        await discardDocumentIfCurrent(liveDoc)
+        throw error
       }
     }
 
@@ -933,17 +1281,14 @@ async function handleInternalYjsSnapshotRequest(
       runtime: getRuntimeStateFromDoc(liveDoc),
       touchedAt: null,
     })
-    const retainDashboardLayout =
-      descriptor.entityKind === 'dashboard_layout' && descriptor.entityId !== null
-    if (bootstrappedForRequest && !retainDashboardLayout) {
-      discardDocumentIfIdle(sessionId)
-    }
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
     const status = Number((error as { status?: unknown }).status) || 500
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to get snapshot',
     })
+  } finally {
+    if (requestCreatedDoc) discardDocumentIfIdle(requestCreatedDoc)
   }
 }
 
@@ -953,7 +1298,7 @@ async function handleInternalYjsSessionDeleteRequest(
   sessionId: string
 ): Promise<void> {
   try {
-    discardDocument(sessionId)
+    await discardDocument(sessionId)
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error deleting Yjs session', { error, sessionId })
@@ -961,6 +1306,57 @@ async function handleInternalYjsSessionDeleteRequest(
       error: error instanceof Error ? error.message : 'Failed to delete Yjs session',
     })
   }
+}
+
+async function handleInternalYjsDeletionBeginRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  logger: Logger
+): Promise<void> {
+  try {
+    const raw = await readJsonBody(req)
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new InvalidInternalYjsRequestError('Invalid Yjs deletion lease body')
+    }
+    const sessionIds = (raw as Record<string, unknown>).sessionIds
+    if (!Array.isArray(sessionIds) || !sessionIds.every((value) => typeof value === 'string')) {
+      throw new InvalidInternalYjsRequestError('sessionIds must be an array of strings')
+    }
+    const leaseId = await beginYjsSessionDeletion(sessionIds)
+    sendJson(res, 200, { leaseId })
+  } catch (error) {
+    logger.error('Failed to begin Yjs deletion lease', { error })
+    const status =
+      error instanceof InvalidInternalYjsRequestError
+        ? 400
+        : error instanceof YjsSessionAdmissionError
+          ? 409
+          : 500
+    sendJson(res, status, {
+      error: error instanceof Error ? error.message : 'Failed to begin Yjs deletion lease',
+    })
+  }
+}
+
+function handleInternalYjsDeletionCommitRequest(
+  res: ServerResponse,
+  logger: Logger,
+  leaseId: string
+): void {
+  try {
+    commitYjsSessionDeletion(leaseId)
+    sendJson(res, 200, { success: true })
+  } catch (error) {
+    logger.error('Failed to commit Yjs deletion lease', { error, leaseId })
+    sendJson(res, 409, {
+      error: error instanceof Error ? error.message : 'Failed to commit Yjs deletion lease',
+    })
+  }
+}
+
+function handleInternalYjsDeletionAbortRequest(res: ServerResponse, leaseId: string): void {
+  abortYjsSessionDeletion(leaseId)
+  sendJson(res, 200, { success: true })
 }
 
 async function handleInternalWorkspaceAccessChangedRequest(
@@ -1071,6 +1467,33 @@ async function handleInternalYjsRequest(
   )
   if (memberListId) {
     await handleInternalYjsEntityListMembersRequest(parsedUrl, res, logger, memberListId)
+    return true
+  }
+
+  if (req.method === 'POST' && parsedUrl.pathname === INTERNAL_YJS_DELETION_BEGIN_PATH) {
+    await handleInternalYjsDeletionBeginRequest(req, res, logger)
+    return true
+  }
+
+  const commitDeletionLeaseId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_DELETION_COMMIT_PATH,
+    'POST',
+    req.method
+  )
+  if (commitDeletionLeaseId) {
+    handleInternalYjsDeletionCommitRequest(res, logger, commitDeletionLeaseId)
+    return true
+  }
+
+  const abortDeletionLeaseId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_DELETION_ABORT_PATH,
+    'DELETE',
+    req.method
+  )
+  if (abortDeletionLeaseId) {
+    handleInternalYjsDeletionAbortRequest(res, abortDeletionLeaseId)
     return true
   }
 

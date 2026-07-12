@@ -1,17 +1,17 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { layoutMaps, layoutPairs, layoutWidgets } from '@tradinggoose/db/schema'
-import { and, asc, eq, notInArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { isEqual } from 'lodash'
-import type * as Y from 'yjs'
 import {
-  type DashboardLayoutDirtyBatch,
-  readDashboardLayoutContent,
-} from '@/lib/yjs/dashboard-layout-session'
+  buildDashboardColorPairSessionId,
+  buildDashboardWidgetSessionId,
+} from '@/lib/copilot/review-sessions/identity'
 import {
-  deleteYjsSessionInSocketServer,
   refreshEntityListSession,
+  withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
+import type { PairColorContext } from '@/widgets/color-pairs'
 import {
   type LinkedPairColor,
   normalizePersistedColorPairFields,
@@ -19,14 +19,19 @@ import {
   type PersistedColorPair,
 } from '@/widgets/layout'
 import {
-  createDefaultDashboardLayoutContent,
-  type DashboardLayoutDocumentContent,
+  createDefaultDashboardLayoutProjection,
+  type DashboardLayoutDocument,
+  type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
+  type DashboardWidgetBindingCreation,
   type DashboardWidgetDocument,
-  normalizeDashboardLayoutDocumentContent,
+  normalizeDashboardColorPairDocument,
+  normalizeDashboardLayoutProjection,
   normalizeDashboardLayoutTopology,
+  normalizeDashboardWidgetDocument,
+  normalizeDashboardWidgetStorageDocument,
 } from '@/widgets/layout-document'
-import { isPairColor } from '@/widgets/pair-colors'
+import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
 
 export type DashboardLayoutOwnerScope = {
   workspaceId: string
@@ -45,6 +50,15 @@ export type DashboardLayoutTab = {
 
 export type DashboardLayoutProjection = DashboardLayoutTab & {
   topology: DashboardLayoutTopologyNode
+}
+
+export type DashboardLayoutStructuralCommit = {
+  layout: DashboardLayoutTopologyNode
+  createdWidgets: Array<{
+    binding: DashboardWidgetBindingCreation
+    document: DashboardWidgetDocument
+  }>
+  removedIdentityIds: string[]
 }
 
 type LayoutRow = typeof layoutMaps.$inferSelect
@@ -113,18 +127,6 @@ function normalizePersistedTopology(row: LayoutRow): DashboardLayoutTopologyNode
   }
 }
 
-function toWidgetsState(rows: LayoutWidgetRow[]): Record<string, DashboardWidgetDocument> {
-  return Object.fromEntries(
-    rows.map((row) => [
-      row.id,
-      {
-        pairColor: row.pairColor,
-        params: row.params,
-      },
-    ])
-  ) as Record<string, DashboardWidgetDocument>
-}
-
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -139,44 +141,38 @@ function decodePairRow(row: LayoutPairRow): PersistedColorPair {
       `Layout pair ${row.color} context must be an object`
     )
   }
-
-  const context = row.context
   const allowedFields = new Set<string>(PERSISTED_COLOR_PAIR_FIELDS)
-  const invalidField = Object.keys(context).find((field) => !allowedFields.has(field))
-  if (invalidField) {
-    throw new DashboardLayoutOperationError(
-      500,
-      `Layout pair ${row.color} context contains unsupported field ${invalidField}`
-    )
-  }
-
-  const normalized = normalizePersistedColorPairFields(context)
-  if (Object.keys(normalized).length === 0 || !isEqual(context, normalized)) {
+  const invalidField = Object.keys(row.context).find((field) => !allowedFields.has(field))
+  const normalized = normalizePersistedColorPairFields(row.context)
+  if (invalidField || Object.keys(normalized).length === 0 || !isEqual(row.context, normalized)) {
     throw new DashboardLayoutOperationError(
       500,
       `Layout pair ${row.color} context is not canonical`
     )
   }
-
   return { color: row.color as LinkedPairColor, ...normalized }
 }
 
-function assembleLayoutContent(
+function assembleLayoutProjection(
   row: LayoutRow,
   widgetRows: LayoutWidgetRow[],
   pairRows: LayoutPairRow[]
-): DashboardLayoutDocumentContent {
+): DashboardLayoutProjectionContent {
   try {
-    return normalizeDashboardLayoutDocumentContent({
+    return normalizeDashboardLayoutProjection({
       layout: row.layout,
-      widgets: toWidgetsState(widgetRows),
+      widgets: Object.fromEntries(
+        widgetRows.map((widget) => [
+          widget.id,
+          { pairColor: widget.pairColor, params: widget.params },
+        ])
+      ),
       colorPairs: { pairs: pairRows.map(decodePairRow) },
     })
   } catch (error) {
-    if (error instanceof DashboardLayoutOperationError) throw error
     throw new DashboardLayoutOperationError(
       500,
-      error instanceof Error ? error.message : `Layout ${row.id} content is invalid`
+      error instanceof Error ? error.message : `Layout ${row.id} projection is invalid`
     )
   }
 }
@@ -212,27 +208,72 @@ export async function listDashboardLayouts(scope: DashboardLayoutOwnerScope) {
   return (await readDashboardLayoutRows(scope)).map(toLayoutTab)
 }
 
-export async function readPersistedDashboardLayoutContent(
+export async function readPersistedDashboardLayoutDocument(
   scope: DashboardLayoutOwnerScope,
   layoutId: string
-): Promise<DashboardLayoutDocumentContent> {
+): Promise<DashboardLayoutDocument> {
+  const row = await readOwnedLayoutRow(scope, layoutId)
+  return { layout: normalizePersistedTopology(row) }
+}
+
+export async function readPersistedDashboardLayoutProjection(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string
+): Promise<DashboardLayoutProjectionContent> {
   return db.transaction(
     async (tx) => {
       const row = await readOwnedLayoutRow(scope, layoutId, tx)
-      const widgetRows = await tx
-        .select()
-        .from(layoutWidgets)
-        .where(eq(layoutWidgets.layoutId, row.id))
-        .orderBy(asc(layoutWidgets.id))
-      const pairRows = await tx
-        .select()
-        .from(layoutPairs)
-        .where(eq(layoutPairs.layoutId, row.id))
-        .orderBy(asc(layoutPairs.color))
-      return assembleLayoutContent(row, widgetRows, pairRows)
+      const [widgetRows, pairRows] = await Promise.all([
+        tx
+          .select()
+          .from(layoutWidgets)
+          .where(eq(layoutWidgets.layoutId, row.id))
+          .orderBy(asc(layoutWidgets.id)),
+        tx
+          .select()
+          .from(layoutPairs)
+          .where(eq(layoutPairs.layoutId, row.id))
+          .orderBy(asc(layoutPairs.color)),
+      ])
+      return assembleLayoutProjection(row, widgetRows, pairRows)
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' }
   )
+}
+
+export async function readPersistedDashboardWidgetDocument(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string,
+  identityId: string
+): Promise<DashboardWidgetDocument> {
+  await readOwnedLayoutRow(scope, layoutId)
+  const [row] = await db
+    .select()
+    .from(layoutWidgets)
+    .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
+    .limit(1)
+  if (!row) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+  return normalizeDashboardWidgetStorageDocument({
+    pairColor: row.pairColor,
+    params: row.params,
+  })
+}
+
+export async function readPersistedDashboardColorPairDocument(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string,
+  color: string
+): Promise<PairColorContext> {
+  await readOwnedLayoutRow(scope, layoutId)
+  if (!isPairColor(color) || color === 'gray') {
+    throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
+  }
+  const [row] = await db
+    .select()
+    .from(layoutPairs)
+    .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))
+    .limit(1)
+  return row ? normalizeDashboardColorPairDocument(row.context) : {}
 }
 
 export async function readDashboardLayoutMetadata(
@@ -240,11 +281,7 @@ export async function readDashboardLayoutMetadata(
   layoutId: string
 ): Promise<{ name: string; isActive: boolean; sortOrder: number }> {
   const row = await readOwnedLayoutRow(scope, layoutId)
-  return {
-    name: row.name,
-    isActive: row.isActive,
-    sortOrder: readLayoutSortOrder(row),
-  }
+  return { name: row.name, isActive: row.isActive, sortOrder: readLayoutSortOrder(row) }
 }
 
 export async function createDashboardLayout(
@@ -255,7 +292,6 @@ export async function createDashboardLayout(
     const rows = await readDashboardLayoutRows(scope, tx)
     return insertDashboardLayoutRow(tx, scope, rows, options)
   })
-
   await refreshLayoutList(scope)
   return projectLayoutRow(created)
 }
@@ -276,7 +312,6 @@ export async function provisionDashboardLayoutForWorkspaceUserInTx(
   await lockDashboardLayoutOwner(tx, scope)
   const orderedRows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
   if (orderedRows.length > 0) return false
-
   await insertDashboardLayoutRow(tx, scope, [], { name: 'Default Layout' })
   return true
 }
@@ -363,10 +398,8 @@ async function insertDashboardLayoutRow(
   options?: { name?: string }
 ): Promise<LayoutRow> {
   const highestSortOrder = rows.reduce((max, row) => Math.max(max, readLayoutSortOrder(row)), -1)
-  const content = createDefaultDashboardLayoutContent()
+  const projection = createDefaultDashboardLayoutProjection()
   const layoutId = randomUUID()
-  const isActive = rows.length === 0
-
   const [row] = await tx
     .insert(layoutMaps)
     .values({
@@ -375,163 +408,126 @@ async function insertDashboardLayoutRow(
       userId: scope.ownerUserId,
       name: options?.name?.trim() || `Layout ${rows.length + 1}`,
       sortOrder: highestSortOrder + 1,
-      layout: content.layout,
-      isActive,
+      layout: projection.layout,
+      isActive: rows.length === 0,
     })
     .returning()
   if (!row) throw new DashboardLayoutOperationError(500, 'Layout insert did not return a row')
-
-  const widgetValues = Object.entries(content.widgets).map(([id, widget]) => ({
+  const widgetValues = Object.entries(projection.widgets).map(([id, widget]) => ({
     id,
     layoutId,
     pairColor: widget.pairColor,
     params: widget.params,
   }))
   if (widgetValues.length > 0) await tx.insert(layoutWidgets).values(widgetValues)
-
-  const pairValues = content.colorPairs.pairs.map(({ color, ...context }) => ({
-    layoutId,
-    color,
-    context,
-  }))
-  if (pairValues.length > 0) await tx.insert(layoutPairs).values(pairValues)
-
   return row
 }
 
 function projectLayoutRow(row: LayoutRow): DashboardLayoutProjection {
-  return {
-    ...toLayoutTab(row),
-    topology: normalizePersistedTopology(row),
-  }
+  return { ...toLayoutTab(row), topology: normalizePersistedTopology(row) }
 }
 
-async function touchLayoutInTx(
-  tx: DashboardLayoutWriteStore,
+export async function commitDashboardLayoutStructure(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  layout?: DashboardLayoutTopologyNode
-): Promise<void> {
-  const rows = await tx
-    .update(layoutMaps)
-    .set({ ...(layout ? { layout } : {}), updatedAt: new Date() })
-    .where(ownedWhere(scope, layoutId))
-    .returning({ id: layoutMaps.id })
-  if (rows.length === 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
-}
-
-async function persistLayoutPairsInTx(
-  tx: DashboardLayoutWriteStore,
-  layoutId: string,
-  content: DashboardLayoutDocumentContent,
-  colors: ReadonlySet<string>
-): Promise<void> {
-  const pairs = new Map(content.colorPairs.pairs.map((pair) => [pair.color, pair]))
-  for (const color of [...colors].sort()) {
-    if (!isPairColor(color) || color === 'gray') {
-      throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
-    }
-    const pair = pairs.get(color)
-    if (!pair) {
-      await tx
-        .delete(layoutPairs)
-        .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))
-      continue
-    }
-    const { color: _color, ...context } = pair
-    await tx
-      .insert(layoutPairs)
-      .values({ layoutId, color, context })
-      .onConflictDoUpdate({
-        target: [layoutPairs.layoutId, layoutPairs.color],
-        set: { context },
-      })
-  }
-}
-
-async function persistLayoutWidgetsInTx(
-  tx: DashboardLayoutWriteStore,
-  layoutId: string,
-  content: DashboardLayoutDocumentContent,
-  identityIds: ReadonlySet<string>
-): Promise<void> {
-  for (const identityId of [...identityIds].sort()) {
-    const widget = content.widgets[identityId]
-    if (!widget) {
-      await tx
-        .delete(layoutWidgets)
-        .where(and(eq(layoutWidgets.id, identityId), eq(layoutWidgets.layoutId, layoutId)))
-      continue
-    }
-
-    const updated = await tx
-      .update(layoutWidgets)
-      .set({ pairColor: widget.pairColor, params: widget.params })
-      .where(and(eq(layoutWidgets.id, identityId), eq(layoutWidgets.layoutId, layoutId)))
-      .returning({ id: layoutWidgets.id })
-    if (updated.length > 0) continue
-
-    await tx.insert(layoutWidgets).values({
-      id: identityId,
-      layoutId,
-      pairColor: widget.pairColor,
-      params: widget.params,
-    })
-  }
-}
-
-async function reconcileLayoutWidgetsInTx(
-  tx: DashboardLayoutWriteStore,
-  layoutId: string,
-  content: DashboardLayoutDocumentContent
-): Promise<void> {
-  const identityIds = Object.keys(content.widgets)
-  await persistLayoutWidgetsInTx(tx, layoutId, content, new Set(identityIds))
-  await tx
-    .delete(layoutWidgets)
-    .where(and(eq(layoutWidgets.layoutId, layoutId), notInArray(layoutWidgets.id, identityIds)))
-}
-
-export async function persistDashboardLayoutDirtyChannels(
-  scope: DashboardLayoutOwnerScope,
-  layoutId: string,
-  doc: Y.Doc,
-  batch: DashboardLayoutDirtyBatch
-): Promise<DashboardLayoutDocumentContent> {
-  let content: DashboardLayoutDocumentContent
-  try {
-    content = readDashboardLayoutContent(doc)
-  } catch (error) {
-    throw new DashboardLayoutOperationError(
-      400,
-      error instanceof Error ? error.message : 'Dashboard layout Yjs state is invalid'
-    )
-  }
+  commit: DashboardLayoutStructuralCommit
+): Promise<DashboardLayoutDocument> {
+  const layout = normalizeDashboardLayoutTopology(commit.layout)
+  const createdWidgets = commit.createdWidgets.map(({ binding, document }) => ({
+    id: binding.identityId,
+    layoutId,
+    ...normalizeDashboardWidgetDocument(binding.widgetKey, document),
+  }))
+  const removedIdentityIds = [...new Set(commit.removedIdentityIds)]
 
   await db.transaction(async (tx) => {
-    await touchLayoutInTx(tx, scope, layoutId, batch.layout ? content.layout : undefined)
-    if (batch.pairColors.size > 0) {
-      await persistLayoutPairsInTx(tx, layoutId, content, batch.pairColors)
-    }
-    if (batch.layout) {
-      await reconcileLayoutWidgetsInTx(tx, layoutId, content)
-    } else if (batch.widgetIdentityIds.size > 0) {
-      await persistLayoutWidgetsInTx(tx, layoutId, content, batch.widgetIdentityIds)
+    await readOwnedLayoutRow(scope, layoutId, tx)
+    if (createdWidgets.length > 0) await tx.insert(layoutWidgets).values(createdWidgets)
+    const updated = await tx
+      .update(layoutMaps)
+      .set({ layout, updatedAt: new Date() })
+      .where(ownedWhere(scope, layoutId))
+      .returning({ id: layoutMaps.id })
+    if (updated.length === 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
+    if (removedIdentityIds.length > 0) {
+      await tx
+        .delete(layoutWidgets)
+        .where(
+          and(eq(layoutWidgets.layoutId, layoutId), inArray(layoutWidgets.id, removedIdentityIds))
+        )
     }
   })
-
   await refreshLayoutList(scope)
-  return content
+  return { layout }
+}
+
+export async function persistDashboardWidgetDocument(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string,
+  identityId: string,
+  content: DashboardWidgetDocument
+): Promise<DashboardWidgetDocument> {
+  await readOwnedLayoutRow(scope, layoutId)
+  const normalized = normalizeDashboardWidgetStorageDocument(content)
+  const rows = await db
+    .update(layoutWidgets)
+    .set({ pairColor: normalized.pairColor, params: normalized.params })
+    .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
+    .returning({ id: layoutWidgets.id })
+  if (rows.length === 0) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+  return normalized
+}
+
+export async function persistDashboardColorPairDocument(
+  scope: DashboardLayoutOwnerScope,
+  layoutId: string,
+  color: string,
+  content: PairColorContext
+): Promise<PairColorContext> {
+  await readOwnedLayoutRow(scope, layoutId)
+  if (!isPairColor(color) || color === 'gray') {
+    throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
+  }
+  const normalized = normalizeDashboardColorPairDocument(content)
+  if (Object.keys(normalized).length === 0) {
+    await db
+      .delete(layoutPairs)
+      .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))
+    return normalized
+  }
+  await db
+    .insert(layoutPairs)
+    .values({ layoutId, color, context: normalized })
+    .onConflictDoUpdate({
+      target: [layoutPairs.layoutId, layoutPairs.color],
+      set: { context: normalized },
+    })
+  return normalized
 }
 
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {
-  await withDashboardLayoutOwnerLock(scope, async (tx) => {
-    const row = await readOwnedLayoutRow(scope, layoutId, tx)
-    if (row.isActive) {
-      throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-    }
-    await tx.delete(layoutMaps).where(ownedWhere(scope, layoutId))
+  const row = await readOwnedLayoutRow(scope, layoutId)
+  if (row.isActive) throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
+  await withYjsSessionDeletionLease([layoutId], async () => {
+    const widgets = await db
+      .select({ id: layoutWidgets.id })
+      .from(layoutWidgets)
+      .where(eq(layoutWidgets.layoutId, layoutId))
+    const childSessionIds = [
+      ...widgets.map(({ id }) => buildDashboardWidgetSessionId(layoutId, id)),
+      ...PAIR_COLORS.filter((color) => color !== 'gray').map((color) =>
+        buildDashboardColorPairSessionId(layoutId, color)
+      ),
+    ]
+    await withYjsSessionDeletionLease(childSessionIds, () =>
+      withDashboardLayoutOwnerLock(scope, async (tx) => {
+        const current = await readOwnedLayoutRow(scope, layoutId, tx)
+        if (current.isActive) {
+          throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
+        }
+        await tx.delete(layoutMaps).where(ownedWhere(scope, layoutId))
+      })
+    )
   })
   await refreshLayoutList(scope)
-  await deleteYjsSessionInSocketServer(layoutId).catch(() => undefined)
 }

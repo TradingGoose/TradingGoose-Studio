@@ -74,15 +74,14 @@ vi.mock('@/components/listing-selector/selector/input', async (importOriginal) =
 })
 
 const patchWidgetParamsMock = vi.fn()
-const patchWidgetColorPairMock = vi.fn()
+const patchWidgetLinkedParamsMock = vi.fn()
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
-  useWidgetPairContext: () => ({}),
   useWidgetConfigRuntimeActions: () => ({
     patchWidgetParams: (...args: Parameters<typeof patchWidgetParamsMock>) =>
       patchWidgetParamsMock(...args),
-    patchWidgetColorPair: (...args: Parameters<typeof patchWidgetColorPairMock>) =>
-      patchWidgetColorPairMock(...args),
+    patchWidgetLinkedParams: (...args: Parameters<typeof patchWidgetLinkedParamsMock>) =>
+      patchWidgetLinkedParamsMock(...args),
   }),
 }))
 
@@ -96,7 +95,7 @@ describe('DataChartListingControl', () => {
     fetchListingsMock.mockReset()
     fetchListingsMock.mockResolvedValue([])
     patchWidgetParamsMock.mockReset()
-    patchWidgetColorPairMock.mockReset()
+    patchWidgetLinkedParamsMock.mockReset()
     listingInputState.onListingChange = null
     useListingSelectorStore.setState({ instances: {} })
     container = document.createElement('div')
@@ -137,7 +136,6 @@ describe('DataChartListingControl', () => {
               provider: 'alpaca',
             },
           }}
-          pairColor='gray'
         />
       )
     })
@@ -176,7 +174,6 @@ describe('DataChartListingControl', () => {
               provider: 'alpaca',
             },
           }}
-          pairColor='gray'
         />
       )
     })
@@ -184,47 +181,40 @@ describe('DataChartListingControl', () => {
     expect(patchWidgetParamsMock).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['gray', patchWidgetParamsMock, patchWidgetColorPairMock],
-    ['red', patchWidgetColorPairMock, patchWidgetParamsMock],
-  ] as const)(
-    'routes %s listing changes through the canonical callback',
-    async (pairColor, used, unused) => {
-      const selectedListing: ListingOption = {
+  it('routes listing changes through the linked-parameter owner', async () => {
+    const selectedListing: ListingOption = {
+      listing_id: 'TG_LSTG_AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+      base: 'AAPL',
+      quote: 'USD',
+      name: 'Apple Inc.',
+      iconUrl: '',
+      assetClass: 'stock',
+    }
+
+    await act(async () => {
+      root.render(
+        <DataChartListingControl
+          widgetKey='listing-control-test'
+          panelId='panel-1'
+          params={{ data: { provider: 'alpaca' } }}
+        />
+      )
+    })
+    await act(async () => {
+      listingInputState.onListingChange?.(selectedListing)
+    })
+
+    expect(patchWidgetLinkedParamsMock).toHaveBeenCalledWith({
+      listing: {
         listing_id: 'TG_LSTG_AAPL',
         base_id: '',
         quote_id: '',
         listing_type: 'default',
-        base: 'AAPL',
-        quote: 'USD',
-        name: 'Apple Inc.',
-        iconUrl: '',
-        assetClass: 'stock',
-      }
-
-      await act(async () => {
-        root.render(
-          <DataChartListingControl
-            widgetKey='listing-control-test'
-            panelId='panel-1'
-            params={{ data: { provider: 'alpaca' } }}
-            pairColor={pairColor}
-          />
-        )
-      })
-      await act(async () => {
-        listingInputState.onListingChange?.(selectedListing)
-      })
-
-      expect(used).toHaveBeenCalledWith({
-        listing: {
-          listing_id: 'TG_LSTG_AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      })
-      expect(unused).not.toHaveBeenCalled()
-    }
-  )
+      },
+    })
+    expect(patchWidgetParamsMock).not.toHaveBeenCalled()
+  })
 })

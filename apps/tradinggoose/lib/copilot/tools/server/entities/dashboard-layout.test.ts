@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   metadata: vi.fn(),
   list: vi.fn(),
+  create: vi.fn(),
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
@@ -21,11 +22,11 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: mocks.entityAccess,
 }))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  readBootstrappedSavedEntityFields: mocks.read,
+  readBootstrappedDashboardLayoutProjection: mocks.read,
 }))
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({ readEntityListMembersFromDb: mocks.list }))
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
-  createDashboardLayout: vi.fn(),
+  createDashboardLayout: mocks.create,
   readDashboardLayoutMetadata: mocks.metadata,
 }))
 vi.mock('@/lib/dashboard-layouts/read-projection', () => ({
@@ -44,10 +45,10 @@ describe('dashboard layout server tools', () => {
       { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
     ])
     mocks.read.mockResolvedValue(fx.createDashboardLayoutTestContent())
-    mocks.projection.mockImplementation(async (fields: any) => ({
+    mocks.create.mockResolvedValue({ id: 'layout-created', name: 'New Desk' })
+    mocks.projection.mockImplementation((fields: any) => ({
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
       entityDocument: JSON.stringify(fields),
-      effectiveLayout: fields.layout,
     }))
   })
 
@@ -71,7 +72,7 @@ describe('dashboard layout server tools', () => {
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1'
     )
-    expect(mocks.read).toHaveBeenCalledWith('dashboard_layout', 'layout-1', 'workspace-1', 'user-1')
+    expect(mocks.read).toHaveBeenCalledWith('layout-1', 'workspace-1', 'user-1')
     expect(result).toMatchObject({
       entityKind: 'dashboard_layout',
       entityId: 'layout-1',
@@ -90,7 +91,6 @@ describe('dashboard layout server tools', () => {
       colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
     })
     expect(JSON.parse(result.entityDocument)).not.toHaveProperty('name')
-    expect(result.effectiveLayout).toMatchObject({ id: 'root', type: 'group' })
   })
 
   it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
@@ -131,6 +131,37 @@ describe('dashboard layout server tools', () => {
       layout: { type: 'group' },
       widgets: {},
       colorPairs: { pairs: [] },
+    })
+  })
+
+  it('returns the complete read_layout projection after creating a layout', async () => {
+    const result = await createLayoutServerTool.execute(
+      { workspaceId: 'workspace-1', name: 'New Desk' },
+      { ...context, accessLevel: 'full' }
+    )
+
+    expect(mocks.create).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      { name: 'New Desk' }
+    )
+    expect(mocks.read).toHaveBeenCalledWith('layout-created', 'workspace-1', 'user-1')
+    expect(result).toMatchObject({
+      success: true,
+      entityKind: 'dashboard_layout',
+      entityId: 'layout-created',
+      entityName: 'New Desk',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+      entityDocument: expect.any(String),
+    })
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      layout: { id: 'root', type: 'group' },
+      widgets: {
+        'chart-widget': { params: { data: { provider: 'alpaca' } } },
+        'order-widget': { params: null },
+      },
+      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
     })
   })
 

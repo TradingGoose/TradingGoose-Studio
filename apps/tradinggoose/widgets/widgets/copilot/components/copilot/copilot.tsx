@@ -21,8 +21,6 @@ import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
-import type { PairColor } from '@/widgets/pair-colors'
-import { useWidgetPairContext } from '@/widgets/widget-config-runtime'
 import {
   buildImplicitCopilotContexts,
   resolveCopilotWorkflowId,
@@ -46,7 +44,7 @@ export function shouldMarkUserScrolledDuringStream(params: {
 interface CopilotProps {
   workspaceId: string
   panelWidth: number
-  pairColor?: PairColor
+  effectiveParams?: Record<string, unknown> | null
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
@@ -65,7 +63,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     {
       workspaceId,
       panelWidth,
-      pairColor = 'gray',
+      effectiveParams,
       layoutId = null,
       ownerUserId = null,
       layoutName = null,
@@ -91,13 +89,12 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const programmaticScrollResetTimerRef = useRef<number | null>(null)
     const programmaticScrollInFlightRef = useRef(false)
 
-    const pairContext = useWidgetPairContext(pairColor)
     const entityLabels = useWorkspaceWidgetsMessages().workflowLabels
     const implicitContexts = useMemo(
       () =>
         buildImplicitCopilotContexts({
           workspaceId,
-          pairContext,
+          effectiveParams,
           currentLayoutId: layoutId,
           currentLayoutOwnerUserId: ownerUserId,
           currentLabels: {
@@ -110,9 +107,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             watchlist: entityLabels.currentWatchlist,
           },
         }),
-      [entityLabels, layoutId, layoutName, ownerUserId, pairContext, workspaceId]
+      [effectiveParams, entityLabels, layoutId, layoutName, ownerUserId, workspaceId]
     )
-    const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+    const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
     const liveContext = useMemo(
       () => ({
         workflowId,

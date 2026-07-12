@@ -8,10 +8,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
-import { WidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
+import { LocalWidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
@@ -36,16 +36,7 @@ describe('data chart localized component copy', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     doc = new Y.Doc()
-    seedDashboardLayoutSession(doc, {
-      layout: {
-        id: 'panel-chart',
-        type: 'panel',
-        identityId: 'widget-chart',
-        widgetKey: 'data_chart',
-      },
-      widgets: { 'widget-chart': { pairColor: 'gray', params: null } },
-      colorPairs: { pairs: [] },
-    })
+    seedDashboardWidgetSession(doc, { pairColor: 'gray', params: null })
   })
 
   afterEach(() => {
@@ -61,9 +52,9 @@ describe('data chart localized component copy', () => {
     root.render(
       <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
         <TooltipProvider>
-          <WidgetConfigRuntimeProvider doc={doc} panelId='panel-chart' canWrite>
+          <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart' canWrite>
             {element}
-          </WidgetConfigRuntimeProvider>
+          </LocalWidgetConfigRuntimeProvider>
         </TooltipProvider>
       </NextIntlClientProvider>
     )

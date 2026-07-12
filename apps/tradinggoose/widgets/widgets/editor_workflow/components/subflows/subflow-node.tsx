@@ -167,6 +167,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               blockId={id}
               blockType={data.kind}
               workflowId={workflowRoute.workflowId}
+              channelId={workflowRoute.channelId}
               disabled={!userPermissions.canEdit}
             />
           )}

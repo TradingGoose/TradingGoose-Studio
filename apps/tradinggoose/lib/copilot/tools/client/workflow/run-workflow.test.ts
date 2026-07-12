@@ -5,26 +5,9 @@ import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-w
 const mockExecuteWorkflowWithFullLogging = vi.fn()
 
 const mockExecutionState = {
-  byWorkflowId: {} as Record<
-    string,
-    {
-      isExecuting: boolean
-      isDebugging: boolean
-      pendingBlocks: string[]
-      activeBlockIds: Set<string>
-      autoPanDisabled: boolean
-    }
-  >,
-  setIsExecuting: vi.fn((workflowId: string, isExecuting: boolean) => {
-    mockExecutionState.byWorkflowId[workflowId] = {
-      ...(mockExecutionState.byWorkflowId[workflowId] ?? {
-        isDebugging: false,
-        pendingBlocks: [],
-        activeBlockIds: new Set<string>(),
-        autoPanDisabled: false,
-      }),
-      isExecuting,
-    }
+  isExecuting: false,
+  setIsExecuting: vi.fn((isExecuting: boolean) => {
+    mockExecutionState.isExecuting = isExecuting
   }),
 }
 
@@ -34,14 +17,6 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-execution-utils', () => ({
 }))
 
 vi.mock('@/stores/execution/store', () => ({
-  selectWorkflowExecutionState: (state: typeof mockExecutionState, workflowId: string) =>
-    state.byWorkflowId[workflowId] ?? {
-      isExecuting: false,
-      isDebugging: false,
-      pendingBlocks: [],
-      activeBlockIds: new Set<string>(),
-      autoPanDisabled: false,
-    },
   useExecutionStore: {
     getState: () => mockExecutionState,
   },
@@ -57,7 +32,7 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals?.()
-    mockExecutionState.byWorkflowId = {}
+    mockExecutionState.isExecuting = false
     mockExecutionState.setIsExecuting.mockClear()
     mockExecuteWorkflowWithFullLogging.mockReset()
     mockExecuteWorkflowWithFullLogging.mockResolvedValue({

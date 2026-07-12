@@ -12,7 +12,7 @@ import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import {
-  deleteYjsSessionInSocketServer,
+  discardYjsSessionInSocketServer,
   refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -198,7 +198,7 @@ export async function DELETE(request: NextRequest) {
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
 
     await refreshEntityListSession('custom_tool', workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(toolId)])
+    await Promise.allSettled([discardYjsSessionInSocketServer(toolId)])
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

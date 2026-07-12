@@ -64,6 +64,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 }))
 
 import { db } from '@tradinggoose/db'
+import { buildDashboardWidgetDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   loadReviewSessionForUser,
   loadReviewSessionForUserByConversationId,
@@ -169,6 +170,31 @@ describe('review session permissions', () => {
         workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
       },
+      'write'
+    )
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('authorizes a widget child through only its owning layout scope', async () => {
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ workspaceId: 'workspace-1', userId: 'user-1' }]))
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
+
+    const result = await verifyReviewTargetAccess(
+      'user-1',
+      buildDashboardWidgetDescriptor({
+        layoutId: 'layout-1',
+        identityId: 'widget-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      }),
       'write'
     )
 

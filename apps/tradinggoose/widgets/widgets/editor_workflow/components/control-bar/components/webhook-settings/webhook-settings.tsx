@@ -14,7 +14,6 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
-import type { Messages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +38,7 @@ import {
 } from '@/components/ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn, generatePassword } from '@/lib/utils'
+import type { Messages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 import type {
   LogLevel as StoreLogLevel,
@@ -807,7 +807,9 @@ export function WebhookSettings({
                   <h3 className='font-medium text-base'>
                     {editingWebhookId ? copy.form.editTitle : copy.form.createTitle}
                   </h3>
-                  <p className='text-muted-foreground text-sm'>{copy.form.description}</p>
+                  <p className='text-muted-foreground text-sm'>
+                    {copy.form.description}
+                  </p>
                 </div>
 
                 {/* General errors */}
@@ -845,7 +847,9 @@ export function WebhookSettings({
                       spellCheck='false'
                       data-form-type='other'
                     />
-                    <p className='text-muted-foreground text-xs'>{copy.form.url.hint}</p>
+                    <p className='text-muted-foreground text-xs'>
+                      {copy.form.url.hint}
+                    </p>
                     {fieldErrors.url && fieldErrors.url.length > 0 && (
                       <div className='mt-1 space-y-1 text-red-400 text-xs dark:text-red-400'>
                         {fieldErrors.url.map((error, index) => (
@@ -893,8 +897,8 @@ export function WebhookSettings({
                                 'disabled:cursor-not-allowed disabled:opacity-50',
                                 'focus-visible:ring-2 focus-visible:ring-muted-foreground/20 focus-visible:ring-offset-1'
                               )}
-                            >
-                              <RefreshCw
+                              >
+                                <RefreshCw
                                 className={cn(
                                   'h-3.5 w-3.5 transition-transform duration-200',
                                   'group-hover:rotate-90',
@@ -966,7 +970,9 @@ export function WebhookSettings({
                         </Tooltip>
                       </div>
                     </div>
-                    <p className='text-muted-foreground text-xs'>{copy.form.secret.hint}</p>
+                    <p className='text-muted-foreground text-xs'>
+                      {copy.form.secret.hint}
+                    </p>
                   </div>
 
                   <div className='space-y-3'>
@@ -989,9 +995,7 @@ export function WebhookSettings({
                               } else {
                                 setNewWebhook({
                                   ...newWebhook,
-                                  levelFilter: newWebhook.levelFilter.filter(
-                                    (l) => l !== level.value
-                                  ),
+                                  levelFilter: newWebhook.levelFilter.filter((l) => l !== level.value),
                                 })
                               }
                               setFieldErrors({ ...fieldErrors, levelFilter: undefined })
@@ -1206,7 +1210,9 @@ export function WebhookSettings({
             <AlertDialogTitle>{copy.deleteDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
               {copy.deleteDialog.description}{' '}
-              <span className='text-red-500 dark:text-red-500'>{copy.deleteDialog.warning}</span>
+              <span className='text-red-500 dark:text-red-500'>
+                {copy.deleteDialog.warning}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>

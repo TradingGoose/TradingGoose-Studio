@@ -7,7 +7,13 @@ export function shouldAutoFitWorkflowView(args: {
   nextNodeCount: number
   isWorkflowReady: boolean
 }): boolean {
-  const { previousIdentity, nextIdentity, previousNodeCount, nextNodeCount, isWorkflowReady } = args
+  const {
+    previousIdentity,
+    nextIdentity,
+    previousNodeCount,
+    nextNodeCount,
+    isWorkflowReady,
+  } = args
 
   if (!isWorkflowReady || !nextIdentity || nextNodeCount === 0) {
     return false

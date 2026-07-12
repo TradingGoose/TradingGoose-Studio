@@ -2,19 +2,14 @@
 
 import { useMemo } from 'react'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/widget-contracts'
 
-type UseWorkflowWidgetStateOptions = Pick<
-  WidgetComponentProps,
-  'params' | 'pairColor' | 'widget'
-> & {
+type UseWorkflowWidgetStateOptions = Pick<WidgetComponentProps, 'params'> & {
   workspaceId?: string
 }
 
 type UseWorkflowWidgetStateResult = {
-  resolvedPairColor: PairColor
   resolvedWorkflowId: string | null
   hasLoadedWorkflows: boolean
   loadError: 'unableToLoadWorkflows' | null
@@ -24,12 +19,8 @@ type UseWorkflowWidgetStateResult = {
 
 export const useWorkflowWidgetState = ({
   workspaceId,
-  pairColor,
-  widget,
   params,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
-  const widgetPairColor = isPairColor(widget?.pairColor) ? widget.pairColor : null
-  const resolvedPairColor = widgetPairColor ?? (isPairColor(pairColor) ? pairColor : 'gray')
   const {
     members,
     isLoading: isListLoading,
@@ -59,19 +50,11 @@ export const useWorkflowWidgetState = ({
       entityIds: workflowIds,
       useDefaultEntity: false,
     })
-  }, [
-    workflowIds,
-    storedWorkflowId,
-    workspaceId,
-    hasWorkflowMembers,
-    listError,
-    isListLoading,
-  ])
+  }, [workflowIds, storedWorkflowId, workspaceId, hasWorkflowMembers, listError, isListLoading])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
   return {
-    resolvedPairColor,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,

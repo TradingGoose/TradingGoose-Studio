@@ -13,7 +13,7 @@ import {
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 
 const mockPatchWidgetParams = vi.fn()
-const mockPatchWidgetColorPair = vi.fn()
+const mockPatchWidgetLinkedParams = vi.fn()
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -30,10 +30,9 @@ vi.mock('@/widgets/widgets/components/pine-indicator-dropdown', () => ({
 }))
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
-  useWidgetPairContext: () => ({}),
   useWidgetConfigRuntimeActions: () => ({
     patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
-    patchWidgetColorPair: (...args: unknown[]) => mockPatchWidgetColorPair(...args),
+    patchWidgetLinkedParams: (...args: unknown[]) => mockPatchWidgetLinkedParams(...args),
   }),
 }))
 
@@ -80,12 +79,9 @@ describe('Indicator Editor header controls', () => {
     expect(buttons[2]?.textContent).toContain('Save indicator')
   })
 
-  it.each([
-    ['gray', mockPatchWidgetParams, mockPatchWidgetColorPair],
-    ['red', mockPatchWidgetColorPair, mockPatchWidgetParams],
-  ] as const)(
-    'routes %s linked selections through the canonical callback',
-    async (pairColor, used, unused) => {
+  it.each(['gray', 'red'] as const)(
+    'routes %s selections through the linked-parameter callback',
+    async (pairColor) => {
       const header = editorIndicatorWidget.renderHeader?.({
         context: { workspaceId: 'workspace-1' } as any,
         panelId: 'panel-1',
@@ -103,8 +99,10 @@ describe('Indicator Editor header controls', () => {
         container.querySelector('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       })
 
-      expect(used).toHaveBeenCalledWith({ indicatorId: 'indicator-next' })
-      expect(unused).not.toHaveBeenCalled()
+      expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({
+        indicatorId: 'indicator-next',
+      })
+      expect(mockPatchWidgetParams).not.toHaveBeenCalled()
     }
   )
 

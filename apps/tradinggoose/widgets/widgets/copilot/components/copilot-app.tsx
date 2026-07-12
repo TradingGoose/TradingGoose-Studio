@@ -1,13 +1,9 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
-import { normalizePairColorContext } from '@/widgets/color-pairs'
-import type { PairColor } from '@/widgets/pair-colors'
-import { useWidgetPairContext } from '@/widgets/widget-config-runtime'
 import { resolveCopilotWorkflowId } from '@/widgets/widgets/copilot/live-contexts'
 import { Copilot } from './copilot/copilot'
 
@@ -23,8 +19,7 @@ interface CopilotAppProps {
   workspaceId: string
   panelWidth: number
   channelId?: string
-  pairColor: PairColor
-  accessMode: ReviewAccessMode
+  effectiveParams?: Record<string, unknown> | null
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
@@ -34,8 +29,7 @@ const CopilotAppContent = ({
   workspaceId,
   panelWidth,
   channelId,
-  pairColor,
-  accessMode,
+  effectiveParams,
   layoutId,
   ownerUserId,
   layoutName,
@@ -44,15 +38,13 @@ const CopilotAppContent = ({
   workspaceId: string
   panelWidth: number
   channelId: string
-  pairColor: PairColor
-  accessMode: ReviewAccessMode
+  effectiveParams?: Record<string, unknown> | null
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
   user: CopilotAppUser
 }) => {
-  const pairContext = normalizePairColorContext(useWidgetPairContext(pairColor))
-  const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+  const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
 
   const renderCopilotBody = () => (
     <div className='flex h-full w-full flex-col overflow-hidden '>
@@ -60,7 +52,7 @@ const CopilotAppContent = ({
         key={channelId}
         workspaceId={workspaceId}
         panelWidth={panelWidth}
-        pairColor={pairColor}
+        effectiveParams={effectiveParams}
         layoutId={layoutId}
         ownerUserId={ownerUserId}
         layoutName={layoutName}
@@ -72,12 +64,7 @@ const CopilotAppContent = ({
 
   const renderWorkflowContent = () =>
     workflowId ? (
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        accessMode={accessMode}
-        user={user}
-      >
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         {renderCopilotBody()}
       </WorkflowSessionProvider>
     ) : (
@@ -91,8 +78,7 @@ const CopilotApp = ({
   workspaceId,
   panelWidth,
   channelId = DEFAULT_COPILOT_CHANNEL_ID,
-  pairColor,
-  accessMode,
+  effectiveParams,
   layoutId,
   ownerUserId,
   layoutName,
@@ -114,8 +100,7 @@ const CopilotApp = ({
           workspaceId={workspaceId}
           panelWidth={panelWidth}
           channelId={channelId}
-          pairColor={pairColor}
-          accessMode={accessMode}
+          effectiveParams={effectiveParams}
           layoutId={layoutId}
           ownerUserId={ownerUserId}
           layoutName={layoutName}

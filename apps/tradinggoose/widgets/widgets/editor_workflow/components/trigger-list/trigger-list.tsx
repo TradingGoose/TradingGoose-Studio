@@ -5,6 +5,7 @@ import { Info, Plus, Search, X } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
@@ -14,8 +15,10 @@ import {
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
 import { getAllTriggerBlocks, getTriggersForSidebar } from '@/lib/workflows/trigger-utils'
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkflowEditorCopy, useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
+import {
+  useWorkflowEditorCopy,
+  useWorkflowI18n,
+} from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('TriggerList')
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}

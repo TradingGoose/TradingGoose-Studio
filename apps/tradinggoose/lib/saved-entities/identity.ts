@@ -54,7 +54,7 @@ export function normalizeSavedEntityIdentity(entityKind: ReviewEntityKind, value
 export async function renameSavedEntityIdentityInTx(
   writer: SavedEntityIdentityWriter,
   input: SavedEntityIdentityInput
-): Promise<string> {
+): Promise<{ name: string; updatedAt: Date }> {
   const { entityKind, entityId, workspaceId } = input
   const ownerUserId = input.ownerUserId?.trim() || null
   const name = normalizeSavedEntityIdentity(entityKind, input.name)
@@ -65,9 +65,9 @@ export async function renameSavedEntityIdentityInTx(
   const expectedNameWhere = (column: AnyPgColumn) =>
     expectedCurrentName === undefined ? undefined : eq(column, expectedCurrentName)
   const updatedAt = new Date()
+  let rows: Array<{ id: string; updatedAt: Date }> = []
 
   try {
-    let rows: Array<{ id: string }>
     switch (entityKind) {
       case 'workflow':
         rows = await writer
@@ -80,7 +80,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(workflow.name)
             )
           )
-          .returning({ id: workflow.id })
+          .returning({ id: workflow.id, updatedAt: workflow.updatedAt })
         break
       case 'skill':
         rows = await writer
@@ -93,7 +93,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(skill.name)
             )
           )
-          .returning({ id: skill.id })
+          .returning({ id: skill.id, updatedAt: skill.updatedAt })
         break
       case 'custom_tool':
         rows = await writer
@@ -106,7 +106,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(customTools.title)
             )
           )
-          .returning({ id: customTools.id })
+          .returning({ id: customTools.id, updatedAt: customTools.updatedAt })
         break
       case 'indicator':
         rows = await writer
@@ -119,7 +119,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(pineIndicators.name)
             )
           )
-          .returning({ id: pineIndicators.id })
+          .returning({ id: pineIndicators.id, updatedAt: pineIndicators.updatedAt })
         break
       case 'knowledge_base':
         rows = await writer
@@ -133,7 +133,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(knowledgeBase.name)
             )
           )
-          .returning({ id: knowledgeBase.id })
+          .returning({ id: knowledgeBase.id, updatedAt: knowledgeBase.updatedAt })
         break
       case 'mcp_server':
         rows = await writer
@@ -147,7 +147,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(mcpServers.name)
             )
           )
-          .returning({ id: mcpServers.id })
+          .returning({ id: mcpServers.id, updatedAt: mcpServers.updatedAt })
         break
       case 'watchlist':
         rows = await writer
@@ -162,7 +162,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(watchlistTable.name)
             )
           )
-          .returning({ id: watchlistTable.id })
+          .returning({ id: watchlistTable.id, updatedAt: watchlistTable.updatedAt })
         break
       case 'dashboard_layout':
         if (!ownerUserId) {
@@ -179,7 +179,7 @@ export async function renameSavedEntityIdentityInTx(
               expectedNameWhere(layoutMaps.name)
             )
           )
-          .returning({ id: layoutMaps.id })
+          .returning({ id: layoutMaps.id, updatedAt: layoutMaps.updatedAt })
         break
     }
 
@@ -203,15 +203,17 @@ export async function renameSavedEntityIdentityInTx(
     throw error
   }
 
-  return name
+  return { name, updatedAt: rows[0].updatedAt }
 }
 
-export async function renameSavedEntityIdentity(input: SavedEntityIdentityInput): Promise<string> {
-  const name = await renameSavedEntityIdentityInTx(db, input)
+export async function renameSavedEntityIdentity(
+  input: SavedEntityIdentityInput
+): Promise<{ name: string; updatedAt: Date }> {
+  const identity = await renameSavedEntityIdentityInTx(db, input)
   await refreshEntityListSession(
     input.entityKind,
     input.workspaceId,
     input.ownerUserId?.trim() || null
   )
-  return name
+  return identity
 }

@@ -149,6 +149,7 @@ describe('saved-entity editor access mode', () => {
     mockUseSavedEntityYjsSession.mockClear()
     renderToString(
       testCase.render({
+        channelId: 'entity-editor-panel-1',
         params: testCase.params,
         context: { workspaceId: 'workspace-1', canWrite: false },
       })
@@ -167,6 +168,7 @@ describe('saved-entity editor access mode', () => {
     mockUseSavedEntityYjsSession.mockClear()
     renderToString(
       <EditorIndicatorWidgetBody
+        channelId='indicator-editor-panel-1'
         params={{ indicatorId: entityIds.indicator }}
         context={{ workspaceId: 'workspace-1', canWrite: true }}
       />
@@ -210,6 +212,7 @@ describe('saved-entity editor access mode', () => {
     mockUseSavedEntityYjsSession.mockReturnValue({ doc, save, isLoading: false, error: null })
     const renderEditor = (canWrite: boolean) => (
       <EditorMcpWidgetBody
+        channelId='mcp-editor-panel-1'
         params={{ mcpServerId: entityIds.mcp_server }}
         context={{ workspaceId: 'workspace-1', canWrite }}
         panelId='panel-1'

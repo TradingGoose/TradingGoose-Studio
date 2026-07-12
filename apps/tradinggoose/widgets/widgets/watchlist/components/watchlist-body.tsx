@@ -41,11 +41,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     selectedWatchlist,
   } = useWatchlistWidgetState(props)
 
-  const patchLinkedParams =
-    (props.pairColor ?? 'gray') === 'gray'
-      ? props.onWidgetParamsPatch
-      : props.onWidgetColorPairPatch
-  const canEditWidgetParams = Boolean(patchLinkedParams)
+  const canEditWidgetParams = Boolean(props.onWidgetLinkedParamsPatch)
   const viewItems = selectedWatchlist?.items ?? []
   const quoteItems = useMemo(
     () =>
@@ -117,13 +113,13 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       if (!canEditWidgetParams) return
       if (listing == null) {
         if (selectedListing == null) return
-        patchLinkedParams?.({ listing: null })
+        props.onWidgetLinkedParamsPatch?.({ listing: null })
         return
       }
       if (areListingIdentitiesEqual(selectedListing, listing)) return
-      patchLinkedParams?.({ listing })
+      props.onWidgetLinkedParamsPatch?.({ listing })
     },
-    [canEditWidgetParams, patchLinkedParams, selectedListing]
+    [canEditWidgetParams, props.onWidgetLinkedParamsPatch, selectedListing]
   )
 
   if (!workspaceId) {

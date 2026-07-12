@@ -39,10 +39,6 @@ const dashboardContent = {
     identityId: 'widget-1',
     widgetKey: null,
   },
-  widgets: {
-    'widget-1': { pairColor: 'gray' as const, params: null },
-  },
-  colorPairs: { pairs: [] },
 }
 
 describe('reseedEntityListSessionFromDb', () => {
@@ -144,8 +140,8 @@ describe('reseedEntityListSessionFromDb', () => {
     const doc = new Y.Doc()
     try {
       Y.applyUpdate(doc, result.state)
-      const { readDashboardLayoutContent } = await import('@/lib/yjs/dashboard-layout-session')
-      expect(readDashboardLayoutContent(doc)).toEqual(dashboardContent)
+      const { readDashboardLayoutDocument } = await import('@/lib/yjs/dashboard-layout-session')
+      expect(readDashboardLayoutDocument(doc)).toEqual(dashboardContent)
       expect(doc.share.has('fields')).toBe(false)
       expect(doc.getMap('layout').has('name')).toBe(false)
       expect(doc.getMap('layout').has('isActive')).toBe(false)

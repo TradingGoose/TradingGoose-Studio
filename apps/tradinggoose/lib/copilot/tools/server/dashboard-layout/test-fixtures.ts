@@ -1,9 +1,10 @@
 import { vi } from 'vitest'
 import {
   applyLayoutEditDocument,
-  type DashboardLayoutDocumentContent,
+  createDefaultDashboardWidgetDocument,
+  type DashboardLayoutProjectionContent,
   findDashboardTopologyPanel,
-  normalizeDashboardLayoutDocumentContent,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
@@ -18,7 +19,7 @@ export const AAPL_LISTING = {
   quote_id: '',
 }
 
-export const createDashboardLayoutTestContent = (): DashboardLayoutDocumentContent => ({
+export const createDashboardLayoutTestContent = (): DashboardLayoutProjectionContent => ({
   layout: {
     id: 'root',
     type: 'group',
@@ -55,10 +56,10 @@ export const createDashboardLayoutTestContent = (): DashboardLayoutDocumentConte
 export type DashboardToolMocks = ReturnType<typeof createDashboardToolMocks>
 
 export function createDashboardToolMocks() {
-  let currentContent: DashboardLayoutDocumentContent
+  let currentContent: DashboardLayoutProjectionContent
   return {
     getCurrentContent: () => currentContent,
-    setCurrentContent: (content: DashboardLayoutDocumentContent) => {
+    setCurrentContent: (content: DashboardLayoutProjectionContent) => {
       currentContent = content
     },
     readFields: vi.fn(async () => currentContent),
@@ -70,10 +71,17 @@ export function createDashboardToolMocks() {
         throw new Error('stale_server_tool_review')
       }
       const current = currentContent
-      const plan = applyLayoutEditDocument(current, input.entityDocument, input.removedPanelIds)
-      const widgets = { ...current.widgets, ...plan.createdWidgets }
+      const plan = applyLayoutEditDocument(
+        { layout: current.layout },
+        input.entityDocument,
+        input.removedPanelIds
+      )
+      const widgets = { ...current.widgets }
+      for (const binding of plan.createdBindings) {
+        widgets[binding.identityId] = createDefaultDashboardWidgetDocument(binding.widgetKey)
+      }
       for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-      currentContent = normalizeDashboardLayoutDocumentContent({
+      currentContent = normalizeDashboardLayoutProjection({
         ...current,
         layout: plan.layout,
         widgets,
@@ -99,7 +107,7 @@ export function createDashboardToolMocks() {
         panelId: input.panelId,
         patch: input.patch,
       })
-      currentContent = normalizeDashboardLayoutDocumentContent({
+      currentContent = normalizeDashboardLayoutProjection({
         ...current,
         widgets: { ...current.widgets, [panel.identityId]: mutation.widgetDocument },
         colorPairs: mutation.colorPairs,
@@ -127,10 +135,9 @@ export const mockBaseToolModule = (mocks: DashboardToolMocks) => ({
 })
 
 export const mockReadProjectionModule = () => ({
-  buildDashboardLayoutReadProjection: vi.fn(async (content: DashboardLayoutDocumentContent) => ({
-    documentFormat: 'tg-dashboard-layout-document-v2',
+  buildDashboardLayoutReadProjection: vi.fn((content: DashboardLayoutProjectionContent) => ({
+    documentFormat: 'tg-dashboard-layout-document-v3',
     entityDocument: JSON.stringify(content),
-    effectiveLayout: content.layout,
   })),
   serializeDashboardLayoutForCopilot: vi.fn((content) => JSON.stringify(content, null, 2)),
   projectDashboardLayoutValueForCopilot: vi.fn((value) => value),
@@ -143,7 +150,7 @@ export const mockEntitiesSharedModule = (mocks: DashboardToolMocks) => ({
 })
 
 export const mockBootstrapModule = (mocks: DashboardToolMocks) => ({
-  readBootstrappedSavedEntityFields: mocks.readFields,
+  readBootstrappedDashboardLayoutProjection: mocks.readFields,
 })
 
 export const mockDashboardOperationsModule = (mocks: DashboardToolMocks) => ({

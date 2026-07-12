@@ -62,7 +62,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  deleteYjsSessionInSocketServer: vi.fn(),
+  discardYjsSessionInSocketServer: vi.fn(),
   refreshEntityListSession: mockNotifyEntityListMembersUpserted,
 }))
 

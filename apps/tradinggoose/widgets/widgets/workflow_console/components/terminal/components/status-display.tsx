@@ -9,7 +9,11 @@ interface StatusDisplayProps {
   formattedDuration: string
 }
 
-export function StatusDisplay({ isRunning, isCanceled, formattedDuration }: StatusDisplayProps) {
+export function StatusDisplay({
+  isRunning,
+  isCanceled,
+  formattedDuration,
+}: StatusDisplayProps) {
   const copy = useWorkflowConsoleMessages()
   if (isRunning) {
     return (

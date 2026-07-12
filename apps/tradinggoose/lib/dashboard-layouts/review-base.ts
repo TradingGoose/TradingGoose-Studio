@@ -1,12 +1,12 @@
 import { DASHBOARD_CREDENTIAL_PLACEHOLDER } from '@/lib/dashboard-layouts/read-projection'
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type {
-  DashboardLayoutDocumentContent,
+  DashboardLayoutDocument,
   DashboardLayoutEditPlan,
+  DashboardLayoutProjectionContent,
 } from '@/widgets/layout-document'
 import { findDashboardTopologyPanel } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
-import { resolveEffectiveWidgetParams } from '@/widgets/widget-contracts'
 import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
@@ -38,17 +38,14 @@ function omitPreservedCredentialValues(reviewValue: unknown, requestedValue: unk
 }
 
 export const buildDashboardLayoutReviewBase = (
-  content: DashboardLayoutDocumentContent,
-  plan: DashboardLayoutEditPlan
+  content: DashboardLayoutDocument,
+  _plan: DashboardLayoutEditPlan
 ) => ({
   layout: content.layout,
-  removedWidgets: Object.fromEntries(
-    plan.removedIdentityIds.map((identityId) => [identityId, content.widgets[identityId] ?? null])
-  ),
 })
 
 export function buildDashboardWidgetReviewDocument(
-  content: DashboardLayoutDocumentContent,
+  content: DashboardLayoutProjectionContent,
   panelId: string
 ) {
   const panel = findDashboardTopologyPanel(content.layout, panelId)
@@ -62,16 +59,12 @@ export function buildDashboardWidgetReviewDocument(
     identityId: panel.identityId,
     widgetKey: panel.widgetKey,
     widgetDocument,
-    effectiveParams: resolveEffectiveWidgetParams(
-      { key: panel.widgetKey, ...widgetDocument },
-      content.colorPairs
-    ),
     colorPair: pairColor === 'gray' ? null : readPairColorContext(content.colorPairs, pairColor),
   }
 }
 
 export function buildDashboardWidgetReviewBase(
-  content: DashboardLayoutDocumentContent,
+  content: DashboardLayoutProjectionContent,
   panelId: string,
   reviewBase: WidgetConfigMutationReviewBase,
   requestedPatch: WidgetConfigMutationPatch

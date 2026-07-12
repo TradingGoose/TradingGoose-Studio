@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,14 +15,17 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { getLocalizedToolParameterLabel } from '@/i18n/block-editor'
-import type { LocaleCode } from '@/i18n/utils'
+import {
+  getLocalizedToolParameterLabel,
+} from '@/i18n/block-editor'
 import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { useLocale } from 'next-intl'
 
 const logger = createLogger('McpDynamicArgs')
 
@@ -435,15 +437,14 @@ export function McpDynamicArgs({
 
       case 'long-input':
         return (
-          <McpTextareaWithTags
+            <McpTextareaWithTags
             key={`${paramName}-long`}
             value={value || ''}
             onChange={(newValue) => updateParameter(paramName, newValue)}
             placeholder={
               paramSchema.type === 'array'
                 ? copy.enterJsonArrayOrCommaSeparatedValues
-                : paramSchema.description ||
-                  formatTemplate(copy.enterParameter, { label: parameterLabel })
+                : paramSchema.description || formatTemplate(copy.enterParameter, { label: parameterLabel })
             }
             disabled={disabled}
             blockId={blockId}
@@ -483,8 +484,7 @@ export function McpDynamicArgs({
             placeholder={
               paramSchema.type === 'array'
                 ? copy.enterJsonArrayOrCommaSeparatedValues
-                : paramSchema.description ||
-                  formatTemplate(copy.enterParameter, { label: parameterLabel })
+                : paramSchema.description || formatTemplate(copy.enterParameter, { label: parameterLabel })
             }
             disabled={disabled}
             isPassword={isPassword}

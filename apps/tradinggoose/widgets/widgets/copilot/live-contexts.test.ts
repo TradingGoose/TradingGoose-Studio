@@ -12,11 +12,11 @@ const currentLabels = {
 }
 
 describe('buildImplicitCopilotContexts', () => {
-  it('emits current workflow and active editable entity contexts from pair state', () => {
+  it('emits current workflow and active editable entity contexts from effective params', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
-        pairContext: {
+        effectiveParams: {
           workflowId: 'workflow-pair',
           skillId: 'skill-1',
           watchlistId: 'watchlist-1',
@@ -45,16 +45,16 @@ describe('buildImplicitCopilotContexts', () => {
     ])
   })
 
-  it('uses pair workflow id without adding a synthetic watchlist context', () => {
-    const pairContext = {
+  it('uses the effective workflow id without adding a synthetic watchlist context', () => {
+    const effectiveParams = {
       workflowId: 'workflow-pair',
     }
 
-    expect(resolveCopilotWorkflowId(pairContext)).toBe('workflow-pair')
+    expect(resolveCopilotWorkflowId(effectiveParams)).toBe('workflow-pair')
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
-        pairContext,
+        effectiveParams,
         currentLabels,
       })
     ).toEqual([
@@ -71,7 +71,7 @@ describe('buildImplicitCopilotContexts', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
-        pairContext: {},
+        effectiveParams: {},
         currentLabels,
       })
     ).toEqual([])
@@ -83,7 +83,7 @@ describe('buildImplicitCopilotContexts', () => {
         workspaceId: 'workspace-1',
         currentLayoutId: 'layout-1',
         currentLayoutOwnerUserId: 'user-1',
-        pairContext: {},
+        effectiveParams: {},
         currentLabels,
       })
     ).toEqual([

@@ -55,7 +55,10 @@ describe('entity document mutation helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockApplySavedEntityState.mockImplementation(async (_kind, _entityId, fields) => fields)
-    mockRenameSavedEntityIdentity.mockResolvedValue(undefined)
+    mockRenameSavedEntityIdentity.mockResolvedValue({
+      name: 'Renamed',
+      updatedAt: new Date('2026-07-11T12:00:00.000Z'),
+    })
     mockReadBootstrappedSavedEntityFields.mockResolvedValue({
       description: 'Existing description',
       content: 'Existing content',
@@ -179,7 +182,7 @@ describe('entity document mutation helpers', () => {
     })
     expect(mockRenameSavedEntityIdentity).not.toHaveBeenCalled()
 
-    await executeRenameEntityMutation(
+    const committed = await executeRenameEntityMutation(
       'skill',
       'rename_skill',
       { entityId: 'skill-1', name: 'Renamed Skill' },
@@ -192,6 +195,7 @@ describe('entity document mutation helpers', () => {
       ownerUserId: null,
       name: 'Renamed Skill',
     })
+    expect(committed).toMatchObject({ updatedAt: '2026-07-11T12:00:00.000Z' })
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
     expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
   })

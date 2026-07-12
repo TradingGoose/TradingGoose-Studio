@@ -54,6 +54,7 @@ export function QuickOrderHeaderControls({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
+  if (!patchParams) return null
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -116,6 +117,7 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
     { id: 'buy', label: copy.buy },
     { id: 'sell', label: copy.sell },
   ]
+  if (!patchParams) return null
 
   return (
     <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
