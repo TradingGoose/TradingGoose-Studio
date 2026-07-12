@@ -176,14 +176,10 @@ export async function notifyWorkspaceYjsAccessChanged(
   workspaceId: string,
   userIds?: string[]
 ): Promise<void> {
-  try {
-    await postJsonToSocketServer(
-      `/internal/yjs/workspaces/${encodeURIComponent(workspaceId)}/access-changed`,
-      { ...(userIds ? { userIds } : {}) }
-    )
-  } catch (error) {
-    logger.warn('Failed to immediately reconcile workspace Yjs access', { workspaceId, error })
-  }
+  await postJsonToSocketServer(
+    `/internal/yjs/workspaces/${encodeURIComponent(workspaceId)}/access-changed`,
+    { ...(userIds ? { userIds } : {}) }
+  )
 }
 
 export async function applyEntityStateInSocketServer(

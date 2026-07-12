@@ -330,11 +330,10 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
         void runDocumentMutation(doc, () => {
           const current = doc.conns.get(conn)
           if (!current) return
-          if (current.accessMode !== 'write') {
-            closeConn(doc, conn)
-            return
-          }
-          applySyncMessage(conn, doc, message)
+          return reconcileConnection(doc, conn, current).then(() => {
+            if (doc.conns.get(conn) !== current) return
+            applySyncMessage(conn, doc, message)
+          })
         }).catch((error) => {
           if (error instanceof YjsDocumentDrainingError) {
             closeConn(doc, conn)
@@ -656,7 +655,8 @@ export async function reconcileWorkspaceConnections(
       checks.push(reconcileConnection(doc, conn, connection))
     }
   }
-  await Promise.all(checks)
+  const results = await Promise.allSettled(checks)
+  for (const result of results) if (result.status === 'rejected') throw result.reason
 }
 
 export function cleanupAllDocuments(): void {
@@ -673,7 +673,6 @@ export function cleanupAllDocuments(): void {
 
 export async function drainAllDocuments(): Promise<void> {
   isDrainingAllDocuments = true
-  if (terminalPersistenceError) throw terminalPersistenceError
   const activeDocuments = Array.from(docs.values())
   for (const doc of activeDocuments) doc.isDraining = true
 
@@ -691,16 +690,18 @@ export async function drainAllDocuments(): Promise<void> {
     })
   )
 
-  if (terminalPersistenceError) throw terminalPersistenceError
-
-  const failedPersistence = persistenceResults.find((result) => result.status === 'rejected')
-  if (failedPersistence?.status === 'rejected') {
-    throw failedPersistence.reason
-  }
+  const retryableFailure = persistenceResults.find(
+    (result) =>
+      result.status === 'rejected' &&
+      (result.reason as { retryable?: unknown })?.retryable !== false
+  )
+  if (retryableFailure?.status === 'rejected') throw retryableFailure.reason
 
   for (const doc of activeDocuments) {
     if (docs.get(doc.name) !== doc) continue
     for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
     if (docs.get(doc.name) === doc) cleanupDocument(doc)
   }
+
+  if (terminalPersistenceError) throw terminalPersistenceError
 }

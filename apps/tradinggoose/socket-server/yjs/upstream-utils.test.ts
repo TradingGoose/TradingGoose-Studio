@@ -46,6 +46,25 @@ class TestSocket extends EventEmitter {
   close = vi.fn()
 }
 
+type TestPersistence = (docId: string, doc: Y.Doc) => Promise<void> | void
+
+function setupWatchlistSocket(
+  socket: TestSocket,
+  docId: string,
+  persist: TestPersistence,
+  debounceMs = 0
+): Y.Doc {
+  setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+    docId,
+    userId: 'user-1',
+    accessMode: 'write',
+    descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
+    onDocumentUpdate: persist,
+    onDocumentUpdateDebounceMs: debounceMs,
+  })
+  return peekDocument(docId)!
+}
+
 function deferred() {
   let resolve!: () => void
   const promise = new Promise<void>((done) => {
@@ -172,11 +191,6 @@ describe('dashboard document persistence queue', () => {
 
 describe('realtime shutdown', () => {
   it('persists an already-queued writer update before closing its socket', async () => {
-    const descriptor = buildSavedEntityDescriptor(
-      'watchlist',
-      'watchlist-queued-drain',
-      'workspace-1'
-    )
     const socket = new TestSocket()
     const gate = deferred()
     const persistenceStarted = deferred()
@@ -185,16 +199,7 @@ describe('realtime shutdown', () => {
       persistenceStarted.resolve()
       await persistence.promise
     })
-    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-queued-drain',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor,
-      onDocumentIdle: persisted,
-      onDocumentUpdate: persisted,
-      onDocumentUpdateDebounceMs: 60_000,
-    })
-    const doc = peekDocument('watchlist-queued-drain')!
+    const doc = setupWatchlistSocket(socket, 'watchlist-queued-drain', persisted, 60_000)
     const blocker = runDocumentMutation(doc, () => gate.promise)
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'received', true)))
     expect(doc.getMap('fields').has('received')).toBe(false)
@@ -221,16 +226,9 @@ describe('realtime shutdown', () => {
     const persist = [vi.fn(), vi.fn().mockRejectedValueOnce(new Error('database offline'))]
     for (const [index, socket] of sockets.entries()) {
       const docId = `watchlist-drain-${index}`
-      setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-        docId,
-        userId: 'user-1',
-        accessMode: 'write',
-        descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
-        onDocumentIdle: persist[index],
-        onDocumentUpdate: persist[index],
-        onDocumentUpdateDebounceMs: 60_000,
-      })
-      peekDocument(docId)!.getMap('fields').set('pending', true)
+      setupWatchlistSocket(socket, docId, persist[index], 60_000)
+        .getMap('fields')
+        .set('pending', true)
     }
 
     await expect(drainAllDocuments()).rejects.toThrow('database offline')
@@ -263,20 +261,16 @@ describe('realtime shutdown', () => {
     })
     const socket = new TestSocket()
     const persist = vi.fn(() => persistence)
-    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-terminal-drain',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor: buildSavedEntityDescriptor(
-        'watchlist',
-        'watchlist-terminal-drain',
-        'workspace-1'
-      ),
-      onDocumentIdle: persist,
-      onDocumentUpdate: persist,
-    })
-    peekDocument('watchlist-terminal-drain')!.getMap('fields').set('invalid', true)
+    setupWatchlistSocket(socket, 'watchlist-terminal-drain', persist)
+      .getMap('fields')
+      .set('invalid', true)
     await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+
+    const unrelatedSocket = new TestSocket()
+    const unrelatedPersist = vi.fn()
+    setupWatchlistSocket(unrelatedSocket, 'watchlist-unrelated-drain', unrelatedPersist, 60_000)
+      .getMap('fields')
+      .set('pending', true)
 
     const draining = drainAllDocuments()
     rejectPersistence(error)
@@ -286,6 +280,9 @@ describe('realtime shutdown', () => {
       'Canonical document rejected'
     )
     expect(peekDocument('watchlist-terminal-drain')).toBeNull()
+    expect(unrelatedPersist).toHaveBeenCalledOnce()
+    expect(unrelatedSocket.close).toHaveBeenCalledOnce()
+    expect(peekDocument('watchlist-unrelated-drain')).toBeNull()
     await expect(drainAllDocuments()).rejects.toBe(error)
   })
 })
@@ -361,22 +358,12 @@ describe('document mutation queue', () => {
   })
 
   it('persists dirty watchlist state after a pending mutation fails during disconnect cleanup', async () => {
-    const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-cleanup', 'workspace-1')
     const socket = new TestSocket()
     const persistedValue = vi.fn()
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
       persistedValue(target.getMap('fields').get('dirty'))
     })
-    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-cleanup',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor,
-      onDocumentIdle: persist,
-      onDocumentUpdate: persist,
-      onDocumentUpdateDebounceMs: 60_000,
-    })
-    const doc = peekDocument('watchlist-cleanup')!
+    const doc = setupWatchlistSocket(socket, 'watchlist-cleanup', persist, 60_000)
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'dirty', true)))
     await vi.waitFor(() => expect(doc.getMap('fields').get('dirty')).toBe(true))
     expect(persist).not.toHaveBeenCalled()
@@ -397,19 +384,11 @@ describe('document mutation queue', () => {
 
 describe('orderly document discard', () => {
   it('rejects new mutations and waits for active mutation and persistence queues', async () => {
-    const descriptor = buildSavedEntityDescriptor('watchlist', 'discard-watchlist', 'workspace-1')
     const socket = new TestSocket()
     const mutationGate = deferred()
     const persistenceGate = deferred()
     const persist = vi.fn(async () => persistenceGate.promise)
-    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'discard-watchlist',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor,
-      onDocumentUpdate: persist,
-    })
-    const doc = peekDocument('discard-watchlist')!
+    const doc = setupWatchlistSocket(socket, 'discard-watchlist', persist)
     const mutation = runDocumentMutation(doc, async () => {
       doc.getMap('fields').set('dirty', true)
       await mutationGate.promise
