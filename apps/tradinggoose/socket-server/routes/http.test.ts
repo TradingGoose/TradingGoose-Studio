@@ -14,6 +14,7 @@ import {
   buildDashboardWidgetReviewBase,
 } from '@/lib/dashboard-layouts/review-base'
 import {
+  readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
   seedDashboardColorPairSession,
@@ -31,6 +32,8 @@ import { createHttpHandler } from './http'
 const mocks = vi.hoisted(() => ({
   saveDashboardWidget: vi.fn(),
   saveDashboardPair: vi.fn(),
+  persistDashboardWidget: vi.fn(),
+  persistDashboardPair: vi.fn(),
   saveEntity: vi.fn(),
   createListBootstrap: vi.fn(),
   createTargetBootstrap: vi.fn(),
@@ -100,6 +103,8 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
   DashboardLayoutOperationError: class DashboardLayoutOperationError extends Error {},
   commitDashboardLayoutStructure: mocks.commitDashboardStructure,
+  persistDashboardWidgetDocument: mocks.persistDashboardWidget,
+  persistDashboardColorPairDocument: mocks.persistDashboardPair,
 }))
 
 vi.mock('@/lib/watchlists/operations', () => ({
@@ -170,6 +175,13 @@ function createPairDoc(context: Record<string, unknown> = {}) {
   return doc
 }
 
+const listing = (listingId: string) => ({
+  listing_type: 'default' as const,
+  listing_id: listingId,
+  base_id: '',
+  quote_id: '',
+})
+
 function setDashboardDocuments(input?: {
   layout?: Y.Doc
   widget?: Y.Doc
@@ -237,6 +249,22 @@ function dashboardProjection(input?: {
       ],
     },
   }
+}
+
+function widgetReviewHash(
+  current: DashboardLayoutProjectionContent,
+  patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch']
+) {
+  const mutation = applyWidgetConfigMutation({
+    widgetKey: 'data_chart',
+    widget: current.widgets['widget-1'],
+    colorPairs: current.colorPairs,
+    panelId: 'panel-1',
+    patch,
+  })
+  return hashServerToolReviewBase(
+    buildDashboardWidgetReviewBase(current, 'panel-1', mutation.reviewBase, patch)
+  )
 }
 
 describe('socket internal HTTP Yjs routes', () => {
@@ -609,16 +637,7 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     const current = dashboardProjection()
     const patch = { params: { view: { interval: '1h' } } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: current.widgets['widget-1'],
-      colorPairs: current.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(current, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -630,9 +649,11 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mocks.saveDashboardWidget).toHaveBeenCalledTimes(1)
-    expect(mocks.saveDashboardWidget.mock.calls[0]?.[0]).toBe('dashboard-widget:layout-1:widget-1')
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.persistDashboardWidget.mock.calls[0]?.slice(1, 3)).toEqual([
+      'layout-1',
+      'widget-1',
+    ])
+    expect(mocks.persistDashboardPair).not.toHaveBeenCalled()
     expect(response.body.content.widgets['widget-1'].params.view).toMatchObject({
       interval: '1h',
       candleType: 'candle_solid',
@@ -640,12 +661,7 @@ describe('socket internal HTTP Yjs routes', () => {
   })
 
   it('persists a shared parameter edit only through the selected pair owner', async () => {
-    const AAPL = {
-      listing_type: 'default',
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-    }
+    const AAPL = listing('AAPL')
     const NVDA = { ...AAPL, listing_id: 'NVDA' }
     setDashboardDocuments({
       widget: createWidgetDoc('red'),
@@ -653,16 +669,7 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     const current = dashboardProjection({ red: { listing: AAPL } })
     const patch = { colorPair: { listing: NVDA } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: current.widgets['widget-1'],
-      colorPairs: current.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(current, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -674,35 +681,23 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mocks.saveDashboardPair).toHaveBeenCalledTimes(1)
-    expect(mocks.saveDashboardPair.mock.calls[0]?.[0]).toBe('dashboard-color-pair:layout-1:red')
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
+    expect(mocks.persistDashboardPair.mock.calls[0]?.slice(1)).toEqual([
+      'layout-1',
+      'red',
+      { listing: NVDA },
+    ])
+    expect(mocks.persistDashboardWidget).not.toHaveBeenCalled()
     expect(response.body.content.colorPairs.pairs[0].listing.listing_id).toBe('NVDA')
   })
 
   it('releases the exact widget and pair documents when child persistence flush fails', async () => {
-    const listing = (listingId: string) => ({
-      listing_type: 'default' as const,
-      listing_id: listingId,
-      base_id: '',
-      quote_id: '',
-    })
     const widgetDoc = createWidgetDoc('red')
     const pairDoc = createPairDoc({ listing: listing('AAPL') })
     setDashboardDocuments({ widget: widgetDoc, red: pairDoc })
     const layoutDoc = documents.get('layout-1')!
     const current = dashboardProjection({ red: { listing: listing('AAPL') } })
     const patch = { colorPair: { listing: listing('NVDA') } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: current.widgets['widget-1'],
-      colorPairs: current.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(current, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
     mocks.flushPersistence.mockImplementation(async (doc: Y.Doc) => {
       if (doc === pairDoc) throw new Error('database offline')
     })
@@ -729,16 +724,7 @@ describe('socket internal HTTP Yjs routes', () => {
     setDashboardDocuments({ widget: widgetDoc })
     const reviewed = dashboardProjection()
     const patch = { params: { view: { interval: '1h' } } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: reviewed.widgets['widget-1'],
-      colorPairs: reviewed.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(reviewed, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
     let injected = false
     mocks.runMutation.mockImplementation(
       async (doc: Y.Doc, queuedMutation: () => Promise<unknown> | unknown) => {
@@ -766,25 +752,24 @@ describe('socket internal HTTP Yjs routes', () => {
       status: 409,
       body: { code: 'stale_server_tool_review' },
     })
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
+    expect(mocks.persistDashboardWidget).not.toHaveBeenCalled()
   })
 
-  it('keeps the live widget unchanged when its independent persistence fails', async () => {
-    const widgetDoc = createWidgetDoc('gray', { view: { interval: '15m' } })
-    setDashboardDocuments({ widget: widgetDoc })
-    const current = dashboardProjection()
-    const patch = { params: { view: { interval: '1h' } } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: current.widgets['widget-1'],
-      colorPairs: current.colorPairs,
-      panelId: 'panel-1',
-      patch,
+  it('keeps both live child documents unchanged when their atomic persistence fails', async () => {
+    const widgetDoc = createWidgetDoc('red', { view: { interval: '15m' } })
+    const pairDoc = createPairDoc({ listing: listing('AAPL') })
+    setDashboardDocuments({ widget: widgetDoc, red: pairDoc })
+    const layoutDoc = documents.get('layout-1')!
+    const current = dashboardProjection({
+      widget: { pairColor: 'red', params: { view: { interval: '15m' } } },
+      red: { listing: listing('AAPL') },
     })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(current, 'panel-1', mutation.reviewBase, patch)
-    )
-    mocks.saveDashboardWidget.mockRejectedValueOnce(new Error('database offline'))
+    const patch = {
+      params: { view: { interval: '1h' } },
+      colorPair: { listing: listing('NVDA') },
+    }
+    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
+    mocks.persistDashboardWidget.mockRejectedValueOnce(new Error('database offline'))
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -796,10 +781,17 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
+    expect(mocks.persistDashboardWidget.mock.calls[0]?.[4]).toEqual({ listing: listing('NVDA') })
     expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toEqual({
       view: { interval: '15m' },
     })
+    expect(readDashboardColorPairDocument(pairDoc).listing?.listing_id).toBe('AAPL')
     expect(mocks.markPersisted).not.toHaveBeenCalled()
+    expect(mocks.runMutation.mock.calls.slice(0, 3).map(([doc]) => doc)).toEqual([
+      layoutDoc,
+      widgetDoc,
+      pairDoc,
+    ])
   })
 
   it('preserves the latest credential represented by a Copilot placeholder', async () => {
@@ -813,16 +805,7 @@ describe('socket internal HTTP Yjs routes', () => {
     setDashboardDocuments({ widget: liveWidget })
     const reviewed = dashboardProjection({ widget: reviewedWidget })
     const patch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget: reviewedWidget,
-      colorPairs: reviewed.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(reviewed, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -834,22 +817,12 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(200)
-    const staged = mocks.saveDashboardWidget.mock.calls[0]?.[1] as Y.Doc
-    expect(
-      (
-        (readDashboardWidgetDocument(staged, 'data_chart').params?.data as Record<string, unknown>)
-          .auth as Record<string, unknown>
-      ).apiKey
-    ).toBe('latest-key')
+    expect(mocks.persistDashboardWidget.mock.calls[0]?.[3]).toMatchObject({
+      params: { data: { auth: { apiKey: 'latest-key' } } },
+    })
   })
 
   it('rejects pair rebinding when the destination pair changed after review', async () => {
-    const listing = (listingId: string) => ({
-      listing_type: 'default' as const,
-      listing_id: listingId,
-      base_id: '',
-      quote_id: '',
-    })
     const widget = { pairColor: 'red' as const, params: null }
     setDashboardDocuments({
       widget: createWidgetDoc('red'),
@@ -862,16 +835,7 @@ describe('socket internal HTTP Yjs routes', () => {
       blue: { listing: listing('MSFT') },
     })
     const patch = { pairColor: 'blue' }
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: 'data_chart',
-      widget,
-      colorPairs: reviewed.colorPairs,
-      panelId: 'panel-1',
-      patch,
-    })
-    const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardWidgetReviewBase(reviewed, 'panel-1', mutation.reviewBase, patch)
-    )
+    const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'widget',
@@ -886,8 +850,8 @@ describe('socket internal HTTP Yjs routes', () => {
       status: 409,
       body: { code: 'stale_server_tool_review' },
     })
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.persistDashboardWidget).not.toHaveBeenCalled()
+    expect(mocks.persistDashboardPair).not.toHaveBeenCalled()
   })
 
   it('waits for orderly discard before acknowledging session deletion', async () => {

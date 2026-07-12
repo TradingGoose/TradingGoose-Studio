@@ -15,9 +15,13 @@ import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
-  throwStaleServerToolReview,
 } from '@/lib/copilot/tools/server/base-tool'
-import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
+import {
+  commitDashboardLayoutStructure,
+  DashboardLayoutOperationError,
+  persistDashboardColorPairDocument,
+  persistDashboardWidgetDocument,
+} from '@/lib/dashboard-layouts/operations'
 import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
@@ -75,7 +79,6 @@ import {
   runDocumentMutation,
   YjsSessionAdmissionError,
 } from '@/socket-server/yjs/upstream-utils'
-import { readPairColorContext } from '@/widgets/color-pairs'
 import {
   applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
@@ -87,7 +90,7 @@ import {
   findDashboardTopologyPanel,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { PAIR_COLORS } from '@/widgets/pair-colors'
+import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -928,136 +931,128 @@ async function handleInternalDashboardEditRequest(
         throw new InvalidInternalYjsRequestError('panelId and patch are required')
       }
       const requestedPatch = body.patch as WidgetConfigMutationPatch
-      const initial = await readDashboardProjectionFromLiveOwners({
-        layoutDoc,
-        layoutId: entityId,
-        workspaceId,
-        ownerUserId,
-      })
-      const panel = findDashboardTopologyPanel(initial.layout, panelId)
-      if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
-      const widget = initial.widgets[panel.identityId]
-      if (!widget) throw new Error(`Dashboard widget ${panel.identityId} is missing`)
-      const initialMutationPatch: WidgetConfigMutationPatch = {
-        pairColor: requestedPatch.pairColor,
-        params:
-          requestedPatch.params === undefined
-            ? undefined
-            : (preserveDashboardLayoutCredentialPlaceholders(
-                requestedPatch.params,
-                widget.params
-              ) as Record<string, unknown> | null),
-        colorPair: requestedPatch.colorPair === undefined ? undefined : requestedPatch.colorPair,
-      }
-      const initialPlan = applyWidgetConfigMutation({
-        widgetKey: panel.widgetKey,
-        widget,
-        colorPairs: initial.colorPairs,
-        panelId,
-        patch: initialMutationPatch,
-      })
-      const widgetDescriptor = buildDashboardWidgetDescriptor({
-        layoutId: entityId,
-        identityId: panel.identityId,
-        workspaceId,
-        ownerUserId,
-      })
-      const widgetDoc = await getBootstrappedApplyDocument(widgetDescriptor)
-      const pairColor = initialPlan.reviewBase.colorPair?.color ?? null
-      const pairDescriptor = pairColor
-        ? buildDashboardColorPairDescriptor({
-            layoutId: entityId,
-            color: pairColor,
-            workspaceId,
-            ownerUserId,
-          })
-        : null
-      let pairDoc: Y.Doc | null = null
-      try {
-        pairDoc = pairDescriptor ? await getBootstrappedApplyDocument(pairDescriptor) : null
-        const applyLockedEdit = async () => {
-          if (pairDoc) await flushDocumentPersistence(pairDoc)
-          await flushDocumentPersistence(widgetDoc)
-          const current = await readDashboardProjectionFromLiveOwners({
-            layoutDoc,
-            layoutId: entityId,
-            workspaceId,
-            ownerUserId,
-          })
-          const currentPanel = findDashboardTopologyPanel(current.layout, panelId)
-          if (
-            !currentPanel?.widgetKey ||
-            currentPanel.identityId !== panel.identityId ||
-            currentPanel.widgetKey !== panel.widgetKey
-          ) {
-            throwStaleServerToolReview()
-          }
-          const currentWidget = current.widgets[currentPanel.identityId]
-          if (!currentWidget)
-            throw new Error(`Dashboard widget ${currentPanel.identityId} is missing`)
-          const mutationPatch: WidgetConfigMutationPatch = {
-            pairColor: requestedPatch.pairColor,
-            params:
-              requestedPatch.params === undefined
-                ? undefined
-                : (preserveDashboardLayoutCredentialPlaceholders(
-                    requestedPatch.params,
-                    currentWidget.params
-                  ) as Record<string, unknown> | null),
-            colorPair:
-              requestedPatch.colorPair === undefined ? undefined : requestedPatch.colorPair,
-          }
-          const planned = applyWidgetConfigMutation({
-            widgetKey: currentPanel.widgetKey,
-            widget: currentWidget,
-            colorPairs: current.colorPairs,
-            panelId,
-            patch: mutationPatch,
-          })
-          assertAcceptedServerToolReviewBase(
-            { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
-            hashServerToolReviewBase(
-              buildDashboardWidgetReviewBase(current, panelId, planned.reviewBase, requestedPatch)
-            )
-          )
-          if ((planned.reviewBase.colorPair?.color ?? null) !== pairColor) {
-            throwStaleServerToolReview()
-          }
-          if (planned.colorPairDiff.length > 0 && pairDoc && pairDescriptor) {
-            const nextContext = readPairColorContext(
-              planned.colorPairs,
-              planned.widgetDocument.pairColor
-            )
-            await applyThroughStaging(
-              pairDoc,
-              (staged) => setDashboardColorPairDocument(staged, nextContext),
-              (staged) => saveDashboardColorPairYjsDocToDb(pairDescriptor.yjsSessionId, staged)
-            )
-          }
-          if (planned.changedPaths.some((path) => path.startsWith('widget.'))) {
-            await applyThroughStaging(
-              widgetDoc,
-              (staged) =>
-                setDashboardWidgetDocument(staged, currentPanel.widgetKey, planned.widgetDocument),
-              (staged) => saveDashboardWidgetYjsDocToDb(widgetDescriptor.yjsSessionId, staged)
-            )
-          }
-        }
-        await runDocumentMutation(layoutDoc, () =>
-          pairDoc
-            ? runDocumentMutation(pairDoc, () => runDocumentMutation(widgetDoc, applyLockedEdit))
-            : runDocumentMutation(widgetDoc, applyLockedEdit)
+      const scope = { workspaceId, ownerUserId }
+
+      committed = await runDocumentMutation(layoutDoc, async () => {
+        await flushDocumentPersistence(layoutDoc)
+        const panel = findDashboardTopologyPanel(
+          readDashboardLayoutDocument(layoutDoc).layout,
+          panelId
         )
-        committed = await readDashboardProjectionFromLiveOwners({
-          layoutDoc,
-          layoutId: entityId,
-          workspaceId,
-          ownerUserId,
-        })
-      } finally {
-        if (pairDoc) discardDocumentIfIdle(pairDoc)
-        discardDocumentIfIdle(widgetDoc)
-      }
+        if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
+        const { identityId, widgetKey } = panel
+        const widgetDoc = await getBootstrappedApplyDocument(
+          buildDashboardWidgetDescriptor({
+            layoutId: entityId,
+            identityId,
+            workspaceId,
+            ownerUserId,
+          })
+        )
+        try {
+          return await runDocumentMutation(widgetDoc, async () => {
+            await flushDocumentPersistence(widgetDoc)
+            const widget = readDashboardWidgetDocument(widgetDoc, widgetKey)
+            const patch: WidgetConfigMutationPatch = { ...requestedPatch }
+            if (patch.params !== undefined) {
+              patch.params = preserveDashboardLayoutCredentialPlaceholders(
+                patch.params,
+                widget.params
+              ) as Record<string, unknown> | null
+            }
+            const pairColor = isPairColor(requestedPatch.pairColor)
+              ? requestedPatch.pairColor
+              : requestedPatch.pairColor === undefined
+                ? widget.pairColor
+                : 'gray'
+            const pairDoc =
+              pairColor === 'gray'
+                ? null
+                : await getBootstrappedApplyDocument(
+                    buildDashboardColorPairDescriptor({
+                      layoutId: entityId,
+                      color: pairColor,
+                      workspaceId,
+                      ownerUserId,
+                    })
+                  )
+            try {
+              const applyLockedEdit = async () => {
+                if (pairDoc) await flushDocumentPersistence(pairDoc)
+                const current = await readDashboardProjectionFromLiveOwners({
+                  layoutDoc,
+                  layoutId: entityId,
+                  workspaceId,
+                  ownerUserId,
+                })
+                const planned = applyWidgetConfigMutation({
+                  widgetKey,
+                  widget,
+                  colorPairs: current.colorPairs,
+                  panelId,
+                  patch,
+                })
+                assertAcceptedServerToolReviewBase(
+                  { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
+                  hashServerToolReviewBase(
+                    buildDashboardWidgetReviewBase(
+                      current,
+                      panelId,
+                      planned.reviewBase,
+                      requestedPatch
+                    )
+                  )
+                )
+                const widgetChanged = planned.changedPaths.some((path) =>
+                  path.startsWith('widget.')
+                )
+                const pairChange = planned.colorPairDiff[0]
+                if (widgetChanged) {
+                  await persistDashboardWidgetDocument(
+                    scope,
+                    entityId,
+                    identityId,
+                    planned.widgetDocument,
+                    pairChange?.after
+                  )
+                } else if (pairChange) {
+                  await persistDashboardColorPairDocument(
+                    scope,
+                    entityId,
+                    pairChange.color,
+                    pairChange.after
+                  )
+                }
+
+                if (widgetChanged) {
+                  setDashboardWidgetDocument(
+                    widgetDoc,
+                    widgetKey,
+                    planned.widgetDocument,
+                    YJS_ORIGINS.SYSTEM
+                  )
+                }
+                if (pairChange && pairDoc) {
+                  setDashboardColorPairDocument(pairDoc, pairChange.after, YJS_ORIGINS.SYSTEM)
+                }
+                return {
+                  ...current,
+                  widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
+                  colorPairs: planned.colorPairs,
+                }
+              }
+
+              return pairDoc
+                ? await runDocumentMutation(pairDoc, applyLockedEdit)
+                : await applyLockedEdit()
+            } finally {
+              if (pairDoc) discardDocumentIfIdle(pairDoc)
+            }
+          })
+        } finally {
+          discardDocumentIfIdle(widgetDoc)
+        }
+      })
     } else {
       throw new InvalidInternalYjsRequestError('Unknown dashboard mutation')
     }
@@ -1076,7 +1071,8 @@ async function handleInternalDashboardEditRequest(
     const status =
       error instanceof InvalidInternalYjsRequestError
         ? 400
-        : error instanceof SavedEntityPersistenceError
+        : error instanceof SavedEntityPersistenceError ||
+            error instanceof DashboardLayoutOperationError
           ? error.status
           : 500
     sendJson(res, status, {

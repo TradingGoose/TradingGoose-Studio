@@ -461,20 +461,58 @@ export async function commitDashboardLayoutStructure(
   return { layout }
 }
 
+async function writeDashboardColorPairDocument(
+  store: DashboardLayoutWriteStore,
+  layoutId: string,
+  color: LinkedPairColor,
+  document: PairColorContext
+): Promise<void> {
+  if (Object.keys(document).length === 0) {
+    await store
+      .delete(layoutPairs)
+      .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))
+    return
+  }
+  await store
+    .insert(layoutPairs)
+    .values({ layoutId, color, context: document })
+    .onConflictDoUpdate({
+      target: [layoutPairs.layoutId, layoutPairs.color],
+      set: { context: document },
+    })
+}
+
 export async function persistDashboardWidgetDocument(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
   identityId: string,
-  content: DashboardWidgetDocument
+  content: DashboardWidgetDocument,
+  selectedColorPairDocument?: PairColorContext
 ): Promise<DashboardWidgetDocument> {
-  await readOwnedLayoutRow(scope, layoutId)
   const normalized = normalizeDashboardWidgetStorageDocument(content)
-  const rows = await db
-    .update(layoutWidgets)
-    .set({ pairColor: normalized.pairColor, params: normalized.params })
-    .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
-    .returning({ id: layoutWidgets.id })
-  if (rows.length === 0) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+  let colorPair: { color: LinkedPairColor; document: PairColorContext } | undefined
+  if (selectedColorPairDocument !== undefined) {
+    if (normalized.pairColor === 'gray') {
+      throw new DashboardLayoutOperationError(400, 'Gray widgets do not own color-pair documents')
+    }
+    colorPair = {
+      color: normalized.pairColor,
+      document: normalizeDashboardColorPairDocument(selectedColorPairDocument),
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await readOwnedLayoutRow(scope, layoutId, tx)
+    const rows = await tx
+      .update(layoutWidgets)
+      .set({ pairColor: normalized.pairColor, params: normalized.params })
+      .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
+      .returning({ id: layoutWidgets.id })
+    if (rows.length === 0)
+      throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+    if (colorPair)
+      await writeDashboardColorPairDocument(tx, layoutId, colorPair.color, colorPair.document)
+  })
   return normalized
 }
 
@@ -489,19 +527,7 @@ export async function persistDashboardColorPairDocument(
     throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
   }
   const normalized = normalizeDashboardColorPairDocument(content)
-  if (Object.keys(normalized).length === 0) {
-    await db
-      .delete(layoutPairs)
-      .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))
-    return normalized
-  }
-  await db
-    .insert(layoutPairs)
-    .values({ layoutId, color, context: normalized })
-    .onConflictDoUpdate({
-      target: [layoutPairs.layoutId, layoutPairs.color],
-      set: { context: normalized },
-    })
+  await writeDashboardColorPairDocument(db, layoutId, color, normalized)
   return normalized
 }
 

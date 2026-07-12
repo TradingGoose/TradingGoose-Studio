@@ -226,15 +226,18 @@ describe('dashboard layout operations', () => {
     ])
   })
 
-  it('persists one widget without touching layout or pair rows', async () => {
+  it('persists a widget and its selected color-pair in one transaction', async () => {
     m.selectResults.push([layoutRow()])
     m.returningResults.push([{ id: 'widget-1' }])
-    await persistDashboardWidgetDocument(scope, 'layout-1', 'widget-1', {
-      pairColor: 'blue',
-      params: { view: { interval: '1h' } },
-    })
-    expect(m.mutations).toHaveLength(1)
-    expect(m.mutations[0]).toMatchObject({ kind: 'update', table: 'layout_widgets' })
+    await persistDashboardWidgetDocument(
+      scope,
+      'layout-1',
+      'widget-1',
+      { pairColor: 'blue', params: { view: { interval: '1h' } } },
+      { watchlistId: 'watchlist-1' }
+    )
+    expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
   })
 
   it('upserts or deletes only the selected color-pair row', async () => {
