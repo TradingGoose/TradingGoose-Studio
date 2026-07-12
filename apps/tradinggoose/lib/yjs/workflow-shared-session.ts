@@ -47,6 +47,7 @@ interface SharedWorkflowSessionEntry {
   listeners: Set<() => void>
   initPromise: Promise<void> | null
   result: YjsProviderBootstrapResult | null
+  isTerminal: boolean
   undoManager: Y.UndoManager | null
   syncUndoState: (() => void) | null
   cleanup: (() => void) | null
@@ -103,12 +104,6 @@ function setEntryState(
   emitChange(entry)
 }
 
-function destroyBootstrappedSession(result: YjsProviderBootstrapResult): void {
-  result.provider.disconnect()
-  result.provider.destroy()
-  result.doc.destroy()
-}
-
 function cancelPendingDestroy(entry: SharedWorkflowSessionEntry): void {
   if (!entry.destroyTimeout) {
     return
@@ -131,10 +126,23 @@ function createSessionEntry(args: {
     listeners: new Set(),
     initPromise: null,
     result: null,
+    isTerminal: false,
     undoManager: null,
     syncUndoState: null,
     cleanup: null,
   }
+}
+
+function disposeWorkflowSessionEntry(entry: SharedWorkflowSessionEntry): void {
+  const result = entry.result
+  entry.cleanup?.()
+  entry.cleanup = null
+  entry.undoManager?.destroy()
+  entry.undoManager = null
+  entry.syncUndoState = null
+  entry.result = null
+  unregisterWorkflowSession(entry.workflowId, result?.doc)
+  result?.dispose()
 }
 
 function ensureSessionEntry(args: {
@@ -170,9 +178,27 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     const result = await bootstrapYjsProvider(descriptor)
 
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
-      destroyBootstrappedSession(result)
+      result.dispose()
       return
     }
+
+    entry.result = result
+    entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
+    void result.lifecycle.then((event) => {
+      if (event.type !== 'terminal-failure' || entry.result !== result) return
+      entry.isTerminal = true
+      disposeWorkflowSessionEntry(entry)
+      setEntryState(entry, {
+        doc: null,
+        provider: null,
+        awareness: null,
+        canUndo: false,
+        canRedo: false,
+        isSynced: false,
+        isLoading: false,
+        error: event.error.message,
+      })
+    })
 
     const undoManager = new Y.UndoManager(
       [
@@ -202,8 +228,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     undoManager.on('stack-cleared', syncUndoState)
     result.provider.on('sync', syncStatus)
 
-    entry.result = result
-    entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
     entry.undoManager = undoManager
     entry.syncUndoState = syncUndoState
     entry.cleanup = () => {
@@ -234,6 +258,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       return
     }
 
+    entry.isTerminal = (error as { retryable?: unknown } | null)?.retryable === false
     setEntryState(entry, {
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to initialize workflow session',
@@ -244,7 +269,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
 }
 
 function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void {
-  if (entry.initPromise || entry.result) {
+  if (entry.isTerminal || entry.initPromise || entry.result) {
     return
   }
 
@@ -273,18 +298,7 @@ function releaseSharedSession(workflowId: string): void {
     currentEntry.destroyTimeout = null
     entries.delete(workflowId)
 
-    currentEntry.cleanup?.()
-    currentEntry.cleanup = null
-    currentEntry.undoManager = null
-    currentEntry.syncUndoState = null
-
-    if (currentEntry.result) {
-      unregisterWorkflowSession(currentEntry.workflowId, currentEntry.result.doc)
-      destroyBootstrappedSession(currentEntry.result)
-      currentEntry.result = null
-    } else {
-      unregisterWorkflowSession(currentEntry.workflowId)
-    }
+    disposeWorkflowSessionEntry(currentEntry)
 
     currentEntry.listeners.clear()
     currentEntry.state = { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE }
@@ -331,13 +345,17 @@ export async function acquireWritableWorkflowSessionLease(args: {
     await entry.initPromise
   }
 
-  if (!entry.result?.doc) {
+  const result = entry.result
+  if (!result) {
     release()
     throw new Error(entry.state.error || 'Failed to initialize workflow Yjs session')
   }
 
   try {
-    await waitForYjsSync(entry.result.provider)
+    await waitForYjsSync(result.provider)
+    if (entry.result !== result) {
+      throw new Error(entry.state.error || 'Workflow Yjs session ended during sync')
+    }
   } catch (error) {
     release()
     throw error
@@ -347,7 +365,7 @@ export async function acquireWritableWorkflowSessionLease(args: {
     session: {
       workflowId: entry.workflowId,
       workspaceId: entry.workspaceId,
-      doc: entry.result.doc,
+      doc: result.doc,
     },
     release,
   }

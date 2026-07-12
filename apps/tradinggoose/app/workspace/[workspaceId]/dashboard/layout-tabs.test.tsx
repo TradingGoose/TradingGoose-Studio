@@ -97,6 +97,15 @@ describe('LayoutTabs', () => {
 
     expect(onRequestRename).toHaveBeenCalledWith('layout-1')
     expect(container.querySelector('input')).toBeNull()
+
+    await renderTabs({ onRequestRename, canMutate: false })
+    expect(
+      Array.from(container.querySelectorAll('button')).every((button) => button.disabled)
+    ).toBe(true)
+    expect(container.querySelector('[data-slot="sortable-item"]')).toHaveAttribute(
+      'data-disabled',
+      'true'
+    )
   })
 
   it('hides the rename action when no rename handler is supplied', async () => {

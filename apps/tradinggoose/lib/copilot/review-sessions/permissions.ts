@@ -106,43 +106,34 @@ async function verifyWorkspaceAccess(
   workspaceId: string,
   accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
-  try {
-    const [workspaceRow] = await db
-      .select({
-        ownerId: workspace.ownerId,
-      })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1)
+  const [workspaceRow] = await db
+    .select({ ownerId: workspace.ownerId })
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1)
 
-    if (!workspaceRow) {
-      logger.warn('Attempt to access non-existent workspace', { userId, workspaceId })
-      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
-    }
-
-    const permissionRows = await db
-      .select({
-        permissionType: permissions.permissionType,
-      })
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-
-    return buildAccessResult({
-      isOwner: workspaceRow.ownerId === userId,
-      userPermission: resolveHighestPermission(permissionRows),
-      workspaceId,
-      accessMode,
-    })
-  } catch (error) {
-    logger.error('Error verifying workspace access', { error, userId, workspaceId, accessMode })
-    return { hasAccess: false, userPermission: null, workspaceId, isOwner: false }
+  if (!workspaceRow) {
+    logger.warn('Attempt to access non-existent workspace', { userId, workspaceId })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
+
+  const permissionRows = await db
+    .select({ permissionType: permissions.permissionType })
+    .from(permissions)
+    .where(
+      and(
+        eq(permissions.entityType, 'workspace'),
+        eq(permissions.entityId, workspaceId),
+        eq(permissions.userId, userId)
+      )
+    )
+
+  return buildAccessResult({
+    isOwner: workspaceRow.ownerId === userId,
+    userPermission: resolveHighestPermission(permissionRows),
+    workspaceId,
+    accessMode,
+  })
 }
 
 async function verifyDraftReviewSessionAccess(
@@ -307,25 +298,20 @@ export async function verifyWorkflowAccess(
   workflowId: string,
   accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
-  try {
-    const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    if (!accessContext) {
-      logger.warn('Attempt to access non-existent workflow', { userId, workflowId })
-      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
-    }
-
-    return buildAccessResult({
-      isOwner: accessContext.isOwner,
-      userPermission: accessContext.isWorkspaceOwner
-        ? 'admin'
-        : (accessContext.workspacePermission ?? null),
-      workspaceId: accessContext.workflow.workspaceId ?? null,
-      accessMode,
-    })
-  } catch (error) {
-    logger.error('Error verifying workflow access', { error, userId, workflowId, accessMode })
+  const accessContext = await readWorkflowAccessContext(workflowId, userId)
+  if (!accessContext) {
+    logger.warn('Attempt to access non-existent workflow', { userId, workflowId })
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
+
+  return buildAccessResult({
+    isOwner: accessContext.isOwner,
+    userPermission: accessContext.isWorkspaceOwner
+      ? 'admin'
+      : (accessContext.workspacePermission ?? null),
+    workspaceId: accessContext.workflow.workspaceId ?? null,
+    accessMode,
+  })
 }
 
 export async function verifyReviewTargetAccess(

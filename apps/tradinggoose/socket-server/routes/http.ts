@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
@@ -10,6 +11,7 @@ import {
   isEntityListSessionId,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
+import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import {
@@ -42,12 +44,7 @@ import {
   setDashboardLayoutTopology,
   setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
-import {
-  getEntityFields,
-  getEntityOwnerUserId,
-  getEntityWorkspaceId,
-  seedEntitySession,
-} from '@/lib/yjs/entity-session'
+import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
   saveDashboardColorPairYjsDocToDb,
@@ -57,7 +54,6 @@ import {
 import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
-  getRuntimeStateFromDoc,
   reseedEntityListSessionFromDb,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -87,6 +83,7 @@ import {
   type DashboardLayoutProjectionContent,
   type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
+  DashboardLayoutValidationError,
   findDashboardTopologyPanel,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
@@ -134,6 +131,7 @@ type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'
 
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
+  workspaceId: string
   fields: Record<string, any>
   expectedReviewBaseStateHash?: string
   identity?: SavedEntityIdentityMutation
@@ -295,6 +293,7 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   const unsupportedField = Object.keys(candidate).find(
     (key) =>
       key !== 'entityKind' &&
+      key !== 'workspaceId' &&
       key !== 'fields' &&
       key !== 'expectedReviewBaseStateHash' &&
       key !== 'identity'
@@ -322,6 +321,9 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   ) {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
+  if (typeof candidate.workspaceId !== 'string' || !candidate.workspaceId.trim()) {
+    throw new InvalidInternalYjsRequestError('workspaceId is required')
+  }
 
   const expectedReviewBaseStateHash =
     candidate.expectedReviewBaseStateHash === undefined
@@ -337,6 +339,7 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
 
   return {
     entityKind: candidate.entityKind,
+    workspaceId: candidate.workspaceId.trim(),
     fields: candidate.fields as Record<string, any>,
     ...(expectedReviewBaseStateHash ? { expectedReviewBaseStateHash } : {}),
     ...(identity ? { identity } : {}),
@@ -403,25 +406,14 @@ function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest):
 
 async function refreshSavedEntityListDoc(
   entityKind: SavedEntityKind,
-  entityDoc: Y.Doc
+  workspaceId: string
 ): Promise<void> {
-  const workspaceId = getEntityWorkspaceId(entityDoc)
-  const ownerUserId = getEntityOwnerUserId(entityDoc)
-  if (!workspaceId) return
-
-  const descriptor = buildEntityListDescriptor(entityKind, workspaceId, {
-    ownerUserId,
-  })
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
   const listDoc = await getExistingDocument(descriptor.yjsSessionId)
   if (!listDoc) return
 
   try {
-    await reseedEntityListSessionFromDb(
-      listDoc,
-      entityKind,
-      workspaceId,
-      typeof ownerUserId === 'string' ? ownerUserId : null
-    )
+    await reseedEntityListSessionFromDb(listDoc, entityKind, workspaceId, null)
     markDocumentPersisted(listDoc)
     discardDocumentIfIdle(listDoc)
   } catch {
@@ -433,6 +425,7 @@ async function applySavedEntityThroughStaging(input: {
   doc: Y.Doc
   entityId: string
   entityKind: SavedEntityKind
+  workspaceId: string
   identity?: SavedEntityIdentityMutation
   validate?: (current: Y.Doc) => void
   mutate: (staged: Y.Doc) => void
@@ -449,11 +442,12 @@ async function applySavedEntityThroughStaging(input: {
       saveSavedEntityYjsDocToDb(
         input.entityKind,
         input.entityId,
+        input.workspaceId,
         staged,
         input.identity ? { identity: input.identity } : undefined
       )
   )
-  await refreshSavedEntityListDoc(input.entityKind, input.doc)
+  await refreshSavedEntityListDoc(input.entityKind, input.workspaceId)
   return persisted
 }
 
@@ -559,7 +553,7 @@ async function handleInternalYjsEntityApplyRequest(
         error instanceof Error ? error.message : 'Invalid saved entity fields'
       )
     }
-    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
+    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, body.workspaceId)
     const doc = await getBootstrappedApplyDocument(descriptor)
     cleanupDoc = doc
     const persistedFields = await runDocumentMutation(doc, () =>
@@ -567,6 +561,7 @@ async function handleInternalYjsEntityApplyRequest(
         doc,
         entityId,
         entityKind: body.entityKind,
+        workspaceId: body.workspaceId,
         identity: body.identity,
         validate: body.expectedReviewBaseStateHash
           ? (current) =>
@@ -654,9 +649,6 @@ async function handleInternalWatchlistImportRequest(
     const doc = await getBootstrappedApplyDocument(descriptor)
     cleanupDoc = doc
     const committed = await runDocumentMutation(doc, async () => {
-      if (getEntityWorkspaceId(doc) !== workspaceId) {
-        throw new WatchlistOperationError('Watchlist not found', 404)
-      }
       await flushDocumentPersistence(doc)
       const persisted = await applyThroughStaging(
         doc,
@@ -667,7 +659,7 @@ async function handleInternalWatchlistImportRequest(
           }),
         () => importWatchlistDocument({ workspaceId }, entityId, fields)
       )
-      await refreshSavedEntityListDoc('watchlist', doc)
+      await refreshSavedEntityListDoc('watchlist', workspaceId)
       return persisted
     })
 
@@ -811,8 +803,8 @@ async function commitDashboardStructurePlan(input: {
         ownerUserId: input.ownerUserId,
       }).yjsSessionId
   )
-  const deletionLeaseId =
-    removedSessionIds.length > 0 ? await beginYjsSessionDeletion(removedSessionIds) : null
+  const deletionLeaseId = removedSessionIds.length > 0 ? randomUUID() : null
+  if (deletionLeaseId) await beginYjsSessionDeletion(deletionLeaseId, removedSessionIds)
 
   try {
     await applyThroughStaging(
@@ -1074,7 +1066,9 @@ async function handleInternalDashboardEditRequest(
         : error instanceof SavedEntityPersistenceError ||
             error instanceof DashboardLayoutOperationError
           ? error.status
-          : 500
+          : error instanceof DashboardLayoutValidationError
+            ? 400
+            : 500
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
     })
@@ -1133,7 +1127,13 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       Y.applyUpdate(submitted, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       await runDocumentMutation(doc, async () => {
         if (!descriptor.entityId || entityKind === 'workflow') return
+        const scope =
+          descriptor.workspaceId && descriptor.ownerUserId
+            ? { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
+            : null
         if (entityKind === 'dashboard_widget') {
+          if (!scope)
+            throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
           const content = readDashboardWidgetDocument(submitted)
           await flushDocumentPersistence(doc)
           await applyThroughStaging(
@@ -1142,12 +1142,14 @@ async function handleInternalYjsSessionApplyUpdateRequest(
               seedDashboardWidgetSession(staged, content, YJS_ORIGINS.SAVE)
               clearSessionReseededFromCanonical(staged)
             },
-            (staged) => saveDashboardWidgetYjsDocToDb(descriptor.yjsSessionId, staged)
+            (staged) => saveDashboardWidgetYjsDocToDb(descriptor.yjsSessionId, scope, staged)
           )
           return
         }
 
         if (entityKind === 'dashboard_color_pair') {
+          if (!scope)
+            throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
           const content = readDashboardColorPairDocument(submitted)
           await flushDocumentPersistence(doc)
           await applyThroughStaging(
@@ -1156,16 +1158,20 @@ async function handleInternalYjsSessionApplyUpdateRequest(
               seedDashboardColorPairSession(staged, content, YJS_ORIGINS.SAVE)
               clearSessionReseededFromCanonical(staged)
             },
-            (staged) => saveDashboardColorPairYjsDocToDb(descriptor.yjsSessionId, staged)
+            (staged) => saveDashboardColorPairYjsDocToDb(descriptor.yjsSessionId, scope, staged)
           )
           return
         }
 
         const fields = getEntityFields(submitted, entityKind)
+        if (!descriptor.workspaceId) {
+          throw new InvalidInternalYjsRequestError('Saved entity workspace is required')
+        }
         await applySavedEntityThroughStaging({
           doc,
           entityId: descriptor.entityId,
           entityKind,
+          workspaceId: descriptor.workspaceId,
           identity,
           mutate: (staged) =>
             seedEntitySession(staged, { entityKind, payload: fields }, YJS_ORIGINS.SAVE),
@@ -1274,7 +1280,7 @@ async function handleInternalYjsSnapshotRequest(
     sendJson(res, 200, {
       snapshotBase64: Buffer.from(state).toString('base64'),
       descriptor,
-      runtime: getRuntimeStateFromDoc(liveDoc),
+      runtime: getReviewTargetRuntimeState(liveDoc),
       touchedAt: null,
     })
   } catch (error) {
@@ -1314,11 +1320,14 @@ async function handleInternalYjsDeletionBeginRequest(
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
       throw new InvalidInternalYjsRequestError('Invalid Yjs deletion lease body')
     }
-    const sessionIds = (raw as Record<string, unknown>).sessionIds
+    const { leaseId, sessionIds } = raw as Record<string, unknown>
+    if (typeof leaseId !== 'string' || !leaseId.trim()) {
+      throw new InvalidInternalYjsRequestError('leaseId is required')
+    }
     if (!Array.isArray(sessionIds) || !sessionIds.every((value) => typeof value === 'string')) {
       throw new InvalidInternalYjsRequestError('sessionIds must be an array of strings')
     }
-    const leaseId = await beginYjsSessionDeletion(sessionIds)
+    await beginYjsSessionDeletion(leaseId, sessionIds)
     sendJson(res, 200, { leaseId })
   } catch (error) {
     logger.error('Failed to begin Yjs deletion lease', { error })
@@ -1334,20 +1343,9 @@ async function handleInternalYjsDeletionBeginRequest(
   }
 }
 
-function handleInternalYjsDeletionCommitRequest(
-  res: ServerResponse,
-  logger: Logger,
-  leaseId: string
-): void {
-  try {
-    commitYjsSessionDeletion(leaseId)
-    sendJson(res, 200, { success: true })
-  } catch (error) {
-    logger.error('Failed to commit Yjs deletion lease', { error, leaseId })
-    sendJson(res, 409, {
-      error: error instanceof Error ? error.message : 'Failed to commit Yjs deletion lease',
-    })
-  }
+function handleInternalYjsDeletionCommitRequest(res: ServerResponse, leaseId: string): void {
+  commitYjsSessionDeletion(leaseId)
+  sendJson(res, 200, { success: true })
 }
 
 function handleInternalYjsDeletionAbortRequest(res: ServerResponse, leaseId: string): void {
@@ -1478,7 +1476,7 @@ async function handleInternalYjsRequest(
     req.method
   )
   if (commitDeletionLeaseId) {
-    handleInternalYjsDeletionCommitRequest(res, logger, commitDeletionLeaseId)
+    handleInternalYjsDeletionCommitRequest(res, commitDeletionLeaseId)
     return true
   }
 

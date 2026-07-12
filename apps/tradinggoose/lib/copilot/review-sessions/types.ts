@@ -29,6 +29,9 @@ export const YJS_DOCUMENT_KINDS = [
 export type YjsDocumentKind = (typeof YJS_DOCUMENT_KINDS)[number]
 export type ReviewAccessMode = 'read' | 'write'
 
+export const YJS_CLOSE_CODE_AUTHORIZATION_REVOKED = 4403
+export const YJS_CLOSE_CODE_DOCUMENT_REJECTED = 4410
+
 export interface ReviewTargetDescriptor {
   workspaceId: string | null
   ownerUserId?: string | null

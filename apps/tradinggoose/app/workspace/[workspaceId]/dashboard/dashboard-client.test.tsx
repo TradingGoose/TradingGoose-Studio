@@ -41,10 +41,12 @@ let mockSearchParams = 'panel=left'
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockLayoutTabsIsBusy = false
+let mockLayoutTabsCanMutate = true
 let mockDashboardLayoutList: {
   layouts: LayoutTab[]
   isLoading: boolean
   error: unknown
+  isTerminalError?: boolean
 } | null = null
 let mockLayoutDocumentState: {
   doc: Y.Doc | null
@@ -52,6 +54,7 @@ let mockLayoutDocumentState: {
   isProviderReady: boolean
   isLoading: boolean
   error: unknown
+  isTerminalError?: boolean
 } | null = null
 let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
 let mockDocuments = new Set<Y.Doc>()
@@ -190,13 +193,16 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
     layouts,
     onSelect,
     isBusy,
+    canMutate,
   }: {
     layouts: LayoutTab[]
     onSelect: (layoutId: string) => void
     isBusy: boolean
+    canMutate: boolean
   }) => {
     mockLayoutTabsLayouts = layouts
     mockLayoutTabsIsBusy = isBusy
+    mockLayoutTabsCanMutate = canMutate
     mockSelectLayout = onSelect
     return <div data-testid='layout-tabs' />
   },
@@ -298,6 +304,7 @@ describe('DashboardClient', () => {
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockLayoutTabsIsBusy = false
+    mockLayoutTabsCanMutate = true
     mockDashboardLayoutList = null
     mockLayoutDocumentState = null
     mockTopologyDocuments = new WeakMap()
@@ -552,87 +559,95 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('keeps activation busy until the selected list entry and its layout document are ready', async () => {
-    let resolveActivation: (() => void) | null = null
-    dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveActivation = resolve
+  it.each(['success', 'list', 'document'] as const)(
+    'settles activation only after the %s resolution',
+    async (resolution) => {
+      let resolveActivation!: () => void
+      dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          resolveActivation = resolve
+        })
+      )
+      const render = () =>
+        root.render(
+          <DashboardClient
+            initialTopology={createPanelLayout('panel-a', 'wf-a')}
+            workspaceId='ws-a'
+            ownerUserId='user-a'
+            layoutId='layout-a'
+            initialLayouts={createLayouts('layout-a')}
+            {...dashboardPermissions}
+          />
+        )
+      await act(async () => render())
+      await act(async () => {
+        void mockSelectLayout?.('layout-b')
+        await Promise.resolve()
       })
-    )
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
+      expect(mockLayoutTabsIsBusy).toBe(true)
 
-    await act(async () => {
-      mockSelectLayout?.('layout-b')
-      await Promise.resolve()
-    })
-    expect(mockLayoutTabsIsBusy).toBe(true)
+      if (resolution === 'list') {
+        mockDashboardLayoutList = {
+          layouts: createLayouts('layout-a'),
+          isLoading: false,
+          error: new Error('list unavailable'),
+          isTerminalError: true,
+        }
+        await act(async () => render())
+        expect(mockLayoutTabsIsBusy).toBe(false)
+        expect(mockLayoutTabsCanMutate).toBe(false)
+        expect(
+          container
+            .querySelector('[data-testid^="widget-surface-"]')
+            ?.getAttribute('data-can-write')
+        ).toBe('false')
+        await act(async () => resolveActivation())
+        expect(mockLayoutTabsIsBusy).toBe(false)
+        return
+      }
 
-    await act(async () => {
-      resolveActivation?.()
-      await Promise.resolve()
-    })
-    expect(mockLayoutTabsIsBusy).toBe(true)
+      await act(async () => resolveActivation())
+      expect(mockLayoutTabsIsBusy).toBe(true)
+      mockDashboardLayoutList = {
+        layouts: createLayouts('layout-b'),
+        isLoading: false,
+        error: null,
+      }
+      mockLayoutDocumentState = {
+        doc: null,
+        topology: null,
+        isProviderReady: false,
+        isLoading: true,
+        error: null,
+      }
+      await act(async () => render())
+      expect(mockLayoutTabsIsBusy).toBe(true)
 
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      isLoading: false,
-      error: null,
+      if (resolution === 'document') {
+        mockLayoutDocumentState = {
+          ...mockLayoutDocumentState,
+          isLoading: false,
+          error: new Error('document unavailable'),
+          isTerminalError: true,
+        }
+        await act(async () => render())
+        expect(mockLayoutTabsIsBusy).toBe(false)
+        expect(mockLayoutTabsCanMutate).toBe(false)
+        return
+      }
+
+      const nextTopology = createPanelLayout('panel-b', 'wf-b')
+      mockLayoutDocumentState = {
+        doc: mockTopologyDocuments.get(nextTopology) ?? null,
+        topology: nextTopology,
+        isProviderReady: true,
+        isLoading: false,
+        error: null,
+      }
+      await act(async () => render())
+      expect(mockLayoutTabsIsBusy).toBe(false)
     }
-    mockLayoutDocumentState = {
-      doc: null,
-      topology: null,
-      isProviderReady: false,
-      isLoading: true,
-      error: null,
-    }
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-    expect(mockLayoutTabsIsBusy).toBe(true)
-
-    const nextTopology = createPanelLayout('panel-b', 'wf-b')
-    mockLayoutDocumentState = {
-      doc: mockTopologyDocuments.get(nextTopology) ?? null,
-      topology: nextTopology,
-      isProviderReady: true,
-      isLoading: false,
-      error: null,
-    }
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-      await Promise.resolve()
-    })
-    expect(mockLayoutTabsIsBusy).toBe(false)
-  })
+  )
 
   it('clears activation busy state when the action rejects', async () => {
     dashboardClientMocks.activateDashboardLayoutAction.mockRejectedValueOnce(
@@ -656,53 +671,6 @@ describe('DashboardClient', () => {
 
     expect(mockLayoutTabsIsBusy).toBe(false)
     consoleError.mockRestore()
-  })
-
-  it('keeps mutations disabled when target convergence errors after activation succeeds', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-    await act(async () => {
-      mockSelectLayout?.('layout-b')
-      await Promise.resolve()
-    })
-
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      isLoading: false,
-      error: new Error('list unavailable'),
-    }
-    mockLayoutDocumentState = {
-      doc: null,
-      topology: null,
-      isProviderReady: false,
-      isLoading: false,
-      error: new Error('document unavailable'),
-    }
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(mockLayoutTabsIsBusy).toBe(true)
-    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
   })
 
   it('does not write selected layout identity into the dashboard URL', async () => {

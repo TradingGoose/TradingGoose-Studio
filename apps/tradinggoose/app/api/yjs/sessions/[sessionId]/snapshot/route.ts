@@ -47,19 +47,13 @@ async function authorizeYjsSnapshotRequest(
     return { response: NextResponse.json({ error: 'Session ID mismatch' }, { status: 409 }) }
   }
 
-  const access = await verifyReviewTargetAccess(
-    session.user.id,
-    {
-      entityKind: descriptor.entityKind,
-      entityId: descriptor.entityId,
-      draftSessionId: descriptor.draftSessionId,
-      reviewSessionId: descriptor.reviewSessionId,
-      workspaceId: descriptor.workspaceId,
-      ownerUserId: descriptor.ownerUserId ?? null,
-      yjsSessionId: descriptor.yjsSessionId,
-    },
-    accessMode
+  const access = await verifyReviewTargetAccess(session.user.id, descriptor, accessMode).catch(
+    () => null
   )
+
+  if (!access) {
+    return { response: NextResponse.json({ error: 'Authorization unavailable' }, { status: 503 }) }
+  }
 
   if (!access.hasAccess) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
@@ -68,7 +62,13 @@ async function authorizeYjsSnapshotRequest(
   return {
     descriptor: {
       ...descriptor,
-      workspaceId: access.workspaceId ?? descriptor.workspaceId,
+      workspaceId: access.workspaceId,
+      ownerUserId:
+        descriptor.entityKind === 'dashboard_layout' ||
+        descriptor.entityKind === 'dashboard_widget' ||
+        descriptor.entityKind === 'dashboard_color_pair'
+          ? session.user.id
+          : null,
     },
   }
 }

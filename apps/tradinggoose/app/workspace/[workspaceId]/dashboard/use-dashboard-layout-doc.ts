@@ -47,8 +47,11 @@ export function useDashboardLayoutList(
   workspaceId: string | null | undefined,
   ownerUserId: string | null | undefined
 ) {
-  const { members, isLoading, error } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
-  return { layouts: useMemo(() => members.map(toLayoutListEntry), [members]), isLoading, error }
+  const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
+  return {
+    layouts: useMemo(() => members.map(toLayoutListEntry), [members]),
+    ...session,
+  }
 }
 
 const snapshotsEqual = (
@@ -64,7 +67,7 @@ export function useDashboardLayoutDocument(input: {
   layoutId: string | null | undefined
   initialTopology?: DashboardLayoutTopologyNode | null
 }) {
-  const { doc, isLoading, error } = useSavedEntityYjsSession(
+  const { doc, isLoading, error, isTerminalError } = useSavedEntityYjsSession(
     'dashboard_layout',
     input.layoutId,
     input.workspaceId,
@@ -142,6 +145,7 @@ export function useDashboardLayoutDocument(input: {
     isProviderReady: Boolean(doc),
     isLoading,
     error,
+    isTerminalError,
     updateGroupSizes,
     splitPanel,
     closePanel,

@@ -3,7 +3,7 @@ import { loadWorkspaceEntityMentionItems } from './workspace-entity-mentions'
 
 const m = vi.hoisted(() => ({
   bootstrapYjsProvider: vi.fn(),
-  disposeYjsProvider: vi.fn(),
+  dispose: vi.fn(),
   getEntityListMembers: vi.fn(),
   providerDisconnect: vi.fn(),
   providerDestroy: vi.fn(),
@@ -12,7 +12,6 @@ const m = vi.hoisted(() => ({
 
 vi.mock('@/lib/yjs/provider', () => ({
   bootstrapYjsProvider: m.bootstrapYjsProvider,
-  disposeYjsProvider: m.disposeYjsProvider,
 }))
 
 vi.mock('@/lib/yjs/entity-session', () => ({
@@ -24,12 +23,13 @@ describe('loadWorkspaceEntityMentionItems Yjs lists', () => {
     vi.clearAllMocks()
     m.bootstrapYjsProvider.mockResolvedValue({
       doc: { destroy: m.docDestroy },
+      dispose: m.dispose,
       provider: {
         disconnect: m.providerDisconnect,
         destroy: m.providerDestroy,
       },
     })
-    m.disposeYjsProvider.mockImplementation(() => {
+    m.dispose.mockImplementation(() => {
       m.providerDisconnect()
       m.providerDestroy()
       m.docDestroy()

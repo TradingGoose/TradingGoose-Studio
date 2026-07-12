@@ -367,6 +367,7 @@ export async function applyKnowledgeBaseMetadata(
   await applySavedEntityState(
     ENTITY_KIND_KNOWLEDGE_BASE,
     knowledgeBaseId,
+    existing.workspaceId,
     {
       description: fields.description,
       chunkingConfig: fields.chunkingConfig,

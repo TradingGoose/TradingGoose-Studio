@@ -8,6 +8,7 @@ import {
   provisionDashboardLayoutForWorkspaceUserInTx,
   readActiveDashboardLayoutProjection,
   readPersistedDashboardLayoutProjection,
+  readPersistedDashboardWidgetDocument,
 } from '@/lib/dashboard-layouts/operations'
 
 const m = vi.hoisted(() => {
@@ -238,6 +239,26 @@ describe('dashboard layout operations', () => {
     )
     expect(m.transaction).toHaveBeenCalledOnce()
     expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
+    m.mutations.length = 0
+    const invalidWidget = { pairColor: 'blue' as const, params: { watchlistId: 'watchlist-1' } }
+    m.selectResults.push([layoutRow()])
+    await expect(
+      persistDashboardWidgetDocument(scope, 'layout-1', 'widget-1', invalidWidget)
+    ).rejects.toThrow(/does not support this field/i)
+    expect(m.mutations).toEqual([])
+    m.selectResults.push([layoutRow()])
+    await expect(
+      persistDashboardWidgetDocument(scope, 'layout-1', 'orphan-widget', invalidWidget)
+    ).rejects.toThrow(/widget binding not found/i)
+    expect(m.mutations).toEqual([])
+
+    m.selectResults.push(
+      [layoutRow()],
+      [{ id: 'widget-1', layoutId: 'layout-1', ...invalidWidget }]
+    )
+    await expect(
+      readPersistedDashboardWidgetDocument(scope, 'layout-1', 'widget-1')
+    ).rejects.toThrow(/does not support this field/i)
   })
 
   it('upserts or deletes only the selected color-pair row', async () => {

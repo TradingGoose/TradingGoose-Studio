@@ -57,6 +57,9 @@ describe('dashboard layout Yjs snapshot route', () => {
       }),
       'read'
     )
+
+    mocks.verify.mockRejectedValueOnce(new Error('database unavailable'))
+    expect((await getSnapshot('user-1'))?.status).toBe(503)
   })
 
   it('rejects dashboard layout snapshots without owner scope', async () => {

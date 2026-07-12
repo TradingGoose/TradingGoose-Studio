@@ -107,6 +107,18 @@ describe('review session permissions', () => {
 
   it('derives saved entity workspace from the canonical entity', async () => {
     mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
+    mockDb.select.mockImplementationOnce(() => {
+      throw new Error('database unavailable')
+    })
+    await expect(
+      verifyReviewTargetAccess(
+        'collaborator-1',
+        { entityKind: 'skill', entityId: 'skill-1', workspaceId: 'workspace-1' },
+        'read'
+      )
+    ).rejects.toThrow('database unavailable')
+
+    mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
     mockDb.select
       .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
       .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
@@ -386,6 +398,10 @@ describe('review session permissions', () => {
   })
 
   it('treats canonical workspace owners as workflow admins without permission rows', async () => {
+    mockReadWorkflowAccessContext.mockRejectedValueOnce(new Error('database unavailable'))
+    await expect(verifyWorkflowAccess('owner-1', 'workflow-1', 'write')).rejects.toThrow(
+      'database unavailable'
+    )
     mockReadWorkflowAccessContext.mockResolvedValueOnce({
       workflow: {
         id: 'workflow-1',

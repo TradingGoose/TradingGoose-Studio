@@ -268,7 +268,7 @@ export function DashboardClient({
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const [pendingActivation, setPendingActivation] = useState<{
     layoutId: string
-    actionSettled: boolean
+    phase: 'activating' | 'loading'
   } | null>(null)
   const skipLayoutRef = useRef<Set<string>>(new Set())
   const isCreatingLayoutRef = useRef(false)
@@ -304,23 +304,39 @@ export function DashboardClient({
     initialTopology: activeInitialTopology,
   })
   const rawTree = layoutDocument.topology
+  const hasLayoutFailure = Boolean(dashboardLayoutList.error || layoutDocument.error)
+  const canMutateLayouts = !hasLayoutFailure
   const canEditContent =
     !pendingActivation &&
+    canMutateLayouts &&
     layoutDocument.isProviderReady &&
     rawTree !== null &&
     activeLayoutId !== null
 
   useEffect(() => {
     if (!pendingActivation) return
+    if (dashboardLayoutList.isTerminalError || layoutDocument.isTerminalError) {
+      setPendingActivation(null)
+      return
+    }
     if (
-      pendingActivation.actionSettled &&
+      pendingActivation.phase === 'loading' &&
       activeLayoutId === pendingActivation.layoutId &&
       layoutDocument.isProviderReady &&
-      rawTree !== null
+      rawTree !== null &&
+      !hasLayoutFailure
     ) {
       setPendingActivation(null)
     }
-  }, [activeLayoutId, layoutDocument.isProviderReady, pendingActivation, rawTree])
+  }, [
+    activeLayoutId,
+    dashboardLayoutList.isTerminalError,
+    hasLayoutFailure,
+    layoutDocument.isProviderReady,
+    layoutDocument.isTerminalError,
+    pendingActivation,
+    rawTree,
+  ])
 
   useEffect(() => {
     skipLayoutRef.current.clear()
@@ -399,15 +415,16 @@ export function DashboardClient({
     [canEditContent, layoutDocument.updateGroupSizes]
   )
 
+  const canWriteNestedEntities = workspaceCanWrite && canEditContent
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
       dashboardLayoutId: activeLayoutId ?? undefined,
       dashboardLayoutName: listActiveLayout?.name,
       dashboardLayoutOwnerUserId: ownerUserId,
-      canWrite: workspaceCanWrite,
+      canWrite: canWriteNestedEntities,
     }),
-    [activeLayoutId, listActiveLayout?.name, ownerUserId, workspaceCanWrite, workspaceId]
+    [activeLayoutId, canWriteNestedEntities, listActiveLayout?.name, ownerUserId, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -530,24 +547,31 @@ export function DashboardClient({
 
   const handleSelectLayout = useCallback(
     async (nextLayoutId: string) => {
-      if (!nextLayoutId || nextLayoutId === activeLayoutId || pendingActivation) return
-      setPendingActivation({ layoutId: nextLayoutId, actionSettled: false })
+      if (
+        !canMutateLayouts ||
+        !nextLayoutId ||
+        nextLayoutId === activeLayoutId ||
+        pendingActivation
+      )
+        return
+      setPendingActivation({ layoutId: nextLayoutId, phase: 'activating' })
 
       try {
         await activateDashboardLayoutAction(workspaceId, nextLayoutId)
         setPendingActivation((current) =>
-          current?.layoutId === nextLayoutId ? { ...current, actionSettled: true } : current
+          current?.layoutId === nextLayoutId ? { ...current, phase: 'loading' } : current
         )
       } catch (error) {
         console.error('Failed to switch layout:', error)
         setPendingActivation(null)
       }
     },
-    [activeLayoutId, pendingActivation, workspaceId]
+    [activeLayoutId, canMutateLayouts, pendingActivation, workspaceId]
   )
 
   const handleRenameLayout = useCallback(
     async (layoutId: string, name: string) => {
+      if (!canMutateLayouts) return
       try {
         await renameSavedEntityAction({
           entityKind: 'dashboard_layout',
@@ -559,33 +583,33 @@ export function DashboardClient({
         console.error('Failed to rename layout:', error)
       }
     },
-    [workspaceId]
+    [canMutateLayouts, workspaceId]
   )
 
   const handleDeleteLayout = useCallback(
     async (layoutId: string) => {
+      if (!canMutateLayouts) return
       try {
         await deleteDashboardLayoutAction(workspaceId, layoutId)
       } catch (error) {
         console.error('Failed to delete layout:', error)
       }
     },
-    [workspaceId]
+    [canMutateLayouts, workspaceId]
   )
 
   const handleReorderLayouts = useCallback(
     (layoutId: string, targetIndex: number) => {
+      if (!canMutateLayouts) return
       reorderDashboardLayoutAction(workspaceId, layoutId, targetIndex).catch((error) => {
         console.error('Failed to reorder layouts:', error)
       })
     },
-    [workspaceId]
+    [canMutateLayouts, workspaceId]
   )
 
   const handleAddLayout = useCallback(async () => {
-    if (isCreatingLayoutRef.current) {
-      return
-    }
+    if (!canMutateLayouts || isCreatingLayoutRef.current) return
 
     isCreatingLayoutRef.current = true
     setIsCreatingLayout(true)
@@ -598,7 +622,7 @@ export function DashboardClient({
       isCreatingLayoutRef.current = false
       setIsCreatingLayout(false)
     }
-  }, [workspaceId])
+  }, [canMutateLayouts, workspaceId])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
@@ -709,6 +733,7 @@ export function DashboardClient({
     <LayoutTabs
       layouts={layouts}
       isBusy={isCreatingLayout || pendingActivation !== null}
+      canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
       onReorder={handleReorderLayouts}
       onCreate={handleAddLayout}

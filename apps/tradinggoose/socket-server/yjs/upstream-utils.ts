@@ -3,11 +3,10 @@
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
  * needs: `getDocument`, `getExistingDocument`, `peekDocument`,
- * `setupWSConnection`, `removeDocument`, `discardDocument`, and
+ * `setupWSConnection`, `discardDocument`, and
  * `cleanupAllDocuments`.
  */
 
-import { randomUUID } from 'crypto'
 import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
@@ -16,7 +15,12 @@ import * as encoding from 'lib0/encoding'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { ReviewAccessMode, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import {
+  type ReviewAccessMode,
+  type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
+  YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+} from '@/lib/copilot/review-sessions/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
@@ -26,15 +30,13 @@ const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
-const DELETION_LEASE_TIMEOUT_MS = 30_000
 
 const docs = new Map<string, WSSharedDoc>()
 const committedDeletionSessions = new Set<string>()
 const pendingDeletionSessions = new Map<string, string>()
-const deletionLeases = new Map<
-  string,
-  { sessionIds: string[]; timeout: ReturnType<typeof setTimeout> }
->()
+const deletionLeases = new Map<string, { sessionIds: string[]; drain: Promise<void> }>()
+let isDrainingAllDocuments = false
+let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
 type ConnectionState = {
   awarenessIds: Set<number>
@@ -150,13 +152,9 @@ function scheduleDocumentPersistence(doc: WSSharedDoc): void {
   })
 }
 
-function hasDirtyState(doc: WSSharedDoc): boolean {
-  return doc.hasUnsavedChanges
-}
-
 function isDocumentIdle(doc: WSSharedDoc): boolean {
   return (
-    !hasDirtyState(doc) &&
+    !doc.hasUnsavedChanges &&
     !doc.isPersisting &&
     doc.pendingPersistRequests === 0 &&
     doc.pendingMutations === 0 &&
@@ -178,6 +176,12 @@ function schedulePersistenceRetry(doc: WSSharedDoc): void {
   )
 }
 
+function cleanupDrainingDocumentIfSettled(doc: WSSharedDoc): void {
+  if (doc.isDraining && doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
+    cleanupDocument(doc)
+  }
+}
+
 function enqueueDocumentPersistence(
   doc: WSSharedDoc,
   persist: DocumentPersistenceHandler | undefined
@@ -187,14 +191,24 @@ function enqueueDocumentPersistence(
   const requestedGeneration = doc.changeGeneration
   doc.pendingPersistRequests += 1
   const run = doc.persistenceQueue.then(async () => {
-    if (!hasDirtyState(doc)) return
+    if (!doc.hasUnsavedChanges) return
     doc.isPersisting = true
     try {
       await persist(doc.name, doc)
       const hasNewerChanges = doc.changeGeneration !== requestedGeneration
       doc.hasUnsavedChanges = hasNewerChanges
     } catch (error) {
-      doc.hasUnsavedChanges = true
+      if ((error as { retryable?: unknown } | null)?.retryable !== false) {
+        doc.hasUnsavedChanges = true
+      } else {
+        terminalPersistenceError ??= error as Error
+        doc.hasUnsavedChanges = false
+        doc.isDraining = true
+        doc.cleanupRequested = true
+        for (const conn of Array.from(doc.conns.keys())) {
+          closeConn(doc, conn, YJS_CLOSE_CODE_DOCUMENT_REJECTED, 'Canonical document rejected')
+        }
+      }
       throw error
     } finally {
       doc.isPersisting = false
@@ -203,7 +217,8 @@ function enqueueDocumentPersistence(
 
   const settled = run.finally(() => {
     doc.pendingPersistRequests -= 1
-    if (hasDirtyState(doc)) schedulePersistenceRetry(doc)
+    if (!doc.isDraining && doc.hasUnsavedChanges) schedulePersistenceRetry(doc)
+    cleanupDrainingDocumentIfSettled(doc)
     if (!doc.isDraining && doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
       cleanupDocument(doc)
     }
@@ -265,7 +280,7 @@ function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
   }
 }
 
-function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
+function closeConn(doc: WSSharedDoc, conn: WebSocket, code?: number, reason?: string): void {
   if (doc.conns.has(conn)) {
     const controlledIds = doc.conns.get(conn)?.awarenessIds ?? new Set<number>()
     doc.conns.delete(conn)
@@ -277,7 +292,7 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
   }
 
   try {
-    conn.close()
+    code === undefined ? conn.close() : conn.close(code, reason)
   } catch {
     // Connection may already be closed.
   }
@@ -378,6 +393,7 @@ export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | 
   const result = doc.mutationQueue.then(mutation)
   const settled = result.finally(() => {
     doc.pendingMutations -= 1
+    cleanupDrainingDocumentIfSettled(doc)
     if (doc.cleanupRequested && doc.conns.size === 0) {
       finalizeDocumentCleanup(doc)
     }
@@ -411,6 +427,7 @@ export function peekDocument(docId: string): Y.Doc | null {
 
 export function isYjsSessionAdmissionBlocked(docId: string): boolean {
   return (
+    isDrainingAllDocuments ||
     committedDeletionSessions.has(docId) ||
     pendingDeletionSessions.has(docId) ||
     docs.get(docId)?.isDraining === true
@@ -452,8 +469,8 @@ export function setupWSConnection(
   conn.binaryType = 'arraybuffer'
 
   const doc = getDocument(docId, gc, bootstrapState).doc as WSSharedDoc
-  doc.onDocumentIdle = onDocumentIdle
-  if (onDocumentUpdate) {
+  if (onDocumentUpdate && !doc.onDocumentUpdate) {
+    doc.onDocumentIdle = onDocumentIdle
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
@@ -479,7 +496,9 @@ export function setupWSConnection(
         conn.ping()
         const connection = doc.conns.get(conn)
         if (connection) {
-          void reconcileConnection(doc, conn, connection).catch(() => closeConn(doc, conn))
+          void reconcileConnection(doc, conn, connection).catch((error) => {
+            console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
+          })
         }
       } catch {
         closeConn(doc, conn)
@@ -518,26 +537,6 @@ export function setupWSConnection(
   }
 }
 
-export function removeDocument(docId: string): void {
-  const doc = docs.get(docId)
-  if (!doc) {
-    return
-  }
-
-  if (doc.conns.size === 0) {
-    cleanupDocument(doc)
-    return
-  }
-
-  doc.conns.forEach((_ids, conn) => {
-    try {
-      conn.close()
-    } catch {
-      // ignore
-    }
-  })
-}
-
 export async function discardDocument(docId: string): Promise<void> {
   const doc = docs.get(docId)
   if (!doc) return
@@ -565,22 +564,32 @@ export async function discardDocumentIfCurrent(candidate: Y.Doc): Promise<void> 
   if (docs.get(doc.name) === doc) cleanupDocument(doc)
 }
 
-export async function beginYjsSessionDeletion(sessionIds: readonly string[]): Promise<string> {
+export async function beginYjsSessionDeletion(
+  leaseId: string,
+  sessionIds: readonly string[]
+): Promise<void> {
+  if (!leaseId.trim()) throw new Error('A non-empty Yjs deletion lease ID is required')
   const orderedSessionIds = [...new Set(sessionIds)].sort()
   if (orderedSessionIds.length === 0 || orderedSessionIds.some((sessionId) => !sessionId)) {
     throw new Error('At least one non-empty Yjs session ID is required')
   }
+  const existing = deletionLeases.get(leaseId)
+  if (existing) {
+    if (JSON.stringify(existing.sessionIds) !== JSON.stringify(orderedSessionIds)) {
+      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+    }
+    await existing.drain
+    return
+  }
   const blocked = orderedSessionIds.find(isYjsSessionAdmissionBlocked)
   if (blocked) throw new YjsSessionAdmissionError(blocked)
 
-  const leaseId = randomUUID()
   for (const sessionId of orderedSessionIds) pendingDeletionSessions.set(sessionId, leaseId)
-  const timeout = setTimeout(() => abortYjsSessionDeletion(leaseId), DELETION_LEASE_TIMEOUT_MS)
-  deletionLeases.set(leaseId, { sessionIds: orderedSessionIds, timeout })
+  const drain = Promise.all(orderedSessionIds.map(discardDocument)).then(() => undefined)
+  deletionLeases.set(leaseId, { sessionIds: orderedSessionIds, drain })
 
   try {
-    await Promise.all(orderedSessionIds.map(discardDocument))
-    return leaseId
+    await drain
   } catch (error) {
     abortYjsSessionDeletion(leaseId)
     throw error
@@ -589,8 +598,7 @@ export async function beginYjsSessionDeletion(sessionIds: readonly string[]): Pr
 
 export function commitYjsSessionDeletion(leaseId: string): void {
   const lease = deletionLeases.get(leaseId)
-  if (!lease) throw new Error('Unknown or expired Yjs deletion lease')
-  clearTimeout(lease.timeout)
+  if (!lease) return
   deletionLeases.delete(leaseId)
   for (const sessionId of lease.sessionIds) {
     if (pendingDeletionSessions.get(sessionId) !== leaseId) continue
@@ -602,7 +610,6 @@ export function commitYjsSessionDeletion(leaseId: string): void {
 export function abortYjsSessionDeletion(leaseId: string): void {
   const lease = deletionLeases.get(leaseId)
   if (!lease) return
-  clearTimeout(lease.timeout)
   deletionLeases.delete(leaseId)
   for (const sessionId of lease.sessionIds) {
     if (pendingDeletionSessions.get(sessionId) === leaseId) {
@@ -631,7 +638,9 @@ async function reconcileConnection(
     connection.descriptor,
     connection.accessMode
   )
-  if (!access.hasAccess && doc.conns.get(conn) === connection) closeConn(doc, conn)
+  if (!access.hasAccess && doc.conns.get(conn) === connection) {
+    closeConn(doc, conn, YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, 'Authorization revoked')
+  }
 }
 
 export async function reconcileWorkspaceConnections(
@@ -651,16 +660,20 @@ export async function reconcileWorkspaceConnections(
 }
 
 export function cleanupAllDocuments(): void {
-  for (const docId of Array.from(docs.keys())) {
-    removeDocument(docId)
+  for (const doc of Array.from(docs.values())) {
+    for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
+    cleanupDocument(doc)
   }
-  for (const lease of deletionLeases.values()) clearTimeout(lease.timeout)
   deletionLeases.clear()
   pendingDeletionSessions.clear()
   committedDeletionSessions.clear()
+  isDrainingAllDocuments = false
+  terminalPersistenceError = null
 }
 
 export async function drainAllDocuments(): Promise<void> {
+  isDrainingAllDocuments = true
+  if (terminalPersistenceError) throw terminalPersistenceError
   const activeDocuments = Array.from(docs.values())
   for (const doc of activeDocuments) doc.isDraining = true
 
@@ -673,18 +686,15 @@ export async function drainAllDocuments(): Promise<void> {
         doc.persistTimer = null
       }
       const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
-      if (hasDirtyState(doc) && persist) await enqueueDocumentPersistence(doc, persist)
+      if (doc.hasUnsavedChanges && persist) await enqueueDocumentPersistence(doc, persist)
       await doc.persistenceQueue
     })
   )
 
+  if (terminalPersistenceError) throw terminalPersistenceError
+
   const failedPersistence = persistenceResults.find((result) => result.status === 'rejected')
   if (failedPersistence?.status === 'rejected') {
-    for (const doc of activeDocuments) {
-      if (docs.get(doc.name) !== doc) continue
-      doc.isDraining = false
-      if (doc.cleanupRequested && doc.conns.size === 0) finalizeDocumentCleanup(doc)
-    }
     throw failedPersistence.reason
   }
 

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import {
   buildEntityListDescriptor,
   buildYjsTransportEnvelope,
@@ -56,10 +57,6 @@ function readSocketServerErrorMessage(status: number, body: string): string {
   }
 }
 
-function getSocketServerUrl(): string {
-  return getInternalRealtimeUrl()
-}
-
 function getInternalSecret(): string {
   const secret = env.INTERNAL_API_SECRET
   if (!secret) {
@@ -68,12 +65,13 @@ function getInternalSecret(): string {
   return secret
 }
 
-async function fetchFromSocketServer(
+async function fetchFromSocketServer<T = Response>(
   url: URL,
   init: RequestInit,
   timeoutMs = 5000,
-  attempts = 1
-): Promise<Response> {
+  attempts = 1,
+  decode?: (response: Response) => Promise<T>
+): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('x-internal-secret', getInternalSecret())
 
@@ -90,10 +88,16 @@ async function fetchFromSocketServer(
         throw new SocketServerBridgeError(response.status, body)
       }
 
-      return response
+      return decode ? await decode(response) : (response as T)
     } catch (error) {
       const canRetry =
-        attempt < attempts && !(error instanceof SocketServerBridgeError && error.status < 500)
+        attempt < attempts &&
+        !(
+          error instanceof SocketServerBridgeError &&
+          error.status < 500 &&
+          error.status !== 408 &&
+          error.status !== 429
+        )
       if (!canRetry) {
         throw error
       }
@@ -103,29 +107,36 @@ async function fetchFromSocketServer(
   throw new Error('Socket server bridge failed')
 }
 
-async function postJsonToSocketServer(path: string, body: unknown): Promise<void> {
+async function postJsonToSocketServer(path: string, body: unknown, attempts = 1): Promise<void> {
   await fetchFromSocketServer(
-    new URL(path, getSocketServerUrl()),
+    new URL(path, getInternalRealtimeUrl()),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     },
-    10000
+    10000,
+    attempts
   )
 }
 
-async function postJsonToSocketServerWithResponse<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetchFromSocketServer(
-    new URL(path, getSocketServerUrl()),
+async function postJsonToSocketServerWithResponse<T>(
+  path: string,
+  body: unknown,
+  attempts = 1,
+  decode: (response: Response) => Promise<T> = (response) => response.json() as Promise<T>
+): Promise<T> {
+  return fetchFromSocketServer(
+    new URL(path, getInternalRealtimeUrl()),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     },
-    10000
+    10000,
+    attempts,
+    decode
   )
-  return response.json() as Promise<T>
 }
 
 export async function getYjsSnapshot(
@@ -134,7 +145,7 @@ export async function getYjsSnapshot(
 ): Promise<YjsSnapshotResponse> {
   const url = new URL(
     `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot`,
-    getSocketServerUrl()
+    getInternalRealtimeUrl()
   )
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -142,8 +153,13 @@ export async function getYjsSnapshot(
     }
   }
 
-  const response = await fetchFromSocketServer(url, { method: 'GET' }, 5000, 3)
-  return response.json() as Promise<YjsSnapshotResponse>
+  return fetchFromSocketServer(
+    url,
+    { method: 'GET' },
+    5000,
+    3,
+    (response) => response.json() as Promise<YjsSnapshotResponse>
+  )
 }
 
 export async function applyWorkflowPatchInSocketServer(
@@ -173,6 +189,7 @@ export async function notifyWorkspaceYjsAccessChanged(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
+  workspaceId: string,
   fields: Record<string, unknown>,
   options?: {
     expectedReviewBaseStateHash?: string
@@ -185,6 +202,7 @@ export async function applyEntityStateInSocketServer(
       fields?: unknown
     }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
       entityKind,
+      workspaceId,
       fields,
       ...(options?.expectedReviewBaseStateHash
         ? { expectedReviewBaseStateHash: options.expectedReviewBaseStateHash }
@@ -367,7 +385,7 @@ export async function refreshEntityListSession(
 
 export async function discardYjsSessionInSocketServer(sessionId: string): Promise<void> {
   await fetchFromSocketServer(
-    new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getSocketServerUrl()),
+    new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getInternalRealtimeUrl()),
     { method: 'DELETE' },
     10000
   )
@@ -378,34 +396,42 @@ export async function withYjsSessionDeletionLease<T>(
   mutate: () => Promise<T>
 ): Promise<T> {
   if (sessionIds.length === 0) return mutate()
-  const { leaseId } = await postJsonToSocketServerWithResponse<{ leaseId?: unknown }>(
-    '/internal/yjs/session-deletions',
-    { sessionIds }
+  const leaseId = randomUUID()
+  const leaseUrl = new URL(
+    `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
+    getInternalRealtimeUrl()
   )
-  if (typeof leaseId !== 'string' || !leaseId) {
-    throw new SocketServerBridgeError(502, 'Socket server returned malformed deletion lease')
+  const abortLease = () =>
+    fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, Number.POSITIVE_INFINITY)
+  try {
+    await postJsonToSocketServerWithResponse(
+      '/internal/yjs/session-deletions',
+      { leaseId, sessionIds },
+      Number.POSITIVE_INFINITY,
+      async (response) => {
+        const ready = (await response.json()) as { leaseId?: unknown }
+        if (ready.leaseId !== leaseId) {
+          throw new SocketServerBridgeError(502, 'Socket server returned malformed deletion lease')
+        }
+      }
+    )
+  } catch (error) {
+    await abortLease()
+    throw error
   }
 
   let result: T
   try {
     result = await mutate()
   } catch (error) {
-    await fetchFromSocketServer(
-      new URL(
-        `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
-        getSocketServerUrl()
-      ),
-      { method: 'DELETE' },
-      10000
-    ).catch((abortError) => {
-      logger.error('Failed to abort Yjs deletion lease', { leaseId, abortError })
-    })
+    await abortLease()
     throw error
   }
 
   await postJsonToSocketServer(
     `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}/commit`,
-    {}
+    {},
+    Number.POSITIVE_INFINITY
   )
   return result
 }

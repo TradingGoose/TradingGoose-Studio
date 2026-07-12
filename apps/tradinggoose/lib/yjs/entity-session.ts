@@ -6,9 +6,9 @@
  *
  * Top-level collections:
  *   - "fields"   (Y.Map) — entity-kind-specific editable field values
- *   - "metadata"  (Y.Map) — session-level metadata: the resolved `workspaceId`
- *                            that owns the entity (its canonical persistence
- *                            scope), plus bootstrap state.
+ *   - "metadata"  (Y.Map) — bootstrap and runtime metadata. Authorization and
+ *                            persistence scope always come from the authenticated
+ *                            transport descriptor, never this collaborative map.
  *   - "members"   (Y.Map) — entity-list sessions only. List discovery metadata
  *                            is mutated explicitly by create/update/delete flows,
  *                            never inferred from a saved entity document.
@@ -200,10 +200,6 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
   return output
 }
 
-function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
-  return doc.getMap('metadata')
-}
-
 export interface EntityListMember {
   entityId: string
   entityName: string
@@ -229,7 +225,6 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   connectionStatus?: string
   isActive?: boolean
   sortOrder?: number
-  deleted?: boolean
 }> {
   return doc.getMap('members')
 }
@@ -273,7 +268,6 @@ export function replaceEntityListSessionMembers(
       }
       const current = listMembers.get(member.id)
       if (
-        current?.deleted ||
         current?.name !== next.name ||
         current?.description !== next.description ||
         current?.enabled !== next.enabled ||
@@ -294,7 +288,6 @@ export function replaceEntityListSessionMembers(
 export function getEntityListMembers(doc: Y.Doc, entityKind: ReviewEntityKind): EntityListMember[] {
   const entries: EntityListMember[] = []
   getEntityListMembersMap(doc).forEach((value, entityId) => {
-    if (value?.deleted) return
     entries.push({
       entityId,
       entityName: typeof value?.name === 'string' ? value.name : '',
@@ -325,40 +318,6 @@ export function getEntityListMembers(doc: Y.Doc, entityKind: ReviewEntityKind): 
   return entries
 }
 
-/**
- * Metadata key carrying the workspace that owns the entity. Resolved once when
- * the entity doc is bootstrapped and used as the authoritative scope when
- * materializing the doc back to its canonical DB row.
- */
-const ENTITY_METADATA_WORKSPACE_ID_KEY = 'workspaceId'
-const ENTITY_METADATA_OWNER_USER_ID_KEY = 'ownerUserId'
-
-export function getEntityWorkspaceId(doc: Y.Doc): string | null {
-  const value = getEntityMetadataMap(doc).get(ENTITY_METADATA_WORKSPACE_ID_KEY)
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-export function getEntityOwnerUserId(doc: Y.Doc): string | null {
-  const value = getEntityMetadataMap(doc).get(ENTITY_METADATA_OWNER_USER_ID_KEY)
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-/**
- * Writes (or clears) the owner scope on an entity doc's metadata map. The only
- * canonical writer for `ownerUserId` metadata — callers must not hand-roll the
- * metadata key.
- */
-export function setEntityOwnerUserId(
-  metadata: Y.Map<any>,
-  ownerUserId: string | null | undefined
-): void {
-  if (ownerUserId) {
-    metadata.set(ENTITY_METADATA_OWNER_USER_ID_KEY, ownerUserId)
-  } else {
-    metadata.delete(ENTITY_METADATA_OWNER_USER_ID_KEY)
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Seed options
 // ---------------------------------------------------------------------------
@@ -384,7 +343,7 @@ export function seedEntitySession(
 
   doc.transact(() => {
     const fields = getFieldsMap(doc)
-    const metadata = getEntityMetadataMap(doc)
+    const metadata = doc.getMap('metadata')
 
     // Set bootstrap-touch marker
     metadata.set('bootstrap-touch', Date.now())

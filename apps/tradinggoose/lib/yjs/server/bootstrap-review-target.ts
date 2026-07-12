@@ -17,6 +17,7 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import {
+  DashboardLayoutOperationError,
   readPersistedDashboardColorPairDocument,
   readPersistedDashboardWidgetDocument,
 } from '@/lib/dashboard-layouts/operations'
@@ -35,7 +36,6 @@ import {
   getEntityListMembers,
   replaceEntityListSessionMembers,
   seedEntitySession,
-  setEntityOwnerUserId,
 } from '@/lib/yjs/entity-session'
 import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import {
@@ -54,6 +54,7 @@ import {
 import {
   type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
+  DashboardLayoutValidationError,
   normalizeDashboardLayoutDocument,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
@@ -71,15 +72,11 @@ export class ReviewTargetBootstrapError extends Error {
 
 const entityListReseedQueues = new WeakMap<Y.Doc, Promise<void>>()
 
-export function getRuntimeStateFromDoc(doc: Y.Doc): ReviewTargetRuntimeState {
-  return getReviewTargetRuntimeState(doc)
-}
-
 function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRuntimeState {
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, update)
-    return getRuntimeStateFromDoc(doc)
+    return getReviewTargetRuntimeState(doc)
   } finally {
     doc.destroy()
   }
@@ -375,12 +372,13 @@ export async function createSavedReviewTargetBootstrapUpdate(
 
     const metadata = getMetadataMap(doc)
     metadata.set('bootstrap-touch', Date.now())
-    metadata.set('entityKind', descriptor.entityKind)
-    metadata.set('entityId', descriptor.entityId)
-    metadata.set('workspaceId', resolvedWorkspaceId)
-    setEntityOwnerUserId(metadata, descriptor.ownerUserId)
-    metadata.set('draftSessionId', descriptor.draftSessionId)
-    metadata.set('reviewSessionId', descriptor.reviewSessionId)
+    if (descriptor.entityKind === 'workflow') {
+      metadata.set('entityKind', descriptor.entityKind)
+      metadata.set('entityId', descriptor.entityId)
+      metadata.set('workspaceId', resolvedWorkspaceId)
+      metadata.set('draftSessionId', descriptor.draftSessionId)
+      metadata.set('reviewSessionId', descriptor.reviewSessionId)
+    }
     metadata.set('reseededFromCanonical', true)
     const state = Y.encodeStateAsUpdate(doc)
 
@@ -389,6 +387,14 @@ export async function createSavedReviewTargetBootstrapUpdate(
       runtime: getRuntimeStateFromUpdate(state),
       state,
     }
+  } catch (error) {
+    if (error instanceof DashboardLayoutOperationError) {
+      throw new ReviewTargetBootstrapError(error.status, error.message)
+    }
+    if (error instanceof DashboardLayoutValidationError) {
+      throw new ReviewTargetBootstrapError(409, error.message)
+    }
+    throw error
   } finally {
     doc.destroy()
   }
@@ -408,10 +414,6 @@ export async function createEntityListBootstrapUpdate(
     )
 
     const metadata = getMetadataMap(doc)
-    metadata.set('targetKind', 'entity_list')
-    metadata.set('entityKind', entityKind)
-    metadata.set('workspaceId', workspaceId)
-    setEntityOwnerUserId(metadata, ownerUserId)
     metadata.set('reseededFromCanonical', true)
     const state = Y.encodeStateAsUpdate(doc)
 
@@ -438,10 +440,6 @@ export async function reseedEntityListSessionFromDb(
       await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
     )
     const metadata = getMetadataMap(doc)
-    metadata.set('targetKind', 'entity_list')
-    metadata.set('entityKind', entityKind)
-    metadata.set('workspaceId', workspaceId)
-    setEntityOwnerUserId(metadata, ownerUserId)
     metadata.set('reseededFromCanonical', true)
   })
   const tail = reseed.catch(() => undefined)

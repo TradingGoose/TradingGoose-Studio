@@ -114,11 +114,6 @@ beforeEach(() => {
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
     createEntityListBootstrapUpdate: mockCreateEntityListBootstrapUpdate,
     createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
-    getRuntimeStateFromDoc: vi.fn((doc) => ({
-      docState: doc.getMap('metadata').get('docState') === 'expired' ? 'expired' : 'active',
-      replaySafe: doc.getMap('metadata').get('reseededFromCanonical') !== true,
-      reseededFromCanonical: doc.getMap('metadata').get('reseededFromCanonical') === true,
-    })),
   }))
 
   vi.doMock('@/lib/workflows/db-helpers', () => ({
@@ -410,14 +405,19 @@ describe('handleYjsUpgrade', () => {
     )
     const doc = new Y.Doc()
     const metadata = doc.getMap('metadata')
-    metadata.set('entityKind', 'watchlist')
-    metadata.set('entityId', sessionId)
-    metadata.set('workspaceId', 'workspace-1')
-    metadata.set('draftSessionId', null)
+    metadata.set('entityKind', 'skill')
+    metadata.set('entityId', 'client-controlled-entity')
+    metadata.set('workspaceId', 'client-controlled-workspace')
+    metadata.set('draftSessionId', 'client-controlled-draft')
     metadata.set('reviewSessionId', null)
     await options.onDocumentIdle(sessionId, doc)
 
-    expect(mockSaveSavedEntityYjsDocToDb).toHaveBeenCalledWith('watchlist', sessionId, doc)
+    expect(mockSaveSavedEntityYjsDocToDb).toHaveBeenCalledWith(
+      'watchlist',
+      sessionId,
+      'workspace-1',
+      doc
+    )
     expect(mockRefreshEntityListSession).toHaveBeenCalledWith('watchlist', 'workspace-1')
     doc.destroy()
   })

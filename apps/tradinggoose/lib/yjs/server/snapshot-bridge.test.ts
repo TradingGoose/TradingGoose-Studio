@@ -53,7 +53,7 @@ describe('applyEntityStateInSocketServer', () => {
     const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
 
     await expect(
-      applyEntityStateInSocketServer('watchlist-1', 'watchlist', {
+      applyEntityStateInSocketServer('watchlist-1', 'watchlist', 'workspace-1', {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       })
@@ -69,6 +69,7 @@ describe('applyEntityStateInSocketServer', () => {
     })
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',
+      workspaceId: 'workspace-1',
       fields: {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
@@ -87,7 +88,7 @@ describe('applyEntityStateInSocketServer', () => {
     const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
 
     await expect(
-      applyEntityStateInSocketServer('watchlist-1', 'watchlist', {
+      applyEntityStateInSocketServer('watchlist-1', 'watchlist', 'workspace-1', {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       })
@@ -126,28 +127,53 @@ describe('refreshEntityListSession', () => {
 })
 
 describe('withYjsSessionDeletionLease', () => {
-  it('commits the lease only after the database mutation succeeds', async () => {
+  it('retries lost begin and commit acknowledgements with the same lease', async () => {
     mockFetch
-      .mockResolvedValueOnce(new Response(JSON.stringify({ leaseId: 'lease-1' }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError('begin response lost'))
+      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
+      .mockResolvedValueOnce(new Response('{', { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ leaseId: 'wrong-lease' }), { status: 200 })
+      )
+      .mockImplementationOnce(async (_url, init) => {
+        const leaseId = JSON.parse(String(init?.body)).leaseId
+        return new Response(JSON.stringify({ leaseId }), { status: 200 })
+      })
+      .mockRejectedValueOnce(new TypeError('commit response lost'))
+      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const mutate = vi.fn(async () => 'deleted')
+    const mutate = vi.fn(async () => {
+      expect(mockFetch).toHaveBeenCalledTimes(5)
+      return 'deleted'
+    })
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
     await expect(withYjsSessionDeletionLease(['watchlist-1'], mutate)).resolves.toBe('deleted')
 
-    expect(mockFetch.mock.calls[0]?.[0]).toBe('http://socket.test/internal/yjs/session-deletions')
-    expect(JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))).toEqual({
+    const beginBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))
+    expect(beginBody).toEqual({
+      leaseId: expect.any(String),
       sessionIds: ['watchlist-1'],
     })
-    expect(mockFetch.mock.calls[1]?.[0]).toBe(
-      'http://socket.test/internal/yjs/session-deletions/lease-1/commit'
+    for (const [, init] of mockFetch.mock.calls.slice(0, 5)) {
+      expect(JSON.parse(String(init?.body))).toEqual(beginBody)
+    }
+    expect(mockFetch.mock.calls[5]?.[0]).toBe(
+      `http://socket.test/internal/yjs/session-deletions/${beginBody.leaseId}/commit`
     )
+    expect(mockFetch.mock.calls[6]?.[0]).toBe(mockFetch.mock.calls[5]?.[0])
+    expect(mockFetch.mock.calls[7]?.[0]).toBe(mockFetch.mock.calls[5]?.[0])
     expect(mutate).toHaveBeenCalledOnce()
   })
 
   it('aborts the lease when the database mutation fails', async () => {
     mockFetch
-      .mockResolvedValueOnce(new Response(JSON.stringify({ leaseId: 'lease-2' }), { status: 200 }))
+      .mockImplementationOnce(async (_url, init) => {
+        const leaseId = JSON.parse(String(init?.body)).leaseId
+        return new Response(JSON.stringify({ leaseId }), { status: 200 })
+      })
+      .mockRejectedValueOnce(new TypeError('abort response lost'))
+      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
@@ -157,9 +183,10 @@ describe('withYjsSessionDeletionLease', () => {
       })
     ).rejects.toThrow('database offline')
 
-    expect(mockFetch.mock.calls[1]?.[0]).toBe(
-      'http://socket.test/internal/yjs/session-deletions/lease-2'
-    )
+    expect(mockFetch.mock.calls[2]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])
+    expect(mockFetch.mock.calls[3]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])
     expect(mockFetch.mock.calls[1]?.[1].method).toBe('DELETE')
+    expect(mockFetch.mock.calls[2]?.[1].method).toBe('DELETE')
+    expect(mockFetch.mock.calls[3]?.[1].method).toBe('DELETE')
   })
 })

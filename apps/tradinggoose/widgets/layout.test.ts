@@ -148,7 +148,7 @@ describe('normalizeDashboardLayout', () => {
 })
 
 describe('dashboard layout tree operations', () => {
-  const layout = (): DashboardLayoutTopologyNode => ({
+  const layout = (): Extract<DashboardLayoutTopologyNode, { type: 'group' }> => ({
     id: 'root',
     type: 'group',
     direction: 'horizontal',
@@ -200,7 +200,6 @@ describe('dashboard layout tree operations', () => {
 
   it('requires unique node ids and widget identities in topology-only projections', () => {
     const duplicateNodes = layout()
-    if (duplicateNodes.type !== 'group') throw new Error('Expected root group')
     duplicateNodes.children[1] = { ...duplicateNodes.children[1]!, id: 'panel-a' }
 
     expect(() => normalizeDashboardLayoutTopology(duplicateNodes)).toThrow(
@@ -208,7 +207,6 @@ describe('dashboard layout tree operations', () => {
     )
 
     const duplicateIdentity = layout()
-    if (duplicateIdentity.type !== 'group') throw new Error('Expected root group')
     const duplicateIdentityPanel = duplicateIdentity.children[1]
     if (duplicateIdentityPanel?.type !== 'panel') throw new Error('Expected child panel')
     duplicateIdentity.children[1] = {
@@ -314,12 +312,19 @@ describe('dashboard layout tree operations', () => {
       applyDashboardLayoutStructureMutation(current, {
         type: 'resize',
         groupId: 'root',
-        sizes: [35, 65],
+        sizes: [0, 100],
       }).layout
     ).toMatchObject({
       id: 'root',
-      sizes: [35, 65],
+      sizes: [0, 100],
     })
+    expect(() =>
+      applyDashboardLayoutStructureMutation(current, {
+        type: 'resize',
+        groupId: 'root',
+        sizes: [0, 0],
+      })
+    ).toThrow(/positive size/i)
   })
 
   it('splits a panel and creates an independent child widget document', () => {
@@ -369,6 +374,15 @@ describe('dashboard layout tree operations', () => {
     if (next.type !== 'panel') throw new Error('Expected survivor panel')
     expect(next).toMatchObject({ identityId: 'widget-b', widgetKey: 'heatmap' })
     expect(result.removedIdentityIds).toEqual(['widget-a'])
+
+    const collapsed = layout()
+    const first = collapsed.children[0]
+    if (first?.type !== 'panel') throw new Error('Expected child panel')
+    collapsed.children.push({ ...first, id: 'panel-c', identityId: 'widget-c' })
+    collapsed.sizes = [0, 0, 100]
+    expect(closeDashboardTopologyPanel(collapsed, 'panel-c').layout).toMatchObject({
+      sizes: [50, 50],
+    })
   })
 
   it.each(WIDGET_KEYS)('plans %s replacement as a layout-owned child lifecycle change', (key) => {

@@ -40,7 +40,11 @@ function createMockProvider() {
 }
 
 function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMockProvider>) {
-  return {
+  let resolveLifecycle!: (event: unknown) => void
+  const lifecycle = new Promise((resolve) => {
+    resolveLifecycle = resolve
+  })
+  const result = {
     doc,
     provider,
     descriptor: {
@@ -51,12 +55,17 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
       reviewSessionId: null,
       yjsSessionId: 'workflow-1',
     },
-    runtime: {
-      docState: 'active',
-      replaySafe: true,
-      reseededFromCanonical: false,
-    },
+    accessMode: 'write' as const,
+    lifecycle,
+    dispose: vi.fn(() => {
+      provider.disconnect()
+      provider.destroy()
+      doc.destroy()
+    }),
+    emitTerminal: (error: Error & { retryable: false }) =>
+      resolveLifecycle({ type: 'terminal-failure', error }),
   }
+  return result
 }
 
 async function waitForCondition(assertion: () => void, timeoutMs = 1000) {
@@ -136,12 +145,12 @@ describe('workflow shared session lifecycle', () => {
     release()
   })
 
-  it('reuses one bootstrapped workflow session across multiple acquisitions', async () => {
+  it('reuses one workflow session and clears it on terminal revocation', async () => {
     const doc = new Y.Doc()
-    const destroyDoc = vi.spyOn(doc, 'destroy')
     const provider = createMockProvider()
 
-    mockBootstrapYjsProvider.mockResolvedValue(createBootstrapResult(doc, provider))
+    const result = createBootstrapResult(doc, provider)
+    mockBootstrapYjsProvider.mockResolvedValue(result)
 
     const {
       acquireSharedWorkflowSession,
@@ -185,23 +194,28 @@ describe('workflow shared session lifecycle', () => {
       doc,
     })
 
+    result.emitTerminal(
+      Object.assign(new Error('Authorization revoked'), { retryable: false as const })
+    )
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1')).toMatchObject({
+        doc: null,
+        provider: null,
+        error: 'Authorization revoked',
+      })
+    })
+    expect(mockUnregisterWorkflowSession).toHaveBeenCalledWith('workflow-1', doc)
+    expect(result.dispose).toHaveBeenCalledOnce()
+    await expect(
+      acquireWritableWorkflowSessionLease({
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      })
+    ).rejects.toThrow('Authorization revoked')
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledOnce()
     releaseEditor()
-    expect(provider.disconnect).not.toHaveBeenCalled()
-    expect(provider.destroy).not.toHaveBeenCalled()
-    expect(destroyDoc).not.toHaveBeenCalled()
-
     releaseChat()
-    expect(mockUnregisterWorkflowSession).not.toHaveBeenCalled()
-    expect(provider.disconnect).not.toHaveBeenCalled()
-    expect(provider.destroy).not.toHaveBeenCalled()
-    expect(destroyDoc).not.toHaveBeenCalled()
-
-    await vi.advanceTimersByTimeAsync(2_500)
-
-    expect(mockUnregisterWorkflowSession).toHaveBeenCalledTimes(1)
-    expect(provider.disconnect).toHaveBeenCalledTimes(1)
-    expect(provider.destroy).toHaveBeenCalledTimes(1)
-    expect(destroyDoc).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the shared session alive when a new consumer reacquires during the destroy grace window', async () => {

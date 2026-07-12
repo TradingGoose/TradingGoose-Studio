@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -77,13 +78,6 @@ function createDashboardDocument(docId: string): Y.Doc {
     { layout: createDefaultDashboardLayoutProjection().layout },
     YJS_ORIGINS.SYSTEM
   )
-  source.transact(() => {
-    const metadata = source.getMap('metadata')
-    metadata.set('entityKind', 'dashboard_layout')
-    metadata.set('entityId', docId)
-    metadata.set('workspaceId', 'workspace-1')
-    metadata.set('ownerUserId', 'user-1')
-  }, YJS_ORIGINS.SYSTEM)
   const state = Y.encodeStateAsUpdate(source)
   source.destroy()
   return getDocument(docId, true, state).doc
@@ -162,9 +156,7 @@ describe('dashboard document persistence queue', () => {
     let attempts = 0
     const persist = vi.fn(async () => {
       attempts += 1
-      if (attempts === 1) {
-        throw new Error('database offline')
-      }
+      if (attempts === 1) throw new Error('database offline')
     })
 
     changeTopology(doc, 'retry-generation')
@@ -172,7 +164,7 @@ describe('dashboard document persistence queue', () => {
     discardDocumentIfIdle(doc)
     expect(peekDocument('layout-retry')).toBe(doc)
 
-    await vi.advanceTimersByTimeAsync(1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
     expect(peekDocument('layout-retry')).toBeNull()
   })
@@ -199,6 +191,7 @@ describe('realtime shutdown', () => {
       accessMode: 'write',
       descriptor,
       onDocumentIdle: persisted,
+      onDocumentUpdate: persisted,
       onDocumentUpdateDebounceMs: 60_000,
     })
     const doc = peekDocument('watchlist-queued-drain')!
@@ -223,7 +216,7 @@ describe('realtime shutdown', () => {
     expect(peekDocument('watchlist-queued-drain')).toBeNull()
   })
 
-  it('rolls back a failed drain so mutations and a later drain can succeed', async () => {
+  it('keeps a failed drain fenced while allowing a later drain retry', async () => {
     const sockets = [new TestSocket(), new TestSocket()]
     const persist = [vi.fn(), vi.fn().mockRejectedValueOnce(new Error('database offline'))]
     for (const [index, socket] of sockets.entries()) {
@@ -234,6 +227,7 @@ describe('realtime shutdown', () => {
         accessMode: 'write',
         descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
         onDocumentIdle: persist[index],
+        onDocumentUpdate: persist[index],
         onDocumentUpdateDebounceMs: 60_000,
       })
       peekDocument(docId)!.getMap('fields').set('pending', true)
@@ -247,9 +241,11 @@ describe('realtime shutdown', () => {
     expect(peekDocument('watchlist-drain-0')).not.toBeNull()
     expect(peekDocument('watchlist-drain-1')).not.toBeNull()
 
-    await runDocumentMutation(peekDocument('watchlist-drain-0')!, () => {
-      peekDocument('watchlist-drain-0')!.getMap('fields').set('after-failure', true)
-    })
+    await expect(
+      runDocumentMutation(peekDocument('watchlist-drain-0')!, () => undefined)
+    ).rejects.toThrow('draining')
+    expect(isYjsSessionAdmissionBlocked('watchlist-drain-0')).toBe(true)
+    expect(() => getDocument('new-during-drain')).toThrow('not accepting connections')
     await drainAllDocuments()
 
     expect(sockets.every((socket) => socket.close.mock.calls.length === 1)).toBe(true)
@@ -257,46 +253,40 @@ describe('realtime shutdown', () => {
     expect(peekDocument('watchlist-drain-1')).toBeNull()
   })
 
-  it('closes a write rejected by drain so the client can replay after rollback', async () => {
-    const descriptor = buildSavedEntityDescriptor(
-      'watchlist',
-      'watchlist-drain-replay',
-      'workspace-1'
-    )
+  it('keeps a terminal persistence failure latched across drain attempts', async () => {
+    const error = Object.assign(new Error('invalid canonical state'), {
+      retryable: false as const,
+    })
+    let rejectPersistence!: (error: Error) => void
+    const persistence = new Promise<void>((_resolve, reject) => {
+      rejectPersistence = reject
+    })
     const socket = new TestSocket()
-    const persist = vi.fn().mockRejectedValueOnce(new Error('database offline'))
+    const persist = vi.fn(() => persistence)
     setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-drain-replay',
+      docId: 'watchlist-terminal-drain',
       userId: 'user-1',
       accessMode: 'write',
-      descriptor,
+      descriptor: buildSavedEntityDescriptor(
+        'watchlist',
+        'watchlist-terminal-drain',
+        'workspace-1'
+      ),
       onDocumentIdle: persist,
-      onDocumentUpdateDebounceMs: 60_000,
+      onDocumentUpdate: persist,
     })
-    const doc = peekDocument('watchlist-drain-replay')!
-    doc.getMap('fields').set('pending', true)
-    const replayedUpdate = createFieldsUpdate(doc, 'replayed', true)
+    peekDocument('watchlist-terminal-drain')!.getMap('fields').set('invalid', true)
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
 
     const draining = drainAllDocuments()
-    const failedDrain = expect(draining).rejects.toThrow('database offline')
-    socket.emit('message', createSyncUpdateMessage(replayedUpdate))
-    await vi.waitFor(() => expect(socket.close).toHaveBeenCalledOnce())
-    await failedDrain
-    expect(doc.getMap('fields').has('replayed')).toBe(false)
-
-    const reconnected = new TestSocket()
-    setupWSConnection(reconnected as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'watchlist-drain-replay',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor,
-      onDocumentIdle: persist,
-      onDocumentUpdateDebounceMs: 60_000,
-    })
-    const reconnectedDoc = peekDocument('watchlist-drain-replay')!
-    reconnected.emit('message', createSyncUpdateMessage(replayedUpdate))
-    await vi.waitFor(() => expect(reconnectedDoc.getMap('fields').get('replayed')).toBe(true))
-    reconnected.emit('close')
+    rejectPersistence(error)
+    await expect(draining).rejects.toBe(error)
+    expect(socket.close).toHaveBeenCalledWith(
+      YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+      'Canonical document rejected'
+    )
+    expect(peekDocument('watchlist-terminal-drain')).toBeNull()
+    await expect(drainAllDocuments()).rejects.toBe(error)
   })
 })
 
@@ -441,6 +431,7 @@ describe('orderly document discard', () => {
   })
 
   it('fences exact sessions until deletion abort or commit', async () => {
+    vi.useFakeTimers()
     const descriptor = buildSavedEntityDescriptor('watchlist', 'leased-watchlist', 'workspace-1')
     const socket = new TestSocket()
     setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
@@ -450,7 +441,25 @@ describe('orderly document discard', () => {
       descriptor,
     })
 
-    const abortedLease = await beginYjsSessionDeletion(['leased-watchlist'])
+    const mutationGate = deferred()
+    const mutation = runDocumentMutation(
+      peekDocument('leased-watchlist')!,
+      () => mutationGate.promise
+    )
+    const abortedLease = 'lease-abort'
+    const firstBegin = beginYjsSessionDeletion(abortedLease, ['leased-watchlist'])
+    let duplicateReady = false
+    const duplicateBegin = beginYjsSessionDeletion(abortedLease, ['leased-watchlist']).then(() => {
+      duplicateReady = true
+    })
+    await Promise.resolve()
+    expect(duplicateReady).toBe(false)
+    await expect(beginYjsSessionDeletion(abortedLease, ['different-session'])).rejects.toThrow(
+      'not accepting connections'
+    )
+    mutationGate.resolve()
+    await mutation
+    await Promise.all([firstBegin, duplicateBegin])
     expect(socket.close).toHaveBeenCalledOnce()
     expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
     expect(() =>
@@ -462,11 +471,17 @@ describe('orderly document discard', () => {
       })
     ).toThrow('not accepting connections')
 
+    await vi.advanceTimersByTimeAsync(31_000)
+    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
+    abortYjsSessionDeletion(abortedLease)
     abortYjsSessionDeletion(abortedLease)
     expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(false)
 
-    const committedLease = await beginYjsSessionDeletion(['deleted-watchlist'])
+    const committedLease = 'lease-commit'
+    await beginYjsSessionDeletion(committedLease, ['deleted-watchlist'])
     commitYjsSessionDeletion(committedLease)
+    commitYjsSessionDeletion(committedLease)
+    abortYjsSessionDeletion(committedLease)
     expect(isYjsSessionAdmissionBlocked('deleted-watchlist')).toBe(true)
     expect(() => getDocument('deleted-watchlist')).toThrow('not accepting connections')
   })
@@ -488,6 +503,12 @@ describe('workspace connection authorization', () => {
 
   it('closes a socket immediately when a workspace permission mutation revokes access', async () => {
     const socket = connect()
+    accessMocks.verifyReviewTargetAccess.mockRejectedValueOnce(new Error('database unavailable'))
+
+    await expect(reconcileWorkspaceConnections('workspace-1', new Set(['user-1']))).rejects.toThrow(
+      'database unavailable'
+    )
+    expect(socket.close).not.toHaveBeenCalled()
     accessMocks.verifyReviewTargetAccess.mockResolvedValueOnce({ hasAccess: false })
 
     await reconcileWorkspaceConnections('workspace-1', new Set(['user-1']))

@@ -30,11 +30,7 @@ import {
   setEntityField,
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import {
-  bootstrapYjsProvider,
-  disposeYjsProvider,
-  type YjsProviderBootstrapResult,
-} from '@/lib/yjs/provider'
+import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -45,7 +41,7 @@ import { useLatestRef } from '@/hooks/use-latest-ref'
 type SavedEntityYjsSessionState = {
   key: string | null
   result: YjsProviderBootstrapResult | null
-  error: string | null
+  error: (Error & { retryable?: boolean }) | null
 }
 
 type SavedEntityYjsCollectionState = {
@@ -57,7 +53,7 @@ type SavedEntityYjsCollectionState = {
 type SharedYjsSessionEntry = {
   key: string
   result: YjsProviderBootstrapResult | null
-  error: string | null
+  error: SavedEntityYjsSessionState['error']
   refCount: number
   initPromise: Promise<void> | null
   listeners: Set<() => void>
@@ -65,10 +61,6 @@ type SharedYjsSessionEntry = {
 
 const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
 const EMPTY_ENTITY_LIST_MEMBERS: EntityListMember[] = []
-
-function closeYjsSession(result: YjsProviderBootstrapResult): void {
-  disposeYjsProvider(result)
-}
 
 async function saveYjsSessionSnapshot(
   result: YjsProviderBootstrapResult,
@@ -141,7 +133,8 @@ function initializeSharedYjsSessionEntry(
   errorMessage: string,
   staleResult?: YjsProviderBootstrapResult
 ): void {
-  if (entry.initPromise || (!staleResult && entry.result)) return
+  if (entry.error?.retryable === false || entry.initPromise || (!staleResult && entry.result))
+    return
 
   if (!staleResult) {
     entry.error = null
@@ -154,29 +147,47 @@ function initializeSharedYjsSessionEntry(
         entry.refCount === 0 ||
         (staleResult && entry.result !== staleResult)
       ) {
-        closeYjsSession(next)
+        next.dispose()
         return
       }
 
       entry.result = next
       entry.error = null
-      if (next.accessMode === 'read') {
-        attachReadSessionReopen(entry, next, openSession, errorMessage)
-      }
+      void next.lifecycle.then((event) => {
+        if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
+        if (event.type === 'reader-disconnected') {
+          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, next)
+        } else {
+          entry.result = null
+          entry.error = event.error
+          next.dispose()
+          emitSharedYjsSessionEntry(entry)
+        }
+      })
       if (staleResult) {
         emitSharedYjsSessionEntry(entry)
-        closeYjsSession(staleResult)
+        staleResult.dispose()
       }
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      entry.error = nextError instanceof Error ? nextError.message : errorMessage
+      const error = (nextError instanceof Error ? nextError : new Error(errorMessage)) as Error & {
+        retryable?: boolean
+      }
+      entry.error = error
+      if (error.retryable === false && staleResult && entry.result === staleResult) {
+        entry.result = null
+        staleResult.dispose()
+      }
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
-      if (staleResult ? entry.result === staleResult : !entry.result) {
+      if (
+        entry.error?.retryable !== false &&
+        (staleResult ? entry.result === staleResult : !entry.result)
+      ) {
         scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, staleResult)
       }
     })
@@ -184,29 +195,6 @@ function initializeSharedYjsSessionEntry(
 
 const SESSION_REOPEN_RETRY_MS = 1_000
 
-function attachReadSessionReopen(
-  entry: SharedYjsSessionEntry,
-  result: YjsProviderBootstrapResult,
-  openSession: () => Promise<YjsProviderBootstrapResult>,
-  errorMessage: string
-): void {
-  let handled = false
-  const handleConnectionLoss = () => {
-    if (handled) return
-    handled = true
-    result.provider.off('connection-close', handleConnectionLoss)
-    result.provider.off('connection-error', handleConnectionLoss)
-    if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== result) return
-    result.provider.disconnect()
-    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
-  }
-  result.provider.on('connection-close', handleConnectionLoss)
-  result.provider.on('connection-error', handleConnectionLoss)
-}
-
-// A subscribed session converges to live: every failed open — initial or
-// after connection loss — retries at the same 1s cadence write sessions use
-// for token rotation, until the session is live or the entry is released.
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
@@ -225,7 +213,7 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
 
   sharedYjsSessionEntries.delete(entry.key)
   if (entry.result) {
-    closeYjsSession(entry.result)
+    entry.result.dispose()
     entry.result = null
   }
   entry.listeners.clear()
@@ -330,7 +318,8 @@ export function useYjsTargetSession(
     result: activeState?.result ?? null,
     doc: activeState?.result?.doc ?? null,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error ?? null,
+    error: activeState?.error?.message ?? null,
+    isTerminalError: activeState?.error?.retryable === false,
   }
 }
 
@@ -370,6 +359,7 @@ export function useSavedEntityYjsSession(
     save,
     isLoading: targetSession.isLoading,
     error: targetSession.error,
+    isTerminalError: targetSession.isTerminalError,
   }
 }
 
@@ -430,7 +420,7 @@ export function useSavedEntityYjsSessionCollection(
             entry?.result ? [[descriptor.entityId as string, entry.result.doc] as const] : []
           )
         ),
-        error: bindings.find(({ entry }) => entry?.error)?.entry?.error ?? null,
+        error: bindings.find(({ entry }) => entry?.error)?.entry?.error?.message ?? null,
       })
     }
     const bindDocument = (binding: (typeof bindings)[number]) => {
@@ -522,7 +512,8 @@ export function useEntityList(
   return {
     members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error ?? null,
+    error: activeState?.error?.message ?? null,
+    isTerminalError: activeState?.error?.retryable === false,
   }
 }
 

@@ -365,11 +365,15 @@ export async function executeUpdateEntityDocumentMutation(
 
   const entityName = await readSavedEntityName(kind, entityId, workspaceId)
 
-  const persistedFields = context?.acceptedReviewBaseStateHash
-    ? await applySavedEntityState(kind, entityId, fields, {
-        expectedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
-      })
-    : await applySavedEntityState(kind, entityId, fields)
+  const persistedFields = await applySavedEntityState(
+    kind,
+    entityId,
+    workspaceId,
+    fields,
+    context?.acceptedReviewBaseStateHash
+      ? { expectedReviewBaseStateHash: context.acceptedReviewBaseStateHash }
+      : undefined
+  )
   return {
     success: true,
     workspaceId,

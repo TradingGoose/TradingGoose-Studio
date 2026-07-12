@@ -7,39 +7,47 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
-import { updateWatchlistItems } from '@/lib/yjs/entity-session'
+import { replaceEntityListSessionMembers, updateWatchlistItems } from '@/lib/yjs/entity-session'
 import {
+  useEntityList,
   useSavedEntityYjsSession,
   useSavedEntityYjsSessionCollection,
 } from '@/lib/yjs/use-entity-fields'
 
 const providerMocks = vi.hoisted(() => ({
   bootstrap: vi.fn(),
-  dispose: vi.fn(),
-  disconnect: vi.fn(),
-  destroy: vi.fn(),
-  connected: true,
-  results: [] as Array<{
-    doc: Y.Doc
-    provider: {
-      disconnect: ReturnType<typeof vi.fn>
-      emit: (event: string) => void
-      shouldConnect: boolean
-      ws: object | null
-    }
-  }>,
+  queuedDocs: [] as Y.Doc[],
+  results: [] as any[],
 }))
 
 vi.mock('@/lib/yjs/provider', () => ({
   bootstrapYjsProvider: (...args: unknown[]) => providerMocks.bootstrap(...args),
-  disposeYjsProvider: (...args: unknown[]) => providerMocks.dispose(...args),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-describe('useSavedEntityYjsSession access mode', () => {
+function createResult(descriptor: any, accessMode: ReviewAccessMode) {
+  const doc = providerMocks.queuedDocs.shift() ?? new Y.Doc()
+  let resolveLifecycle!: (event: unknown) => void
+  const lifecycle = new Promise((resolve) => {
+    resolveLifecycle = resolve
+  })
+  const result = {
+    descriptor,
+    doc,
+    provider: {},
+    accessMode,
+    lifecycle,
+    dispose: vi.fn(() => doc.destroy()),
+    emitLifecycle: resolveLifecycle,
+  }
+  providerMocks.results.push(result)
+  return result
+}
+
+describe('shared entity Yjs sessions', () => {
   let container: HTMLDivElement
   let root: Root
   let current: ReturnType<typeof useSavedEntityYjsSession>
@@ -51,94 +59,54 @@ describe('useSavedEntityYjsSession access mode', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    providerMocks.queuedDocs.length = 0
     providerMocks.results.length = 0
-    providerMocks.connected = true
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    providerMocks.bootstrap.mockImplementation(async (descriptor, _origin, accessMode) => {
-      const listeners = new Map<string, Set<() => void>>()
-      const doc = new Y.Doc()
-      const provider = {
-        ws: providerMocks.connected ? {} : null,
-        shouldConnect: true,
-        disconnect: vi.fn(() => {
-          provider.shouldConnect = false
-          provider.ws = null
-          providerMocks.disconnect()
-        }),
-        destroy: providerMocks.destroy,
-        on: (event: string, listener: () => void) => {
-          const current = listeners.get(event) ?? new Set()
-          current.add(listener)
-          listeners.set(event, current)
-        },
-        off: (event: string, listener: () => void) => listeners.get(event)?.delete(listener),
-        emit: (event: string) => {
-          if (event === 'connection-close' || event === 'connection-error') provider.ws = null
-          for (const listener of listeners.get(event) ?? []) listener()
-        },
-      }
-      const result = {
-        descriptor,
-        doc,
-        provider,
-        accessMode,
-        runtime: { docState: 'active' },
-      }
-      providerMocks.results.push(result)
-      return result
-    })
-    providerMocks.dispose.mockImplementation((result) => {
-      result.provider.disconnect()
-      result.provider.destroy()
-      result.doc.destroy()
-    })
+    providerMocks.bootstrap.mockImplementation(async (descriptor, _origin, accessMode) =>
+      createResult(descriptor, accessMode)
+    )
     vi.stubGlobal('fetch', vi.fn())
   })
 
   afterEach(() => {
     act(() => root.unmount())
+    vi.useRealTimers()
     container.remove()
     vi.unstubAllGlobals()
   })
 
-  it('rejects a retained writer save after rerendering as a reader', async () => {
+  it('keeps a terminal session closed and rejects a retained writer save as a reader', async () => {
     await act(async () => root.render(<Harness accessMode='write' />))
     await vi.waitFor(() => expect(current.doc).toBeInstanceOf(Y.Doc))
     const retainedSave = current.save
+    const result = providerMocks.results[0]
+
+    await act(async () =>
+      result.emitLifecycle({
+        type: 'terminal-failure',
+        error: Object.assign(new Error('Authorization revoked'), { retryable: false as const }),
+      })
+    )
+    await vi.waitFor(() => expect(current.error).toBe('Authorization revoked'))
+    expect(current.isTerminalError).toBe(true)
+    expect(result.dispose).toHaveBeenCalledOnce()
+
+    vi.useFakeTimers()
+    await act(async () => vi.advanceTimersByTimeAsync(2_000))
+    expect(providerMocks.bootstrap).toHaveBeenCalledOnce()
+    vi.useRealTimers()
 
     await act(async () => root.render(<Harness accessMode='read' />))
-
     await expect(retainedSave()).rejects.toThrow('Cannot save a read-only Yjs session')
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('disposes a late descriptor result without replacing or destroying the active result', async () => {
+  it('disposes a late descriptor result without replacing the active result', async () => {
     let resolveFirst!: (result: any) => void
     let resolveSecond!: (result: any) => void
-    const createResult = (descriptor: any, accessMode: ReviewAccessMode) => {
-      const listeners = new Map<string, Set<() => void>>()
-      const doc = new Y.Doc()
-      return {
-        descriptor,
-        doc,
-        provider: {
-          ws: {},
-          disconnect: providerMocks.disconnect,
-          destroy: providerMocks.destroy,
-          on: (event: string, listener: () => void) => {
-            const current = listeners.get(event) ?? new Set()
-            current.add(listener)
-            listeners.set(event, current)
-          },
-          off: (event: string, listener: () => void) => listeners.get(event)?.delete(listener),
-        },
-        accessMode,
-        runtime: { docState: 'active' },
-      }
-    }
     providerMocks.bootstrap.mockImplementation(
       (descriptor, _origin, accessMode) =>
         new Promise((resolve) => {
@@ -153,31 +121,23 @@ describe('useSavedEntityYjsSession access mode', () => {
 
     await act(async () => root.render(<SwitchingHarness entityId='watchlist-a' />))
     await act(async () => root.render(<SwitchingHarness entityId='watchlist-b' />))
-    const second = createResult(
-      { entityId: 'watchlist-b', entityKind: 'watchlist', yjsSessionId: 'watchlist-b' },
-      'read'
-    )
+    const second = createResult({ entityId: 'watchlist-b' }, 'read')
     await act(async () => resolveSecond(second))
-    expect(current.doc).toBe(second.doc)
-
-    const first = createResult(
-      { entityId: 'watchlist-a', entityKind: 'watchlist', yjsSessionId: 'watchlist-a' },
-      'read'
-    )
+    const first = createResult({ entityId: 'watchlist-a' }, 'read')
     await act(async () => resolveFirst(first))
 
-    expect(providerMocks.dispose).toHaveBeenCalledWith(first)
-    expect(providerMocks.dispose).not.toHaveBeenCalledWith(second)
+    expect(first.dispose).toHaveBeenCalledOnce()
+    expect(second.dispose).not.toHaveBeenCalled()
     expect(current.doc).toBe(second.doc)
   })
 
   it('binds every member of a live entity collection', async () => {
     let collection: ReturnType<typeof useSavedEntityYjsSessionCollection>
     let renderCount = 0
-    const CollectionHarness = ({ entityIds }: { entityIds: string[] }) => {
+    const CollectionHarness = () => {
       collection = useSavedEntityYjsSessionCollection(
         'watchlist',
-        entityIds,
+        ['list-1', 'list-2'],
         'workspace-1',
         null,
         'read'
@@ -186,97 +146,43 @@ describe('useSavedEntityYjsSession access mode', () => {
       return null
     }
 
-    await act(async () => root.render(<CollectionHarness entityIds={['list-1', 'list-2']} />))
+    await act(async () => root.render(<CollectionHarness />))
     await vi.waitFor(() => expect(collection.documents.size).toBe(2))
     const beforeUpdate = renderCount
     act(() => {
-      updateWatchlistItems(collection.documents.get('list-2')!, () => [
-        {
-          id: 'listing-2',
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_type: 'default',
-            listing_id: 'MSFT',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ])
+      updateWatchlistItems(collection.documents.get('list-2')!, () => [])
     })
     await vi.waitFor(() => expect(renderCount).toBeGreaterThan(beforeUpdate))
-
-    await act(async () => root.render(<CollectionHarness entityIds={['list-2', 'list-3']} />))
-    await vi.waitFor(() => {
-      expect([...collection.documents.keys()].sort()).toEqual(['list-2', 'list-3'])
-    })
-    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(4)
   })
 
-  it('keeps a lost read session until its replacement is ready', async () => {
+  it('keeps a stale read list through transient failure, then publishes a fresh replacement', async () => {
     vi.useFakeTimers()
-    const ReadLossHarness = () => {
-      current = useSavedEntityYjsSession(
-        'watchlist',
-        'watchlist-read-loss',
-        'workspace-1',
-        null,
-        'read'
-      )
+    let currentList!: ReturnType<typeof useEntityList>
+    const ListHarness = () => {
+      currentList = useEntityList('watchlist', 'workspace-1')
       return null
     }
-    await act(async () => root.render(<ReadLossHarness />))
+    await act(async () => root.render(<ListHarness />))
     await act(async () => Promise.resolve())
     const stale = providerMocks.results[0]
-    expect(stale).toBeDefined()
-    providerMocks.bootstrap.mockRejectedValueOnce(new Error('replacement unavailable'))
-
-    act(() => stale?.provider.emit('connection-close'))
-
-    expect(stale?.provider.shouldConnect).toBe(false)
-    expect(stale?.provider.disconnect).toHaveBeenCalledOnce()
-    expect(providerMocks.dispose).not.toHaveBeenCalledWith(stale)
-    expect(current.doc).toBe(stale?.doc)
-    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(1)
-
-    await act(async () => vi.advanceTimersByTimeAsync(1_000))
-    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(2)
-    expect(providerMocks.dispose).not.toHaveBeenCalledWith(stale)
-    expect(current.doc).toBe(stale?.doc)
-
-    await act(async () => vi.advanceTimersByTimeAsync(1_000))
-    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(3)
-    expect(providerMocks.dispose).toHaveBeenCalledWith(stale)
-    expect(providerMocks.dispose).not.toHaveBeenCalledWith(providerMocks.results[1])
-    expect(current.doc).toBe(providerMocks.results[1]?.doc)
-  })
-
-  it('replaces a disconnected read result only after its connection-loss event', async () => {
-    vi.useFakeTimers()
-    providerMocks.connected = false
-    const BootstrapRaceHarness = () => {
-      current = useSavedEntityYjsSession(
-        'watchlist',
-        'watchlist-bootstrap-race',
-        'workspace-1',
-        null,
-        'read'
-      )
-      return null
-    }
-
-    await act(async () => root.render(<BootstrapRaceHarness />))
+    replaceEntityListSessionMembers(stale.doc, [
+      { id: 'kept', name: 'Kept' },
+      { id: 'removed', name: 'Removed' },
+    ])
     await act(async () => Promise.resolve())
+    expect(currentList.members).toHaveLength(2)
 
-    const disconnected = providerMocks.results[0]
-    expect(providerMocks.dispose).not.toHaveBeenCalledWith(disconnected)
-    expect(current.doc).toBe(disconnected?.doc)
-
-    providerMocks.connected = true
-    act(() => disconnected?.provider.emit('connection-close'))
+    providerMocks.bootstrap.mockRejectedValueOnce(new Error('replacement unavailable'))
+    const replacement = new Y.Doc()
+    replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
+    providerMocks.queuedDocs.push(replacement)
+    await act(async () => stale.emitLifecycle({ type: 'reader-disconnected' }))
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
-    expect(providerMocks.bootstrap).toHaveBeenCalledTimes(2)
-    expect(providerMocks.dispose).toHaveBeenCalledWith(disconnected)
-    expect(current.doc).toBe(providerMocks.results[1]?.doc)
+    expect(currentList.members).toHaveLength(2)
+    expect(stale.dispose).not.toHaveBeenCalled()
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept'])
+    expect(stale.dispose).toHaveBeenCalledOnce()
   })
 })

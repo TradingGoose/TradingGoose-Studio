@@ -102,18 +102,22 @@ export const DashboardLayoutPanelNodeSchema = z
   })
   .strict()
 
+const DashboardGroupSizesSchema = z
+  .array(z.number().finite().nonnegative())
+  .refine((sizes) => sizes.some((size) => size > 0), 'sizes must contain a positive size')
+
 const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
   .object({
     id: z.string().trim().min(1),
     type: z.literal('group'),
     direction: z.enum(['horizontal', 'vertical']),
-    sizes: z.array(z.number().finite().positive()),
+    sizes: DashboardGroupSizesSchema,
     children: z.array(DashboardLayoutNodeSchema).min(1),
   })
   .strict()
   .refine((node) => node.sizes.length === node.children.length, {
     path: ['sizes'],
-    message: 'sizes must contain one positive size per child',
+    message: 'sizes must contain one nonnegative size per child',
   })
 
 const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
@@ -134,13 +138,13 @@ const DashboardLayoutStructureNodeSchema: z.ZodTypeAny = z.lazy(() =>
         id: z.string().trim().min(1).optional(),
         type: z.literal('group'),
         direction: z.enum(['horizontal', 'vertical']),
-        sizes: z.array(z.number().finite().positive()),
+        sizes: DashboardGroupSizesSchema,
         children: z.array(DashboardLayoutStructureNodeSchema).min(1),
       })
       .strict()
       .refine((node) => node.sizes.length === node.children.length, {
         path: ['sizes'],
-        message: 'sizes must contain one positive size per child',
+        message: 'sizes must contain one nonnegative size per child',
       }),
   ])
 )
@@ -569,12 +573,14 @@ export function closeDashboardTopologyPanel(
       if (children.length === 0) return current
       if (children.length === 1) return { ...children[0], id: createLayoutNodeId() }
       const remainingSizes = current.sizes.filter((_, childIndex) => childIndex !== index)
-      const total = remainingSizes.reduce((sum, size) => sum + size, 0) || children.length
+      const total = remainingSizes.reduce((sum, size) => sum + size, 0)
       return {
         ...current,
         id: createLayoutNodeId(),
         children,
-        sizes: remainingSizes.map((size) => (size / total) * 100),
+        sizes: remainingSizes.map((size) =>
+          total > 0 ? (size / total) * 100 : 100 / children.length
+        ),
       }
     }
     const children = current.children.map(close)

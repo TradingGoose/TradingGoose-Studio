@@ -80,8 +80,11 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   createEntityListBootstrapUpdate: mocks.createListBootstrap,
   createSavedReviewTargetBootstrapUpdate: mocks.createTargetBootstrap,
-  getRuntimeStateFromDoc: mocks.getRuntime,
   reseedEntityListSessionFromDb: mocks.reseedList,
+}))
+
+vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
+  getReviewTargetRuntimeState: mocks.getRuntime,
 }))
 
 vi.mock('@/socket-server/yjs/upstream-utils', () => ({
@@ -122,24 +125,10 @@ vi.mock('@/lib/watchlists/operations', () => ({
 vi.mock('@/lib/yjs/entity-session', () => ({
   seedEntitySession: mocks.seedEntity,
   getEntityFields: mocks.getEntityFields,
-  getEntityWorkspaceId: (doc: Y.Doc) => doc.getMap('metadata').get('workspaceId') ?? null,
-  getEntityOwnerUserId: (doc: Y.Doc) => doc.getMap('metadata').get('ownerUserId') ?? null,
 }))
 
 const logger = { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() }
 let documents = new Map<string, Y.Doc>()
-
-function setMetadata(
-  doc: Y.Doc,
-  values: {
-    entityKind: string
-    entityId: string
-    workspaceId?: string
-    ownerUserId?: string
-  }
-) {
-  for (const [key, value] of Object.entries(values)) doc.getMap('metadata').set(key, value)
-}
 
 function createLayoutDoc(
   layout: Parameters<typeof seedDashboardLayoutSession>[1]['layout'] = {
@@ -151,12 +140,6 @@ function createLayoutDoc(
 ) {
   const doc = new Y.Doc()
   seedDashboardLayoutSession(doc, { layout })
-  setMetadata(doc, {
-    entityKind: 'dashboard_layout',
-    entityId: 'layout-1',
-    workspaceId: 'workspace-1',
-    ownerUserId: 'user-1',
-  })
   return doc
 }
 
@@ -281,7 +264,7 @@ describe('socket internal HTTP Yjs routes', () => {
     mocks.discard.mockResolvedValue(undefined)
     mocks.saveDashboardWidget.mockResolvedValue({ ok: true })
     mocks.saveDashboardPair.mockResolvedValue({ ok: true })
-    mocks.beginDeletion.mockResolvedValue('deletion-1')
+    mocks.beginDeletion.mockResolvedValue(undefined)
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
         layout: commit.layout,
@@ -329,16 +312,12 @@ describe('socket internal HTTP Yjs routes', () => {
 
   it('checks accepted entity review hashes inside the queued mutation', async () => {
     const doc = new Y.Doc()
-    setMetadata(doc, {
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      workspaceId: 'workspace-1',
-    })
     doc.getMap('test').set('fields', { description: 'Changed', content: 'Current' })
     documents.set('skill-1', doc)
 
     const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
       entityKind: 'skill',
+      workspaceId: 'workspace-1',
       fields: { description: 'Reviewed', content: 'Next' },
       expectedReviewBaseStateHash: 'stale-review-hash',
     })
@@ -549,8 +528,10 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: ['widget-1'],
     })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith(['dashboard-widget:layout-1:widget-1'])
-    expect(mocks.commitDeletion).toHaveBeenCalledWith('deletion-1')
+    expect(mocks.beginDeletion).toHaveBeenCalledWith(expect.any(String), [
+      'dashboard-widget:layout-1:widget-1',
+    ])
+    expect(mocks.commitDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
     expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
@@ -627,7 +608,7 @@ describe('socket internal HTTP Yjs routes', () => {
 
     expect(response.status).toBe(500)
     expect(readDashboardLayoutDocument(documents.get('layout-1')!)).toEqual(before)
-    expect(mocks.abortDeletion).toHaveBeenCalledWith('deletion-1')
+    expect(mocks.abortDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
     expect(mocks.commitDeletion).not.toHaveBeenCalled()
   })
 
@@ -877,12 +858,12 @@ describe('socket internal HTTP Yjs routes', () => {
   })
 
   it('coordinates exact-session deletion leases through begin, commit, and abort', async () => {
-    mocks.beginDeletion.mockResolvedValueOnce('lease-1')
     const begun = await invoke('POST', '/internal/yjs/session-deletions', {
+      leaseId: 'lease-1',
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
     })
     expect(begun).toEqual({ status: 200, body: { leaseId: 'lease-1' } })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith([
+    expect(mocks.beginDeletion).toHaveBeenCalledWith('lease-1', [
       'layout-1',
       'dashboard-widget:layout-1:widget-1',
     ])

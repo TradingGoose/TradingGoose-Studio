@@ -91,7 +91,6 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   createSavedReviewTargetBootstrapUpdate: vi.fn(async (descriptor) => {
     const Y = await import('yjs')
     const doc = new Y.Doc()
-    doc.getMap('metadata').set('workspaceId', descriptor.workspaceId ?? 'workspace-1')
     const state = Y.encodeStateAsUpdate(doc)
     doc.destroy()
     return {
@@ -113,11 +112,6 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
     }
   ),
-  getRuntimeStateFromDoc: vi.fn(() => ({
-    docState: 'active',
-    replaySafe: false,
-    reseededFromCanonical: false,
-  })),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -293,11 +287,13 @@ describe('Socket Server Index Integration', () => {
     mockSaveWorkflowYjsDocToDb.mockImplementation(async (_workflowId, doc) => {
       savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
     })
-    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
-      const fields = getEntityFields(doc, entityKind)
-      savedEntityStates.push({ entityKind, entityId, fields })
-      return fields
-    })
+    mockSaveSavedEntityYjsDocToDb.mockImplementation(
+      async (entityKind, entityId, _workspaceId, doc) => {
+        const fields = getEntityFields(doc, entityKind)
+        savedEntityStates.push({ entityKind, entityId, fields })
+        return fields
+      }
+    )
 
     // Create HTTP server
     httpServer = createServer()
@@ -488,6 +484,7 @@ describe('Socket Server Index Integration', () => {
           },
           body: JSON.stringify({
             entityKind: 'skill',
+            workspaceId: 'workspace-1',
             fields: {
               description: 'Position sizing rules',
               content: 'Keep risk below one percent.',
@@ -541,6 +538,7 @@ describe('Socket Server Index Integration', () => {
           },
           body: JSON.stringify({
             entityKind: 'watchlist',
+            workspaceId: 'workspace-1',
             fields: {
               settings: { showLogo: true, showTicker: true, showDescription: false },
               items: [],
@@ -704,7 +702,7 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
-      const { getRuntimeStateFromDoc } = await import('@/lib/yjs/server/bootstrap-review-target')
+      const { getReviewTargetRuntimeState } = await import('@/lib/copilot/review-sessions/runtime')
 
       getDocument('workflow-state-update')
       const liveDoc = await getExistingDocument('workflow-state-update')
@@ -756,7 +754,7 @@ describe('Socket Server Index Integration', () => {
           reviewSessionId: null,
           yjsSessionId: 'workflow-state-update',
         },
-        runtime: getRuntimeStateFromDoc(liveDoc!),
+        runtime: getReviewTargetRuntimeState(liveDoc!),
         touchedAt: null,
       })
 
@@ -773,8 +771,6 @@ describe('Socket Server Index Integration', () => {
       } finally {
         doc.destroy()
       }
-
-      expect(getRuntimeStateFromDoc).toHaveBeenCalled()
     })
 
     it('reseeds an existing entity-list snapshot from DB', async () => {
@@ -956,10 +952,12 @@ describe('Socket Server Index Integration', () => {
         accessMode: 'write',
         descriptor: buildSavedEntityDescriptor('skill', 'idle-save-failed', 'workspace-1'),
         onDocumentIdle,
+        onDocumentUpdate: onDocumentIdle,
+        onDocumentUpdateDebounceMs: 60_000,
       })
       expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
       const doc = await getExistingDocument('idle-save-failed')
-      doc?.getMap('metadata').set('entityId', 'changed')
+      doc?.getMap('fields').set('changed', true)
 
       conn.emit('close')
       await new Promise((resolve) => setImmediate(resolve))

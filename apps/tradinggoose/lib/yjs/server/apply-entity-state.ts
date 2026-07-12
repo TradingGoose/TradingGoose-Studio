@@ -17,6 +17,7 @@ import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import {
   DashboardLayoutOperationError,
+  type DashboardLayoutOwnerScope,
   persistDashboardColorPairDocument,
   persistDashboardWidgetDocument,
 } from '@/lib/dashboard-layouts/operations'
@@ -34,15 +35,14 @@ import {
   readDashboardColorPairDocument,
   readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
-import {
-  getEntityFields,
-  getEntityOwnerUserId,
-  getEntityWorkspaceId,
-} from '@/lib/yjs/entity-session'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
 export class SavedEntityPersistenceError extends Error {
+  readonly retryable: boolean
+
   constructor(
     public status: number,
     message: string,
@@ -50,10 +50,15 @@ export class SavedEntityPersistenceError extends Error {
   ) {
     super(message)
     this.name = 'SavedEntityPersistenceError'
+    this.retryable = status >= 500
   }
 
   responseBody() {
-    return { error: this.message, ...(this.code ? { code: this.code } : {}) }
+    return {
+      error: this.message,
+      ...(this.code ? { code: this.code } : {}),
+      retryable: this.retryable,
+    }
   }
 }
 
@@ -202,6 +207,7 @@ export async function persistSavedEntityStateInTx(
 export async function applySavedEntityState(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
+  workspaceId: string,
   fields: Record<string, unknown>,
   options?: {
     expectedReviewBaseStateHash?: string
@@ -210,9 +216,13 @@ export async function applySavedEntityState(
 ): Promise<Record<string, unknown>> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    return options
-      ? await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields, options)
-      : await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    return await applyEntityStateInSocketServer(
+      entityId,
+      entityKind,
+      workspaceId,
+      normalizedFields,
+      options
+    )
   } catch (error) {
     if (error instanceof StructuredServerToolError) throw error
     const status = Number((error as { status?: unknown }).status)
@@ -233,6 +243,7 @@ export async function applySavedEntityState(
 export async function saveSavedEntityYjsDocToDb(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
+  workspaceId: string,
   doc: Y.Doc,
   options?: { identity?: SavedEntityIdentityMutation }
 ): Promise<Record<string, unknown>> {
@@ -246,13 +257,6 @@ export async function saveSavedEntityYjsDocToDb(
     )
   }
   const normalizedFields = normalizeSavedEntityFields(entityKind, entityFields)
-  const workspaceId = getEntityWorkspaceId(doc)
-  if (!workspaceId) {
-    throw new SavedEntityPersistenceError(
-      404,
-      `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
-    )
-  }
   try {
     return await db.transaction(async (tx) => {
       if (options?.identity) {
@@ -274,28 +278,13 @@ export async function saveSavedEntityYjsDocToDb(
   }
 }
 
-function requireDashboardOwnerScope(doc: Y.Doc): {
-  workspaceId: string
-  ownerUserId: string
-} {
-  const workspaceId = getEntityWorkspaceId(doc)
-  const ownerUserId = getEntityOwnerUserId(doc)
-  if (!workspaceId) {
-    throw new SavedEntityPersistenceError(404, 'Dashboard document workspace is missing')
-  }
-  if (!ownerUserId) {
-    throw new SavedEntityPersistenceError(400, 'Dashboard document ownerUserId is required')
-  }
-  return { workspaceId, ownerUserId }
-}
-
 export async function saveDashboardWidgetYjsDocToDb(
   sessionId: string,
+  scope: DashboardLayoutOwnerScope,
   doc: Y.Doc
 ): Promise<Record<string, unknown>> {
   const target = parseDashboardWidgetSessionId(sessionId)
   if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard widget session')
-  const scope = requireDashboardOwnerScope(doc)
   try {
     return await persistDashboardWidgetDocument(
       scope,
@@ -304,6 +293,9 @@ export async function saveDashboardWidgetYjsDocToDb(
       readDashboardWidgetDocument(doc)
     )
   } catch (error) {
+    if (error instanceof DashboardLayoutValidationError) {
+      throw new SavedEntityPersistenceError(400, error.message)
+    }
     if (error instanceof DashboardLayoutOperationError) {
       throw new SavedEntityPersistenceError(error.status, error.message)
     }
@@ -313,11 +305,11 @@ export async function saveDashboardWidgetYjsDocToDb(
 
 export async function saveDashboardColorPairYjsDocToDb(
   sessionId: string,
+  scope: DashboardLayoutOwnerScope,
   doc: Y.Doc
 ): Promise<Record<string, unknown>> {
   const target = parseDashboardColorPairSessionId(sessionId)
   if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard color-pair session')
-  const scope = requireDashboardOwnerScope(doc)
   try {
     return await persistDashboardColorPairDocument(
       scope,
@@ -326,6 +318,9 @@ export async function saveDashboardColorPairYjsDocToDb(
       readDashboardColorPairDocument(doc)
     )
   } catch (error) {
+    if (error instanceof DashboardLayoutValidationError) {
+      throw new SavedEntityPersistenceError(400, error.message)
+    }
     if (error instanceof DashboardLayoutOperationError) {
       throw new SavedEntityPersistenceError(error.status, error.message)
     }

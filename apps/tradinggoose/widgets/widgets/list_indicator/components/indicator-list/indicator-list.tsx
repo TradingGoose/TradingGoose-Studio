@@ -6,7 +6,7 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session'
-import { bootstrapYjsProvider, disposeYjsProvider } from '@/lib/yjs/provider'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
@@ -103,7 +103,7 @@ export function IndicatorList({
         try {
           pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
         } finally {
-          disposeYjsProvider(sourceSession)
+          sourceSession.dispose()
         }
 
         const createdIndicators = await createMutation.mutateAsync({

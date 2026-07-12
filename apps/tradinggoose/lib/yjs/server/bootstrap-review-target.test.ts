@@ -130,13 +130,12 @@ describe('reseedEntityListSessionFromDb', () => {
   })
 
   it('bootstraps dashboard sessions from content without generic fields or row metadata', async () => {
+    const descriptor = buildSavedEntityDescriptor('dashboard_layout', 'layout-1', 'workspace-1', {
+      ownerUserId: 'user-1',
+    })
     readSavedEntityFieldsFromDb.mockResolvedValueOnce(dashboardContent)
 
-    const result = await createSavedReviewTargetBootstrapUpdate(
-      buildSavedEntityDescriptor('dashboard_layout', 'layout-1', 'workspace-1', {
-        ownerUserId: 'user-1',
-      })
-    )
+    const result = await createSavedReviewTargetBootstrapUpdate(descriptor)
     const doc = new Y.Doc()
     try {
       Y.applyUpdate(doc, result.state)
@@ -149,5 +148,9 @@ describe('reseedEntityListSessionFromDb', () => {
     } finally {
       doc.destroy()
     }
+    readSavedEntityFieldsFromDb.mockResolvedValueOnce({ layout: {} })
+    await expect(createSavedReviewTargetBootstrapUpdate(descriptor)).rejects.toMatchObject({
+      status: 409,
+    })
   })
 })

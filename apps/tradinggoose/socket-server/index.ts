@@ -26,6 +26,7 @@ const httpServer = createServer()
 // Yjs WebSocket server - noServer mode, upgrade handled manually
 const yjsWss = new WebSocketServer({ noServer: true })
 let isShuttingDown = false
+const SHUTDOWN_DRAIN_RETRY_MS = 1_000
 
 // Register the Yjs upgrade handler before Socket.IO and then shield the
 // remaining upgrade listeners so Engine.IO never sees /yjs/* requests.
@@ -150,12 +151,20 @@ const shutdown = async () => {
   isShuttingDown = true
 
   logger.info('Shutting down Socket.IO server...')
-  try {
-    await drainAllDocuments()
-  } catch (error) {
-    logger.error('Failed to drain realtime state cleanly', { error })
-    isShuttingDown = false
-    return
+  let attempt = 0
+  while (true) {
+    attempt += 1
+    try {
+      await drainAllDocuments()
+      break
+    } catch (error) {
+      logger.error('Failed to drain realtime state cleanly', { attempt, error })
+      if ((error as { retryable?: unknown } | null)?.retryable === false) {
+        process.exit(1)
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, SHUTDOWN_DRAIN_RETRY_MS))
+    }
   }
 
   tradingPortfolioStreamManager.stop()

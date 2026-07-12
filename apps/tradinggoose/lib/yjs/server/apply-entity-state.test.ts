@@ -97,20 +97,10 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
 }))
 
-function buildDoc(
-  fields: Record<string, unknown>,
-  workspaceId: string | null = 'workspace-1',
-  ownerUserId: string | null = null
-) {
+function buildDoc(fields: Record<string, unknown>) {
   const doc = new Y.Doc()
   const map = doc.getMap('fields')
   for (const [key, value] of Object.entries(fields)) map.set(key, value)
-  if (workspaceId !== null) {
-    doc.getMap('metadata').set('workspaceId', workspaceId)
-  }
-  if (ownerUserId !== null) {
-    doc.getMap('metadata').set('ownerUserId', ownerUserId)
-  }
   return doc
 }
 
@@ -157,15 +147,21 @@ describe('applySavedEntityState', () => {
   it('applies entity changes to the socket-owned Yjs session without app-side DB materialization', async () => {
     const { applySavedEntityState } = await import('./apply-entity-state')
 
-    await applySavedEntityState('skill', 'skill-1', {
+    await applySavedEntityState('skill', 'skill-1', 'workspace-1', {
       description: 'Copilot description',
       content: 'Use the Copilot input.',
     })
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('skill-1', 'skill', {
-      description: 'Copilot description',
-      content: 'Use the Copilot input.',
-    })
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'skill-1',
+      'skill',
+      'workspace-1',
+      {
+        description: 'Copilot description',
+        content: 'Use the Copilot input.',
+      },
+      undefined
+    )
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual(['yjs'])
   })
@@ -190,7 +186,7 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
 
     await expect(
-      applySavedEntityState('watchlist', 'watchlist-1', {
+      applySavedEntityState('watchlist', 'watchlist-1', 'workspace-1', {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [
           {
@@ -206,20 +202,26 @@ describe('applySavedEntityState', () => {
       })
     ).resolves.toEqual(persistedFields)
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('watchlist-1', 'watchlist', {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          type: 'listing',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
+      'watchlist-1',
+      'watchlist',
+      'workspace-1',
+      {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          {
+            type: 'listing',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+            },
           },
-        },
-      ],
-    })
+        ],
+      },
+      undefined
+    )
     expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
@@ -234,7 +236,7 @@ describe('applySavedEntityState', () => {
     })
 
     try {
-      await saveSavedEntityYjsDocToDb('indicator', 'indicator-1', doc)
+      await saveSavedEntityYjsDocToDb('indicator', 'indicator-1', 'workspace-1', doc)
       expect(getEntityFields(doc, 'indicator')).toEqual({
         color: '#ff0000',
         pineCode: 'indicator("Draft")',
@@ -280,10 +282,10 @@ describe('applySavedEntityState', () => {
         ],
       },
     })
-    doc.getMap('metadata').set('workspaceId', 'workspace-1')
-
     try {
-      await expect(saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)).resolves.toEqual({
+      await expect(
+        saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc)
+      ).resolves.toEqual({
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [
           {
@@ -357,11 +359,13 @@ describe('applySavedEntityState', () => {
     const { saveDashboardWidgetYjsDocToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedDashboardWidgetSession(doc, { pairColor: 'blue', params: { view: {} } })
-    doc.getMap('metadata').set('workspaceId', 'workspace-1')
-    doc.getMap('metadata').set('ownerUserId', 'user-1')
 
     try {
-      await saveDashboardWidgetYjsDocToDb('dashboard-widget:layout-1:widget-1', doc)
+      await saveDashboardWidgetYjsDocToDb(
+        'dashboard-widget:layout-1:widget-1',
+        { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+        doc
+      )
     } finally {
       doc.destroy()
     }
@@ -379,11 +383,13 @@ describe('applySavedEntityState', () => {
     const { saveDashboardColorPairYjsDocToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedDashboardColorPairSession(doc, { watchlistId: 'watchlist-1' })
-    doc.getMap('metadata').set('workspaceId', 'workspace-1')
-    doc.getMap('metadata').set('ownerUserId', 'user-1')
 
     try {
-      await saveDashboardColorPairYjsDocToDb('dashboard-color-pair:layout-1:red', doc)
+      await saveDashboardColorPairYjsDocToDb(
+        'dashboard-color-pair:layout-1:red',
+        { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+        doc
+      )
     } finally {
       doc.destroy()
     }
@@ -408,14 +414,13 @@ describe('applySavedEntityState', () => {
         items: [],
       },
     })
-    doc.getMap('metadata').set('workspaceId', 'workspace-1')
     mockMaterializeWatchlistDocumentInTx.mockRejectedValueOnce(
       new MockWatchlistDocumentError('Invalid watchlist hierarchy', 409)
     )
 
     try {
       await expect(
-        saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', doc)
+        saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc)
       ).rejects.toMatchObject({
         status: 409,
         message: 'Invalid watchlist hierarchy',
@@ -425,19 +430,23 @@ describe('applySavedEntityState', () => {
     }
   })
 
-  it('refuses to materialize when the Yjs document carries no workspace identity', async () => {
+  it('uses authenticated scope instead of client-editable document metadata', async () => {
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const doc = buildDoc({ description: '', content: '' }, null)
+    const doc = buildDoc({ description: '', content: '' })
+    doc.getMap('metadata').set('workspaceId', 'attacker-workspace')
 
     try {
-      await expect(saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)).rejects.toMatchObject({
-        status: 404,
-      })
+      await saveSavedEntityYjsDocToDb('skill', 'skill-1', 'workspace-1', doc)
     } finally {
       doc.destroy()
     }
 
-    expect(mockDbUpdate).not.toHaveBeenCalled()
+    expect(mockUpdateWhere).toHaveBeenCalledWith({
+      and: [
+        { field: 'skill.id', value: 'skill-1' },
+        { field: 'skill.workspaceId', value: 'workspace-1' },
+      ],
+    })
   })
 
   it('throws when document materialization cannot find the saved entity row', async () => {
@@ -446,9 +455,9 @@ describe('applySavedEntityState', () => {
     mockUpdateReturning.mockResolvedValueOnce([])
 
     try {
-      await expect(saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)).rejects.toMatchObject({
-        status: 404,
-      })
+      await expect(
+        saveSavedEntityYjsDocToDb('skill', 'skill-1', 'workspace-1', doc)
+      ).rejects.toMatchObject({ status: 404 })
     } finally {
       doc.destroy()
     }
@@ -459,7 +468,7 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
 
     await expect(
-      applySavedEntityState('skill', 'skill-1', {
+      applySavedEntityState('skill', 'skill-1', 'workspace-1', {
         description: 'Copilot description',
         content: 'Use the Copilot input.',
       })
