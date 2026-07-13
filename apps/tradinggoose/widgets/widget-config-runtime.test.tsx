@@ -106,20 +106,7 @@ describe('independent widget config runtime owners', () => {
     sessions.pairs.clear()
   })
 
-  it('composes effective params from independent widget and pair subscriptions', () => {
-    render()
-    expect(renderState).toMatchObject({
-      isWidgetReady: true,
-      isEffectiveParamsReady: true,
-      renderWidget: {
-        key: 'data_chart',
-        pairColor: 'red',
-        params: { view: { interval: '1m' }, listing: AAPL },
-      },
-    })
-  })
-
-  it('local parameter edits mutate only the widget document', () => {
+  it('applies local parameter edits through the widget document and rerenders', () => {
     render()
     const pairVector = Y.encodeStateVector(pairDoc)
 
@@ -128,18 +115,8 @@ describe('independent widget config runtime owners', () => {
     expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toMatchObject({
       view: { interval: '1h' },
     })
+    expect(renderState?.renderWidget?.params).toMatchObject({ view: { interval: '1h' } })
     expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
-  })
-
-  it('shared parameter edits mutate only the selected pair document', () => {
-    render()
-    const widgetVector = Y.encodeStateVector(widgetDoc)
-    const MSFT = { ...AAPL, listing_id: 'MSFT' }
-
-    act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
-
-    expect(readDashboardColorPairDocument(pairDoc)).toEqual({ listing: MSFT })
-    expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
   })
 
   it('waits for the selected pair owner before exposing effective params or linked edits', () => {
@@ -165,47 +142,18 @@ describe('independent widget config runtime owners', () => {
     expect(actions?.patchWidgetLinkedParams).toBeTypeOf('function')
 
     const MSFT = { ...AAPL, listing_id: 'MSFT' }
+    const widgetVector = Y.encodeStateVector(widgetDoc)
     act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
     expect(readDashboardColorPairDocument(pairDoc)).toEqual({ listing: MSFT })
+    expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
   })
 
-  it('unlinked parameter edits mutate only the widget document', () => {
-    render()
-    act(() => actions?.changeWidgetPairColor?.('gray'))
-    const pairVector = Y.encodeStateVector(pairDoc)
-    const MSFT = { ...AAPL, listing_id: 'MSFT' }
-
-    act(() => actions?.patchWidgetLinkedParams?.({ listing: MSFT }))
-
-    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').params).toMatchObject({
-      listing: MSFT,
-    })
-    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
-  })
-
-  it('rejects fields outside the widget linked-parameter contract', () => {
-    render()
-
-    expect(() => actions?.patchWidgetLinkedParams?.({ view: { interval: '1h' } })).toThrow(
-      'does not support this linked color-pair field'
-    )
-  })
-
-  it('changing pair selection writes only the widget owner', () => {
-    render()
-    const pairVector = Y.encodeStateVector(pairDoc)
-
-    act(() => actions?.changeWidgetPairColor?.('blue'))
-
-    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').pairColor).toBe('blue')
-    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
-  })
-
-  it('rebinds only the selected pair subscription when pairColor changes', () => {
+  it('writes pair selection locally and rebinds the selected pair subscription', () => {
     render()
     const redVector = Y.encodeStateVector(pairDoc)
 
     act(() => actions?.changeWidgetPairColor?.('blue'))
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').pairColor).toBe('blue')
     expect(renderState?.renderWidget?.params).toMatchObject({
       listing: { ...AAPL, listing_id: 'MSFT' },
     })

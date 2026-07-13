@@ -14,13 +14,13 @@ import {
   buildDashboardWidgetReviewBase,
 } from '@/lib/dashboard-layouts/review-base'
 import {
+  applyDashboardWidgetDocumentDelta,
   readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
   seedDashboardColorPairSession,
   seedDashboardLayoutSession,
   seedDashboardWidgetSession,
-  setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import {
   applyLayoutEditDocument,
@@ -743,7 +743,8 @@ describe('socket internal HTTP Yjs routes', () => {
       async (doc: Y.Doc, queuedMutation: () => Promise<unknown> | unknown) => {
         if (doc === widgetDoc && !injected) {
           injected = true
-          setDashboardWidgetDocument(doc, 'data_chart', {
+          const before = readDashboardWidgetDocument(doc, 'data_chart')
+          applyDashboardWidgetDocumentDelta(doc, 'data_chart', before, {
             pairColor: 'gray',
             params: { view: { interval: '30m' } },
           })

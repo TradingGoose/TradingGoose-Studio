@@ -7,17 +7,17 @@ import {
   buildDashboardWidgetDescriptor,
 } from '@/lib/copilot/review-sessions/identity'
 import {
+  applyDashboardColorPairDocumentDelta,
+  applyDashboardWidgetDocumentDelta,
   getDashboardColorPairMap,
   getDashboardWidgetMap,
   readDashboardColorPairDocument,
   readDashboardWidgetDocument,
-  setDashboardColorPairDocument,
-  setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useYjsTargetSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import { type PairColorContext, readPairColorContext } from '@/widgets/color-pairs'
+import type { PairColorContext } from '@/widgets/color-pairs'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDocument } from '@/widgets/layout-document'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
@@ -36,8 +36,8 @@ type WidgetConfigRuntime = {
   isWidgetReady: boolean
   isPairReady: boolean
   error: string | null
-  writeWidget: (next: DashboardWidgetDocument) => void
-  writePair: (next: PairColorContext) => void
+  writeWidget: (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => void
+  writePair: (baseline: PairColorContext, target: PairColorContext) => void
 }
 
 const WidgetConfigRuntimeContext = createContext<WidgetConfigRuntime | null>(null)
@@ -80,8 +80,9 @@ export function WidgetConfigRuntimeProvider({
     if (!widgetDoc) return (_listener: () => void) => () => {}
     const map = getDashboardWidgetMap(widgetDoc)
     return (listener: () => void) => {
-      map.observe(listener)
-      return () => map.unobserve(listener)
+      const onChange = () => listener()
+      map.observeDeep(onChange)
+      return () => map.unobserveDeep(onChange)
     }
   }, [widgetDoc])
   const readWidget = useCallback(() => {
@@ -108,8 +109,9 @@ export function WidgetConfigRuntimeProvider({
     if (!pairDoc) return (_listener: () => void) => () => {}
     const map = getDashboardColorPairMap(pairDoc)
     return (listener: () => void) => {
-      map.observe(listener)
-      return () => map.unobserve(listener)
+      const onChange = () => listener()
+      map.observeDeep(onChange)
+      return () => map.unobserveDeep(onChange)
     }
   }, [pairDoc])
   const readPair = useCallback(
@@ -125,16 +127,16 @@ export function WidgetConfigRuntimeProvider({
   const isWidgetReady = Boolean(widgetDoc)
   const isPairReady = pairColor === 'gray' || Boolean(pairDoc)
   const writeWidget = useCallback(
-    (next: DashboardWidgetDocument) => {
+    (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => {
       if (!canWrite || !widgetDoc || !isWidgetKey(widgetKey)) return
-      setDashboardWidgetDocument(widgetDoc, widgetKey, next, YJS_ORIGINS.USER)
+      applyDashboardWidgetDocumentDelta(widgetDoc, widgetKey, baseline, target, YJS_ORIGINS.USER)
     },
     [canWrite, widgetDoc, widgetKey]
   )
   const writePair = useCallback(
-    (next: PairColorContext) => {
+    (baseline: PairColorContext, target: PairColorContext) => {
       if (!canWrite || !pairDoc) return
-      setDashboardColorPairDocument(pairDoc, next, YJS_ORIGINS.USER)
+      applyDashboardColorPairDocumentDelta(pairDoc, baseline, target, YJS_ORIGINS.USER)
     },
     [canWrite, pairDoc]
   )
@@ -184,8 +186,9 @@ export function LocalWidgetConfigRuntimeProvider({
   const subscribe = useMemo(() => {
     const map = getDashboardWidgetMap(doc)
     return (listener: () => void) => {
-      map.observe(listener)
-      return () => map.unobserve(listener)
+      const onChange = () => listener()
+      map.observeDeep(onChange)
+      return () => map.unobserveDeep(onChange)
     }
   }, [doc])
   const read = useCallback(
@@ -197,9 +200,9 @@ export function LocalWidgetConfigRuntimeProvider({
   )
   const widget = useYjsSubscription(subscribe, read, null, areJsonValuesEqual)
   const writeWidget = useCallback(
-    (next: DashboardWidgetDocument) => {
+    (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => {
       if (canWrite && isWidgetKey(widgetKey)) {
-        setDashboardWidgetDocument(doc, widgetKey, next, YJS_ORIGINS.USER)
+        applyDashboardWidgetDocumentDelta(doc, widgetKey, baseline, target, YJS_ORIGINS.USER)
       }
     },
     [canWrite, doc, widgetKey]
@@ -260,10 +263,11 @@ export const useWidgetConfigRuntimeActions = () => {
         patch,
       })
       if (next.changedPaths.some((path) => path.startsWith('widget.'))) {
-        runtime.writeWidget(next.widgetDocument)
+        runtime.writeWidget(runtime.widget, next.widgetDocument)
       }
-      if (next.colorPairDiff.length > 0 && next.widgetDocument.pairColor !== 'gray') {
-        runtime.writePair(readPairColorContext(next.colorPairs, next.widgetDocument.pairColor))
+      const pairChange = next.colorPairDiff.find((change) => change.color === color)
+      if (pairChange && color !== 'gray') {
+        runtime.writePair(pairChange.before, pairChange.after)
       }
     }
     return {

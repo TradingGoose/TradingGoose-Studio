@@ -33,12 +33,12 @@ import { env } from '@/lib/env'
 import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
+  applyDashboardColorPairDocumentDelta,
+  applyDashboardWidgetDocumentDelta,
   readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
-  setDashboardColorPairDocument,
   setDashboardLayoutTopology,
-  setDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import {
@@ -945,15 +945,21 @@ async function handleInternalDashboardEditRequest(
                 }
 
                 if (widgetChanged) {
-                  setDashboardWidgetDocument(
+                  applyDashboardWidgetDocumentDelta(
                     widgetDoc,
                     widgetKey,
+                    widget,
                     planned.widgetDocument,
                     YJS_ORIGINS.SYSTEM
                   )
                 }
                 if (pairChange && pairDoc) {
-                  setDashboardColorPairDocument(pairDoc, pairChange.after, YJS_ORIGINS.SYSTEM)
+                  applyDashboardColorPairDocumentDelta(
+                    pairDoc,
+                    pairChange.before,
+                    pairChange.after,
+                    YJS_ORIGINS.SYSTEM
+                  )
                 }
                 return {
                   ...current,
