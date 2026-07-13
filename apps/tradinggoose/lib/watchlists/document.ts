@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import type { ListingInputValue } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import type {
   WatchlistDocumentContent,
@@ -128,6 +128,9 @@ const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => 
     listing,
   }
 }
+
+const watchlistItemUniquenessKey = (containerId: string | null, listing: ListingIdentity) =>
+  `${containerId ?? ''}:${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const sortSiblingRows = (left: WatchlistSiblingRow, right: WatchlistSiblingRow) =>
   left.row.sortOrder - right.row.sortOrder ||
@@ -335,14 +338,26 @@ export async function materializeWatchlistDocumentInTx(
       submittedSectionIds.add(item.id)
     }
 
-    const submittedListingIds = new Set<string>()
+    const submittedListingKeys = new Map<string, string>()
     for (const item of resolvedItems) {
       if (item.type !== 'listing') continue
-      const containerId = item.parentId ?? null
-      if (containerId && !submittedSectionIds.has(containerId)) {
-        throw new WatchlistDocumentError('Watchlist item parentId must reference a section')
-      }
-      const dbContainerId = containerId ?? root.id
+      const dbContainerId = item.parentId ?? root.id
+      submittedListingKeys.set(item.id, watchlistItemUniquenessKey(dbContainerId, item.listing))
+    }
+
+    for (const item of currentRows.items) {
+      const submittedKey = submittedListingKeys.get(item.id)
+      const currentKey = submittedKey
+        ? watchlistItemUniquenessKey(item.containerId, item.listing as ListingIdentity)
+        : null
+      if (submittedKey === currentKey) continue
+      await tx
+        .delete(watchlistItem)
+        .where(and(documentItemCondition(workspaceId, root.id), eq(watchlistItem.id, item.id)))
+    }
+    for (const item of resolvedItems) {
+      if (item.type !== 'listing') continue
+      const dbContainerId = item.parentId ?? root.id
       await persistListingItem(
         tx,
         workspaceId,
@@ -351,14 +366,6 @@ export async function materializeWatchlistDocumentInTx(
         dbContainerId,
         submittedSortOrder(item)
       )
-      submittedListingIds.add(item.id)
-    }
-
-    for (const item of currentRows.items) {
-      if (submittedListingIds.has(item.id)) continue
-      await tx
-        .delete(watchlistItem)
-        .where(and(documentItemCondition(workspaceId, root.id), eq(watchlistItem.id, item.id)))
     }
     for (const section of currentSections) {
       if (submittedSectionIds.has(section.id)) continue

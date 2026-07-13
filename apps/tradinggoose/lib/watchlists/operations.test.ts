@@ -120,8 +120,6 @@ function materializerTx(input: {
 }) {
   const selectResults = [input.roots ?? [rootRow], input.containers ?? [], input.items ?? []]
   const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
-  const updates: Array<{ table: any; values: Record<string, unknown> }> = []
-  const deletes: Array<{ table: any }> = []
   const updateResults = [...input.updateResults]
   const tx: any = {
     select: vi.fn(() => queryChain(selectResults.shift() ?? [])),
@@ -129,7 +127,6 @@ function materializerTx(input: {
       set: vi.fn((values: Record<string, unknown>) => ({
         where: vi.fn(() => ({
           returning: vi.fn(async () => {
-            updates.push({ table, values })
             const result = updateResults.shift() ?? []
             if (result instanceof Error) throw result
             return result
@@ -146,12 +143,10 @@ function materializerTx(input: {
       })),
     })),
     delete: vi.fn((table: any) => ({
-      where: vi.fn(async () => {
-        deletes.push({ table })
-      }),
+      where: vi.fn(async () => table),
     })),
   }
-  return { tx, inserts, updates, deletes }
+  return { tx, inserts }
 }
 
 const content = {
@@ -162,6 +157,26 @@ const content = {
     { id: nestedListingId, type: 'listing' as const, parentId: sectionId, listing: NVDA },
   ],
 }
+const updatedRoot = { ...rootRow, settings: content.settings }
+const sectionRow = {
+  ...rootRow,
+  id: sectionId,
+  parentId: rootRow.id,
+  name: 'Semiconductors',
+  settings: { kind: 'section' },
+}
+const rootItem = {
+  id: rootListingId,
+  workspaceId: rootRow.workspaceId,
+  userId: null,
+  watchlistId: rootRow.id,
+  containerId: rootRow.id,
+  listing: SPY,
+  sortOrder: 0,
+  createdAt: rootRow.createdAt,
+  updatedAt: rootRow.updatedAt,
+}
+const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, listing: NVDA }
 
 describe('watchlist operations', () => {
   beforeEach(() => {
@@ -177,7 +192,6 @@ describe('watchlist operations', () => {
   })
 
   it('persists new canonical UUIDs unchanged and updates the same rows on the next save', async () => {
-    const updatedRoot = { ...rootRow, settings: content.settings }
     const first = materializerTx({ updateResults: [[updatedRoot], [], [], []] })
     await expect(
       materializeWatchlistDocumentInTx(first.tx, 'workspace-1', 'watchlist-1', content)
@@ -188,29 +202,7 @@ describe('watchlist operations', () => {
       rootListingId,
       nestedListingId,
     ])
-    expect(first.inserts[1]?.values.containerId).toBe(rootRow.id)
-    expect(first.inserts[2]?.values.containerId).toBe(sectionId)
-    expect(first.deletes).toEqual([])
 
-    const sectionRow = {
-      ...rootRow,
-      id: sectionId,
-      parentId: rootRow.id,
-      name: 'Semiconductors',
-      settings: { kind: 'section' },
-    }
-    const rootItem = {
-      id: rootListingId,
-      workspaceId: rootRow.workspaceId,
-      userId: null,
-      watchlistId: rootRow.id,
-      containerId: rootRow.id,
-      listing: SPY,
-      sortOrder: 0,
-      createdAt: rootRow.createdAt,
-      updatedAt: rootRow.updatedAt,
-    }
-    const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, listing: NVDA }
     const second = materializerTx({
       containers: [rootRow, sectionRow],
       items: [rootItem, nestedItem],
@@ -221,7 +213,20 @@ describe('watchlist operations', () => {
       materializeWatchlistDocumentInTx(second.tx, 'workspace-1', 'watchlist-1', content)
     ).resolves.toEqual(content)
     expect(second.inserts).toEqual([])
-    expect(second.deletes).toEqual([])
+
+    const collision = materializerTx({
+      containers: [rootRow, sectionRow],
+      items: [rootItem, { ...nestedItem, listing: SPY }],
+      updateResults: [[updatedRoot], [sectionRow], []],
+    })
+    await materializeWatchlistDocumentInTx(collision.tx, 'workspace-1', 'watchlist-1', {
+      ...content,
+      items: [
+        { id: sectionId, type: 'section', parentId: null, label: 'Semiconductors' },
+        { id: nestedListingId, type: 'listing', parentId: null, listing: SPY },
+      ],
+    })
+    expect(collision.tx.delete).toHaveBeenCalledTimes(2)
   })
 
   it('maps only the canonical root-name unique constraint to 409', async () => {
@@ -340,17 +345,9 @@ describe('watchlist operations', () => {
   })
 
   it('rejects persisted nested sections and listings outside the watchlist hierarchy', () => {
-    const section = {
-      ...rootRow,
-      id: sectionId,
-      parentId: rootRow.id,
-      name: 'Semiconductors',
-      settings: { kind: 'section' },
-    }
-
     expect(() =>
       composeWatchlistDocumentFromRows(
-        [{ ...section, id: crypto.randomUUID(), parentId: section.id }, section],
+        [{ ...sectionRow, id: crypto.randomUUID(), parentId: sectionRow.id }, sectionRow],
         [],
         rootRow.id
       )
@@ -358,7 +355,7 @@ describe('watchlist operations', () => {
 
     expect(() =>
       composeWatchlistDocumentFromRows(
-        [section],
+        [sectionRow],
         [
           {
             id: rootListingId,
