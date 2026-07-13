@@ -469,60 +469,6 @@ describe('Socket Server Index Integration', () => {
       expect(await getExistingDocument('workflow-1')).toBeNull()
     })
 
-    it('should apply saved entity state through Yjs', async () => {
-      const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
-      replaceEntityListSessionMembers(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/entities/skill-1/apply-state',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-          body: JSON.stringify({
-            entityKind: 'skill',
-            workspaceId: 'workspace-1',
-            fields: {
-              description: 'Position sizing rules',
-              content: 'Keep risk below one percent.',
-            },
-          }),
-        }
-      )
-
-      expect(response.statusCode).toBe(200)
-      expect(JSON.parse(response.body)).toEqual({
-        success: true,
-        fields: {
-          description: 'Position sizing rules',
-          content: 'Keep risk below one percent.',
-        },
-      })
-      expect(savedEntityStates).toEqual([
-        {
-          entityKind: 'skill',
-          entityId: 'skill-1',
-          fields: {
-            description: 'Position sizing rules',
-            content: 'Keep risk below one percent.',
-          },
-        },
-      ])
-      expect(await getExistingDocument('skill-1')).toBeNull()
-      expect(getEntityListMembers(listDoc, 'skill')).toEqual([
-        {
-          entityId: 'skill-1',
-          entityName: 'Old Skill',
-        },
-      ])
-
-      conn.emit('close')
-      await new Promise((resolve) => setImmediate(resolve))
-    })
-
     it('applies watchlist content without changing its list identity', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
@@ -565,6 +511,7 @@ describe('Socket Server Index Integration', () => {
           },
         },
       ])
+      expect(await getExistingDocument('watchlist-1')).toBeNull()
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',

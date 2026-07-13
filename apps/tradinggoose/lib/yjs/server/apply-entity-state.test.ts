@@ -169,28 +169,6 @@ describe('applySavedEntityState', () => {
     })
   })
 
-  it('applies entity changes to the socket-owned Yjs session without app-side DB materialization', async () => {
-    const { applySavedEntityState } = await import('./apply-entity-state')
-
-    await applySavedEntityState('skill', 'skill-1', 'workspace-1', {
-      description: 'Copilot description',
-      content: 'Use the Copilot input.',
-    })
-
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
-      'skill-1',
-      'skill',
-      'workspace-1',
-      {
-        description: 'Copilot description',
-        content: 'Use the Copilot input.',
-      },
-      undefined
-    )
-    expect(mockDbUpdate).not.toHaveBeenCalled()
-    expect(events).toEqual(['yjs'])
-  })
-
   it('applies watchlist changes through the socket-owned saved-entity Yjs session', async () => {
     const { applySavedEntityState } = await import('./apply-entity-state')
     const persistedFields = {
