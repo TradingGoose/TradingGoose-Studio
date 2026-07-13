@@ -28,7 +28,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const mockPush = vi.fn()
-const mockReplace = vi.fn()
 const dashboardClientMocks = vi.hoisted(() => ({
   activateDashboardLayoutAction: vi.fn(() => Promise.resolve()),
   createDashboardLayoutAction: vi.fn(() => Promise.resolve({ layoutId: 'layout-new' })),
@@ -36,8 +35,6 @@ const dashboardClientMocks = vi.hoisted(() => ({
   renameSavedEntityAction: vi.fn(() => Promise.resolve()),
   reorderDashboardLayoutAction: vi.fn(() => Promise.resolve()),
 }))
-let mockPathname = '/workspace/ws-a/dashboard'
-let mockSearchParams = 'panel=left'
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockLayoutTabsIsBusy = false
@@ -69,15 +66,9 @@ const dashboardPermissions = {
   workspaceCanWrite: true,
 } as const
 
-vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(mockSearchParams),
-}))
-
 vi.mock('@/i18n/navigation', () => ({
-  usePathname: () => mockPathname,
   useRouter: () => ({
     push: mockPush,
-    replace: mockReplace,
   }),
 }))
 
@@ -235,6 +226,7 @@ vi.mock('@/widgets/widget-surface', async () => {
       context,
       panelId,
       onPairColorChange,
+      onPanelClose,
       onWidgetChange,
     }: {
       context?: {
@@ -246,6 +238,7 @@ vi.mock('@/widgets/widget-surface', async () => {
       }
       panelId?: string
       onPairColorChange?: (color: PairColor) => void
+      onPanelClose?: () => void
       onWidgetChange?: (widgetKey: string) => void
     }) => {
       const { renderWidget } = useDashboardWidgetRenderState()
@@ -278,6 +271,12 @@ vi.mock('@/widgets/widget-surface', async () => {
           />
           <button
             type='button'
+            data-testid={`close-panel-${panelId ?? 'panel'}`}
+            disabled={!onPanelClose}
+            onClick={() => onPanelClose?.()}
+          />
+          <button
+            type='button'
             data-testid={`widget-watchlist-${panelId ?? 'panel'}`}
             disabled={!onWidgetChange}
             onClick={() => onWidgetChange?.('watchlist')}
@@ -298,9 +297,6 @@ describe('DashboardClient', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockPush.mockReset()
-    mockReplace.mockReset()
-    mockPathname = '/workspace/ws-a/dashboard'
-    mockSearchParams = 'panel=left'
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockLayoutTabsIsBusy = false
@@ -344,7 +340,7 @@ describe('DashboardClient', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('replaces stale widget workflow params when the dashboard identity changes', async () => {
+  it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
@@ -364,8 +360,12 @@ describe('DashboardClient', () => {
       workspaceId: 'ws-a',
       pairColor: 'gray',
     })
-
-    mockPathname = '/workspace/ws-b/dashboard'
+    expect(readWidgetRuntimeContext(container)).toEqual({
+      dashboardLayoutId: 'layout-a',
+      dashboardLayoutName: 'Layout A',
+      dashboardLayoutOwnerUserId: 'user-a',
+      canWrite: true,
+    })
 
     await act(async () => {
       root.render(
@@ -386,42 +386,6 @@ describe('DashboardClient', () => {
       workspaceId: 'ws-b',
       pairColor: 'gray',
     })
-  })
-
-  it('propagates dashboard runtime context changes through the dashboard node boundary', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(readWidgetRuntimeContext(container)).toEqual({
-      dashboardLayoutId: 'layout-a',
-      dashboardLayoutName: 'Layout A',
-      dashboardLayoutOwnerUserId: 'user-a',
-      canWrite: true,
-    })
-
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-b'
-          ownerUserId='user-b'
-          layoutId='layout-b'
-          initialLayouts={createLayouts('layout-b')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
     expect(readWidgetRuntimeContext(container)).toEqual({
       dashboardLayoutId: 'layout-b',
       dashboardLayoutName: 'Layout B',
@@ -495,27 +459,47 @@ describe('DashboardClient', () => {
     expect(mockLayoutMutation).not.toHaveBeenCalled()
   })
 
-  it('routes widget selection through the layout document owner', async () => {
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
+  it('handles rejected panel structural actions at the client boundary', async () => {
+    const closeError = new Error('panel disappeared')
+    const replaceError = new Error('panel disappeared')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockLayoutMutation.mockRejectedValueOnce(closeError).mockRejectedValueOnce(replaceError)
+    try {
+      await act(async () => {
+        root.render(
+          <DashboardClient
+            initialTopology={createGroupLayout([50, 50])}
+            workspaceId='ws-a'
+            ownerUserId='user-a'
+            layoutId='layout-a'
+            initialLayouts={createLayouts('layout-a')}
+            {...dashboardPermissions}
+          />
+        )
+      })
+
+      const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
+      if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close button')
+      const replacePanel = container.querySelector('[data-testid="widget-watchlist-panel-left"]')
+      if (!(replacePanel instanceof HTMLButtonElement)) {
+        throw new Error('Expected panel replacement button')
+      }
+      await act(async () => {
+        closePanel.click()
+        replacePanel.click()
+        await Promise.resolve()
+      })
+
+      expect(mockLayoutMutation).toHaveBeenCalledWith('panel-left')
+      expect(mockLayoutMutation).toHaveBeenCalledWith('panel-left', 'watchlist')
+      expect(consoleError).toHaveBeenCalledWith('Failed to close dashboard panel:', closeError)
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to replace dashboard panel widget:',
+        replaceError
       )
-    })
-
-    const selectWatchlist = container.querySelector('[data-testid="widget-watchlist-panel-a"]')
-    if (!(selectWatchlist instanceof HTMLButtonElement)) {
-      throw new Error('Expected widget selector button')
+    } finally {
+      consoleError.mockRestore()
     }
-    await act(async () => selectWatchlist.click())
-
-    expect(mockLayoutMutation).toHaveBeenCalledWith('panel-a', 'watchlist')
   })
 
   it('does not carry a pending activation into another workspace', async () => {
@@ -548,7 +532,6 @@ describe('DashboardClient', () => {
     })
     expect(mockLayoutTabsIsBusy).toBe(true)
 
-    mockPathname = '/workspace/ws-b/dashboard'
     await act(async () => {
       root.render(
         <DashboardClient
@@ -694,124 +677,7 @@ describe('DashboardClient', () => {
     consoleError.mockRestore()
   })
 
-  it('does not write selected layout identity into the dashboard URL', async () => {
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-a'),
-      isLoading: false,
-      error: null,
-    }
-
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    if (!mockSelectLayout) {
-      throw new Error('Expected layout select handler to be captured')
-    }
-
-    await act(async () => {
-      mockSelectLayout?.('layout-b')
-      await Promise.resolve()
-    })
-
-    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledWith(
-      'ws-a',
-      'layout-b'
-    )
-    expect(mockReplace).not.toHaveBeenCalled()
-
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      isLoading: false,
-      error: null,
-    }
-
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(mockReplace).not.toHaveBeenCalled()
-  })
-
-  it('removes stale layout identity from the dashboard URL', async () => {
-    mockSearchParams = 'layoutId=layout-b&panel=left'
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      isLoading: false,
-      error: null,
-    }
-
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-a/dashboard?panel=left')
-  })
-
-  it('passes dashboard list order to layout tabs without consumer-side sorting', async () => {
-    mockDashboardLayoutList = {
-      layouts: [
-        {
-          id: 'layout-b',
-          name: 'Layout B',
-          sortOrder: 1,
-          isActive: false,
-        },
-        {
-          id: 'layout-a',
-          name: 'Layout A',
-          sortOrder: 0,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-      error: null,
-    }
-
-    await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
-    })
-
-    expect(mockLayoutTabsLayouts.map((layout) => layout.id)).toEqual(['layout-b', 'layout-a'])
-  })
-
-  it('uses an empty completed live layout list instead of retaining SSR layouts', async () => {
+  it('does not retain SSR or synthetic content after live layout resolution', async () => {
     mockDashboardLayoutList = {
       layouts: [],
       isLoading: false,
@@ -838,9 +704,7 @@ describe('DashboardClient', () => {
         .querySelector('[data-testid="dashboard-layout-document-state"]')
         ?.getAttribute('data-state')
     ).toBe('empty')
-  })
 
-  it('does not show SSR or synthetic content for a newly active layout', async () => {
     mockDashboardLayoutList = {
       layouts: createLayouts('layout-b'),
       isLoading: false,

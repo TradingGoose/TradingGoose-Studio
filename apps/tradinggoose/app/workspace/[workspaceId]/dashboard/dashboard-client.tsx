@@ -19,7 +19,6 @@ import {
   ScrollText,
   Search,
 } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels'
 import { Input } from '@/components/ui/input'
@@ -40,7 +39,7 @@ import {
 } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 import {
   countDashboardTopologyPanels,
   type DashboardLayoutTopologyNode,
@@ -273,9 +272,6 @@ export function DashboardClient({
   } | null>(null)
   const isCreatingLayoutRef = useRef(false)
   const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const searchParamsString = searchParams.toString()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -347,15 +343,6 @@ export function DashboardClient({
   useEffect(() => {
     setPendingActivation((current) => (current?.workspaceId === workspaceId ? current : null))
   }, [workspaceId])
-
-  useEffect(() => {
-    const nextParams = new URLSearchParams(searchParamsString)
-    if (!nextParams.has('layoutId')) return
-
-    nextParams.delete('layoutId')
-    const query = nextParams.toString()
-    router.replace(`${pathname}${query ? `?${query}` : ''}`)
-  }, [pathname, router, searchParamsString])
 
   useEffect(() => {
     let isMounted = true
@@ -543,11 +530,27 @@ export function DashboardClient({
   )
 
   const handleClosePanel = useCallback(
-    (panelId: string) => {
+    async (panelId: string) => {
       if (!canEditContent) return
-      void layoutDocument.closePanel(panelId)
+      try {
+        await layoutDocument.closePanel(panelId)
+      } catch (error) {
+        console.error('Failed to close dashboard panel:', error)
+      }
     },
     [canEditContent, layoutDocument.closePanel]
+  )
+
+  const handleReplacePanelWidget = useCallback(
+    async (panelId: string, widgetKey: string) => {
+      if (!canEditContent) return
+      try {
+        await layoutDocument.replacePanelWidget(panelId, widgetKey)
+      } catch (error) {
+        console.error('Failed to replace dashboard panel widget:', error)
+      }
+    },
+    [canEditContent, layoutDocument.replacePanelWidget]
   )
 
   const handleSelectLayout = useCallback(
@@ -782,7 +785,7 @@ export function DashboardClient({
             splitPanelVertical={canEditContent ? handleSplitPanelVertical : undefined}
             splitPanelHorizontal={canEditContent ? handleSplitPanelHorizontal : undefined}
             closePanel={canEditContent && canClosePanel ? handleClosePanel : undefined}
-            replacePanelWidget={canEditContent ? layoutDocument.replacePanelWidget : undefined}
+            replacePanelWidget={canEditContent ? handleReplacePanelWidget : undefined}
           />
         ) : (
           <div
