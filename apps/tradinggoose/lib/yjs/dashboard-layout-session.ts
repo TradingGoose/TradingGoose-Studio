@@ -3,6 +3,7 @@ import { toListingValueObject } from '@/lib/listing/identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import {
+  createDashboardLayoutValidationError,
   type DashboardLayoutDocument,
   type DashboardLayoutTopologyNode,
   type DashboardWidgetDocument,
@@ -14,6 +15,7 @@ import {
 } from '@/widgets/layout-document'
 
 const TOPOLOGY_KEY = 'topology'
+const UNSAFE_WIDGET_PARAM_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
 
 export const getDashboardLayoutMap = (doc: Y.Doc) => doc.getMap<unknown>('layout')
 export const getDashboardWidgetMap = (doc: Y.Doc) => doc.getMap<unknown>('widget')
@@ -153,7 +155,10 @@ function readDashboardWidgetParams(map: Y.Map<unknown>): Record<string, unknown>
 function getDashboardWidgetParamsMap(map: Y.Map<unknown>): Y.Map<unknown> {
   const params = map.get('params')
   if (!(params instanceof Y.Map)) {
-    throw new Error('Dashboard widget params must use a structured Y.Map')
+    throw createDashboardLayoutValidationError(
+      'widget.params',
+      'Dashboard widget params must use a structured Y.Map'
+    )
   }
   return params
 }
@@ -214,6 +219,7 @@ function isNestedWidgetParamsRecord(value: unknown): value is Record<string, unk
 }
 
 function encodeWidgetParamPath(path: string[]): string {
+  assertSafeWidgetParamPath(path)
   return JSON.stringify(path)
 }
 
@@ -221,12 +227,25 @@ function decodeWidgetParamPath(value: string): string[] {
   try {
     const path = JSON.parse(value)
     if (Array.isArray(path) && path.length > 0 && path.every((part) => typeof part === 'string')) {
+      assertSafeWidgetParamPath(path)
       return path
     }
   } catch {
-    // The params owner only writes encoded string paths.
+    // Invalid JSON and unsafe paths share one canonical storage failure.
   }
-  throw new Error('Dashboard widget params must use encoded paths')
+  throw createDashboardLayoutValidationError(
+    'widget.params',
+    'Widget params must use encoded paths'
+  )
+}
+
+function assertSafeWidgetParamPath(path: readonly string[]): void {
+  if (path.some((part) => UNSAFE_WIDGET_PARAM_PATH_SEGMENTS.has(part))) {
+    throw createDashboardLayoutValidationError(
+      'widget.params',
+      'Widget params contain an unsafe path'
+    )
+  }
 }
 
 function setWidgetParamAtPath(

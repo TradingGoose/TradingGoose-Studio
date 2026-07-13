@@ -48,10 +48,12 @@ function createRequest(
 
 function createDashboardRequest(
   sessionId: string,
-  accessMode: 'read' | 'write' = 'write'
+  accessMode: 'read' | 'write' = 'write',
+  entityKind: 'dashboard_layout' | 'dashboard_widget' = 'dashboard_layout',
+  entityId = sessionId
 ): IncomingMessage {
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=dashboard_layout&entityId=${encodeURIComponent(sessionId)}&workspaceId=workspace-1&ownerUserId=user-1`,
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=${entityKind}&entityId=${encodeURIComponent(entityId)}&workspaceId=workspace-1&ownerUserId=user-1`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -244,22 +246,23 @@ describe('handleYjsUpgrade', () => {
     expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
-  it('allows websocket upgrades for write access', async () => {
-    const sessionId = 'workflow-456'
-    const request = createRequest(sessionId)
+  it('allows dashboard widget write upgrades with canonical validation', async () => {
+    const sessionId = 'dashboard-widget:layout-1:widget-1'
+    const request = createDashboardRequest(sessionId, 'write', 'dashboard_widget', 'widget-1')
     const socket = createSocket()
     const wss = createWebSocketServer()
 
     mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-2',
-      userName: 'User Two',
+      userId: 'user-1',
+      userName: 'User One',
       envelope: {
         targetKind: 'entity',
         sessionId,
         reviewSessionId: null,
-        workspaceId: 'workspace-2',
-        entityKind: 'workflow',
-        entityId: sessionId,
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_widget',
+        entityId: 'widget-1',
         draftSessionId: null,
       },
     })
@@ -267,16 +270,17 @@ describe('handleYjsUpgrade', () => {
     mockVerifyReviewTargetAccess.mockResolvedValue({
       hasAccess: true,
       userPermission: 'write',
-      workspaceId: 'workspace-2',
-      isOwner: false,
+      workspaceId: 'workspace-1',
+      isOwner: true,
     })
     mockGetExistingDocument.mockResolvedValue(null)
     const bootstrapState = new Uint8Array([0, 0])
     mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
       descriptor: {
-        workspaceId: 'workspace-2',
-        entityKind: 'workflow',
-        entityId: sessionId,
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        entityKind: 'dashboard_widget',
+        entityId: 'widget-1',
         draftSessionId: null,
         reviewSessionId: null,
         yjsSessionId: sessionId,
@@ -306,6 +310,7 @@ describe('handleYjsUpgrade', () => {
         accessMode: 'write',
         gc: true,
         onDocumentUpdate: expect.any(Function),
+        validateDocument: expect.any(Function),
       })
     )
     expect(socket.write).not.toHaveBeenCalled()
@@ -399,7 +404,6 @@ describe('handleYjsUpgrade', () => {
     expect(options).toEqual(
       expect.objectContaining({
         docId: sessionId,
-        onDocumentIdle: expect.any(Function),
         onDocumentUpdate: expect.any(Function),
       })
     )
@@ -410,7 +414,7 @@ describe('handleYjsUpgrade', () => {
     metadata.set('workspaceId', 'client-controlled-workspace')
     metadata.set('draftSessionId', 'client-controlled-draft')
     metadata.set('reviewSessionId', null)
-    await options.onDocumentIdle(sessionId, doc)
+    await options.onDocumentUpdate(sessionId, doc)
 
     expect(mockSaveSavedEntityYjsDocToDb).toHaveBeenCalledWith(
       'watchlist',
@@ -483,7 +487,6 @@ describe('handleYjsUpgrade', () => {
         docId: sessionId,
         accessMode: 'read',
         gc: true,
-        onDocumentIdle: undefined,
         onDocumentUpdate: undefined,
       })
     )

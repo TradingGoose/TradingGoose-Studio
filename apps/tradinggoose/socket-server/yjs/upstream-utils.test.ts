@@ -5,15 +5,17 @@ import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
-import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import {
+  buildDashboardWidgetDescriptor,
+  buildSavedEntityDescriptor,
+} from '@/lib/copilot/review-sessions/identity'
 import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import {
-  getDashboardLayoutMap,
-  readDashboardLayoutTopology,
-  seedDashboardLayoutSession,
+  getDashboardWidgetMap,
+  readDashboardWidgetDocument,
+  seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { createDefaultDashboardLayoutProjection } from '@/widgets/layout-document'
 import {
   abortYjsSessionDeletion,
   beginYjsSessionDeletion,
@@ -23,7 +25,6 @@ import {
   discardDocumentIfCurrent,
   discardDocumentIfIdle,
   drainAllDocuments,
-  flushDocumentPersistence,
   getDocument,
   isYjsSessionAdmissionBlocked,
   peekDocument,
@@ -90,25 +91,6 @@ function createFieldsUpdate(doc: Y.Doc, key: string, value: unknown): Uint8Array
   return update
 }
 
-function createDashboardDocument(docId: string): Y.Doc {
-  const source = new Y.Doc()
-  seedDashboardLayoutSession(
-    source,
-    { layout: createDefaultDashboardLayoutProjection().layout },
-    YJS_ORIGINS.SYSTEM
-  )
-  const state = Y.encodeStateAsUpdate(source)
-  source.destroy()
-  return getDocument(docId, true, state).doc
-}
-
-function changeTopology(doc: Y.Doc, id: string): void {
-  getDashboardLayoutMap(doc).set('topology', {
-    ...readDashboardLayoutTopology(doc),
-    id,
-  })
-}
-
 afterEach(() => {
   vi.useRealTimers()
   cleanupAllDocuments()
@@ -118,7 +100,7 @@ beforeEach(() => {
   accessMocks.verifyReviewTargetAccess.mockResolvedValue({ hasAccess: true })
 })
 
-describe('dashboard document persistence queue', () => {
+describe('shared document lifecycle', () => {
   it('reports one atomic creator for a shared document id', () => {
     const first = getDocument('layout-bootstrap-race')
     const second = getDocument('layout-bootstrap-race')
@@ -138,54 +120,6 @@ describe('dashboard document persistence queue', () => {
 
     expect(mutation).not.toHaveBeenCalled()
     expect(peekDocument('layout-replaced')).toBe(replacement)
-  })
-
-  it('serializes explicit flushes and preserves a newer generation during an in-flight save', async () => {
-    const doc = createDashboardDocument('layout-serialized')
-    const firstWrite = deferred()
-    const savedTopologyIds: string[] = []
-    let callCount = 0
-    const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
-      callCount += 1
-      savedTopologyIds.push(readDashboardLayoutTopology(target).id)
-      if (callCount === 1) await firstWrite.promise
-    })
-
-    changeTopology(doc, 'first-generation')
-    const firstFlush = flushDocumentPersistence(doc, persist)
-    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1))
-
-    changeTopology(doc, 'second-generation')
-    const secondFlush = flushDocumentPersistence(doc, persist)
-    discardDocumentIfIdle(doc)
-    expect(peekDocument('layout-serialized')).toBe(doc)
-
-    firstWrite.resolve()
-    await Promise.all([firstFlush, secondFlush])
-
-    expect(persist).toHaveBeenCalledTimes(2)
-    expect(savedTopologyIds).toEqual(['first-generation', 'second-generation'])
-    discardDocumentIfIdle(doc)
-    expect(peekDocument('layout-serialized')).toBeNull()
-  })
-
-  it('retries failed dirty state and completes requested idle cleanup', async () => {
-    vi.useFakeTimers()
-    const doc = createDashboardDocument('layout-retry')
-    let attempts = 0
-    const persist = vi.fn(async () => {
-      attempts += 1
-      if (attempts === 1) throw new Error('database offline')
-    })
-
-    changeTopology(doc, 'retry-generation')
-    await expect(flushDocumentPersistence(doc, persist)).rejects.toThrow('database offline')
-    discardDocumentIfIdle(doc)
-    expect(peekDocument('layout-retry')).toBe(doc)
-
-    await vi.advanceTimersByTimeAsync(1_000)
-    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
-    expect(peekDocument('layout-retry')).toBeNull()
   })
 })
 
@@ -288,6 +222,53 @@ describe('realtime shutdown', () => {
 })
 
 describe('document mutation queue', () => {
+  it('validates widget sync updates before merging them into the live document', async () => {
+    const sessionId = 'dashboard-widget:layout-1:widget-1'
+    const descriptor = buildDashboardWidgetDescriptor({
+      layoutId: 'layout-1',
+      identityId: 'widget-1',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+    })
+    const source = new Y.Doc()
+    const attacker = new TestSocket()
+    try {
+      seedDashboardWidgetSession(source, {
+        pairColor: 'gray',
+        params: { view: { interval: '1h' } },
+      })
+      setupWSConnection(attacker as unknown as WebSocket, {} as IncomingMessage, {
+        docId: sessionId,
+        userId: 'user-1',
+        accessMode: 'write',
+        descriptor,
+        bootstrapState: Y.encodeStateAsUpdate(source),
+        validateDocument: readDashboardWidgetDocument,
+      })
+      const doc = peekDocument(sessionId)!
+      const before = readDashboardWidgetDocument(doc, 'data_chart')
+
+      const stateVector = Y.encodeStateVector(source)
+      const params = getDashboardWidgetMap(source).get('params')
+      if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
+      params.set(JSON.stringify(['__proto__', 'dashboardPolluted']), 'yes')
+      attacker.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(source, stateVector)))
+      await vi.waitFor(() =>
+        expect(attacker.close).toHaveBeenCalledWith(
+          YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+          'Canonical document rejected'
+        )
+      )
+
+      expect((Object.prototype as Record<string, unknown>).dashboardPolluted).toBeUndefined()
+      expect(readDashboardWidgetDocument(doc, 'data_chart')).toEqual(before)
+    } finally {
+      Reflect.deleteProperty(Object.prototype, 'dashboardPolluted')
+      attacker.emit('close')
+      source.destroy()
+    }
+  })
+
   it('serializes WebSocket writes behind an import and recovers after import failure', async () => {
     const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-1', 'workspace-1')
     const source = new Y.Doc()

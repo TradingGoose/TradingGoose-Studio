@@ -38,6 +38,7 @@ const deletionLeases = new Map<string, { sessionIds: string[]; drain: Promise<vo
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
   awarenessIds: Set<number>
   userId: string
@@ -63,9 +64,8 @@ class WSSharedDoc extends Y.Doc {
   name: string
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
-  onDocumentIdle?: DocumentPersistenceHandler
   onDocumentUpdate?: DocumentPersistenceHandler
-  retryPersistence?: DocumentPersistenceHandler
+  validateDocument?: DocumentValidator
   onDocumentUpdateDebounceMs = 0
   hasUnsavedChanges = false
   changeGeneration = 0
@@ -163,7 +163,7 @@ function isDocumentIdle(doc: WSSharedDoc): boolean {
 }
 
 function schedulePersistenceRetry(doc: WSSharedDoc): void {
-  const persist = doc.onDocumentUpdate ?? doc.retryPersistence
+  const persist = doc.onDocumentUpdate
   if (doc.persistTimer || doc.pendingPersistRequests > 0 || !persist) return
   doc.persistTimer = setTimeout(
     () => {
@@ -253,7 +253,7 @@ function finalizeDocumentCleanup(doc: WSSharedDoc): void {
     return
   }
 
-  const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
+  const persist = doc.onDocumentUpdate
   if (!persist) {
     cleanupDocument(doc)
     return
@@ -298,12 +298,33 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket, code?: number, reason?: st
   }
 }
 
-function applySyncMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): void {
+function applySyncMessage(
+  conn: WebSocket,
+  doc: WSSharedDoc,
+  message: Uint8Array,
+  validate = true
+): void {
   const encoder = encoding.createEncoder()
   const decoder = decoding.createDecoder(message)
   decoding.readVarUint(decoder)
   encoding.writeVarUint(encoder, messageSync)
-  syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
+  if (!validate || !doc.validateDocument) {
+    syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
+  } else {
+    const liveState = Y.encodeStateVector(doc)
+    const staged = new Y.Doc()
+    try {
+      Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
+      syncProtocol.readSyncMessage(decoder, encoder, staged, conn)
+      doc.validateDocument(staged)
+      Y.applyUpdate(doc, Y.encodeStateAsUpdate(staged, liveState), conn)
+    } catch {
+      closeConn(doc, conn, YJS_CLOSE_CODE_DOCUMENT_REJECTED, 'Canonical document rejected')
+      return
+    } finally {
+      staged.destroy()
+    }
+  }
   if (encoding.length(encoder) > 1) {
     send(doc, conn, encoding.toUint8Array(encoder))
   }
@@ -320,7 +341,7 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
       case messageSync: {
         const syncMessageType = decoding.peekVarUint(decoder)
         if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
-          applySyncMessage(conn, doc, message)
+          applySyncMessage(conn, doc, message, false)
           break
         }
         if (connection.accessMode === 'read') {
@@ -404,20 +425,13 @@ export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | 
   return settled
 }
 
-export async function flushDocumentPersistence(
-  doc: Y.Doc,
-  persist?: DocumentPersistenceHandler
-): Promise<void> {
-  if (!(doc instanceof WSSharedDoc)) {
-    if (persist) await persist('', doc)
-    return
-  }
-  if (persist) doc.retryPersistence = persist
+export async function flushDocumentPersistence(doc: Y.Doc): Promise<void> {
+  if (!(doc instanceof WSSharedDoc)) return
   if (doc.persistTimer) {
     clearTimeout(doc.persistTimer)
     doc.persistTimer = null
   }
-  await enqueueDocumentPersistence(doc, persist ?? doc.onDocumentUpdate ?? doc.onDocumentIdle)
+  await enqueueDocumentPersistence(doc, doc.onDocumentUpdate)
 }
 
 export function peekDocument(docId: string): Y.Doc | null {
@@ -447,9 +461,9 @@ export function setupWSConnection(
     descriptor: ReviewTargetDescriptor
     gc?: boolean
     bootstrapState?: Uint8Array
-    onDocumentIdle?: DocumentPersistenceHandler
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
+    validateDocument?: DocumentValidator
   }
 ): void {
   const {
@@ -459,9 +473,9 @@ export function setupWSConnection(
     descriptor,
     gc = true,
     bootstrapState,
-    onDocumentIdle,
     onDocumentUpdate,
     onDocumentUpdateDebounceMs,
+    validateDocument,
   } = opts
 
   if (isYjsSessionAdmissionBlocked(docId)) throw new YjsSessionAdmissionError(docId)
@@ -469,10 +483,10 @@ export function setupWSConnection(
 
   const doc = getDocument(docId, gc, bootstrapState).doc as WSSharedDoc
   if (onDocumentUpdate && !doc.onDocumentUpdate) {
-    doc.onDocumentIdle = onDocumentIdle
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
+  if (validateDocument && !doc.validateDocument) doc.validateDocument = validateDocument
   doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor })
 
   conn.on('message', (data: ArrayBuffer) => {
@@ -684,7 +698,7 @@ export async function drainAllDocuments(): Promise<void> {
         clearTimeout(doc.persistTimer)
         doc.persistTimer = null
       }
-      const persist = doc.onDocumentIdle ?? doc.onDocumentUpdate ?? doc.retryPersistence
+      const persist = doc.onDocumentUpdate
       if (doc.hasUnsavedChanges && persist) await enqueueDocumentPersistence(doc, persist)
       await doc.persistenceQueue
     })

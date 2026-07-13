@@ -860,59 +860,6 @@ describe('Socket Server Index Integration', () => {
       ])
       expect(conn.close).toHaveBeenCalled()
     })
-
-    it('should discard a clean idle document without final persistence', async () => {
-      const conn = new (await import('node:events')).EventEmitter() as any
-      conn.readyState = 1
-      conn.send = vi.fn((_message, _options, callback) => callback?.())
-      conn.ping = vi.fn()
-      conn.close = vi.fn()
-      const onDocumentIdle = vi.fn()
-
-      setupWSConnection(conn, {} as any, {
-        docId: 'idle-clean',
-        userId: 'user-1',
-        accessMode: 'write',
-        descriptor: buildSavedEntityDescriptor('skill', 'idle-clean', 'workspace-1'),
-        onDocumentIdle,
-      })
-      expect(await getExistingDocument('idle-clean')).not.toBeNull()
-
-      conn.emit('close')
-      await new Promise((resolve) => setImmediate(resolve))
-
-      expect(onDocumentIdle).not.toHaveBeenCalled()
-      expect(await getExistingDocument('idle-clean')).toBeNull()
-    })
-
-    it('should retain an idle document when final persistence fails', async () => {
-      const conn = new (await import('node:events')).EventEmitter() as any
-      conn.readyState = 1
-      conn.send = vi.fn((_message, _options, callback) => callback?.())
-      conn.ping = vi.fn()
-      conn.close = vi.fn()
-      const onDocumentIdle = vi.fn().mockRejectedValue(new Error('database unavailable'))
-
-      setupWSConnection(conn, {} as any, {
-        docId: 'idle-save-failed',
-        userId: 'user-1',
-        accessMode: 'write',
-        descriptor: buildSavedEntityDescriptor('skill', 'idle-save-failed', 'workspace-1'),
-        onDocumentIdle,
-        onDocumentUpdate: onDocumentIdle,
-        onDocumentUpdateDebounceMs: 60_000,
-      })
-      expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
-      const doc = await getExistingDocument('idle-save-failed')
-      doc?.getMap('fields').set('changed', true)
-
-      conn.emit('close')
-      await new Promise((resolve) => setImmediate(resolve))
-      await new Promise((resolve) => setImmediate(resolve))
-
-      expect(onDocumentIdle).toHaveBeenCalledWith('idle-save-failed', expect.any(Y.Doc))
-      expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
-    })
   })
 
   describe('Socket.IO Server Configuration', () => {

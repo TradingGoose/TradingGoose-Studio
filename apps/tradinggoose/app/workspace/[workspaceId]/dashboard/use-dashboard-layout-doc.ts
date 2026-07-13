@@ -121,11 +121,11 @@ export function useDashboardLayoutDocument(input: {
       sizes,
     }))
     pendingResizeRef.current.clear()
-    return Promise.allSettled(
+    return Promise.all(
       pendingResizes.map(({ groupId, sizes }) =>
         enqueueStructureMutation({ type: 'resize', groupId, sizes })
       )
-    ).then(() => undefined)
+    )
   }, [enqueueStructureMutation])
 
   const scheduleResizeFlush = useCallback(() => {

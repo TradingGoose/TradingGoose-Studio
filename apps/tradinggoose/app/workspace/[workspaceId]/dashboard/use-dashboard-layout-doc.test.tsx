@@ -159,7 +159,7 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(mockLayoutDoc.share.has('widget')).toBe(false)
   })
 
-  it('coalesces resize and does not carry a departed layout queue forward', async () => {
+  it('coalesces resize, reports failures, and does not carry a departed layout queue forward', async () => {
     mockLayoutDoc = new Y.Doc()
     seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
@@ -169,12 +169,14 @@ describe('useDashboardLayoutDocument live fields', () => {
       return null
     }
 
-    let releaseFirstMutation!: () => void
+    const error = new Error('resize failed')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    let rejectFirstMutation!: (reason: Error) => void
     mockMutateStructure.mockImplementationOnce(
-      () => new Promise<void>((resolve) => (releaseFirstMutation = resolve))
+      () => new Promise<void>((_resolve, reject) => (rejectFirstMutation = reject))
     )
-    act(() => root?.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
     vi.useFakeTimers()
+    act(() => root?.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
     act(() => {
       latest.updateGroupSizes('group-1', [20, 80])
       latest.updateGroupSizes('group-1', [35, 65])
@@ -209,7 +211,11 @@ describe('useDashboardLayoutDocument live fields', () => {
       widgetKey: 'watchlist',
     })
 
-    releaseFirstMutation()
+    rejectFirstMutation(error)
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith('Failed to persist dashboard resize:', error)
+    )
     await act(async () => replacement)
+    consoleError.mockRestore()
   })
 })

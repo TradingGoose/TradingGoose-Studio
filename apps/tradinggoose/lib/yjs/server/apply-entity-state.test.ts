@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
+  getDashboardWidgetMap,
   seedDashboardColorPairSession,
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
@@ -403,8 +404,10 @@ describe('applySavedEntityState', () => {
     >()
   })
 
-  it('persists a widget document through only its child owner', async () => {
-    const { saveDashboardWidgetYjsDocToDb } = await import('./apply-entity-state')
+  it('persists only canonical widget child documents', async () => {
+    const { SavedEntityPersistenceError, saveDashboardWidgetYjsDocToDb } = await import(
+      './apply-entity-state'
+    )
     const doc = new Y.Doc()
     seedDashboardWidgetSession(doc, { pairColor: 'blue', params: { view: {} } })
 
@@ -414,10 +417,23 @@ describe('applySavedEntityState', () => {
         { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
         doc
       )
+      const widget = getDashboardWidgetMap(doc)
+      for (const params of [undefined, {}]) {
+        if (params === undefined) widget.delete('params')
+        else widget.set('params', params)
+        const error = await saveDashboardWidgetYjsDocToDb(
+          'dashboard-widget:layout-1:widget-1',
+          { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+          doc
+        ).catch((reason) => reason)
+        expect(error).toBeInstanceOf(SavedEntityPersistenceError)
+        expect(error).toMatchObject({ status: 400, retryable: false })
+      }
     } finally {
       doc.destroy()
     }
 
+    expect(mockPersistDashboardWidgetDocument).toHaveBeenCalledTimes(1)
     expect(mockPersistDashboardWidgetDocument).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1',

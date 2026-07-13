@@ -15,6 +15,7 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import { readDashboardWidgetDocument } from '@/lib/yjs/dashboard-layout-session'
 import {
   SavedEntityPersistenceError,
   saveDashboardColorPairYjsDocToDb,
@@ -255,6 +256,10 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
     try {
       logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
       const persist = livePersistenceHandler(yjsReq.yjsAccessMode, yjsReq.yjsDescriptor)
+      const validateDocument =
+        yjsReq.yjsDescriptor.entityKind === 'dashboard_widget'
+          ? readDashboardWidgetDocument
+          : undefined
       setupWSConnection(ws, req, {
         docId,
         userId: yjsReq.yjsUserId,
@@ -262,9 +267,9 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         descriptor: yjsReq.yjsDescriptor,
         gc: true,
         bootstrapState: yjsReq.yjsBootstrapState,
-        onDocumentIdle: persist,
         onDocumentUpdate: persist,
         onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+        validateDocument,
       })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
