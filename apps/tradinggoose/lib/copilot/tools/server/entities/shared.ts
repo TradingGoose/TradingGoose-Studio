@@ -263,8 +263,10 @@ export async function buildSavedEntityListInfo(
   store?: EntityListReadStore
 ): Promise<EntityListEntry[]> {
   const members =
-    ownerUserId === undefined && store === undefined
-      ? await readEntityListMembersFromDb(entityKind, workspaceId)
+    store === undefined
+      ? ownerUserId === undefined
+        ? await readEntityListMembersFromDb(entityKind, workspaceId)
+        : await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
       : await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId, store)
   const includeOwnerListMetadata = ownerUserId != null
   return members.map((member) => ({
