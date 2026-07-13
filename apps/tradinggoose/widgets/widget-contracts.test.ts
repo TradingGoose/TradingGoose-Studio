@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getWidgetContract,
   listWidgetCatalogItems,
+  normalizeWidgetColorPairPatch,
   readWidgetMetadataProfiles,
   resolveEntityId,
   resolveEntityIdFromList,
@@ -97,6 +98,9 @@ describe('dashboard widget contracts', () => {
 
   it('keeps heatmap listing as its only linked pair field', () => {
     expect(getWidgetContract('heatmap').linkedParamFields).toEqual(['listing'])
+    expect(() => normalizeWidgetColorPairPatch('heatmap', { view: { interval: '1h' } })).toThrow(
+      'does not support this linked color-pair field'
+    )
   })
 
   it('lets shared pair context override linked local params without touching non-linked params', () => {

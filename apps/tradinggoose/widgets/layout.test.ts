@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeColorPairsState } from '@/widgets/layout'
 import {
   applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
@@ -15,81 +14,6 @@ import {
   splitDashboardTopologyPanel,
 } from '@/widgets/layout-document'
 import { getDefaultWidgetInstance, WIDGET_KEYS } from '@/widgets/widget-contracts'
-
-describe('normalizeColorPairsState', () => {
-  it('ignores unsupported color-pair fields', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          {
-            color: 'blue',
-            workflowId: 'wf-1',
-            unsupportedField: 'ignored',
-          },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        {
-          color: 'blue',
-          workflowId: 'wf-1',
-        },
-      ],
-    })
-  })
-
-  it('keeps provider and account fields out of persisted color-pair listings', () => {
-    const normalized = normalizeColorPairsState({
-      pairs: [
-        {
-          color: 'red',
-          listing: {
-            listing_id: 'AAPL',
-            base_id: 'ignored-base',
-            quote_id: 'ignored-quote',
-            listing_type: 'default',
-            provider: 'alpaca',
-            marketProvider: 'polygon',
-            tradingProvider: 'alpaca',
-            accountId: 'acct-1',
-            providerParams: { apiKey: 'secret' },
-          },
-        },
-      ],
-    })
-
-    const listing = normalized.pairs[0]?.listing
-
-    expect(listing).toEqual({
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-    expect(listing).not.toHaveProperty('provider')
-    expect(listing).not.toHaveProperty('marketProvider')
-    expect(listing).not.toHaveProperty('tradingProvider')
-    expect(listing).not.toHaveProperty('accountId')
-    expect(listing).not.toHaveProperty('providerParams')
-  })
-
-  it('omits empty contexts and orders the remaining canonical colors', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          { color: 'red', skillId: 'skill-1' },
-          { color: 'blue', workflowId: null, unsupportedField: 'ignored' },
-          { color: 'green', workflowId: 'workflow-1' },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        { color: 'green', workflowId: 'workflow-1' },
-        { color: 'red', skillId: 'skill-1' },
-      ],
-    })
-  })
-})
 
 describe('dashboard layout tree operations', () => {
   const layout = (): Extract<DashboardLayoutTopologyNode, { type: 'group' }> => ({
