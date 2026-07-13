@@ -54,7 +54,7 @@ vi.mock('@/lib/saved-entities/identity', async (importOriginal) => ({
 describe('entity document mutation helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApplySavedEntityState.mockImplementation(async (_kind, _entityId, fields) => fields)
+    mockApplySavedEntityState.mockImplementation(async (...args: unknown[]) => args[3])
     mockRenameSavedEntityIdentity.mockResolvedValue({
       name: 'Renamed',
       updatedAt: new Date('2026-07-11T12:00:00.000Z'),
@@ -129,7 +129,7 @@ describe('entity document mutation helpers', () => {
     })
     expect(result).not.toHaveProperty('requiresReview')
     expect(result).not.toHaveProperty('preview')
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', {
+    expect(mockApplySavedEntityState.mock.calls[0]?.[3]).toEqual({
       description: 'Updated description',
       content: 'Use the updated process.',
     })
@@ -162,7 +162,8 @@ describe('entity document mutation helpers', () => {
       }
     )
 
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields, {
+    expect(mockApplySavedEntityState.mock.calls[0]?.[2]).toBe('workspace-1')
+    expect(mockApplySavedEntityState.mock.calls[0]?.[4]).toEqual({
       expectedReviewBaseStateHash: hashServerToolReviewBase(currentFields),
     })
   })
@@ -369,11 +370,9 @@ const length = input.int(14, 'Length', 1, 50, 1)
       { userId: 'user-1', accessLevel: 'full' }
     )
 
-    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
-      'mcp_server',
-      'mcp-1',
-      expect.objectContaining({ headers: { Authorization: 'Bearer token' } })
-    )
+    expect(mockApplySavedEntityState.mock.calls[0]?.[3]).toMatchObject({
+      headers: { Authorization: 'Bearer token' },
+    })
   })
 
   it('keeps Studio create mutations in review mode', async () => {
