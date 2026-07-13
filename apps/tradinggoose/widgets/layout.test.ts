@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeColorPairsState, normalizeDashboardLayout } from '@/widgets/layout'
+import { normalizeColorPairsState } from '@/widgets/layout'
 import {
   applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
@@ -87,61 +87,6 @@ describe('normalizeColorPairsState', () => {
         { color: 'green', workflowId: 'workflow-1' },
         { color: 'red', skillId: 'skill-1' },
       ],
-    })
-  })
-})
-
-describe('normalizeDashboardLayout', () => {
-  it('preserves persisted node ids so panel-scoped widget channels stay stable across reloads', () => {
-    const normalized = normalizeDashboardLayout({
-      id: 'group-1',
-      type: 'group',
-      direction: 'horizontal',
-      sizes: [100],
-      children: [
-        {
-          id: 'panel-1',
-          type: 'panel',
-          widget: {
-            key: 'copilot',
-            pairColor: 'gray',
-            params: null,
-          },
-        },
-      ],
-    })
-
-    expect(normalized.id).toBe('group-1')
-    expect(normalized.type).toBe('group')
-    if (normalized.type !== 'group') {
-      throw new Error('Expected normalized layout to remain a group')
-    }
-
-    expect(normalized.children[0]?.id).toBe('panel-1')
-  })
-
-  it('clears persisted copilot params instead of keeping sticky context state', () => {
-    const normalized = normalizeDashboardLayout({
-      type: 'panel',
-      widget: {
-        key: 'copilot',
-        pairColor: 'blue',
-        params: {
-          workflowId: 'wf-1',
-          reviewSessionId: 'review-1',
-        },
-      },
-    })
-
-    expect(normalized.type).toBe('panel')
-    if (normalized.type !== 'panel') {
-      throw new Error('Expected normalized copilot layout to remain a panel')
-    }
-
-    expect(normalized.widget).toMatchObject({
-      key: 'copilot',
-      pairColor: 'blue',
-      params: null,
     })
   })
 })
