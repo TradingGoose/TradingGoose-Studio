@@ -325,6 +325,13 @@ describe('dashboard layout tree operations', () => {
         sizes: [0, 0],
       })
     ).toThrow(/positive size/i)
+    expect(() =>
+      applyDashboardLayoutStructureMutation(current, {
+        type: 'resize',
+        groupId: 'missing-group',
+        sizes: [50, 50],
+      })
+    ).toThrow(/Unknown group/)
   })
 
   it('splits a panel and creates an independent child widget document', () => {
@@ -383,6 +390,8 @@ describe('dashboard layout tree operations', () => {
     expect(closeDashboardTopologyPanel(collapsed, 'panel-c').layout).toMatchObject({
       sizes: [50, 50],
     })
+    expect(() => closeDashboardTopologyPanel(layout(), 'missing-panel')).toThrow(/Unknown panel/)
+    expect(() => closeDashboardTopologyPanel(next, next.id)).toThrow(/Cannot close panel/)
   })
 
   it.each(WIDGET_KEYS)('plans %s replacement as a layout-owned child lifecycle change', (key) => {

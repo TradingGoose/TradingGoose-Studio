@@ -507,12 +507,16 @@ export function findDashboardTopologyParentGroupId(
 function updateDashboardTopologyGroupSizes(
   node: DashboardLayoutTopologyNode,
   groupId: string,
-  sizes: number[]
+  sizes: number[],
+  found: { value: boolean }
 ): DashboardLayoutTopologyNode {
   if (node.type === 'panel') return node
-  if (node.id === groupId) return isEqual(node.sizes, sizes) ? node : { ...node, sizes: [...sizes] }
+  if (node.id === groupId) {
+    found.value = true
+    return isEqual(node.sizes, sizes) ? node : { ...node, sizes: [...sizes] }
+  }
   const children = node.children.map((child) =>
-    updateDashboardTopologyGroupSizes(child, groupId, sizes)
+    updateDashboardTopologyGroupSizes(child, groupId, sizes, found)
   )
   return children.some((child, index) => child !== node.children[index])
     ? { ...node, children }
@@ -563,6 +567,10 @@ export function closeDashboardTopologyPanel(
 ): DashboardLayoutEditPlan {
   normalizeDashboardLayoutTopology(node)
   const target = findDashboardTopologyPanel(node, panelId)
+  if (!target) failDashboardLayout('panelId', `Unknown panel: ${panelId}`)
+  if (node.type === 'panel' && node.id === panelId) {
+    failDashboardLayout('panelId', `Cannot close panel: ${panelId}`)
+  }
   const close = (current: DashboardLayoutTopologyNode): DashboardLayoutTopologyNode => {
     if (current.type === 'panel') return current
     const index = current.children.findIndex(
@@ -570,7 +578,7 @@ export function closeDashboardTopologyPanel(
     )
     if (index >= 0) {
       const children = current.children.filter((_, childIndex) => childIndex !== index)
-      if (children.length === 0) return current
+      if (children.length === 0) failDashboardLayout('panelId', `Cannot close panel: ${panelId}`)
       if (children.length === 1) return { ...children[0], id: createLayoutNodeId() }
       const remainingSizes = current.sizes.filter((_, childIndex) => childIndex !== index)
       const total = remainingSizes.reduce((sum, size) => sum + size, 0)
@@ -593,7 +601,7 @@ export function closeDashboardTopologyPanel(
   return {
     layout,
     createdBindings: [],
-    removedIdentityIds: layout !== node && target ? [target.identityId] : [],
+    removedIdentityIds: [target.identityId],
   }
 }
 
@@ -609,7 +617,14 @@ export function applyDashboardLayoutStructureMutation(
     case 'replace':
       return replaceDashboardPanelWidget(layout, mutation.panelId, mutation.widgetKey)
     case 'resize': {
-      const next = updateDashboardTopologyGroupSizes(layout, mutation.groupId, mutation.sizes)
+      const found = { value: false }
+      const next = updateDashboardTopologyGroupSizes(
+        layout,
+        mutation.groupId,
+        mutation.sizes,
+        found
+      )
+      if (!found.value) failDashboardLayout('groupId', `Unknown group: ${mutation.groupId}`)
       normalizeDashboardLayoutTopology(next)
       return { layout: next, createdBindings: [], removedIdentityIds: [] }
     }
