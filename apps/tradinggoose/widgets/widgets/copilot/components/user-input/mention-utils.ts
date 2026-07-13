@@ -91,11 +91,7 @@ export function filterWorkspaceEntities(
 ) {
   return items.filter((item) =>
     includesNormalized(
-      [
-        getWorkspaceEntityMentionLabel(copy, item),
-        item.description || '',
-        item.transport || '',
-      ].join(' '),
+      [getWorkspaceEntityMentionLabel(copy, item), item.description || ''].join(' '),
       query
     )
   )

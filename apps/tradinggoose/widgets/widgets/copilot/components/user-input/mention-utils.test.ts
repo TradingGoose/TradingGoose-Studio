@@ -83,7 +83,7 @@ describe('mention-utils', () => {
 
   it('uses localized untitled labels for empty chat and workspace entity names', () => {
     const sources = createMentionSources()
-    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null, workflowId: null }]
+    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null }]
     sources.workspaceEntities.custom_tool = [
       { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
     ]

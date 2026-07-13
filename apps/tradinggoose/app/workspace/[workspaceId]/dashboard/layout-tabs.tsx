@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Check, Pencil, Plus, X } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
 import { cn } from '@/lib/utils'
 import type { DashboardLayoutListEntry } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
@@ -35,7 +35,6 @@ export function LayoutTabs({
   onRequestRename,
   onDelete,
 }: LayoutTabsProps) {
-  const locale = useLocale()
   const copy = useMessages()
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -176,9 +175,6 @@ export function LayoutTabs({
                       <span className='min-w-0 flex-1 truncate pb-1 font-md text-md'>
                         {layout.name}
                       </span>
-                      {layout.isActive && layout.hasDraft ? (
-                        <span className='ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-amber-500' />
-                      ) : null}
                     </button>
                   )}
                   {editingId === layout.id ? (

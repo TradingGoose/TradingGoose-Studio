@@ -20,9 +20,6 @@ export type DashboardLayoutListEntry = {
   name: string
   sortOrder: number
   isActive: boolean
-  hasDraft?: boolean
-  createdAt?: string
-  updatedAt?: string
 }
 
 function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
@@ -39,8 +36,6 @@ function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
     name,
     sortOrder: member.sortOrder,
     isActive: member.isActive,
-    createdAt: member.createdAt,
-    updatedAt: member.updatedAt,
   }
 }
 

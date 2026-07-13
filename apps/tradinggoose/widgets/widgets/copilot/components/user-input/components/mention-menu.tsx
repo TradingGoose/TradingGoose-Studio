@@ -175,12 +175,6 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
     <>
       {renderEntityBadge({ icon: Server, entityId: entity.id })}
       <span className='truncate'>{label}</span>
-      {entity.transport ? (
-        <>
-          <span className='text-muted-foreground'>·</span>
-          <span className='text-muted-foreground text-xs uppercase'>{entity.transport}</span>
-        </>
-      ) : null}
     </>
   ),
   watchlist: (entity, label) => (

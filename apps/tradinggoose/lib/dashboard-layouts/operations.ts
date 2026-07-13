@@ -42,7 +42,6 @@ export type DashboardLayoutTab = {
   name: string
   sortOrder: number
   isActive: boolean
-  hasDraft?: boolean
   createdAt?: string
   updatedAt?: string
 }

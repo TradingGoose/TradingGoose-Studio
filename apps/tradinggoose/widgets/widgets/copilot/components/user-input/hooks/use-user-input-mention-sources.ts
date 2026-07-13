@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
@@ -14,7 +15,7 @@ import {
 import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
-  type CopilotWorkspaceEntityKind,
+  COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../../workspace-entities'
 import type {
@@ -27,7 +28,10 @@ import type {
   WorkflowBlockItem,
   WorkspaceEntityItem,
 } from '../types'
-import { loadWorkspaceEntityMentionItems } from '../workspace-entity-mentions'
+import {
+  type LazyWorkspaceEntityMentionKind,
+  loadWorkspaceEntityMentionItems,
+} from '../workspace-entity-mentions'
 
 const logger = createLogger('CopilotUserInputMentionSources')
 
@@ -36,28 +40,24 @@ interface UseUserInputMentionSourcesOptions {
   ownerUserId?: string | null
 }
 
-const createEmptyWorkspaceEntities = (): Record<
-  CopilotWorkspaceEntityKind,
-  WorkspaceEntityItem[]
-> => ({
-  workflow: [],
-  skill: [],
-  indicator: [],
-  custom_tool: [],
-  mcp_server: [],
-  watchlist: [],
-  dashboard_layout: [],
-})
+const LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS.filter(
+  (entityKind): entityKind is LazyWorkspaceEntityMentionKind => entityKind !== 'dashboard_layout'
+)
 
-const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind, boolean> => ({
-  workflow: false,
-  skill: false,
-  indicator: false,
-  custom_tool: false,
-  mcp_server: false,
-  watchlist: false,
-  dashboard_layout: false,
-})
+const createEmptyWorkspaceEntities = (): Record<
+  LazyWorkspaceEntityMentionKind,
+  WorkspaceEntityItem[]
+> => {
+  const entities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
+  for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) entities[entityKind] = []
+  return entities
+}
+
+const createEmptyWorkspaceEntityLoading = (): Record<LazyWorkspaceEntityMentionKind, boolean> => {
+  const loading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
+  for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) loading[entityKind] = false
+  return loading
+}
 
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
@@ -66,6 +66,7 @@ export function useUserInputMentionSources({
   ownerUserId,
 }: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
+  const normalizedOwnerUserId = ownerUserId ?? null
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
   const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
   const [workspaceEntities, setWorkspaceEntities] = useState(createEmptyWorkspaceEntities)
@@ -83,6 +84,30 @@ export function useUserInputMentionSources({
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
+  const { members: dashboardLayoutMembers, isLoading: isLoadingDashboardLayouts } = useEntityList(
+    'dashboard_layout',
+    workspaceId,
+    normalizedOwnerUserId
+  )
+  const dashboardLayoutMentions = useMemo(
+    () =>
+      normalizedOwnerUserId
+        ? dashboardLayoutMembers.flatMap((member) => {
+            const name = toTrimmedString(member.entityName)
+            return member.entityId && name
+              ? [
+                  {
+                    entityKind: 'dashboard_layout' as const,
+                    id: member.entityId,
+                    name,
+                    ownerUserId: normalizedOwnerUserId,
+                  },
+                ]
+              : []
+          })
+        : [],
+    [dashboardLayoutMembers, normalizedOwnerUserId]
+  )
   const workflowInspectorMessages = useWorkflowInspectorMessages()
   const workflowInspectorCopy = useMemo(() => workflowInspectorMessages, [locale])
   const compareLocalizedBlockMentionNames = useCallback(
@@ -121,8 +146,6 @@ export function useUserInputMentionSources({
                 {
                   reviewSessionId: item.reviewSessionId,
                   title: title || null,
-                  workflowId: null,
-                  updatedAt: item.updatedAt,
                 },
               ]
             : []
@@ -135,14 +158,14 @@ export function useUserInputMentionSources({
   }, [isLoadingPastChats, pastChats.length, workspaceId])
 
   const ensureWorkspaceEntityLoaded = useCallback(
-    async (entityKind: CopilotWorkspaceEntityKind) => {
+    async (entityKind: LazyWorkspaceEntityMentionKind) => {
       if (workspaceEntityLoading[entityKind] || workspaceEntities[entityKind].length > 0) {
         return
       }
 
       try {
         setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: true }))
-        const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId, ownerUserId)
+        const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId)
         setWorkspaceEntities((prev) => ({ ...prev, [entityKind]: mapped }))
       } catch (error) {
         logger.error(`Failed to load ${entityKind} mention sources`, error)
@@ -150,7 +173,7 @@ export function useUserInputMentionSources({
         setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: false }))
       }
     },
-    [ownerUserId, workspaceEntities, workspaceEntityLoading, workspaceId]
+    [workspaceEntities, workspaceEntityLoading, workspaceId]
   )
 
   const ensureKnowledgeLoaded = useCallback(async () => {
@@ -296,6 +319,8 @@ export function useUserInputMentionSources({
         return
       }
 
+      if (submenu === 'dashboard_layout') return
+
       if (isCopilotWorkspaceEntityMentionOption(submenu)) {
         await ensureWorkspaceEntityLoaded(submenu)
         return
@@ -361,7 +386,10 @@ export function useUserInputMentionSources({
 
   const mentionSources: MentionSources = {
     pastChats,
-    workspaceEntities,
+    workspaceEntities: {
+      ...workspaceEntities,
+      dashboard_layout: dashboardLayoutMentions,
+    },
     knowledgeBases,
     blocksList,
     logsList,
@@ -370,13 +398,8 @@ export function useUserInputMentionSources({
 
   const mentionLoading: Record<MentionSubmenu, boolean> = {
     chats: isLoadingPastChats,
-    workflow: workspaceEntityLoading.workflow,
-    skill: workspaceEntityLoading.skill,
-    indicator: workspaceEntityLoading.indicator,
-    custom_tool: workspaceEntityLoading.custom_tool,
-    mcp_server: workspaceEntityLoading.mcp_server,
-    watchlist: workspaceEntityLoading.watchlist,
-    dashboard_layout: workspaceEntityLoading.dashboard_layout,
+    ...workspaceEntityLoading,
+    dashboard_layout: isLoadingDashboardLayouts,
     workflow_blocks: isLoadingWorkflowBlocks,
     blocks: isLoadingBlocks,
     knowledge: isLoadingKnowledge,
@@ -384,24 +407,8 @@ export function useUserInputMentionSources({
   }
 
   return {
-    blocksList,
-    ensureBlocksLoaded,
-    ensureKnowledgeLoaded,
-    ensureLogsLoaded,
-    ensurePastChatsLoaded,
     ensureSubmenuLoaded,
-    ensureWorkflowBlocksLoaded,
-    isLoadingBlocks,
-    isLoadingKnowledge,
-    isLoadingLogs,
-    isLoadingPastChats,
-    isLoadingWorkflowBlocks,
-    knowledgeBases,
-    logsList,
     mentionLoading,
     mentionSources,
-    pastChats,
-    workflowBlocks,
-    workspaceEntities,
   }
 }

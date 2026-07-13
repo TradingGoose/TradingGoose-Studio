@@ -28,6 +28,38 @@ describe('entity list sessions', () => {
       doc.destroy()
     }
   })
+
+  it('orders dashboard layouts by tab order', () => {
+    const doc = new Y.Doc()
+    try {
+      replaceEntityListSessionMembers(doc, [
+        {
+          id: 'layout-b',
+          name: 'Tie B',
+          sortOrder: 1,
+          createdAt: '2026-04-02T00:00:00.000Z',
+        },
+        {
+          id: 'layout-c',
+          name: 'Tie C',
+          sortOrder: 1,
+          createdAt: '2026-04-01T00:00:00.000Z',
+        },
+        {
+          id: 'layout-a',
+          name: 'Active',
+          sortOrder: 0,
+          createdAt: '2026-04-03T00:00:00.000Z',
+        },
+      ])
+
+      expect(
+        getEntityListMembers(doc, 'dashboard_layout').map((member) => member.entityId)
+      ).toEqual(['layout-a', 'layout-c', 'layout-b'])
+    } finally {
+      doc.destroy()
+    }
+  })
 })
 
 describe('watchlist entity sessions', () => {

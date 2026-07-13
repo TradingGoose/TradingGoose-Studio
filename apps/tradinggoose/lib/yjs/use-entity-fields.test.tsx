@@ -104,31 +104,80 @@ describe('shared entity Yjs sessions', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('disposes a late descriptor result without replacing the active result', async () => {
+  it('keeps dashboard list members scoped to the current owner', async () => {
+    let currentList!: ReturnType<typeof useEntityList>
+    const snapshots: Array<{ ownerUserId: string; memberIds: string[] }> = []
+    const ListHarness = ({ ownerUserId }: { ownerUserId: string }) => {
+      currentList = useEntityList('dashboard_layout', 'workspace-1', ownerUserId)
+      snapshots.push({
+        ownerUserId,
+        memberIds: currentList.members.map((member) => member.entityId),
+      })
+      return null
+    }
+    const firstDoc = new Y.Doc()
+    const secondDoc = new Y.Doc()
+    replaceEntityListSessionMembers(firstDoc, [{ id: 'layout-a', name: 'Layout A' }])
+    replaceEntityListSessionMembers(secondDoc, [{ id: 'layout-b', name: 'Layout B' }])
+    providerMocks.queuedDocs.push(firstDoc, secondDoc)
+
+    await act(async () => root.render(<ListHarness ownerUserId='user-a' />))
+    await vi.waitFor(() =>
+      expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-a'])
+    )
+
+    snapshots.length = 0
+    await act(async () => root.render(<ListHarness ownerUserId='user-b' />))
+
+    expect(
+      snapshots
+        .filter((snapshot) => snapshot.ownerUserId === 'user-b')
+        .every((snapshot) => !snapshot.memberIds.includes('layout-a'))
+    ).toBe(true)
+    await vi.waitFor(() =>
+      expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-b'])
+    )
+    expect(providerMocks.bootstrap).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        ownerUserId: 'user-b',
+        yjsSessionId: 'list:dashboard_layout:workspace-1:user:user-b',
+      }),
+      undefined,
+      'read'
+    )
+  })
+
+  it('disposes a late dashboard list result without replacing the active owner', async () => {
     let resolveFirst!: (result: any) => void
     let resolveSecond!: (result: any) => void
     providerMocks.bootstrap.mockImplementation(
       (descriptor, _origin, accessMode) =>
         new Promise((resolve) => {
-          if (descriptor.entityId === 'watchlist-a') resolveFirst = resolve
+          if (descriptor.ownerUserId === 'user-a') resolveFirst = resolve
           else resolveSecond = resolve
         })
     )
-    const SwitchingHarness = ({ entityId }: { entityId: string }) => {
-      current = useSavedEntityYjsSession('watchlist', entityId, 'workspace-1', null, 'read')
+    let currentList!: ReturnType<typeof useEntityList>
+    const SwitchingHarness = ({ ownerUserId }: { ownerUserId: string }) => {
+      currentList = useEntityList('dashboard_layout', 'workspace-1', ownerUserId)
       return null
     }
 
-    await act(async () => root.render(<SwitchingHarness entityId='watchlist-a' />))
-    await act(async () => root.render(<SwitchingHarness entityId='watchlist-b' />))
-    const second = createResult({ entityId: 'watchlist-b' }, 'read')
+    await act(async () => root.render(<SwitchingHarness ownerUserId='user-a' />))
+    await act(async () => root.render(<SwitchingHarness ownerUserId='user-b' />))
+    const second = createResult({ ownerUserId: 'user-b' }, 'read')
+    replaceEntityListSessionMembers(second.doc, [{ id: 'layout-b', name: 'Layout B' }])
     await act(async () => resolveSecond(second))
-    const first = createResult({ entityId: 'watchlist-a' }, 'read')
+    await vi.waitFor(() =>
+      expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-b'])
+    )
+    const first = createResult({ ownerUserId: 'user-a' }, 'read')
     await act(async () => resolveFirst(first))
 
     expect(first.dispose).toHaveBeenCalledOnce()
     expect(second.dispose).not.toHaveBeenCalled()
-    expect(current.doc).toBe(second.doc)
+    expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-b'])
   })
 
   it('binds every member of a live entity collection', async () => {
