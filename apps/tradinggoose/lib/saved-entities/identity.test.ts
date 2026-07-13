@@ -86,16 +86,23 @@ const m = vi.hoisted(() => {
       }),
     }),
   }))
+  const transaction = vi.fn((callback: (tx: { update: typeof update }) => unknown) =>
+    callback({ update })
+  )
   return {
     tables,
     persistedAt,
     state,
     update,
+    transaction,
+    withWatchlistRootListLock: vi.fn(
+      async (_tx: unknown, _workspaceId: string, mutate: () => Promise<unknown>) => mutate()
+    ),
     refreshEntityListSession: vi.fn((..._args: unknown[]) => Promise.resolve()),
   }
 })
 
-vi.mock('@tradinggoose/db', () => ({ db: { update: m.update } }))
+vi.mock('@tradinggoose/db', () => ({ db: { update: m.update, transaction: m.transaction } }))
 vi.mock('@tradinggoose/db/schema', () => m.tables)
 vi.mock('drizzle-orm', () => ({
   and: (...conditions: unknown[]) => ({ and: conditions.filter(Boolean) }),
@@ -103,7 +110,10 @@ vi.mock('drizzle-orm', () => ({
   isNull: (field: unknown) => ({ field, isNull: true }),
 }))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  refreshEntityListSession: (...args: unknown[]) => m.refreshEntityListSession(...args),
+  refreshEntityListSession: m.refreshEntityListSession,
+}))
+vi.mock('@/lib/watchlists/operations', () => ({
+  withWatchlistRootListLock: m.withWatchlistRootListLock,
 }))
 
 describe('renameSavedEntityIdentity', () => {
@@ -169,6 +179,12 @@ describe('renameSavedEntityIdentity', () => {
         { field: 'watchlistTable.parentId', isNull: true },
       ],
     })
+    expect(m.transaction).toHaveBeenCalledTimes(1)
+    expect(m.withWatchlistRootListLock).toHaveBeenCalledWith(
+      expect.objectContaining({ update: m.update }),
+      'workspace-1',
+      expect.any(Function)
+    )
   })
 
   it('scopes layout identity to the authenticated owner', async () => {

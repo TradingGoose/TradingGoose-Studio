@@ -42,6 +42,17 @@ const mockNormalizeWatchlistDocumentContent = vi.fn((value: Record<string, unkno
 const mockUpdateReturning = vi.fn()
 const mockUpdateSet = vi.fn()
 const mockUpdateWhere = vi.fn()
+const mockRenameSavedEntityIdentityInTx = vi.fn()
+const mockWithWatchlistRootListLock = vi.fn()
+class MockSavedEntityIdentityError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string
+  ) {
+    super(message)
+  }
+}
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -77,8 +88,17 @@ vi.mock('@/lib/custom-tools/schema', () => ({
   parseCustomToolSchemaText: vi.fn((schemaText) => schemaText),
 }))
 
+vi.mock('@/lib/saved-entities/identity', () => ({
+  renameSavedEntityIdentityInTx: mockRenameSavedEntityIdentityInTx,
+  SavedEntityIdentityError: MockSavedEntityIdentityError,
+}))
+
 vi.mock('@/lib/watchlists/document', () => ({
   materializeWatchlistDocumentInTx: mockMaterializeWatchlistDocumentInTx,
+}))
+
+vi.mock('@/lib/watchlists/operations', () => ({
+  withWatchlistRootListLock: mockWithWatchlistRootListLock,
 }))
 
 vi.mock('@/lib/watchlists/validation', () => ({
@@ -113,6 +133,11 @@ describe('applySavedEntityState', () => {
       events.push('yjs')
     })
     mockDbTransaction.mockImplementation(async (callback) => callback({ update: mockDbUpdate }))
+    mockRenameSavedEntityIdentityInTx.mockResolvedValue({
+      name: 'Renamed',
+      updatedAt: new Date('2026-07-13T12:00:00.000Z'),
+    })
+    mockWithWatchlistRootListLock.mockImplementation(async (_tx, _workspaceId, mutate) => mutate())
     mockMaterializeWatchlistDocumentInTx.mockResolvedValue({
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
@@ -224,6 +249,51 @@ describe('applySavedEntityState', () => {
     )
     expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
+    expect(mockWithWatchlistRootListLock).not.toHaveBeenCalled()
+  })
+
+  it('serializes a watchlist Yjs rename with its materialization', async () => {
+    const { seedEntitySession } = await import('@/lib/yjs/entity-session')
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = new Y.Doc()
+    seedEntitySession(doc, {
+      entityKind: 'watchlist',
+      payload: {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [],
+      },
+    })
+    mockWithWatchlistRootListLock.mockImplementationOnce(async (_tx, workspaceId, mutate) => {
+      events.push(`lock:${workspaceId}`)
+      return mutate()
+    })
+    mockRenameSavedEntityIdentityInTx.mockImplementationOnce(async () => {
+      events.push('rename')
+      return { name: 'Renamed', updatedAt: new Date('2026-07-13T12:00:00.000Z') }
+    })
+    mockMaterializeWatchlistDocumentInTx.mockImplementationOnce(async () => {
+      events.push('materialize')
+      return { settings: { showLogo: true, showTicker: true, showDescription: false }, items: [] }
+    })
+
+    try {
+      await saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc, {
+        identity: { name: 'Renamed' },
+      })
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockRenameSavedEntityIdentityInTx).toHaveBeenCalledWith(
+      { update: mockDbUpdate },
+      {
+        entityKind: 'watchlist',
+        entityId: 'watchlist-1',
+        workspaceId: 'workspace-1',
+        name: 'Renamed',
+      }
+    )
+    expect(events).toEqual(['lock:workspace-1', 'rename', 'materialize'])
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {

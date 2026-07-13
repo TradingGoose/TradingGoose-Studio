@@ -48,7 +48,7 @@ const workspaceRootWatchlistCondition = (workspaceId: string) =>
     isNull(watchlistTable.parentId)
   )
 
-const rootWatchlistCondition = (workspaceId: string, watchlistId: string) =>
+export const rootWatchlistCondition = (workspaceId: string, watchlistId: string) =>
   and(
     eq(watchlistTable.id, watchlistId),
     eq(watchlistTable.workspaceId, workspaceId),

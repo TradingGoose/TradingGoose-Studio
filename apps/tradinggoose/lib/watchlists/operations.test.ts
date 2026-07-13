@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
-const mockDbSelect = vi.hoisted(() => vi.fn())
 const mockDeleteYjsSession = vi.hoisted(() => vi.fn())
 const mockRefreshEntityList = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
-  db: { select: mockDbSelect, transaction: mockDbTransaction },
+  db: { transaction: mockDbTransaction },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -46,6 +45,11 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    kind: 'sql',
+    strings: [...strings],
+    values,
+  }),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
@@ -56,12 +60,9 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
 import {
   composeWatchlistDocumentFromRows,
   listRootWatchlistRowsInTx,
-} from '@/lib/watchlists/document'
-import {
-  createWatchlistFromDocument,
-  deleteWatchlist,
   materializeWatchlistDocumentInTx,
-} from '@/lib/watchlists/operations'
+} from '@/lib/watchlists/document'
+import { createWatchlistFromDocument, deleteWatchlist } from '@/lib/watchlists/operations'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 
 const rootRow = {
@@ -108,6 +109,7 @@ function materializerTx(input: {
   const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
   const updateResults = [...input.updateResults]
   const tx: any = {
+    execute: vi.fn(async () => undefined),
     select: vi.fn(() => queryChain(selectResults.shift() ?? [])),
     update: vi.fn((table: any) => ({
       set: vi.fn((values: Record<string, unknown>) => ({
@@ -246,6 +248,31 @@ describe('watchlist operations', () => {
     ).rejects.toBe(wrappedOther)
   })
 
+  it('locks the root list before validating a reviewed create', async () => {
+    const store = materializerTx({ updateResults: [] })
+    const sequence: string[] = []
+    const staleReview = new Error('stale review')
+    store.tx.execute.mockImplementation(async () => {
+      sequence.push('lock')
+    })
+    mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
+
+    await expect(
+      createWatchlistFromDocument(
+        { workspaceId: 'workspace-1' },
+        { name: 'Growth', settings: rootRow.settings, items: [] },
+        {
+          beforeInsert: async () => {
+            sequence.push('review')
+            throw staleReview
+          },
+        }
+      )
+    ).rejects.toBe(staleReview)
+
+    expect(sequence).toEqual(['lock', 'review'])
+  })
+
   it('discovers watchlist entity identities with one root query', async () => {
     const store = materializerTx({ roots: [rootRow], updateResults: [] })
 
@@ -263,7 +290,6 @@ describe('watchlist operations', () => {
         return mutate()
       }
     )
-    mockDbSelect.mockReturnValueOnce(queryChain([rootRow]))
     const store = materializerTx({ roots: [rootRow], updateResults: [] })
     mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
 
@@ -276,6 +302,7 @@ describe('watchlist operations', () => {
     releaseDiscard()
     await expect(deletion).resolves.toBe(true)
     expect(mockDbTransaction).toHaveBeenCalledTimes(1)
+    expect(store.tx.execute).toHaveBeenCalledTimes(1)
     expect(mockRefreshEntityList).toHaveBeenCalledWith('watchlist', 'workspace-1')
   })
 

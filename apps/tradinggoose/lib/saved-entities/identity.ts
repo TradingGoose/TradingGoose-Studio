@@ -12,6 +12,7 @@ import {
 import { and, eq, isNull } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityIdentityMutation = {
@@ -209,7 +210,14 @@ export async function renameSavedEntityIdentityInTx(
 export async function renameSavedEntityIdentity(
   input: SavedEntityIdentityInput
 ): Promise<{ name: string; updatedAt: Date }> {
-  const identity = await renameSavedEntityIdentityInTx(db, input)
+  const identity =
+    input.entityKind === 'watchlist'
+      ? await db.transaction((tx) =>
+          withWatchlistRootListLock(tx, input.workspaceId, () =>
+            renameSavedEntityIdentityInTx(tx, input)
+          )
+        )
+      : await renameSavedEntityIdentityInTx(db, input)
   await refreshEntityListSession(
     input.entityKind,
     input.workspaceId,

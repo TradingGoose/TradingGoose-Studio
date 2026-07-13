@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { watchlistTable } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
@@ -8,6 +8,8 @@ import {
   loadWatchlistDocumentFields,
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
+  rootWatchlistCondition,
+  type WatchlistDocumentTx,
 } from '@/lib/watchlists/document'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
@@ -24,7 +26,7 @@ type WatchlistScope = {
   workspaceId: string
 }
 
-export { materializeWatchlistDocumentInTx }
+const WATCHLIST_ROOT_LIST_LOCK_NAMESPACE = 1_904_202_617
 
 export class WatchlistOperationError extends Error {
   status: number
@@ -60,13 +62,16 @@ function isDuplicateWatchlistNameViolation(error: unknown): boolean {
   return false
 }
 
-const rootWatchlistWhere = (workspaceId: string, watchlistId: string) =>
-  and(
-    eq(watchlistTable.id, watchlistId),
-    eq(watchlistTable.workspaceId, workspaceId),
-    isNull(watchlistTable.userId),
-    isNull(watchlistTable.parentId)
+export async function withWatchlistRootListLock<T>(
+  tx: WatchlistDocumentTx,
+  workspaceId: string,
+  mutate: () => Promise<T>
+): Promise<T> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${WATCHLIST_ROOT_LIST_LOCK_NAMESPACE}, hashtext(${workspaceId}))`
   )
+  return mutate()
+}
 
 function buildWatchlistRecordFromDocument(
   metadata: {
@@ -125,38 +130,40 @@ export async function createWatchlistFromDocument(
   const fields = normalizeWatchlistDocumentFields(rawFields)
 
   try {
-    const created = await db.transaction(async (tx) => {
-      await options?.beforeInsert?.(tx)
-      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-      const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
-      const [createdRoot] = await tx
-        .insert(watchlistTable)
-        .values({
-          id: crypto.randomUUID(),
-          workspaceId: scope.workspaceId,
-          userId: null,
-          parentId: null,
-          name: fields.name,
-          sortOrder,
-          settings: fields.settings,
-        })
-        .returning({ id: watchlistTable.id })
-
-      if (!createdRoot) {
-        throw new WatchlistDocumentError('Failed to create watchlist', 500)
-      }
-
-      return {
-        id: createdRoot.id,
-        fields: {
-          name: fields.name,
-          ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
+    const created = await db.transaction((tx) =>
+      withWatchlistRootListLock(tx, scope.workspaceId, async () => {
+        await options?.beforeInsert?.(tx)
+        const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
+        const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
+        const [createdRoot] = await tx
+          .insert(watchlistTable)
+          .values({
+            id: crypto.randomUUID(),
+            workspaceId: scope.workspaceId,
+            userId: null,
+            parentId: null,
+            name: fields.name,
+            sortOrder,
             settings: fields.settings,
-            items: fields.items,
-          })),
-        },
-      }
-    })
+          })
+          .returning({ id: watchlistTable.id })
+
+        if (!createdRoot) {
+          throw new WatchlistDocumentError('Failed to create watchlist', 500)
+        }
+
+        return {
+          id: createdRoot.id,
+          fields: {
+            name: fields.name,
+            ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
+              settings: fields.settings,
+              items: fields.items,
+            })),
+          },
+        }
+      })
+    )
 
     await refreshEntityListSession('watchlist', scope.workspaceId)
     return created
@@ -191,25 +198,22 @@ export async function deleteWatchlist(
   watchlistId: string
 ): Promise<boolean> {
   try {
-    const [existing] = await db
-      .select({ id: watchlistTable.id })
-      .from(watchlistTable)
-      .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-      .limit(1)
-    if (!existing) return false
-
     const deleted = await withYjsSessionDeletionLease([watchlistId], () =>
-      db.transaction(async (tx) => {
-        const [root] = await tx
-          .select({ id: watchlistTable.id })
-          .from(watchlistTable)
-          .where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-          .limit(1)
-        if (!root) return false
+      db.transaction((tx) =>
+        withWatchlistRootListLock(tx, scope.workspaceId, async () => {
+          const [root] = await tx
+            .select({ id: watchlistTable.id })
+            .from(watchlistTable)
+            .where(rootWatchlistCondition(scope.workspaceId, watchlistId))
+            .limit(1)
+          if (!root) return false
 
-        await tx.delete(watchlistTable).where(rootWatchlistWhere(scope.workspaceId, watchlistId))
-        return true
-      })
+          await tx
+            .delete(watchlistTable)
+            .where(rootWatchlistCondition(scope.workspaceId, watchlistId))
+          return true
+        })
+      )
     )
 
     if (deleted) {

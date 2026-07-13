@@ -30,6 +30,7 @@ import {
   materializeWatchlistDocumentInTx,
   type WatchlistDocumentTx,
 } from '@/lib/watchlists/document'
+import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   readDashboardColorPairDocument,
@@ -259,15 +260,20 @@ export async function saveSavedEntityYjsDocToDb(
   const normalizedFields = normalizeSavedEntityFields(entityKind, entityFields)
   try {
     return await db.transaction(async (tx) => {
-      if (options?.identity) {
-        await renameSavedEntityIdentityInTx(tx, {
-          entityKind,
-          entityId,
-          workspaceId,
-          name: options.identity.name,
-        })
+      const persist = async () => {
+        if (options?.identity) {
+          await renameSavedEntityIdentityInTx(tx, {
+            entityKind,
+            entityId,
+            workspaceId,
+            name: options.identity.name,
+          })
+        }
+        return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
       }
-      return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
+      return entityKind === 'watchlist' && options?.identity
+        ? withWatchlistRootListLock(tx, workspaceId, persist)
+        : persist()
     })
   } catch (error) {
     if (error instanceof SavedEntityPersistenceError) throw error
