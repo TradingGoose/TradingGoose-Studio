@@ -54,7 +54,7 @@ function buildKnowledgeBaseDocumentEnvelope(
 async function createKnowledgeBaseEntity(
   name: string,
   fields: Record<string, unknown>,
-  { userId, workspaceId }: EntityCreateContext
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
   const created = await createKnowledgeBase(
     {
@@ -66,7 +66,8 @@ async function createKnowledgeBaseEntity(
       embeddingDimension: 1536,
       chunkingConfig: fields.chunkingConfig as ChunkingConfig,
     },
-    crypto.randomUUID().slice(0, 8)
+    crypto.randomUUID().slice(0, 8),
+    { beforeInsert }
   )
 
   return {

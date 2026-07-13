@@ -22,11 +22,12 @@ import {
 async function createCustomToolEntity(
   name: string,
   fields: Record<string, unknown>,
-  { userId, workspaceId }: EntityCreateContext
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
   const rows = await createCustomTools({
     userId,
     workspaceId,
+    beforeInsert,
     tools: [
       {
         title: name,

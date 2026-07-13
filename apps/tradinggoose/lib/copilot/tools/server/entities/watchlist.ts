@@ -59,8 +59,12 @@ export const createWatchlistServerTool: EntityServerTool = {
       ENTITY_KIND_WATCHLIST,
       args,
       context,
-      async (name, fields, { workspaceId }) => {
-        const created = await createWatchlistFromDocument({ workspaceId }, { name, ...fields })
+      async (name, fields, { workspaceId, beforeInsert }) => {
+        const created = await createWatchlistFromDocument(
+          { workspaceId },
+          { name, ...fields },
+          { beforeInsert }
+        )
         const { name: entityName, ...content } = created.fields
         return { entityId: created.id, entityName, fields: content }
       }

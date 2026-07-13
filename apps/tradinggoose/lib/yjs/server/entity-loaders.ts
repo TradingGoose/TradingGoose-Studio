@@ -32,6 +32,8 @@ const ENTITY_TABLES = {
 } as const
 
 type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
+export type EntityListReadStore = Pick<typeof db, 'select'>
+export type EntityListBeforeInsert = (store: EntityListReadStore) => Promise<void> | void
 
 function entityConfig(entityKind: RowBackedSavedEntityKind) {
   switch (entityKind) {
@@ -107,7 +109,8 @@ export async function resolveEntityWorkspaceId(
 export async function readEntityListMembersFromDb(
   entityKind: ReviewEntityKind,
   workspaceId: string,
-  ownerUserId?: string | null
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<
   Array<{
     id: string
@@ -124,7 +127,7 @@ export async function readEntityListMembersFromDb(
   }>
 > {
   if (entityKind === 'workflow') {
-    const rows = await db
+    const rows = await store
       .select({
         id: workflow.id,
         name: workflow.name,
@@ -148,7 +151,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'watchlist') {
-    const roots = await listRootWatchlistRowsInTx(db, workspaceId)
+    const roots = await listRootWatchlistRowsInTx(store, workspaceId)
     return roots.map((row) => ({
       id: row.id,
       name: row.name,
@@ -166,7 +169,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'mcp_server') {
-    const rows = await db
+    const rows = await store
       .select({
         id: mcpServers.id,
         name: mcpServers.name,
@@ -188,7 +191,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'skill') {
-    const rows = await db
+    const rows = await store
       .select({ id: skill.id, name: skill.name, description: skill.description })
       .from(skill)
       .where(entityCondition(entityKind, [eq(skill.workspaceId, workspaceId)]))
@@ -202,7 +205,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'custom_tool') {
-    const rows = await db
+    const rows = await store
       .select({ id: customTools.id, name: customTools.title, schema: customTools.schema })
       .from(customTools)
       .where(entityCondition(entityKind, [eq(customTools.workspaceId, workspaceId)]))
@@ -222,7 +225,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'indicator') {
-    const rows = await db
+    const rows = await store
       .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })
       .from(pineIndicators)
       .where(entityCondition(entityKind, [eq(pineIndicators.workspaceId, workspaceId)]))
@@ -236,7 +239,7 @@ export async function readEntityListMembersFromDb(
   }
 
   const { table, name } = entityConfig(entityKind)
-  const rows: Array<{ id: string; name: string | null }> = await db
+  const rows: Array<{ id: string; name: string | null }> = await store
     .select({ id: table.id, name })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.workspaceId, workspaceId)]))

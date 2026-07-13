@@ -10,6 +10,7 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
@@ -23,6 +24,7 @@ interface CreateCustomToolsParams {
   workspaceId: string
   userId: string
   requestId?: string
+  beforeInsert?: EntityListBeforeInsert
 }
 
 interface ImportCustomToolsParams {
@@ -53,12 +55,14 @@ export async function createCustomTools({
   workspaceId,
   userId,
   requestId = generateRequestId(),
+  beforeInsert,
 }: CreateCustomToolsParams) {
   if (tools.length === 0) {
     return []
   }
 
   const created = await db.transaction(async (tx) => {
+    await beforeInsert?.(tx)
     const existingTools = await tx
       .select({
         id: customTools.id,

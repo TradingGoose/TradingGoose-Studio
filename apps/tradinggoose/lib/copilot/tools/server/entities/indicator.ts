@@ -1,11 +1,15 @@
 import { ENTITY_KIND_INDICATOR } from '@/lib/copilot/review-sessions/types'
-import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  hashServerToolReviewBase,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createIndicators } from '@/lib/indicators/custom/operations'
 import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
   DEFAULT_INDICATOR_RUNTIME_MAP,
 } from '@/lib/indicators/default/runtime'
 import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
+import type { EntityListReadStore } from '@/lib/yjs/server/entity-loaders'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -37,30 +41,45 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
   }
 }
 
-async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndicatorListEntry[]> {
+async function listCopilotIndicators(
+  workspaceId: string,
+  store?: EntityListReadStore
+): Promise<CopilotIndicatorListEntry[]> {
   const defaultOptions = DEFAULT_INDICATOR_RUNTIME_ENTRIES.map(toDefaultIndicatorListEntry)
-  const customOptions = (await buildSavedEntityListInfo(ENTITY_KIND_INDICATOR, workspaceId)).map(
-    (entry) => ({
-      name: entry.entityName,
-      source: 'custom' as const,
-      editable: true,
-      callableInFunctionBlock: true,
-      entityId: entry.entityId,
-      runtimeId: entry.entityId,
-    })
-  )
+  const customOptions = (
+    await buildSavedEntityListInfo(ENTITY_KIND_INDICATOR, workspaceId, undefined, store)
+  ).map((entry) => ({
+    name: entry.entityName,
+    source: 'custom' as const,
+    editable: true,
+    callableInFunctionBlock: true,
+    entityId: entry.entityId,
+    runtimeId: entry.entityId,
+  }))
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+async function hashIndicatorCreateReviewBase(
+  workspaceId: string,
+  store?: EntityListReadStore
+): Promise<string> {
+  return hashServerToolReviewBase({
+    kind: ENTITY_KIND_INDICATOR,
+    workspaceId,
+    indicators: await listCopilotIndicators(workspaceId, store),
+  })
 }
 
 async function createIndicatorEntity(
   name: string,
   fields: Record<string, unknown>,
-  { userId, workspaceId }: EntityCreateContext
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
   const rows = await createIndicators({
     userId,
     workspaceId,
+    beforeInsert,
     indicators: [
       {
         name,
@@ -151,7 +170,8 @@ export const createIndicatorServerTool: EntityServerTool = {
       ENTITY_KIND_INDICATOR,
       args,
       context,
-      createIndicatorEntity
+      createIndicatorEntity,
+      hashIndicatorCreateReviewBase
     )
   },
 }

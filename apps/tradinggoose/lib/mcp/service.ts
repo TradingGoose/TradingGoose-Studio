@@ -17,7 +17,10 @@ import {
   readSavedEntityFieldsForExecution,
   readSavedEntityListFieldsForExecution,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
+import {
+  type EntityListBeforeInsert,
+  readEntityListMembersFromDb,
+} from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
@@ -128,6 +131,7 @@ class McpService {
     workspaceId: string
     name: string
     fields: Record<string, unknown>
+    beforeInsert?: EntityListBeforeInsert
   }): Promise<{ entityId: string; entityName: string; fields: Record<string, unknown> }> {
     let normalized: Record<string, unknown>
     try {
@@ -137,27 +141,31 @@ class McpService {
     }
 
     const entityId = crypto.randomUUID()
-    const [row] = await db
-      .insert(mcpServers)
-      .values({
-        id: entityId,
-        workspaceId: input.workspaceId,
-        createdBy: input.userId,
-        name: input.name,
-        description: String(normalized.description ?? '') || null,
-        transport: normalized.transport as McpTransport,
-        url: String(normalized.url ?? '') || null,
-        headers: normalized.headers,
-        command: String(normalized.command ?? '') || null,
-        args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
-        env: normalized.env,
-        timeout: Number(normalized.timeout ?? 30000),
-        retries: Number(normalized.retries ?? 3),
-        enabled: normalized.enabled !== false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning()
+    const row = await db.transaction(async (tx) => {
+      await input.beforeInsert?.(tx)
+      const [created] = await tx
+        .insert(mcpServers)
+        .values({
+          id: entityId,
+          workspaceId: input.workspaceId,
+          createdBy: input.userId,
+          name: input.name,
+          description: String(normalized.description ?? '') || null,
+          transport: normalized.transport as McpTransport,
+          url: String(normalized.url ?? '') || null,
+          headers: normalized.headers,
+          command: String(normalized.command ?? '') || null,
+          args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
+          env: normalized.env,
+          timeout: Number(normalized.timeout ?? 30000),
+          retries: Number(normalized.retries ?? 3),
+          enabled: normalized.enabled !== false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning()
+      return created
+    })
 
     if (!row) {
       throw new Error('Created MCP server was not returned from canonical insert')

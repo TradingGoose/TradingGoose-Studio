@@ -20,9 +20,15 @@ import {
 async function createMcpServerEntity(
   name: string,
   fields: Record<string, unknown>,
-  { userId, workspaceId }: EntityCreateContext
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const created = await mcpService.createWorkspaceServer({ userId, workspaceId, name, fields })
+  const created = await mcpService.createWorkspaceServer({
+    userId,
+    workspaceId,
+    name,
+    fields,
+    beforeInsert,
+  })
 
   return {
     entityId: created.entityId,

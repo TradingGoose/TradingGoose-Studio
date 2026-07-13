@@ -27,7 +27,11 @@ import {
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
+import {
+  type EntityListBeforeInsert,
+  type EntityListReadStore,
+  readEntityListMembersFromDb,
+} from '@/lib/yjs/server/entity-loaders'
 
 type SavedEntityDocumentKind = EntityDocumentKind
 type GenericSavedEntityDocumentKind = Exclude<SavedEntityDocumentKind, 'dashboard_layout'>
@@ -79,13 +83,18 @@ export type EntityCreateResult = {
   entityName: string
   fields: Record<string, unknown>
 }
-export type EntityCreateContext = ServerToolExecutionContext & { workspaceId: string }
+export type EntityCreateContext = ServerToolExecutionContext & {
+  workspaceId: string
+  beforeInsert?: EntityListBeforeInsert
+}
 
 type CreateEntityFromDocument = (
   name: string,
   fields: Record<string, unknown>,
   context: EntityCreateContext
 ) => Promise<EntityCreateResult>
+
+type EntityCreateReviewBase = (workspaceId: string, store?: EntityListReadStore) => Promise<string>
 
 const ENTITY_KIND_LABELS: Record<ReviewEntityKind, string> = {
   workflow: 'workflow',
@@ -250,12 +259,13 @@ export async function readSavedEntityDocument(
 export async function buildSavedEntityListInfo(
   entityKind: ReviewEntityKind,
   workspaceId: string,
-  ownerUserId?: string | null
+  ownerUserId?: string | null,
+  store?: EntityListReadStore
 ): Promise<EntityListEntry[]> {
   const members =
-    ownerUserId === undefined
+    ownerUserId === undefined && store === undefined
       ? await readEntityListMembersFromDb(entityKind, workspaceId)
-      : await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
+      : await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId, store)
   const includeOwnerListMetadata = ownerUserId != null
   return members.map((member) => ({
     entityId: member.id,
@@ -283,12 +293,13 @@ export async function buildSavedEntityListInfo(
 
 async function hashCreateEntityReviewBase(
   kind: GenericSavedEntityDocumentKind,
-  workspaceId: string
+  workspaceId: string,
+  store?: EntityListReadStore
 ): Promise<string> {
   return hashServerToolReviewBase({
     kind,
     workspaceId,
-    entities: await buildSavedEntityListInfo(kind, workspaceId),
+    entities: await buildSavedEntityListInfo(kind, workspaceId, undefined, store),
   })
 }
 
@@ -296,7 +307,8 @@ export async function executeCreateEntityDocumentMutation(
   kind: GenericSavedEntityDocumentKind,
   args: EntityDocumentArgs,
   context: ServerToolExecutionContext | undefined,
-  create: CreateEntityFromDocument
+  create: CreateEntityFromDocument,
+  createReviewBase?: EntityCreateReviewBase
 ) {
   if (args.entityId?.trim()) {
     throw new Error(`create_${kind} does not accept entityId`)
@@ -304,10 +316,23 @@ export async function executeCreateEntityDocumentMutation(
 
   const scopedContext = withWorkspaceArgContext(context, args)
   const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'write')
+  const acceptedReviewContext = context?.acceptedReviewBaseStateHash ? context : null
+  const getReviewBaseHash = (store?: EntityListReadStore) =>
+    createReviewBase?.(workspaceId, store) ?? hashCreateEntityReviewBase(kind, workspaceId, store)
   const createContext: EntityCreateContext = {
     ...(scopedContext ?? {}),
     userId,
     workspaceId,
+    ...(acceptedReviewContext
+      ? {
+          beforeInsert: async (store: EntityListReadStore) => {
+            assertAcceptedServerToolReviewBase(
+              acceptedReviewContext,
+              await getReviewBaseHash(store)
+            )
+          },
+        }
+      : {}),
   }
   const fields = parseEntityMutationDocument(kind, args)
   const name = normalizeSavedEntityIdentity(kind, args.name ?? '')
@@ -317,7 +342,7 @@ export async function executeCreateEntityDocumentMutation(
       requiresReview: true,
       success: true,
       workspaceId,
-      reviewBaseStateHash: await hashCreateEntityReviewBase(kind, workspaceId),
+      reviewBaseStateHash: await getReviewBaseHash(),
       ...buildDocumentEnvelope(kind, undefined, name, fields),
       preview: {
         documentDiff: {
@@ -328,9 +353,6 @@ export async function executeCreateEntityDocumentMutation(
     }
   }
 
-  if (context?.acceptedReviewBaseStateHash) {
-    assertAcceptedServerToolReviewBase(context, await hashCreateEntityReviewBase(kind, workspaceId))
-  }
   const created = await create(name, fields, createContext)
   return {
     success: true,

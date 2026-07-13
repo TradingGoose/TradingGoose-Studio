@@ -10,6 +10,7 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -26,6 +27,7 @@ interface CreateSkillsParams {
   workspaceId: string
   userId: string
   requestId?: string
+  beforeInsert?: EntityListBeforeInsert
 }
 
 interface ImportSkillsParams {
@@ -74,12 +76,14 @@ export async function createSkills({
   workspaceId,
   userId,
   requestId = generateRequestId(),
+  beforeInsert,
 }: CreateSkillsParams) {
   if (skills.length === 0) {
     return []
   }
 
   const created = await db.transaction(async (tx) => {
+    await beforeInsert?.(tx)
     const existingSkills = await tx
       .select({
         id: skill.id,

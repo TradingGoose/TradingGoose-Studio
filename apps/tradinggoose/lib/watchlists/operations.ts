@@ -14,6 +14,7 @@ import {
   normalizeWatchlistDocumentFields,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
+import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
 import {
   refreshEntityListSession,
   withYjsSessionDeletionLease,
@@ -118,12 +119,14 @@ export async function createWatchlist(
 
 export async function createWatchlistFromDocument(
   scope: WatchlistScope,
-  rawFields: Record<string, unknown>
+  rawFields: Record<string, unknown>,
+  options?: { beforeInsert?: EntityListBeforeInsert }
 ): Promise<{ id: string; fields: WatchlistDocumentFields }> {
   const fields = normalizeWatchlistDocumentFields(rawFields)
 
   try {
     const created = await db.transaction(async (tx) => {
+      await options?.beforeInsert?.(tx)
       const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
       const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
       const [createdRoot] = await tx

@@ -21,11 +21,12 @@ import {
 async function createSkillEntity(
   name: string,
   fields: Record<string, unknown>,
-  { userId, workspaceId }: EntityCreateContext
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
   const rows = await createSkills({
     userId,
     workspaceId,
+    beforeInsert,
     skills: [
       {
         name,

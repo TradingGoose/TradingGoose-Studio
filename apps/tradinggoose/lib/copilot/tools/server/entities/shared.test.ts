@@ -11,6 +11,7 @@ import {
   buildDocumentEnvelope,
   buildReviewDocumentDiff,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   executeCreateEntityDocumentMutation,
   executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
@@ -375,8 +376,8 @@ const length = input.int(14, 'Length', 1, 50, 1)
     })
   })
 
-  it('keeps Studio create mutations in review mode', async () => {
-    const result = await executeCreateEntityDocumentMutation(
+  it('keeps Studio create mutations in review mode and validates accepted lists in the owner', async () => {
+    const staged = await executeCreateEntityDocumentMutation(
       'skill',
       {
         workspaceId: 'workspace-1',
@@ -391,7 +392,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
       vi.fn()
     )
 
-    expect(result).toMatchObject({
+    expect(staged).toMatchObject({
       requiresReview: true,
       success: true,
       workspaceId: 'workspace-1',
@@ -399,10 +400,49 @@ const length = input.int(14, 'Length', 1, 50, 1)
       entityName: 'New Skill',
       documentFormat: SKILL_DOCUMENT_FORMAT,
     })
-    expect('preview' in result ? result.preview.documentDiff.before : undefined).toBe('')
-    expect('preview' in result ? result.preview.documentDiff.after : undefined).not.toContain(
+    expect('preview' in staged ? staged.preview.documentDiff.before : undefined).toBe('')
+    expect('preview' in staged ? staged.preview.documentDiff.after : undefined).not.toContain(
       'New Skill'
     )
+
+    const reviewBaseStateHash =
+      'reviewBaseStateHash' in staged ? staged.reviewBaseStateHash : undefined
+    if (!reviewBaseStateHash) throw new Error('Expected a staged create review hash')
+    mockReadEntityListMembersFromDb.mockResolvedValueOnce([
+      { id: 'skill-2', name: 'Created after review' },
+    ])
+    const create = vi.fn(
+      async (
+        _name: string,
+        _fields: Record<string, unknown>,
+        createContext: EntityCreateContext
+      ) => {
+        await createContext.beforeInsert?.({} as never)
+        return { entityId: 'skill-created', entityName: 'New Skill', fields: {} }
+      }
+    )
+
+    await expect(
+      executeCreateEntityDocumentMutation(
+        'skill',
+        {
+          workspaceId: 'workspace-1',
+          name: 'New Skill',
+          documentFormat: SKILL_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            description: 'New description',
+            content: 'Use the new process.',
+          }),
+        },
+        {
+          userId: 'user-1',
+          accessLevel: 'full',
+          acceptedReviewBaseStateHash: reviewBaseStateHash,
+        },
+        create
+      )
+    ).rejects.toThrow(/stale/i)
+    expect(create).toHaveBeenCalledOnce()
   })
 
   it('round-trips MCP server credentials for authorized workspace readers', async () => {

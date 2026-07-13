@@ -22,6 +22,7 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -65,7 +66,8 @@ export async function getKnowledgeBases(
  */
 export async function createKnowledgeBase(
   data: CreateKnowledgeBaseData,
-  requestId: string
+  requestId: string,
+  options?: { beforeInsert?: EntityListBeforeInsert }
 ): Promise<KnowledgeBaseWithCounts> {
   const kbId = randomUUID()
   const now = new Date()
@@ -104,7 +106,10 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await db.insert(knowledgeBase).values(newKnowledgeBase)
+  await db.transaction(async (tx) => {
+    await options?.beforeInsert?.(tx)
+    await tx.insert(knowledgeBase).values(newKnowledgeBase)
+  })
   await refreshEntityListSession('knowledge_base', data.workspaceId)
 
   logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
