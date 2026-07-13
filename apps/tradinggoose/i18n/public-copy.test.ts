@@ -87,6 +87,15 @@ describe('public copy', () => {
     )
   })
 
+  it('preserves public landing array shapes', () => {
+    const landingCopy = getPublicCopy('en').landing
+
+    expect(Array.isArray(landingCopy.hero.leadWords)).toBe(true)
+    expect(Array.isArray(landingCopy.hero.featureBadges)).toBe(true)
+    expect(Array.isArray(landingCopy.features.rows)).toBe(true)
+    expect(Array.isArray(landingCopy.howItWorks.processes)).toBe(true)
+  })
+
   it('includes localized blog and not found copy', () => {
     expect(getPublicCopy('en').blog.shareTitle).toBe('Share This Article')
     expect(getPublicCopy('es').blog.tableOfContents).toBe('En esta página')
@@ -579,6 +588,15 @@ describe('public copy', () => {
 
       expect(Object.keys(widgets.workflowLabels).every((key) => !key.includes('.'))).toBe(true)
     }
+  })
+
+  it('keeps locale catalog shapes aligned after catalog additions or removals', () => {
+    const enCopy = getPublicCopy('en')
+    const esCopy = getPublicCopy('es')
+    const zhCopy = getPublicCopy('zh')
+
+    expect(normalizeShape(esCopy)).toEqual(normalizeShape(enCopy))
+    expect(normalizeShape(zhCopy)).toEqual(normalizeShape(enCopy))
   })
 
   it('formats template placeholders', () => {

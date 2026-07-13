@@ -15,12 +15,13 @@
     "start": "next start",
     "i18n": "bunx lingo.dev@latest run",
     "i18n:frozen": "bunx lingo.dev@latest run --frozen",
+    "i18n:catalog": "bun run scripts/i18n-catalog/index.ts",
     "prepare": "cd ../.. && bun husky",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
-    "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
+    "type-check": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit -p tsconfig.typecheck.json",
     "test:billing:suite": "bun run scripts/test-billing-suite.ts"
   },
   "dependencies": {
