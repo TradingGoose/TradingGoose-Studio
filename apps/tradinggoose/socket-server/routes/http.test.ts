@@ -50,7 +50,6 @@ const mocks = vi.hoisted(() => ({
   reconcileWorkspaceConnections: vi.fn(),
   seedEntity: vi.fn(),
   getEntityFields: vi.fn(),
-  importWatchlist: vi.fn(),
   commitDashboardStructure: vi.fn(),
   beginDeletion: vi.fn(),
   commitDeletion: vi.fn(),
@@ -108,18 +107,6 @@ vi.mock('@/lib/dashboard-layouts/operations', () => ({
   commitDashboardLayoutStructure: mocks.commitDashboardStructure,
   persistDashboardWidgetDocument: mocks.persistDashboardWidget,
   persistDashboardColorPairDocument: mocks.persistDashboardPair,
-}))
-
-vi.mock('@/lib/watchlists/operations', () => ({
-  WatchlistOperationError: class WatchlistOperationError extends Error {
-    constructor(
-      message: string,
-      public status = 400
-    ) {
-      super(message)
-    }
-  },
-  importWatchlistDocument: mocks.importWatchlist,
 }))
 
 vi.mock('@/lib/yjs/entity-session', () => ({
@@ -270,8 +257,9 @@ describe('socket internal HTTP Yjs routes', () => {
         layout: commit.layout,
       })
     )
-    mocks.saveEntity.mockImplementation(async (_kind: string, _id: string, doc: Y.Doc) =>
-      doc.getMap('test').get('fields')
+    mocks.saveEntity.mockImplementation(
+      async (_kind: string, _id: string, _workspaceId: string, doc: Y.Doc) =>
+        doc.getMap('test').get('fields')
     )
     mocks.getExistingDocument.mockImplementation((sessionId: string) =>
       Promise.resolve(documents.get(sessionId) ?? null)
@@ -326,6 +314,50 @@ describe('socket internal HTTP Yjs routes', () => {
       body: { code: 'stale_server_tool_review' },
     })
     expect(mocks.saveEntity).not.toHaveBeenCalled()
+  })
+
+  it('merges explicit saved-entity updates into the live Y.Text history', async () => {
+    const descriptor = buildSavedEntityDescriptor('custom_tool', 'tool-1', 'workspace-1')
+    const query = new URLSearchParams(
+      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+    ).toString()
+    const live = new Y.Doc()
+    const liveText = new Y.Text('base')
+    live.getMap('fields').set('codeText', liveText)
+    documents.set(descriptor.yjsSessionId, live)
+
+    const submitted = new Y.Doc()
+    Y.applyUpdate(submitted, Y.encodeStateAsUpdate(live))
+    const submittedText = submitted.getMap('fields').get('codeText') as Y.Text
+    submittedText.insert(submittedText.length, ' submitted')
+    const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(submitted)).toString('base64')
+    submitted.destroy()
+
+    let releasePersistence!: () => void
+    const persistence = new Promise<void>((resolve) => {
+      releasePersistence = resolve
+    })
+    let beginPersistence!: () => void
+    const persistenceStarted = new Promise<void>((resolve) => {
+      beginPersistence = resolve
+    })
+    mocks.saveEntity.mockImplementationOnce(async () => {
+      beginPersistence()
+      await persistence
+      return {}
+    })
+
+    const response = invoke('POST', `/internal/yjs/sessions/tool-1/apply-update?${query}`, {
+      updateBase64,
+    })
+    await persistenceStarted
+    liveText.insert(liveText.length, ' concurrent')
+    releasePersistence()
+
+    await expect(response).resolves.toMatchObject({ status: 200, body: { success: true } })
+    expect(live.getMap('fields').get('codeText')).toBe(liveText)
+    expect(liveText.toString()).toContain('submitted')
+    expect(liveText.toString()).toContain('concurrent')
   })
 
   it('forwards layout owner scope and reclaims snapshot-only list documents', async () => {

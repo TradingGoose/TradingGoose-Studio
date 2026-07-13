@@ -176,10 +176,18 @@ export async function notifyWorkspaceYjsAccessChanged(
   workspaceId: string,
   userIds?: string[]
 ): Promise<void> {
-  await postJsonToSocketServer(
-    `/internal/yjs/workspaces/${encodeURIComponent(workspaceId)}/access-changed`,
-    { ...(userIds ? { userIds } : {}) }
-  )
+  try {
+    await postJsonToSocketServer(
+      `/internal/yjs/workspaces/${encodeURIComponent(workspaceId)}/access-changed`,
+      { ...(userIds ? { userIds } : {}) }
+    )
+  } catch (error) {
+    logger.warn('Failed to notify realtime server about workspace access changes', {
+      error,
+      workspaceId,
+      userIds,
+    })
+  }
 }
 
 export async function applyEntityStateInSocketServer(
@@ -217,29 +225,6 @@ export async function applyEntityStateInSocketServer(
   } catch (error) {
     rethrowStructuredBridgeError(error)
   }
-}
-
-export async function importWatchlistDocumentInSocketServer(
-  entityId: string,
-  workspaceId: string,
-  fields: Record<string, unknown>
-): Promise<Record<string, unknown>> {
-  const response = await postJsonToSocketServerWithResponse<{
-    success?: unknown
-    fields?: unknown
-  }>(`/internal/yjs/watchlists/${encodeURIComponent(entityId)}/import`, {
-    workspaceId,
-    fields,
-  })
-  if (
-    response.success !== true ||
-    !response.fields ||
-    typeof response.fields !== 'object' ||
-    Array.isArray(response.fields)
-  ) {
-    throw new SocketServerBridgeError(502, 'Socket server returned malformed watchlist fields')
-  }
-  return response.fields as Record<string, unknown>
 }
 
 function rethrowStructuredBridgeError(error: unknown): never {

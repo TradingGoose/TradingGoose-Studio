@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
 const mockDbSelect = vi.hoisted(() => vi.fn())
-const mockRenameSavedEntityIdentityInTx = vi.hoisted(() => vi.fn())
 const mockDeleteYjsSession = vi.hoisted(() => vi.fn())
 const mockRefreshEntityList = vi.hoisted(() => vi.fn())
 
@@ -54,18 +53,6 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   withYjsSessionDeletionLease: mockDeleteYjsSession,
 }))
 
-vi.mock('@/lib/saved-entities/identity', () => ({
-  SavedEntityIdentityError: class SavedEntityIdentityError extends Error {
-    constructor(
-      public status: number,
-      message: string
-    ) {
-      super(message)
-    }
-  },
-  renameSavedEntityIdentityInTx: mockRenameSavedEntityIdentityInTx,
-}))
-
 import {
   composeWatchlistDocumentFromRows,
   listRootWatchlistRowsInTx,
@@ -73,7 +60,6 @@ import {
 import {
   createWatchlistFromDocument,
   deleteWatchlist,
-  importWatchlistDocument,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/operations'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
@@ -181,10 +167,6 @@ const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, l
 describe('watchlist operations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRenameSavedEntityIdentityInTx.mockResolvedValue({
-      name: 'Imported Watchlist',
-      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
-    })
     mockDeleteYjsSession.mockImplementation(
       async (_sessionIds: string[], mutate: () => Promise<unknown>) => mutate()
     )
@@ -295,38 +277,6 @@ describe('watchlist operations', () => {
     await expect(deletion).resolves.toBe(true)
     expect(mockDbTransaction).toHaveBeenCalledTimes(1)
     expect(mockRefreshEntityList).toHaveBeenCalledWith('watchlist', 'workspace-1')
-  })
-
-  it('runs canonical rename and content materialization in one import transaction', async () => {
-    const updatedRoot = { ...rootRow, name: 'Imported Watchlist', settings: content.settings }
-    const store = materializerTx({ updateResults: [[updatedRoot], [], [], []] })
-    mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
-
-    await expect(
-      importWatchlistDocument({ workspaceId: 'workspace-1' }, 'watchlist-1', {
-        name: 'Imported Watchlist',
-        ...content,
-      })
-    ).resolves.toEqual({ name: 'Imported Watchlist', ...content })
-    expect(mockRenameSavedEntityIdentityInTx).toHaveBeenCalledWith(
-      store.tx,
-      expect.objectContaining({
-        entityKind: 'watchlist',
-        entityId: 'watchlist-1',
-        name: 'Imported Watchlist',
-      })
-    )
-
-    const failure = new Error('content persistence failed')
-    const failedStore = materializerTx({ updateResults: [failure as any] })
-    mockDbTransaction.mockImplementationOnce((callback) => callback(failedStore.tx))
-    await expect(
-      importWatchlistDocument({ workspaceId: 'workspace-1' }, 'watchlist-1', {
-        name: 'Imported Watchlist',
-        ...content,
-      })
-    ).rejects.toBe(failure)
-    expect(mockDbTransaction).toHaveBeenCalledTimes(2)
   })
 
   it('accepts canonical parentId ownership and rejects old containerId ownership', () => {

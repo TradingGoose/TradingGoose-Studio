@@ -31,15 +31,11 @@ import {
 } from '@/lib/dashboard-layouts/review-base'
 import { env } from '@/lib/env'
 import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
-import { importWatchlistDocument, WatchlistOperationError } from '@/lib/watchlists/operations'
-import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
   readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
-  seedDashboardColorPairSession,
-  seedDashboardWidgetSession,
   setDashboardColorPairDocument,
   setDashboardLayoutTopology,
   setDashboardWidgetDocument,
@@ -111,7 +107,6 @@ type HttpHandlerOptions = {
 const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
-const INTERNAL_YJS_WATCHLIST_IMPORT_PATH = /^\/internal\/yjs\/watchlists\/([^/]+)\/import$/
 const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/([^/]+)\/edit$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_SESSION_DELETE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
@@ -613,73 +608,6 @@ async function handleInternalYjsEntityApplyRequest(
   }
 }
 
-async function handleInternalWatchlistImportRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-  logger: Logger,
-  entityId: string
-): Promise<void> {
-  let cleanupDoc: Y.Doc | null = null
-  try {
-    const raw = await readJsonBody(req)
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new InvalidInternalYjsRequestError('Invalid watchlist import body')
-    }
-    const body = raw as Record<string, unknown>
-    const unsupportedField = Object.keys(body).find(
-      (key) => key !== 'workspaceId' && key !== 'fields'
-    )
-    if (unsupportedField) {
-      throw new InvalidInternalYjsRequestError(
-        `Unsupported watchlist import field: ${unsupportedField}`
-      )
-    }
-    const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
-    if (!workspaceId) throw new InvalidInternalYjsRequestError('workspaceId is required')
-    let fields: ReturnType<typeof normalizeWatchlistDocumentFields>
-    try {
-      fields = normalizeWatchlistDocumentFields(body.fields)
-    } catch (error) {
-      throw new InvalidInternalYjsRequestError(
-        error instanceof Error ? error.message : 'Invalid watchlist document'
-      )
-    }
-
-    const descriptor = buildSavedEntityDescriptor('watchlist', entityId, workspaceId)
-    const doc = await getBootstrappedApplyDocument(descriptor)
-    cleanupDoc = doc
-    const committed = await runDocumentMutation(doc, async () => {
-      await flushDocumentPersistence(doc)
-      const persisted = await applyThroughStaging(
-        doc,
-        (staged) =>
-          seedEntitySession(staged, {
-            entityKind: 'watchlist',
-            payload: { settings: fields.settings, items: fields.items },
-          }),
-        () => importWatchlistDocument({ workspaceId }, entityId, fields)
-      )
-      await refreshSavedEntityListDoc('watchlist', workspaceId)
-      return persisted
-    })
-
-    sendJson(res, 200, { success: true, fields: committed })
-  } catch (error) {
-    logger.error('Error importing watchlist document', { error, entityId })
-    const status =
-      error instanceof InvalidInternalYjsRequestError
-        ? 400
-        : error instanceof WatchlistOperationError
-          ? error.status
-          : 500
-    sendJson(res, status, {
-      error: error instanceof Error ? error.message : 'Failed to import watchlist document',
-    })
-  } finally {
-    if (cleanupDoc) discardDocumentIfIdle(cleanupDoc)
-  }
-}
-
 async function readDashboardProjectionFromLiveOwners(input: {
   layoutDoc: Y.Doc
   layoutId: string
@@ -1116,70 +1044,54 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     if (typeof updateBase64 !== 'string' || !updateBase64) {
       throw new InvalidInternalYjsRequestError('updateBase64 is required')
     }
+    const submittedUpdate = Buffer.from(updateBase64, 'base64')
+    try {
+      Y.decodeUpdate(submittedUpdate)
+    } catch {
+      throw new InvalidInternalYjsRequestError('updateBase64 is invalid')
+    }
     const identity = parseSavedEntityIdentityMutation(body.identity)
     if (identity && (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair')) {
       throw new InvalidInternalYjsRequestError('Dashboard document identity is not saved here')
     }
     const doc = await getBootstrappedApplyDocument(descriptor)
     cleanupDoc = doc
-    const submitted = new Y.Doc()
-    try {
-      Y.applyUpdate(submitted, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
-      await runDocumentMutation(doc, async () => {
-        if (!descriptor.entityId || entityKind === 'workflow') return
-        const scope =
-          descriptor.workspaceId && descriptor.ownerUserId
-            ? { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
-            : null
-        if (entityKind === 'dashboard_widget') {
-          if (!scope)
-            throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
-          const content = readDashboardWidgetDocument(submitted)
-          await flushDocumentPersistence(doc)
-          await applyThroughStaging(
-            doc,
-            (staged) => {
-              seedDashboardWidgetSession(staged, content, YJS_ORIGINS.SAVE)
-              clearSessionReseededFromCanonical(staged)
-            },
-            (staged) => saveDashboardWidgetYjsDocToDb(descriptor.yjsSessionId, scope, staged)
-          )
-          return
+    await runDocumentMutation(doc, async () => {
+      if (!descriptor.entityId || entityKind === 'workflow') return
+      if (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair') {
+        if (!descriptor.workspaceId || !descriptor.ownerUserId) {
+          throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
         }
-
-        if (entityKind === 'dashboard_color_pair') {
-          if (!scope)
-            throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
-          const content = readDashboardColorPairDocument(submitted)
-          await flushDocumentPersistence(doc)
-          await applyThroughStaging(
-            doc,
-            (staged) => {
-              seedDashboardColorPairSession(staged, content, YJS_ORIGINS.SAVE)
-              clearSessionReseededFromCanonical(staged)
-            },
-            (staged) => saveDashboardColorPairYjsDocToDb(descriptor.yjsSessionId, scope, staged)
-          )
-          return
-        }
-
-        const fields = getEntityFields(submitted, entityKind)
-        if (!descriptor.workspaceId) {
-          throw new InvalidInternalYjsRequestError('Saved entity workspace is required')
-        }
-        await applySavedEntityThroughStaging({
+        const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
+        await flushDocumentPersistence(doc)
+        await applyThroughStaging(
           doc,
-          entityId: descriptor.entityId,
-          entityKind,
-          workspaceId: descriptor.workspaceId,
-          identity,
-          mutate: (staged) =>
-            seedEntitySession(staged, { entityKind, payload: fields }, YJS_ORIGINS.SAVE),
-        })
+          (staged) => {
+            Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE)
+            clearSessionReseededFromCanonical(staged)
+          },
+          (staged) =>
+            (entityKind === 'dashboard_widget'
+              ? saveDashboardWidgetYjsDocToDb
+              : saveDashboardColorPairYjsDocToDb)(descriptor.yjsSessionId, scope, staged)
+        )
+        return
+      }
+
+      if (!descriptor.workspaceId) {
+        throw new InvalidInternalYjsRequestError('Saved entity workspace is required')
+      }
+      await applySavedEntityThroughStaging({
+        doc,
+        entityId: descriptor.entityId,
+        entityKind,
+        workspaceId: descriptor.workspaceId,
+        identity,
+        mutate: (staged) => {
+          Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE)
+        },
       })
-    } finally {
-      submitted.destroy()
-    }
+    })
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -1417,17 +1329,6 @@ async function handleInternalYjsRequest(
   )
   if (applyEntityId) {
     await handleInternalYjsEntityApplyRequest(req, res, logger, applyEntityId)
-    return true
-  }
-
-  const importWatchlistId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_WATCHLIST_IMPORT_PATH,
-    'POST',
-    req.method
-  )
-  if (importWatchlistId) {
-    await handleInternalWatchlistImportRequest(req, res, logger, importWatchlistId)
     return true
   }
 

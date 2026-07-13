@@ -1,10 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { watchlistTable } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import {
-  renameSavedEntityIdentityInTx,
-  SavedEntityIdentityError,
-} from '@/lib/saved-entities/identity'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
@@ -167,34 +163,6 @@ export async function createWatchlistFromDocument(
         `A watchlist with the name "${fields.name}" already exists`,
         409
       )
-    }
-    mapDocumentError(error)
-  }
-}
-
-export async function importWatchlistDocument(
-  scope: WatchlistScope,
-  watchlistId: string,
-  rawFields: Record<string, unknown>
-): Promise<WatchlistDocumentFields> {
-  const fields = normalizeWatchlistDocumentFields(rawFields)
-  try {
-    return await db.transaction(async (tx) => {
-      const { name } = await renameSavedEntityIdentityInTx(tx, {
-        entityKind: 'watchlist',
-        entityId: watchlistId,
-        workspaceId: scope.workspaceId,
-        name: fields.name,
-      })
-      const content = await materializeWatchlistDocumentInTx(tx, scope.workspaceId, watchlistId, {
-        settings: fields.settings,
-        items: fields.items,
-      })
-      return { name, ...content }
-    })
-  } catch (error) {
-    if (error instanceof SavedEntityIdentityError) {
-      throw new WatchlistOperationError(error.message, error.status)
     }
     mapDocumentError(error)
   }

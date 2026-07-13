@@ -7,7 +7,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
-const mockImportWatchlistDocumentInSocketServer = vi.fn()
+const mockApplyEntityStateInSocketServer = vi.fn()
 class MockSocketServerBridgeError extends Error {
   constructor(
     public status: number,
@@ -43,8 +43,8 @@ vi.mock('@/lib/watchlists/operations', async () => {
 })
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  importWatchlistDocumentInSocketServer: (...args: unknown[]) =>
-    mockImportWatchlistDocumentInSocketServer(...args),
+  applyEntityStateInSocketServer: (...args: unknown[]) =>
+    mockApplyEntityStateInSocketServer(...args),
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
@@ -95,7 +95,7 @@ describe('Watchlist import API route', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
-    mockImportWatchlistDocumentInSocketServer.mockResolvedValue({
+    mockApplyEntityStateInSocketServer.mockResolvedValue({
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [],
     })
@@ -116,13 +116,14 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(200)
     expect(payload.watchlist.id).toBe('watchlist-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'watchlist-1')
-    expect(mockImportWatchlistDocumentInSocketServer).toHaveBeenCalledTimes(1)
-    const [entityId, workspaceId, fields] = mockImportWatchlistDocumentInSocketServer.mock.calls[0]!
-    expect([entityId, workspaceId]).toEqual(['watchlist-1', 'workspace-1'])
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledTimes(1)
+    const [entityId, entityKind, workspaceId, fields, options] =
+      mockApplyEntityStateInSocketServer.mock.calls[0]!
+    expect([entityId, entityKind, workspaceId]).toEqual(['watchlist-1', 'watchlist', 'workspace-1'])
     expect(fields).toMatchObject({
-      name: 'Imported Watchlist',
       settings: { showLogo: true, showTicker: true, showDescription: true },
     })
+    expect(options).toEqual({ identity: { name: 'Imported Watchlist' } })
     const [section, listing] = fields.items
     expect(section.id).not.toBe('00000000-0000-4000-8000-000000000001')
     expect(listing.id).not.toBe('00000000-0000-4000-8000-000000000002')
@@ -158,7 +159,7 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(400)
     expect(payload.error).toBe('Invalid watchlist import file')
-    expect(mockImportWatchlistDocumentInSocketServer).not.toHaveBeenCalled()
+    expect(mockApplyEntityStateInSocketServer).not.toHaveBeenCalled()
   })
 
   it('returns a validation error for duplicate imported listing identities', async () => {
@@ -203,12 +204,12 @@ describe('Watchlist import API route', () => {
 
     expect(response.status).toBe(409)
     expect(payload.error).toBe('Listing already exists in watchlist')
-    expect(mockImportWatchlistDocumentInSocketServer).not.toHaveBeenCalled()
+    expect(mockApplyEntityStateInSocketServer).not.toHaveBeenCalled()
   })
 
   it('returns socket-owned import validation errors', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
-    mockImportWatchlistDocumentInSocketServer.mockRejectedValueOnce(
+    mockApplyEntityStateInSocketServer.mockRejectedValueOnce(
       new MockSocketServerBridgeError(409, 'Watchlist contains a duplicate listing')
     )
     const request = createMockRequest('POST', {
@@ -224,10 +225,12 @@ describe('Watchlist import API route', () => {
     expect(response.status).toBe(409)
     expect(payload.error).toBe('Watchlist contains a duplicate listing')
     expect(mockGetWatchlist).toHaveBeenCalledTimes(1)
-    expect(mockImportWatchlistDocumentInSocketServer).toHaveBeenCalledWith(
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
       'watchlist-1',
+      'watchlist',
       'workspace-1',
-      expect.any(Object)
+      expect.any(Object),
+      { identity: { name: 'Imported Watchlist' } }
     )
   })
 })

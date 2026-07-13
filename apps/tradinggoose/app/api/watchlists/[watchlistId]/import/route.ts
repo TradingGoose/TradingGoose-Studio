@@ -7,7 +7,7 @@ import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
-  importWatchlistDocumentInSocketServer,
+  applyEntityStateInSocketServer,
   SocketServerBridgeError,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -80,7 +80,10 @@ export async function POST(
     const fields = parseImportedWatchlistDocument(parsed.file)
 
     await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
-    await importWatchlistDocumentInSocketServer(watchlistId, parsed.workspaceId, fields)
+    const { name, ...content } = fields
+    await applyEntityStateInSocketServer(watchlistId, 'watchlist', parsed.workspaceId, content, {
+      identity: { name },
+    })
     const watchlist = await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
 
     return NextResponse.json({ watchlist }, { status: 200 })

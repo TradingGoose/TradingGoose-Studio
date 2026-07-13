@@ -114,15 +114,23 @@ describe('refreshEntityListSession', () => {
     expect(mockLogger.error).not.toHaveBeenCalled()
   })
 
-  it('does not fail the committed mutation when projection refresh fails', async () => {
-    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
+  it('does not fail the committed mutation when access notification fails', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
 
-    const { refreshEntityListSession } = await import('./snapshot-bridge')
+    const { notifyWorkspaceYjsAccessChanged } = await import('./snapshot-bridge')
 
-    await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBeUndefined()
+    await expect(
+      notifyWorkspaceYjsAccessChanged('workspace-1', ['user-1'])
+    ).resolves.toBeUndefined()
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      'http://socket.test/internal/yjs/workspaces/workspace-1/access-changed'
+    )
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Failed to notify realtime server about workspace access changes',
+      expect.objectContaining({ workspaceId: 'workspace-1', userIds: ['user-1'] })
+    )
   })
 })
 

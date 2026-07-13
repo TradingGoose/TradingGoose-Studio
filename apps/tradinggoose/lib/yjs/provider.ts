@@ -68,11 +68,10 @@ async function fetchSocketToken(): Promise<string> {
 
 async function fetchSnapshot(
   sessionId: string,
-  envelopeParams: Record<string, string>,
-  accessMode: ReviewAccessMode
+  envelopeParams: Record<string, string>
 ): Promise<{ update: Uint8Array; descriptor: ReviewTargetDescriptor }> {
   const response = await fetch(
-    `/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${new URLSearchParams({ ...envelopeParams, accessMode })}`,
+    `/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${new URLSearchParams({ ...envelopeParams, accessMode: 'write' })}`,
     { cache: 'no-store' }
   )
   requireSuccessfulResponse(response, 'Snapshot fetch')
@@ -138,18 +137,20 @@ export async function bootstrapYjsProvider(
   wsOrigin = getDefaultWsOrigin(),
   accessMode: ReviewAccessMode = 'write'
 ): Promise<YjsProviderBootstrapResult> {
-  const snapshot = await fetchSnapshot(
-    descriptor.yjsSessionId,
-    serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
-    accessMode
-  )
-  const resolvedDescriptor = snapshot.descriptor
+  const snapshot =
+    accessMode === 'write'
+      ? await fetchSnapshot(
+          descriptor.yjsSessionId,
+          serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+        )
+      : null
+  const resolvedDescriptor = snapshot?.descriptor ?? descriptor
   const envelopeParams = serializeYjsTransportEnvelope(
     buildYjsTransportEnvelope(resolvedDescriptor)
   )
   const token = await fetchSocketToken()
   const doc = new Y.Doc()
-  Y.applyUpdate(doc, snapshot.update)
+  if (snapshot) Y.applyUpdate(doc, snapshot.update)
 
   const provider = new WebsocketProvider(`${wsOrigin}/yjs`, resolvedDescriptor.yjsSessionId, doc, {
     params: { token, accessMode, ...envelopeParams },
@@ -196,7 +197,7 @@ export async function bootstrapYjsProvider(
     provider.shouldConnect = false
     reconnectInFlight = (async () => {
       try {
-        await fetchSnapshot(resolvedDescriptor.yjsSessionId, envelopeParams, accessMode)
+        await fetchSnapshot(resolvedDescriptor.yjsSessionId, envelopeParams)
         if (!active) return
         const nextToken = await fetchSocketToken()
         if (!active) return
@@ -235,13 +236,11 @@ export async function bootstrapYjsProvider(
   provider.on('connection-error', handleConnectionLoss)
   doc.on('destroy', deactivate)
 
-  if (accessMode === 'write') {
-    try {
-      await waitForYjsSync(provider)
-    } catch (error) {
-      dispose()
-      throw error
-    }
+  try {
+    await waitForYjsSync(provider)
+  } catch (error) {
+    dispose()
+    throw error
   }
 
   return Object.freeze<YjsProviderBootstrapResult>({

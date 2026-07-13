@@ -20,11 +20,7 @@ function getPublicBridgeStatus(error: SocketServerBridgeError) {
   return status === 400 || status === 404 || status === 409 || status === 410 ? status : 503
 }
 
-async function authorizeYjsSnapshotRequest(
-  request: NextRequest,
-  sessionId: string,
-  accessMode: 'read' | 'write'
-) {
+async function authorizeYjsSnapshotRequest(request: NextRequest, sessionId: string) {
   const session = await getSession()
   if (!session?.user?.id) {
     return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -47,7 +43,7 @@ async function authorizeYjsSnapshotRequest(
     return { response: NextResponse.json({ error: 'Session ID mismatch' }, { status: 409 }) }
   }
 
-  const access = await verifyReviewTargetAccess(session.user.id, descriptor, accessMode).catch(
+  const access = await verifyReviewTargetAccess(session.user.id, descriptor, 'write').catch(
     () => null
   )
 
@@ -78,12 +74,11 @@ export async function GET(
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const { sessionId } = await params
-  const accessMode = request.nextUrl.searchParams.get('accessMode')
-  if (accessMode !== 'read' && accessMode !== 'write') {
-    return NextResponse.json({ error: 'Invalid access mode' }, { status: 400 })
+  if (request.nextUrl.searchParams.get('accessMode') !== 'write') {
+    return NextResponse.json({ error: 'Snapshot bootstrap requires write access' }, { status: 400 })
   }
 
-  const authorized = await authorizeYjsSnapshotRequest(request, sessionId, accessMode)
+  const authorized = await authorizeYjsSnapshotRequest(request, sessionId)
   if ('response' in authorized) return authorized.response
 
   try {
@@ -105,7 +100,7 @@ export async function POST(
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const { sessionId } = await params
-  const authorized = await authorizeYjsSnapshotRequest(request, sessionId, 'write')
+  const authorized = await authorizeYjsSnapshotRequest(request, sessionId)
   if ('response' in authorized) return authorized.response
 
   const { descriptor } = authorized

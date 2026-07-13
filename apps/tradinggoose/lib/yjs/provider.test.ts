@@ -315,7 +315,7 @@ describe('bootstrapYjsProvider', () => {
     consoleErrorSpy.mockRestore()
   })
 
-  it('returns read sessions immediately and leaves replacement to the session owner', async () => {
+  it('waits for authoritative reader sync without applying the HTTP snapshot', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
 
@@ -323,26 +323,24 @@ describe('bootstrapYjsProvider', () => {
         return jsonResponse({ token: 'token-1' })
       }
 
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        expect(url).toContain('accessMode=read')
-        return jsonResponse({
-          snapshotBase64: 'AAA=',
-          descriptor,
-          runtime,
-        })
-      }
-
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
     const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const bootstrap = bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
+    await waitForCondition(() => expect(providerInstances).toHaveLength(1))
+    const provider = providerInstances[0]
 
-    expect(result.accessMode).toBe('read')
     expect(provider.shouldConnect).toBe(true)
     expect(provider.disableBc).toBe(false)
     expect(provider.synced).toBe(false)
+    expect(provider.doc.getMap('fields').get('name')).toBeUndefined()
+    provider.doc.getMap('fields').set('name', 'Authoritative value')
+    provider.emit('sync', true)
+    const result = await bootstrap
+
+    expect(result.accessMode).toBe('read')
+    expect(result.doc.getMap('fields').get('name')).toBe('Authoritative value')
     const tokenFetches = fetchMock.mock.calls.length
 
     provider.emit('connection-close', null, provider)
@@ -368,21 +366,24 @@ describe('bootstrapYjsProvider', () => {
     ['missing identity', { descriptor: { entityId: undefined } }],
     ['missing workspace', { descriptor: { entityKind: 'watchlist', workspaceId: undefined } }],
     ['missing dashboard owner', { descriptor: { entityKind: 'dashboard_layout' } }],
-  ])('rejects a snapshot with %s before publishing a provider', async (_label, overrides) => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        snapshotBase64: overrides.snapshotBase64 ?? 'AAA=',
-        descriptor: { ...descriptor, ...overrides.descriptor },
-        runtime: { ...runtime, ...overrides.runtime },
-      })
-    )
-    const { bootstrapYjsProvider } = await import('./provider')
+  ])(
+    'rejects a malformed writer snapshot with %s before publishing a provider',
+    async (_label, overrides) => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          snapshotBase64: overrides.snapshotBase64 ?? 'AAA=',
+          descriptor: { ...descriptor, ...overrides.descriptor },
+          runtime: { ...runtime, ...overrides.runtime },
+        })
+      )
+      const { bootstrapYjsProvider } = await import('./provider')
 
-    await expect(
-      bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
-    ).rejects.toMatchObject({ retryable: false })
-    expect([fetchMock.mock.calls.length, providerInstances.length]).toEqual([1, 0])
-  })
+      await expect(
+        bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'write')
+      ).rejects.toMatchObject({ retryable: false })
+      expect([fetchMock.mock.calls.length, providerInstances.length]).toEqual([1, 0])
+    }
+  )
 
   it('applies the canonical snapshot before creating the provider', async () => {
     const source = new Y.Doc()
