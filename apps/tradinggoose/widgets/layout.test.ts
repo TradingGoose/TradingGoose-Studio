@@ -8,7 +8,6 @@ import {
   type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
-  findDashboardTopologyParentGroupId,
   normalizeDashboardLayoutProjection,
   normalizeDashboardLayoutTopology,
   replaceDashboardPanelWidget,
@@ -338,7 +337,6 @@ describe('dashboard layout tree operations', () => {
     const result = splitDashboardTopologyPanel(layout(), 'panel-a', 'vertical')
     const next = result.layout
 
-    expect(findDashboardTopologyParentGroupId(next, 'panel-b')).toBe('root')
     expect(next.type).toBe('group')
     if (next.type !== 'group') throw new Error('Expected root group')
     const splitNode = next.children[0]

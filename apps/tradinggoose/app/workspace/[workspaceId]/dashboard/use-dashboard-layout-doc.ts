@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -10,6 +10,7 @@ import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fi
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { mutateDashboardLayoutStructureAction } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
+  type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
   normalizeDashboardLayoutTopology,
 } from '@/widgets/layout-document'
@@ -61,6 +62,8 @@ const snapshotsEqual = (
   left === right ||
   (left !== null && right !== null && JSON.stringify(left) === JSON.stringify(right))
 
+const RESIZE_DEBOUNCE_MS = 100
+
 export function useDashboardLayoutDocument(input: {
   workspaceId: string | null | undefined
   ownerUserId: string | null | undefined
@@ -91,52 +94,105 @@ export function useDashboardLayoutDocument(input: {
     return readDashboardLayoutTopology(doc)
   }, [doc, fallback])
   const topology = useYjsSubscription(subscribe, read, fallback, snapshotsEqual)
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const pendingResizeRef = useRef(new Map<string, number[]>())
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const updateGroupSizes = useCallback(
-    async (groupId: string, sizes: number[]) => {
-      if (!input.workspaceId || !input.layoutId) return
-      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
-        type: 'resize',
-        groupId,
-        sizes,
-      })
+  const enqueueStructureMutation = useCallback(
+    (mutation: DashboardLayoutStructureMutation) => {
+      const commit = async () => {
+        if (!input.workspaceId || !input.layoutId) return
+        await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, mutation)
+      }
+      const next = mutationQueueRef.current.then(commit, commit)
+      mutationQueueRef.current = next.catch(() => undefined)
+      return next
     },
     [input.layoutId, input.workspaceId]
   )
 
+  const flushQueuedResizes = useCallback(() => {
+    if (resizeTimerRef.current) {
+      clearTimeout(resizeTimerRef.current)
+      resizeTimerRef.current = null
+    }
+    const pendingResizes = Array.from(pendingResizeRef.current, ([groupId, sizes]) => ({
+      groupId,
+      sizes,
+    }))
+    pendingResizeRef.current.clear()
+    return Promise.allSettled(
+      pendingResizes.map(({ groupId, sizes }) =>
+        enqueueStructureMutation({ type: 'resize', groupId, sizes })
+      )
+    ).then(() => undefined)
+  }, [enqueueStructureMutation])
+
+  const scheduleResizeFlush = useCallback(() => {
+    if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current)
+    resizeTimerRef.current = setTimeout(() => {
+      resizeTimerRef.current = null
+      void flushQueuedResizes().catch((error) => {
+        console.error('Failed to persist dashboard resize:', error)
+      })
+    }, RESIZE_DEBOUNCE_MS)
+  }, [flushQueuedResizes])
+
+  useEffect(() => {
+    return () => {
+      void flushQueuedResizes().catch((error) => {
+        console.error('Failed to persist dashboard resize:', error)
+      })
+      mutationQueueRef.current = Promise.resolve()
+    }
+  }, [flushQueuedResizes])
+
+  const mutateStructure = useCallback(
+    async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
+      await flushQueuedResizes()
+      await enqueueStructureMutation(mutation)
+    },
+    [enqueueStructureMutation, flushQueuedResizes]
+  )
+
+  const updateGroupSizes = useCallback(
+    (groupId: string, sizes: number[]) => {
+      pendingResizeRef.current.set(groupId, sizes)
+      scheduleResizeFlush()
+    },
+    [scheduleResizeFlush]
+  )
+
   const splitPanel = useCallback(
     async (panelId: string, direction: 'horizontal' | 'vertical') => {
-      if (!input.workspaceId || !input.layoutId) return
-      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+      await mutateStructure({
         type: 'split',
         panelId,
         direction,
       })
     },
-    [input.layoutId, input.workspaceId]
+    [mutateStructure]
   )
 
   const closePanel = useCallback(
     async (panelId: string) => {
-      if (!input.workspaceId || !input.layoutId) return
-      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+      await mutateStructure({
         type: 'close',
         panelId,
       })
     },
-    [input.layoutId, input.workspaceId]
+    [mutateStructure]
   )
 
   const replacePanelWidget = useCallback(
     async (panelId: string, widgetKey: string) => {
-      if (!input.workspaceId || !input.layoutId) return
-      await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, {
+      await mutateStructure({
         type: 'replace',
         panelId,
         widgetKey,
       })
     },
-    [input.layoutId, input.workspaceId]
+    [mutateStructure]
   )
 
   return {

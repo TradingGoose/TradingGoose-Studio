@@ -107,5 +107,12 @@ describe('LayoutPreview', () => {
     const finalPanels = resolvedPanels(latestCanvasProps().layout)
     expect(finalPanels).toHaveLength(5)
     expect(finalPanels.every((panel) => panel.widget === null)).toBe(true)
+
+    while (resolvedPanels(latestCanvasProps().layout).length > 1) {
+      const panelId = resolvedPanels(latestCanvasProps().layout)[0]!.id
+      expect(latestCanvasProps().closePanel).toBeTypeOf('function')
+      act(() => latestCanvasProps().closePanel?.(panelId))
+    }
+    expect(latestCanvasProps().closePanel).toBeUndefined()
   })
 })

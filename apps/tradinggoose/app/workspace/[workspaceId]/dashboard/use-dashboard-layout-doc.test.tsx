@@ -71,6 +71,7 @@ describe('useDashboardLayoutDocument live fields', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     if (root) act(() => root?.unmount())
     mockLayoutDoc?.destroy()
     mockLayoutDoc = null
@@ -158,27 +159,57 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(mockLayoutDoc.share.has('widget')).toBe(false)
   })
 
-  it('routes group resizing through the server structural commit boundary', async () => {
+  it('coalesces resize and does not carry a departed layout queue forward', async () => {
     mockLayoutDoc = new Y.Doc()
     seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
-    const Capture = () => {
-      latest = useDashboardLayoutDocument({
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
-        layoutId: 'layout-1',
-      })
+    const Capture = ({ workspaceId, layoutId }: { workspaceId: string; layoutId: string }) => {
+      latest = useDashboardLayoutDocument({ workspaceId, ownerUserId: 'user-1', layoutId })
       return null
     }
 
-    act(() => root?.render(<Capture />))
-    await act(async () => latest.updateGroupSizes('group-1', [35, 65]))
+    let releaseFirstMutation!: () => void
+    mockMutateStructure.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseFirstMutation = resolve))
+    )
+    act(() => root?.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
+    vi.useFakeTimers()
+    act(() => {
+      latest.updateGroupSizes('group-1', [20, 80])
+      latest.updateGroupSizes('group-1', [35, 65])
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
 
+    expect(mockMutateStructure).toHaveBeenCalledTimes(1)
     expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
       type: 'resize',
       groupId: 'group-1',
       sizes: [35, 65],
     })
+    act(() => root?.render(<Capture workspaceId='workspace-2' layoutId='layout-2' />))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
+      type: 'resize',
+      groupId: 'group-1',
+      sizes: [35, 65],
+    })
+
+    const replacement = latest.replacePanelWidget('panel-chart', 'watchlist')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-2', 'layout-2', {
+      type: 'replace',
+      panelId: 'panel-chart',
+      widgetKey: 'watchlist',
+    })
+
+    releaseFirstMutation()
+    await act(async () => replacement)
   })
 })

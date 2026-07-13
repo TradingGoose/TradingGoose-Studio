@@ -1,17 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocale, useMessages } from 'next-intl'
 import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
 import type { LocaleCode } from '@/i18n/utils'
 import {
   applyDashboardLayoutStructureMutation,
   closeDashboardTopologyPanel,
+  countDashboardTopologyPanels,
   createDefaultDashboardLayoutProjection,
   createDefaultDashboardWidgetDocument,
   type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
-  findDashboardTopologyParentGroupId,
   normalizeDashboardLayoutProjection,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
@@ -35,17 +35,11 @@ function applyPreviewEditPlan(
 export function LayoutPreview() {
   const [mounted, setMounted] = useState(false)
   const [document, setDocument] = useState(createDefaultDashboardLayoutProjection)
-  const skipLayoutRef = useRef<Set<string>>(new Set())
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const layoutCopy = copy.landing.preview.layout
 
   const persistGroupSizes = useCallback((groupId: string, sizes: number[]) => {
-    if (skipLayoutRef.current.has(groupId)) {
-      skipLayoutRef.current.delete(groupId)
-      return
-    }
-
     setDocument((current) =>
       applyPreviewEditPlan(
         current,
@@ -56,26 +50,14 @@ export function LayoutPreview() {
 
   const splitPanelVertical = useCallback((panelId: string) => {
     setDocument((current) => {
-      const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
       const plan = splitDashboardTopologyPanel(current.layout, panelId, 'vertical')
-
-      if (plan.layout !== current.layout && parentId) {
-        skipLayoutRef.current.add(parentId)
-      }
-
       return applyPreviewEditPlan(current, plan)
     })
   }, [])
 
   const splitPanelHorizontal = useCallback((panelId: string) => {
     setDocument((current) => {
-      const parentId = findDashboardTopologyParentGroupId(current.layout, panelId)
       const plan = splitDashboardTopologyPanel(current.layout, panelId, 'horizontal')
-
-      if (plan.layout !== current.layout && parentId) {
-        skipLayoutRef.current.add(parentId)
-      }
-
       return applyPreviewEditPlan(current, plan)
     })
   }, [])
@@ -97,7 +79,7 @@ export function LayoutPreview() {
   return (
     <div className='flex h-full min-h-[480px] w-full overflow-hidden'>
       <DashboardLayoutPreviewCanvas
-        closePanel={closePanel}
+        closePanel={countDashboardTopologyPanels(document.layout) > 1 ? closePanel : undefined}
         copy={layoutCopy}
         layout={resolveDashboardLayout(document.layout, document.widgets)}
         locale={locale}

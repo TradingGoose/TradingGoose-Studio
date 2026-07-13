@@ -42,8 +42,8 @@ import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import {
+  countDashboardTopologyPanels,
   type DashboardLayoutTopologyNode,
-  findDashboardTopologyParentGroupId,
 } from '@/widgets/layout-document'
 import type { WidgetRuntimeContext } from '@/widgets/types'
 import {
@@ -267,10 +267,10 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const [pendingActivation, setPendingActivation] = useState<{
+    workspaceId: string
     layoutId: string
     phase: 'activating' | 'loading'
   } | null>(null)
-  const skipLayoutRef = useRef<Set<string>>(new Set())
   const isCreatingLayoutRef = useRef(false)
   const router = useRouter()
   const pathname = usePathname()
@@ -306,27 +306,32 @@ export function DashboardClient({
   const rawTree = layoutDocument.topology
   const hasLayoutFailure = Boolean(dashboardLayoutList.error || layoutDocument.error)
   const canMutateLayouts = !hasLayoutFailure
+  const activePendingActivation =
+    pendingActivation?.workspaceId === workspaceId ? pendingActivation : null
+  const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
   const canEditContent =
-    !pendingActivation &&
+    !activePendingActivation &&
     canMutateLayouts &&
     layoutDocument.isProviderReady &&
     rawTree !== null &&
     activeLayoutId !== null
 
   useEffect(() => {
-    if (!pendingActivation) return
+    if (!activePendingActivation) return
     if (dashboardLayoutList.isTerminalError || layoutDocument.isTerminalError) {
-      setPendingActivation(null)
+      setPendingActivation((current) => (current?.workspaceId === workspaceId ? null : current))
       return
     }
     if (
-      pendingActivation.phase === 'loading' &&
-      activeLayoutId === pendingActivation.layoutId &&
+      activePendingActivation.phase === 'loading' &&
+      activeLayoutId === activePendingActivation.layoutId &&
       layoutDocument.isProviderReady &&
       rawTree !== null &&
       !hasLayoutFailure
     ) {
-      setPendingActivation(null)
+      setPendingActivation((current) =>
+        current?.workspaceId === workspaceId && current.layoutId === activeLayoutId ? null : current
+      )
     }
   }, [
     activeLayoutId,
@@ -334,13 +339,14 @@ export function DashboardClient({
     hasLayoutFailure,
     layoutDocument.isProviderReady,
     layoutDocument.isTerminalError,
-    pendingActivation,
+    activePendingActivation,
     rawTree,
+    workspaceId,
   ])
 
   useEffect(() => {
-    skipLayoutRef.current.clear()
-  }, [activeLayoutId])
+    setPendingActivation((current) => (current?.workspaceId === workspaceId ? current : null))
+  }, [workspaceId])
 
   useEffect(() => {
     const nextParams = new URLSearchParams(searchParamsString)
@@ -405,11 +411,6 @@ export function DashboardClient({
   const persistGroup = useCallback(
     (groupId: string, sizes: number[]) => {
       if (!canEditContent) return
-      if (skipLayoutRef.current.has(groupId)) {
-        skipLayoutRef.current.delete(groupId)
-        return
-      }
-
       layoutDocument.updateGroupSizes(groupId, sizes)
     },
     [canEditContent, layoutDocument.updateGroupSizes]
@@ -518,23 +519,27 @@ export function DashboardClient({
   const showDropdown = isSearchOpen
 
   const handleSplitPanelVertical = useCallback(
-    (panelId: string) => {
+    async (panelId: string) => {
       if (!canEditContent) return
-      const parentId = rawTree ? findDashboardTopologyParentGroupId(rawTree, panelId) : null
-      if (parentId) skipLayoutRef.current.add(parentId)
-      void layoutDocument.splitPanel(panelId, 'vertical')
+      try {
+        await layoutDocument.splitPanel(panelId, 'vertical')
+      } catch (error) {
+        console.error('Failed to split dashboard panel:', error)
+      }
     },
-    [canEditContent, layoutDocument.splitPanel, rawTree]
+    [canEditContent, layoutDocument.splitPanel]
   )
 
   const handleSplitPanelHorizontal = useCallback(
-    (panelId: string) => {
+    async (panelId: string) => {
       if (!canEditContent) return
-      const parentId = rawTree ? findDashboardTopologyParentGroupId(rawTree, panelId) : null
-      if (parentId) skipLayoutRef.current.add(parentId)
-      void layoutDocument.splitPanel(panelId, 'horizontal')
+      try {
+        await layoutDocument.splitPanel(panelId, 'horizontal')
+      } catch (error) {
+        console.error('Failed to split dashboard panel:', error)
+      }
     },
-    [canEditContent, layoutDocument.splitPanel, rawTree]
+    [canEditContent, layoutDocument.splitPanel]
   )
 
   const handleClosePanel = useCallback(
@@ -551,22 +556,26 @@ export function DashboardClient({
         !canMutateLayouts ||
         !nextLayoutId ||
         nextLayoutId === activeLayoutId ||
-        pendingActivation
+        activePendingActivation
       )
         return
-      setPendingActivation({ layoutId: nextLayoutId, phase: 'activating' })
+      setPendingActivation({ workspaceId, layoutId: nextLayoutId, phase: 'activating' })
 
       try {
         await activateDashboardLayoutAction(workspaceId, nextLayoutId)
         setPendingActivation((current) =>
-          current?.layoutId === nextLayoutId ? { ...current, phase: 'loading' } : current
+          current?.workspaceId === workspaceId && current.layoutId === nextLayoutId
+            ? { ...current, phase: 'loading' }
+            : current
         )
       } catch (error) {
         console.error('Failed to switch layout:', error)
-        setPendingActivation(null)
+        setPendingActivation((current) =>
+          current?.workspaceId === workspaceId && current.layoutId === nextLayoutId ? null : current
+        )
       }
     },
-    [activeLayoutId, canMutateLayouts, pendingActivation, workspaceId]
+    [activeLayoutId, activePendingActivation, canMutateLayouts, workspaceId]
   )
 
   const handleRenameLayout = useCallback(
@@ -732,7 +741,7 @@ export function DashboardClient({
   const headerCenterContent = (
     <LayoutTabs
       layouts={layouts}
-      isBusy={isCreatingLayout || pendingActivation !== null}
+      isBusy={isCreatingLayout || activePendingActivation !== null}
       canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
       onReorder={handleReorderLayouts}
@@ -772,7 +781,7 @@ export function DashboardClient({
             canEditContent={canEditContent}
             splitPanelVertical={canEditContent ? handleSplitPanelVertical : undefined}
             splitPanelHorizontal={canEditContent ? handleSplitPanelHorizontal : undefined}
-            closePanel={canEditContent ? handleClosePanel : undefined}
+            closePanel={canEditContent && canClosePanel ? handleClosePanel : undefined}
             replacePanelWidget={canEditContent ? layoutDocument.replacePanelWidget : undefined}
           />
         ) : (

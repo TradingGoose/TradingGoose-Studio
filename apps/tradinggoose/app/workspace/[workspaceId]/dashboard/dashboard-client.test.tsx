@@ -518,7 +518,13 @@ describe('DashboardClient', () => {
     expect(mockLayoutMutation).toHaveBeenCalledWith('panel-a', 'watchlist')
   })
 
-  it('keeps the current layout stable while switching active layout metadata', async () => {
+  it('does not carry a pending activation into another workspace', async () => {
+    let resolveActivation!: () => void
+    dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveActivation = resolve
+      })
+    )
     await act(async () => {
       root.render(
         <DashboardClient
@@ -540,9 +546,20 @@ describe('DashboardClient', () => {
       mockSelectLayout?.('layout-b')
       await Promise.resolve()
     })
+    expect(mockLayoutTabsIsBusy).toBe(true)
 
+    mockPathname = '/workspace/ws-b/dashboard'
     await act(async () => {
-      mockSelectLayout?.('layout-a')
+      root.render(
+        <DashboardClient
+          initialTopology={createPanelLayout('panel-b', 'wf-b')}
+          workspaceId='ws-b'
+          ownerUserId='user-b'
+          layoutId='layout-b'
+          initialLayouts={createLayouts('layout-b')}
+          {...dashboardPermissions}
+        />
+      )
       await Promise.resolve()
     })
 
@@ -551,12 +568,16 @@ describe('DashboardClient', () => {
       'ws-a',
       'layout-b'
     )
+    expect(mockLayoutTabsIsBusy).toBe(false)
     expect(readWidgetSurface(container)).toEqual({
-      workflowId: 'wf-a',
+      workflowId: 'wf-b',
       watchlistId: '',
-      workspaceId: 'ws-a',
+      workspaceId: 'ws-b',
       pairColor: 'gray',
     })
+
+    await act(async () => resolveActivation())
+    expect(mockLayoutTabsIsBusy).toBe(false)
   })
 
   it.each(['success', 'list', 'document'] as const)(

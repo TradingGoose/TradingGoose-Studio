@@ -441,6 +441,12 @@ export function findDashboardTopologyPanel(
   return null
 }
 
+export function countDashboardTopologyPanels(node: DashboardLayoutTopologyNode): number {
+  return node.type === 'panel'
+    ? 1
+    : node.children.reduce((count, child) => count + countDashboardTopologyPanels(child), 0)
+}
+
 function planPanelWidgetBinding(
   panel: DashboardPanelTopologyNode | Pick<DashboardPanelTopologyNode, 'id' | 'type'>,
   widgetKey: string
@@ -489,19 +495,6 @@ export function replaceDashboardPanelWidget(
     createdBindings: binding.createdBindings,
     removedIdentityIds: binding.removedIdentityIds,
   }
-}
-
-export function findDashboardTopologyParentGroupId(
-  node: DashboardLayoutTopologyNode,
-  childId: string,
-  parentId: string | null = null
-): string | null {
-  if (node.type === 'panel') return node.id === childId ? parentId : null
-  for (const child of node.children) {
-    const found = findDashboardTopologyParentGroupId(child, childId, node.id)
-    if (found) return found
-  }
-  return null
 }
 
 function updateDashboardTopologyGroupSizes(
