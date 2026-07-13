@@ -30,6 +30,7 @@ const rootWatchlist: WatchlistRecord = {
 }
 let currentWatchlist: WatchlistRecord = rootWatchlist
 let currentWatchlists: WatchlistRecord[] = [rootWatchlist]
+let isSelectedWatchlistDocumentReady = true
 
 const createWidget = (widget: NonNullable<WidgetInstance>): WidgetInstance => widget
 
@@ -39,7 +40,9 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       requestedEntityId: watchlistId,
       entityIds: currentWatchlists.map((watchlist) => watchlist.id),
     })
-    const record = currentWatchlists.find((watchlist) => watchlist.id === selectedId) ?? null
+    const record = isSelectedWatchlistDocumentReady
+      ? (currentWatchlists.find((watchlist) => watchlist.id === selectedId) ?? null)
+      : null
     return {
       record,
       name: record?.name ?? '',
@@ -47,6 +50,8 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       items: record?.items ?? [],
       updateItems: (update: (items: unknown[]) => unknown[]) =>
         mockSetWatchlistItems(update(record?.items ?? [])),
+      isDocumentReady: Boolean(record),
+      canMutateDocument: Boolean(record),
       isLoading: false,
       error: null,
       members: currentWatchlists.map((watchlist) => ({
@@ -134,6 +139,15 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+    ...props
+  }: ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: (event: Event) => void }) => (
+    <button type='button' {...props} onClick={(event) => onSelect?.(event.nativeEvent)}>
+      {children}
+    </button>
+  ),
 }))
 
 vi.mock('@/components/ui/alert-dialog', () => ({
@@ -176,6 +190,7 @@ describe('watchlist header controls', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     currentWatchlist = rootWatchlist
     currentWatchlists = [rootWatchlist]
+    isSelectedWatchlistDocumentReady = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -305,6 +320,7 @@ describe('watchlist header controls', () => {
 
     expect(button('Create List')?.hasAttribute('disabled')).toBe(true)
     expect(button('Import')?.hasAttribute('disabled')).toBe(true)
+    expect(button('Export')?.hasAttribute('disabled')).toBe(false)
     expect(refreshButton?.hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
@@ -342,7 +358,8 @@ describe('watchlist header controls', () => {
     expect(mockPatchWidgetLinkedParams).not.toHaveBeenCalled()
   })
 
-  it('deletes the sole watchlist and clears the widget selection', async () => {
+  it('clears the active widget link when its document is still loading', async () => {
+    isSelectedWatchlistDocumentReady = false
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -367,7 +384,7 @@ describe('watchlist header controls', () => {
 
     const deleteButton = await vi.waitFor(() => {
       const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-        (candidate) => /delete list/i.test(candidate.getAttribute('aria-label') ?? '')
+        (candidate) => /delete list/i.test(candidate.textContent ?? '')
       )
       expect(button).toBeTruthy()
       return button!

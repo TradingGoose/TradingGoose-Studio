@@ -53,14 +53,15 @@ export function useWatchlistYjsDocument(args: {
   const items = useYjsSubscription(subscribeItems, readItems, EMPTY_WATCHLIST_ITEMS)
   const updateItems = useCallback(
     (update: (current: WatchlistItem[]) => WatchlistItem[]) => {
-      if (!doc || accessModeRef.current === 'read') return
+      if (!doc) throw new Error('Watchlist document is not ready')
+      if (accessModeRef.current === 'read') throw new Error('Watchlist document is read-only')
       updateWatchlistItems(doc, update)
     },
     [accessModeRef, doc]
   )
 
   const record = useMemo<WatchlistRecord | null>(() => {
-    if (!workspaceId || !watchlistId) return null
+    if (!doc || !workspaceId || !watchlistId) return null
     return {
       id: watchlistId,
       workspaceId,
@@ -70,7 +71,7 @@ export function useWatchlistYjsDocument(args: {
       createdAt: member?.createdAt ?? '',
       updatedAt: member?.updatedAt ?? '',
     }
-  }, [items, member?.createdAt, member?.updatedAt, name, settings, watchlistId, workspaceId])
+  }, [doc, items, member?.createdAt, member?.updatedAt, name, settings, watchlistId, workspaceId])
 
   return {
     record,
@@ -78,6 +79,8 @@ export function useWatchlistYjsDocument(args: {
     settings,
     items: Array.isArray(items) ? items : [],
     updateItems,
+    isDocumentReady: Boolean(doc) && !error,
+    canMutateDocument: Boolean(doc) && !error && accessMode !== 'read',
     isLoading,
     error,
   }

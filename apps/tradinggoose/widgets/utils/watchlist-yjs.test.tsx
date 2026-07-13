@@ -87,12 +87,12 @@ describe('useWatchlistYjsDocument access mode', () => {
     container.remove()
   })
 
-  it('blocks a retained item updater and does not expose raw mutation handles to readers', async () => {
+  it('rejects a retained item updater and does not expose raw mutation handles to readers', async () => {
     await act(async () => root.render(<Harness accessMode='write' />))
     const retainedUpdateItems = current.updateItems
 
     await act(async () => root.render(<Harness accessMode='read' />))
-    act(() =>
+    expect(() =>
       retainedUpdateItems((items) => [
         ...items,
         {
@@ -107,9 +107,10 @@ describe('useWatchlistYjsDocument access mode', () => {
           },
         },
       ])
-    )
+    ).toThrow('read-only')
 
     expect(readWatchlistItems(doc)).toHaveLength(1)
+    expect(current.canMutateDocument).toBe(false)
     expect(current).not.toHaveProperty('doc')
     expect(current).not.toHaveProperty('setSettings')
   })
@@ -134,6 +135,8 @@ describe('useWatchlistYjsDocument access mode', () => {
 
     expect(selected.selectedWatchlistId).toBeNull()
     expect(selected.record).toBeNull()
+    expect(selected.isDocumentReady).toBe(false)
+    expect(selected.canMutateDocument).toBe(false)
     expect(fieldMocks.session).toHaveBeenLastCalledWith(
       'watchlist',
       null,
