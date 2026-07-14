@@ -5,6 +5,7 @@ import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
+  parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
@@ -13,9 +14,13 @@ import type {
   ReviewEntityKind,
   ReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/types'
+import { readPersistedDashboardWidgetBinding } from '@/lib/dashboard-layouts/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import { readDashboardWidgetDocument } from '@/lib/yjs/dashboard-layout-session'
+import {
+  readDashboardColorPairDocument,
+  readDashboardWidgetDocument,
+} from '@/lib/yjs/dashboard-layout-session'
 import {
   SavedEntityPersistenceError,
   saveDashboardColorPairYjsDocToDb,
@@ -29,6 +34,7 @@ import {
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
 import {
+  type DocumentValidator,
   getExistingDocument,
   isYjsSessionAdmissionBlocked,
   setupWSConnection,
@@ -36,14 +42,6 @@ import {
 
 const logger = createLogger('YjsWsHandler')
 const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
-
-interface YjsIncomingMessage extends IncomingMessage {
-  yjsSessionId?: string
-  yjsUserId?: string
-  yjsBootstrapState?: Uint8Array
-  yjsAccessMode?: ReviewAccessMode
-  yjsDescriptor?: ReviewTargetDescriptor
-}
 
 function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: ReviewTargetDescriptor) {
   if (
@@ -107,23 +105,33 @@ export function handleYjsUpgrade(
   }
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ accessMode, bootstrapState, userId, resolvedSessionId, descriptor }) => {
-      if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(resolvedSessionId)) {
-        rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
-        return
+    .then(
+      ({ accessMode, bootstrapState, userId, resolvedSessionId, descriptor, validateDocument }) => {
+        if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(resolvedSessionId)) {
+          rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
+          return
+        }
+        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+          try {
+            logger.info('Yjs connection established', { docId: resolvedSessionId, userId })
+            setupWSConnection(ws, request, {
+              docId: resolvedSessionId,
+              userId,
+              accessMode,
+              descriptor,
+              gc: true,
+              bootstrapState,
+              onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
+              onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+              validateDocument,
+            })
+          } catch (error) {
+            logger.error('Failed to attach Yjs connection', { docId: resolvedSessionId, error })
+            ws.close(4409, 'Failed to attach Yjs session')
+          }
+        })
       }
-      const yjsReq = request as YjsIncomingMessage
-      yjsReq.yjsSessionId = resolvedSessionId
-      yjsReq.yjsUserId = userId
-      yjsReq.yjsBootstrapState = bootstrapState
-      yjsReq.yjsAccessMode = accessMode
-      yjsReq.yjsDescriptor = descriptor
-
-      ensureConnectionHandler(wss)
-      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-        wss.emit('connection', ws, request)
-      })
-    })
+    )
     .catch((error) => {
       if (error instanceof YjsAuthError) {
         rejectUpgrade(socket, error.code, error.message)
@@ -144,6 +152,7 @@ async function authenticateAndPrepareUpgrade(
   resolvedSessionId: string
   accessMode: ReviewAccessMode
   descriptor: ReviewTargetDescriptor
+  validateDocument?: DocumentValidator
 }> {
   const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
@@ -183,6 +192,7 @@ async function authenticateAndPrepareUpgrade(
         ? userId
         : null,
   }
+  const validateDocument = await prepareDashboardChildValidator(canonicalDescriptor)
 
   // Every list connect follows a fresh snapshot fetch, which reseeds live
   // list docs from DB (routes/http.ts), so no upgrade-time reseed is needed.
@@ -214,7 +224,30 @@ async function authenticateAndPrepareUpgrade(
     resolvedSessionId: pathSessionId,
     accessMode,
     descriptor: canonicalDescriptor,
+    validateDocument,
   }
+}
+
+async function prepareDashboardChildValidator(
+  descriptor: ReviewTargetDescriptor
+): Promise<DocumentValidator | undefined> {
+  if (descriptor.entityKind === 'dashboard_color_pair') {
+    return readDashboardColorPairDocument
+  }
+  if (descriptor.entityKind !== 'dashboard_widget') return undefined
+  if (!descriptor.workspaceId || !descriptor.ownerUserId || !descriptor.entityId) {
+    throw new YjsAuthError(409, 'Dashboard widget owner scope is required')
+  }
+  const target = parseDashboardWidgetSessionId(descriptor.yjsSessionId)
+  if (!target || target.identityId !== descriptor.entityId) {
+    throw new YjsAuthError(409, 'Invalid dashboard widget session')
+  }
+  const { widgetKey } = await readPersistedDashboardWidgetBinding(
+    { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+    target.layoutId,
+    target.identityId
+  )
+  return (doc) => readDashboardWidgetDocument(doc, widgetKey)
 }
 
 function parseAccessMode(url: URL): ReviewAccessMode {
@@ -237,45 +270,6 @@ function assertAccessModeAllowed(
   if (descriptor.entityKind === 'dashboard_layout' && accessMode !== 'read') {
     throw new YjsAuthError(403, 'Dashboard layout websocket is read-only')
   }
-}
-
-function ensureConnectionHandler(wss: WebSocketServer): void {
-  if (wss.listenerCount('connection') > 0) {
-    return
-  }
-
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-    const yjsReq = req as YjsIncomingMessage
-    const docId = yjsReq.yjsSessionId
-
-    if (!docId || !yjsReq.yjsAccessMode || !yjsReq.yjsUserId || !yjsReq.yjsDescriptor) {
-      ws.close(4409, 'Missing session access')
-      return
-    }
-
-    try {
-      logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
-      const persist = livePersistenceHandler(yjsReq.yjsAccessMode, yjsReq.yjsDescriptor)
-      const validateDocument =
-        yjsReq.yjsDescriptor.entityKind === 'dashboard_widget'
-          ? readDashboardWidgetDocument
-          : undefined
-      setupWSConnection(ws, req, {
-        docId,
-        userId: yjsReq.yjsUserId,
-        accessMode: yjsReq.yjsAccessMode,
-        descriptor: yjsReq.yjsDescriptor,
-        gc: true,
-        bootstrapState: yjsReq.yjsBootstrapState,
-        onDocumentUpdate: persist,
-        onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
-        validateDocument,
-      })
-    } catch (error) {
-      logger.error('Failed to attach Yjs connection', { docId, error })
-      ws.close(4409, 'Failed to attach Yjs session')
-    }
-  })
 }
 
 function rejectUpgrade(socket: Duplex, statusCode: number, message: string): void {

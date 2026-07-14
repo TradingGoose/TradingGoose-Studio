@@ -53,13 +53,15 @@ export function setDashboardLayoutTopology(
 
 export function readDashboardWidgetDocument(
   doc: Y.Doc,
-  widgetKey?: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey']
+  widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey']
 ): DashboardWidgetDocument {
+  return normalizeDashboardWidgetDocument(widgetKey, readDashboardWidgetStorageDocument(doc))
+}
+
+export function readDashboardWidgetStorageDocument(doc: Y.Doc): DashboardWidgetDocument {
   const map = getDashboardWidgetMap(doc)
   const value = { ...map.toJSON(), params: readDashboardWidgetParams(map) }
-  return widgetKey === undefined
-    ? normalizeDashboardWidgetStorageDocument(value)
-    : normalizeDashboardWidgetDocument(widgetKey, value)
+  return normalizeDashboardWidgetStorageDocument(value)
 }
 
 export function seedDashboardWidgetSession(

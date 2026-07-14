@@ -6,13 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import {
+  buildDashboardColorPairDescriptor,
   buildDashboardWidgetDescriptor,
   buildSavedEntityDescriptor,
 } from '@/lib/copilot/review-sessions/identity'
 import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import {
+  getDashboardColorPairMap,
   getDashboardWidgetMap,
+  readDashboardColorPairDocument,
   readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -222,51 +226,128 @@ describe('realtime shutdown', () => {
 })
 
 describe('document mutation queue', () => {
-  it('validates widget sync updates before merging them into the live document', async () => {
-    const sessionId = 'dashboard-widget:layout-1:widget-1'
-    const descriptor = buildDashboardWidgetDescriptor({
-      layoutId: 'layout-1',
-      identityId: 'widget-1',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-    })
+  async function expectRejectedDashboardUpdate(input: {
+    sessionId: string
+    descriptor: ReturnType<typeof buildDashboardWidgetDescriptor>
+    seed: (doc: Y.Doc) => void
+    validate: (doc: Y.Doc) => unknown
+    mutate: (doc: Y.Doc) => void
+    read: (doc: Y.Doc) => unknown
+    afterReject?: () => void
+  }) {
     const source = new Y.Doc()
-    const attacker = new TestSocket()
+    const sender = new TestSocket()
+    const peer = new TestSocket()
+    const persist = vi.fn()
     try {
-      seedDashboardWidgetSession(source, {
-        pairColor: 'gray',
-        params: { view: { interval: '1h' } },
-      })
-      setupWSConnection(attacker as unknown as WebSocket, {} as IncomingMessage, {
-        docId: sessionId,
+      input.seed(source)
+      setupWSConnection(sender as unknown as WebSocket, {} as IncomingMessage, {
+        docId: input.sessionId,
         userId: 'user-1',
         accessMode: 'write',
-        descriptor,
+        descriptor: input.descriptor,
         bootstrapState: Y.encodeStateAsUpdate(source),
-        validateDocument: readDashboardWidgetDocument,
+        onDocumentUpdate: persist,
+        validateDocument: input.validate,
       })
-      const doc = peekDocument(sessionId)!
-      const before = readDashboardWidgetDocument(doc, 'data_chart')
+      setupWSConnection(peer as unknown as WebSocket, {} as IncomingMessage, {
+        docId: input.sessionId,
+        userId: 'user-1',
+        accessMode: 'write',
+        descriptor: input.descriptor,
+        validateDocument: input.validate,
+      })
+      const doc = peekDocument(input.sessionId)!
+      const before = input.read(doc)
+      const sentBeforeRejection = peer.send.mock.calls.length
 
       const stateVector = Y.encodeStateVector(source)
-      const params = getDashboardWidgetMap(source).get('params')
-      if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
-      params.set(JSON.stringify(['__proto__', 'dashboardPolluted']), 'yes')
-      attacker.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(source, stateVector)))
+      input.mutate(source)
+      sender.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(source, stateVector)))
       await vi.waitFor(() =>
-        expect(attacker.close).toHaveBeenCalledWith(
+        expect(sender.close).toHaveBeenCalledWith(
           YJS_CLOSE_CODE_DOCUMENT_REJECTED,
           'Canonical document rejected'
         )
       )
-
-      expect((Object.prototype as Record<string, unknown>).dashboardPolluted).toBeUndefined()
-      expect(readDashboardWidgetDocument(doc, 'data_chart')).toEqual(before)
+      input.afterReject?.()
+      expect(input.read(doc)).toEqual(before)
+      expect(peer.close).not.toHaveBeenCalled()
+      expect(peer.send).toHaveBeenCalledTimes(sentBeforeRejection)
+      expect(persist).not.toHaveBeenCalled()
     } finally {
-      Reflect.deleteProperty(Object.prototype, 'dashboardPolluted')
-      attacker.emit('close')
+      sender.emit('close')
+      peer.emit('close')
       source.destroy()
     }
+  }
+
+  it('rejects unsafe widget paths before merging them', async () => {
+    await expectRejectedDashboardUpdate({
+      sessionId: 'dashboard-widget:layout-1:widget-1',
+      descriptor: buildDashboardWidgetDescriptor({
+        layoutId: 'layout-1',
+        identityId: 'widget-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      }),
+      seed: (doc) =>
+        seedDashboardWidgetSession(doc, {
+          pairColor: 'gray',
+          params: { view: { interval: '1h' } },
+        }),
+      validate: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
+      mutate: (doc) => {
+        const params = getDashboardWidgetMap(doc).get('params')
+        if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
+        params.set(JSON.stringify(['__proto__', 'dashboardPolluted']), 'yes')
+      },
+      read: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
+      afterReject: () => {
+        expect((Object.prototype as Record<string, unknown>).dashboardPolluted).toBeUndefined()
+        Reflect.deleteProperty(Object.prototype, 'dashboardPolluted')
+      },
+    })
+  })
+
+  it('rejects unsupported widget params before merging them', async () => {
+    await expectRejectedDashboardUpdate({
+      sessionId: 'dashboard-widget:layout-1:widget-params',
+      descriptor: buildDashboardWidgetDescriptor({
+        layoutId: 'layout-1',
+        identityId: 'widget-params',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      }),
+      seed: (doc) =>
+        seedDashboardWidgetSession(doc, {
+          pairColor: 'gray',
+          params: { view: { interval: '1m' } },
+        }),
+      validate: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
+      mutate: (doc) => {
+        const params = getDashboardWidgetMap(doc).get('params')
+        if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
+        params.set(JSON.stringify(['watchlistId']), 'watchlist-1')
+      },
+      read: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
+    })
+  })
+
+  it('rejects noncanonical color-pair fields before merging them', async () => {
+    await expectRejectedDashboardUpdate({
+      sessionId: 'dashboard-color-pair:layout-1:red',
+      descriptor: buildDashboardColorPairDescriptor({
+        layoutId: 'layout-1',
+        color: 'red',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      }),
+      seed: (doc) => seedDashboardColorPairSession(doc, { watchlistId: 'watchlist-1' }),
+      validate: readDashboardColorPairDocument,
+      mutate: (doc) => getDashboardColorPairMap(doc).set('unsupported', true),
+      read: readDashboardColorPairDocument,
+    })
   })
 
   it('serializes WebSocket writes behind an import and recovers after import failure', async () => {

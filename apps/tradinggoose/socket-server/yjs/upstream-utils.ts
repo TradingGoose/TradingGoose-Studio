@@ -38,7 +38,7 @@ const deletionLeases = new Map<string, { sessionIds: string[]; drain: Promise<vo
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
-type DocumentValidator = (doc: Y.Doc) => void
+export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
   awarenessIds: Set<number>
   userId: string

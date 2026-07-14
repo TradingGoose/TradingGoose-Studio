@@ -19,7 +19,7 @@ import type {
 import {
   DashboardLayoutOperationError,
   readPersistedDashboardColorPairDocument,
-  readPersistedDashboardWidgetDocument,
+  readPersistedDashboardWidgetBinding,
 } from '@/lib/dashboard-layouts/operations'
 import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import {
@@ -317,15 +317,12 @@ export async function createSavedReviewTargetBootstrapUpdate(
       if (!descriptor.workspaceId || !descriptor.ownerUserId) {
         throw new ReviewTargetBootstrapError(400, 'Dashboard widget owner scope is required')
       }
-      seedDashboardWidgetSession(
-        doc,
-        await readPersistedDashboardWidgetDocument(
-          { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
-          target.layoutId,
-          target.identityId
-        ),
-        YJS_ORIGINS.SYSTEM
+      const binding = await readPersistedDashboardWidgetBinding(
+        { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+        target.layoutId,
+        target.identityId
       )
+      seedDashboardWidgetSession(doc, binding.document, YJS_ORIGINS.SYSTEM)
     } else if (descriptor.entityKind === 'dashboard_color_pair') {
       const target = parseDashboardColorPairSessionId(descriptor.yjsSessionId)
       if (!target || target.color !== descriptor.entityId) {

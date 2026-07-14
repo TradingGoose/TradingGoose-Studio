@@ -34,7 +34,7 @@ import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   readDashboardColorPairDocument,
-  readDashboardWidgetDocument,
+  readDashboardWidgetStorageDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
@@ -296,7 +296,7 @@ export async function saveDashboardWidgetYjsDocToDb(
       scope,
       target.layoutId,
       target.identityId,
-      readDashboardWidgetDocument(doc)
+      readDashboardWidgetStorageDocument(doc)
     )
   } catch (error) {
     if (error instanceof DashboardLayoutValidationError) {

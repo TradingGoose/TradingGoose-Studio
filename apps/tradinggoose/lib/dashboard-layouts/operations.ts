@@ -249,11 +249,14 @@ export async function readPersistedDashboardLayoutProjection(
   )
 }
 
-export async function readPersistedDashboardWidgetDocument(
+export async function readPersistedDashboardWidgetBinding(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
   identityId: string
-): Promise<DashboardWidgetDocument> {
+): Promise<{
+  widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey']
+  document: DashboardWidgetDocument
+}> {
   return db.transaction(
     async (tx) => {
       const layout = await readOwnedLayoutRow(scope, layoutId, tx)
@@ -264,10 +267,13 @@ export async function readPersistedDashboardWidgetDocument(
         .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
         .limit(1)
       if (!row) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
-      return normalizeDashboardWidgetDocument(widgetKey, {
-        pairColor: row.pairColor,
-        params: row.params,
-      })
+      return {
+        widgetKey,
+        document: normalizeDashboardWidgetDocument(widgetKey, {
+          pairColor: row.pairColor,
+          params: row.params,
+        }),
+      }
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' }
   )

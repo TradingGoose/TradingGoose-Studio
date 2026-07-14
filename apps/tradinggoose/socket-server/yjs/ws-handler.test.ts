@@ -8,6 +8,7 @@ import type { Duplex } from 'stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocketServer } from 'ws'
 import * as Y from 'yjs'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 
 const mockLogger = {
   debug: vi.fn(),
@@ -22,6 +23,7 @@ const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
+const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshEntityListSession = vi.fn()
 
@@ -35,32 +37,37 @@ class MockYjsAuthError extends Error {
   }
 }
 
-function createRequest(
-  sessionId: string,
-  accessMode: 'read' | 'write' = 'write',
-  entityKind = 'workflow'
-): IncomingMessage {
-  return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=${entityKind}&entityId=${encodeURIComponent(sessionId)}`,
-    headers: { host: 'localhost:3000' },
-  } as IncomingMessage
+type YjsTestTarget = {
+  sessionId: string
+  entityKind: string
+  entityId?: string | null
+  targetKind?: 'entity' | 'review_session'
+  workspaceId?: string
+  ownerUserId?: string | null
+  reviewSessionId?: string | null
+  draftSessionId?: string | null
 }
 
-function createDashboardRequest(
-  sessionId: string,
-  accessMode: 'read' | 'write' = 'write',
-  entityKind: 'dashboard_layout' | 'dashboard_widget' = 'dashboard_layout',
-  entityId = sessionId
+function createYjsRequest(
+  target: YjsTestTarget,
+  accessMode: 'read' | 'write' = 'write'
 ): IncomingMessage {
+  const targetKind = target.targetKind ?? 'entity'
+  const entityId = target.entityId === undefined ? target.sessionId : target.entityId
+  const params = new URLSearchParams({
+    token: 'test-token',
+    accessMode,
+    targetKind,
+    sessionId: target.sessionId,
+    entityKind: target.entityKind,
+  })
+  if (entityId) params.set('entityId', entityId)
+  if (target.workspaceId) params.set('workspaceId', target.workspaceId)
+  if (target.ownerUserId) params.set('ownerUserId', target.ownerUserId)
+  if (target.reviewSessionId) params.set('reviewSessionId', target.reviewSessionId)
+  if (target.draftSessionId) params.set('draftSessionId', target.draftSessionId)
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=${entityKind}&entityId=${encodeURIComponent(entityId)}&workspaceId=workspace-1&ownerUserId=user-1`,
-    headers: { host: 'localhost:3000' },
-  } as IncomingMessage
-}
-
-function createReviewSessionRequest(sessionId: string): IncomingMessage {
-  return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=write&targetKind=review_session&sessionId=${encodeURIComponent(sessionId)}&reviewSessionId=${encodeURIComponent(sessionId)}&workspaceId=workspace-3&entityKind=skill&draftSessionId=draft-1`,
+    url: `/yjs/${encodeURIComponent(target.sessionId)}?${params}`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -88,6 +95,57 @@ async function loadModule() {
   return import('./ws-handler')
 }
 
+async function runYjsUpgrade(input: {
+  target: YjsTestTarget
+  accessMode?: 'read' | 'write'
+  access?: { hasAccess: boolean; userPermission?: 'read' | 'write'; workspaceId?: string }
+  bootstrap?: { runtime: { docState: string }; state: Uint8Array } | null
+}) {
+  const accessMode = input.accessMode ?? 'write'
+  const { target } = input
+  const targetKind = target.targetKind ?? 'entity'
+  const entityId = target.entityId === undefined ? target.sessionId : target.entityId
+  const request = createYjsRequest(target, accessMode)
+  const socket = createSocket()
+  const wss = createWebSocketServer()
+  const bootstrapState = new Uint8Array([0, 0])
+  mockAuthenticateYjsConnection.mockResolvedValue({
+    userId: 'user-1',
+    userName: 'User One',
+    envelope: {
+      targetKind,
+      sessionId: target.sessionId,
+      reviewSessionId: target.reviewSessionId ?? null,
+      workspaceId: target.workspaceId ?? 'workspace-1',
+      ownerUserId: target.ownerUserId ?? null,
+      entityKind: target.entityKind,
+      entityId,
+      draftSessionId: target.draftSessionId ?? null,
+    },
+  })
+  mockVerifyReviewTargetAccess.mockResolvedValue(
+    input.access ?? {
+      hasAccess: true,
+      userPermission: accessMode,
+      workspaceId: target.workspaceId ?? 'workspace-1',
+    }
+  )
+  mockGetExistingDocument.mockResolvedValue(null)
+  const bootstrap =
+    input.bootstrap === undefined
+      ? {
+          runtime: { docState: 'active', replaySafe: true, reseededFromCanonical: true },
+          state: bootstrapState,
+        }
+      : input.bootstrap
+  if (bootstrap) mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue(bootstrap)
+
+  const { handleYjsUpgrade } = await loadModule()
+  handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+  await new Promise((resolve) => setImmediate(resolve))
+  return { bootstrapState, request, socket, wss }
+}
+
 beforeEach(() => {
   vi.resetModules()
 
@@ -97,6 +155,7 @@ beforeEach(() => {
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
   mockSetupWSConnection.mockReset()
+  mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshEntityListSession.mockReset().mockResolvedValue(undefined)
 
@@ -116,6 +175,10 @@ beforeEach(() => {
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
     createEntityListBootstrapUpdate: mockCreateEntityListBootstrapUpdate,
     createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
+  }))
+
+  vi.doMock('@/lib/dashboard-layouts/operations', () => ({
+    readPersistedDashboardWidgetBinding: mockReadPersistedDashboardWidgetBinding,
   }))
 
   vi.doMock('@/lib/workflows/db-helpers', () => ({
@@ -144,7 +207,7 @@ afterEach(() => {
 describe('handleYjsUpgrade', () => {
   it('rejects an in-flight upgrade when shutdown begins during authentication', async () => {
     const sessionId = 'workflow-shutdown-race'
-    const request = createRequest(sessionId)
+    const request = createYjsRequest({ sessionId, entityKind: 'workflow' })
     const socket = createSocket()
     const wss = createWebSocketServer()
     let resolveAuthentication!: (value: unknown) => void
@@ -188,7 +251,7 @@ describe('handleYjsUpgrade', () => {
 
   it('rejects websocket upgrades when the Yjs auth token is invalid', async () => {
     const sessionId = 'workflow-invalid-token'
-    const request = createRequest(sessionId)
+    const request = createYjsRequest({ sessionId, entityKind: 'workflow' })
     const socket = createSocket()
     const wss = createWebSocketServer()
 
@@ -210,34 +273,14 @@ describe('handleYjsUpgrade', () => {
 
   it('rejects websocket upgrades for read-only access', async () => {
     const sessionId = 'workflow-123'
-    const request = createRequest(sessionId)
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      userName: 'User One',
-      envelope: {
-        targetKind: 'entity',
-        sessionId,
-        reviewSessionId: null,
+    const { socket, wss } = await runYjsUpgrade({
+      target: { sessionId, entityKind: 'workflow' },
+      access: {
+        hasAccess: false,
+        userPermission: 'write',
         workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: sessionId,
-        draftSessionId: null,
       },
     })
-
-    mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, accessMode) => ({
-      hasAccess: false,
-      userPermission: accessMode,
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    }))
-
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
@@ -248,58 +291,28 @@ describe('handleYjsUpgrade', () => {
 
   it('allows dashboard widget write upgrades with canonical validation', async () => {
     const sessionId = 'dashboard-widget:layout-1:widget-1'
-    const request = createDashboardRequest(sessionId, 'write', 'dashboard_widget', 'widget-1')
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      userName: 'User One',
-      envelope: {
-        targetKind: 'entity',
+    mockReadPersistedDashboardWidgetBinding.mockResolvedValue({
+      widgetKey: 'data_chart',
+      document: { pairColor: 'gray', params: null },
+    })
+    const { bootstrapState, request, socket, wss } = await runYjsUpgrade({
+      target: {
         sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
         entityKind: 'dashboard_widget',
         entityId: 'widget-1',
-        draftSessionId: null,
-      },
-    })
-
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'write',
-      workspaceId: 'workspace-1',
-      isOwner: true,
-    })
-    mockGetExistingDocument.mockResolvedValue(null)
-    const bootstrapState = new Uint8Array([0, 0])
-    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
-      descriptor: {
-        workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
-        entityKind: 'dashboard_widget',
-        entityId: 'widget-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: sessionId,
       },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: true,
-      },
-      state: bootstrapState,
+      accessMode: 'write',
     })
-
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(mockCreateSavedReviewTargetBootstrapUpdate).toHaveBeenCalled()
+    expect(mockReadPersistedDashboardWidgetBinding).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      'layout-1',
+      'widget-1'
+    )
     expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
@@ -315,43 +328,26 @@ describe('handleYjsUpgrade', () => {
     )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
+
+    const validateDocument = mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument
+    const invalidWidget = new Y.Doc()
+    try {
+      seedDashboardWidgetSession(invalidWidget, {
+        pairColor: 'gray',
+        params: { watchlistId: 'watchlist-1' },
+      })
+      expect(() => validateDocument(invalidWidget)).toThrow(/does not support this field/i)
+    } finally {
+      invalidWidget.destroy()
+    }
   })
 
   it('allows saved entity read-mode websocket upgrades after target authorization', async () => {
     const sessionId = 'watchlist-read'
-    const request = createRequest(sessionId, 'read', 'watchlist')
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      userName: 'User One',
-      envelope: {
-        targetKind: 'entity',
-        sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        ownerUserId: null,
-        entityKind: 'watchlist',
-        entityId: sessionId,
-        draftSessionId: null,
-      },
+    const { request, wss } = await runYjsUpgrade({
+      target: { sessionId, entityKind: 'watchlist' },
+      accessMode: 'read',
     })
-    mockVerifyReviewTargetAccess.mockResolvedValue({ hasAccess: true, userPermission: 'read' })
-    mockGetExistingDocument.mockResolvedValue(null)
-    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
-      descriptor: {
-        entityKind: 'watchlist',
-        entityId: sessionId,
-        yjsSessionId: sessionId,
-      },
-      runtime: { docState: 'active' },
-      state: new Uint8Array([3, 4]),
-    })
-
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
     expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
@@ -366,39 +362,37 @@ describe('handleYjsUpgrade', () => {
     )
   })
 
-  it('persists writable watchlist updates through the saved-document lifecycle', async () => {
-    const sessionId = 'watchlist-write'
-    const request = createRequest(sessionId, 'write', 'watchlist')
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      envelope: {
-        targetKind: 'entity',
+  it('binds strict color-pair validation during authenticated setup', async () => {
+    const sessionId = 'dashboard-color-pair:layout-1:red'
+    const { request } = await runYjsUpgrade({
+      target: {
         sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        ownerUserId: null,
-        entityKind: 'watchlist',
-        entityId: sessionId,
-        draftSessionId: null,
+        entityKind: 'dashboard_color_pair',
+        entityId: 'red',
+        ownerUserId: 'user-1',
       },
-    })
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'write',
-      workspaceId: 'workspace-1',
-    })
-    mockGetExistingDocument.mockResolvedValue(null)
-    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
-      descriptor: { entityKind: 'watchlist', entityId: sessionId },
-      runtime: { docState: 'active' },
-      state: new Uint8Array([1, 2]),
+      accessMode: 'write',
     })
 
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
+    expect(mockReadPersistedDashboardWidgetBinding).not.toHaveBeenCalled()
+    const validateDocument = mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument
+    const invalidPair = new Y.Doc()
+    try {
+      invalidPair.getMap('colorPair').set('unsupported', true)
+      expect(() => validateDocument(invalidPair)).toThrow(/canonical shared fields/i)
+    } finally {
+      invalidPair.destroy()
+    }
+    expect(mockSetupWSConnection).toHaveBeenCalledWith(
+      expect.anything(),
+      request,
+      expect.objectContaining({ validateDocument: expect.any(Function) })
+    )
+  })
+
+  it('persists writable watchlist updates through the saved-document lifecycle', async () => {
+    const sessionId = 'watchlist-write'
+    await runYjsUpgrade({ target: { sessionId, entityKind: 'watchlist' } })
 
     const options = mockSetupWSConnection.mock.calls[0]?.[2]
     expect(options).toEqual(
@@ -428,53 +422,14 @@ describe('handleYjsUpgrade', () => {
 
   it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {
     const sessionId = 'layout-read'
-    const request = createDashboardRequest(sessionId, 'read')
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      userName: 'User One',
-      envelope: {
-        targetKind: 'entity',
+    const { bootstrapState, request, socket, wss } = await runYjsUpgrade({
+      target: {
         sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
         entityKind: 'dashboard_layout',
-        entityId: sessionId,
-        draftSessionId: null,
-      },
-    })
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'read',
-      workspaceId: 'workspace-1',
-      isOwner: true,
-    })
-    mockGetExistingDocument.mockResolvedValue(null)
-    const bootstrapState = new Uint8Array([1, 2])
-    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
-      descriptor: {
-        workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
-        entityKind: 'dashboard_layout',
-        entityId: sessionId,
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: sessionId,
       },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: true,
-      },
-      state: bootstrapState,
+      accessMode: 'read',
     })
-
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
@@ -496,27 +451,13 @@ describe('handleYjsUpgrade', () => {
 
   it('rejects writable dashboard layout websocket upgrades', async () => {
     const sessionId = 'layout-write'
-    const request = createDashboardRequest(sessionId)
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-1',
-      userName: 'User One',
-      envelope: {
-        targetKind: 'entity',
+    const { socket, wss } = await runYjsUpgrade({
+      target: {
         sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
         entityKind: 'dashboard_layout',
-        entityId: sessionId,
-        draftSessionId: null,
+        ownerUserId: 'user-1',
       },
     })
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
     expect(mockSetupWSConnection).not.toHaveBeenCalled()
@@ -529,35 +470,18 @@ describe('handleYjsUpgrade', () => {
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {
     const sessionId = 'review-unbootstrapped'
-    const request = createReviewSessionRequest(sessionId)
-    const socket = createSocket()
-    const wss = createWebSocketServer()
-
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-3',
-      userName: 'User Three',
-      envelope: {
-        targetKind: 'review_session',
+    const { socket, wss } = await runYjsUpgrade({
+      target: {
         sessionId,
-        reviewSessionId: sessionId,
-        workspaceId: 'workspace-3',
         entityKind: 'skill',
         entityId: null,
+        targetKind: 'review_session',
+        workspaceId: 'workspace-3',
+        reviewSessionId: sessionId,
         draftSessionId: 'draft-1',
       },
+      bootstrap: null,
     })
-
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'write',
-      workspaceId: 'workspace-3',
-      isOwner: false,
-    })
-    mockGetExistingDocument.mockResolvedValue(null)
-
-    const { handleYjsUpgrade } = await loadModule()
-    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
-    await new Promise((resolve) => setImmediate(resolve))
 
     expect(wss.handleUpgrade).not.toHaveBeenCalled()
     expect(socket.write).toHaveBeenCalledWith(

@@ -8,7 +8,7 @@ import {
   provisionDashboardLayoutForWorkspaceUserInTx,
   readActiveDashboardLayoutProjection,
   readPersistedDashboardLayoutProjection,
-  readPersistedDashboardWidgetDocument,
+  readPersistedDashboardWidgetBinding,
 } from '@/lib/dashboard-layouts/operations'
 
 const m = vi.hoisted(() => {
@@ -266,7 +266,7 @@ describe('dashboard layout operations', () => {
       [{ id: 'widget-1', layoutId: 'layout-1', ...invalidWidget }]
     )
     await expect(
-      readPersistedDashboardWidgetDocument(scope, 'layout-1', 'widget-1')
+      readPersistedDashboardWidgetBinding(scope, 'layout-1', 'widget-1')
     ).rejects.toThrow(/does not support this field/i)
   })
 
