@@ -563,16 +563,18 @@ export async function discardDocumentIfCurrent(candidate: Y.Doc): Promise<void> 
   if (docs.get(doc.name) !== doc) return
 
   doc.isDraining = true
-  if (doc.persistTimer) clearTimeout(doc.persistTimer)
-  doc.persistTimer = null
   for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
 
-  await doc.mutationQueue
-  if (doc.persistTimer) clearTimeout(doc.persistTimer)
-  doc.persistTimer = null
-  await doc.persistenceQueue
-  if (doc.persistTimer) clearTimeout(doc.persistTimer)
-  doc.persistTimer = null
+  try {
+    await doc.mutationQueue
+    await flushDocumentPersistence(doc)
+  } catch (error) {
+    if (docs.get(doc.name) === doc && doc.hasUnsavedChanges) {
+      doc.isDraining = false
+      schedulePersistenceRetry(doc)
+    }
+    throw error
+  }
 
   if (docs.get(doc.name) === doc) cleanupDocument(doc)
 }

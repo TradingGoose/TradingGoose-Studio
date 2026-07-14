@@ -445,48 +445,20 @@ describe('document mutation queue', () => {
 })
 
 describe('orderly document discard', () => {
-  it('rejects new mutations and waits for active mutation and persistence queues', async () => {
-    const socket = new TestSocket()
-    const mutationGate = deferred()
-    const persistenceGate = deferred()
-    const persist = vi.fn(async () => persistenceGate.promise)
-    const doc = setupWatchlistSocket(socket, 'discard-watchlist', persist)
-    const mutation = runDocumentMutation(doc, async () => {
-      doc.getMap('fields').set('dirty', true)
-      await mutationGate.promise
-    })
-    await vi.waitFor(() => expect(persist).toHaveBeenCalled())
-
-    const discarding = discardDocument('discard-watchlist')
-    await expect(runDocumentMutation(doc, () => undefined)).rejects.toThrow('draining')
-    expect(peekDocument('discard-watchlist')).toBe(doc)
-
-    mutationGate.resolve()
-    await mutation
-    await Promise.resolve()
-    expect(peekDocument('discard-watchlist')).toBe(doc)
-
-    persistenceGate.resolve()
-    await discarding
-    expect(peekDocument('discard-watchlist')).toBeNull()
-  })
-
-  it('fences exact sessions until deletion abort or commit', async () => {
-    vi.useFakeTimers()
+  it('flushes accepted updates before a deletion lease is aborted or committed', async () => {
     const descriptor = buildSavedEntityDescriptor('watchlist', 'leased-watchlist', 'workspace-1')
     const socket = new TestSocket()
-    setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
-      docId: 'leased-watchlist',
-      userId: 'user-1',
-      accessMode: 'write',
-      descriptor,
+    const persistedValue = vi.fn()
+    const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
+      persistedValue(target.getMap('fields').get('accepted'))
     })
-
+    const doc = setupWatchlistSocket(socket, 'leased-watchlist', persist, 60_000)
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
+    await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
+    expect(persist).not.toHaveBeenCalled()
     const mutationGate = deferred()
-    const mutation = runDocumentMutation(
-      peekDocument('leased-watchlist')!,
-      () => mutationGate.promise
-    )
+    const mutation = runDocumentMutation(doc, () => mutationGate.promise)
+
     const abortedLease = 'lease-abort'
     const firstBegin = beginYjsSessionDeletion(abortedLease, ['leased-watchlist'])
     let duplicateReady = false
@@ -498,10 +470,15 @@ describe('orderly document discard', () => {
     await expect(beginYjsSessionDeletion(abortedLease, ['different-session'])).rejects.toThrow(
       'not accepting connections'
     )
+    await expect(runDocumentMutation(doc, () => undefined)).rejects.toThrow('draining')
+    expect(peekDocument('leased-watchlist')).toBe(doc)
+
     mutationGate.resolve()
     await mutation
     await Promise.all([firstBegin, duplicateBegin])
+    expect(persistedValue).toHaveBeenCalledWith(true)
     expect(socket.close).toHaveBeenCalledOnce()
+    expect(peekDocument('leased-watchlist')).toBeNull()
     expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
     expect(() =>
       setupWSConnection(new TestSocket() as unknown as WebSocket, {} as IncomingMessage, {
@@ -512,8 +489,6 @@ describe('orderly document discard', () => {
       })
     ).toThrow('not accepting connections')
 
-    await vi.advanceTimersByTimeAsync(31_000)
-    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
     abortYjsSessionDeletion(abortedLease)
     abortYjsSessionDeletion(abortedLease)
     expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(false)
@@ -525,6 +500,27 @@ describe('orderly document discard', () => {
     abortYjsSessionDeletion(committedLease)
     expect(isYjsSessionAdmissionBlocked('deleted-watchlist')).toBe(true)
     expect(() => getDocument('deleted-watchlist')).toThrow('not accepting connections')
+  })
+
+  it('reopens a current document after a retryable discard flush failure', async () => {
+    vi.useFakeTimers()
+    const socket = new TestSocket()
+    const persist = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('database offline'))
+      .mockResolvedValueOnce(undefined)
+    const doc = setupWatchlistSocket(socket, 'discard-retry', persist, 60_000)
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
+    await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
+    expect(persist).not.toHaveBeenCalled()
+    const discarding = discardDocument('discard-retry')
+
+    await expect(discarding).rejects.toThrow('database offline')
+    expect(peekDocument('discard-retry')).toBe(doc)
+    await expect(runDocumentMutation(doc, () => undefined)).resolves.toBeUndefined()
+
+    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
   })
 })
 
