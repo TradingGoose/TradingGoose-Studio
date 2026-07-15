@@ -46,6 +46,8 @@ spec:
           env:
             - name: DATABASE_URL
               value: {{ include "tradinggoose.databaseUrl" . | quote }}
+            - name: INTERNAL_API_SECRET
+              value: {{ .Values.app.env.INTERNAL_API_SECRET | quote }}
             {{- range $key, $value := .Values.realtime.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
