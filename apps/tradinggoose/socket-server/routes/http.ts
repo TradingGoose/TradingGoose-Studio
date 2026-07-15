@@ -1,11 +1,14 @@
 import { randomUUID } from 'crypto'
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
-import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import {
+  McpServerSecretPlaceholderError,
+  normalizeEntityFields,
+  resolveMcpServerSecretPlaceholders,
+} from '@/lib/copilot/entity-documents'
 import {
   buildDashboardColorPairDescriptor,
   buildDashboardWidgetDescriptor,
-  buildEntityListDescriptor,
   buildReviewTargetDescriptorFromEnvelope,
   buildSavedEntityDescriptor,
   isEntityListSessionId,
@@ -47,21 +50,17 @@ import {
   saveDashboardWidgetYjsDocToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
-import {
-  createEntityListBootstrapUpdate,
-  createSavedReviewTargetBootstrapUpdate,
-  reseedEntityListSessionFromDb,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
+import { refreshActiveEntityListSession } from '@/socket-server/yjs/entity-list-session'
 import {
   abortYjsSessionDeletion,
   beginYjsSessionDeletion,
   commitYjsSessionDeletion,
   discardDocument,
-  discardDocumentIfCurrent,
   discardDocumentIfIdle,
   flushDocumentPersistence,
   getDocument,
@@ -399,23 +398,6 @@ function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest):
     replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
 }
 
-async function refreshSavedEntityListDoc(
-  entityKind: SavedEntityKind,
-  workspaceId: string
-): Promise<void> {
-  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
-  const listDoc = await getExistingDocument(descriptor.yjsSessionId)
-  if (!listDoc) return
-
-  try {
-    await reseedEntityListSessionFromDb(listDoc, entityKind, workspaceId, null)
-    markDocumentPersisted(listDoc)
-    discardDocumentIfIdle(listDoc)
-  } catch {
-    await discardDocumentIfCurrent(listDoc)
-  }
-}
-
 async function applySavedEntityThroughStaging(input: {
   doc: Y.Doc
   entityId: string
@@ -442,7 +424,7 @@ async function applySavedEntityThroughStaging(input: {
         input.identity ? { identity: input.identity } : undefined
       )
   )
-  await refreshSavedEntityListDoc(input.entityKind, input.workspaceId)
+  await refreshActiveEntityListSession(input.entityKind, input.workspaceId).catch(() => undefined)
   return persisted
 }
 
@@ -457,31 +439,20 @@ async function handleInternalYjsEntityListMembersRequest(
       throw new InvalidInternalYjsRequestError('Entity-list session ID is required')
     }
 
-    const liveDoc = await getExistingDocument(sessionId)
-    if (!liveDoc) {
-      sendJson(res, 200, { success: true, applied: false })
-      return
-    }
-
     const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
     if (envelope.sessionId !== sessionId) {
       throw new InvalidInternalYjsRequestError('Session ID mismatch')
     }
-    // buildReviewTargetDescriptorFromEnvelope rejects entity_list envelopes
-    // without a workspaceId, so the cast below cannot see null.
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    try {
-      await reseedEntityListSessionFromDb(
-        liveDoc,
-        descriptor.entityKind as ReviewEntityKind,
-        descriptor.workspaceId as string,
-        descriptor.ownerUserId ?? null
-      )
-    } catch (error) {
-      await discardDocumentIfCurrent(liveDoc)
-      throw error
+    const liveDoc = await refreshActiveEntityListSession(
+      descriptor.entityKind as ReviewEntityKind,
+      descriptor.workspaceId as string,
+      descriptor.ownerUserId ?? null
+    )
+    if (!liveDoc) {
+      sendJson(res, 200, { success: true, applied: false })
+      return
     }
-    markDocumentPersisted(liveDoc)
     discardDocumentIfIdle(liveDoc)
     sendJson(res, 200, { success: true, applied: true })
   } catch (error) {
@@ -571,7 +542,16 @@ async function handleInternalYjsEntityApplyRequest(
         mutate: (staged) => {
           seedEntitySession(
             staged,
-            { entityKind: body.entityKind, payload: normalizedFields },
+            {
+              entityKind: body.entityKind,
+              payload:
+                body.entityKind === 'mcp_server'
+                  ? resolveMcpServerSecretPlaceholders(
+                      normalizedFields,
+                      getEntityFields(staged, body.entityKind)
+                    )
+                  : normalizedFields,
+            },
             YJS_ORIGINS.SAVE
           )
         },
@@ -591,7 +571,8 @@ async function handleInternalYjsEntityApplyRequest(
       return
     }
     const status =
-      error instanceof InvalidInternalYjsRequestError
+      error instanceof InvalidInternalYjsRequestError ||
+      error instanceof McpServerSecretPlaceholderError
         ? 400
         : error instanceof SavedEntityPersistenceError
           ? error.status
@@ -1142,21 +1123,18 @@ async function handleInternalYjsSnapshotRequest(
     })
     return
   }
+  if (isEntityListSessionId(descriptor.yjsSessionId)) {
+    sendJson(res, 400, { error: 'Entity-list snapshots are not supported', sessionId })
+    return
+  }
 
   let requestCreatedDoc: Y.Doc | null = null
   try {
     let liveDoc = await getExistingDocument(sessionId)
-    let bootstrappedForRequest = false
     if (!liveDoc) {
-      const bootstrapped = isEntityListSessionId(descriptor.yjsSessionId)
-        ? await createEntityListBootstrapUpdate(
-            descriptor.entityKind as ReviewEntityKind,
-            descriptor.workspaceId as string,
-            descriptor.ownerUserId ?? null
-          )
-        : descriptor.entityId
-          ? await createSavedReviewTargetBootstrapUpdate(descriptor)
-          : null
+      const bootstrapped = descriptor.entityId
+        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+        : null
       if (bootstrapped) {
         if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
           sendJson(res, 410, { error: 'Session expired', sessionId })
@@ -1164,7 +1142,6 @@ async function handleInternalYjsSnapshotRequest(
         }
         const acquired = getDocument(sessionId, true, bootstrapped.state)
         liveDoc = acquired.doc
-        bootstrappedForRequest = acquired.created
         if (acquired.created) requestCreatedDoc = acquired.doc
       }
     }
@@ -1172,25 +1149,6 @@ async function handleInternalYjsSnapshotRequest(
     if (!liveDoc) {
       sendJson(res, 404, { error: 'Session not found', sessionId })
       return
-    }
-
-    if (isEntityListSessionId(descriptor.yjsSessionId) && !bootstrappedForRequest) {
-      try {
-        await reseedEntityListSessionFromDb(
-          liveDoc,
-          descriptor.entityKind as ReviewEntityKind,
-          descriptor.workspaceId as string,
-          descriptor.ownerUserId ?? null
-        )
-        markDocumentPersisted(liveDoc)
-      } catch (error) {
-        logger.warn('Failed to reseed existing entity-list snapshot', {
-          error,
-          sessionId,
-        })
-        await discardDocumentIfCurrent(liveDoc)
-        throw error
-      }
     }
 
     const state = Y.encodeStateAsUpdate(liveDoc)

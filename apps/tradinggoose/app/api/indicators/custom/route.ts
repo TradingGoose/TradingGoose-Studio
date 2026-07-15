@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -209,19 +210,18 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const [existingIndicator] = await db
-      .select({ id: pineIndicators.id })
-      .from(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      .limit(1)
-    if (!existingIndicator) {
+    const deleted = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'indicator', workspaceId)
+      const [row] = await tx
+        .delete(pineIndicators)
+        .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+        .returning({ id: pineIndicators.id })
+      return Boolean(row)
+    })
+    if (!deleted) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
-
-    await db
-      .delete(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
     await refreshEntityListSession('indicator', workspaceId)
     await Promise.allSettled([discardYjsSessionInSocketServer(indicatorId)])

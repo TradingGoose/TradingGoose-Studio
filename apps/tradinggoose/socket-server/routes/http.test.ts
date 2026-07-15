@@ -3,7 +3,6 @@ import { Readable } from 'stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import {
-  buildEntityListDescriptor,
   buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
@@ -35,14 +34,12 @@ const mocks = vi.hoisted(() => ({
   persistDashboardWidget: vi.fn(),
   persistDashboardPair: vi.fn(),
   saveEntity: vi.fn(),
-  createListBootstrap: vi.fn(),
   createTargetBootstrap: vi.fn(),
   getRuntime: vi.fn(() => ({ docState: 'active' })),
-  reseedList: vi.fn(),
+  refreshActiveEntityList: vi.fn(),
   getDocument: vi.fn(),
   getExistingDocument: vi.fn(),
   markPersisted: vi.fn(),
-  discardIfCurrent: vi.fn(),
   discardIfIdle: vi.fn(),
   discard: vi.fn(),
   flushPersistence: vi.fn(),
@@ -77,9 +74,11 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  createEntityListBootstrapUpdate: mocks.createListBootstrap,
   createSavedReviewTargetBootstrapUpdate: mocks.createTargetBootstrap,
-  reseedEntityListSessionFromDb: mocks.reseedList,
+}))
+
+vi.mock('@/socket-server/yjs/entity-list-session', () => ({
+  refreshActiveEntityListSession: mocks.refreshActiveEntityList,
 }))
 
 vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
@@ -94,7 +93,6 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
   getDocument: mocks.getDocument,
   getExistingDocument: mocks.getExistingDocument,
   markDocumentPersisted: mocks.markPersisted,
-  discardDocumentIfCurrent: mocks.discardIfCurrent,
   discardDocumentIfIdle: mocks.discardIfIdle,
   discardDocument: mocks.discard,
   flushDocumentPersistence: mocks.flushPersistence,
@@ -242,11 +240,11 @@ describe('socket internal HTTP Yjs routes', () => {
     for (const doc of documents.values()) doc.destroy()
     documents = new Map()
     vi.clearAllMocks()
+    mocks.refreshActiveEntityList.mockResolvedValue(null)
     mocks.runMutation.mockImplementation(
       async (_doc: Y.Doc, mutation: () => Promise<unknown> | unknown) => mutation()
     )
     mocks.flushPersistence.mockResolvedValue(undefined)
-    mocks.discardIfCurrent.mockResolvedValue(undefined)
     mocks.discardIfIdle.mockImplementation(() => undefined)
     mocks.discard.mockResolvedValue(undefined)
     mocks.saveDashboardWidget.mockResolvedValue({ ok: true })
@@ -358,70 +356,6 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(live.getMap('fields').get('codeText')).toBe(liveText)
     expect(liveText.toString()).toContain('submitted')
     expect(liveText.toString()).toContain('concurrent')
-  })
-
-  it('forwards layout owner scope and reclaims snapshot-only list documents', async () => {
-    const descriptor = buildEntityListDescriptor('dashboard_layout', 'workspace-1', {
-      ownerUserId: 'user-1',
-    })
-    const query = new URLSearchParams(
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    ).toString()
-    const source = new Y.Doc()
-    mocks.createListBootstrap.mockResolvedValueOnce(snapshotOf(source))
-
-    const response = await invoke(
-      'GET',
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${query}`
-    )
-    source.destroy()
-
-    expect(response.status).toBe(200)
-    expect(mocks.createListBootstrap).toHaveBeenCalledWith(
-      'dashboard_layout',
-      'workspace-1',
-      'user-1'
-    )
-    expect(mocks.discardIfIdle).toHaveBeenCalledWith(expect.any(Y.Doc))
-  })
-
-  it('discards the exact entity-list document when a members reseed fails', async () => {
-    const descriptor = buildEntityListDescriptor('skill', 'workspace-1')
-    const query = new URLSearchParams(
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    ).toString()
-    const liveDoc = new Y.Doc()
-    documents.set(descriptor.yjsSessionId, liveDoc)
-    mocks.reseedList.mockRejectedValueOnce(new Error('database offline'))
-
-    const response = await invoke(
-      'POST',
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${query}`,
-      {}
-    )
-
-    expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
-    expect(mocks.discardIfCurrent).toHaveBeenCalledWith(liveDoc)
-    expect(mocks.discard).not.toHaveBeenCalled()
-  })
-
-  it('rejects an entity-list snapshot after exact-instance reseed cleanup', async () => {
-    const descriptor = buildEntityListDescriptor('skill', 'workspace-1')
-    const query = new URLSearchParams(
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    ).toString()
-    const liveDoc = new Y.Doc()
-    documents.set(descriptor.yjsSessionId, liveDoc)
-    mocks.reseedList.mockRejectedValueOnce(new Error('database offline'))
-
-    const response = await invoke(
-      'GET',
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${query}`
-    )
-
-    expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
-    expect(mocks.discardIfCurrent).toHaveBeenCalledWith(liveDoc)
-    expect(mocks.getRuntime).not.toHaveBeenCalled()
   })
 
   it('reclaims the exact request-created document when snapshot serialization fails', async () => {
@@ -800,7 +734,6 @@ describe('socket internal HTTP Yjs routes', () => {
       view: { interval: '15m' },
     })
     expect(readDashboardColorPairDocument(pairDoc).listing?.listing_id).toBe('AAPL')
-    expect(mocks.markPersisted).not.toHaveBeenCalled()
     expect(mocks.runMutation.mock.calls.slice(0, 3).map(([doc]) => doc)).toEqual([
       layoutDoc,
       widgetDoc,

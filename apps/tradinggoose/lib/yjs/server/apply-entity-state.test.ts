@@ -17,6 +17,7 @@ const mockDbUpdate = vi.fn()
 const mockPersistDashboardWidgetDocument = vi.fn()
 const mockPersistDashboardColorPairDocument = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
+const mockLockSavedEntityList = vi.fn()
 class MockDashboardLayoutOperationError extends Error {
   constructor(
     public status: number,
@@ -79,6 +80,12 @@ vi.mock('@/lib/copilot/entity-documents', () => ({
   normalizeEntityFields: mockNormalizeEntityFields,
 }))
 
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  isSavedEntityListLockKind: (entityKind: string) =>
+    ['skill', 'custom_tool', 'indicator', 'mcp_server', 'knowledge_base'].includes(entityKind),
+  lockSavedEntityList: (...args: unknown[]) => mockLockSavedEntityList(...args),
+}))
+
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
   DashboardLayoutOperationError: MockDashboardLayoutOperationError,
   persistDashboardWidgetDocument: mockPersistDashboardWidgetDocument,
@@ -130,6 +137,7 @@ describe('applySavedEntityState', () => {
     vi.clearAllMocks()
     events.length = 0
     mockNormalizeEntityFields.mockImplementation((_entityKind, fields) => fields)
+    mockLockSavedEntityList.mockResolvedValue(undefined)
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })

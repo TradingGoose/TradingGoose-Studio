@@ -2,6 +2,7 @@ import {
   type EntityDocumentKind,
   getEntityDocumentFormat,
   parseEntityDocument,
+  resolveMcpServerSecretPlaceholders,
   serializeEntityDocument,
 } from '@/lib/copilot/entity-documents'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
@@ -336,7 +337,9 @@ export async function executeCreateEntityDocumentMutation(
         }
       : {}),
   }
-  const fields = parseEntityMutationDocument(kind, args)
+  const parsedFields = parseEntityMutationDocument(kind, args)
+  const fields =
+    kind === 'mcp_server' ? resolveMcpServerSecretPlaceholders(parsedFields) : parsedFields
   const name = normalizeSavedEntityIdentity(kind, args.name ?? '')
 
   if (shouldStageServerToolMutationForReview(context)) {

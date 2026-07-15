@@ -97,7 +97,7 @@ describe('applyEntityStateInSocketServer', () => {
 })
 
 describe('refreshEntityListSession', () => {
-  it('leaves failed-refresh cleanup to the socket server that owns the exact document', async () => {
+  it('keeps a committed mutation independent from non-destructive list fanout failure', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
 
     const { refreshEntityListSession } = await import('./snapshot-bridge')
@@ -139,10 +139,6 @@ describe('withYjsSessionDeletionLease', () => {
     mockFetch
       .mockRejectedValueOnce(new TypeError('begin response lost'))
       .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
-      .mockResolvedValueOnce(new Response('{', { status: 200 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ leaseId: 'wrong-lease' }), { status: 200 })
-      )
       .mockImplementationOnce(async (_url, init) => {
         const leaseId = JSON.parse(String(init?.body)).leaseId
         return new Response(JSON.stringify({ leaseId }), { status: 200 })
@@ -151,7 +147,7 @@ describe('withYjsSessionDeletionLease', () => {
       .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
     const mutate = vi.fn(async () => {
-      expect(mockFetch).toHaveBeenCalledTimes(5)
+      expect(mockFetch).toHaveBeenCalledTimes(3)
       return 'deleted'
     })
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
@@ -163,14 +159,14 @@ describe('withYjsSessionDeletionLease', () => {
       leaseId: expect.any(String),
       sessionIds: ['watchlist-1'],
     })
-    for (const [, init] of mockFetch.mock.calls.slice(0, 5)) {
+    for (const [, init] of mockFetch.mock.calls.slice(0, 3)) {
       expect(JSON.parse(String(init?.body))).toEqual(beginBody)
     }
-    expect(mockFetch.mock.calls[5]?.[0]).toBe(
+    expect(mockFetch.mock.calls[3]?.[0]).toBe(
       `http://socket.test/internal/yjs/session-deletions/${beginBody.leaseId}/commit`
     )
-    expect(mockFetch.mock.calls[6]?.[0]).toBe(mockFetch.mock.calls[5]?.[0])
-    expect(mockFetch.mock.calls[7]?.[0]).toBe(mockFetch.mock.calls[5]?.[0])
+    expect(mockFetch.mock.calls[4]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
+    expect(mockFetch.mock.calls[5]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
     expect(mutate).toHaveBeenCalledOnce()
   })
 

@@ -30,14 +30,21 @@ const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
+const DELETION_LEASE_TTL_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
 const committedDeletionSessions = new Set<string>()
 const pendingDeletionSessions = new Map<string, string>()
-const deletionLeases = new Map<string, { sessionIds: string[]; drain: Promise<void> }>()
+type DeletionLease = {
+  sessionIds: string[]
+  drain: Promise<void>
+  expiryTimer: ReturnType<typeof setTimeout> | null
+}
+const deletionLeases = new Map<string, DeletionLease>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+export type DocumentReconciler = () => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
   awarenessIds: Set<number>
@@ -65,6 +72,7 @@ class WSSharedDoc extends Y.Doc {
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
   onDocumentUpdate?: DocumentPersistenceHandler
+  onDocumentReconcile?: DocumentReconciler
   validateDocument?: DocumentValidator
   onDocumentUpdateDebounceMs = 0
   hasUnsavedChanges = false
@@ -74,6 +82,8 @@ class WSSharedDoc extends Y.Doc {
   persistenceQueue: Promise<void> = Promise.resolve()
   pendingMutations = 0
   mutationQueue: Promise<void> = Promise.resolve()
+  reconciliationInFlight: Promise<void> | null = null
+  lastReconciliationAt = 0
   isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
   cleanupRequested = false
@@ -425,6 +435,34 @@ export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | 
   return settled
 }
 
+export function setDocumentReconciler(doc: Y.Doc, reconcile: DocumentReconciler): void {
+  if (!(doc instanceof WSSharedDoc) || docs.get(doc.name) !== doc || doc.isDraining) {
+    throw new YjsDocumentDrainingError()
+  }
+  doc.onDocumentReconcile = reconcile
+}
+
+export function reconcileDocument(doc: Y.Doc, force = false): Promise<void> {
+  if (!(doc instanceof WSSharedDoc)) return Promise.resolve()
+  if (docs.get(doc.name) !== doc || doc.isDraining) {
+    return Promise.reject(new YjsDocumentDrainingError())
+  }
+  if (doc.reconciliationInFlight) return doc.reconciliationInFlight
+  if (
+    !doc.onDocumentReconcile ||
+    (!force && Date.now() - doc.lastReconciliationAt < PING_TIMEOUT)
+  ) {
+    return Promise.resolve()
+  }
+
+  doc.lastReconciliationAt = Date.now()
+  const reconciliation = runDocumentMutation(doc, doc.onDocumentReconcile)
+  doc.reconciliationInFlight = reconciliation
+  return reconciliation.finally(() => {
+    if (doc.reconciliationInFlight === reconciliation) doc.reconciliationInFlight = null
+  })
+}
+
 export async function flushDocumentPersistence(doc: Y.Doc): Promise<void> {
   if (!(doc instanceof WSSharedDoc)) return
   if (doc.persistTimer) {
@@ -509,6 +547,9 @@ export function setupWSConnection(
         conn.ping()
         const connection = doc.conns.get(conn)
         if (connection) {
+          void reconcileDocument(doc).catch((error) => {
+            console.error('[yjs upstream-utils] Failed to reconcile live document', error)
+          })
           void reconcileConnection(doc, conn, connection).catch((error) => {
             console.error('[yjs upstream-utils] Failed to revalidate connection access', error)
           })
@@ -579,6 +620,22 @@ export async function discardDocumentIfCurrent(candidate: Y.Doc): Promise<void> 
   if (docs.get(doc.name) === doc) cleanupDocument(doc)
 }
 
+function refreshYjsSessionDeletionLease(leaseId: string, lease: DeletionLease): void {
+  if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
+  lease.expiryTimer = setTimeout(() => {
+    if (deletionLeases.get(leaseId) === lease) abortYjsSessionDeletion(leaseId)
+  }, DELETION_LEASE_TTL_MS)
+}
+
+function removeYjsSessionDeletionLease(leaseId: string): DeletionLease | undefined {
+  const lease = deletionLeases.get(leaseId)
+  if (!lease) return undefined
+  deletionLeases.delete(leaseId)
+  if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
+  lease.expiryTimer = null
+  return lease
+}
+
 export async function beginYjsSessionDeletion(
   leaseId: string,
   sessionIds: readonly string[]
@@ -593,7 +650,12 @@ export async function beginYjsSessionDeletion(
     if (JSON.stringify(existing.sessionIds) !== JSON.stringify(orderedSessionIds)) {
       throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
     }
+    refreshYjsSessionDeletionLease(leaseId, existing)
     await existing.drain
+    if (deletionLeases.get(leaseId) !== existing) {
+      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+    }
+    refreshYjsSessionDeletionLease(leaseId, existing)
     return
   }
   const blocked = orderedSessionIds.find(isYjsSessionAdmissionBlocked)
@@ -601,20 +663,25 @@ export async function beginYjsSessionDeletion(
 
   for (const sessionId of orderedSessionIds) pendingDeletionSessions.set(sessionId, leaseId)
   const drain = Promise.all(orderedSessionIds.map(discardDocument)).then(() => undefined)
-  deletionLeases.set(leaseId, { sessionIds: orderedSessionIds, drain })
+  const lease: DeletionLease = { sessionIds: orderedSessionIds, drain, expiryTimer: null }
+  deletionLeases.set(leaseId, lease)
+  refreshYjsSessionDeletionLease(leaseId, lease)
 
   try {
     await drain
+    if (deletionLeases.get(leaseId) !== lease) {
+      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+    }
+    refreshYjsSessionDeletionLease(leaseId, lease)
   } catch (error) {
-    abortYjsSessionDeletion(leaseId)
+    if (deletionLeases.get(leaseId) === lease) abortYjsSessionDeletion(leaseId)
     throw error
   }
 }
 
 export function commitYjsSessionDeletion(leaseId: string): void {
-  const lease = deletionLeases.get(leaseId)
+  const lease = removeYjsSessionDeletionLease(leaseId)
   if (!lease) return
-  deletionLeases.delete(leaseId)
   for (const sessionId of lease.sessionIds) {
     if (pendingDeletionSessions.get(sessionId) !== leaseId) continue
     pendingDeletionSessions.delete(sessionId)
@@ -623,9 +690,8 @@ export function commitYjsSessionDeletion(leaseId: string): void {
 }
 
 export function abortYjsSessionDeletion(leaseId: string): void {
-  const lease = deletionLeases.get(leaseId)
+  const lease = removeYjsSessionDeletionLease(leaseId)
   if (!lease) return
-  deletionLeases.delete(leaseId)
   for (const sessionId of lease.sessionIds) {
     if (pendingDeletionSessions.get(sessionId) === leaseId) {
       pendingDeletionSessions.delete(sessionId)
@@ -679,6 +745,9 @@ export function cleanupAllDocuments(): void {
   for (const doc of Array.from(docs.values())) {
     for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
     cleanupDocument(doc)
+  }
+  for (const lease of deletionLeases.values()) {
+    if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
   }
   deletionLeases.clear()
   pendingDeletionSessions.clear()

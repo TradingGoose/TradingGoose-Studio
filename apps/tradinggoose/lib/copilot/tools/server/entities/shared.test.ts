@@ -445,7 +445,7 @@ const length = input.int(14, 'Length', 1, 50, 1)
     expect(create).toHaveBeenCalledOnce()
   })
 
-  it('round-trips MCP server credentials for authorized workspace readers', async () => {
+  it('redacts MCP server credentials from Copilot documents and review diffs', async () => {
     const readEnvelope = buildDocumentEnvelope('mcp_server', 'mcp-1', 'Private MCP', {
       description: 'Uses auth',
       transport: 'http',
@@ -498,11 +498,21 @@ const length = input.int(14, 'Length', 1, 50, 1)
       JSON.parse(after)
     )
 
-    expect(readEnvelope.entityDocument).toContain('read-secret')
-    expect(readEnvelope.entityDocument).toContain('read-secret-env')
-    expect(after).toContain('secret-token')
-    expect(after).toContain('secret-env')
-    expect(diff.before).toContain('old-secret')
-    expect(diff.after).toContain('secret-token')
+    const documents = [readEnvelope.entityDocument, after, diff.before, diff.after].join()
+    expect(documents).not.toMatch(/read-secret|secret-token|old-secret/)
+    expect(documents).toContain('[redacted]')
+    await expect(
+      executeCreateEntityDocumentMutation(
+        'mcp_server',
+        {
+          workspaceId: 'workspace-1',
+          name: 'Private MCP',
+          documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+          entityDocument: after,
+        },
+        { userId: 'user-1', accessLevel: 'full' },
+        vi.fn()
+      )
+    ).rejects.toThrow(/Cannot use for new MCP server headers value/i)
   })
 })

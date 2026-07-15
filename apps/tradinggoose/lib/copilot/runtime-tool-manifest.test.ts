@@ -359,8 +359,7 @@ describe('copilot runtime tool manifest', () => {
     const mcpServerDescriptions = ['read_mcp_server', 'edit_mcp_server']
       .map((name) => manifest.tools.find((tool) => tool.name === name)?.description)
       .join(' ')
-    expect(mcpServerDescriptions).toContain('concrete workspace-shared header/env values')
-    expect(mcpServerDescriptions).not.toContain('[redacted]')
+    expect(mcpServerDescriptions).toContain('Header/env values are redacted as `[redacted]`')
     const editWidgetSchemaText = JSON.stringify(editWidgetProperties)
     expect(editWidgetSchemaText).toContain('layout-scoped color-store channel')
     expect(editWidgetSchemaText).toContain('get_widgets_metadata.linkedParamFields')

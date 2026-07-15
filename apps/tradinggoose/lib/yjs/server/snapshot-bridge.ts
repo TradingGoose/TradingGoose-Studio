@@ -22,6 +22,7 @@ import {
 } from '@/widgets/layout-document'
 
 const logger = createLogger('YjsSnapshotBridge')
+const DELETION_LEASE_ATTEMPTS = 3
 
 interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -342,8 +343,8 @@ export async function applyYjsUpdateInSocketServer(
  * Converge the live entity-list projection after a committed membership
  * mutation. The DB rows are canonical and the list doc is a disposable
  * projection, so this never rejects: a mutation's success must not depend on
- * projection fan-out. The socket server owns any failed-refresh cleanup because
- * it alone captured the exact live document instance.
+ * projection fan-out. A later reader admission reseeds a failed projection
+ * without disrupting the live document already held by other readers.
  */
 export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
@@ -382,13 +383,18 @@ export async function withYjsSessionDeletionLease<T>(
     `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
     getInternalRealtimeUrl()
   )
-  const abortLease = () =>
-    fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, Number.POSITIVE_INFINITY)
+  const abortLease = async () => {
+    try {
+      await fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, DELETION_LEASE_ATTEMPTS)
+    } catch (error) {
+      logger.warn('Failed to abort Yjs session deletion lease', { error, leaseId })
+    }
+  }
   try {
     await postJsonToSocketServerWithResponse(
       '/internal/yjs/session-deletions',
       { leaseId, sessionIds },
-      Number.POSITIVE_INFINITY,
+      DELETION_LEASE_ATTEMPTS,
       async (response) => {
         const ready = (await response.json()) as { leaseId?: unknown }
         if (ready.leaseId !== leaseId) {
@@ -409,10 +415,14 @@ export async function withYjsSessionDeletionLease<T>(
     throw error
   }
 
-  await postJsonToSocketServer(
-    `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}/commit`,
-    {},
-    Number.POSITIVE_INFINITY
-  )
+  try {
+    await postJsonToSocketServer(
+      `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}/commit`,
+      {},
+      DELETION_LEASE_ATTEMPTS
+    )
+  } catch (error) {
+    logger.warn('Yjs session deletion committed without lease acknowledgement', { error, leaseId })
+  }
   return result
 }

@@ -16,6 +16,7 @@ import {
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
 import { notifyWorkspaceYjsAccessChanged } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkspaceByIdAPI')
@@ -179,6 +180,10 @@ export async function DELETE(
 
     // Delete workspace and all related data in a transaction
     await db.transaction(async (tx) => {
+      for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
+        await lockSavedEntityList(tx, entityKind, workspaceId)
+      }
+
       // Delete live workflow definitions first. Durable execution logs and snapshots
       // remain workspace-owned until the workspace row is deleted below.
       await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))

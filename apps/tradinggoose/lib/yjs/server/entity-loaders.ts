@@ -9,7 +9,7 @@ import {
   watchlistTable,
   workflow,
 } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   listDashboardLayouts,
@@ -31,27 +31,30 @@ const ENTITY_TABLES = {
   mcp_server: { table: mcpServers, name: mcpServers.name, softDelete: true },
 } as const
 
-type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
+const SAVED_ENTITY_LIST_LOCK_NAMESPACE = 1_904_202_618
+
+export type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
+export const SAVED_ENTITY_LIST_LOCK_KINDS = Object.keys(ENTITY_TABLES) as RowBackedSavedEntityKind[]
 export type EntityListReadStore = Pick<typeof db, 'select'>
 export type EntityListBeforeInsert = (store: EntityListReadStore) => Promise<void> | void
+type EntityListLockWriter = Pick<typeof db, 'execute'>
 
-function entityConfig(entityKind: RowBackedSavedEntityKind) {
-  switch (entityKind) {
-    case 'skill':
-      return ENTITY_TABLES.skill
-    case 'custom_tool':
-      return ENTITY_TABLES.custom_tool
-    case 'indicator':
-      return ENTITY_TABLES.indicator
-    case 'knowledge_base':
-      return ENTITY_TABLES.knowledge_base
-    case 'mcp_server':
-      return ENTITY_TABLES.mcp_server
-  }
+export function isSavedEntityListLockKind(value: string): value is RowBackedSavedEntityKind {
+  return Object.hasOwn(ENTITY_TABLES, value)
+}
+
+export async function lockSavedEntityList(
+  tx: EntityListLockWriter,
+  entityKind: RowBackedSavedEntityKind,
+  workspaceId: string
+): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${SAVED_ENTITY_LIST_LOCK_NAMESPACE}, hashtext(${`${entityKind}:${workspaceId}`}))`
+  )
 }
 
 function entityCondition(entityKind: RowBackedSavedEntityKind, clauses: SQL[]): SQL | undefined {
-  const config = entityConfig(entityKind)
+  const config = ENTITY_TABLES[entityKind]
   const conditions = config.softDelete ? [...clauses, isNull(config.table.deletedAt)] : clauses
   return conditions.length === 1 ? conditions[0] : and(...conditions)
 }
@@ -97,7 +100,7 @@ export async function resolveEntityWorkspaceId(
     return row?.workspaceId ?? null
   }
 
-  const { table } = entityConfig(entityKind)
+  const { table } = ENTITY_TABLES[entityKind]
   const [row] = await db
     .select({ workspaceId: table.workspaceId })
     .from(table)
@@ -238,7 +241,7 @@ export async function readEntityListMembersFromDb(
     }))
   }
 
-  const { table, name } = entityConfig(entityKind)
+  const { table, name } = ENTITY_TABLES[entityKind]
   const rows: Array<{ id: string; name: string | null }> = await store
     .select({ id: table.id, name })
     .from(table)
@@ -269,7 +272,7 @@ export async function readSavedEntityFieldsFromDb(
     return readPersistedDashboardLayoutDocument({ workspaceId, ownerUserId }, entityId)
   }
 
-  const { table } = entityConfig(entityKind)
+  const { table } = ENTITY_TABLES[entityKind]
   const [row] = await db
     .select()
     .from(table)

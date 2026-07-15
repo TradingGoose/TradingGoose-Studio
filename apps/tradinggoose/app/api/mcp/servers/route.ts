@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -175,15 +176,27 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await db
-        .delete(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
+      const deleted = await db.transaction(async (tx) => {
+        await lockSavedEntityList(tx, 'mcp_server', workspaceId)
+        const rows = await tx
+          .delete(mcpServers)
+          .where(
+            and(
+              eq(mcpServers.id, serverId),
+              eq(mcpServers.workspaceId, workspaceId),
+              isNull(mcpServers.deletedAt)
+            )
           )
+          .returning({ id: mcpServers.id })
+        return rows.length > 0
+      })
+      if (!deleted) {
+        return createMcpErrorResponse(
+          new Error('Server not found or access denied'),
+          'Server not found',
+          404
         )
+      }
 
       await refreshEntityListSession('mcp_server', workspaceId)
       await Promise.allSettled([discardYjsSessionInSocketServer(serverId)])

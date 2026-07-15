@@ -19,6 +19,7 @@ import {
 } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   type EntityListBeforeInsert,
+  lockSavedEntityList,
   readEntityListMembersFromDb,
 } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
@@ -142,6 +143,7 @@ class McpService {
 
     const entityId = crypto.randomUUID()
     const row = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'mcp_server', input.workspaceId)
       await input.beforeInsert?.(tx)
       const [created] = await tx
         .insert(mcpServers)

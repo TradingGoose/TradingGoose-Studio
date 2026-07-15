@@ -34,6 +34,7 @@ import {
   peekDocument,
   reconcileWorkspaceConnections,
   runDocumentMutation,
+  setDocumentReconciler,
   setupWSConnection,
 } from './upstream-utils'
 
@@ -124,6 +125,42 @@ describe('shared document lifecycle', () => {
 
     expect(mutation).not.toHaveBeenCalled()
     expect(peekDocument('layout-replaced')).toBe(replacement)
+  })
+
+  it('retries a failed shared-document reconciliation once per heartbeat', async () => {
+    vi.useFakeTimers()
+    const sockets = [new TestSocket(), new TestSocket()]
+    const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-list', 'workspace-1')
+    for (const socket of sockets) {
+      setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+        docId: 'list:watchlist:workspace-1',
+        userId: 'user-1',
+        accessMode: 'read',
+        descriptor,
+      })
+    }
+    const doc = peekDocument('list:watchlist:workspace-1')!
+    doc.getMap('members').set('current', 'stale')
+    const reconcile = vi.fn(() => {
+      if (reconcile.mock.calls.length === 1) throw new Error('database unavailable')
+      doc.transact(() => doc.getMap('members').set('current', 'canonical'), YJS_ORIGINS.SYSTEM)
+    })
+    setDocumentReconciler(doc, reconcile)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    try {
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(reconcile).toHaveBeenCalledOnce()
+      expect(doc.getMap('members').get('current')).toBe('stale')
+
+      sockets.forEach((socket) => socket.emit('pong'))
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(reconcile).toHaveBeenCalledTimes(2)
+      expect(doc.getMap('members').get('current')).toBe('canonical')
+    } finally {
+      consoleError.mockRestore()
+      sockets.forEach((socket) => socket.emit('close'))
+    }
   })
 })
 
@@ -500,6 +537,44 @@ describe('orderly document discard', () => {
     abortYjsSessionDeletion(committedLease)
     expect(isYjsSessionAdmissionBlocked('deleted-watchlist')).toBe(true)
     expect(() => getDocument('deleted-watchlist')).toThrow('not accepting connections')
+
+    vi.useFakeTimers()
+    const expiredLease = 'lease-expired'
+    await beginYjsSessionDeletion(expiredLease, ['orphaned-watchlist'])
+    await vi.advanceTimersByTimeAsync(5 * 60_000 - 1)
+    await beginYjsSessionDeletion(expiredLease, ['orphaned-watchlist'])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(isYjsSessionAdmissionBlocked('orphaned-watchlist')).toBe(true)
+    await vi.runOnlyPendingTimersAsync()
+    expect(isYjsSessionAdmissionBlocked('orphaned-watchlist')).toBe(false)
+
+    await beginYjsSessionDeletion('lease-cleanup', ['cleanup-watchlist'])
+    cleanupAllDocuments()
+    await vi.advanceTimersByTimeAsync(2.5 * 60_000)
+    await beginYjsSessionDeletion('lease-cleanup', ['cleanup-watchlist'])
+    await vi.advanceTimersByTimeAsync(2.5 * 60_000)
+    expect(isYjsSessionAdmissionBlocked('cleanup-watchlist')).toBe(true)
+    await vi.runOnlyPendingTimersAsync()
+    expect(isYjsSessionAdmissionBlocked('cleanup-watchlist')).toBe(false)
+  })
+
+  it('does not report an expired deletion lease as ready after its drain finishes', async () => {
+    vi.useFakeTimers()
+    const persistence = deferred()
+    const socket = new TestSocket()
+    const persist = vi.fn(() => persistence.promise)
+    const doc = setupWatchlistSocket(socket, 'expired-lease-watchlist', persist, 60_000)
+    doc.getMap('fields').set('dirty', true)
+
+    const deleting = beginYjsSessionDeletion('lease-expiring-during-drain', [
+      'expired-lease-watchlist',
+    ])
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    persistence.resolve()
+
+    await expect(deleting).rejects.toThrow('not accepting connections')
+    expect(isYjsSessionAdmissionBlocked('expired-lease-watchlist')).toBe(false)
   })
 
   it('reopens a current document after a retryable discard flush failure', async () => {

@@ -10,7 +10,7 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
-import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -53,16 +53,15 @@ export async function deleteSkill(params: {
   skillId: string
   workspaceId: string
 }): Promise<boolean> {
-  const [existingSkill] = await db
-    .select({ id: skill.id })
-    .from(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    .limit(1)
-  if (!existingSkill) return false
-
-  await db
-    .delete(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+  const deleted = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'skill', params.workspaceId)
+    const [row] = await tx
+      .delete(skill)
+      .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+      .returning({ id: skill.id })
+    return Boolean(row)
+  })
+  if (!deleted) return false
 
   await refreshEntityListSession('skill', params.workspaceId)
   await Promise.allSettled([discardYjsSessionInSocketServer(params.skillId)])
@@ -83,6 +82,7 @@ export async function createSkills({
   }
 
   const created = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'skill', workspaceId)
     await beforeInsert?.(tx)
     const existingSkills = await tx
       .select({
@@ -137,6 +137,7 @@ export async function importSkills({
   requestId = generateRequestId(),
 }: ImportSkillsParams) {
   const result = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'skill', workspaceId)
     const existingNames = await tx
       .select({ name: skill.name })
       .from(skill)

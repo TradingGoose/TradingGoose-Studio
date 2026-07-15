@@ -22,7 +22,7 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
   discardYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -107,6 +107,7 @@ export async function createKnowledgeBase(
   }
 
   await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'knowledge_base', data.workspaceId)
     await options?.beforeInsert?.(tx)
     await tx.insert(knowledgeBase).values(newKnowledgeBase)
   })
@@ -180,6 +181,7 @@ export async function copyKnowledgeBaseToWorkspace(
 
   const copiedName = `${sourceKnowledgeBase.name} (Copy)`
   const copyTransaction = db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'knowledge_base', targetWorkspaceId)
     await tx.insert(knowledgeBase).values({
       id: newKnowledgeBaseId,
       userId,
@@ -434,19 +436,24 @@ export async function deleteKnowledgeBase(
 ): Promise<void> {
   const now = new Date()
 
-  const [existing] = await db
-    .select({ workspaceId: knowledgeBase.workspaceId })
-    .from(knowledgeBase)
-    .where(eq(knowledgeBase.id, knowledgeBaseId))
-    .limit(1)
+  const existing = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ workspaceId: knowledgeBase.workspaceId })
+      .from(knowledgeBase)
+      .where(eq(knowledgeBase.id, knowledgeBaseId))
+      .limit(1)
+    if (!current?.workspaceId) return null
 
-  await db
-    .update(knowledgeBase)
-    .set({
-      deletedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(knowledgeBase.id, knowledgeBaseId))
+    await lockSavedEntityList(tx, 'knowledge_base', current.workspaceId)
+    await tx
+      .update(knowledgeBase)
+      .set({
+        deletedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(knowledgeBase.id, knowledgeBaseId))
+    return current
+  })
 
   if (existing?.workspaceId) {
     await refreshEntityListSession('knowledge_base', existing.workspaceId)

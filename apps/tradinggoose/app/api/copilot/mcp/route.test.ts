@@ -165,8 +165,8 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).toContain('trusted personal coding agents')
     expect(body.result.instructions).toContain('Mutating tools execute directly')
     expect(body.result.instructions).toContain('authenticated MCP key')
-    expect(body.result.instructions).toContain('concrete workspace-shared header/env values')
-    expect(body.result.instructions).not.toContain('[redacted]')
+    expect(body.result.instructions).toContain('MCP server documents redact header/env values')
+    expect(body.result.instructions).toContain('[redacted]')
     expect(body.result.instructions).not.toContain('No accessible workspaces')
   })
 

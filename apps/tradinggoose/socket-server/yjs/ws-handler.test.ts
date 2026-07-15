@@ -18,9 +18,11 @@ const mockLogger = {
 }
 
 const mockAuthenticateYjsConnection = vi.fn()
-const mockCreateEntityListBootstrapUpdate = vi.fn()
 const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
+const mockReconcileEntityListSession = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
+const mockDiscardDocumentIfIdle = vi.fn()
+const mockGetDocument = vi.fn()
 const mockGetExistingDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
 const mockReadPersistedDashboardWidgetBinding = vi.fn()
@@ -41,7 +43,7 @@ type YjsTestTarget = {
   sessionId: string
   entityKind: string
   entityId?: string | null
-  targetKind?: 'entity' | 'review_session'
+  targetKind?: 'entity' | 'entity_list' | 'review_session'
   workspaceId?: string
   ownerUserId?: string | null
   reviewSessionId?: string | null
@@ -150,9 +152,11 @@ beforeEach(() => {
   vi.resetModules()
 
   mockAuthenticateYjsConnection.mockReset()
-  mockCreateEntityListBootstrapUpdate.mockReset()
   mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
+  mockReconcileEntityListSession.mockReset()
   mockVerifyReviewTargetAccess.mockReset()
+  mockDiscardDocumentIfIdle.mockReset()
+  mockGetDocument.mockReset()
   mockGetExistingDocument.mockReset()
   mockSetupWSConnection.mockReset()
   mockReadPersistedDashboardWidgetBinding.mockReset()
@@ -173,8 +177,11 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
-    createEntityListBootstrapUpdate: mockCreateEntityListBootstrapUpdate,
     createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
+  }))
+
+  vi.doMock('./entity-list-session', () => ({
+    reconcileEntityListSession: mockReconcileEntityListSession,
   }))
 
   vi.doMock('@/lib/dashboard-layouts/operations', () => ({
@@ -194,6 +201,8 @@ beforeEach(() => {
   }))
 
   vi.doMock('./upstream-utils', () => ({
+    discardDocumentIfIdle: mockDiscardDocumentIfIdle,
+    getDocument: mockGetDocument,
     getExistingDocument: mockGetExistingDocument,
     isYjsSessionAdmissionBlocked: vi.fn(() => false),
     setupWSConnection: mockSetupWSConnection,
@@ -360,6 +369,41 @@ describe('handleYjsUpgrade', () => {
         onDocumentUpdate: undefined,
       })
     )
+  })
+
+  it('reconciles an entity list through its live document before attaching a reader', async () => {
+    const sessionId = 'list:skill:workspace-1'
+    const listDoc = new Y.Doc()
+    mockGetDocument.mockReturnValue({ doc: listDoc, created: true })
+    mockReconcileEntityListSession.mockRejectedValueOnce(new Error('database offline'))
+    try {
+      const failed = await runYjsUpgrade({
+        target: { sessionId, entityKind: 'skill', entityId: null, targetKind: 'entity_list' },
+        accessMode: 'read',
+      })
+      expect(failed.wss.handleUpgrade).not.toHaveBeenCalled()
+
+      const { request, wss } = await runYjsUpgrade({
+        target: { sessionId, entityKind: 'skill', entityId: null, targetKind: 'entity_list' },
+        accessMode: 'read',
+      })
+
+      expect(mockReconcileEntityListSession).toHaveBeenCalledWith(
+        listDoc,
+        'skill',
+        'workspace-1',
+        null
+      )
+      expect(mockCreateSavedReviewTargetBootstrapUpdate).not.toHaveBeenCalled()
+      expect(wss.handleUpgrade).toHaveBeenCalledWith(
+        request,
+        expect.anything(),
+        expect.anything(),
+        expect.any(Function)
+      )
+    } finally {
+      listDoc.destroy()
+    }
   })
 
   it('binds strict color-pair validation during authenticated setup', async () => {

@@ -29,6 +29,11 @@ vi.mock('@/lib/workflows/utils', () => ({
   readWorkflowAccessContext: mockReadWorkflowAccessContext,
 }))
 
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  isSavedEntityListLockKind: vi.fn(),
+  lockSavedEntityList: vi.fn(),
+}))
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: vi.fn().mockReturnValue({

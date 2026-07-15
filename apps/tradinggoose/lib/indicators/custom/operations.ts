@@ -10,7 +10,7 @@ import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
-import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
@@ -85,6 +85,7 @@ export async function createIndicators({
   }
 
   const created = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'indicator', workspaceId)
     await beforeInsert?.(tx)
     const nowTime = new Date()
     const insertValues = []
@@ -119,6 +120,7 @@ export async function importIndicators({
   requestId = generateRequestId(),
 }: ImportIndicatorsParams) {
   const result = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'indicator', workspaceId)
     const existingIndicators = await tx
       .select({ name: pineIndicators.name })
       .from(pineIndicators)

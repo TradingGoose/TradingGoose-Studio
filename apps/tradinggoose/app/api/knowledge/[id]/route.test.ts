@@ -28,6 +28,11 @@ vi.mock('@/app/api/knowledge/utils', () => ({
   checkKnowledgeBaseWriteAccess: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  isSavedEntityListLockKind: vi.fn(),
+  lockSavedEntityList: vi.fn(),
+}))
+
 describe('Knowledge Base By ID API Route', () => {
   const mockAuth$ = mockAuth()
 

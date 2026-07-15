@@ -38,6 +38,7 @@ import {
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { isSavedEntityListLockKind, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
@@ -271,9 +272,13 @@ export async function saveSavedEntityYjsDocToDb(
         }
         return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
       }
-      return entityKind === 'watchlist' && options?.identity
-        ? withWatchlistRootListLock(tx, workspaceId, persist)
-        : persist()
+      if (entityKind === 'watchlist' && options?.identity) {
+        return withWatchlistRootListLock(tx, workspaceId, persist)
+      }
+      if (isSavedEntityListLockKind(entityKind)) {
+        await lockSavedEntityList(tx, entityKind, workspaceId)
+      }
+      return persist()
     })
   } catch (error) {
     if (error instanceof SavedEntityPersistenceError) throw error

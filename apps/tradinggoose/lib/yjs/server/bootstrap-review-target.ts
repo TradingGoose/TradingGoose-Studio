@@ -2,7 +2,6 @@ import * as Y from 'yjs'
 import {
   buildDashboardColorPairDescriptor,
   buildDashboardWidgetDescriptor,
-  buildEntityListDescriptor,
   buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   parseDashboardColorPairSessionId,
@@ -14,7 +13,6 @@ import type {
   ResolvedReviewTarget,
   ReviewEntityKind,
   ReviewTargetDescriptor,
-  ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import {
   DashboardLayoutOperationError,
@@ -33,7 +31,6 @@ import {
 import {
   type EntityListMember,
   getEntityFields,
-  getEntityListMembers,
   replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
@@ -70,18 +67,6 @@ export class ReviewTargetBootstrapError extends Error {
   }
 }
 
-const entityListReseedQueues = new WeakMap<Y.Doc, Promise<void>>()
-
-function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRuntimeState {
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, update)
-    return getReviewTargetRuntimeState(doc)
-  } finally {
-    doc.destroy()
-  }
-}
-
 function mapSavedEntitySnapshotError(error: unknown): never {
   if (error instanceof SocketServerBridgeError && error.status < 500) {
     throw new ReviewTargetBootstrapError(error.status, error.message)
@@ -98,48 +83,6 @@ function isNotFoundError(error: unknown): boolean {
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
-}
-
-async function readLiveSavedEntityListFieldsForExecution(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  ownerUserId?: string | null
-): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  const snapshot = await readBootstrappedReviewTargetSnapshot(
-    buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
-  ).catch(mapSavedEntitySnapshotError)
-  if (!snapshot.snapshotBase64) {
-    return []
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    const entries = await Promise.all(
-      getEntityListMembers(doc, entityKind).map(async (member) => {
-        try {
-          return {
-            ...member,
-            fields: await readBootstrappedSavedEntityFields(
-              entityKind,
-              member.entityId,
-              workspaceId,
-              ownerUserId
-            ),
-          }
-        } catch (error) {
-          if (isNotFoundError(error)) return null
-          throw error
-        }
-      })
-    )
-
-    return entries.filter(
-      (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
-    )
-  } finally {
-    doc.destroy()
-  }
 }
 
 export async function readSavedEntityFieldsForExecution(
@@ -160,10 +103,6 @@ export async function readSavedEntityListFieldsForExecution(
   isDeployedContext: boolean,
   ownerUserId?: string | null
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  if (!isDeployedContext) {
-    return readLiveSavedEntityListFieldsForExecution(entityKind, workspaceId, ownerUserId)
-  }
-
   const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
   const entries = await Promise.all(
     members.map(async (member) => {
@@ -178,10 +117,11 @@ export async function readSavedEntityListFieldsForExecution(
           ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
           ...(typeof member.isActive === 'boolean' ? { isActive: member.isActive } : {}),
           ...(typeof member.sortOrder === 'number' ? { sortOrder: member.sortOrder } : {}),
-          fields: await readSavedEntityFieldsFromDb(
+          fields: await readSavedEntityFieldsForExecution(
             entityKind,
             member.id,
             workspaceId,
+            isDeployedContext,
             ownerUserId
           ),
         }
@@ -381,7 +321,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
 
     return {
       descriptor,
-      runtime: getRuntimeStateFromUpdate(state),
+      runtime: getReviewTargetRuntimeState(doc),
       state,
     }
   } catch (error) {
@@ -397,55 +337,15 @@ export async function createSavedReviewTargetBootstrapUpdate(
   }
 }
 
-export async function createEntityListBootstrapUpdate(
-  entityKind: ReviewEntityKind,
-  workspaceId: string,
-  ownerUserId?: string | null
-): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
-  const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
-  const doc = new Y.Doc()
-  try {
-    replaceEntityListSessionMembers(
-      doc,
-      await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
-    )
-
-    const metadata = getMetadataMap(doc)
-    metadata.set('reseededFromCanonical', true)
-    const state = Y.encodeStateAsUpdate(doc)
-
-    return {
-      descriptor,
-      runtime: getRuntimeStateFromUpdate(state),
-      state,
-    }
-  } finally {
-    doc.destroy()
-  }
-}
-
 export async function reseedEntityListSessionFromDb(
   doc: Y.Doc,
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
 ): Promise<void> {
-  const previous = entityListReseedQueues.get(doc) ?? Promise.resolve()
-  const reseed = previous.then(async () => {
-    replaceEntityListSessionMembers(
-      doc,
-      await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
-    )
-    const metadata = getMetadataMap(doc)
-    metadata.set('reseededFromCanonical', true)
-  })
-  const tail = reseed.catch(() => undefined)
-  entityListReseedQueues.set(doc, tail)
-  try {
-    await reseed
-  } finally {
-    if (entityListReseedQueues.get(doc) === tail) {
-      entityListReseedQueues.delete(doc)
-    }
-  }
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
+  doc.transact(() => {
+    replaceEntityListSessionMembers(doc, members)
+    getMetadataMap(doc).set('reseededFromCanonical', true)
+  }, YJS_ORIGINS.SYSTEM)
 }

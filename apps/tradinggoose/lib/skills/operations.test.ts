@@ -47,6 +47,7 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }))
 
 vi.mock('nanoid', () => ({
@@ -59,6 +60,10 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readSavedEntityListFieldsForExecution: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  lockSavedEntityList: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
@@ -113,6 +118,7 @@ describe('skills import operations', () => {
     })
 
     const tx: any = {
+      execute: vi.fn(),
       select: vi.fn(() => createQueryChain(existingNames)),
       insert: vi.fn(() => ({
         values: insertValues,

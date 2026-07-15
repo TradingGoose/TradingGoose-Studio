@@ -19,6 +19,14 @@ export const MCP_SERVER_DOCUMENT_FORMAT = 'tg-mcp-server-document-v1' as const
 export const KNOWLEDGE_BASE_DOCUMENT_FORMAT = 'tg-knowledge-base-document-v1' as const
 export const WORKFLOW_VARIABLE_DOCUMENT_FORMAT = 'tg-workflow-variable-document-v1' as const
 export const WATCHLIST_DOCUMENT_FORMAT = 'tg-watchlist-document-v1' as const
+export const ENTITY_SECRET_PLACEHOLDER = '[redacted]'
+
+export class McpServerSecretPlaceholderError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'McpServerSecretPlaceholderError'
+  }
+}
 
 const ENTITY_DOCUMENT_FORMATS = {
   skill: SKILL_DOCUMENT_FORMAT,
@@ -135,6 +143,31 @@ function normalizeHttpHeaderRecord(value: unknown): Record<string, string> {
   return Object.fromEntries(entries)
 }
 
+export function resolveMcpServerSecretPlaceholders(
+  nextFields: Record<string, unknown>,
+  currentFields?: Record<string, unknown>
+): Record<string, unknown> {
+  const next = normalizeEntityFields('mcp_server', nextFields)
+  const current = currentFields ? normalizeEntityFields('mcp_server', currentFields) : undefined
+
+  for (const fieldName of ['headers', 'env'] as const) {
+    const nextValues = next[fieldName] as Record<string, string>
+    const currentValues = current?.[fieldName] as Record<string, string> | undefined
+    for (const [key, value] of Object.entries(nextValues)) {
+      if (value !== ENTITY_SECRET_PLACEHOLDER) continue
+      const currentValue = currentValues?.[key]
+      if (typeof currentValue !== 'string') {
+        const operation = currentValues ? 'preserve missing' : 'use for new'
+        throw new McpServerSecretPlaceholderError(
+          `Cannot ${operation} MCP server ${fieldName} value "${key}"`
+        )
+      }
+      nextValues[key] = currentValue
+    }
+  }
+  return next
+}
+
 export function normalizeEntityFields(
   kind: EntityDocumentKind,
   fields: Record<string, unknown> | null | undefined
@@ -240,5 +273,12 @@ export function serializeEntityDocument<K extends EntityDocumentKind>(
   kind: K,
   fields: Record<string, unknown> | null | undefined
 ): string {
-  return JSON.stringify(normalizeEntityDocumentFields(kind, fields), null, 2)
+  const normalized = normalizeEntityDocumentFields(kind, fields)
+  if (kind === 'mcp_server') {
+    const mcpServer = normalized as EntityDocumentFields<'mcp_server'>
+    for (const values of [mcpServer.headers, mcpServer.env]) {
+      for (const key of Object.keys(values)) values[key] = ENTITY_SECRET_PLACEHOLDER
+    }
+  }
+  return JSON.stringify(normalized, null, 2)
 }

@@ -36,13 +36,11 @@ import {
 } from '@/socket-server/yjs/upstream-utils'
 
 const {
-  mockReseedEntityListSessionFromDb,
   mockSaveSavedEntityYjsDocToDb,
   mockSaveWorkflowYjsDocToDb,
   savedEntityStates,
   savedWorkflowStates,
 } = vi.hoisted(() => ({
-  mockReseedEntityListSessionFromDb: vi.fn(),
   mockSaveSavedEntityYjsDocToDb: vi.fn(),
   mockSaveWorkflowYjsDocToDb: vi.fn(),
   savedEntityStates: [] as Array<{
@@ -103,15 +101,6 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       state,
     }
   }),
-  reseedEntityListSessionFromDb: mockReseedEntityListSessionFromDb.mockImplementation(
-    async (doc) => {
-      const latest = savedEntityStates.at(-1)
-      if (!latest) return
-      const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
-      if (typeof name !== 'string') return
-      replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
-    }
-  ),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -718,79 +707,6 @@ describe('Socket Server Index Integration', () => {
       } finally {
         doc.destroy()
       }
-    })
-
-    it('reseeds an existing entity-list snapshot from DB', async () => {
-      const sessionId = 'list:skill:workspace-1'
-      getDocument(sessionId)
-      const liveDoc = await getExistingDocument(sessionId)
-      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
-      savedEntityStates.push({
-        entityKind: 'skill',
-        entityId: 'skill-db',
-        fields: { name: 'DB Skill' },
-      })
-      const encodedSessionId = encodeURIComponent(sessionId)
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
-        {
-          method: 'GET',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
-
-      expect(response.statusCode).toBe(200)
-      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
-        liveDoc,
-        'skill',
-        'workspace-1',
-        null
-      )
-
-      const data = JSON.parse(response.body)
-      const snapshotDoc = new Y.Doc()
-      try {
-        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
-        expect(getEntityListMembers(snapshotDoc, 'skill').map((member) => member.entityId)).toEqual(
-          ['skill-db']
-        )
-      } finally {
-        snapshotDoc.destroy()
-      }
-    })
-
-    it('rejects and discards an existing entity-list snapshot when DB reseed fails', async () => {
-      const sessionId = 'list:skill:workspace-1'
-      getDocument(sessionId)
-      const liveDoc = await getExistingDocument(sessionId)
-      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
-      mockReseedEntityListSessionFromDb.mockRejectedValueOnce(new Error('database unavailable'))
-      const encodedSessionId = encodeURIComponent(sessionId)
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
-        {
-          method: 'GET',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
-
-      expect(response.statusCode).toBe(500)
-      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
-        liveDoc,
-        'skill',
-        'workspace-1',
-        null
-      )
-      expect(JSON.parse(response.body)).toEqual({ error: 'database unavailable' })
-      expect(await getExistingDocument(sessionId)).toBeNull()
     })
 
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {

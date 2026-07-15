@@ -13,6 +13,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
+import { isSavedEntityListLockKind, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityIdentityMutation = {
@@ -210,14 +211,22 @@ export async function renameSavedEntityIdentityInTx(
 export async function renameSavedEntityIdentity(
   input: SavedEntityIdentityInput
 ): Promise<{ name: string; updatedAt: Date }> {
-  const identity =
-    input.entityKind === 'watchlist'
-      ? await db.transaction((tx) =>
-          withWatchlistRootListLock(tx, input.workspaceId, () =>
-            renameSavedEntityIdentityInTx(tx, input)
-          )
-        )
-      : await renameSavedEntityIdentityInTx(db, input)
+  let identity: { name: string; updatedAt: Date }
+  if (input.entityKind === 'watchlist') {
+    identity = await db.transaction((tx) =>
+      withWatchlistRootListLock(tx, input.workspaceId, () =>
+        renameSavedEntityIdentityInTx(tx, input)
+      )
+    )
+  } else if (isSavedEntityListLockKind(input.entityKind)) {
+    const entityKind = input.entityKind
+    identity = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, entityKind, input.workspaceId)
+      return renameSavedEntityIdentityInTx(tx, input)
+    })
+  } else {
+    identity = await renameSavedEntityIdentityInTx(db, input)
+  }
   await refreshEntityListSession(
     input.entityKind,
     input.workspaceId,

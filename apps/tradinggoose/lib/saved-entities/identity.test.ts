@@ -86,14 +86,17 @@ const m = vi.hoisted(() => {
       }),
     }),
   }))
-  const transaction = vi.fn((callback: (tx: { update: typeof update }) => unknown) =>
-    callback({ update })
+  const execute = vi.fn(async () => undefined)
+  const transaction = vi.fn(
+    (callback: (tx: { update: typeof update; execute: typeof execute }) => unknown) =>
+      callback({ update, execute })
   )
   return {
     tables,
     persistedAt,
     state,
     update,
+    execute,
     transaction,
     withWatchlistRootListLock: vi.fn(
       async (_tx: unknown, _workspaceId: string, mutate: () => Promise<unknown>) => mutate()
@@ -108,6 +111,7 @@ vi.mock('drizzle-orm', () => ({
   and: (...conditions: unknown[]) => ({ and: conditions.filter(Boolean) }),
   eq: (field: unknown, value: unknown) => ({ field, value }),
   isNull: (field: unknown) => ({ field, isNull: true }),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: m.refreshEntityListSession,

@@ -27,14 +27,14 @@ import {
   saveDashboardWidgetYjsDocToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
-import {
-  createEntityListBootstrapUpdate,
-  createSavedReviewTargetBootstrapUpdate,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
+import { reconcileEntityListSession } from './entity-list-session'
 import {
   type DocumentValidator,
+  discardDocumentIfIdle,
+  getDocument,
   getExistingDocument,
   isYjsSessionAdmissionBlocked,
   setupWSConnection,
@@ -194,22 +194,29 @@ async function authenticateAndPrepareUpgrade(
   }
   const validateDocument = await prepareDashboardChildValidator(canonicalDescriptor)
 
-  // Every list connect follows a fresh snapshot fetch, which reseeds live
-  // list docs from DB (routes/http.ts), so no upgrade-time reseed is needed.
+  let bootstrapState: Uint8Array | undefined
   const liveDoc = await getExistingDocument(pathSessionId)
-
-  const bootstrapped = liveDoc
-    ? null
-    : isListTarget
-      ? await createEntityListBootstrapUpdate(
-          canonicalDescriptor.entityKind as ReviewEntityKind,
-          canonicalDescriptor.workspaceId as string,
-          canonicalDescriptor.ownerUserId ?? null
-        )
-      : canonicalDescriptor.entityId
-        ? await createSavedReviewTargetBootstrapUpdate(canonicalDescriptor)
-        : null
-  const runtime = liveDoc ? getReviewTargetRuntimeState(liveDoc) : bootstrapped?.runtime
+  let runtime = liveDoc ? getReviewTargetRuntimeState(liveDoc) : null
+  if (isListTarget) {
+    const acquired = getDocument(pathSessionId, true)
+    const listDoc = acquired.doc
+    try {
+      await reconcileEntityListSession(
+        listDoc,
+        canonicalDescriptor.entityKind as ReviewEntityKind,
+        canonicalDescriptor.workspaceId as string,
+        canonicalDescriptor.ownerUserId ?? null
+      )
+    } catch (error) {
+      if (acquired.created) discardDocumentIfIdle(listDoc)
+      throw error
+    }
+    runtime = getReviewTargetRuntimeState(listDoc)
+  } else if (!liveDoc && canonicalDescriptor.entityId) {
+    const bootstrapped = await createSavedReviewTargetBootstrapUpdate(canonicalDescriptor)
+    bootstrapState = bootstrapped.state
+    runtime = bootstrapped.runtime
+  }
 
   if (!runtime) {
     throw new YjsAuthError(409, 'Review target is not bootstrapped')
@@ -219,7 +226,7 @@ async function authenticateAndPrepareUpgrade(
     throw new YjsAuthError(409, 'Review target expired')
   }
   return {
-    bootstrapState: bootstrapped?.state,
+    bootstrapState,
     userId,
     resolvedSessionId: pathSessionId,
     accessMode,

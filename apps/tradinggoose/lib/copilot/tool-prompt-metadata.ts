@@ -317,7 +317,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_mcp_server]: {
     description:
-      'Return one MCP server by `entityId` as a complete editable document payload, including concrete workspace-shared header/env values visible to authorized workspace readers.',
+      'Return one MCP server by `entityId` as a complete editable document payload. Header/env values are redacted as `[redacted]`; preserve an existing same-key value with that placeholder, provide a concrete value to replace it, and omit a key to delete it.',
     kind: 'read',
     entityKind: 'mcp_server',
   },
@@ -329,7 +329,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_mcp_server: {
     description:
-      'Update the target MCP server from its content-only `tg-mcp-server-document-v1`; use `rename_mcp_server` for identity. Submit concrete header/env values in the full document, preserving unchanged entries and omitting keys you intend to delete.',
+      'Update the target MCP server from its content-only `tg-mcp-server-document-v1`; use `rename_mcp_server` for identity. Header/env values returned as `[redacted]` preserve the existing same-key value; submit a concrete value to replace one and omit a key to delete it.',
     kind: 'edit',
     entityKind: 'mcp_server',
   },
