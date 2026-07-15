@@ -65,6 +65,7 @@ const WorkflowVariablesWidgetBody = ({
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
+        canWrite={context?.canWrite !== false}
         channelId={channelId}
         panelId={panelId}
       />

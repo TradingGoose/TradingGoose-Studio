@@ -29,6 +29,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 
 export interface WorkflowSessionContextValue {
   workflowId: string
+  canEdit: boolean
   doc: Y.Doc | null
   awareness: SharedWorkflowSessionState['awareness']
   isSynced: boolean
@@ -66,6 +67,7 @@ interface WorkflowSessionProviderProps {
   workspaceId: string | null
   workflowId: string
   user?: WorkflowSessionUser
+  canWrite?: boolean
   children: ReactNode
 }
 
@@ -73,9 +75,11 @@ export function WorkflowSessionProvider({
   workspaceId,
   workflowId,
   user,
+  canWrite = true,
   children,
 }: WorkflowSessionProviderProps) {
-  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const { canEdit: canEditWorkspace, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEdit = canEditWorkspace && canWrite
   const [writeState, setWriteState] = useState<SharedWorkflowSessionState>(() =>
     getSharedWorkflowSessionState(workflowId)
   )
@@ -165,6 +169,7 @@ export function WorkflowSessionProvider({
 
   const value: WorkflowSessionContextValue = {
     workflowId,
+    canEdit,
     doc,
     awareness,
     isSynced,

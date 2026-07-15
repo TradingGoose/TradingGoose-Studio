@@ -86,14 +86,14 @@ describe('workflowVariablesWidget', () => {
     renderToStaticMarkup(
       createElement(workflowVariablesWidget.component, {
         channelId: 'pair-green',
-        context: { workspaceId: 'ws-1' },
+        context: { workspaceId: 'ws-1', canWrite: false },
         params: { workflowId: 'wf-1' },
         panelId: 'panel-1',
       } as any)
     )
 
     expect(mockVariablesApp).toHaveBeenCalledWith(
-      expect.objectContaining({ channelId: 'pair-green', workflowId: 'wf-1' })
+      expect.objectContaining({ canWrite: false, channelId: 'pair-green', workflowId: 'wf-1' })
     )
   })
 })

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
-import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { useWorkflowSession, WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
@@ -14,6 +13,7 @@ import { Variables } from '@/widgets/widgets/workflow_variables/components/varia
 interface WorkflowVariablesAppProps {
   workspaceId: string
   workflowId: string
+  canWrite: boolean
   channelId?: string
   panelId?: string
 }
@@ -21,6 +21,7 @@ interface WorkflowVariablesAppProps {
 const WorkflowVariablesApp = ({
   workspaceId,
   workflowId,
+  canWrite,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   panelId,
 }: WorkflowVariablesAppProps) => {
@@ -36,7 +37,12 @@ const WorkflowVariablesApp = ({
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+        canWrite={canWrite}
+      >
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
@@ -62,7 +68,7 @@ const WorkflowVariablesAppContent = ({
   channelId: string
   panelId?: string
 }) => {
-  const { canEdit } = useUserPermissionsContext()
+  const { canEdit } = useWorkflowSession()
   const { collaborativeAddVariable } = useWorkflowEditorActions()
 
   const handleAddVariable = useCallback(() => {
