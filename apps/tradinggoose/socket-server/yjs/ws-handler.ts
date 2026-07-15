@@ -21,6 +21,7 @@ import {
   readDashboardColorPairDocument,
   readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
   saveDashboardColorPairYjsDocToDb,
@@ -28,9 +29,8 @@ import {
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
-import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { reconcileEntityListSession } from './entity-list-session'
+import { reconcileEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
 import {
   type DocumentValidator,
   discardDocumentIfIdle,
@@ -67,7 +67,9 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
     }
     if (descriptor.entityKind === 'watchlist') {
       await saveSavedEntityYjsDocToDb('watchlist', entityId, descriptor.workspaceId, doc)
-      await refreshEntityListSession('watchlist', descriptor.workspaceId)
+      await refreshActiveEntityListSession('watchlist', descriptor.workspaceId).catch(
+        () => undefined
+      )
       return
     }
     if (!descriptor.ownerUserId) {
@@ -195,7 +197,7 @@ async function authenticateAndPrepareUpgrade(
         ? userId
         : null,
   }
-  const validateDocument = await prepareDashboardChildValidator(canonicalDescriptor)
+  const validateDocument = await prepareDocumentValidator(canonicalDescriptor)
 
   let bootstrapState: Uint8Array | undefined
   const liveDoc = peekDocument(pathSessionId)
@@ -238,9 +240,11 @@ async function authenticateAndPrepareUpgrade(
   }
 }
 
-async function prepareDashboardChildValidator(
+async function prepareDocumentValidator(
   descriptor: ReviewTargetDescriptor
 ): Promise<DocumentValidator | undefined> {
+  if (isEntityListSessionId(descriptor.yjsSessionId)) return undefined
+  if (descriptor.entityKind === 'watchlist') return (doc) => void getEntityFields(doc, 'watchlist')
   if (descriptor.entityKind === 'dashboard_color_pair') {
     return readDashboardColorPairDocument
   }

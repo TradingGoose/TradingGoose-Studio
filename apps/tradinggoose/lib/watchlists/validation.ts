@@ -272,16 +272,6 @@ export const resolveWatchlistDocumentItemIds = (items: WatchlistDocumentInputIte
 export const remapImportedWatchlistDocumentItemIds = (items: WatchlistDocumentInputItem[]) =>
   assignWatchlistDocumentItemIds(items, false)
 
-const countWatchlistSymbols = (items: WatchlistItem[]) =>
-  items.reduce((count, item) => (item.type === 'listing' ? count + 1 : count), 0)
-
-export const assertWatchlistSymbolLimit = (items: WatchlistItem[]) => {
-  const symbolCount = countWatchlistSymbols(items)
-  if (symbolCount > MAX_SYMBOLS_PER_WATCHLIST) {
-    throw new Error(`Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`)
-  }
-}
-
 function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   const seen = new Set<string>()
   for (const item of items) {
@@ -334,12 +324,10 @@ function assertValidParentTree(
   }
 }
 
-function assertWatchlistDocumentSymbolLimit(items: WatchlistItem[]): void {
-  try {
-    assertWatchlistSymbolLimit(items)
-  } catch (error) {
+function assertWatchlistDocumentSymbolLimit(items: ReadonlyArray<{ type: string }>): void {
+  if (items.filter((item) => item.type === 'listing').length > MAX_SYMBOLS_PER_WATCHLIST) {
     throw new WatchlistDocumentError(
-      error instanceof Error ? error.message : 'Watchlist symbol limit exceeded'
+      `Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`
     )
   }
 }
@@ -378,12 +366,7 @@ function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
   assertNoDuplicateSubmittedIds(normalized)
   assertNoDuplicateListings(normalized)
   assertValidParentTree(normalized)
-  assertWatchlistDocumentSymbolLimit(
-    normalized.filter(
-      (item): item is Extract<WatchlistDocumentInputItem, { type: 'listing' }> =>
-        item.type === 'listing'
-    ) as unknown as WatchlistItem[]
-  )
+  assertWatchlistDocumentSymbolLimit(normalized)
   return normalized
 }
 

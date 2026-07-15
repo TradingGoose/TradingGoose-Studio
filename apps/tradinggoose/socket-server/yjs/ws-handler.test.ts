@@ -27,7 +27,7 @@ const mockPeekDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
 const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
-const mockRefreshEntityListSession = vi.fn()
+const mockRefreshActiveEntityListSession = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -161,7 +161,7 @@ beforeEach(() => {
   mockSetupWSConnection.mockReset()
   mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
-  mockRefreshEntityListSession.mockReset().mockResolvedValue(undefined)
+  mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -182,6 +182,7 @@ beforeEach(() => {
 
   vi.doMock('./entity-list-session', () => ({
     reconcileEntityListSession: mockReconcileEntityListSession,
+    refreshActiveEntityListSession: mockRefreshActiveEntityListSession,
   }))
 
   vi.doMock('@/lib/dashboard-layouts/operations', () => ({
@@ -194,10 +195,6 @@ beforeEach(() => {
 
   vi.doMock('@/lib/yjs/server/apply-entity-state', () => ({
     saveSavedEntityYjsDocToDb: mockSaveSavedEntityYjsDocToDb,
-  }))
-
-  vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-    refreshEntityListSession: mockRefreshEntityListSession,
   }))
 
   vi.doMock('./upstream-utils', () => ({
@@ -372,25 +369,25 @@ describe('handleYjsUpgrade', () => {
   })
 
   it('reconciles an entity list through its live document before attaching a reader', async () => {
-    const sessionId = 'list:skill:workspace-1'
+    const sessionId = 'list:watchlist:workspace-1'
     const listDoc = new Y.Doc()
     mockGetDocument.mockReturnValue({ doc: listDoc, created: true })
     mockReconcileEntityListSession.mockRejectedValueOnce(new Error('database offline'))
     try {
       const failed = await runYjsUpgrade({
-        target: { sessionId, entityKind: 'skill', entityId: null, targetKind: 'entity_list' },
+        target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
         accessMode: 'read',
       })
       expect(failed.wss.handleUpgrade).not.toHaveBeenCalled()
 
       const { request, wss } = await runYjsUpgrade({
-        target: { sessionId, entityKind: 'skill', entityId: null, targetKind: 'entity_list' },
+        target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
         accessMode: 'read',
       })
 
       expect(mockReconcileEntityListSession).toHaveBeenCalledWith(
         listDoc,
-        'skill',
+        'watchlist',
         'workspace-1',
         null
       )
@@ -401,6 +398,7 @@ describe('handleYjsUpgrade', () => {
         expect.anything(),
         expect.any(Function)
       )
+      expect(mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument).toBeUndefined()
     } finally {
       listDoc.destroy()
     }
@@ -443,6 +441,7 @@ describe('handleYjsUpgrade', () => {
       expect.objectContaining({
         docId: sessionId,
         onDocumentUpdate: expect.any(Function),
+        validateDocument: expect.any(Function),
       })
     )
     const doc = new Y.Doc()
@@ -460,7 +459,7 @@ describe('handleYjsUpgrade', () => {
       'workspace-1',
       doc
     )
-    expect(mockRefreshEntityListSession).toHaveBeenCalledWith('watchlist', 'workspace-1')
+    expect(mockRefreshActiveEntityListSession).toHaveBeenCalledWith('watchlist', 'workspace-1')
     doc.destroy()
   })
 

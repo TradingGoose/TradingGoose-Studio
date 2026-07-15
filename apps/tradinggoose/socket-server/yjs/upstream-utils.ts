@@ -84,6 +84,7 @@ class WSSharedDoc extends Y.Doc {
   pendingMutations = 0
   mutationQueue: Promise<void> = Promise.resolve()
   reconciliationInFlight: Promise<void> | null = null
+  reconciliationFollowUp: Promise<void> | null = null
   lastReconciliationAt = 0
   isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
@@ -450,7 +451,17 @@ export function reconcileDocument(doc: Y.Doc, force = false): Promise<void> {
   if (docs.get(doc.name) !== doc || doc.isDraining) {
     return Promise.reject(new YjsDocumentDrainingError())
   }
-  if (doc.reconciliationInFlight) return doc.reconciliationInFlight
+  if (doc.reconciliationFollowUp) return doc.reconciliationFollowUp
+  if (doc.reconciliationInFlight) {
+    if (!force) return doc.reconciliationInFlight
+    doc.reconciliationFollowUp = doc.reconciliationInFlight
+      .catch(() => undefined)
+      .then(() => {
+        doc.reconciliationFollowUp = null
+        return reconcileDocument(doc, true)
+      })
+    return doc.reconciliationFollowUp
+  }
   if (
     !doc.onDocumentReconcile ||
     (!force && Date.now() - doc.lastReconciliationAt < PING_TIMEOUT)

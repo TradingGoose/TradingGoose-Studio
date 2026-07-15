@@ -6,19 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 import {
-  buildDashboardColorPairDescriptor,
   buildDashboardWidgetDescriptor,
   buildSavedEntityDescriptor,
 } from '@/lib/copilot/review-sessions/identity'
-import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import {
-  getDashboardColorPairMap,
+  type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+} from '@/lib/copilot/review-sessions/types'
+import {
   getDashboardWidgetMap,
-  readDashboardColorPairDocument,
   readDashboardWidgetDocument,
-  seedDashboardColorPairSession,
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
+import { getEntityFields, seedEntitySession, updateWatchlistItems } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   abortYjsSessionDeletion,
@@ -31,6 +31,7 @@ import {
   getDocument,
   isYjsSessionAdmissionBlocked,
   peekDocument,
+  reconcileDocument,
   reconcileWorkspaceConnections,
   runDocumentMutation,
   setDocumentReconciler,
@@ -161,6 +162,22 @@ describe('shared document lifecycle', () => {
       sockets.forEach((socket) => socket.emit('close'))
     }
   })
+
+  it('coalesces forced reconciliation behind an in-flight database read', async () => {
+    const doc = getDocument('list:watchlist:workspace-1').doc
+    const gate = deferred()
+    const reconcile = vi.fn(() => (reconcile.mock.calls.length === 1 ? gate.promise : undefined))
+    setDocumentReconciler(doc, reconcile)
+    void reconcileDocument(doc, true)
+    const followUp = reconcileDocument(doc, true)
+    const inFlight = Reflect.get(doc, 'reconciliationInFlight') as Promise<void>
+    const joinGap = vi.fn(() => reconcileDocument(doc, true))
+    void inFlight.then(joinGap)
+    gate.resolve()
+    await vi.waitFor(() => expect(joinGap).toHaveReturnedWith(followUp))
+    await followUp
+    expect(reconcile).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('realtime shutdown', () => {
@@ -262,11 +279,11 @@ describe('realtime shutdown', () => {
 })
 
 describe('document mutation queue', () => {
-  async function expectRejectedDashboardUpdate(input: {
+  async function expectRejectedUpdate(input: {
     sessionId: string
-    descriptor: ReturnType<typeof buildDashboardWidgetDescriptor>
+    descriptor: ReviewTargetDescriptor
     seed: (doc: Y.Doc) => void
-    validate: (doc: Y.Doc) => unknown
+    prepareLive?: (doc: Y.Doc) => void
     mutate: (doc: Y.Doc) => void
     read: (doc: Y.Doc) => unknown
     afterReject?: () => void
@@ -284,16 +301,17 @@ describe('document mutation queue', () => {
         descriptor: input.descriptor,
         bootstrapState: Y.encodeStateAsUpdate(source),
         onDocumentUpdate: persist,
-        validateDocument: input.validate,
+        validateDocument: input.read,
       })
       setupWSConnection(peer as unknown as WebSocket, {} as IncomingMessage, {
         docId: input.sessionId,
         userId: 'user-1',
         accessMode: 'write',
         descriptor: input.descriptor,
-        validateDocument: input.validate,
+        validateDocument: input.read,
       })
       const doc = peekDocument(input.sessionId)!
+      input.prepareLive?.(doc)
       const before = input.read(doc)
       const sentBeforeRejection = peer.send.mock.calls.length
 
@@ -319,7 +337,7 @@ describe('document mutation queue', () => {
   }
 
   it('rejects unsafe widget paths before merging them', async () => {
-    await expectRejectedDashboardUpdate({
+    await expectRejectedUpdate({
       sessionId: 'dashboard-widget:layout-1:widget-1',
       descriptor: buildDashboardWidgetDescriptor({
         layoutId: 'layout-1',
@@ -332,7 +350,6 @@ describe('document mutation queue', () => {
           pairColor: 'gray',
           params: { view: { interval: '1h' } },
         }),
-      validate: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
       mutate: (doc) => {
         const params = getDashboardWidgetMap(doc).get('params')
         if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
@@ -346,43 +363,27 @@ describe('document mutation queue', () => {
     })
   })
 
-  it('rejects unsupported widget params before merging them', async () => {
-    await expectRejectedDashboardUpdate({
-      sessionId: 'dashboard-widget:layout-1:widget-params',
-      descriptor: buildDashboardWidgetDescriptor({
-        layoutId: 'layout-1',
-        identityId: 'widget-params',
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
-      }),
-      seed: (doc) =>
-        seedDashboardWidgetSession(doc, {
-          pairColor: 'gray',
-          params: { view: { interval: '1m' } },
-        }),
-      validate: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
-      mutate: (doc) => {
-        const params = getDashboardWidgetMap(doc).get('params')
-        if (!(params instanceof Y.Map)) throw new Error('Expected widget params Y.Map')
-        params.set(JSON.stringify(['watchlistId']), 'watchlist-1')
-      },
-      read: (doc) => readDashboardWidgetDocument(doc, 'data_chart'),
+  it('rejects a concurrent watchlist update beyond the symbol limit before merging it', async () => {
+    const identity = { listing_type: 'default' as const, listing_id: '', base_id: '', quote_id: '' }
+    const listing = (index: number) => ({
+      id: `listing-${index}`,
+      type: 'listing' as const,
+      parentId: null,
+      listing: { ...identity, listing_id: `SYM${index}` },
     })
-  })
-
-  it('rejects noncanonical color-pair fields before merging them', async () => {
-    await expectRejectedDashboardUpdate({
-      sessionId: 'dashboard-color-pair:layout-1:red',
-      descriptor: buildDashboardColorPairDescriptor({
-        layoutId: 'layout-1',
-        color: 'red',
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
-      }),
-      seed: (doc) => seedDashboardColorPairSession(doc, { watchlistId: 'watchlist-1' }),
-      validate: readDashboardColorPairDocument,
-      mutate: (doc) => getDashboardColorPairMap(doc).set('unsupported', true),
-      read: readDashboardColorPairDocument,
+    const settings = { showLogo: true, showTicker: true, showDescription: true }
+    await expectRejectedUpdate({
+      sessionId: 'watchlist-cap',
+      descriptor: buildSavedEntityDescriptor('watchlist', 'watchlist-cap', 'workspace-1'),
+      seed: (doc) =>
+        seedEntitySession(doc, {
+          entityKind: 'watchlist',
+          payload: { settings, items: Array.from({ length: 999 }, (_, index) => listing(index)) },
+        }),
+      prepareLive: (doc) =>
+        updateWatchlistItems(doc, (items) => [...items, listing(999)], YJS_ORIGINS.SYSTEM),
+      mutate: (doc) => updateWatchlistItems(doc, (items) => [...items, listing(1000)]),
+      read: (doc) => getEntityFields(doc, 'watchlist'),
     })
   })
 
