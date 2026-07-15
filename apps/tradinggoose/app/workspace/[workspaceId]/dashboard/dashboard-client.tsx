@@ -67,6 +67,7 @@ interface DashboardNodeProps {
   layoutId: string
   canEditContent: boolean
   persistGroup?: (id: string, sizes: number[]) => void
+  resizeReconcileVersion: number
   widgetContext: WidgetRuntimeContext
   availableWidth?: number
   availableHeight?: number
@@ -99,6 +100,7 @@ const DashboardNode = memo(function DashboardNode({
   layoutId,
   canEditContent,
   persistGroup,
+  resizeReconcileVersion,
   widgetContext,
   availableWidth = 100,
   availableHeight = 100,
@@ -117,7 +119,7 @@ const DashboardNode = memo(function DashboardNode({
     if (arePanelSizesEqual(mounted, groupSizes)) return
     appliedLayoutRef.current = groupSizes
     groupRef.current.setLayout(groupSizes)
-  }, [groupSizes])
+  }, [groupSizes, resizeReconcileVersion])
 
   const handleGroupLayout = useCallback(
     (sizes: number[]) => {
@@ -191,6 +193,7 @@ const DashboardNode = memo(function DashboardNode({
                 layoutId={layoutId}
                 canEditContent={canEditContent}
                 persistGroup={persistGroup}
+                resizeReconcileVersion={resizeReconcileVersion}
                 widgetContext={widgetContext}
                 availableWidth={nextAvailableWidth}
                 availableHeight={nextAvailableHeight}
@@ -770,7 +773,15 @@ export function DashboardClient({
   return (
     <>
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
-      <div className='h-full min-h-0 w-full min-w-0 overflow-hidden'>
+      <div className='relative h-full min-h-0 w-full min-w-0 overflow-hidden'>
+        {layoutDocument.hasResizePersistenceError && (
+          <div
+            className='absolute top-3 right-3 z-10 rounded-md bg-destructive px-3 py-2 text-destructive-foreground text-sm shadow-sm'
+            role='alert'
+          >
+            {t('layoutState.resizePersistenceError')}
+          </div>
+        )}
         {rawTree && layoutDocument.doc ? (
           <DashboardNode
             node={rawTree}
@@ -778,6 +789,7 @@ export function DashboardClient({
             ownerUserId={ownerUserId}
             layoutId={activeLayoutId as string}
             persistGroup={canEditContent ? persistGroup : undefined}
+            resizeReconcileVersion={layoutDocument.resizeReconcileVersion}
             widgetContext={widgetContext}
             availableWidth={100}
             availableHeight={100}

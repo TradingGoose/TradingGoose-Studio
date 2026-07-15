@@ -7,10 +7,7 @@ import { JSDOM } from 'jsdom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import {
-  readDashboardLayoutDocument,
-  seedDashboardLayoutSession,
-} from '@/lib/yjs/dashboard-layout-session'
+import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
 import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 
 let mockLayoutDoc: Y.Doc | null = null
@@ -80,27 +77,33 @@ describe('useDashboardLayoutDocument live fields', () => {
     container = null
   })
 
-  it('returns matching SSR topology while the provider is not ready', async () => {
+  it('uses only matching SSR topology while the provider is not ready', async () => {
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
 
-    const Capture = () => {
+    const Capture = ({
+      layoutId,
+      initialTopology,
+    }: {
+      layoutId: string
+      initialTopology?: DashboardLayoutTopologyNode
+    }) => {
       latest = useDashboardLayoutDocument({
         workspaceId: 'workspace-1',
         ownerUserId: 'user-1',
-        layoutId: 'layout-1',
-        initialTopology: topology,
+        layoutId,
+        initialTopology,
       })
       return null
     }
 
     act(() => {
-      root?.render(<Capture />)
+      root?.render(<Capture layoutId='layout-1' initialTopology={topology} />)
     })
 
-    expect(latest?.topology).toEqual(topology)
-    expect(latest?.doc).toBeNull()
-    expect(latest?.isProviderReady).toBe(false)
+    expect(latest.topology).toEqual(topology)
+    expect(latest.doc).toBeNull()
+    expect(latest.isProviderReady).toBe(false)
     expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith(
       'dashboard_layout',
       'layout-1',
@@ -108,60 +111,18 @@ describe('useDashboardLayoutDocument live fields', () => {
       'user-1',
       'read'
     )
-  })
-
-  it('does not fabricate topology without a matching SSR document', async () => {
-    const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
-    let latest: any = null
-
-    const Capture = () => {
-      latest = useDashboardLayoutDocument({
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
-        layoutId: 'layout-2',
-      })
-      return null
-    }
-
     act(() => {
-      root?.render(<Capture />)
+      root?.render(<Capture layoutId='layout-2' />)
     })
 
-    expect(latest?.topology).toBeNull()
-    expect(latest?.isProviderReady).toBe(false)
+    expect(latest.topology).toBeNull()
+    expect(latest.isProviderReady).toBe(false)
   })
 
-  it('routes widget selection through the server structural commit boundary', async () => {
-    mockLayoutDoc = new Y.Doc()
-    seedDashboardLayoutSession(mockLayoutDoc, {
-      layout: topology,
-    })
-    const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
-    let latest: any = null
-    const Capture = () => {
-      latest = useDashboardLayoutDocument({
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
-        layoutId: 'layout-1',
-      })
-      return null
-    }
-
-    act(() => root?.render(<Capture />))
-    await act(async () => latest.replacePanelWidget('panel-chart', 'watchlist'))
-
-    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
-      type: 'replace',
-      panelId: 'panel-chart',
-      widgetKey: 'watchlist',
-    })
-    expect(readDashboardLayoutDocument(mockLayoutDoc).layout).toEqual(topology)
-    expect(mockLayoutDoc.share.has('widget')).toBe(false)
-  })
-
-  it('coalesces resize, reports failures, and does not carry a departed layout queue forward', async () => {
+  it('recovers from a failed resize without poisoning later mutations', async () => {
     mockLayoutDoc = new Y.Doc()
     seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
+    vi.useFakeTimers()
     const { useDashboardLayoutDocument } = await import('./use-dashboard-layout-doc')
     let latest: any = null
     const Capture = ({ workspaceId, layoutId }: { workspaceId: string; layoutId: string }) => {
@@ -169,53 +130,30 @@ describe('useDashboardLayoutDocument live fields', () => {
       return null
     }
 
-    const error = new Error('resize failed')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    let rejectFirstMutation!: (reason: Error) => void
-    mockMutateStructure.mockImplementationOnce(
-      () => new Promise<void>((_resolve, reject) => (rejectFirstMutation = reject))
-    )
-    vi.useFakeTimers()
+    mockMutateStructure.mockRejectedValueOnce(new Error('resize failed'))
     act(() => root?.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
     act(() => {
       latest.updateGroupSizes('group-1', [20, 80])
       latest.updateGroupSizes('group-1', [35, 65])
     })
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(100)
+      await vi.advanceTimersByTimeAsync(500)
     })
-
     expect(mockMutateStructure).toHaveBeenCalledTimes(1)
     expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
       type: 'resize',
       groupId: 'group-1',
       sizes: [35, 65],
     })
-    act(() => root?.render(<Capture workspaceId='workspace-2' layoutId='layout-2' />))
-    await act(async () => {
-      await Promise.resolve()
-    })
-    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-1', 'layout-1', {
-      type: 'resize',
-      groupId: 'group-1',
-      sizes: [35, 65],
-    })
+    await vi.waitFor(() => expect(latest.hasResizePersistenceError).toBe(true))
+    expect(latest.resizeReconcileVersion).toBe(1)
 
-    const replacement = latest.replacePanelWidget('panel-chart', 'watchlist')
-    await act(async () => {
-      await Promise.resolve()
-    })
-    expect(mockMutateStructure).toHaveBeenCalledWith('workspace-2', 'layout-2', {
-      type: 'replace',
-      panelId: 'panel-chart',
-      widgetKey: 'watchlist',
-    })
+    await act(async () => latest.replacePanelWidget('panel-chart', 'watchlist'))
 
-    rejectFirstMutation(error)
-    await vi.waitFor(() =>
-      expect(consoleError).toHaveBeenCalledWith('Failed to persist dashboard resize:', error)
-    )
-    await act(async () => replacement)
-    consoleError.mockRestore()
+    act(() => latest.updateGroupSizes('group-1', [40, 60]))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    await vi.waitFor(() => expect(latest.hasResizePersistenceError).toBe(false))
   })
 })

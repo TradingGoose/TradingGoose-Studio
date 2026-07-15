@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -92,6 +92,15 @@ export function useDashboardLayoutDocument(input: {
   const mutationQueueRef = useRef<Promise<void>>(Promise.resolve())
   const pendingResizeRef = useRef(new Map<string, number[]>())
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resizeIdentity = JSON.stringify([input.workspaceId ?? null, input.layoutId ?? null])
+  const resizeIdentityRef = useRef<string | null>(resizeIdentity)
+  resizeIdentityRef.current = resizeIdentity
+  const [resizeFailure, setResizeFailure] = useState<{ identity: string; version: number } | null>(
+    null
+  )
+  const resizeReconcileVersion =
+    resizeFailure?.identity === resizeIdentity ? resizeFailure.version : 0
+  const hasResizePersistenceError = resizeReconcileVersion > 0
 
   const enqueueStructureMutation = useCallback(
     (mutation: DashboardLayoutStructureMutation) => {
@@ -106,7 +115,7 @@ export function useDashboardLayoutDocument(input: {
     [input.layoutId, input.workspaceId]
   )
 
-  const flushQueuedResizes = useCallback(() => {
+  const flushQueuedResizes = useCallback(async () => {
     if (resizeTimerRef.current) {
       clearTimeout(resizeTimerRef.current)
       resizeTimerRef.current = null
@@ -116,29 +125,38 @@ export function useDashboardLayoutDocument(input: {
       sizes,
     }))
     pendingResizeRef.current.clear()
-    return Promise.all(
-      pendingResizes.map(({ groupId, sizes }) =>
-        enqueueStructureMutation({ type: 'resize', groupId, sizes })
+    if (pendingResizes.length === 0) return
+    try {
+      await Promise.all(
+        pendingResizes.map(({ groupId, sizes }) =>
+          enqueueStructureMutation({ type: 'resize', groupId, sizes })
+        )
       )
-    )
-  }, [enqueueStructureMutation])
+      if (resizeIdentityRef.current === resizeIdentity) {
+        setResizeFailure(null)
+      }
+    } catch (error) {
+      if (resizeIdentityRef.current === resizeIdentity) {
+        setResizeFailure((failure) => ({
+          identity: resizeIdentity,
+          version: failure?.identity === resizeIdentity ? failure.version + 1 : 1,
+        }))
+      }
+      throw error
+    }
+  }, [enqueueStructureMutation, resizeIdentity])
 
   const scheduleResizeFlush = useCallback(() => {
     if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current)
     resizeTimerRef.current = setTimeout(() => {
       resizeTimerRef.current = null
-      void flushQueuedResizes().catch((error) => {
-        console.error('Failed to persist dashboard resize:', error)
-      })
+      void flushQueuedResizes().catch(() => undefined)
     }, RESIZE_DEBOUNCE_MS)
   }, [flushQueuedResizes])
 
   useEffect(() => {
     return () => {
-      void flushQueuedResizes().catch((error) => {
-        console.error('Failed to persist dashboard resize:', error)
-      })
-      mutationQueueRef.current = Promise.resolve()
+      void flushQueuedResizes().catch(() => undefined)
     }
   }, [flushQueuedResizes])
 
@@ -197,6 +215,8 @@ export function useDashboardLayoutDocument(input: {
     isLoading,
     error,
     isTerminalError,
+    resizeReconcileVersion,
+    hasResizePersistenceError,
     updateGroupSizes,
     splitPanel,
     closePanel,
