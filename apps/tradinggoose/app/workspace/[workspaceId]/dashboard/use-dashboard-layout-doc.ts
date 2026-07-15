@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -89,17 +89,19 @@ export function useDashboardLayoutDocument(input: {
     return readDashboardLayoutTopology(doc)
   }, [doc, fallback])
   const topology = useYjsSubscription(subscribe, read, fallback, snapshotsEqual)
-  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const pendingResizeRef = useRef(new Map<string, number[]>())
-  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const resizeIdentity = JSON.stringify([input.workspaceId ?? null, input.layoutId ?? null])
-  const resizeIdentityRef = useRef<string | null>(resizeIdentity)
-  resizeIdentityRef.current = resizeIdentity
-  const [resizeFailure, setResizeFailure] = useState<{ identity: string; version: number } | null>(
-    null
+  // Every mutation queue plus pending resize/timer state is owned by one
+  // workspace/layout identity, so unresolved work for a departed layout keeps
+  // chaining onto its own queue and never blocks the active layout.
+  const mutationState = useMemo(
+    () => ({
+      queue: Promise.resolve() as Promise<void>,
+      pendingResizes: new Map<string, number[]>(),
+      resizeTimer: null as ReturnType<typeof setTimeout> | null,
+      reportResizeOutcome: null as ((failed: boolean) => void) | null,
+    }),
+    [input.workspaceId, input.layoutId]
   )
-  const resizeReconcileVersion =
-    resizeFailure?.identity === resizeIdentity ? resizeFailure.version : 0
+  const [resizeReconcileVersion, setResizeReconcileVersion] = useState(0)
   const hasResizePersistenceError = resizeReconcileVersion > 0
 
   const enqueueStructureMutation = useCallback(
@@ -108,23 +110,23 @@ export function useDashboardLayoutDocument(input: {
         if (!input.workspaceId || !input.layoutId) return
         await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, mutation)
       }
-      const next = mutationQueueRef.current.then(commit, commit)
-      mutationQueueRef.current = next.catch(() => undefined)
+      const next = mutationState.queue.then(commit, commit)
+      mutationState.queue = next.catch(() => undefined)
       return next
     },
-    [input.layoutId, input.workspaceId]
+    [input.layoutId, input.workspaceId, mutationState]
   )
 
   const flushQueuedResizes = useCallback(async () => {
-    if (resizeTimerRef.current) {
-      clearTimeout(resizeTimerRef.current)
-      resizeTimerRef.current = null
+    if (mutationState.resizeTimer) {
+      clearTimeout(mutationState.resizeTimer)
+      mutationState.resizeTimer = null
     }
-    const pendingResizes = Array.from(pendingResizeRef.current, ([groupId, sizes]) => ({
+    const pendingResizes = Array.from(mutationState.pendingResizes, ([groupId, sizes]) => ({
       groupId,
       sizes,
     }))
-    pendingResizeRef.current.clear()
+    mutationState.pendingResizes.clear()
     if (pendingResizes.length === 0) return
     try {
       await Promise.all(
@@ -132,33 +134,30 @@ export function useDashboardLayoutDocument(input: {
           enqueueStructureMutation({ type: 'resize', groupId, sizes })
         )
       )
-      if (resizeIdentityRef.current === resizeIdentity) {
-        setResizeFailure(null)
-      }
+      mutationState.reportResizeOutcome?.(false)
     } catch (error) {
-      if (resizeIdentityRef.current === resizeIdentity) {
-        setResizeFailure((failure) => ({
-          identity: resizeIdentity,
-          version: failure?.identity === resizeIdentity ? failure.version + 1 : 1,
-        }))
-      }
+      mutationState.reportResizeOutcome?.(true)
       throw error
     }
-  }, [enqueueStructureMutation, resizeIdentity])
+  }, [enqueueStructureMutation, mutationState])
 
   const scheduleResizeFlush = useCallback(() => {
-    if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current)
-    resizeTimerRef.current = setTimeout(() => {
-      resizeTimerRef.current = null
+    if (mutationState.resizeTimer) clearTimeout(mutationState.resizeTimer)
+    mutationState.resizeTimer = setTimeout(() => {
+      mutationState.resizeTimer = null
       void flushQueuedResizes().catch(() => undefined)
     }, RESIZE_DEBOUNCE_MS)
-  }, [flushQueuedResizes])
+  }, [flushQueuedResizes, mutationState])
 
   useEffect(() => {
+    mutationState.reportResizeOutcome = (failed) =>
+      setResizeReconcileVersion((version) => (failed ? version + 1 : 0))
+    setResizeReconcileVersion(0)
     return () => {
+      mutationState.reportResizeOutcome = null
       void flushQueuedResizes().catch(() => undefined)
     }
-  }, [flushQueuedResizes])
+  }, [flushQueuedResizes, mutationState])
 
   const mutateStructure = useCallback(
     async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
@@ -170,42 +169,10 @@ export function useDashboardLayoutDocument(input: {
 
   const updateGroupSizes = useCallback(
     (groupId: string, sizes: number[]) => {
-      pendingResizeRef.current.set(groupId, sizes)
+      mutationState.pendingResizes.set(groupId, sizes)
       scheduleResizeFlush()
     },
-    [scheduleResizeFlush]
-  )
-
-  const splitPanel = useCallback(
-    async (panelId: string, direction: 'horizontal' | 'vertical') => {
-      await mutateStructure({
-        type: 'split',
-        panelId,
-        direction,
-      })
-    },
-    [mutateStructure]
-  )
-
-  const closePanel = useCallback(
-    async (panelId: string) => {
-      await mutateStructure({
-        type: 'close',
-        panelId,
-      })
-    },
-    [mutateStructure]
-  )
-
-  const replacePanelWidget = useCallback(
-    async (panelId: string, widgetKey: string) => {
-      await mutateStructure({
-        type: 'replace',
-        panelId,
-        widgetKey,
-      })
-    },
-    [mutateStructure]
+    [mutationState, scheduleResizeFlush]
   )
 
   return {
@@ -218,8 +185,6 @@ export function useDashboardLayoutDocument(input: {
     resizeReconcileVersion,
     hasResizePersistenceError,
     updateGroupSizes,
-    splitPanel,
-    closePanel,
-    replacePanelWidget,
+    mutateStructure,
   }
 }

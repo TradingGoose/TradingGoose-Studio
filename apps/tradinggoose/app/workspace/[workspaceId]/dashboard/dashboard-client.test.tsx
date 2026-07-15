@@ -154,9 +154,7 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
         return {
           ...mockLayoutDocumentState,
           updateGroupSizes: mockLayoutMutation,
-          splitPanel: mockLayoutMutation,
-          closePanel: mockLayoutMutation,
-          replacePanelWidget: mockLayoutMutation,
+          mutateStructure: mockLayoutMutation,
         }
       }
       const doc = initialTopology ? (mockTopologyDocuments.get(initialTopology) ?? null) : null
@@ -167,9 +165,7 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
         isLoading: false,
         error: null,
         updateGroupSizes: mockLayoutMutation,
-        splitPanel: mockLayoutMutation,
-        closePanel: mockLayoutMutation,
-        replacePanelWidget: mockLayoutMutation,
+        mutateStructure: mockLayoutMutation,
       }
     },
   }
@@ -490,11 +486,18 @@ describe('DashboardClient', () => {
         await Promise.resolve()
       })
 
-      expect(mockLayoutMutation).toHaveBeenCalledWith('panel-left')
-      expect(mockLayoutMutation).toHaveBeenCalledWith('panel-left', 'watchlist')
-      expect(consoleError).toHaveBeenCalledWith('Failed to close dashboard panel:', closeError)
+      expect(mockLayoutMutation).toHaveBeenCalledWith({ type: 'close', panelId: 'panel-left' })
+      expect(mockLayoutMutation).toHaveBeenCalledWith({
+        type: 'replace',
+        panelId: 'panel-left',
+        widgetKey: 'watchlist',
+      })
       expect(consoleError).toHaveBeenCalledWith(
-        'Failed to replace dashboard panel widget:',
+        'Failed to update dashboard layout structure:',
+        closeError
+      )
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to update dashboard layout structure:',
         replaceError
       )
     } finally {

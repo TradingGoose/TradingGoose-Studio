@@ -42,6 +42,7 @@ import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { useRouter } from '@/i18n/navigation'
 import {
   countDashboardTopologyPanels,
+  type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
 } from '@/widgets/layout-document'
 import type { WidgetRuntimeContext } from '@/widgets/types'
@@ -508,52 +509,37 @@ export function DashboardClient({
     filteredDocs.length > 0
   const showDropdown = isSearchOpen
 
-  const handleSplitPanelVertical = useCallback(
-    async (panelId: string) => {
+  const mutatePanelStructure = useCallback(
+    async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
       if (!canEditContent) return
       try {
-        await layoutDocument.splitPanel(panelId, 'vertical')
+        await layoutDocument.mutateStructure(mutation)
       } catch (error) {
-        console.error('Failed to split dashboard panel:', error)
+        console.error('Failed to update dashboard layout structure:', error)
       }
     },
-    [canEditContent, layoutDocument.splitPanel]
+    [canEditContent, layoutDocument.mutateStructure]
+  )
+
+  const handleSplitPanelVertical = useCallback(
+    (panelId: string) => mutatePanelStructure({ type: 'split', panelId, direction: 'vertical' }),
+    [mutatePanelStructure]
   )
 
   const handleSplitPanelHorizontal = useCallback(
-    async (panelId: string) => {
-      if (!canEditContent) return
-      try {
-        await layoutDocument.splitPanel(panelId, 'horizontal')
-      } catch (error) {
-        console.error('Failed to split dashboard panel:', error)
-      }
-    },
-    [canEditContent, layoutDocument.splitPanel]
+    (panelId: string) => mutatePanelStructure({ type: 'split', panelId, direction: 'horizontal' }),
+    [mutatePanelStructure]
   )
 
   const handleClosePanel = useCallback(
-    async (panelId: string) => {
-      if (!canEditContent) return
-      try {
-        await layoutDocument.closePanel(panelId)
-      } catch (error) {
-        console.error('Failed to close dashboard panel:', error)
-      }
-    },
-    [canEditContent, layoutDocument.closePanel]
+    (panelId: string) => mutatePanelStructure({ type: 'close', panelId }),
+    [mutatePanelStructure]
   )
 
   const handleReplacePanelWidget = useCallback(
-    async (panelId: string, widgetKey: string) => {
-      if (!canEditContent) return
-      try {
-        await layoutDocument.replacePanelWidget(panelId, widgetKey)
-      } catch (error) {
-        console.error('Failed to replace dashboard panel widget:', error)
-      }
-    },
-    [canEditContent, layoutDocument.replacePanelWidget]
+    (panelId: string, widgetKey: string) =>
+      mutatePanelStructure({ type: 'replace', panelId, widgetKey }),
+    [mutatePanelStructure]
   )
 
   const handleSelectLayout = useCallback(
