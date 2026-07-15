@@ -15,13 +15,21 @@ import {
   listDashboardLayouts,
   readPersistedDashboardLayoutDocument,
 } from '@/lib/dashboard-layouts/operations'
-import { listRootWatchlistRowsInTx } from '@/lib/watchlists/document'
-import { loadWatchlistDocument } from '@/lib/watchlists/operations'
+import {
+  listRootWatchlistRowsInTx,
+  loadWatchlistDocumentFields,
+  rootWatchlistCondition,
+} from '@/lib/watchlists/document'
+import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
   savedEntityRowToContent,
 } from '@/lib/yjs/entity-state'
+import {
+  refreshEntityListSession,
+  withYjsSessionDeletionLease,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const ENTITY_TABLES = {
   skill: { table: skill, name: skill.name, softDelete: false },
@@ -107,6 +115,55 @@ export async function resolveEntityWorkspaceId(
     .where(entityCondition(entityKind, [eq(table.id, entityId)]))
     .limit(1)
   return row?.workspaceId ?? null
+}
+
+export async function deleteSavedEntity(
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
+  entityId: string,
+  workspaceId: string
+): Promise<boolean> {
+  if ((await resolveEntityWorkspaceId(entityKind, entityId)) !== workspaceId) return false
+
+  const deleted = await withYjsSessionDeletionLease({ sessionIds: [entityId] }, () =>
+    db.transaction(async (tx) => {
+      if (entityKind === 'watchlist') {
+        return withWatchlistRootListLock(tx, workspaceId, async () => {
+          const [row] = await tx
+            .delete(watchlistTable)
+            .where(rootWatchlistCondition(workspaceId, entityId))
+            .returning({ id: watchlistTable.id })
+          return Boolean(row)
+        })
+      }
+
+      await lockSavedEntityList(tx, entityKind, workspaceId)
+      if (entityKind === 'knowledge_base') {
+        const now = new Date()
+        const [row] = await tx
+          .update(knowledgeBase)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(
+            entityCondition(entityKind, [
+              eq(knowledgeBase.id, entityId),
+              eq(knowledgeBase.workspaceId, workspaceId),
+            ])
+          )
+          .returning({ id: knowledgeBase.id })
+        return Boolean(row)
+      }
+
+      const { table } = ENTITY_TABLES[entityKind]
+      const [row] = await tx
+        .delete(table)
+        .where(
+          entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
+        )
+        .returning({ id: table.id })
+      return Boolean(row)
+    })
+  )
+  if (deleted) await refreshEntityListSession(entityKind, workspaceId)
+  return deleted
 }
 
 export async function readEntityListMembersFromDb(
@@ -258,7 +315,7 @@ export async function readSavedEntityFieldsFromDb(
   ownerUserId?: string | null
 ): Promise<Record<string, unknown>> {
   if (entityKind === 'watchlist') {
-    const watchlist = await loadWatchlistDocument(workspaceId, entityId)
+    const watchlist = await loadWatchlistDocumentFields(workspaceId, entityId)
     return {
       settings: watchlist.settings,
       items: watchlist.items,

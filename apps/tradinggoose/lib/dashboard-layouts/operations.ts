@@ -557,7 +557,7 @@ export async function persistDashboardColorPairDocument(
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {
   const row = await readOwnedLayoutRow(scope, layoutId)
   if (row.isActive) throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-  await withYjsSessionDeletionLease([layoutId], async () => {
+  await withYjsSessionDeletionLease({ sessionIds: [layoutId] }, async () => {
     const widgets = await db
       .select({ id: layoutWidgets.id })
       .from(layoutWidgets)
@@ -568,7 +568,7 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
         buildDashboardColorPairSessionId(layoutId, color)
       ),
     ]
-    await withYjsSessionDeletionLease(childSessionIds, () =>
+    await withYjsSessionDeletionLease({ sessionIds: childSessionIds }, () =>
       withDashboardLayoutOwnerLock(scope, async (tx) => {
         const current = await readOwnedLayoutRow(scope, layoutId, tx)
         if (current.isActive) {

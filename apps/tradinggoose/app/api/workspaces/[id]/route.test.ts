@@ -28,13 +28,22 @@ const {
     warn: vi.fn(),
   },
 }))
+const deletionHarness = vi.hoisted(() => ({
+  events: [] as string[],
+  delete: vi.fn(),
+  lease: vi.fn(),
+  lockList: vi.fn(),
+}))
 
 const mockUpdateSet = vi.fn(() => ({
   where: mockUpdateWhere,
 }))
-
 vi.mock('@tradinggoose/db', () => ({
   db: {
+    transaction: async (mutate: (tx: { delete: typeof deletionHarness.delete }) => unknown) => {
+      deletionHarness.events.push('transaction')
+      return mutate({ delete: deletionHarness.delete })
+    },
     update: vi.fn(() => ({
       set: mockUpdateSet,
     })),
@@ -100,7 +109,16 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/workspaces/service', () => ({
-  getUserWorkspaces: vi.fn(),
+  getUserWorkspaces: vi.fn().mockResolvedValue([{ id: 'workspace-1' }, { id: 'workspace-2' }]),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  SAVED_ENTITY_LIST_LOCK_KINDS: ['workflow', 'watchlist'],
+  lockSavedEntityList: deletionHarness.lockList,
+}))
+
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  withYjsSessionDeletionLease: deletionHarness.lease,
 }))
 
 describe('Workspace by id PATCH route', () => {
@@ -112,10 +130,32 @@ describe('Workspace by id PATCH route', () => {
       user: { id: 'user-1' },
     })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockGetWorkspaceById.mockReset()
+    mockGetWorkspaceById.mockResolvedValue({ id: 'workspace-1', ownerId: 'user-1' })
     mockResolveWorkspaceBillingOwnerUpdate.mockReset()
     mockUpdateWhere.mockReset()
     mockUpdateSet.mockClear()
+    deletionHarness.events.length = 0
+    deletionHarness.delete.mockReturnValue({ where: vi.fn() })
+    deletionHarness.lockList.mockResolvedValue(undefined)
+    deletionHarness.lease.mockImplementation(async (_target, mutate) => {
+      deletionHarness.events.push('lease-begin')
+      const result = await mutate()
+      deletionHarness.events.push('lease-commit')
+      return result
+    })
+  })
+
+  it('leases every workspace document before deleting canonical rows', async () => {
+    const { DELETE } = await import('./route')
+    const response = await DELETE(new NextRequest('http://localhost/api/workspaces/workspace-1'), {
+      params: Promise.resolve({ id: 'workspace-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(deletionHarness.lease.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
+    expect(deletionHarness.events).toEqual(['lease-begin', 'transaction', 'lease-commit'])
+    expect(deletionHarness.lockList).toHaveBeenCalledTimes(2)
+    expect(deletionHarness.delete).toHaveBeenCalledTimes(4)
   })
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {

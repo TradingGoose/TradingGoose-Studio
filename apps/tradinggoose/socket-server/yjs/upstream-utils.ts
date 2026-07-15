@@ -2,9 +2,8 @@
  * Local adaptation of the upstream y-websocket server `src/utils.js` contract.
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
- * needs: `getDocument`, `getExistingDocument`, `peekDocument`,
- * `setupWSConnection`, `discardDocument`, and
- * `cleanupAllDocuments`.
+ * needs: `getDocument`, `peekDocument`, `setupWSConnection`,
+ * `discardDocument`, and `cleanupAllDocuments`.
  */
 
 import type { IncomingMessage } from 'http'
@@ -33,10 +32,9 @@ const PING_TIMEOUT = 30_000
 const DELETION_LEASE_TTL_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
-const committedDeletionSessions = new Set<string>()
-const pendingDeletionSessions = new Map<string, string>()
+const deletionAdmissions = new Map<string, string | null>()
 type DeletionLease = {
-  sessionIds: string[]
+  targets: string[]
   drain: Promise<void>
   expiryTimer: ReturnType<typeof setTimeout> | null
 }
@@ -61,6 +59,8 @@ export class YjsDocumentDrainingError extends Error {
 }
 
 export class YjsSessionAdmissionError extends Error {
+  readonly status = 409
+
   constructor(sessionId: string) {
     super(`Yjs session ${sessionId} is not accepting connections`)
     this.name = 'YjsSessionAdmissionError'
@@ -69,6 +69,7 @@ export class YjsSessionAdmissionError extends Error {
 
 class WSSharedDoc extends Y.Doc {
   name: string
+  workspaceId: string | null
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
   onDocumentUpdate?: DocumentPersistenceHandler
@@ -88,9 +89,10 @@ class WSSharedDoc extends Y.Doc {
   persistTimer: ReturnType<typeof setTimeout> | null = null
   cleanupRequested = false
 
-  constructor(name: string, gc: boolean) {
+  constructor(name: string, gc: boolean, workspaceId: string | null) {
     super({ gc })
     this.name = name
+    this.workspaceId = workspaceId
     this.conns = new Map()
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
@@ -392,13 +394,14 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
 export function getDocument(
   docId: string,
   gc = true,
-  bootstrapState?: Uint8Array
+  bootstrapState?: Uint8Array,
+  workspaceId?: string | null
 ): { doc: Y.Doc; created: boolean } {
-  if (isYjsSessionAdmissionBlocked(docId)) throw new YjsSessionAdmissionError(docId)
+  if (isYjsSessionAdmissionBlocked(docId, workspaceId)) throw new YjsSessionAdmissionError(docId)
   const existing = docs.get(docId)
   if (existing) return { doc: existing, created: false }
 
-  const doc = new WSSharedDoc(docId, gc)
+  const doc = new WSSharedDoc(docId, gc, workspaceId ?? null)
   if (bootstrapState) {
     Y.applyUpdate(doc, bootstrapState, YJS_ORIGINS.SYSTEM)
     doc.hasUnsavedChanges = false
@@ -476,17 +479,14 @@ export function peekDocument(docId: string): Y.Doc | null {
   return docs.get(docId) ?? null
 }
 
-export function isYjsSessionAdmissionBlocked(docId: string): boolean {
+export function isYjsSessionAdmissionBlocked(docId: string, workspaceId?: string | null): boolean {
+  const resolvedWorkspaceId = workspaceId ?? docs.get(docId)?.workspaceId
   return (
     isDrainingAllDocuments ||
-    committedDeletionSessions.has(docId) ||
-    pendingDeletionSessions.has(docId) ||
+    deletionAdmissions.has(`session:${docId}`) ||
+    (!!resolvedWorkspaceId && deletionAdmissions.has(`workspace:${resolvedWorkspaceId}`)) ||
     docs.get(docId)?.isDraining === true
   )
-}
-
-export async function getExistingDocument(docId: string): Promise<Y.Doc | null> {
-  return docs.get(docId) ?? null
 }
 
 export function setupWSConnection(
@@ -516,10 +516,9 @@ export function setupWSConnection(
     validateDocument,
   } = opts
 
-  if (isYjsSessionAdmissionBlocked(docId)) throw new YjsSessionAdmissionError(docId)
   conn.binaryType = 'arraybuffer'
 
-  const doc = getDocument(docId, gc, bootstrapState).doc as WSSharedDoc
+  const doc = getDocument(docId, gc, bootstrapState, descriptor.workspaceId).doc as WSSharedDoc
   if (onDocumentUpdate && !doc.onDocumentUpdate) {
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
@@ -591,14 +590,7 @@ export function setupWSConnection(
   }
 }
 
-export async function discardDocument(docId: string): Promise<void> {
-  const doc = docs.get(docId)
-  if (!doc) return
-
-  await discardDocumentIfCurrent(doc)
-}
-
-export async function discardDocumentIfCurrent(candidate: Y.Doc): Promise<void> {
+export async function discardDocument(candidate: Y.Doc): Promise<void> {
   if (!(candidate instanceof WSSharedDoc)) return
   const doc = candidate
   if (docs.get(doc.name) !== doc) return
@@ -636,41 +628,59 @@ function removeYjsSessionDeletionLease(leaseId: string): DeletionLease | undefin
   return lease
 }
 
+function normalizeDeletionTargetIds(ids: readonly string[] = []): string[] {
+  return [...new Set(ids)].sort()
+}
+
 export async function beginYjsSessionDeletion(
   leaseId: string,
-  sessionIds: readonly string[]
+  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] }
 ): Promise<void> {
   if (!leaseId.trim()) throw new Error('A non-empty Yjs deletion lease ID is required')
-  const orderedSessionIds = [...new Set(sessionIds)].sort()
-  if (orderedSessionIds.length === 0 || orderedSessionIds.some((sessionId) => !sessionId)) {
-    throw new Error('At least one non-empty Yjs session ID is required')
+  const orderedSessionIds = normalizeDeletionTargetIds(target.sessionIds)
+  const orderedWorkspaceIds = normalizeDeletionTargetIds(target.workspaceIds)
+  if (
+    orderedSessionIds.length + orderedWorkspaceIds.length === 0 ||
+    [...orderedSessionIds, ...orderedWorkspaceIds].some((id) => !id.trim())
+  ) {
+    throw new Error('At least one non-empty Yjs deletion target is required')
   }
-  const existing = deletionLeases.get(leaseId)
-  if (existing) {
-    if (JSON.stringify(existing.sessionIds) !== JSON.stringify(orderedSessionIds)) {
-      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+  const targets = [
+    ...orderedSessionIds.map((id) => `session:${id}`),
+    ...orderedWorkspaceIds.map((id) => `workspace:${id}`),
+  ]
+  const firstTarget = targets[0]!
+  let lease = deletionLeases.get(leaseId)
+  if (lease) {
+    if (JSON.stringify(lease.targets) !== JSON.stringify(targets)) {
+      throw new YjsSessionAdmissionError(firstTarget)
     }
-    refreshYjsSessionDeletionLease(leaseId, existing)
-    await existing.drain
-    if (deletionLeases.get(leaseId) !== existing) {
-      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+  } else {
+    const sessionTargets = new Set(orderedSessionIds)
+    const workspaceTargets = new Set(orderedWorkspaceIds)
+    const targetDocuments = Array.from(docs.values()).filter(
+      (doc) =>
+        sessionTargets.has(doc.name) || (!!doc.workspaceId && workspaceTargets.has(doc.workspaceId))
+    )
+    if (
+      isDrainingAllDocuments ||
+      targets.some((deletionTarget) => deletionAdmissions.has(deletionTarget)) ||
+      targetDocuments.some((doc) => doc.isDraining)
+    ) {
+      throw new YjsSessionAdmissionError(firstTarget)
     }
-    refreshYjsSessionDeletionLease(leaseId, existing)
-    return
-  }
-  const blocked = orderedSessionIds.find(isYjsSessionAdmissionBlocked)
-  if (blocked) throw new YjsSessionAdmissionError(blocked)
 
-  for (const sessionId of orderedSessionIds) pendingDeletionSessions.set(sessionId, leaseId)
-  const drain = Promise.all(orderedSessionIds.map(discardDocument)).then(() => undefined)
-  const lease: DeletionLease = { sessionIds: orderedSessionIds, drain, expiryTimer: null }
-  deletionLeases.set(leaseId, lease)
+    for (const deletionTarget of targets) deletionAdmissions.set(deletionTarget, leaseId)
+    const drain = Promise.all(targetDocuments.map(discardDocument)).then(() => undefined)
+    lease = { targets, drain, expiryTimer: null }
+    deletionLeases.set(leaseId, lease)
+  }
   refreshYjsSessionDeletionLease(leaseId, lease)
 
   try {
-    await drain
+    await lease.drain
     if (deletionLeases.get(leaseId) !== lease) {
-      throw new YjsSessionAdmissionError(orderedSessionIds[0]!)
+      throw new YjsSessionAdmissionError(firstTarget)
     }
     refreshYjsSessionDeletionLease(leaseId, lease)
   } catch (error) {
@@ -682,20 +692,18 @@ export async function beginYjsSessionDeletion(
 export function commitYjsSessionDeletion(leaseId: string): void {
   const lease = removeYjsSessionDeletionLease(leaseId)
   if (!lease) return
-  for (const sessionId of lease.sessionIds) {
-    if (pendingDeletionSessions.get(sessionId) !== leaseId) continue
-    pendingDeletionSessions.delete(sessionId)
-    committedDeletionSessions.add(sessionId)
+  for (const deletionTarget of lease.targets) {
+    if (deletionAdmissions.get(deletionTarget) === leaseId)
+      deletionAdmissions.set(deletionTarget, null)
   }
 }
 
 export function abortYjsSessionDeletion(leaseId: string): void {
   const lease = removeYjsSessionDeletionLease(leaseId)
   if (!lease) return
-  for (const sessionId of lease.sessionIds) {
-    if (pendingDeletionSessions.get(sessionId) === leaseId) {
-      pendingDeletionSessions.delete(sessionId)
-    }
+  for (const deletionTarget of lease.targets) {
+    if (deletionAdmissions.get(deletionTarget) === leaseId)
+      deletionAdmissions.delete(deletionTarget)
   }
 }
 
@@ -750,8 +758,7 @@ export function cleanupAllDocuments(): void {
     if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
   }
   deletionLeases.clear()
-  pendingDeletionSessions.clear()
-  committedDeletionSessions.clear()
+  deletionAdmissions.clear()
   isDrainingAllDocuments = false
   terminalPersistenceError = null
 }

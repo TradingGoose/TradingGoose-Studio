@@ -8,7 +8,6 @@ const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockCreateSkills = vi.fn()
 const mockListSkills = vi.fn()
-const mockDeleteSkill = vi.fn()
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: mockCheckHybridAuth,
@@ -21,7 +20,10 @@ vi.mock('@/lib/permissions/utils', () => ({
 vi.mock('@/lib/skills/operations', () => ({
   createSkills: mockCreateSkills,
   listSkills: mockListSkills,
-  deleteSkill: mockDeleteSkill,
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  deleteSavedEntity: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/entity-state', () => ({
@@ -51,7 +53,6 @@ describe('Skills API Routes', () => {
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockCreateSkills.mockResolvedValue([])
     mockListSkills.mockResolvedValue([])
-    mockDeleteSkill.mockResolvedValue(true)
   })
 
   afterEach(() => {

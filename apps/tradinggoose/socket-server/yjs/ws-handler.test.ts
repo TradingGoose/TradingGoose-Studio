@@ -23,7 +23,7 @@ const mockReconcileEntityListSession = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockDiscardDocumentIfIdle = vi.fn()
 const mockGetDocument = vi.fn()
-const mockGetExistingDocument = vi.fn()
+const mockPeekDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
 const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
@@ -132,7 +132,7 @@ async function runYjsUpgrade(input: {
       workspaceId: target.workspaceId ?? 'workspace-1',
     }
   )
-  mockGetExistingDocument.mockResolvedValue(null)
+  mockPeekDocument.mockReturnValue(null)
   const bootstrap =
     input.bootstrap === undefined
       ? {
@@ -157,7 +157,7 @@ beforeEach(() => {
   mockVerifyReviewTargetAccess.mockReset()
   mockDiscardDocumentIfIdle.mockReset()
   mockGetDocument.mockReset()
-  mockGetExistingDocument.mockReset()
+  mockPeekDocument.mockReset()
   mockSetupWSConnection.mockReset()
   mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
@@ -203,7 +203,7 @@ beforeEach(() => {
   vi.doMock('./upstream-utils', () => ({
     discardDocumentIfIdle: mockDiscardDocumentIfIdle,
     getDocument: mockGetDocument,
-    getExistingDocument: mockGetExistingDocument,
+    peekDocument: mockPeekDocument,
     isYjsSessionAdmissionBlocked: vi.fn(() => false),
     setupWSConnection: mockSetupWSConnection,
   }))
@@ -232,7 +232,7 @@ describe('handleYjsUpgrade', () => {
       isOwner: false,
     })
     const liveDoc = new Y.Doc()
-    mockGetExistingDocument.mockResolvedValue(liveDoc)
+    mockPeekDocument.mockReturnValue(liveDoc)
     let acceptsConnections = true
 
     const { handleYjsUpgrade } = await loadModule()

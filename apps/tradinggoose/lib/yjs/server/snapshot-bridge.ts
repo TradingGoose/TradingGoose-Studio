@@ -365,19 +365,10 @@ export async function refreshEntityListSession(
   }
 }
 
-export async function discardYjsSessionInSocketServer(sessionId: string): Promise<void> {
-  await fetchFromSocketServer(
-    new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getInternalRealtimeUrl()),
-    { method: 'DELETE' },
-    10000
-  )
-}
-
 export async function withYjsSessionDeletionLease<T>(
-  sessionIds: readonly string[],
+  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
   mutate: () => Promise<T>
 ): Promise<T> {
-  if (sessionIds.length === 0) return mutate()
   const leaseId = randomUUID()
   const leaseUrl = new URL(
     `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
@@ -393,7 +384,7 @@ export async function withYjsSessionDeletionLease<T>(
   try {
     await postJsonToSocketServerWithResponse(
       '/internal/yjs/session-deletions',
-      { leaseId, sessionIds },
+      { leaseId, ...target },
       DELETION_LEASE_ATTEMPTS,
       async (response) => {
         const ready = (await response.json()) as { leaseId?: unknown }

@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createIndicators, listIndicators } from '@/lib/indicators/custom/operations'
@@ -8,11 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  discardYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -210,21 +203,11 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const deleted = await db.transaction(async (tx) => {
-      await lockSavedEntityList(tx, 'indicator', workspaceId)
-      const [row] = await tx
-        .delete(pineIndicators)
-        .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-        .returning({ id: pineIndicators.id })
-      return Boolean(row)
-    })
+    const deleted = await deleteSavedEntity('indicator', indicatorId, workspaceId)
     if (!deleted) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
-
-    await refreshEntityListSession('indicator', workspaceId)
-    await Promise.allSettled([discardYjsSessionInSocketServer(indicatorId)])
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

@@ -1,14 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import {
-  applyKnowledgeBaseMetadata,
-  deleteKnowledgeBase,
-  getKnowledgeBaseById,
-} from '@/lib/knowledge/service'
+import { applyKnowledgeBaseMetadata, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('KnowledgeBaseByIdAPI')
@@ -165,7 +162,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await deleteKnowledgeBase(id, requestId)
+    await deleteSavedEntity('knowledge_base', id, accessCheck.knowledgeBase.workspaceId)
 
     logger.info(`[${requestId}] Knowledge base deleted: ${id} for user ${session.user.id}`)
 

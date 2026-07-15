@@ -2,17 +2,11 @@ import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
-import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  discardYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -144,11 +138,8 @@ export const POST = withMcpAuth('write')(
   }
 )
 
-/**
- * DELETE - Delete an MCP server from the workspace (requires write permission)
- */
 export const DELETE = withMcpAuth('write')(
-  async (request: NextRequest, { userId, workspaceId, requestId }) => {
+  async (request: NextRequest, { workspaceId, requestId }) => {
     try {
       const { searchParams } = new URL(request.url)
       const serverId = searchParams.get('serverId')
@@ -163,33 +154,7 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const access = await verifyReviewTargetAccess(
-        userId,
-        buildSavedEntityDescriptor('mcp_server', serverId, workspaceId),
-        'write'
-      )
-      if (!access.hasAccess || access.workspaceId !== workspaceId) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
-        )
-      }
-
-      const deleted = await db.transaction(async (tx) => {
-        await lockSavedEntityList(tx, 'mcp_server', workspaceId)
-        const rows = await tx
-          .delete(mcpServers)
-          .where(
-            and(
-              eq(mcpServers.id, serverId),
-              eq(mcpServers.workspaceId, workspaceId),
-              isNull(mcpServers.deletedAt)
-            )
-          )
-          .returning({ id: mcpServers.id })
-        return rows.length > 0
-      })
+      const deleted = await deleteSavedEntity('mcp_server', serverId, workspaceId)
       if (!deleted) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
@@ -197,9 +162,6 @@ export const DELETE = withMcpAuth('write')(
           404
         )
       }
-
-      await refreshEntityListSession('mcp_server', workspaceId)
-      await Promise.allSettled([discardYjsSessionInSocketServer(serverId)])
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({

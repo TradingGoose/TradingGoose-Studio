@@ -31,7 +31,7 @@ import { createHttpHandler } from '@/socket-server/routes/http'
 import {
   cleanupAllDocuments,
   getDocument,
-  getExistingDocument,
+  peekDocument,
   setupWSConnection,
 } from '@/socket-server/yjs/upstream-utils'
 
@@ -240,7 +240,7 @@ function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: 
   )
 }
 
-async function connectTestDocument(docId: string) {
+function connectTestDocument(docId: string) {
   const conn = new EventEmitter() as any
   conn.readyState = 1
   conn.send = vi.fn((_message, _options, callback) => callback?.())
@@ -256,7 +256,7 @@ async function connectTestDocument(docId: string) {
     accessMode: listMatch ? 'read' : 'write',
     descriptor,
   })
-  return { conn, doc: (await getExistingDocument(docId))! }
+  return { conn, doc: peekDocument(docId)! }
 }
 
 describe('Socket Server Index Integration', () => {
@@ -416,7 +416,7 @@ describe('Socket Server Index Integration', () => {
 
       expect(response.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
-      expect(await getExistingDocument('workflow-1')).toBeNull()
+      expect(peekDocument('workflow-1')).toBeNull()
       expect(savedWorkflowStates[0]?.blocks['block-1']).toEqual(
         expect.objectContaining({
           id: 'block-1',
@@ -455,11 +455,11 @@ describe('Socket Server Index Integration', () => {
       expect(savedWorkflowStates[1]?.blocks['block-1'].subBlocks.prompt.value).toBe(
         'Use <variable.risklimit> in this prompt'
       )
-      expect(await getExistingDocument('workflow-1')).toBeNull()
+      expect(peekDocument('workflow-1')).toBeNull()
     })
 
     it('applies watchlist content without changing its list identity', async () => {
-      const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
+      const { conn, doc: listDoc } = connectTestDocument('list:watchlist:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
 
       const response = await sendHttpRequestWithOptions(
@@ -500,7 +500,7 @@ describe('Socket Server Index Integration', () => {
           },
         },
       ])
-      expect(await getExistingDocument('watchlist-1')).toBeNull()
+      expect(peekDocument('watchlist-1')).toBeNull()
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
@@ -538,11 +538,11 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(await getExistingDocument('workflow-failed')).toBeNull()
+      expect(peekDocument('workflow-failed')).toBeNull()
     })
 
     it('does not mutate a connected live workflow session when persistence fails', async () => {
-      const { conn, doc: liveDoc } = await connectTestDocument('workflow-connected')
+      const { conn, doc: liveDoc } = connectTestDocument('workflow-connected')
       setWorkflowState(
         liveDoc,
         { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
@@ -573,9 +573,7 @@ describe('Socket Server Index Integration', () => {
       // A failed write must never leave connected clients ahead of the database:
       // the live session still holds the pre-command block.
       expect(response.statusCode).toBe(500)
-      const liveBlocks = extractPersistedStateFromDoc(
-        (await getExistingDocument('workflow-connected'))!
-      ).blocks
+      const liveBlocks = extractPersistedStateFromDoc(peekDocument('workflow-connected')!).blocks
       expect(liveBlocks).toHaveProperty('keep')
       expect(liveBlocks).not.toHaveProperty('replaced')
 
@@ -595,11 +593,11 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(await getExistingDocument('skill-update-failed')).toBeNull()
+      expect(peekDocument('skill-update-failed')).toBeNull()
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {
-      const { conn, doc: liveDoc } = await connectTestDocument('skill-update-connected')
+      const { conn, doc: liveDoc } = connectTestDocument('skill-update-connected')
       seedEntitySession(liveDoc, {
         entityKind: 'skill',
         payload: {
@@ -626,9 +624,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(
-        getEntityFields((await getExistingDocument('skill-update-connected'))!, 'skill')
-      ).toEqual({
+      expect(getEntityFields(peekDocument('skill-update-connected')!, 'skill')).toEqual({
         description: 'Draft',
         content: 'Draft content',
       })
@@ -641,7 +637,7 @@ describe('Socket Server Index Integration', () => {
       const { getReviewTargetRuntimeState } = await import('@/lib/copilot/review-sessions/runtime')
 
       getDocument('workflow-state-update')
-      const liveDoc = await getExistingDocument('workflow-state-update')
+      const liveDoc = peekDocument('workflow-state-update')
 
       setWorkflowState(
         liveDoc!,
@@ -722,7 +718,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('missing-workflow')).toBeNull()
+      expect(peekDocument('missing-workflow')).toBeNull()
     })
 
     it('should bootstrap a saved entity snapshot into a live Yjs document', async () => {
@@ -738,7 +734,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('skill-stale')).toBeNull()
+      expect(peekDocument('skill-stale')).toBeNull()
     })
   })
 
@@ -763,7 +759,7 @@ describe('Socket Server Index Integration', () => {
         bootstrapState,
       })
 
-      const doc = (await getExistingDocument('list:skill:workspace-1'))!
+      const doc = peekDocument('list:skill:workspace-1')!
       const updateDoc = new Y.Doc()
       replaceEntityListSessionMembers(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
       conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))

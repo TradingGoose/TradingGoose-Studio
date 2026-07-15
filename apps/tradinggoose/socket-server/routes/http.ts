@@ -60,12 +60,11 @@ import {
   abortYjsSessionDeletion,
   beginYjsSessionDeletion,
   commitYjsSessionDeletion,
-  discardDocument,
   discardDocumentIfIdle,
   flushDocumentPersistence,
   getDocument,
-  getExistingDocument,
   markDocumentPersisted,
+  peekDocument,
   reconcileWorkspaceConnections,
   runDocumentMutation,
   YjsSessionAdmissionError,
@@ -108,7 +107,6 @@ const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/([^/]+)\/edit$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_SESSION_DELETE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 const INTERNAL_YJS_DELETION_BEGIN_PATH = '/internal/yjs/session-deletions'
 const INTERNAL_YJS_DELETION_COMMIT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)\/commit$/
 const INTERNAL_YJS_DELETION_ABORT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)$/
@@ -349,9 +347,9 @@ function clearSessionReseededFromCanonical(doc: Y.Doc): void {
 async function getBootstrappedApplyDocument(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
 ): Promise<Y.Doc> {
-  const liveDoc = await getExistingDocument(descriptor.yjsSessionId)
+  const liveDoc = peekDocument(descriptor.yjsSessionId)
   if (liveDoc) {
-    return liveDoc
+    return getDocument(descriptor.yjsSessionId, true, undefined, descriptor.workspaceId).doc
   }
 
   if (!descriptor.entityId) {
@@ -363,7 +361,12 @@ async function getBootstrappedApplyDocument(
     throw new Error('Yjs review target is not active')
   }
 
-  return getDocument(descriptor.yjsSessionId, true, bootstrapped.state).doc
+  return getDocument(
+    descriptor.yjsSessionId,
+    true,
+    bootstrapped.state,
+    bootstrapped.descriptor.workspaceId
+  ).doc
 }
 
 /**
@@ -713,7 +716,9 @@ async function commitDashboardStructurePlan(input: {
       }).yjsSessionId
   )
   const deletionLeaseId = removedSessionIds.length > 0 ? randomUUID() : null
-  if (deletionLeaseId) await beginYjsSessionDeletion(deletionLeaseId, removedSessionIds)
+  if (deletionLeaseId) {
+    await beginYjsSessionDeletion(deletionLeaseId, { sessionIds: removedSessionIds })
+  }
 
   try {
     await applyThroughStaging(
@@ -1130,8 +1135,11 @@ async function handleInternalYjsSnapshotRequest(
 
   let requestCreatedDoc: Y.Doc | null = null
   try {
-    let liveDoc = await getExistingDocument(sessionId)
-    if (!liveDoc) {
+    let responseDescriptor = descriptor
+    let liveDoc = peekDocument(sessionId)
+    if (liveDoc) {
+      liveDoc = getDocument(sessionId, true, undefined, descriptor.workspaceId).doc
+    } else {
       const bootstrapped = descriptor.entityId
         ? await createSavedReviewTargetBootstrapUpdate(descriptor)
         : null
@@ -1140,7 +1148,13 @@ async function handleInternalYjsSnapshotRequest(
           sendJson(res, 410, { error: 'Session expired', sessionId })
           return
         }
-        const acquired = getDocument(sessionId, true, bootstrapped.state)
+        responseDescriptor = bootstrapped.descriptor
+        const acquired = getDocument(
+          sessionId,
+          true,
+          bootstrapped.state,
+          responseDescriptor.workspaceId
+        )
         liveDoc = acquired.doc
         if (acquired.created) requestCreatedDoc = acquired.doc
       }
@@ -1155,7 +1169,7 @@ async function handleInternalYjsSnapshotRequest(
 
     sendJson(res, 200, {
       snapshotBase64: Buffer.from(state).toString('base64'),
-      descriptor,
+      descriptor: responseDescriptor,
       runtime: getReviewTargetRuntimeState(liveDoc),
       touchedAt: null,
     })
@@ -1170,22 +1184,6 @@ async function handleInternalYjsSnapshotRequest(
   }
 }
 
-async function handleInternalYjsSessionDeleteRequest(
-  res: ServerResponse,
-  logger: Logger,
-  sessionId: string
-): Promise<void> {
-  try {
-    await discardDocument(sessionId)
-    sendJson(res, 200, { success: true })
-  } catch (error) {
-    logger.error('Error deleting Yjs session', { error, sessionId })
-    sendJson(res, 500, {
-      error: error instanceof Error ? error.message : 'Failed to delete Yjs session',
-    })
-  }
-}
-
 async function handleInternalYjsDeletionBeginRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -1196,14 +1194,27 @@ async function handleInternalYjsDeletionBeginRequest(
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
       throw new InvalidInternalYjsRequestError('Invalid Yjs deletion lease body')
     }
-    const { leaseId, sessionIds } = raw as Record<string, unknown>
+    const { leaseId, sessionIds, workspaceIds } = raw as Record<string, unknown>
     if (typeof leaseId !== 'string' || !leaseId.trim()) {
       throw new InvalidInternalYjsRequestError('leaseId is required')
     }
-    if (!Array.isArray(sessionIds) || !sessionIds.every((value) => typeof value === 'string')) {
-      throw new InvalidInternalYjsRequestError('sessionIds must be an array of strings')
+    const targets = [sessionIds, workspaceIds]
+    if (
+      targets.some(
+        (ids) =>
+          ids !== undefined &&
+          (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || !id.trim()))
+      ) ||
+      targets.every((ids) => !Array.isArray(ids) || ids.length === 0)
+    ) {
+      throw new InvalidInternalYjsRequestError(
+        'sessionIds or workspaceIds must contain a non-empty string ID'
+      )
     }
-    await beginYjsSessionDeletion(leaseId, sessionIds)
+    await beginYjsSessionDeletion(leaseId, {
+      sessionIds: sessionIds as string[] | undefined,
+      workspaceIds: workspaceIds as string[] | undefined,
+    })
     sendJson(res, 200, { leaseId })
   } catch (error) {
     logger.error('Failed to begin Yjs deletion lease', { error })
@@ -1353,17 +1364,6 @@ async function handleInternalYjsRequest(
   )
   if (abortDeletionLeaseId) {
     handleInternalYjsDeletionAbortRequest(res, abortDeletionLeaseId)
-    return true
-  }
-
-  const deleteSessionId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_SESSION_DELETE_PATH,
-    'DELETE',
-    req.method
-  )
-  if (deleteSessionId) {
-    await handleInternalYjsSessionDeleteRequest(res, logger, deleteSessionId)
     return true
   }
 

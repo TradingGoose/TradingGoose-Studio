@@ -152,7 +152,9 @@ describe('withYjsSessionDeletionLease', () => {
     })
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
-    await expect(withYjsSessionDeletionLease(['watchlist-1'], mutate)).resolves.toBe('deleted')
+    await expect(
+      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
+    ).resolves.toBe('deleted')
 
     const beginBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))
     expect(beginBody).toEqual({
@@ -182,7 +184,7 @@ describe('withYjsSessionDeletionLease', () => {
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
     await expect(
-      withYjsSessionDeletionLease(['layout-1'], async () => {
+      withYjsSessionDeletionLease({ workspaceIds: ['workspace-1'] }, async () => {
         throw new Error('database offline')
       })
     ).rejects.toThrow('database offline')

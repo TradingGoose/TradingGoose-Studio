@@ -23,10 +23,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  discardYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -425,40 +422,4 @@ export async function getKnowledgeBaseById(
     chunkingConfig: result[0].chunkingConfig as ChunkingConfig,
     docCount: Number(result[0].docCount),
   }
-}
-
-/**
- * Delete a knowledge base (soft delete)
- */
-export async function deleteKnowledgeBase(
-  knowledgeBaseId: string,
-  requestId: string
-): Promise<void> {
-  const now = new Date()
-
-  const existing = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({ workspaceId: knowledgeBase.workspaceId })
-      .from(knowledgeBase)
-      .where(eq(knowledgeBase.id, knowledgeBaseId))
-      .limit(1)
-    if (!current?.workspaceId) return null
-
-    await lockSavedEntityList(tx, 'knowledge_base', current.workspaceId)
-    await tx
-      .update(knowledgeBase)
-      .set({
-        deletedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(knowledgeBase.id, knowledgeBaseId))
-    return current
-  })
-
-  if (existing?.workspaceId) {
-    await refreshEntityListSession('knowledge_base', existing.workspaceId)
-    await Promise.allSettled([discardYjsSessionInSocketServer(knowledgeBaseId)])
-  }
-
-  logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)
 }

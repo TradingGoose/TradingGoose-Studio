@@ -8,9 +8,10 @@ import {
   SKILL_DESCRIPTION_MAX_LENGTH,
   SKILL_NAME_MAX_LENGTH,
 } from '@/lib/skills/import-export'
-import { createSkills, deleteSkill, listSkills } from '@/lib/skills/operations'
+import { createSkills, listSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('SkillsAPI')
 
@@ -175,7 +176,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const deleted = await deleteSkill({ skillId, workspaceId })
+    const deleted = await deleteSavedEntity('skill', skillId, workspaceId)
     if (!deleted) {
       logger.warn(`[${requestId}] Skill not found: ${skillId}`)
       return NextResponse.json({ error: 'Skill not found' }, { status: 404 })

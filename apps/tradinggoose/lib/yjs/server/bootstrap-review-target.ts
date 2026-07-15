@@ -235,6 +235,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
+      resolvedWorkspaceId = descriptor.workspaceId ?? workflowState.workspaceId
 
       setWorkflowState(
         doc,
@@ -320,7 +321,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
     const state = Y.encodeStateAsUpdate(doc)
 
     return {
-      descriptor,
+      descriptor: { ...descriptor, workspaceId: resolvedWorkspaceId },
       runtime: getReviewTargetRuntimeState(doc),
       state,
     }

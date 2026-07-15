@@ -35,8 +35,8 @@ import {
   type DocumentValidator,
   discardDocumentIfIdle,
   getDocument,
-  getExistingDocument,
   isYjsSessionAdmissionBlocked,
+  peekDocument,
   setupWSConnection,
 } from './upstream-utils'
 
@@ -107,7 +107,10 @@ export function handleYjsUpgrade(
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
     .then(
       ({ accessMode, bootstrapState, userId, resolvedSessionId, descriptor, validateDocument }) => {
-        if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(resolvedSessionId)) {
+        if (
+          !canAcceptConnection() ||
+          isYjsSessionAdmissionBlocked(resolvedSessionId, descriptor.workspaceId)
+        ) {
           rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
           return
         }
@@ -195,10 +198,10 @@ async function authenticateAndPrepareUpgrade(
   const validateDocument = await prepareDashboardChildValidator(canonicalDescriptor)
 
   let bootstrapState: Uint8Array | undefined
-  const liveDoc = await getExistingDocument(pathSessionId)
+  const liveDoc = peekDocument(pathSessionId)
   let runtime = liveDoc ? getReviewTargetRuntimeState(liveDoc) : null
   if (isListTarget) {
-    const acquired = getDocument(pathSessionId, true)
+    const acquired = getDocument(pathSessionId, true, undefined, canonicalDescriptor.workspaceId)
     const listDoc = acquired.doc
     try {
       await reconcileEntityListSession(

@@ -21,7 +21,7 @@ describe('Workflow By ID API Route', () => {
   const mockLoadWorkflowState = vi.fn()
   const mockRefreshWorkflowListForWorkflow = vi.fn()
   const mockRefreshWorkflowList = vi.fn()
-  const mockDeleteYjsSession = vi.fn()
+  const mockWithYjsSessionDeletionLease = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
   const mockDbUpdateSet = vi.fn()
@@ -89,7 +89,7 @@ describe('Workflow By ID API Route', () => {
     mockLoadWorkflowState.mockReset()
     mockRefreshWorkflowListForWorkflow.mockReset()
     mockRefreshWorkflowList.mockReset()
-    mockDeleteYjsSession.mockReset()
+    mockWithYjsSessionDeletionLease.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
@@ -110,14 +110,14 @@ describe('Workflow By ID API Route', () => {
       },
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
-    mockDeleteYjsSession.mockResolvedValue(undefined)
+    mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) => mutate())
     mockRenameSavedEntityIdentity.mockResolvedValue({
       name: 'Updated Workflow',
       updatedAt: new Date('2026-03-17T11:00:00.000Z'),
     })
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      discardYjsSessionInSocketServer: mockDeleteYjsSession,
+      withYjsSessionDeletionLease: mockWithYjsSessionDeletionLease,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -406,7 +406,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should delete the workflow row before non-blocking Yjs cleanup', async () => {
+    it('should lease the live document before deleting the workflow row', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -414,9 +414,11 @@ describe('Workflow By ID API Route', () => {
         workspaceId: null,
       }
       const events: string[] = []
-      mockDeleteYjsSession.mockImplementation(async () => {
-        events.push('yjs-delete')
-        throw new Error('socket offline')
+      mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) => {
+        events.push('lease-begin')
+        const result = await mutate()
+        events.push('lease-commit')
+        return result
       })
 
       vi.doMock('@/lib/auth', () => ({
@@ -456,10 +458,13 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(events).toEqual(['db-delete', 'yjs-delete'])
+      expect(events).toEqual(['lease-begin', 'db-delete', 'lease-commit'])
+      expect(mockWithYjsSessionDeletionLease.mock.calls[0]?.[0]).toEqual({
+        sessionIds: ['workflow-123'],
+      })
     })
 
-    it('should return 500 if workflow row deletion fails before session cleanup', async () => {
+    it('should return 500 if workflow row deletion fails inside the deletion lease', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -503,7 +508,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(500)
       const data = await response.json()
       expect(data.error).toBe('Internal server error')
-      expect(mockDeleteYjsSession).not.toHaveBeenCalled()
+      expect(mockWithYjsSessionDeletionLease).toHaveBeenCalledOnce()
       expect(deleteWhereMock).toHaveBeenCalledOnce()
     })
 

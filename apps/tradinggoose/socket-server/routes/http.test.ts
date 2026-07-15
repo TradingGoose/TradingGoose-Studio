@@ -38,10 +38,9 @@ const mocks = vi.hoisted(() => ({
   getRuntime: vi.fn(() => ({ docState: 'active' })),
   refreshActiveEntityList: vi.fn(),
   getDocument: vi.fn(),
-  getExistingDocument: vi.fn(),
+  peekDocument: vi.fn(),
   markPersisted: vi.fn(),
   discardIfIdle: vi.fn(),
-  discard: vi.fn(),
   flushPersistence: vi.fn(),
   runMutation: vi.fn(),
   reconcileWorkspaceConnections: vi.fn(),
@@ -91,10 +90,9 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
   beginYjsSessionDeletion: mocks.beginDeletion,
   commitYjsSessionDeletion: mocks.commitDeletion,
   getDocument: mocks.getDocument,
-  getExistingDocument: mocks.getExistingDocument,
+  peekDocument: mocks.peekDocument,
   markDocumentPersisted: mocks.markPersisted,
   discardDocumentIfIdle: mocks.discardIfIdle,
-  discardDocument: mocks.discard,
   flushDocumentPersistence: mocks.flushPersistence,
   runDocumentMutation: mocks.runMutation,
   reconcileWorkspaceConnections: mocks.reconcileWorkspaceConnections,
@@ -162,9 +160,9 @@ function setDashboardDocuments(input?: {
   if (input?.blue) documents.set('dashboard-color-pair:layout-1:blue', input.blue)
 }
 
-function snapshotOf(doc: Y.Doc) {
+function snapshotOf(doc: Y.Doc, descriptor: Record<string, unknown> = {}) {
   return {
-    descriptor: {},
+    descriptor,
     runtime: { docState: 'active' },
     state: Y.encodeStateAsUpdate(doc),
   }
@@ -246,7 +244,6 @@ describe('socket internal HTTP Yjs routes', () => {
     )
     mocks.flushPersistence.mockResolvedValue(undefined)
     mocks.discardIfIdle.mockImplementation(() => undefined)
-    mocks.discard.mockResolvedValue(undefined)
     mocks.saveDashboardWidget.mockResolvedValue({ ok: true })
     mocks.saveDashboardPair.mockResolvedValue({ ok: true })
     mocks.beginDeletion.mockResolvedValue(undefined)
@@ -259,9 +256,7 @@ describe('socket internal HTTP Yjs routes', () => {
       async (_kind: string, _id: string, _workspaceId: string, doc: Y.Doc) =>
         doc.getMap('test').get('fields')
     )
-    mocks.getExistingDocument.mockImplementation((sessionId: string) =>
-      Promise.resolve(documents.get(sessionId) ?? null)
-    )
+    mocks.peekDocument.mockImplementation((sessionId: string) => documents.get(sessionId) ?? null)
     mocks.getDocument.mockImplementation((sessionId: string, _gc: boolean, state?: Uint8Array) => {
       const existing = documents.get(sessionId)
       if (existing) return { doc: existing, created: false }
@@ -294,6 +289,35 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     expect(response).toMatchObject({ status: 400, body: { error: 'Invalid entityKind' } })
     expect(mocks.saveEntity).not.toHaveBeenCalled()
+  })
+
+  it('binds workflow snapshots and live applies through canonical document acquisition', async () => {
+    const descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', null)
+    const resolvedDescriptor = { ...descriptor, workspaceId: 'workspace-1' }
+    const source = new Y.Doc()
+    const bootstrap = snapshotOf(source, resolvedDescriptor)
+    source.destroy()
+    mocks.createTargetBootstrap.mockResolvedValueOnce(bootstrap)
+    const query = new URLSearchParams(
+      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+    ).toString()
+
+    const snapshot = await invoke('GET', `/internal/yjs/sessions/workflow-1/snapshot?${query}`)
+    expect(snapshot.body.descriptor.workspaceId).toBe('workspace-1')
+    expect(mocks.getDocument).toHaveBeenCalledWith(
+      'workflow-1',
+      true,
+      bootstrap.state,
+      'workspace-1'
+    )
+
+    mocks.getDocument.mockClear()
+    mocks.createTargetBootstrap.mockClear()
+    await expect(
+      invoke('POST', '/internal/yjs/workflows/workflow-1/apply-state', { variables: {} })
+    ).resolves.toMatchObject({ status: 200 })
+    expect(mocks.createTargetBootstrap).not.toHaveBeenCalled()
+    expect(mocks.getDocument).toHaveBeenCalledWith('workflow-1', true, undefined, null)
   })
 
   it('checks accepted entity review hashes inside the queued mutation', async () => {
@@ -494,9 +518,9 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: ['widget-1'],
     })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith(expect.any(String), [
-      'dashboard-widget:layout-1:widget-1',
-    ])
+    expect(mocks.beginDeletion).toHaveBeenCalledWith(expect.any(String), {
+      sessionIds: ['dashboard-widget:layout-1:widget-1'],
+    })
     expect(mocks.commitDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
     expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
     expect(response.body.content.colorPairs.pairs).toContainEqual({
@@ -801,38 +825,23 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.persistDashboardPair).not.toHaveBeenCalled()
   })
 
-  it('waits for orderly discard before acknowledging session deletion', async () => {
-    let release!: () => void
-    mocks.discard.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        release = resolve
-      })
-    )
-    let settled = false
-    const responsePromise = invoke('DELETE', '/internal/yjs/sessions/layout-1').then((response) => {
-      settled = true
-      return response
-    })
-    await Promise.resolve()
-    expect(settled).toBe(false)
-
-    release()
-    await expect(responsePromise).resolves.toEqual({
-      status: 200,
-      body: { success: true },
-    })
-  })
-
   it('coordinates exact-session deletion leases through begin, commit, and abort', async () => {
     const begun = await invoke('POST', '/internal/yjs/session-deletions', {
       leaseId: 'lease-1',
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
+      workspaceIds: ['workspace-1'],
     })
     expect(begun).toEqual({ status: 200, body: { leaseId: 'lease-1' } })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith('lease-1', [
-      'layout-1',
-      'dashboard-widget:layout-1:widget-1',
-    ])
+    expect(mocks.beginDeletion).toHaveBeenCalledWith('lease-1', {
+      sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
+      workspaceIds: ['workspace-1'],
+    })
+
+    const invalid = await invoke('POST', '/internal/yjs/session-deletions', {
+      leaseId: 'bad-1',
+      sessionIds: 'bad',
+    })
+    expect(invalid.status).toBe(400)
 
     const committed = await invoke('POST', '/internal/yjs/session-deletions/lease-1/commit', {})
     expect(committed.status).toBe(200)

@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { customTools } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
@@ -11,11 +8,7 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  discardYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -146,7 +139,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE - Delete a custom tool by ID
 export async function DELETE(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
@@ -184,21 +176,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const deleted = await db.transaction(async (tx) => {
-      await lockSavedEntityList(tx, 'custom_tool', workspaceId)
-      const [row] = await tx
-        .delete(customTools)
-        .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-        .returning({ id: customTools.id })
-      return Boolean(row)
-    })
+    const deleted = await deleteSavedEntity('custom_tool', toolId, workspaceId)
     if (!deleted) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
-
-    await refreshEntityListSession('custom_tool', workspaceId)
-    await Promise.allSettled([discardYjsSessionInSocketServer(toolId)])
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

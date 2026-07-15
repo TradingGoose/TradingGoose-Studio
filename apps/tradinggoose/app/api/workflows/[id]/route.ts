@@ -19,7 +19,7 @@ import {
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { discardYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { withYjsSessionDeletionLease } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -197,10 +197,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-/**
- * DELETE /api/workflows/[id]
- * Delete a workflow by ID
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -226,15 +222,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Check if user has permission to delete this workflow
     let canDelete = false
 
-    // Case 1: User owns the workflow
     if (workflowData.userId === userId) {
       canDelete = true
     }
 
-    // Case 2: Workflow belongs to a workspace and user has admin permission
     if (!canDelete && workflowData.workspaceId) {
       const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
       if (context?.isWorkspaceOwner || context?.workspacePermission === 'admin') {
@@ -249,13 +242,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    await db.delete(workflow).where(eq(workflow.id, workflowId))
+    await withYjsSessionDeletionLease({ sessionIds: [workflowId] }, () =>
+      db.delete(workflow).where(eq(workflow.id, workflowId))
+    )
 
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
     }
-    await Promise.allSettled([discardYjsSessionInSocketServer(workflowId)])
-
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
 

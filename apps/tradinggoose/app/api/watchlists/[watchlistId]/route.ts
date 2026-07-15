@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { deleteWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
+import { WatchlistOperationError } from '@/lib/watchlists/operations'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('WatchlistByIdAPI')
 
@@ -57,7 +58,7 @@ export async function DELETE(
 
     await requireWorkspacePermission(userId, workspaceId, { write: true })
 
-    const deleted = await deleteWatchlist({ workspaceId }, watchlistId)
+    const deleted = await deleteSavedEntity('watchlist', watchlistId, workspaceId)
     if (!deleted) {
       return NextResponse.json({ error: 'Watchlist not found' }, { status: 404 })
     }

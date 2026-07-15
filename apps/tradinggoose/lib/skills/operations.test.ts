@@ -67,7 +67,6 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  discardYjsSessionInSocketServer: vi.fn(),
   refreshEntityListSession: mockNotifyEntityListMembersUpserted,
 }))
 

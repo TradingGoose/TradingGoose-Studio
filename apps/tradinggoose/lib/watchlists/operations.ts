@@ -5,10 +5,8 @@ import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
   listRootWatchlistRowsInTx,
-  loadWatchlistDocumentFields,
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
-  rootWatchlistCondition,
   type WatchlistDocumentTx,
 } from '@/lib/watchlists/document'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
@@ -17,10 +15,7 @@ import {
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
 import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
-import {
-  refreshEntityListSession,
-  withYjsSessionDeletionLease,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 type WatchlistScope = {
   workspaceId: string
@@ -91,17 +86,6 @@ function buildWatchlistRecordFromDocument(
     items: fields.items,
     createdAt: toIso(metadata.createdAt),
     updatedAt: toIso(metadata.updatedAt),
-  }
-}
-
-export async function loadWatchlistDocument(
-  workspaceId: string,
-  watchlistId: string
-): Promise<WatchlistDocumentFields> {
-  try {
-    return await loadWatchlistDocumentFields(workspaceId, watchlistId)
-  } catch (error) {
-    mapDocumentError(error)
   }
 }
 
@@ -188,38 +172,6 @@ export async function getWatchlist(
       const fields = await mapWatchlistDocumentFieldsInTx(tx, root)
       return buildWatchlistRecordFromDocument(root, fields)
     })
-  } catch (error) {
-    mapDocumentError(error)
-  }
-}
-
-export async function deleteWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string
-): Promise<boolean> {
-  try {
-    const deleted = await withYjsSessionDeletionLease([watchlistId], () =>
-      db.transaction((tx) =>
-        withWatchlistRootListLock(tx, scope.workspaceId, async () => {
-          const [root] = await tx
-            .select({ id: watchlistTable.id })
-            .from(watchlistTable)
-            .where(rootWatchlistCondition(scope.workspaceId, watchlistId))
-            .limit(1)
-          if (!root) return false
-
-          await tx
-            .delete(watchlistTable)
-            .where(rootWatchlistCondition(scope.workspaceId, watchlistId))
-          return true
-        })
-      )
-    )
-
-    if (deleted) {
-      await refreshEntityListSession('watchlist', scope.workspaceId)
-    }
-    return deleted
   } catch (error) {
     mapDocumentError(error)
   }

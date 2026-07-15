@@ -30,32 +30,7 @@ vi.mock('@/lib/workflows/utils', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
-  isSavedEntityListLockKind: vi.fn(),
-  lockSavedEntityList: vi.fn(),
-}))
-
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-    }),
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflow: {},
-  skill: {},
-  customTools: {},
-  pineIndicators: {},
-  mcpServers: {},
-  layoutMaps: {},
+  deleteSavedEntity: vi.fn(),
 }))
 
 describe('Custom Tools API Routes', () => {

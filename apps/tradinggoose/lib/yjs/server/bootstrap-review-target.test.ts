@@ -6,10 +6,17 @@ import {
   readSavedEntityListFieldsForExecution,
 } from './bootstrap-review-target'
 
-const { readEntityListMembersFromDb, readSavedEntityFieldsFromDb } = vi.hoisted(() => ({
+const {
+  loadWorkflowBootstrapStateFromDb,
+  readEntityListMembersFromDb,
+  readSavedEntityFieldsFromDb,
+} = vi.hoisted(() => ({
+  loadWorkflowBootstrapStateFromDb: vi.fn(),
   readEntityListMembersFromDb: vi.fn(),
   readSavedEntityFieldsFromDb: vi.fn(),
 }))
+
+vi.mock('@/lib/workflows/db-helpers', () => ({ loadWorkflowBootstrapStateFromDb }))
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   readEntityListMembersFromDb,
@@ -28,6 +35,7 @@ const dashboardContent = {
 
 describe('reseedEntityListSessionFromDb', () => {
   beforeEach(() => {
+    loadWorkflowBootstrapStateFromDb.mockReset()
     readEntityListMembersFromDb.mockReset()
     readSavedEntityFieldsFromDb.mockReset()
   })
@@ -80,5 +88,27 @@ describe('reseedEntityListSessionFromDb', () => {
     await expect(createSavedReviewTargetBootstrapUpdate(descriptor)).rejects.toMatchObject({
       status: 409,
     })
+  })
+
+  it('resolves workflow workspace ownership from its bootstrap row', async () => {
+    loadWorkflowBootstrapStateFromDb.mockResolvedValue({
+      workspaceId: 'workspace-db',
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      variables: {},
+      lastSaved: 0,
+    })
+
+    const resolved = await createSavedReviewTargetBootstrapUpdate(
+      buildSavedEntityDescriptor('workflow', 'workflow-1', null)
+    )
+    const explicit = await createSavedReviewTargetBootstrapUpdate(
+      buildSavedEntityDescriptor('workflow', 'workflow-1', 'workspace-explicit')
+    )
+
+    expect(resolved.descriptor.workspaceId).toBe('workspace-db')
+    expect(explicit.descriptor.workspaceId).toBe('workspace-explicit')
   })
 })

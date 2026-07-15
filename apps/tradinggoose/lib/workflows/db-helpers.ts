@@ -172,10 +172,11 @@ export async function requireWorkflowRealtimeState(
 
 export async function loadWorkflowBootstrapStateFromDb(
   workflowId: string
-): Promise<PersistedWorkflowState | null> {
+): Promise<(PersistedWorkflowState & { workspaceId: string | null }) | null> {
   const [workflowRow, normalizedState] = await Promise.all([
     db
       .select({
+        workspaceId: workflow.workspaceId,
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
       })
@@ -200,6 +201,7 @@ export async function loadWorkflowBootstrapStateFromDb(
 
   return {
     ...savedState,
+    workspaceId: row.workspaceId ?? null,
     direction: inferWorkflowDirectionFromState(savedState),
   }
 }

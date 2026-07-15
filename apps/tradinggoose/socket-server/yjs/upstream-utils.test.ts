@@ -26,7 +26,6 @@ import {
   cleanupAllDocuments,
   commitYjsSessionDeletion,
   discardDocument,
-  discardDocumentIfCurrent,
   discardDocumentIfIdle,
   drainAllDocuments,
   getDocument,
@@ -106,9 +105,9 @@ beforeEach(() => {
 })
 
 describe('shared document lifecycle', () => {
-  it('reports one atomic creator for a shared document id', () => {
-    const first = getDocument('layout-bootstrap-race')
-    const second = getDocument('layout-bootstrap-race')
+  it('shares one document for its canonical workspace binding', () => {
+    const first = getDocument('layout-bootstrap-race', true, undefined, 'workspace-1')
+    const second = getDocument('layout-bootstrap-race', true, undefined, 'workspace-1')
 
     expect(first.created).toBe(true)
     expect(second).toEqual({ doc: first.doc, created: false })
@@ -120,7 +119,7 @@ describe('shared document lifecycle', () => {
     const replacement = getDocument('layout-replaced').doc
     const mutation = vi.fn()
 
-    await discardDocumentIfCurrent(stale)
+    await discardDocument(stale)
     await expect(runDocumentMutation(stale, mutation)).rejects.toThrow('draining')
 
     expect(mutation).not.toHaveBeenCalled()
@@ -489,6 +488,7 @@ describe('orderly document discard', () => {
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
       persistedValue(target.getMap('fields').get('accepted'))
     })
+    getDocument('leased-watchlist', true, undefined, 'workspace-1')
     const doc = setupWatchlistSocket(socket, 'leased-watchlist', persist, 60_000)
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
     await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
@@ -497,16 +497,18 @@ describe('orderly document discard', () => {
     const mutation = runDocumentMutation(doc, () => mutationGate.promise)
 
     const abortedLease = 'lease-abort'
-    const firstBegin = beginYjsSessionDeletion(abortedLease, ['leased-watchlist'])
+    const firstBegin = beginYjsSessionDeletion(abortedLease, { workspaceIds: ['workspace-1'] })
     let duplicateReady = false
-    const duplicateBegin = beginYjsSessionDeletion(abortedLease, ['leased-watchlist']).then(() => {
+    const duplicateBegin = beginYjsSessionDeletion(abortedLease, {
+      workspaceIds: ['workspace-1'],
+    }).then(() => {
       duplicateReady = true
     })
     await Promise.resolve()
     expect(duplicateReady).toBe(false)
-    await expect(beginYjsSessionDeletion(abortedLease, ['different-session'])).rejects.toThrow(
-      'not accepting connections'
-    )
+    await expect(
+      beginYjsSessionDeletion(abortedLease, { workspaceIds: ['workspace-2'] })
+    ).rejects.toThrow('not accepting connections')
     await expect(runDocumentMutation(doc, () => undefined)).rejects.toThrow('draining')
     expect(peekDocument('leased-watchlist')).toBe(doc)
 
@@ -516,7 +518,7 @@ describe('orderly document discard', () => {
     expect(persistedValue).toHaveBeenCalledWith(true)
     expect(socket.close).toHaveBeenCalledOnce()
     expect(peekDocument('leased-watchlist')).toBeNull()
-    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(true)
+    expect(isYjsSessionAdmissionBlocked('leased-watchlist', 'workspace-1')).toBe(true)
     expect(() =>
       setupWSConnection(new TestSocket() as unknown as WebSocket, {} as IncomingMessage, {
         docId: 'leased-watchlist',
@@ -528,10 +530,10 @@ describe('orderly document discard', () => {
 
     abortYjsSessionDeletion(abortedLease)
     abortYjsSessionDeletion(abortedLease)
-    expect(isYjsSessionAdmissionBlocked('leased-watchlist')).toBe(false)
+    expect(isYjsSessionAdmissionBlocked('leased-watchlist', 'workspace-1')).toBe(false)
 
     const committedLease = 'lease-commit'
-    await beginYjsSessionDeletion(committedLease, ['deleted-watchlist'])
+    await beginYjsSessionDeletion(committedLease, { sessionIds: ['deleted-watchlist'] })
     commitYjsSessionDeletion(committedLease)
     commitYjsSessionDeletion(committedLease)
     abortYjsSessionDeletion(committedLease)
@@ -540,22 +542,28 @@ describe('orderly document discard', () => {
 
     vi.useFakeTimers()
     const expiredLease = 'lease-expired'
-    await beginYjsSessionDeletion(expiredLease, ['orphaned-watchlist'])
+    await beginYjsSessionDeletion(expiredLease, { sessionIds: ['orphaned-watchlist'] })
     await vi.advanceTimersByTimeAsync(5 * 60_000 - 1)
-    await beginYjsSessionDeletion(expiredLease, ['orphaned-watchlist'])
+    await beginYjsSessionDeletion(expiredLease, { sessionIds: ['orphaned-watchlist'] })
     await vi.advanceTimersByTimeAsync(1)
     expect(isYjsSessionAdmissionBlocked('orphaned-watchlist')).toBe(true)
     await vi.runOnlyPendingTimersAsync()
     expect(isYjsSessionAdmissionBlocked('orphaned-watchlist')).toBe(false)
 
-    await beginYjsSessionDeletion('lease-cleanup', ['cleanup-watchlist'])
+    await beginYjsSessionDeletion('lease-cleanup', { sessionIds: ['cleanup-watchlist'] })
     cleanupAllDocuments()
     await vi.advanceTimersByTimeAsync(2.5 * 60_000)
-    await beginYjsSessionDeletion('lease-cleanup', ['cleanup-watchlist'])
+    await beginYjsSessionDeletion('lease-cleanup', { sessionIds: ['cleanup-watchlist'] })
     await vi.advanceTimersByTimeAsync(2.5 * 60_000)
     expect(isYjsSessionAdmissionBlocked('cleanup-watchlist')).toBe(true)
     await vi.runOnlyPendingTimersAsync()
     expect(isYjsSessionAdmissionBlocked('cleanup-watchlist')).toBe(false)
+  })
+
+  it('requires a deletion target', async () => {
+    await expect(beginYjsSessionDeletion('invalid-lease', {})).rejects.toThrow(
+      'At least one non-empty Yjs deletion target is required'
+    )
   })
 
   it('does not report an expired deletion lease as ready after its drain finishes', async () => {
@@ -566,9 +574,9 @@ describe('orderly document discard', () => {
     const doc = setupWatchlistSocket(socket, 'expired-lease-watchlist', persist, 60_000)
     doc.getMap('fields').set('dirty', true)
 
-    const deleting = beginYjsSessionDeletion('lease-expiring-during-drain', [
-      'expired-lease-watchlist',
-    ])
+    const deleting = beginYjsSessionDeletion('lease-expiring-during-drain', {
+      sessionIds: ['expired-lease-watchlist'],
+    })
     await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
     await vi.advanceTimersByTimeAsync(5 * 60_000)
     persistence.resolve()
@@ -588,7 +596,7 @@ describe('orderly document discard', () => {
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
     await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
     expect(persist).not.toHaveBeenCalled()
-    const discarding = discardDocument('discard-retry')
+    const discarding = discardDocument(peekDocument('discard-retry')!)
 
     await expect(discarding).rejects.toThrow('database offline')
     expect(peekDocument('discard-retry')).toBe(doc)

@@ -17,7 +17,7 @@ import {
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
-import { notifyWorkspaceYjsAccessChanged } from '@/lib/yjs/server/snapshot-bridge'
+import { withYjsSessionDeletionLease } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -164,7 +164,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
   }
 
-  // Check if user has admin permissions to delete workspace
   const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
   if (userPermission !== 'admin') {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
@@ -178,30 +177,27 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    // Delete workspace and all related data in a transaction
-    await db.transaction(async (tx) => {
-      for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
-        await lockSavedEntityList(tx, entityKind, workspaceId)
-      }
+    await withYjsSessionDeletionLease({ workspaceIds: [workspaceId] }, () =>
+      db.transaction(async (tx) => {
+        for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
+          await lockSavedEntityList(tx, entityKind, workspaceId)
+        }
 
-      // Delete live workflow definitions first. Durable execution logs and snapshots
-      // remain workspace-owned until the workspace row is deleted below.
-      await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
+        // Delete live workflow definitions first. Durable execution logs and snapshots
+        // remain workspace-owned until the workspace row is deleted below.
+        await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
 
-      await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
+        await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
 
-      // Delete all permissions associated with this workspace
-      await tx
-        .delete(permissions)
-        .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
+        await tx
+          .delete(permissions)
+          .where(
+            and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId))
+          )
 
-      // Delete the workspace itself
-      await tx.delete(workspace).where(eq(workspace.id, workspaceId))
-
-      logger.info(`Successfully deleted workspace ${workspaceId} and all related data`)
-    })
-
-    await notifyWorkspaceYjsAccessChanged(workspaceId)
+        await tx.delete(workspace).where(eq(workspace.id, workspaceId))
+      })
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

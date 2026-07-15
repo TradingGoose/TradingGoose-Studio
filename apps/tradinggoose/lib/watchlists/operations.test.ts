@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
-const mockDeleteYjsSession = vi.hoisted(() => vi.fn())
 const mockRefreshEntityList = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
@@ -54,7 +53,6 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: mockRefreshEntityList,
-  withYjsSessionDeletionLease: mockDeleteYjsSession,
 }))
 
 import {
@@ -62,7 +60,7 @@ import {
   listRootWatchlistRowsInTx,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/document'
-import { createWatchlistFromDocument, deleteWatchlist } from '@/lib/watchlists/operations'
+import { createWatchlistFromDocument } from '@/lib/watchlists/operations'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 
 const rootRow = {
@@ -169,9 +167,6 @@ const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, l
 describe('watchlist operations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockDeleteYjsSession.mockImplementation(
-      async (_sessionIds: string[], mutate: () => Promise<unknown>) => mutate()
-    )
     mockRefreshEntityList.mockResolvedValue(undefined)
   })
 
@@ -278,32 +273,6 @@ describe('watchlist operations', () => {
 
     await expect(listRootWatchlistRowsInTx(store.tx, 'workspace-1')).resolves.toEqual([rootRow])
     expect(store.tx.select).toHaveBeenCalledTimes(1)
-  })
-
-  it('leases the live watchlist before deleting its canonical root', async () => {
-    let releaseDiscard!: () => void
-    mockDeleteYjsSession.mockImplementationOnce(
-      async (_sessionIds: string[], mutate: () => Promise<unknown>) => {
-        await new Promise<void>((resolve) => {
-          releaseDiscard = resolve
-        })
-        return mutate()
-      }
-    )
-    const store = materializerTx({ roots: [rootRow], updateResults: [] })
-    mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
-
-    const deletion = deleteWatchlist({ workspaceId: 'workspace-1' }, rootRow.id)
-    await vi.waitFor(() =>
-      expect(mockDeleteYjsSession).toHaveBeenCalledWith([rootRow.id], expect.any(Function))
-    )
-    expect(mockDbTransaction).not.toHaveBeenCalled()
-
-    releaseDiscard()
-    await expect(deletion).resolves.toBe(true)
-    expect(mockDbTransaction).toHaveBeenCalledTimes(1)
-    expect(store.tx.execute).toHaveBeenCalledTimes(1)
-    expect(mockRefreshEntityList).toHaveBeenCalledWith('watchlist', 'workspace-1')
   })
 
   it('accepts canonical parentId ownership and rejects old containerId ownership', () => {

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -11,10 +11,7 @@ import {
 import { generateRequestId } from '@/lib/utils'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  discardYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -47,27 +44,6 @@ export async function listSkills(params: { workspaceId: string }) {
     description: String(fields.description ?? ''),
     content: String(fields.content ?? ''),
   }))
-}
-
-export async function deleteSkill(params: {
-  skillId: string
-  workspaceId: string
-}): Promise<boolean> {
-  const deleted = await db.transaction(async (tx) => {
-    await lockSavedEntityList(tx, 'skill', params.workspaceId)
-    const [row] = await tx
-      .delete(skill)
-      .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-      .returning({ id: skill.id })
-    return Boolean(row)
-  })
-  if (!deleted) return false
-
-  await refreshEntityListSession('skill', params.workspaceId)
-  await Promise.allSettled([discardYjsSessionInSocketServer(params.skillId)])
-
-  logger.info(`Deleted skill ${params.skillId}`)
-  return true
 }
 
 export async function createSkills({

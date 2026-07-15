@@ -109,9 +109,7 @@ const m = vi.hoisted(() => {
     db: { ...store, transaction },
     bridge: {
       refreshEntityListSession: vi.fn(() => Promise.resolve()),
-      withYjsSessionDeletionLease: vi.fn(
-        async (_sessionIds: string[], mutate: () => Promise<unknown>) => mutate()
-      ),
+      withYjsSessionDeletionLease: vi.fn(async (_target, mutate) => mutate()),
     },
   }
 })
@@ -296,8 +294,8 @@ describe('dashboard layout operations', () => {
 
     await deleteDashboardLayout(scope, 'layout-1')
 
-    expect(m.bridge.withYjsSessionDeletionLease.mock.calls[0]?.[0]).toEqual(['layout-1'])
-    const childSessionIds = m.bridge.withYjsSessionDeletionLease.mock.calls[1]?.[0]
+    expect(m.bridge.withYjsSessionDeletionLease.mock.calls[0]?.[0].sessionIds).toEqual(['layout-1'])
+    const childSessionIds = m.bridge.withYjsSessionDeletionLease.mock.calls[1]?.[0].sessionIds
     expect(childSessionIds).toContain('dashboard-widget:layout-1:widget-1')
     expect(childSessionIds).toContain('dashboard-color-pair:layout-1:red')
     expect(childSessionIds).toHaveLength(6)
