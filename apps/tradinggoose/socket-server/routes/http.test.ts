@@ -226,6 +226,20 @@ function widgetReviewHash(
   )
 }
 
+const invokeWidgetEdit = (
+  patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch'],
+  expectedReviewBaseStateHash: string,
+  panelId = 'panel-1'
+) =>
+  invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    mutation: 'widget',
+    workspaceId: 'workspace-1',
+    ownerUserId: 'user-1',
+    expectedReviewBaseStateHash,
+    panelId,
+    patch,
+  })
+
 describe('socket internal HTTP Yjs routes', () => {
   beforeEach(() => {
     for (const doc of documents.values()) doc.destroy()
@@ -570,14 +584,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const patch = { params: { view: { interval: '1h' } } }
     const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
     expect(mocks.saveDashboard).toHaveBeenCalledWith(
@@ -595,6 +602,28 @@ describe('socket internal HTTP Yjs routes', () => {
     })
   })
 
+  it('returns structured retryable widget validation and stale-target errors', async () => {
+    setDashboardDocuments({ widget: createWidgetDoc() })
+    const invalid = await invokeWidgetEdit(
+      { params: { view: { pineIndicators: 123 } } },
+      'unused-review-hash'
+    )
+    expect(invalid).toMatchObject({
+      status: 422,
+      body: {
+        code: 'invalid_widget_config',
+        retryable: true,
+        issues: [{ path: 'params.view.pineIndicators' }],
+      },
+    })
+
+    const stale = await invokeWidgetEdit({}, 'unused-review-hash', 'missing-panel')
+    expect(stale).toMatchObject({
+      status: 422,
+      body: { code: 'invalid_widget_target', issues: [{ path: 'panelId' }] },
+    })
+  })
+
   it('persists a shared parameter edit only through the selected pair owner', async () => {
     const AAPL = listing('AAPL')
     const NVDA = { ...AAPL, listing_id: 'NVDA' }
@@ -606,14 +635,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const patch = { colorPair: { listing: NVDA } }
     const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
     expect(mocks.saveDashboard).toHaveBeenCalledWith(
@@ -642,14 +664,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const beforePair = readDashboardColorPairDocument(pairDoc)
     mocks.saveDashboard.mockRejectedValueOnce(new Error('database offline'))
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
     expect(mocks.saveDashboard).toHaveBeenCalledOnce()
@@ -662,7 +677,6 @@ describe('socket internal HTTP Yjs routes', () => {
     const widgetDoc = createWidgetDoc('red')
     const pairDoc = createPairDoc({ listing: listing('AAPL') })
     setDashboardDocuments({ widget: widgetDoc, red: pairDoc })
-    const layoutDoc = documents.get('layout-1')!
     const current = dashboardProjection({ red: { listing: listing('AAPL') } })
     const patch = { colorPair: { listing: listing('NVDA') } }
     const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
@@ -670,14 +684,7 @@ describe('socket internal HTTP Yjs routes', () => {
       if (doc === pairDoc) throw new Error('database offline')
     })
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
   })
@@ -703,14 +710,7 @@ describe('socket internal HTTP Yjs routes', () => {
       }
     )
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response).toMatchObject({
       status: 409,
@@ -737,14 +737,7 @@ describe('socket internal HTTP Yjs routes', () => {
       return { widget: savedWidget }
     })
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
     expect(savedWidget).toMatchObject({
@@ -767,14 +760,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const patch = { pairColor: 'blue' }
     const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
-      mutation: 'widget',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
-      expectedReviewBaseStateHash,
-      panelId: 'panel-1',
-      patch,
-    })
+    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response).toMatchObject({
       status: 409,

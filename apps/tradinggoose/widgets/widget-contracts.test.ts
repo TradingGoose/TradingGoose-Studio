@@ -36,7 +36,6 @@ describe('dashboard widget contracts', () => {
         pairColor: 'gray',
         params: contract.defaultParams,
       })
-      expect(contract.editableFields).toEqual(contract.paramContract.map((field) => field.field))
     }
   )
 
@@ -47,6 +46,17 @@ describe('dashboard widget contracts', () => {
         { strictUnknown: true }
       )
     ).toThrow()
+  })
+
+  it('rejects invalid known params instead of clearing or retaining them', () => {
+    expect(() =>
+      getWidgetContract('list_workflow').mergeCopilotParams(null, { workflowId: 123 })
+    ).toThrow('params.workflowId')
+    expect(() =>
+      getWidgetContract('watchlist').mergeCopilotParams(null, {
+        runtime: { refreshAt: 'later' },
+      })
+    ).toThrow('params.runtime')
   })
 
   it.each(WIDGET_KEYS)('serializes %s metadata without executable functions', (key) => {
@@ -88,7 +98,7 @@ describe('dashboard widget contracts', () => {
           data: { providerParams: { apiKey: 'secret' } },
           view: { theme: 'dark' },
         }
-      ).params
+      )
     ).toEqual({
       data: { provider: 'polygon', symbol: 'AAPL' },
       view: { interval: '1h', theme: 'dark' },
@@ -107,6 +117,9 @@ describe('dashboard widget contracts', () => {
     expect(() => normalizeWidgetColorPairPatch('heatmap', { view: { interval: '1h' } })).toThrow(
       'does not support this linked color-pair field'
     )
+    expect(() => normalizeWidgetColorPairPatch('heatmap', { listing: 'AAPL' })).toThrow(
+      'requires a valid linked listing value'
+    )
   })
 
   it('lets shared pair context override linked local params without touching non-linked params', () => {
@@ -123,7 +136,7 @@ describe('dashboard widget contracts', () => {
       { watchlistId: 'watchlist-shared' }
     )
 
-    expect(result.params).toEqual({
+    expect(result).toEqual({
       watchlistId: 'watchlist-shared',
       provider: 'alpaca',
     })

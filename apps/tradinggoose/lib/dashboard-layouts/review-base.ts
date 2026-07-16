@@ -1,3 +1,4 @@
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { DASHBOARD_CREDENTIAL_PLACEHOLDER } from '@/lib/dashboard-layouts/read-projection'
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type {
@@ -45,15 +46,34 @@ export const buildDashboardLayoutReviewBase = (
   layout: content.layout,
 })
 
+export function requireDashboardWidgetPanel(
+  layout: DashboardLayoutProjectionContent['layout'],
+  panelId: string
+) {
+  const panel = findDashboardTopologyPanel(layout, panelId)
+  if (panel?.widgetKey) return { ...panel, widgetKey: panel.widgetKey }
+
+  const message = panel
+    ? `Dashboard panel ${panelId} has no widget; use edit_layout`
+    : `Unknown dashboard panel ${panelId}`
+  throw new StructuredServerToolError({
+    status: 422,
+    body: {
+      code: 'invalid_widget_target',
+      error: message,
+      hint: 'Call read_layout to refresh panel ids. Use edit_layout to add or replace a widget binding before calling edit_widget.',
+      retryable: true,
+      issues: [{ path: 'panelId', message }],
+    },
+  })
+}
+
 export function buildDashboardWidgetReviewDocument(
   content: DashboardLayoutProjectionContent,
   panelId: string
 ) {
-  const panel = findDashboardTopologyPanel(content.layout, panelId)
-  if (!panel) throw new Error(`Unknown dashboard panel ${panelId}`)
-  if (!panel.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget; use edit_layout`)
-  const widgetDocument = content.widgets[panel.identityId]
-  if (!widgetDocument) throw new Error(`Dashboard widget ${panel.identityId} is missing`)
+  const panel = requireDashboardWidgetPanel(content.layout, panelId)
+  const widgetDocument = content.widgets[panel.identityId]!
   const pairColor = isPairColor(widgetDocument.pairColor) ? widgetDocument.pairColor : 'gray'
   return {
     panelId,
@@ -73,12 +93,7 @@ export function buildDashboardWidgetReviewBase(
   reviewBase: WidgetConfigMutationReviewBase,
   requestedPatch: WidgetConfigMutationPatch
 ) {
-  const panel = findDashboardTopologyPanel(content.layout, panelId)
-  if (!panel) throw new Error(`Unknown dashboard panel ${panelId}`)
-  if (!panel.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget; use edit_layout`)
-  if (!content.widgets[panel.identityId]) {
-    throw new Error(`Dashboard widget ${panel.identityId} is missing`)
-  }
+  const panel = requireDashboardWidgetPanel(content.layout, panelId)
 
   return {
     panelId,

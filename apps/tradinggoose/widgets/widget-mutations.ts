@@ -275,7 +275,7 @@ function resolveMutationParams(
 
   if (patch.params === undefined) return baseParams ?? null
   if (origin === 'copilot') {
-    return getWidgetContract(nextKey).mergeCopilotParams(baseParams, patch.params).params
+    return getWidgetContract(nextKey).mergeCopilotParams(baseParams, patch.params)
   }
   return patch.params === null ? null : mergeWidgetParams(nextKey, baseParams, patch.params)
 }

@@ -159,18 +159,8 @@ export function isWidgetContractValidationError(
   return error instanceof WidgetContractValidationError
 }
 
-function failWidgetContractField(path: string, message: string): never {
+export function failWidgetContractField(path: string, message: string): never {
   throw new WidgetContractValidationError([{ path, message }])
-}
-
-export type WidgetSanitizeResult = {
-  params: Record<string, unknown> | null
-  issues: WidgetValidationIssue[]
-}
-
-export type WidgetEffectiveParamsResult = {
-  params: Record<string, unknown> | null
-  issues: WidgetValidationIssue[]
 }
 
 export type WidgetCatalogItem = {
@@ -203,24 +193,23 @@ export type WidgetContract = {
   editable: boolean
   defaultParams: Record<string, unknown> | null
   editableFields: WidgetParamField[]
-  paramContract: WidgetParamFieldContract[]
   linkedParamFields: WidgetParamField[]
   createDefaultInstance: () => NonNullable<WidgetInstance>
   sanitizeLocalParams: (
     params: unknown,
     options?: WidgetParamsNormalizationOptions
-  ) => WidgetSanitizeResult
+  ) => Record<string, unknown> | null
   mergeLocalParams: (
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
-  ) => WidgetSanitizeResult
+  ) => Record<string, unknown> | null
   projectCopilotParams: (
     params: Record<string, unknown> | null | undefined
   ) => Record<string, unknown> | null
   mergeCopilotParams: (
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown> | null
-  ) => WidgetSanitizeResult
+  ) => Record<string, unknown> | null
   projectCopilotParamsReviewBase: (
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
@@ -228,12 +217,11 @@ export type WidgetContract = {
   resolveEffectiveParams: (
     widget: WidgetInstance,
     pairContext: PairColorContext
-  ) => WidgetEffectiveParamsResult
+  ) => Record<string, unknown> | null
 }
 
 type ContractInput = Omit<
   WidgetContract,
-  | 'paramContract'
   | 'createDefaultInstance'
   | 'sanitizeLocalParams'
   | 'mergeLocalParams'
@@ -253,12 +241,9 @@ type ContractInput = Omit<
   projectCopilotParams?: WidgetContract['projectCopilotParams']
   mergeCopilotParams?: WidgetContract['mergeCopilotParams']
   projectCopilotParamsReviewBase?: WidgetContract['projectCopilotParamsReviewBase']
-  paramContract?: WidgetParamFieldContract[]
 }
 
 export function defineWidgetContract(input: ContractInput): WidgetContract {
-  const paramContract =
-    input.paramContract ?? input.editableFields.map((field) => FIELD_CONTRACTS[field])
   const sanitize =
     input.sanitizeLocalParams ??
     ((params: unknown, options?: WidgetParamsNormalizationOptions) =>
@@ -278,27 +263,18 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
       ))
   return {
     ...input,
-    paramContract,
     createDefaultInstance: () => ({
       key: input.key,
       pairColor: 'gray',
       params: cloneWidgetParams(input.defaultParams),
     }),
-    sanitizeLocalParams: (params, options) => ({
-      params: sanitize(params, options),
-      issues: [],
-    }),
-    mergeLocalParams: (currentParams, incomingParams) => ({
-      params: merge(currentParams, incomingParams),
-      issues: [],
-    }),
+    sanitizeLocalParams: sanitize,
+    mergeLocalParams: merge,
     projectCopilotParams: input.projectCopilotParams ?? ((params) => params ?? null),
     mergeCopilotParams:
       input.mergeCopilotParams ??
-      ((currentParams, incomingParams) => ({
-        params: incomingParams === null ? null : merge(currentParams, incomingParams),
-        issues: [],
-      })),
+      ((currentParams, incomingParams) =>
+        incomingParams === null ? null : merge(currentParams, incomingParams)),
     projectCopilotParamsReviewBase:
       input.projectCopilotParamsReviewBase ?? projectCopilotParamsReviewBase,
     resolveEffectiveParams(widget, pairContext) {
@@ -314,10 +290,7 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
         }
       }
 
-      return {
-        params: Object.keys(localParams).length > 0 ? localParams : null,
-        issues: [],
-      }
+      return Object.keys(localParams).length > 0 ? localParams : null
     },
   }
 }
@@ -404,7 +377,7 @@ export function sanitizeLocalParamsByFields(
   const normalized: Record<string, unknown> = {}
   for (const field of fields) {
     if (!(field in params)) continue
-    const value = normalizeFieldValue(FIELD_CONTRACTS[field], params[field], params)
+    const value = normalizeFieldValue(FIELD_CONTRACTS[field], params[field], params, options)
     if (value !== undefined) {
       normalized[field] = value
     }
@@ -421,20 +394,14 @@ export function mergeParamsWithRuntime(
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>
 ): Record<string, unknown> | null {
-  const currentRuntime = isRecord(currentParams?.runtime) ? currentParams.runtime : null
-  const incomingRuntime = isRecord(incomingParams.runtime) ? incomingParams.runtime : null
-  const mergedRuntime =
-    currentRuntime || incomingRuntime
-      ? { ...(currentRuntime ?? {}), ...(incomingRuntime ?? {}) }
-      : undefined
-  return sanitize(
-    {
-      ...(currentParams ?? {}),
-      ...incomingParams,
-      ...(mergedRuntime ? { runtime: mergedRuntime } : {}),
-    },
-    { strictUnknown: true }
-  )
+  const merged = { ...(currentParams ?? {}), ...incomingParams }
+  if (isRecord(incomingParams.runtime)) {
+    merged.runtime = {
+      ...(isRecord(currentParams?.runtime) ? currentParams.runtime : {}),
+      ...incomingParams.runtime,
+    }
+  }
+  return sanitize(merged, { strictUnknown: true })
 }
 
 export function assertKnownWidgetParamFields(
@@ -488,55 +455,83 @@ function sanitizeJsonValue(value: unknown): unknown {
 function normalizeFieldValue(
   contract: WidgetParamFieldContract,
   value: unknown,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  options: WidgetParamsNormalizationOptions
 ): unknown {
   if (value == null) return undefined
   if (contract.field === 'portfolioIdentity') {
-    return toPortfolioValueObject(value) ?? undefined
+    const normalized = toPortfolioValueObject(value) ?? undefined
+    return normalized ?? invalidFieldValue(contract, options, 'must be a portfolio identity')
   }
   if (contract.field === 'providerParams') {
+    if (!isRecord(value)) return invalidFieldValue(contract, options, 'must be an object')
     return sanitizeMarketProviderParamsForWidget(normalizeString(params.provider), value)
   }
   if (contract.field === 'marketProviderParams') {
+    if (!isRecord(value)) return invalidFieldValue(contract, options, 'must be an object')
     return sanitizeMarketProviderParamsForWidget(normalizeString(params.marketProvider), value)
   }
   if (contract.field === 'auth' || contract.field === 'marketAuth') {
+    if (!isRecord(value)) return invalidFieldValue(contract, options, 'must be an object')
     return sanitizeMarketProviderAuth(value)
   }
   if (contract.field === 'runtime') {
-    return sanitizeRuntimeRefreshAt(value)
+    return sanitizeRuntimeRefreshAt(value, options)
   }
 
   switch (contract.kind) {
     case 'entity-reference':
-    case 'string':
-      return normalizeString(value) || undefined
-    case 'listing':
-      return normalizeListingIdentity(value) ?? undefined
+    case 'string': {
+      return typeof value === 'string'
+        ? normalizeString(value)
+        : invalidFieldValue(contract, options, 'must be a string')
+    }
+    case 'listing': {
+      const normalized = normalizeListingIdentity(value) ?? undefined
+      return normalized ?? invalidFieldValue(contract, options, 'must be a listing identity')
+    }
     case 'enum': {
+      if (typeof value !== 'string') {
+        return invalidFieldValue(contract, options, 'must be a string')
+      }
       const normalized = normalizeString(value)
       if (!normalized) return undefined
       if (contract.allowedValues?.includes(normalized)) return normalized
-      failWidgetContractField(
-        `params.${contract.field}`,
+      return invalidFieldValue(
+        contract,
+        options,
         `must be one of ${contract.allowedValues?.join(', ')}`
       )
-      return undefined
     }
     case 'record':
-      return isRecord(value) ? { ...value } : undefined
-    case 'json':
-      return sanitizeJsonValue(value)
+      return isRecord(value)
+        ? { ...value }
+        : invalidFieldValue(contract, options, 'must be an object')
+    case 'json': {
+      const normalized = sanitizeJsonValue(value)
+      return normalized ?? invalidFieldValue(contract, options, 'must be valid JSON')
+    }
   }
 }
 
-function sanitizeRuntimeRefreshAt(value: unknown) {
-  const runtime = isRecord(value) ? value : null
-  const refreshAt =
-    typeof runtime?.refreshAt === 'number' && Number.isFinite(runtime.refreshAt)
-      ? runtime.refreshAt
-      : undefined
-  return refreshAt === undefined ? undefined : { refreshAt }
+function invalidFieldValue(
+  contract: WidgetParamFieldContract,
+  options: WidgetParamsNormalizationOptions,
+  message: string
+): undefined {
+  if (options.strictUnknown) failWidgetContractField(`params.${contract.field}`, message)
+  return undefined
+}
+
+function sanitizeRuntimeRefreshAt(value: unknown, options: WidgetParamsNormalizationOptions) {
+  if (!isRecord(value)) {
+    return invalidFieldValue(FIELD_CONTRACTS.runtime, options, 'must be an object')
+  }
+  if (value.refreshAt == null) return undefined
+  if (typeof value.refreshAt !== 'number' || !Number.isFinite(value.refreshAt)) {
+    return invalidFieldValue(FIELD_CONTRACTS.runtime, options, 'refreshAt must be a finite number')
+  }
+  return { refreshAt: value.refreshAt }
 }
 
 function cloneWidgetParams(params: Record<string, unknown> | null | undefined) {

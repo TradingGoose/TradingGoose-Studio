@@ -114,10 +114,19 @@ describe('edit_widget server tool', () => {
       colorPairs: { pairs: [] },
     })
 
-    await expect(execute({ params: { view: { interval: '1h' } } })).rejects.toThrow(
-      'has no widget; use edit_layout'
-    )
+    await expect(execute({ params: { view: { interval: '1h' } } })).rejects.toMatchObject({
+      status: 422,
+      code: 'invalid_widget_target',
+      retryable: true,
+      issues: [{ path: 'panelId' }],
+    })
     expect(toolMocks.applyWidgetEdit).not.toHaveBeenCalled()
+
+    toolMocks.setCurrentContent(fx.createDashboardLayoutTestContent())
+    await expect(execute({ panelId: 'missing-panel', pairColor: 'gray' })).rejects.toHaveProperty(
+      'code',
+      'invalid_widget_target'
+    )
   })
 
   it('patches public edit_widget params without replacing unrelated quick-order params', async () => {

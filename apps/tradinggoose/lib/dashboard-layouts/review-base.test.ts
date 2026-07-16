@@ -55,21 +55,21 @@ const createContent = (): DashboardLayoutProjectionContent => ({
   },
 })
 
-const buildWidgetReviewBase = (
-  content: DashboardLayoutProjectionContent,
-  patch: WidgetConfigMutationPatch
-) => {
-  const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
-  const mutation = applyWidgetConfigMutation({
-    origin: 'copilot',
-    widgetKey: panel.widgetKey!,
-    widget: content.widgets[panel.identityId],
-    colorPairs: content.colorPairs,
-    panelId: panel.id,
-    patch,
-  })
-  return buildDashboardWidgetReviewBase(content, panel.id, mutation.reviewBase, patch)
-}
+const widgetReviewHash =
+  (patch: WidgetConfigMutationPatch) => (content: DashboardLayoutProjectionContent) => {
+    const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
+    const mutation = applyWidgetConfigMutation({
+      origin: 'copilot',
+      widgetKey: panel.widgetKey!,
+      widget: content.widgets[panel.identityId],
+      colorPairs: content.colorPairs,
+      panelId: panel.id,
+      patch,
+    })
+    return hashServerToolReviewBase(
+      buildDashboardWidgetReviewBase(content, panel.id, mutation.reviewBase, patch)
+    )
+  }
 
 describe('dashboard review bases', () => {
   it('hashes only topology for a layout edit, never child widget documents', () => {
@@ -102,8 +102,7 @@ describe('dashboard review bases', () => {
   it('tracks only destination color-pair fields overwritten by a widget patch', () => {
     const content = createContent()
     const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const hash = widgetReviewHash(patch)
 
     const destinationChanged = structuredClone(content)
     destinationChanged.colorPairs.pairs[0].listing = listing('GOOG')
@@ -119,13 +118,7 @@ describe('dashboard review bases', () => {
 
   it('tracks the complete destination color pair when deleting it', () => {
     const content = createContent()
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(
-        buildWidgetReviewBase(current, {
-          pairColor: 'blue',
-          colorPair: null,
-        })
-      )
+    const hash = widgetReviewHash({ pairColor: 'blue', colorPair: null })
     const destinationChanged = structuredClone(content)
     destinationChanged.colorPairs.pairs[0].workflowId = 'workflow-2'
 
@@ -134,8 +127,7 @@ describe('dashboard review bases', () => {
 
   it('tracks only linked destination fields activated by a pairColor-only edit', () => {
     const content = createContent()
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, { pairColor: 'blue' }))
+    const hash = widgetReviewHash({ pairColor: 'blue' })
     const destinationChanged = structuredClone(content)
     destinationChanged.colorPairs.pairs[0].listing = listing('GOOG')
     const destinationUnrelatedChanged = structuredClone(content)
@@ -160,9 +152,8 @@ describe('dashboard review bases', () => {
     expect(hash(paramsChanged)).toBe(hash(content))
     expect(hash(pairColorChanged)).not.toBe(hash(content))
     expect(hash(destinationAdded)).not.toBe(hash(destinationMissing))
-    expect(
-      hashServerToolReviewBase(buildWidgetReviewBase(sourceChanged, { pairColor: 'red' }))
-    ).toBe(hashServerToolReviewBase(buildWidgetReviewBase(content, { pairColor: 'red' })))
+    const samePairHash = widgetReviewHash({ pairColor: 'red' })
+    expect(samePairHash(sourceChanged)).toBe(samePairHash(content))
   })
 
   it('tracks only local linked fields activated when unlinking to gray', () => {
@@ -171,8 +162,7 @@ describe('dashboard review bases', () => {
       listing: listing('MSFT'),
       view: { interval: '15m' },
     }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, { pairColor: 'gray' }))
+    const hash = widgetReviewHash({ pairColor: 'gray' })
     const linkedChanged = structuredClone(content)
     linkedChanged.widgets['chart-widget'].params!.listing = listing('GOOG')
     const unrelatedChanged = structuredClone(content)
@@ -190,8 +180,7 @@ describe('dashboard review bases', () => {
     content.widgets['chart-widget'].params = null
     content.colorPairs.pairs[0].watchlistId = 'watchlist-1'
     const patch = { pairColor: 'blue', colorPair: { listing: listing('NVDA') } }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const hash = widgetReviewHash(patch)
     const linkedChanged = structuredClone(content)
     linkedChanged.colorPairs.pairs[0].watchlistId = 'watchlist-2'
     const unrelatedChanged = structuredClone(content)
@@ -209,8 +198,7 @@ describe('dashboard review bases', () => {
       runtime: { refreshAt: 1 },
     }
     const patch = { params: { view: { interval: '1h' } } }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const hash = widgetReviewHash(patch)
     const touchedFieldChanged = structuredClone(content)
     ;(
       touchedFieldChanged.widgets['chart-widget'].params!.view as Record<string, unknown>
@@ -239,8 +227,7 @@ describe('dashboard review bases', () => {
       },
     }
     const patch = { params: { data: { provider: 'polygon' } } }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const hash = widgetReviewHash(patch)
     const dependentChanged = structuredClone(content)
     ;(
       dependentChanged.widgets['chart-widget'].params!.data as Record<string, unknown>
@@ -266,8 +253,7 @@ describe('dashboard review bases', () => {
       },
     }
     const preservedPatch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
-    const preservedHash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, preservedPatch))
+    const preservedHash = widgetReviewHash(preservedPatch)
     const credentialChanged = structuredClone(content)
     ;(
       (credentialChanged.widgets['chart-widget'].params!.data as Record<string, unknown>)
@@ -283,16 +269,14 @@ describe('dashboard review bases', () => {
     expect(preservedHash(overwrittenSiblingChanged)).not.toBe(preservedHash(content))
 
     const replacementPatch = { params: { data: { auth: { apiKey: 'replacement-key' } } } }
-    const replacementHash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, replacementPatch))
+    const replacementHash = widgetReviewHash(replacementPatch)
     expect(replacementHash(credentialChanged)).not.toBe(replacementHash(content))
   })
 
   it('allows unrelated fields in the same color pair and rejects target rebinding', () => {
     const content = createContent()
     const patch = { colorPair: { listing: listing('NVDA') } }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
+    const hash = widgetReviewHash(patch)
     const unrelatedPairFieldChanged = structuredClone(content)
     unrelatedPairFieldChanged.colorPairs.pairs[2].workflowId = 'workflow-2'
     const rebound = structuredClone(content)

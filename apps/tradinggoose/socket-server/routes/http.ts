@@ -16,7 +16,10 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
+import {
+  buildCopilotServerToolErrorResponse,
+  StructuredServerToolError,
+} from '@/lib/copilot/server-tool-errors'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
@@ -29,6 +32,7 @@ import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-l
 import {
   buildDashboardLayoutReviewBase,
   buildDashboardWidgetReviewBase,
+  requireDashboardWidgetPanel,
 } from '@/lib/dashboard-layouts/review-base'
 import { env } from '@/lib/env'
 import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
@@ -74,12 +78,12 @@ import {
   type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
-  findDashboardTopologyPanel,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
+  isWidgetConfigValidationError,
   type WidgetConfigMutationPatch,
 } from '@/widgets/widget-mutations'
 
@@ -553,12 +557,8 @@ async function handleInternalYjsEntityApplyRequest(
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
     if (error instanceof StructuredServerToolError) {
-      sendJson(res, error.status, {
-        error: error.message,
-        code: error.code,
-        ...(error.hint ? { hint: error.hint } : {}),
-        ...(typeof error.retryable === 'boolean' ? { retryable: error.retryable } : {}),
-      })
+      const response = buildCopilotServerToolErrorResponse(undefined, error)
+      sendJson(res, response.status, response.body)
       return
     }
     const status =
@@ -818,11 +818,10 @@ async function handleInternalDashboardEditRequest(
       const scope = { workspaceId, ownerUserId }
 
       committed = await runDocumentMutation(layoutDoc, async () => {
-        const panel = findDashboardTopologyPanel(
+        const panel = requireDashboardWidgetPanel(
           readDashboardLayoutDocument(layoutDoc).layout,
           panelId
         )
-        if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
         const { identityId, widgetKey } = panel
         const widgetDescriptor = buildDashboardWidgetDescriptor({
           layoutId: entityId,
@@ -942,13 +941,13 @@ async function handleInternalDashboardEditRequest(
     sendJson(res, 200, { success: true, content: committed })
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
-    if (error instanceof StructuredServerToolError) {
-      sendJson(res, error.status, {
-        error: error.message,
-        code: error.code,
-        ...(error.hint ? { hint: error.hint } : {}),
-        ...(typeof error.retryable === 'boolean' ? { retryable: error.retryable } : {}),
-      })
+    if (
+      error instanceof StructuredServerToolError ||
+      error instanceof DashboardLayoutValidationError ||
+      isWidgetConfigValidationError(error)
+    ) {
+      const response = buildCopilotServerToolErrorResponse(undefined, error)
+      sendJson(res, response.status, response.body)
       return
     }
     const status =
@@ -957,9 +956,7 @@ async function handleInternalDashboardEditRequest(
         : error instanceof SavedEntityPersistenceError ||
             error instanceof DashboardLayoutOperationError
           ? error.status
-          : error instanceof DashboardLayoutValidationError
-            ? 400
-            : 500
+          : 500
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
     })

@@ -14,13 +14,11 @@ import { projectDashboardLayoutValueForCopilot } from '@/lib/dashboard-layouts/r
 import {
   buildDashboardWidgetReviewBase,
   buildDashboardWidgetReviewDocument,
+  requireDashboardWidgetPanel,
 } from '@/lib/dashboard-layouts/review-base'
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardWidgetEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import {
-  findDashboardTopologyPanel,
-  normalizeDashboardLayoutProjection,
-} from '@/widgets/layout-document'
+import { normalizeDashboardLayoutProjection } from '@/widgets/layout-document'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -50,11 +48,7 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       workspaceId,
       ownerUserId
     )
-    const panel = findDashboardTopologyPanel(current.layout, args.panelId)
-    if (!panel) throw new Error(`Unknown dashboard panel ${args.panelId}`)
-    if (!panel.widgetKey) {
-      throw new Error(`Dashboard panel ${args.panelId} has no widget; use edit_layout`)
-    }
+    const panel = requireDashboardWidgetPanel(current.layout, args.panelId)
     const currentWidget = current.widgets[panel.identityId]!
     const patch = {
       ...(args.pairColor === undefined ? {} : { pairColor: args.pairColor }),

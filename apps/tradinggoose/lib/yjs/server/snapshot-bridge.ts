@@ -240,6 +240,7 @@ function rethrowStructuredBridgeError(error: unknown): never {
         code?: unknown
         hint?: unknown
         retryable?: unknown
+        issues?: Array<{ path: string; message: string }>
       }
       if (typeof body.error === 'string' && typeof body.code === 'string') {
         throw new StructuredServerToolError({
@@ -249,6 +250,7 @@ function rethrowStructuredBridgeError(error: unknown): never {
             code: body.code,
             ...(typeof body.hint === 'string' ? { hint: body.hint } : {}),
             ...(typeof body.retryable === 'boolean' ? { retryable: body.retryable } : {}),
+            ...(Array.isArray(body.issues) ? { issues: body.issues } : {}),
           },
         })
       }

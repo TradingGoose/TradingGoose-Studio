@@ -7,6 +7,8 @@ import {
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
+  FIELD_CONTRACTS,
+  failWidgetContractField,
   WIDGET_KEYS,
   type WidgetCatalogItem,
   type WidgetContract,
@@ -38,14 +40,12 @@ import { workflowVariablesWidgetContract } from '@/widgets/widgets/workflow_vari
 export type {
   WidgetCatalogItem,
   WidgetContract,
-  WidgetEffectiveParamsResult,
   WidgetKey,
   WidgetMetadataProfile,
   WidgetParamField,
   WidgetParamFieldContract,
   WidgetParamsNormalizationOptions,
   WidgetReferenceParamField,
-  WidgetSanitizeResult,
   WidgetValidationIssue,
 } from '@/widgets/widget-contract-types'
 export {
@@ -123,7 +123,7 @@ export function sanitizeWidgetParams(
   params: unknown,
   options: { strictUnknown?: boolean } = {}
 ): Record<string, unknown> | null {
-  return getWidgetContract(widgetKey).sanitizeLocalParams(params, options).params
+  return getWidgetContract(widgetKey).sanitizeLocalParams(params, options)
 }
 
 export function mergeWidgetParams(
@@ -131,7 +131,7 @@ export function mergeWidgetParams(
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>
 ): Record<string, unknown> | null {
-  return getWidgetContract(widgetKey).mergeLocalParams(currentParams, incomingParams).params
+  return getWidgetContract(widgetKey).mergeLocalParams(currentParams, incomingParams)
 }
 
 export function projectWidgetParamsForCopilot(
@@ -151,12 +151,12 @@ export function resolveEffectiveWidgetParams(
   if (pairColor === 'gray') {
     return getWidgetContract(widgetKey).sanitizeLocalParams(widget.params, {
       strictUnknown: false,
-    }).params
+    })
   }
   return getWidgetContract(widgetKey).resolveEffectiveParams(
     widget,
     readPairColorContext(colorPairs, pairColor)
-  ).params
+  )
 }
 
 export function normalizeWidgetColorPairPatch(
@@ -185,6 +185,11 @@ export function normalizeWidgetColorPairPatch(
       acc[field] = null
     } else if (field in normalized) {
       acc[field] = normalized[field as keyof PairColorContext]
+    } else {
+      failWidgetContractField(
+        `colorPair.${field}`,
+        `Widget "${widgetKey}" requires a valid linked ${field} value`
+      )
     }
     return acc
   }, {})
@@ -217,7 +222,7 @@ export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): Widge
       editable: contract.editable,
       defaultParams: contract.projectCopilotParams(contract.defaultParams),
       editableFields: [...contract.editableFields],
-      paramContract: contract.paramContract,
+      paramContract: contract.editableFields.map((field) => FIELD_CONTRACTS[field]),
       linkedParamFields: [...contract.linkedParamFields],
     }
   })

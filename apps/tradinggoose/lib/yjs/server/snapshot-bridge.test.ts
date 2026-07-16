@@ -33,35 +33,25 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const applyEntityState = async (fields: Record<string, unknown>) =>
+  (await import('./snapshot-bridge')).applyEntityStateInSocketServer(
+    'watchlist-1',
+    'watchlist',
+    'workspace-1',
+    fields
+  )
+
 describe('applyEntityStateInSocketServer', () => {
   it('posts watchlist entity fields and returns the canonical persisted fields', async () => {
     const persistedFields = {
       settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          id: 'listing-1',
-          type: 'listing',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ],
+      items: [],
     }
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ success: true, fields: persistedFields }), { status: 200 })
     )
 
-    const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
-
-    await expect(
-      applyEntityStateInSocketServer('watchlist-1', 'watchlist', 'workspace-1', {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      })
-    ).resolves.toEqual(persistedFields)
+    await expect(applyEntityState(persistedFields)).resolves.toEqual(persistedFields)
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const [url, init] = mockFetch.mock.calls[0]
@@ -74,10 +64,25 @@ describe('applyEntityStateInSocketServer', () => {
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',
       workspaceId: 'workspace-1',
-      fields: {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      },
+      fields: persistedFields,
+    })
+
+    const issue = { path: 'panelId', message: 'Unknown dashboard panel missing-panel' }
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: 'Invalid widget target',
+          code: 'invalid_widget_target',
+          retryable: true,
+          issues: [issue],
+        }),
+        { status: 422 }
+      )
+    )
+    await expect(applyEntityState({})).rejects.toMatchObject({
+      status: 422,
+      code: 'invalid_widget_target',
+      issues: [issue],
     })
   })
 
@@ -89,10 +94,8 @@ describe('applyEntityStateInSocketServer', () => {
   ])('rejects malformed success responses with %s', async (_label, payload) => {
     mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }))
 
-    const { applyEntityStateInSocketServer } = await import('./snapshot-bridge')
-
     await expect(
-      applyEntityStateInSocketServer('watchlist-1', 'watchlist', 'workspace-1', {
+      applyEntityState({
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [],
       })
