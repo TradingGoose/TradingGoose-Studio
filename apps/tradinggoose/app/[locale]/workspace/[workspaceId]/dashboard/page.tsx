@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth'
 import {
+  activateDashboardLayout,
   ensureDashboardLayoutProvisioned,
   readActiveDashboardLayoutProjection,
 } from '@/lib/dashboard-layouts/operations'
@@ -8,8 +9,10 @@ import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboa
 
 export default async function WorkspaceDashboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>
+  searchParams?: Promise<{ layoutId?: string }>
 }) {
   const { workspaceId } = await params
   const session = await getSession()
@@ -27,7 +30,16 @@ export default async function WorkspaceDashboardPage({
 
   const scope = { workspaceId, ownerUserId: userId }
   await ensureDashboardLayoutProvisioned(scope)
-  const projection = await readActiveDashboardLayoutProjection(scope)
+  let projection = await readActiveDashboardLayoutProjection(scope)
+  const requestedLayoutId = (await searchParams)?.layoutId
+  if (
+    requestedLayoutId &&
+    requestedLayoutId !== projection.activeLayout?.id &&
+    projection.layouts.some((layout) => layout.id === requestedLayoutId)
+  ) {
+    await activateDashboardLayout(scope, requestedLayoutId)
+    projection = await readActiveDashboardLayoutProjection(scope)
+  }
   const activeLayout = projection.activeLayout
   if (!activeLayout) {
     throw new Error(`Dashboard layout is not provisioned for workspace ${workspaceId}`)
