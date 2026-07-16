@@ -94,6 +94,11 @@
               "minLength": 32,
               "description": "Encryption key (minimum 32 characters required)"
             },
+            "INTERNAL_API_SECRET": {
+              "type": "string",
+              "minLength": 32,
+              "description": "Internal service authentication secret (minimum 32 characters required)"
+            },
             "API_ENCRYPTION_KEY": {
               "type": "string",
               "pattern": "^$|^[a-fA-F0-9]{64}$",
