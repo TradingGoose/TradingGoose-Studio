@@ -241,36 +241,40 @@ describe('dashboard review bases', () => {
     expect(hash(unrelatedChanged)).toBe(hash(content))
   })
 
-  it('omits only credential values represented by preservation placeholders', () => {
+  it('omits only id-aligned credential placeholders after array reordering', () => {
     const content = createContent()
     content.widgets['chart-widget'].params = {
-      data: {
-        auth: {
-          apiKey: 'stored-key',
-          apiSecret: 'stored-secret',
-          account: 'primary',
+      view: {
+        pineIndicators: [
+          { id: 'indicator-a', inputs: { apiKey: 'key-a' } },
+          { id: 'indicator-b', inputs: { apiKey: 'key-b' } },
+        ],
+      },
+    }
+    const preservedPatch = {
+      params: {
+        view: {
+          pineIndicators: [
+            { id: 'indicator-b', inputs: { apiKey: '[redacted]' } },
+            { id: 'indicator-a', inputs: { apiKey: 'replacement-a' } },
+          ],
         },
       },
     }
-    const preservedPatch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
     const preservedHash = widgetReviewHash(preservedPatch)
     const credentialChanged = structuredClone(content)
-    ;(
-      (credentialChanged.widgets['chart-widget'].params!.data as Record<string, unknown>)
-        .auth as Record<string, unknown>
-    ).apiKey = 'concurrent-key'
-    const overwrittenSiblingChanged = structuredClone(content)
-    ;(
-      (overwrittenSiblingChanged.widgets['chart-widget'].params!.data as Record<string, unknown>)
-        .auth as Record<string, unknown>
-    ).apiSecret = 'concurrent-secret'
+    const changedIndicators = (
+      credentialChanged.widgets['chart-widget'].params!.view as Record<string, unknown>
+    ).pineIndicators as Array<{ inputs: { apiKey: string } }>
+    changedIndicators[1]!.inputs.apiKey = 'concurrent-b'
+    const replacementTargetChanged = structuredClone(content)
+    const replacementIndicators = (
+      replacementTargetChanged.widgets['chart-widget'].params!.view as Record<string, unknown>
+    ).pineIndicators as Array<{ inputs: { apiKey: string } }>
+    replacementIndicators[0]!.inputs.apiKey = 'concurrent-a'
 
     expect(preservedHash(credentialChanged)).toBe(preservedHash(content))
-    expect(preservedHash(overwrittenSiblingChanged)).not.toBe(preservedHash(content))
-
-    const replacementPatch = { params: { data: { auth: { apiKey: 'replacement-key' } } } }
-    const replacementHash = widgetReviewHash(replacementPatch)
-    expect(replacementHash(credentialChanged)).not.toBe(replacementHash(content))
+    expect(preservedHash(replacementTargetChanged)).not.toBe(preservedHash(content))
   })
 
   it('allows unrelated fields in the same color pair and rejects target rebinding', () => {

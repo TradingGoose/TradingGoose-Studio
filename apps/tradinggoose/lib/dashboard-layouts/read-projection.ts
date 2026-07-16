@@ -5,6 +5,7 @@ import {
   serializeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
+import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 export const DASHBOARD_CREDENTIAL_PLACEHOLDER = '[redacted]'
 
@@ -13,20 +14,52 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isEnvironmentReference = (value: string) => /^\s*\{\{[^{}]+\}\}\s*$/.test(value)
 
-export function projectDashboardLayoutValueForCopilot(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(projectDashboardLayoutValueForCopilot)
-  if (!isRecord(value)) return value
+function alignArrayItem(items: unknown[], item: unknown, index: number): unknown {
+  if (isRecord(item) && typeof item.id === 'string') {
+    return items.find((candidate) => isRecord(candidate) && candidate.id === item.id)
+  }
+  return items[index]
+}
 
+const OMIT_CREDENTIAL = Symbol('omit-credential')
+
+function mapCredentialSlots(
+  subject: unknown,
+  other: unknown,
+  path: string,
+  mapCredential: (value: unknown, otherValue: unknown, path: string) => unknown
+): unknown {
+  if (Array.isArray(subject)) {
+    const otherItems = Array.isArray(other) ? other : []
+    return subject.map((item, index) =>
+      mapCredentialSlots(
+        item,
+        alignArrayItem(otherItems, item, index),
+        `${path}.${index}`,
+        mapCredential
+      )
+    )
+  }
+  if (!isRecord(subject)) return subject
+
+  const otherRecord = isRecord(other) ? other : {}
   return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      (key === 'apiKey' || key === 'apiSecret') &&
-      typeof item === 'string' &&
-      item.length > 0 &&
-      !isEnvironmentReference(item)
-        ? DASHBOARD_CREDENTIAL_PLACEHOLDER
-        : projectDashboardLayoutValueForCopilot(item),
-    ])
+    Object.entries(subject).flatMap(([key, value]) => {
+      const itemPath = path ? `${path}.${key}` : key
+      const mapped =
+        key === 'apiKey' || key === 'apiSecret'
+          ? mapCredential(value, otherRecord[key], itemPath)
+          : mapCredentialSlots(value, otherRecord[key], itemPath, mapCredential)
+      return mapped === OMIT_CREDENTIAL ? [] : [[key, mapped]]
+    })
+  )
+}
+
+export function projectDashboardLayoutValueForCopilot(value: unknown): unknown {
+  return mapCredentialSlots(value, undefined, '', (item) =>
+    typeof item === 'string' && item.length > 0 && !isEnvironmentReference(item)
+      ? DASHBOARD_CREDENTIAL_PLACEHOLDER
+      : item
   )
 }
 
@@ -34,22 +67,21 @@ export function preserveDashboardLayoutCredentialPlaceholders(
   next: unknown,
   current: unknown
 ): unknown {
-  if (Array.isArray(next)) {
-    const currentItems = Array.isArray(current) ? current : []
-    return next.map((item, index) =>
-      preserveDashboardLayoutCredentialPlaceholders(item, currentItems[index])
-    )
-  }
-  if (!isRecord(next)) return next
+  return mapCredentialSlots(next, current, 'params', (value, currentValue, path) => {
+    if (value !== DASHBOARD_CREDENTIAL_PLACEHOLDER) return value
+    if (typeof currentValue !== 'string') {
+      throw createWidgetConfigValidationError(path, 'Cannot preserve a missing credential value')
+    }
+    return currentValue
+  })
+}
 
-  const currentRecord = isRecord(current) ? current : {}
-  return Object.fromEntries(
-    Object.entries(next).map(([key, item]) => [
-      key,
-      (key === 'apiKey' || key === 'apiSecret') && item === DASHBOARD_CREDENTIAL_PLACEHOLDER
-        ? currentRecord[key]
-        : preserveDashboardLayoutCredentialPlaceholders(item, currentRecord[key]),
-    ])
+export function omitPreservedDashboardCredentialValues(
+  reviewValue: unknown,
+  requestedValue: unknown
+): unknown {
+  return mapCredentialSlots(reviewValue, requestedValue, '', (value, requested) =>
+    requested === DASHBOARD_CREDENTIAL_PLACEHOLDER ? OMIT_CREDENTIAL : value
   )
 }
 

@@ -624,38 +624,6 @@ export function applyDashboardLayoutStructureMutation(
   }
 }
 
-export function planDashboardLayoutDocumentReplacement(
-  current: DashboardLayoutDocument,
-  next: DashboardLayoutDocument
-): DashboardLayoutEditPlan {
-  const currentDocument = normalizeDashboardLayoutDocument(current)
-  const nextDocument = normalizeDashboardLayoutDocument(next)
-  const currentReferences = collectDashboardTopologyReferences(currentDocument.layout)
-  const nextReferences = collectDashboardTopologyReferences(nextDocument.layout)
-  const createdBindings: DashboardWidgetBindingCreation[] = []
-
-  for (const [identityId, widgetKey] of nextReferences) {
-    if (!currentReferences.has(identityId)) {
-      createdBindings.push({ identityId, widgetKey })
-      continue
-    }
-    if (currentReferences.get(identityId) !== widgetKey) {
-      failDashboardLayout(
-        'layout',
-        `Dashboard widget ${identityId} cannot change widgetKey without a new identityId`
-      )
-    }
-  }
-
-  return {
-    layout: nextDocument.layout,
-    createdBindings,
-    removedIdentityIds: [...currentReferences.keys()].filter(
-      (identityId) => !nextReferences.has(identityId)
-    ),
-  }
-}
-
 export function applyLayoutEditDocument(
   current: DashboardLayoutDocument,
   entityDocument: string,

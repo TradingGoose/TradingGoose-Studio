@@ -719,17 +719,38 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('preserves the latest credential represented by a Copilot placeholder', async () => {
+  it('preserves stable-id credentials when a Copilot edit reorders records', async () => {
     const reviewedWidget = {
       pairColor: 'gray' as const,
-      params: { data: { auth: { apiKey: 'reviewed-key', apiSecret: 'shared-secret' } } },
+      params: {
+        view: {
+          pineIndicators: [
+            { id: 'indicator-a', inputs: { apiKey: 'reviewed-a' } },
+            { id: 'indicator-b', inputs: { apiKey: 'reviewed-b' } },
+          ],
+        },
+      },
     }
     const liveWidget = createWidgetDoc('gray', {
-      data: { auth: { apiKey: 'latest-key', apiSecret: 'shared-secret' } },
+      view: {
+        pineIndicators: [
+          { id: 'indicator-a', inputs: { apiKey: 'latest-a' } },
+          { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },
+        ],
+      },
     })
     setDashboardDocuments({ widget: liveWidget })
     const reviewed = dashboardProjection({ widget: reviewedWidget })
-    const patch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
+    const patch = {
+      params: {
+        view: {
+          pineIndicators: [
+            { id: 'indicator-b', inputs: { apiKey: '[redacted]' } },
+            { id: 'indicator-a', inputs: { apiKey: '[redacted]' } },
+          ],
+        },
+      },
+    }
     const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
     let savedWidget: ReturnType<typeof readDashboardWidgetDocument> | undefined
     mocks.saveDashboard.mockImplementationOnce(async (_scope, parts) => {
@@ -740,8 +761,11 @@ describe('socket internal HTTP Yjs routes', () => {
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
-    expect(savedWidget).toMatchObject({
-      params: { data: { auth: { apiKey: 'latest-key' } } },
+    expect(savedWidget?.params?.view).toEqual({
+      pineIndicators: [
+        { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },
+        { id: 'indicator-a', inputs: { apiKey: 'latest-a' } },
+      ],
     })
   })
 

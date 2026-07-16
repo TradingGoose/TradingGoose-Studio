@@ -141,8 +141,6 @@ export const mockReadProjectionModule = () => ({
     entityDocument: JSON.stringify(content),
   })),
   serializeDashboardLayoutForCopilot: vi.fn((content) => JSON.stringify(content, null, 2)),
-  projectDashboardLayoutValueForCopilot: vi.fn((value) => value),
-  preserveDashboardLayoutCredentialPlaceholders: vi.fn((value) => value),
 })
 
 export const mockEntitiesSharedModule = (mocks: DashboardToolMocks) => ({

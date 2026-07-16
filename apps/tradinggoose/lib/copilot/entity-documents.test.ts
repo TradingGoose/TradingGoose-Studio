@@ -155,9 +155,14 @@ describe('copilot entity documents', () => {
   })
 
   it.each([
-    ['watchlist', { watchlistId: 123 }],
-    ['data_chart', { data: { provider: 123 } }],
-  ])('rejects lossy persisted %s widget params', (widgetKey, params) => {
+    ['watchlist', { watchlistId: 123 }, 'widget.params.watchlistId: must be a string'],
+    [
+      'data_chart',
+      { data: { provider: 123 } },
+      'widget.params.data.provider: Expected string, received number',
+    ],
+    ['watchlist', { watchlistId: ' ' }, 'params must be canonical'],
+  ])('rejects lossy persisted %s widget params', (widgetKey, params, expectedMessage) => {
     expect(() =>
       parseEntityDocument(
         'dashboard_layout',
@@ -177,6 +182,6 @@ describe('copilot entity documents', () => {
           colorPairs: { pairs: [] },
         })
       )
-    ).toThrow('params must be canonical')
+    ).toThrow(expectedMessage)
   })
 })

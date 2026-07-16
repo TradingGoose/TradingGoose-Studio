@@ -1,5 +1,5 @@
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
-import { DASHBOARD_CREDENTIAL_PLACEHOLDER } from '@/lib/dashboard-layouts/read-projection'
+import { omitPreservedDashboardCredentialValues } from '@/lib/dashboard-layouts/read-projection'
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type {
   DashboardLayoutDocument,
@@ -13,31 +13,6 @@ import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
 } from '@/widgets/widget-mutations'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-function omitPreservedCredentialValues(reviewValue: unknown, requestedValue: unknown): unknown {
-  if (Array.isArray(reviewValue) && Array.isArray(requestedValue)) {
-    return reviewValue.map((item, index) =>
-      omitPreservedCredentialValues(item, requestedValue[index])
-    )
-  }
-  if (!isRecord(reviewValue) || !isRecord(requestedValue)) return reviewValue
-
-  return Object.fromEntries(
-    Object.entries(reviewValue).flatMap(([key, value]) => {
-      const requested = requestedValue[key]
-      if (
-        (key === 'apiKey' || key === 'apiSecret') &&
-        requested === DASHBOARD_CREDENTIAL_PLACEHOLDER
-      ) {
-        return []
-      }
-      return [[key, omitPreservedCredentialValues(value, requested)]]
-    })
-  )
-}
 
 export const buildDashboardLayoutReviewBase = (
   content: DashboardLayoutDocument,
@@ -103,7 +78,7 @@ export function buildDashboardWidgetReviewBase(
     ...(reviewBase.params === undefined
       ? {}
       : {
-          params: omitPreservedCredentialValues(reviewBase.params, requestedPatch.params),
+          params: omitPreservedDashboardCredentialValues(reviewBase.params, requestedPatch.params),
         }),
   }
 }

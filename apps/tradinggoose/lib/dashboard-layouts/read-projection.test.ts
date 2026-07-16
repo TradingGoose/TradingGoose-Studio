@@ -18,24 +18,46 @@ describe('dashboard Copilot credential projection', () => {
     })
   })
 
-  it('resolves accepted placeholders from the current persisted value', () => {
+  it('resolves accepted placeholders from stable-id records after reordering', () => {
     expect(
       preserveDashboardLayoutCredentialPlaceholders(
         {
-          apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER,
-          apiSecret: 'replacement',
-          nested: [{ apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER }],
+          auth: {
+            apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER,
+            apiSecret: 'replacement',
+          },
+          indicators: [
+            { id: 'indicator-b', inputs: { apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER } },
+            { id: 'indicator-a', inputs: { apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER } },
+          ],
         },
         {
-          apiKey: 'stored-key',
-          apiSecret: 'stored-secret',
-          nested: [{ apiKey: 'nested-key' }],
+          auth: { apiKey: 'flat-key', apiSecret: 'old-secret' },
+          indicators: [
+            { id: 'indicator-a', inputs: { apiKey: 'key-a' } },
+            { id: 'indicator-b', inputs: { apiKey: 'key-b' } },
+          ],
         }
       )
     ).toEqual({
-      apiKey: 'stored-key',
-      apiSecret: 'replacement',
-      nested: [{ apiKey: 'nested-key' }],
+      auth: { apiKey: 'flat-key', apiSecret: 'replacement' },
+      indicators: [
+        { id: 'indicator-b', inputs: { apiKey: 'key-b' } },
+        { id: 'indicator-a', inputs: { apiKey: 'key-a' } },
+      ],
     })
+  })
+
+  it('rejects a preservation placeholder without a matching stored credential', () => {
+    expect(() =>
+      preserveDashboardLayoutCredentialPlaceholders(
+        {
+          indicators: [
+            { id: 'indicator-new', inputs: { apiKey: DASHBOARD_CREDENTIAL_PLACEHOLDER } },
+          ],
+        },
+        { indicators: [{ id: 'indicator-a', inputs: { apiKey: 'key-a' } }] }
+      )
+    ).toThrow('params.indicators.0.inputs.apiKey: Cannot preserve a missing credential value')
   })
 })
