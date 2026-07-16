@@ -62,6 +62,7 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       ...(args.colorPair === undefined ? {} : { colorPair: args.colorPair }),
     } satisfies WidgetConfigMutationPatch
     const next = applyWidgetConfigMutation({
+      origin: 'copilot',
       widgetKey: panel.widgetKey,
       widget: currentWidget,
       colorPairs: current.colorPairs,

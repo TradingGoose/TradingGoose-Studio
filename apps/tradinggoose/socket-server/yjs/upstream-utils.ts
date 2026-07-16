@@ -3,7 +3,7 @@
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
  * needs: `getDocument`, `peekDocument`, `setupWSConnection`,
- * `discardDocument`, and `cleanupAllDocuments`.
+ * `discardDocument` and `cleanupAllDocuments`.
  */
 
 import type { IncomingMessage } from 'http'
@@ -195,6 +195,14 @@ function cleanupDrainingDocumentIfSettled(doc: WSSharedDoc): void {
   }
 }
 
+function releaseSharedDocument(doc: WSSharedDoc): void {
+  if (docs.get(doc.name) !== doc || doc.isDraining || doc.conns.size > 0) return
+  if (doc.pendingMutations > 0 || !doc.hasUnsavedChanges) return
+  void flushDocumentPersistence(doc).catch((error) => {
+    console.error('[yjs upstream-utils] Failed to persist released document', error)
+  })
+}
+
 function enqueueDocumentPersistence(
   doc: WSSharedDoc,
   persist: DocumentPersistenceHandler | undefined
@@ -232,9 +240,6 @@ function enqueueDocumentPersistence(
     doc.pendingPersistRequests -= 1
     if (!doc.isDraining && doc.hasUnsavedChanges) schedulePersistenceRetry(doc)
     cleanupDrainingDocumentIfSettled(doc)
-    if (!doc.isDraining && doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
-      cleanupDocument(doc)
-    }
   })
   doc.persistenceQueue = settled.catch(() => undefined)
   return settled
@@ -249,31 +254,6 @@ function cleanupDocument(doc: WSSharedDoc): void {
   doc.persistTimer = null
   docs.delete(doc.name)
   doc.destroy()
-}
-
-function finalizeDocumentCleanup(doc: WSSharedDoc): void {
-  doc.cleanupRequested = true
-  if (doc.isDraining) return
-
-  if (doc.persistTimer) {
-    clearTimeout(doc.persistTimer)
-    doc.persistTimer = null
-  }
-
-  if (doc.pendingMutations > 0) return
-  if (isDocumentIdle(doc)) {
-    cleanupDocument(doc)
-    return
-  }
-
-  const persist = doc.onDocumentUpdate
-  if (!persist) {
-    cleanupDocument(doc)
-    return
-  }
-  void enqueueDocumentPersistence(doc, persist).catch((error) => {
-    console.error('[yjs upstream-utils] Failed to persist idle document', error)
-  })
 }
 
 function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
@@ -300,7 +280,7 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket, code?: number, reason?: st
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
 
     if (doc.conns.size === 0) {
-      finalizeDocumentCleanup(doc)
+      releaseSharedDocument(doc)
     }
   }
 
@@ -428,8 +408,8 @@ export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | 
   const settled = result.finally(() => {
     doc.pendingMutations -= 1
     cleanupDrainingDocumentIfSettled(doc)
-    if (doc.cleanupRequested && doc.conns.size === 0) {
-      finalizeDocumentCleanup(doc)
+    if (!doc.isDraining && doc.conns.size === 0) {
+      releaseSharedDocument(doc)
     }
   })
   doc.mutationQueue = settled.then(
@@ -717,16 +697,6 @@ export function abortYjsSessionDeletion(leaseId: string): void {
     if (deletionAdmissions.get(deletionTarget) === leaseId)
       deletionAdmissions.delete(deletionTarget)
   }
-}
-
-export function discardDocumentIfIdle(candidate: Y.Doc): void {
-  if (!(candidate instanceof WSSharedDoc)) return
-  const doc = candidate
-  if (docs.get(doc.name) !== doc || doc.conns.size > 0) return
-  doc.cleanupRequested = true
-  if (!isDocumentIdle(doc)) return
-
-  cleanupDocument(doc)
 }
 
 async function reconcileConnection(

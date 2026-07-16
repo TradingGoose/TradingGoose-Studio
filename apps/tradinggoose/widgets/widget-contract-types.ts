@@ -214,7 +214,14 @@ export type WidgetContract = {
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
   ) => WidgetSanitizeResult
-  projectLocalParamsReviewBase: (
+  projectCopilotParams: (
+    params: Record<string, unknown> | null | undefined
+  ) => Record<string, unknown> | null
+  mergeCopilotParams: (
+    currentParams: Record<string, unknown> | null | undefined,
+    incomingParams: Record<string, unknown> | null
+  ) => WidgetSanitizeResult
+  projectCopilotParamsReviewBase: (
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
   ) => Record<string, unknown>
@@ -230,7 +237,9 @@ type ContractInput = Omit<
   | 'createDefaultInstance'
   | 'sanitizeLocalParams'
   | 'mergeLocalParams'
-  | 'projectLocalParamsReviewBase'
+  | 'projectCopilotParams'
+  | 'mergeCopilotParams'
+  | 'projectCopilotParamsReviewBase'
   | 'resolveEffectiveParams'
 > & {
   sanitizeLocalParams?: (
@@ -241,7 +250,9 @@ type ContractInput = Omit<
     currentParams: Record<string, unknown> | null | undefined,
     incomingParams: Record<string, unknown>
   ) => Record<string, unknown> | null
-  projectLocalParamsReviewBase?: WidgetContract['projectLocalParamsReviewBase']
+  projectCopilotParams?: WidgetContract['projectCopilotParams']
+  mergeCopilotParams?: WidgetContract['mergeCopilotParams']
+  projectCopilotParamsReviewBase?: WidgetContract['projectCopilotParamsReviewBase']
   paramContract?: WidgetParamFieldContract[]
 }
 
@@ -281,8 +292,15 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
       params: merge(currentParams, incomingParams),
       issues: [],
     }),
-    projectLocalParamsReviewBase:
-      input.projectLocalParamsReviewBase ?? projectLocalParamsReviewBase,
+    projectCopilotParams: input.projectCopilotParams ?? ((params) => params ?? null),
+    mergeCopilotParams:
+      input.mergeCopilotParams ??
+      ((currentParams, incomingParams) => ({
+        params: incomingParams === null ? null : merge(currentParams, incomingParams),
+        issues: [],
+      })),
+    projectCopilotParamsReviewBase:
+      input.projectCopilotParamsReviewBase ?? projectCopilotParamsReviewBase,
     resolveEffectiveParams(widget, pairContext) {
       const localParams = sanitize(widget?.params, { strictUnknown: false }) ?? {}
       const normalizedPairContext = normalizePairColorContext(pairContext)
@@ -304,7 +322,7 @@ export function defineWidgetContract(input: ContractInput): WidgetContract {
   }
 }
 
-export function projectLocalParamsReviewBase(
+export function projectCopilotParamsReviewBase(
   currentParams: Record<string, unknown> | null | undefined,
   incomingParams: Record<string, unknown>,
   nestedFields: readonly string[] = []
@@ -317,7 +335,10 @@ export function projectLocalParamsReviewBase(
       if (nested.has(field) && isRecord(incomingValue)) {
         return [
           field,
-          projectLocalParamsReviewBase(isRecord(currentValue) ? currentValue : null, incomingValue),
+          projectCopilotParamsReviewBase(
+            isRecord(currentValue) ? currentValue : null,
+            incomingValue
+          ),
         ]
       }
       return [field, currentValue]

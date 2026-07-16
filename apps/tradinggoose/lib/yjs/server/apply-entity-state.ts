@@ -18,8 +18,7 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import {
   DashboardLayoutOperationError,
   type DashboardLayoutOwnerScope,
-  persistDashboardColorPairDocument,
-  persistDashboardWidgetDocument,
+  persistDashboardWidgetAndColorPairDocuments,
 } from '@/lib/dashboard-layouts/operations'
 import {
   renameSavedEntityIdentityInTx,
@@ -280,45 +279,45 @@ export async function saveSavedEntityYjsDocToDb(
   }
 }
 
-export async function saveDashboardWidgetYjsDocToDb(
-  sessionId: string,
+export async function saveDashboardYjsDocsToDb(
   scope: DashboardLayoutOwnerScope,
-  doc: Y.Doc
-): Promise<Record<string, unknown>> {
-  const target = parseDashboardWidgetSessionId(sessionId)
-  if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard widget session')
-  try {
-    return await persistDashboardWidgetDocument(
-      scope,
-      target.layoutId,
-      target.identityId,
-      readDashboardWidgetStorageDocument(doc)
-    )
-  } catch (error) {
-    if (error instanceof DashboardLayoutValidationError) {
-      throw new SavedEntityPersistenceError(400, error.message)
-    }
-    if (error instanceof DashboardLayoutOperationError) {
-      throw new SavedEntityPersistenceError(error.status, error.message)
-    }
-    throw error
+  parts: {
+    widget?: { sessionId: string; doc: Y.Doc }
+    colorPair?: { sessionId: string; doc: Y.Doc }
   }
-}
-
-export async function saveDashboardColorPairYjsDocToDb(
-  sessionId: string,
-  scope: DashboardLayoutOwnerScope,
-  doc: Y.Doc
-): Promise<Record<string, unknown>> {
-  const target = parseDashboardColorPairSessionId(sessionId)
-  if (!target) throw new SavedEntityPersistenceError(400, 'Invalid dashboard color-pair session')
+): Promise<{ widget?: Record<string, unknown>; colorPair?: Record<string, unknown> }> {
+  const widget = parts.widget ? parseDashboardWidgetSessionId(parts.widget.sessionId) : null
+  const colorPair = parts.colorPair
+    ? parseDashboardColorPairSessionId(parts.colorPair.sessionId)
+    : null
+  const layoutId = widget?.layoutId ?? colorPair?.layoutId
+  if (
+    !layoutId ||
+    (parts.widget && !widget) ||
+    (parts.colorPair && !colorPair) ||
+    (widget && colorPair && widget.layoutId !== colorPair.layoutId)
+  ) {
+    throw new SavedEntityPersistenceError(400, 'Invalid dashboard child sessions')
+  }
   try {
-    return await persistDashboardColorPairDocument(
-      scope,
-      target.layoutId,
-      target.color,
-      readDashboardColorPairDocument(doc)
-    )
+    return await persistDashboardWidgetAndColorPairDocuments(scope, layoutId, {
+      ...(widget
+        ? {
+            widget: {
+              identityId: widget.identityId,
+              content: readDashboardWidgetStorageDocument(parts.widget!.doc),
+            },
+          }
+        : {}),
+      ...(colorPair
+        ? {
+            colorPair: {
+              color: colorPair.color,
+              content: readDashboardColorPairDocument(parts.colorPair!.doc),
+            },
+          }
+        : {}),
+    })
   } catch (error) {
     if (error instanceof DashboardLayoutValidationError) {
       throw new SavedEntityPersistenceError(400, error.message)

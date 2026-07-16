@@ -101,6 +101,7 @@ export function createDashboardToolMocks() {
           ? widget.pairColor
           : 'gray'
       const mutation = applyWidgetConfigMutation({
+        origin: 'copilot',
         widgetKey: panel.widgetKey!,
         widget,
         colorPairs: current.colorPairs,

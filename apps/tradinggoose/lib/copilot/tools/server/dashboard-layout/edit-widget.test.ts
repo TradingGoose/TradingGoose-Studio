@@ -5,7 +5,6 @@ const toolMocks = fx.createDashboardToolMocks()
 
 vi.mock('@/lib/copilot/registry', () => ({ CopilotTool: { edit_widget: 'edit_widget' } }))
 vi.mock('@/lib/copilot/tools/server/base-tool', () => fx.mockBaseToolModule(toolMocks))
-vi.mock('@/lib/dashboard-layouts/read-projection', () => fx.mockReadProjectionModule())
 vi.mock('@/lib/dashboard-layouts/operations', () => fx.mockDashboardOperationsModule(toolMocks))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => fx.mockEntitiesSharedModule(toolMocks))
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => fx.mockBootstrapModule(toolMocks))
@@ -143,26 +142,50 @@ describe('edit_widget server tool', () => {
     })
   })
 
-  it('patches nested data-chart indicator references from edit_widget params', async () => {
+  it('patches visible data-chart params while preserving and hiding human drawings', async () => {
+    const drawTools = [
+      {
+        id: 'manual-main',
+        pane: 'price',
+        snapshot: { tools: [{ id: 'line-1', toolType: 'trend_line', points: [] }] },
+      },
+    ]
+    const fields = withWidgetParams('chart-widget', {
+      view: { interval: '15m', drawTools },
+    })
+    toolMocks.setCurrentContent(fields)
+
     const result = await execute({
       params: {
         view: {
           pineIndicators: [{ id: 'indicator-1' }],
-          drawTools: [{ id: 'manual-macd', pane: 'indicator', indicatorId: 'MACD' }],
         },
       },
     })
 
-    expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params.view).toMatchObject({
+    const visibleParams = JSON.parse(result.entityDocument).widgets['chart-widget'].params
+    expect(visibleParams.view).toEqual({
+      interval: '15m',
       pineIndicators: [{ id: 'indicator-1' }],
-      drawTools: [{ id: 'manual-macd', pane: 'indicator', indicatorId: 'MACD' }],
+    })
+    expect(toolMocks.getCurrentContent().widgets['chart-widget'].params).toEqual({
+      view: { interval: '15m', drawTools, pineIndicators: [{ id: 'indicator-1' }] },
+    })
+
+    const cleared = await execute({ params: null })
+    expect(JSON.parse(cleared.entityDocument).widgets['chart-widget'].params).toBeNull()
+    expect(toolMocks.getCurrentContent().widgets['chart-widget'].params).toEqual({
+      view: { drawTools },
     })
   })
 
-  it('keeps public edit_widget params null as an explicit local params clear', async () => {
-    const result = await execute({ params: null })
-
-    expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params).toBeNull()
+  it('rejects data-chart drawing fields from edit_widget', async () => {
+    await expect(
+      execute({
+        params: { view: { drawTools: [{ id: 'manual-main', pane: 'price' }] } },
+      })
+    ).rejects.toThrow('does not expose this field to Copilot')
+    expect(toolMocks.applyWidgetEdit).not.toHaveBeenCalled()
   })
 
   it('clears a linked listing through review and socket color-pair mutations', async () => {

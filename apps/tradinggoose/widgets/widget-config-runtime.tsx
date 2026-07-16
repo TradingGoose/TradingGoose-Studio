@@ -255,6 +255,7 @@ export const useWidgetConfigRuntimeActions = () => {
       const color = isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
       if (requireLinkedOwner && color !== 'gray' && !runtime.isPairReady) return
       const next = applyWidgetConfigMutation({
+        origin: 'human',
         widgetKey: runtime.widgetKey,
         widget: runtime.widget,
         colorPairs:

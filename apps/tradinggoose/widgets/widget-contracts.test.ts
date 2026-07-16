@@ -10,7 +10,13 @@ import {
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
-const CONTRACT_FNS = ['sanitizeLocalParams', 'mergeLocalParams', 'resolveEffectiveParams'] as const
+const CONTRACT_FNS = [
+  'sanitizeLocalParams',
+  'mergeLocalParams',
+  'projectCopilotParams',
+  'mergeCopilotParams',
+  'resolveEffectiveParams',
+] as const
 
 describe('dashboard widget contracts', () => {
   it.each(WIDGET_KEYS)(
@@ -93,7 +99,7 @@ describe('dashboard widget contracts', () => {
     const [profile] = readWidgetMetadataProfiles(['data_chart'])
     const fields = profile.paramContract.map((field) => field.field)
     expect(fields).toEqual(['listing', 'data', 'view', 'runtime'])
-    expect(fields).not.toContain('indicators')
+    expect(JSON.stringify(profile)).not.toContain('drawTools')
   })
 
   it('keeps heatmap listing as its only linked pair field', () => {

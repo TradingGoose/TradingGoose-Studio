@@ -15,8 +15,7 @@ const events: string[] = []
 const mockApplyEntityStateInSocketServer = vi.fn()
 const mockDbTransaction = vi.fn()
 const mockDbUpdate = vi.fn()
-const mockPersistDashboardWidgetDocument = vi.fn()
-const mockPersistDashboardColorPairDocument = vi.fn()
+const mockPersistDashboardWidgetAndColorPairDocuments = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
 const mockLockSavedEntityList = vi.fn()
 class MockDashboardLayoutOperationError extends Error {
@@ -73,8 +72,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
   DashboardLayoutOperationError: MockDashboardLayoutOperationError,
-  persistDashboardWidgetDocument: mockPersistDashboardWidgetDocument,
-  persistDashboardColorPairDocument: mockPersistDashboardColorPairDocument,
+  persistDashboardWidgetAndColorPairDocuments: mockPersistDashboardWidgetAndColorPairDocuments,
 }))
 
 vi.mock('@/lib/custom-tools/schema', () => ({
@@ -110,6 +108,12 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })
+    mockPersistDashboardWidgetAndColorPairDocuments.mockImplementation(
+      async (_scope, _layoutId, commit) => ({
+        ...(commit.widget ? { widget: commit.widget.content } : {}),
+        ...(commit.colorPair ? { colorPair: commit.colorPair.content } : {}),
+      })
+    )
     mockDbTransaction.mockImplementation(async (callback) => callback({ update: mockDbUpdate }))
     mockRenameSavedEntityIdentityInTx.mockResolvedValue({
       name: 'Renamed',
@@ -131,12 +135,6 @@ describe('applySavedEntityState', () => {
         },
       ],
     })
-    mockPersistDashboardWidgetDocument.mockImplementation(
-      async (_scope, _layoutId, _identityId, content) => content
-    )
-    mockPersistDashboardColorPairDocument.mockImplementation(
-      async (_scope, _layoutId, _color, content) => content
-    )
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
@@ -337,26 +335,24 @@ describe('applySavedEntityState', () => {
   })
 
   it('persists only canonical widget child documents', async () => {
-    const { SavedEntityPersistenceError, saveDashboardWidgetYjsDocToDb } = await import(
+    const { SavedEntityPersistenceError, saveDashboardYjsDocsToDb } = await import(
       './apply-entity-state'
     )
     const doc = new Y.Doc()
     seedDashboardWidgetSession(doc, { pairColor: 'blue', params: { view: {} } })
 
     try {
-      await saveDashboardWidgetYjsDocToDb(
-        'dashboard-widget:layout-1:widget-1',
+      await saveDashboardYjsDocsToDb(
         { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-        doc
+        { widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc } }
       )
       const widget = getDashboardWidgetMap(doc)
       for (const params of [undefined, {}]) {
         if (params === undefined) widget.delete('params')
         else widget.set('params', params)
-        const error = await saveDashboardWidgetYjsDocToDb(
-          'dashboard-widget:layout-1:widget-1',
+        const error = await saveDashboardYjsDocsToDb(
           { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-          doc
+          { widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc } }
         ).catch((reason) => reason)
         expect(error).toBeInstanceOf(SavedEntityPersistenceError)
         expect(error).toMatchObject({ status: 400, retryable: false })
@@ -365,38 +361,51 @@ describe('applySavedEntityState', () => {
       doc.destroy()
     }
 
-    expect(mockPersistDashboardWidgetDocument).toHaveBeenCalledTimes(1)
-    expect(mockPersistDashboardWidgetDocument).toHaveBeenCalledWith(
+    expect(mockPersistDashboardWidgetAndColorPairDocuments).toHaveBeenCalledTimes(1)
+    expect(mockPersistDashboardWidgetAndColorPairDocuments).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1',
-      'widget-1',
-      { pairColor: 'blue', params: { view: {} } }
+      {
+        widget: {
+          identityId: 'widget-1',
+          content: { pairColor: 'blue', params: { view: {} } },
+        },
+      }
     )
-    expect(mockPersistDashboardColorPairDocument).not.toHaveBeenCalled()
   })
 
-  it('persists a color-pair document through only its child owner', async () => {
-    const { saveDashboardColorPairYjsDocToDb } = await import('./apply-entity-state')
-    const doc = new Y.Doc()
-    seedDashboardColorPairSession(doc, { watchlistId: 'watchlist-1' })
+  it('persists widget and color-pair Yjs owners through one storage commit', async () => {
+    const { saveDashboardYjsDocsToDb } = await import('./apply-entity-state')
+    const widgetDoc = new Y.Doc()
+    const pairDoc = new Y.Doc()
+    seedDashboardWidgetSession(widgetDoc, { pairColor: 'red', params: { view: {} } })
+    seedDashboardColorPairSession(pairDoc, { watchlistId: 'watchlist-1' })
 
     try {
-      await saveDashboardColorPairYjsDocToDb(
-        'dashboard-color-pair:layout-1:red',
+      await saveDashboardYjsDocsToDb(
         { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-        doc
+        {
+          widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc: widgetDoc },
+          colorPair: { sessionId: 'dashboard-color-pair:layout-1:red', doc: pairDoc },
+        }
       )
     } finally {
-      doc.destroy()
+      widgetDoc.destroy()
+      pairDoc.destroy()
     }
 
-    expect(mockPersistDashboardColorPairDocument).toHaveBeenCalledWith(
+    expect(mockPersistDashboardWidgetAndColorPairDocuments).toHaveBeenCalledOnce()
+    expect(mockPersistDashboardWidgetAndColorPairDocuments).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1',
-      'red',
-      { watchlistId: 'watchlist-1' }
+      {
+        widget: {
+          identityId: 'widget-1',
+          content: { pairColor: 'red', params: { view: {} } },
+        },
+        colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
+      }
     )
-    expect(mockPersistDashboardWidgetDocument).not.toHaveBeenCalled()
   })
 
   it('maps watchlist document persistence errors to saved-entity persistence errors', async () => {

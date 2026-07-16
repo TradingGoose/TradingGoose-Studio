@@ -332,7 +332,7 @@ const EditDashboardWidgetArgs = EntityTargetArgs.extend({
     .nullable()
     .optional()
     .describe(
-      'Patch persisted local widget params. For a non-gray widget, do not put fields from get_widgets_metadata.linkedParamFields here; update those through colorPair.'
+      'Patch persisted local widget params. For a non-gray widget, do not put fields from get_widgets_metadata.linkedParamFields here; update those through colorPair. Data-chart drawing fields are user-managed and unavailable to Copilot.'
     ),
   colorPair: z
     .record(z.any())

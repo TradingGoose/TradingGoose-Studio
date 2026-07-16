@@ -3,8 +3,7 @@ import {
   commitDashboardLayoutStructure,
   createDashboardLayout,
   deleteDashboardLayout,
-  persistDashboardColorPairDocument,
-  persistDashboardWidgetDocument,
+  persistDashboardWidgetAndColorPairDocuments,
   provisionDashboardLayoutForWorkspaceUserInTx,
   readActiveDashboardLayoutProjection,
   readPersistedDashboardLayoutProjection,
@@ -238,9 +237,11 @@ describe('dashboard layout operations', () => {
   it('persists only the widget row through the widget owner', async () => {
     m.selectResults.push([layoutRow()])
     m.returningResults.push([{ id: 'widget-1' }])
-    await persistDashboardWidgetDocument(scope, 'layout-1', 'widget-1', {
-      pairColor: 'blue',
-      params: { view: { interval: '1h' } },
+    await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+      widget: {
+        identityId: 'widget-1',
+        content: { pairColor: 'blue', params: { view: { interval: '1h' } } },
+      },
     })
     expect(m.transaction).toHaveBeenCalledOnce()
     expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets'])
@@ -248,12 +249,16 @@ describe('dashboard layout operations', () => {
     const invalidWidget = { pairColor: 'blue' as const, params: { watchlistId: 'watchlist-1' } }
     m.selectResults.push([layoutRow()])
     await expect(
-      persistDashboardWidgetDocument(scope, 'layout-1', 'widget-1', invalidWidget)
+      persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+        widget: { identityId: 'widget-1', content: invalidWidget },
+      })
     ).rejects.toThrow(/does not support this field/i)
     expect(m.mutations).toEqual([])
     m.selectResults.push([layoutRow()])
     await expect(
-      persistDashboardWidgetDocument(scope, 'layout-1', 'orphan-widget', invalidWidget)
+      persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+        widget: { identityId: 'orphan-widget', content: invalidWidget },
+      })
     ).rejects.toThrow(/widget binding not found/i)
     expect(m.mutations).toEqual([])
 
@@ -268,8 +273,8 @@ describe('dashboard layout operations', () => {
 
   it('upserts or deletes only the selected color-pair row', async () => {
     m.selectResults.push([layoutRow()])
-    await persistDashboardColorPairDocument(scope, 'layout-1', 'red', {
-      watchlistId: 'watchlist-1',
+    await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+      colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
     })
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'insert', table: 'layout_pairs' }),
@@ -277,10 +282,28 @@ describe('dashboard layout operations', () => {
 
     m.mutations.length = 0
     m.selectResults.push([layoutRow()])
-    await persistDashboardColorPairDocument(scope, 'layout-1', 'red', {})
+    await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+      colorPair: { color: 'red', content: {} },
+    })
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'delete', table: 'layout_pairs' }),
     ])
+  })
+
+  it('persists widget and color-pair owners in one transaction', async () => {
+    m.selectResults.push([layoutRow()])
+    m.returningResults.push([{ id: 'widget-1' }])
+
+    await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+      widget: {
+        identityId: 'widget-1',
+        content: { pairColor: 'red', params: { view: { interval: '4h' } } },
+      },
+      colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
+    })
+
+    expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
   })
 
   it('leases the layout root before discovering and leasing child sessions', async () => {

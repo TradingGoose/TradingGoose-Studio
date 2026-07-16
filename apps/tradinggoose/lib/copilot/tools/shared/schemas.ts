@@ -17,14 +17,7 @@ export const WidgetCatalogItemSchema = z.object({
   linkedParamFields: z.array(z.string()),
 })
 
-type WidgetParamFieldContractValue = {
-  field: string
-  kind: string
-  referenceKind?: string
-  allowedValues?: string[]
-}
-
-const WidgetParamFieldContractSchema: z.ZodType<WidgetParamFieldContractValue> = z.object({
+const WidgetParamFieldContractSchema = z.object({
   field: z.string(),
   kind: z.string(),
   referenceKind: z.string().optional(),

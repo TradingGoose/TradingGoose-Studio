@@ -94,6 +94,7 @@ export type AppliedWidgetConfigMutation = PlannedWidgetConfigMutation & {
 }
 
 type WidgetConfigMutationInput = {
+  origin: 'human' | 'copilot'
   widgetKey: string
   widget: DashboardWidgetDocument
   colorPairs: PersistedColorPairsState
@@ -118,9 +119,11 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
   })
   assertLinkedParamsUseColorPair(nextKey, nextPairColor, input.patch.params)
   const widgetParams = withWidgetConfigErrors('params', () =>
-    sanitizeWidgetParams(nextKey, resolveMutationParams(current, nextKey, input.patch), {
-      strictUnknown: true,
-    })
+    sanitizeWidgetParams(
+      nextKey,
+      resolveMutationParams(current, nextKey, input.patch, input.origin),
+      { strictUnknown: true }
+    )
   )
   if (nextPairColor === 'gray' && input.patch.colorPair !== undefined) {
     failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
@@ -201,12 +204,12 @@ function buildWidgetConfigMutationReviewBase(input: {
     input.patch.params === undefined
       ? undefined
       : input.patch.params === null
-        ? (input.current.params ?? null)
-        : contract.projectLocalParamsReviewBase(input.current.params, input.patch.params)
+        ? contract.projectCopilotParams(input.current.params)
+        : contract.projectCopilotParamsReviewBase(input.current.params, input.patch.params)
   const linkedFields = changesPairColor ? contract.linkedParamFields : []
   const localLinkedBase =
     input.nextPairColor === 'gray' && linkedFields.length > 0
-      ? contract.projectLocalParamsReviewBase(
+      ? contract.projectCopilotParamsReviewBase(
           input.current.params,
           Object.fromEntries(linkedFields.map((field) => [field, null]))
         )
@@ -265,13 +268,16 @@ function resolveNextPairColor({
 function resolveMutationParams(
   current: NonNullable<WidgetInstance>,
   nextKey: WidgetKey,
-  patch: WidgetConfigMutationPatch
+  patch: WidgetConfigMutationPatch,
+  origin: WidgetConfigMutationInput['origin']
 ): Record<string, unknown> | null {
   const baseParams = current.params
 
   if (patch.params === undefined) return baseParams ?? null
-  if (patch.params === null) return null
-  return mergeWidgetParams(nextKey, baseParams, patch.params)
+  if (origin === 'copilot') {
+    return getWidgetContract(nextKey).mergeCopilotParams(baseParams, patch.params).params
+  }
+  return patch.params === null ? null : mergeWidgetParams(nextKey, baseParams, patch.params)
 }
 
 function assertLinkedParamsUseColorPair(

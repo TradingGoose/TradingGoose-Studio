@@ -20,6 +20,7 @@ type MutationInput = Parameters<typeof applyWidgetConfigMutation>[0]
 type MutationResult = ReturnType<typeof applyWidgetConfigMutation>
 
 const withDefaults = (over: Partial<MutationInput>): MutationInput => ({
+  origin: 'human',
   widgetKey: 'data_chart',
   widget: {
     pairColor: 'red',

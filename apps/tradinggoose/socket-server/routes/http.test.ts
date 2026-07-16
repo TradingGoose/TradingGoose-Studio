@@ -14,6 +14,7 @@ import {
 } from '@/lib/dashboard-layouts/review-base'
 import {
   applyDashboardWidgetDocumentDelta,
+  readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
   seedDashboardColorPairSession,
@@ -28,8 +29,7 @@ import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 import { createHttpHandler } from './http'
 
 const mocks = vi.hoisted(() => ({
-  saveDashboardWidget: vi.fn(),
-  saveDashboardPair: vi.fn(),
+  saveDashboard: vi.fn(),
   saveEntity: vi.fn(),
   createTargetBootstrap: vi.fn(),
   getRuntime: vi.fn(() => ({ docState: 'active' })),
@@ -37,7 +37,6 @@ const mocks = vi.hoisted(() => ({
   getDocument: vi.fn(),
   peekDocument: vi.fn(),
   markPersisted: vi.fn(),
-  discardIfIdle: vi.fn(),
   flushPersistence: vi.fn(),
   runMutation: vi.fn(),
   reconcileWorkspaceConnections: vi.fn(),
@@ -64,8 +63,7 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
       return { error: this.message }
     }
   },
-  saveDashboardWidgetYjsDocToDb: mocks.saveDashboardWidget,
-  saveDashboardColorPairYjsDocToDb: mocks.saveDashboardPair,
+  saveDashboardYjsDocsToDb: mocks.saveDashboard,
   saveSavedEntityYjsDocToDb: mocks.saveEntity,
 }))
 
@@ -89,7 +87,6 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
   getDocument: mocks.getDocument,
   peekDocument: mocks.peekDocument,
   markDocumentPersisted: mocks.markPersisted,
-  discardDocumentIfIdle: mocks.discardIfIdle,
   flushDocumentPersistence: mocks.flushPersistence,
   runDocumentMutation: mocks.runMutation,
   reconcileWorkspaceConnections: mocks.reconcileWorkspaceConnections,
@@ -217,6 +214,7 @@ function widgetReviewHash(
   patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch']
 ) {
   const mutation = applyWidgetConfigMutation({
+    origin: 'copilot',
     widgetKey: 'data_chart',
     widget: current.widgets['widget-1'],
     colorPairs: current.colorPairs,
@@ -238,9 +236,7 @@ describe('socket internal HTTP Yjs routes', () => {
       async (_doc: Y.Doc, mutation: () => Promise<unknown> | unknown) => mutation()
     )
     mocks.flushPersistence.mockResolvedValue(0)
-    mocks.discardIfIdle.mockImplementation(() => undefined)
-    mocks.saveDashboardWidget.mockResolvedValue({ ok: true })
-    mocks.saveDashboardPair.mockResolvedValue({ ok: true })
+    mocks.saveDashboard.mockResolvedValue({})
     mocks.beginDeletion.mockResolvedValue(undefined)
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
@@ -403,7 +399,6 @@ describe('socket internal HTTP Yjs routes', () => {
     const snapshot = await invoke('GET', `/internal/yjs/sessions/layout-1/snapshot?${query}`)
     expect(snapshot.status).toBe(200)
     expect(documents.has('layout-1')).toBe(false)
-    expect(mocks.discardIfIdle).not.toHaveBeenCalled()
 
     const client = new Y.Doc()
     Y.applyUpdate(client, Buffer.from(snapshot.body.snapshotBase64, 'base64'))
@@ -456,8 +451,7 @@ describe('socket internal HTTP Yjs routes', () => {
       watchlistId: 'preserved-watchlist',
     })
     expect(mocks.commitDashboardStructure).toHaveBeenCalledTimes(1)
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('commits widget identity replacement through one structural transaction', async () => {
@@ -488,7 +482,7 @@ describe('socket internal HTTP Yjs routes', () => {
       sessionIds: ['dashboard-widget:layout-1:widget-1'],
     })
     expect(mocks.commitDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.saveDashboard).not.toHaveBeenCalled()
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
       watchlistId: 'preserved-watchlist',
@@ -547,7 +541,7 @@ describe('socket internal HTTP Yjs routes', () => {
       removedIdentityIds: [],
     })
     expect(commit.layout.children).toHaveLength(2)
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('keeps live topology unchanged and aborts child deletion when structural persistence fails', async () => {
@@ -586,11 +580,15 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mocks.saveDashboardWidget.mock.calls[0]?.slice(0, 2)).toEqual([
-      'dashboard-widget:layout-1:widget-1',
+    expect(mocks.saveDashboard).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-    ])
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+      {
+        widget: {
+          sessionId: 'dashboard-widget:layout-1:widget-1',
+          doc: expect.any(Y.Doc),
+        },
+      }
+    )
     expect(response.body.content.widgets['widget-1'].params.view).toMatchObject({
       interval: '1h',
       candleType: 'candle_solid',
@@ -618,12 +616,46 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mocks.saveDashboardPair.mock.calls[0]?.slice(0, 2)).toEqual([
-      'dashboard-color-pair:layout-1:red',
+    expect(mocks.saveDashboard).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-    ])
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
+      {
+        colorPair: {
+          sessionId: 'dashboard-color-pair:layout-1:red',
+          doc: expect.any(Y.Doc),
+        },
+      }
+    )
     expect(response.body.content.colorPairs.pairs[0].listing.listing_id).toBe('NVDA')
+  })
+
+  it('commits mixed widget and color-pair edits atomically before updating either live owner', async () => {
+    const widgetDoc = createWidgetDoc('red', { view: { interval: '15m' } })
+    const pairDoc = createPairDoc({ listing: listing('AAPL') })
+    setDashboardDocuments({ widget: widgetDoc, red: pairDoc })
+    const current = dashboardProjection({ red: { listing: listing('AAPL') } })
+    const patch = {
+      params: { view: { interval: '1h' } },
+      colorPair: { listing: listing('NVDA') },
+    }
+    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
+    const beforeWidget = readDashboardWidgetDocument(widgetDoc, 'data_chart')
+    const beforePair = readDashboardColorPairDocument(pairDoc)
+    mocks.saveDashboard.mockRejectedValueOnce(new Error('database offline'))
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'widget',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      expectedReviewBaseStateHash,
+      panelId: 'panel-1',
+      patch,
+    })
+
+    expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
+    expect(mocks.saveDashboard).toHaveBeenCalledOnce()
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart')).toEqual(beforeWidget)
+    expect(readDashboardColorPairDocument(pairDoc)).toEqual(beforePair)
+    expect(mocks.markPersisted).not.toHaveBeenCalled()
   })
 
   it('releases the exact widget and pair documents when child persistence flush fails', async () => {
@@ -648,11 +680,6 @@ describe('socket internal HTTP Yjs routes', () => {
     })
 
     expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
-    expect(mocks.discardIfIdle.mock.calls.slice(-3).map(([doc]) => doc)).toEqual([
-      pairDoc,
-      widgetDoc,
-      layoutDoc,
-    ])
   })
 
   it('validates the accepted widget review inside the widget mutation queue', async () => {
@@ -689,7 +716,7 @@ describe('socket internal HTTP Yjs routes', () => {
       status: 409,
       body: { code: 'stale_server_tool_review' },
     })
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
+    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('preserves the latest credential represented by a Copilot placeholder', async () => {
@@ -705,9 +732,9 @@ describe('socket internal HTTP Yjs routes', () => {
     const patch = { params: { data: { auth: { apiKey: '[redacted]' } } } }
     const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
     let savedWidget: ReturnType<typeof readDashboardWidgetDocument> | undefined
-    mocks.saveDashboardWidget.mockImplementationOnce(async (_sessionId, _scope, doc: Y.Doc) => {
-      savedWidget = readDashboardWidgetDocument(doc, 'data_chart')
-      return savedWidget
+    mocks.saveDashboard.mockImplementationOnce(async (_scope, parts) => {
+      savedWidget = readDashboardWidgetDocument(parts.widget.doc, 'data_chart')
+      return { widget: savedWidget }
     })
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
@@ -753,8 +780,7 @@ describe('socket internal HTTP Yjs routes', () => {
       status: 409,
       body: { code: 'stale_server_tool_review' },
     })
-    expect(mocks.saveDashboardWidget).not.toHaveBeenCalled()
-    expect(mocks.saveDashboardPair).not.toHaveBeenCalled()
+    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('coordinates exact-session deletion leases through begin, commit, and abort', async () => {

@@ -1,8 +1,10 @@
 import {
+  collectDashboardTopologyReferences,
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   type DashboardLayoutProjectionContent,
   serializeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
+import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 
 export const DASHBOARD_CREDENTIAL_PLACEHOLDER = '[redacted]'
 
@@ -51,12 +53,31 @@ export function preserveDashboardLayoutCredentialPlaceholders(
   )
 }
 
+function projectDashboardLayoutForCopilot(
+  content: DashboardLayoutProjectionContent
+): DashboardLayoutProjectionContent {
+  const widgets = Object.fromEntries(
+    [...collectDashboardTopologyReferences(content.layout)].map(([identityId, widgetKey]) => {
+      const widget = content.widgets[identityId]
+      if (!widget) throw new Error(`Dashboard widget ${identityId} is missing`)
+      return [
+        identityId,
+        widgetKey
+          ? { ...widget, params: projectWidgetParamsForCopilot(widgetKey, widget.params) }
+          : widget,
+      ]
+    })
+  )
+  return projectDashboardLayoutValueForCopilot({
+    ...content,
+    widgets,
+  }) as DashboardLayoutProjectionContent
+}
+
 export function serializeDashboardLayoutForCopilot(
   content: DashboardLayoutProjectionContent
 ): string {
-  return serializeDashboardLayoutProjection(
-    projectDashboardLayoutValueForCopilot(content) as DashboardLayoutProjectionContent
-  )
+  return serializeDashboardLayoutProjection(projectDashboardLayoutForCopilot(content))
 }
 
 export function buildDashboardLayoutReadProjection(content: DashboardLayoutProjectionContent) {

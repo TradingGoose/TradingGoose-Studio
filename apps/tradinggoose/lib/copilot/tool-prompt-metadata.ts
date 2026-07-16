@@ -394,6 +394,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   edit_widget: {
     description:
       'Patch the existing widget in one dashboard panel by exact `entityId` and `panelId`, then return the same complete layout document shape as `read_layout`. Use `params` for local or non-linked widget params, `pairColor` to select its color-store channel, and `colorPair` for shared linked fields. Use `colorPair: { field: null }` to clear one shared field or `colorPair: null` to clear the selected channel. Use `edit_layout` to add, replace, or remove widget bindings. ' +
+      'Data-chart drawing state is user-managed and is neither returned nor editable through Copilot. ' +
       DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE,
     kind: 'edit',
     entityKind: 'dashboard_layout',

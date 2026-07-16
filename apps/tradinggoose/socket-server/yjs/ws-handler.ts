@@ -24,8 +24,7 @@ import {
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
-  saveDashboardColorPairYjsDocToDb,
-  saveDashboardWidgetYjsDocToDb,
+  saveDashboardYjsDocsToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
@@ -33,7 +32,6 @@ import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { reconcileEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
 import {
   type DocumentValidator,
-  discardDocumentIfIdle,
   getDocument,
   isYjsSessionAdmissionBlocked,
   peekDocument,
@@ -76,11 +74,10 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
       throw new SavedEntityPersistenceError(409, 'Dashboard persistence owner is required')
     }
     const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
-    if (descriptor.entityKind === 'dashboard_widget') {
-      await saveDashboardWidgetYjsDocToDb(descriptor.yjsSessionId, scope, doc)
-    } else {
-      await saveDashboardColorPairYjsDocToDb(descriptor.yjsSessionId, scope, doc)
-    }
+    const part = descriptor.entityKind === 'dashboard_widget' ? 'widget' : 'colorPair'
+    await saveDashboardYjsDocsToDb(scope, {
+      [part]: { sessionId: descriptor.yjsSessionId, doc },
+    })
   }
 }
 
@@ -203,19 +200,13 @@ async function authenticateAndPrepareUpgrade(
   const liveDoc = peekDocument(pathSessionId)
   let runtime = liveDoc ? getReviewTargetRuntimeState(liveDoc) : null
   if (isListTarget) {
-    const acquired = getDocument(pathSessionId, true, undefined, canonicalDescriptor.workspaceId)
-    const listDoc = acquired.doc
-    try {
-      await reconcileEntityListSession(
-        listDoc,
-        canonicalDescriptor.entityKind as ReviewEntityKind,
-        canonicalDescriptor.workspaceId as string,
-        canonicalDescriptor.ownerUserId ?? null
-      )
-    } catch (error) {
-      if (acquired.created) discardDocumentIfIdle(listDoc)
-      throw error
-    }
+    const listDoc = getDocument(pathSessionId, true, undefined, canonicalDescriptor.workspaceId).doc
+    await reconcileEntityListSession(
+      listDoc,
+      canonicalDescriptor.entityKind as ReviewEntityKind,
+      canonicalDescriptor.workspaceId as string,
+      canonicalDescriptor.ownerUserId ?? null
+    )
     runtime = getReviewTargetRuntimeState(listDoc)
   } else if (!liveDoc && canonicalDescriptor.entityId) {
     const bootstrapped = await createSavedReviewTargetBootstrapUpdate(canonicalDescriptor)

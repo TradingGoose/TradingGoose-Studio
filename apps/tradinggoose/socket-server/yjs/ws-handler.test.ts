@@ -21,7 +21,6 @@ const mockAuthenticateYjsConnection = vi.fn()
 const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockReconcileEntityListSession = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
-const mockDiscardDocumentIfIdle = vi.fn()
 const mockGetDocument = vi.fn()
 const mockPeekDocument = vi.fn()
 const mockSetupWSConnection = vi.fn()
@@ -155,7 +154,6 @@ beforeEach(() => {
   mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
   mockReconcileEntityListSession.mockReset()
   mockVerifyReviewTargetAccess.mockReset()
-  mockDiscardDocumentIfIdle.mockReset()
   mockGetDocument.mockReset()
   mockPeekDocument.mockReset()
   mockSetupWSConnection.mockReset()
@@ -198,7 +196,6 @@ beforeEach(() => {
   }))
 
   vi.doMock('./upstream-utils', () => ({
-    discardDocumentIfIdle: mockDiscardDocumentIfIdle,
     getDocument: mockGetDocument,
     peekDocument: mockPeekDocument,
     isYjsSessionAdmissionBlocked: vi.fn(() => false),

@@ -21,11 +21,7 @@ import {
   replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
-import {
-  extractPersistedStateFromDoc,
-  setVariables,
-  setWorkflowState,
-} from '@/lib/yjs/workflow-session'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import {
@@ -414,7 +410,7 @@ describe('Socket Server Index Integration', () => {
 
       expect(response.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
-      expect(peekDocument('workflow-1')).toBeNull()
+      const liveDoc = peekDocument('workflow-1')!
       expect(savedWorkflowStates[0]?.blocks['block-1']).toEqual(
         expect.objectContaining({
           id: 'block-1',
@@ -428,19 +424,7 @@ describe('Socket Server Index Integration', () => {
           value: 'secret',
         })
       )
-
-      const liveDoc = getDocument('workflow-1', true).doc
-      setWorkflowState(
-        liveDoc,
-        {
-          blocks: savedWorkflowStates[0]?.blocks ?? {},
-          edges: savedWorkflowStates[0]?.edges ?? [],
-          loops: savedWorkflowStates[0]?.loops ?? {},
-          parallels: savedWorkflowStates[0]?.parallels ?? {},
-        },
-        'test'
-      )
-      setVariables(liveDoc, savedWorkflowStates[0]?.variables ?? {}, 'test')
+      expect(extractPersistedStateFromDoc(liveDoc).blocks['block-1']).toBeDefined()
 
       const variables = {
         var1: { id: 'var1', workflowId: 'workflow-1', name: 'riskLimit', value: 25 },
@@ -453,7 +437,7 @@ describe('Socket Server Index Integration', () => {
       expect(savedWorkflowStates[1]?.blocks['block-1'].subBlocks.prompt.value).toBe(
         'Use <variable.risklimit> in this prompt'
       )
-      expect(peekDocument('workflow-1')).toBeNull()
+      expect(peekDocument('workflow-1')).toBe(liveDoc)
     })
 
     it('applies watchlist content without changing its list identity', async () => {
@@ -498,7 +482,10 @@ describe('Socket Server Index Integration', () => {
           },
         },
       ])
-      expect(peekDocument('watchlist-1')).toBeNull()
+      expect(getEntityFields(peekDocument('watchlist-1')!, 'watchlist')).toEqual({
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [],
+      })
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
@@ -510,7 +497,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
     })
 
-    it('should discard an idle workflow document when materialization fails', async () => {
+    it('retains an unmutated idle workflow document when materialization fails', async () => {
       mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
 
       const response = await sendHttpRequestWithOptions(
@@ -536,7 +523,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(peekDocument('workflow-failed')).toBeNull()
+      expect(extractPersistedStateFromDoc(peekDocument('workflow-failed')!).blocks).toEqual({})
     })
 
     it('does not mutate a connected live workflow session when persistence fails', async () => {
@@ -591,7 +578,10 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(peekDocument('skill-update-failed')).toBeNull()
+      expect(getEntityFields(peekDocument('skill-update-failed')!, 'skill')).toEqual({
+        description: '',
+        content: '',
+      })
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {

@@ -7,6 +7,7 @@ import type {
 } from '@/widgets/layout-document'
 import { findDashboardTopologyPanel } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
+import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
@@ -58,7 +59,10 @@ export function buildDashboardWidgetReviewDocument(
     panelId,
     identityId: panel.identityId,
     widgetKey: panel.widgetKey,
-    widgetDocument,
+    widgetDocument: {
+      ...widgetDocument,
+      params: projectWidgetParamsForCopilot(panel.widgetKey, widgetDocument.params),
+    },
     colorPair: pairColor === 'gray' ? null : readPairColorContext(content.colorPairs, pairColor),
   }
 }

@@ -20,6 +20,7 @@ describe('get_widgets_metadata server tool', () => {
       'view',
       'runtime',
     ])
+    expect(JSON.stringify(metadata.metadata.data_chart)).not.toContain('drawTools')
 
     await expect(
       getWidgetsMetadataServerTool.execute({ widgetKeys: ['unknown_widget'] })

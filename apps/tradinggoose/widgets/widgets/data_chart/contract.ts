@@ -8,12 +8,13 @@ import {
   assertKnownWidgetParamFields,
   defineWidgetContract,
   isRecord,
-  projectLocalParamsReviewBase,
+  projectCopilotParamsReviewBase,
   sanitizeLocalParamsByFields,
+  WidgetContractValidationError,
   type WidgetParamsNormalizationOptions,
+  type WidgetSanitizeResult,
 } from '@/widgets/widget-contract-types'
 import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
-import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 
 export type DataChartCandleType =
   | 'candle_solid'
@@ -80,92 +81,21 @@ export type DataChartWidgetParams = {
 
 const DATA_CHART_FIELDS = ['listing', 'data', 'view', 'runtime'] as const
 
-type DrawToolsSnapshotSource = { index: number; snapshot: ManualOwnerSnapshot }
-
-const resolveDrawToolsSnapshotSources = (raw: unknown): Map<string, DrawToolsSnapshotSource> => {
-  if (!Array.isArray(raw)) return new Map()
-
-  const sourceById = new Map<string, DrawToolsSnapshotSource>()
-  raw.forEach((entry, index) => {
-    if (!isRecord(entry)) return
-    const id = typeof entry.id === 'string' ? entry.id.trim() : ''
-    if (!id) return
-    const snapshot = normalizeManualOwnerSnapshot(entry.snapshot)
-    if (!snapshot) return
-    sourceById.set(id, { index, snapshot })
-  })
-  return sourceById
-}
-
-const mergeDrawToolsSnapshots = (
-  currentDrawTools: unknown,
-  incomingDrawTools: unknown
-): unknown => {
-  if (!Array.isArray(incomingDrawTools)) return incomingDrawTools
-  if (!Array.isArray(currentDrawTools)) return incomingDrawTools
-
-  const sourceById = resolveDrawToolsSnapshotSources(currentDrawTools)
-  if (sourceById.size === 0) return incomingDrawTools
-
-  let changed = false
-  const merged = incomingDrawTools.map((entry) => {
-    if (!isRecord(entry)) return entry
-
-    const id = typeof entry.id === 'string' ? entry.id.trim() : ''
-    if (!id) return entry
-
-    if (Object.hasOwn(entry, 'snapshot')) return entry
-    if (normalizeManualOwnerSnapshot(entry.snapshot) !== null) return entry
-
-    const source = sourceById.get(id)
-    if (!source) return entry
-
-    changed = true
-    return { ...entry, snapshot: source.snapshot }
-  })
-
-  return changed ? merged : incomingDrawTools
-}
-
-const projectDataChartParamsReviewBase = (
-  currentParams: Record<string, unknown> | null | undefined,
-  incomingParams: Record<string, unknown>
-): Record<string, unknown> => {
-  const reviewBase = projectLocalParamsReviewBase(currentParams, incomingParams, [
-    'data',
-    'view',
-    'runtime',
-  ])
-  const currentView = isRecord(currentParams?.view) ? currentParams.view : null
-  const incomingView = isRecord(incomingParams.view) ? incomingParams.view : null
-  const currentDrawTools = currentView?.drawTools
-  const incomingDrawTools = incomingView?.drawTools
-  if (!Array.isArray(currentDrawTools) || !Array.isArray(incomingDrawTools)) return reviewBase
-
-  const sourceById = resolveDrawToolsSnapshotSources(currentDrawTools)
-  const carriedSourceIndexes = new Set<number>()
-  incomingDrawTools.forEach((entry) => {
-    if (!isRecord(entry) || Object.hasOwn(entry, 'snapshot')) return
-    const id = typeof entry.id === 'string' ? entry.id.trim() : ''
-    const source = sourceById.get(id)
-    if (source) carriedSourceIndexes.add(source.index)
-  })
-  if (carriedSourceIndexes.size === 0) return reviewBase
-
-  const reviewView = isRecord(reviewBase.view) ? reviewBase.view : null
-  if (!reviewView) return reviewBase
-  return {
-    ...reviewBase,
-    view: {
-      ...reviewView,
-      drawTools: currentDrawTools.map((entry, index) =>
-        carriedSourceIndexes.has(index) && isRecord(entry)
-          ? Object.fromEntries(Object.entries(entry).filter(([key]) => key !== 'snapshot'))
-          : entry
-      ),
-    },
-  }
-}
+const DATA_CHART_COPILOT_VIEW_FIELDS = new Set([
+  'locale',
+  'timezone',
+  'start',
+  'end',
+  'interval',
+  'marketSession',
+  'pricePrecision',
+  'volumePrecision',
+  'candleType',
+  'priceAxisType',
+  'pineIndicators',
+  'rangePresetId',
+  'stylesOverride',
+])
 
 export const sanitizeDataChartParams = (
   params: unknown,
@@ -223,9 +153,6 @@ export const mergeDataChartParams = (
   const incomingView = isRecord(incomingParams.view) ? incomingParams.view : null
   if (incomingView) {
     const nextView = currentView ? { ...currentView, ...incomingView } : { ...incomingView }
-    if ('drawTools' in nextView) {
-      nextView.drawTools = mergeDrawToolsSnapshots(currentView?.drawTools, nextView.drawTools)
-    }
     merged.view = nextView
   }
 
@@ -246,16 +173,74 @@ export const mergeDataChartParams = (
   return sanitizeDataChartParams(merged, { strictUnknown: true })
 }
 
+function projectDataChartParamsForCopilot(
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  const normalized = sanitizeDataChartParams(params, { strictUnknown: false })
+  if (!normalized) return null
+  const { view, ...projected } = normalized
+  if (isRecord(view)) {
+    const visibleView = Object.fromEntries(
+      Object.entries(view).filter(([field]) => DATA_CHART_COPILOT_VIEW_FIELDS.has(field))
+    )
+    if (Object.keys(visibleView).length > 0) projected.view = visibleView
+  }
+  return Object.keys(projected).length > 0 ? projected : null
+}
+
+function preserveDataChartDrawTools(
+  currentParams: Record<string, unknown> | null | undefined,
+  params: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  const currentView = isRecord(currentParams?.view) ? currentParams.view : null
+  if (!currentView || !Object.hasOwn(currentView, 'drawTools')) return params
+  return {
+    ...(params ?? {}),
+    view: {
+      ...(isRecord(params?.view) ? params.view : {}),
+      drawTools: currentView.drawTools,
+    },
+  }
+}
+
+function mergeDataChartCopilotParams(
+  currentParams: Record<string, unknown> | null | undefined,
+  incomingParams: Record<string, unknown> | null
+): WidgetSanitizeResult {
+  const incomingView = isRecord(incomingParams?.view) ? incomingParams.view : null
+  const hiddenFields = incomingView
+    ? Object.keys(incomingView).filter((field) => !DATA_CHART_COPILOT_VIEW_FIELDS.has(field))
+    : []
+  if (hiddenFields.length > 0) {
+    throw new WidgetContractValidationError(
+      hiddenFields.map((field) => ({
+        path: `params.view.${field}`,
+        message: 'Widget "data_chart" does not expose this field to Copilot',
+      }))
+    )
+  }
+  return {
+    params: preserveDataChartDrawTools(
+      currentParams,
+      incomingParams === null ? null : mergeDataChartParams(currentParams, incomingParams)
+    ),
+    issues: [],
+  }
+}
+
 export const dataChartWidgetContract = defineWidgetContract({
   key: 'data_chart',
   title: 'Chart',
   category: 'trading',
-  description: 'Market chart for a selected listing.',
+  description: 'Market chart for a selected listing. Drawing state is managed by the chart UI.',
   editable: true,
   editableFields: [...DATA_CHART_FIELDS],
   linkedParamFields: ['listing'],
   defaultParams: null,
   sanitizeLocalParams: sanitizeDataChartParams,
   mergeLocalParams: mergeDataChartParams,
-  projectLocalParamsReviewBase: projectDataChartParamsReviewBase,
+  projectCopilotParams: projectDataChartParamsForCopilot,
+  mergeCopilotParams: mergeDataChartCopilotParams,
+  projectCopilotParamsReviewBase: (currentParams, incomingParams) =>
+    projectCopilotParamsReviewBase(currentParams, incomingParams, ['data', 'view', 'runtime']),
 })

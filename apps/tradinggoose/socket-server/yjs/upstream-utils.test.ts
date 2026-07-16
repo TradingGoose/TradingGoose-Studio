@@ -26,7 +26,6 @@ import {
   cleanupAllDocuments,
   commitYjsSessionDeletion,
   discardDocument,
-  discardDocumentIfIdle,
   drainAllDocuments,
   flushDocumentPersistence,
   getDocument,
@@ -118,7 +117,7 @@ describe('shared document lifecycle', () => {
 
   it('does not discard a replacement document through a stale reference', async () => {
     const stale = getDocument('layout-replaced').doc
-    discardDocumentIfIdle(stale)
+    await discardDocument(stale)
     const replacement = getDocument('layout-replaced').doc
     const mutation = vi.fn()
 
@@ -127,6 +126,20 @@ describe('shared document lifecycle', () => {
 
     expect(mutation).not.toHaveBeenCalled()
     expect(peekDocument('layout-replaced')).toBe(replacement)
+  })
+
+  it('retains one Yjs lineage across reconnects', () => {
+    const firstSocket = new TestSocket()
+    const first = setupWatchlistSocket(firstSocket, 'watchlist-reconnect', vi.fn())
+    firstSocket.emit('close')
+
+    expect(peekDocument('watchlist-reconnect')).toBe(first)
+
+    const secondSocket = new TestSocket()
+    const second = setupWatchlistSocket(secondSocket, 'watchlist-reconnect', vi.fn())
+    expect(second).toBe(first)
+    secondSocket.emit('close')
+    expect(peekDocument('watchlist-reconnect')).toBe(first)
   })
 
   it('flushes an edit newer than the last persisted generation before disconnect', async () => {
@@ -492,7 +505,7 @@ describe('document mutation queue', () => {
 
     await expect(failedMutation).rejects.toThrow('mutation failed')
     await vi.waitFor(() => expect(persistedValue).toHaveBeenCalledWith(true))
-    await vi.waitFor(() => expect(peekDocument('watchlist-cleanup')).toBeNull())
+    expect(peekDocument('watchlist-cleanup')).toBe(doc)
   })
 })
 

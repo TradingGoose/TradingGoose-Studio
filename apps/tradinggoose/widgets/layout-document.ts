@@ -248,7 +248,7 @@ function zodValidationError(error: z.ZodError, prefix = ''): DashboardLayoutVali
 type DashboardPanelTopologyNode = Extract<DashboardLayoutTopologyNode, { type: 'panel' }>
 type DashboardTopologyReferences = Map<string, DashboardPanelTopologyNode['widgetKey']>
 
-function collectDashboardTopologyReferences(
+export function collectDashboardTopologyReferences(
   layout: DashboardLayoutTopologyNode
 ): DashboardTopologyReferences {
   const references: DashboardTopologyReferences = new Map()

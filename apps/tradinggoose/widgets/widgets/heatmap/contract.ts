@@ -3,7 +3,7 @@ import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
   defineWidgetContract,
   mergeParamsWithRuntime,
-  projectLocalParamsReviewBase,
+  projectCopilotParamsReviewBase,
   sanitizeLocalParamsByFields,
   type WidgetParamsNormalizationOptions,
 } from '@/widgets/widget-contract-types'
@@ -54,6 +54,6 @@ export const heatmapWidgetContract = defineWidgetContract({
   sanitizeLocalParams: sanitizeHeatmapParams,
   mergeLocalParams: (currentParams, incomingParams) =>
     mergeParamsWithRuntime(sanitizeHeatmapParams, currentParams, incomingParams),
-  projectLocalParamsReviewBase: (currentParams, incomingParams) =>
-    projectLocalParamsReviewBase(currentParams, incomingParams, ['runtime']),
+  projectCopilotParamsReviewBase: (currentParams, incomingParams) =>
+    projectCopilotParamsReviewBase(currentParams, incomingParams, ['runtime']),
 })

@@ -3,7 +3,7 @@ import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/type
 import {
   defineWidgetContract,
   mergeParamsWithRuntime,
-  projectLocalParamsReviewBase,
+  projectCopilotParamsReviewBase,
   sanitizeLocalParamsByFields,
   type WidgetParamsNormalizationOptions,
 } from '@/widgets/widget-contract-types'
@@ -47,6 +47,6 @@ export const portfolioSnapshotWidgetContract = defineWidgetContract({
   sanitizeLocalParams: sanitizePortfolioSnapshotParams,
   mergeLocalParams: (currentParams, incomingParams) =>
     mergeParamsWithRuntime(sanitizePortfolioSnapshotParams, currentParams, incomingParams),
-  projectLocalParamsReviewBase: (currentParams, incomingParams) =>
-    projectLocalParamsReviewBase(currentParams, incomingParams, ['runtime']),
+  projectCopilotParamsReviewBase: (currentParams, incomingParams) =>
+    projectCopilotParamsReviewBase(currentParams, incomingParams, ['runtime']),
 })

@@ -151,13 +151,9 @@ export const useManualDrawToolsController = ({
   useEffect(() => {
     const currentView = view ?? {}
     const rawDrawTools = Array.isArray(currentView.drawTools) ? currentView.drawTools : []
-    if (rawDrawTools.length === 0) return
-
-    const normalized = normalizeDrawToolsRefs(rawDrawTools)
-    if (normalized.length === 0) return
 
     let changed = false
-    const nextDrawTools = normalized.map((entry) => {
+    const nextDrawTools = resolvedDrawTools.map((entry) => {
       const ownerId = toManualOwnerId(entry.id)
       const snapshot = getOwnerSnapshot(ownerId)
       const nextSnapshot = snapshot && snapshot.tools.length > 0 ? snapshot : undefined
@@ -201,6 +197,7 @@ export const useManualDrawToolsController = ({
     })
   }, [
     view,
+    resolvedDrawTools,
     patchWidgetParams,
     manualLineToolsRevision,
     toManualOwnerId,

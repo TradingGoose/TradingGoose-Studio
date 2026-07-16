@@ -134,6 +134,13 @@ export function mergeWidgetParams(
   return getWidgetContract(widgetKey).mergeLocalParams(currentParams, incomingParams).params
 }
 
+export function projectWidgetParamsForCopilot(
+  widgetKey: WidgetKey,
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  return getWidgetContract(widgetKey).projectCopilotParams(params)
+}
+
 export function resolveEffectiveWidgetParams(
   widget: WidgetInstance,
   colorPairs: PersistedColorPairsState | unknown
@@ -208,7 +215,7 @@ export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): Widge
       category: contract.category,
       description: contract.description,
       editable: contract.editable,
-      defaultParams: contract.defaultParams,
+      defaultParams: contract.projectCopilotParams(contract.defaultParams),
       editableFields: [...contract.editableFields],
       paramContract: contract.paramContract,
       linkedParamFields: [...contract.linkedParamFields],

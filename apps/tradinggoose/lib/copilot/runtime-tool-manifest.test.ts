@@ -353,6 +353,9 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
       'same non-gray `pairColor`'
     )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
+      'drawing state is user-managed'
+    )
     expect(manifest.tools.find((tool) => tool.name === 'create_layout')?.description).toContain(
       'first layout is active automatically; later layouts are inactive'
     )
@@ -364,6 +367,7 @@ describe('copilot runtime tool manifest', () => {
     expect(editWidgetSchemaText).toContain('layout-scoped color-store channel')
     expect(editWidgetSchemaText).toContain('get_widgets_metadata.linkedParamFields')
     expect(editWidgetSchemaText).toContain('clear the whole selected color channel')
+    expect(editWidgetSchemaText).toContain('drawing fields are user-managed')
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',

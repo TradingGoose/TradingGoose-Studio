@@ -503,42 +503,47 @@ async function writeDashboardColorPairDocument(
     })
 }
 
-export async function persistDashboardWidgetDocument(
+export async function persistDashboardWidgetAndColorPairDocuments(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  identityId: string,
-  content: DashboardWidgetDocument
-): Promise<DashboardWidgetDocument> {
+  commit: {
+    widget?: { identityId: string; content: DashboardWidgetDocument }
+    colorPair?: { color: string; content: PairColorContext }
+  }
+): Promise<{ widget?: DashboardWidgetDocument; colorPair?: PairColorContext }> {
+  if (!commit.widget && !commit.colorPair) {
+    throw new DashboardLayoutOperationError(400, 'Dashboard document commit is empty')
+  }
   return db.transaction(async (tx) => {
     const layout = await readOwnedLayoutRow(scope, layoutId, tx)
-    const normalized = normalizeDashboardWidgetDocument(
-      requireDashboardWidgetKey(layout, identityId),
-      content
-    )
-    const rows = await tx
-      .update(layoutWidgets)
-      .set({ pairColor: normalized.pairColor, params: normalized.params })
-      .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
-      .returning({ id: layoutWidgets.id })
-    if (rows.length === 0)
-      throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
-    return normalized
+    const result: { widget?: DashboardWidgetDocument; colorPair?: PairColorContext } = {}
+    if (commit.widget) {
+      const { identityId, content } = commit.widget
+      const normalized = normalizeDashboardWidgetDocument(
+        requireDashboardWidgetKey(layout, identityId),
+        content
+      )
+      const rows = await tx
+        .update(layoutWidgets)
+        .set({ pairColor: normalized.pairColor, params: normalized.params })
+        .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
+        .returning({ id: layoutWidgets.id })
+      if (rows.length === 0) {
+        throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+      }
+      result.widget = normalized
+    }
+    if (commit.colorPair) {
+      const { color, content } = commit.colorPair
+      if (!isPairColor(color) || color === 'gray') {
+        throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
+      }
+      const normalized = normalizeDashboardColorPairDocument(content)
+      await writeDashboardColorPairDocument(tx, layoutId, color, normalized)
+      result.colorPair = normalized
+    }
+    return result
   })
-}
-
-export async function persistDashboardColorPairDocument(
-  scope: DashboardLayoutOwnerScope,
-  layoutId: string,
-  color: string,
-  content: PairColorContext
-): Promise<PairColorContext> {
-  await readOwnedLayoutRow(scope, layoutId)
-  if (!isPairColor(color) || color === 'gray') {
-    throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
-  }
-  const normalized = normalizeDashboardColorPairDocument(content)
-  await writeDashboardColorPairDocument(db, layoutId, color, normalized)
-  return normalized
 }
 
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {

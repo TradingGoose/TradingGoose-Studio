@@ -21,21 +21,6 @@ const listing = (listingId: string) => ({
   quote_id: '',
 })
 
-const drawingSnapshot = (price: number) => ({
-  tools: [
-    {
-      id: 'line-1',
-      toolType: 'trend_line',
-      points: [{ timestamp: 1, price }],
-    },
-  ],
-})
-
-const drawToolsOf = (content: DashboardLayoutProjectionContent) =>
-  (content.widgets['chart-widget'].params!.view as Record<string, unknown>).drawTools as Array<
-    Record<string, unknown>
-  >
-
 const createContent = (): DashboardLayoutProjectionContent => ({
   layout: {
     id: 'root',
@@ -76,6 +61,7 @@ const buildWidgetReviewBase = (
 ) => {
   const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
   const mutation = applyWidgetConfigMutation({
+    origin: 'copilot',
     widgetKey: panel.widgetKey!,
     widget: content.widgets[panel.identityId],
     colorPairs: content.colorPairs,
@@ -300,72 +286,6 @@ describe('dashboard review bases', () => {
     const replacementHash = (current: DashboardLayoutProjectionContent) =>
       hashServerToolReviewBase(buildWidgetReviewBase(current, replacementPatch))
     expect(replacementHash(credentialChanged)).not.toBe(replacementHash(content))
-  })
-
-  it('excludes only the draw-tools snapshot carried by the contract merger', () => {
-    const content = createContent()
-    content.widgets['chart-widget'].params = {
-      view: {
-        drawTools: [
-          { id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(100) },
-          { id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(200) },
-        ],
-      },
-    }
-    const patch = {
-      params: { view: { drawTools: [{ id: 'manual-1', pane: 'price' }] } },
-    }
-    const hash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, patch))
-    const overwrittenSnapshotChanged = structuredClone(content)
-    drawToolsOf(overwrittenSnapshotChanged)[0].snapshot = drawingSnapshot(101)
-    const carriedSnapshotChanged = structuredClone(content)
-    drawToolsOf(carriedSnapshotChanged)[1].snapshot = drawingSnapshot(201)
-
-    expect(hash(overwrittenSnapshotChanged)).not.toBe(hash(content))
-    expect(hash(carriedSnapshotChanged)).toBe(hash(content))
-
-    for (const mutate of [
-      (drawTools: Array<Record<string, unknown>>) => {
-        drawTools[0].pane = 'indicator'
-        drawTools[0].indicatorId = 'RSI'
-      },
-      (drawTools: Array<Record<string, unknown>>) => drawTools.reverse(),
-      (drawTools: Array<Record<string, unknown>>) =>
-        drawTools.push({ id: 'manual-2', pane: 'price' }),
-      (drawTools: Array<Record<string, unknown>>) => drawTools.shift(),
-    ]) {
-      const structureChanged = structuredClone(content)
-      mutate(drawToolsOf(structureChanged))
-      expect(hash(structureChanged)).not.toBe(hash(content))
-    }
-
-    const panel = findDashboardTopologyPanel(content.layout, 'chart-panel')!
-    const mutation = applyWidgetConfigMutation({
-      widgetKey: panel.widgetKey!,
-      widget: content.widgets[panel.identityId],
-      colorPairs: content.colorPairs,
-      panelId: panel.id,
-      patch,
-    })
-    expect(
-      (
-        (mutation.widgetDocument.params!.view as Record<string, unknown>).drawTools as Array<
-          Record<string, unknown>
-        >
-      )[0].snapshot
-    ).toEqual(drawingSnapshot(200))
-
-    const explicitSnapshotPatch = {
-      params: {
-        view: {
-          drawTools: [{ id: 'manual-1', pane: 'price', snapshot: drawingSnapshot(300) }],
-        },
-      },
-    }
-    const explicitHash = (current: DashboardLayoutProjectionContent) =>
-      hashServerToolReviewBase(buildWidgetReviewBase(current, explicitSnapshotPatch))
-    expect(explicitHash(carriedSnapshotChanged)).not.toBe(explicitHash(content))
   })
 
   it('allows unrelated fields in the same color pair and rejects target rebinding', () => {
