@@ -55,7 +55,6 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
       reviewSessionId: null,
       yjsSessionId: 'workflow-1',
     },
-    accessMode: 'write' as const,
     lifecycle,
     dispose: vi.fn(() => {
       provider.disconnect()
@@ -64,7 +63,8 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
     }),
     emitTerminal: (error: Error & { retryable: false }) =>
       resolveLifecycle({ type: 'terminal-failure', error }),
-    emitResync: () => resolveLifecycle({ type: 'resync-required' }),
+    emitResync: (pendingLocalEdits?: unknown) =>
+      resolveLifecycle({ type: 'resync-required', pendingLocalEdits }),
   }
   return result
 }
@@ -179,6 +179,9 @@ describe('workflow shared session lifecycle', () => {
         entityId: 'workflow-1',
         yjsSessionId: 'workflow-1',
       }),
+      undefined,
+      'write',
+      undefined,
     ])
 
     const writeLease = await acquireWritableWorkflowSessionLease({
@@ -235,12 +238,19 @@ describe('workflow shared session lifecycle', () => {
       expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(stale.doc)
     })
 
-    stale.emitResync()
+    const pendingLocalEdits = { base: new Uint8Array([0]), current: new Uint8Array([1]) }
+    stale.emitResync(pendingLocalEdits)
     await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(fresh.doc)
     })
 
     expect(stale.dispose).toHaveBeenCalledOnce()
+    expect(mockBootstrapYjsProvider).toHaveBeenLastCalledWith(
+      expect.objectContaining({ yjsSessionId: 'workflow-1' }),
+      undefined,
+      'write',
+      pendingLocalEdits
+    )
     release()
   })
 

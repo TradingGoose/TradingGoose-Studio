@@ -22,6 +22,7 @@ describe('Workflow By ID API Route', () => {
   const mockRefreshWorkflowListForWorkflow = vi.fn()
   const mockRefreshWorkflowList = vi.fn()
   const mockWithYjsSessionDeletionLease = vi.fn()
+  const mockRunYjsDeletionFencedTransaction = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
   const mockDbUpdateSet = vi.fn()
@@ -91,6 +92,7 @@ describe('Workflow By ID API Route', () => {
     mockRefreshWorkflowListForWorkflow.mockReset()
     mockRefreshWorkflowList.mockReset()
     mockWithYjsSessionDeletionLease.mockReset()
+    mockRunYjsDeletionFencedTransaction.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
@@ -112,7 +114,13 @@ describe('Workflow By ID API Route', () => {
       },
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
-    mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) => mutate())
+    mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) =>
+      mutate({ assertHeld: vi.fn() })
+    )
+    mockRunYjsDeletionFencedTransaction.mockImplementation(async (_leases, mutate) => {
+      const { db } = await import('@tradinggoose/db')
+      return db.transaction(mutate)
+    })
     mockRenameSavedEntityIdentity.mockResolvedValue({
       name: 'Updated Workflow',
       updatedAt: new Date('2026-03-17T11:00:00.000Z'),
@@ -120,6 +128,7 @@ describe('Workflow By ID API Route', () => {
     mockLockSavedEntityList.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+      runYjsDeletionFencedTransaction: mockRunYjsDeletionFencedTransaction,
       withYjsSessionDeletionLease: mockWithYjsSessionDeletionLease,
     }))
 
@@ -428,7 +437,7 @@ describe('Workflow By ID API Route', () => {
       const events: string[] = []
       mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) => {
         events.push('lease-begin')
-        const result = await mutate()
+        const result = await mutate({ assertHeld: vi.fn() })
         events.push('lease-commit')
         return result
       })
@@ -449,12 +458,16 @@ describe('Workflow By ID API Route', () => {
       })
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation(async () => {
-              events.push('db-delete')
-              return [{ id: 'workflow-123' }]
-            }),
-          }),
+          transaction: vi.fn(async (mutate) =>
+            mutate({
+              delete: vi.fn().mockReturnValue({
+                where: vi.fn().mockImplementation(async () => {
+                  events.push('db-delete')
+                  return [{ id: 'workflow-123' }]
+                }),
+              }),
+            })
+          ),
         },
         workflow: {},
       }))
@@ -502,9 +515,9 @@ describe('Workflow By ID API Route', () => {
 
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: deleteWhereMock,
-          }),
+          transaction: vi.fn(async (mutate) =>
+            mutate({ delete: vi.fn().mockReturnValue({ where: deleteWhereMock }) })
+          ),
         },
         workflow: {},
       }))

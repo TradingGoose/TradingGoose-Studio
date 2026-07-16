@@ -18,15 +18,17 @@ const mockLogger = {
 }
 
 const mockAuthenticateYjsConnection = vi.fn()
-const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
+const mockInitializeSavedReviewTargetDocument = vi.fn()
 const mockReconcileEntityListSession = vi.fn()
+const mockBindEntityListSession = vi.fn(() => mockReconcileEntityListSession)
 const mockVerifyReviewTargetAccess = vi.fn()
-const mockGetDocument = vi.fn()
-const mockPeekDocument = vi.fn()
+const mockAcquireDocument = vi.fn()
+const mockDocuments = new Map<string, { doc: Y.Doc; seeded: boolean }>()
 const mockSetupWSConnection = vi.fn()
 const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshActiveEntityListSession = vi.fn()
+const mockUpgradedSocketClose = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -86,7 +88,7 @@ function createWebSocketServer() {
   }
 
   wss.handleUpgrade = vi.fn((request, socket, head, callback) => {
-    callback({} as any)
+    callback({ close: mockUpgradedSocketClose } as any)
   })
 
   return wss
@@ -100,7 +102,7 @@ async function runYjsUpgrade(input: {
   target: YjsTestTarget
   accessMode?: 'read' | 'write'
   access?: { hasAccess: boolean; userPermission?: 'read' | 'write'; workspaceId?: string }
-  bootstrap?: { runtime: { docState: string }; state: Uint8Array } | null
+  bootstrap?: { workspaceId?: string | null; state: Uint8Array } | null
 }) {
   const accessMode = input.accessMode ?? 'write'
   const { target } = input
@@ -109,7 +111,7 @@ async function runYjsUpgrade(input: {
   const request = createYjsRequest(target, accessMode)
   const socket = createSocket()
   const wss = createWebSocketServer()
-  const bootstrapState = new Uint8Array([0, 0])
+  const bootstrapUpdate = new Uint8Array([0, 0])
   mockAuthenticateYjsConnection.mockResolvedValue({
     userId: 'user-1',
     userName: 'User One',
@@ -131,35 +133,64 @@ async function runYjsUpgrade(input: {
       workspaceId: target.workspaceId ?? 'workspace-1',
     }
   )
-  mockPeekDocument.mockReturnValue(null)
   const bootstrap =
     input.bootstrap === undefined
       ? {
-          runtime: { docState: 'active' },
-          state: bootstrapState,
+          workspaceId: target.workspaceId ?? 'workspace-1',
+          state: bootstrapUpdate,
         }
       : input.bootstrap
-  if (bootstrap) mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue(bootstrap)
+  if (bootstrap)
+    mockInitializeSavedReviewTargetDocument.mockResolvedValue({
+      workspaceId: bootstrap.workspaceId ?? target.workspaceId ?? 'workspace-1',
+      state: bootstrap.state,
+    })
+  else
+    mockInitializeSavedReviewTargetDocument.mockRejectedValue(
+      Object.assign(new Error('Review target is not bootstrapped'), { status: 404 })
+    )
 
   const { handleYjsUpgrade } = await loadModule()
   handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
   await new Promise((resolve) => setImmediate(resolve))
-  return { bootstrapState, request, socket, wss }
+  return { request, socket, wss }
 }
 
 beforeEach(() => {
   vi.resetModules()
 
   mockAuthenticateYjsConnection.mockReset()
-  mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
+  mockInitializeSavedReviewTargetDocument.mockReset()
   mockReconcileEntityListSession.mockReset()
+  mockBindEntityListSession.mockClear()
   mockVerifyReviewTargetAccess.mockReset()
-  mockGetDocument.mockReset()
-  mockPeekDocument.mockReset()
+  for (const { doc } of mockDocuments.values()) doc.destroy()
+  mockDocuments.clear()
+  mockAcquireDocument.mockReset().mockImplementation(
+    async (
+      sessionId: string,
+      options: {
+        initialize: (
+          doc: Y.Doc
+        ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
+      },
+      use: (doc: Y.Doc) => Promise<unknown> | unknown
+    ) => {
+      const entry = mockDocuments.get(sessionId) ?? { doc: new Y.Doc(), seeded: false }
+      mockDocuments.set(sessionId, entry)
+      if (!entry.seeded) {
+        const initializedDocument = await options.initialize(entry.doc)
+        if (initializedDocument?.state) Y.applyUpdate(entry.doc, initializedDocument.state)
+        entry.seeded = true
+      }
+      return use(entry.doc)
+    }
+  )
   mockSetupWSConnection.mockReset()
   mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
+  mockUpgradedSocketClose.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -175,11 +206,11 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
-    createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
+    initializeSavedReviewTargetDocument: mockInitializeSavedReviewTargetDocument,
   }))
 
   vi.doMock('./entity-list-session', () => ({
-    reconcileEntityListSession: mockReconcileEntityListSession,
+    bindEntityListSession: mockBindEntityListSession,
     refreshActiveEntityListSession: mockRefreshActiveEntityListSession,
   }))
 
@@ -196,8 +227,10 @@ beforeEach(() => {
   }))
 
   vi.doMock('./upstream-utils', () => ({
-    getDocument: mockGetDocument,
-    peekDocument: mockPeekDocument,
+    YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
+      status = 409
+    },
+    acquireDocument: mockAcquireDocument,
     isYjsSessionAdmissionBlocked: vi.fn(() => false),
     setupWSConnection: mockSetupWSConnection,
   }))
@@ -225,8 +258,6 @@ describe('handleYjsUpgrade', () => {
       workspaceId: 'workspace-1',
       isOwner: false,
     })
-    const liveDoc = new Y.Doc()
-    mockPeekDocument.mockReturnValue(liveDoc)
     let acceptsConnections = true
 
     const { handleYjsUpgrade } = await loadModule()
@@ -249,7 +280,6 @@ describe('handleYjsUpgrade', () => {
     expect(wss.handleUpgrade).not.toHaveBeenCalled()
     expect(socket.write).toHaveBeenCalledWith(expect.stringContaining('409'))
     expect(socket.destroy).toHaveBeenCalledOnce()
-    liveDoc.destroy()
   })
 
   it('rejects websocket upgrades when the Yjs auth token is invalid', async () => {
@@ -298,7 +328,7 @@ describe('handleYjsUpgrade', () => {
       widgetKey: 'data_chart',
       document: { pairColor: 'gray', params: null },
     })
-    const { bootstrapState, request, socket, wss } = await runYjsUpgrade({
+    const { request, socket, wss } = await runYjsUpgrade({
       target: {
         sessionId,
         entityKind: 'dashboard_widget',
@@ -310,7 +340,7 @@ describe('handleYjsUpgrade', () => {
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
-    expect(mockCreateSavedReviewTargetBootstrapUpdate).toHaveBeenCalled()
+    expect(mockInitializeSavedReviewTargetDocument).toHaveBeenCalled()
     expect(mockReadPersistedDashboardWidgetBinding).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1',
@@ -321,10 +351,8 @@ describe('handleYjsUpgrade', () => {
       expect.anything(),
       request,
       expect.objectContaining({
-        bootstrapState,
-        docId: sessionId,
+        doc: expect.any(Y.Doc),
         accessMode: 'write',
-        gc: true,
         onDocumentUpdate: expect.any(Function),
         validateDocument: expect.any(Function),
       })
@@ -358,7 +386,7 @@ describe('handleYjsUpgrade', () => {
       expect.anything(),
       request,
       expect.objectContaining({
-        docId: sessionId,
+        doc: expect.any(Y.Doc),
         accessMode: 'read',
         onDocumentUpdate: undefined,
       })
@@ -368,27 +396,30 @@ describe('handleYjsUpgrade', () => {
   it('reconciles an entity list through its live document before attaching a reader', async () => {
     const sessionId = 'list:watchlist:workspace-1'
     const listDoc = new Y.Doc()
-    mockGetDocument.mockReturnValue({ doc: listDoc, created: true })
+    mockDocuments.set(sessionId, { doc: listDoc, seeded: false })
     mockReconcileEntityListSession.mockRejectedValueOnce(new Error('database offline'))
     try {
       const failed = await runYjsUpgrade({
         target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
         accessMode: 'read',
       })
-      expect(failed.wss.handleUpgrade).not.toHaveBeenCalled()
+      expect(failed.wss.handleUpgrade).toHaveBeenCalledOnce()
+      expect(mockSetupWSConnection).not.toHaveBeenCalled()
+      expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4409, 'Failed to attach Yjs session')
 
+      mockUpgradedSocketClose.mockClear()
       const { request, wss } = await runYjsUpgrade({
         target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
         accessMode: 'read',
       })
 
-      expect(mockReconcileEntityListSession).toHaveBeenCalledWith(
+      expect(mockBindEntityListSession).toHaveBeenCalledWith(
         listDoc,
         'watchlist',
         'workspace-1',
         null
       )
-      expect(mockCreateSavedReviewTargetBootstrapUpdate).not.toHaveBeenCalled()
+      expect(mockInitializeSavedReviewTargetDocument).not.toHaveBeenCalled()
       expect(wss.handleUpgrade).toHaveBeenCalledWith(
         request,
         expect.anything(),
@@ -396,6 +427,7 @@ describe('handleYjsUpgrade', () => {
         expect.any(Function)
       )
       expect(mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument).toBeUndefined()
+      expect(mockReconcileEntityListSession).toHaveBeenCalledTimes(2)
     } finally {
       listDoc.destroy()
     }
@@ -436,7 +468,7 @@ describe('handleYjsUpgrade', () => {
     const options = mockSetupWSConnection.mock.calls[0]?.[2]
     expect(options).toEqual(
       expect.objectContaining({
-        docId: sessionId,
+        doc: expect.any(Y.Doc),
         onDocumentUpdate: expect.any(Function),
         validateDocument: expect.any(Function),
       })
@@ -462,7 +494,7 @@ describe('handleYjsUpgrade', () => {
 
   it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {
     const sessionId = 'layout-read'
-    const { bootstrapState, request, socket, wss } = await runYjsUpgrade({
+    const { request, socket, wss } = await runYjsUpgrade({
       target: {
         sessionId,
         entityKind: 'dashboard_layout',
@@ -478,10 +510,8 @@ describe('handleYjsUpgrade', () => {
       expect.anything(),
       request,
       expect.objectContaining({
-        bootstrapState,
-        docId: sessionId,
+        doc: expect.any(Y.Doc),
         accessMode: 'read',
-        gc: true,
         onDocumentUpdate: undefined,
       })
     )
@@ -523,10 +553,9 @@ describe('handleYjsUpgrade', () => {
       bootstrap: null,
     })
 
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(
-      expect.stringContaining('409 Review target is not bootstrapped')
-    )
-    expect(socket.destroy).toHaveBeenCalledTimes(1)
+    expect(wss.handleUpgrade).toHaveBeenCalledOnce()
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4410, 'Failed to attach Yjs session')
+    expect(socket.write).not.toHaveBeenCalled()
+    expect(socket.destroy).not.toHaveBeenCalled()
   })
 })

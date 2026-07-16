@@ -9,6 +9,7 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import {
   refreshEntityListSession,
+  runYjsDeletionFencedTransaction,
   withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 import type { PairColorContext } from '@/widgets/color-pairs'
@@ -403,7 +404,7 @@ export async function withDashboardLayoutOwnerLock<T>(
   })
 }
 
-async function lockDashboardLayoutOwner(
+export async function lockDashboardLayoutOwner(
   tx: Pick<typeof db, 'execute'>,
   scope: DashboardLayoutOwnerScope
 ) {
@@ -549,7 +550,7 @@ export async function persistDashboardWidgetAndColorPairDocuments(
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {
   const row = await readOwnedLayoutRow(scope, layoutId)
   if (row.isActive) throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-  await withYjsSessionDeletionLease({ sessionIds: [layoutId] }, async () => {
+  await withYjsSessionDeletionLease({ sessionIds: [layoutId] }, async (layoutLease) => {
     const widgets = await db
       .select({ id: layoutWidgets.id })
       .from(layoutWidgets)
@@ -560,8 +561,9 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
         buildDashboardColorPairSessionId(layoutId, color)
       ),
     ]
-    await withYjsSessionDeletionLease({ sessionIds: childSessionIds }, () =>
-      withDashboardLayoutOwnerLock(scope, async (tx) => {
+    await withYjsSessionDeletionLease({ sessionIds: childSessionIds }, (childLease) =>
+      runYjsDeletionFencedTransaction([layoutLease, childLease], async (tx) => {
+        await lockDashboardLayoutOwner(tx, scope)
         const current = await readOwnedLayoutRow(scope, layoutId, tx)
         if (current.isActive) {
           throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')

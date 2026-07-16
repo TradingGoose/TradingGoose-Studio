@@ -1,4 +1,6 @@
 import { randomUUID } from 'crypto'
+import { db } from '@tradinggoose/db'
+import { sql } from 'drizzle-orm'
 import {
   buildEntityListDescriptor,
   buildYjsTransportEnvelope,
@@ -23,6 +25,9 @@ import {
 
 const logger = createLogger('YjsSnapshotBridge')
 const DELETION_LEASE_ATTEMPTS = 3
+const DELETION_LEASE_TTL_MS = 5 * 60_000
+const DELETION_LEASE_RENEWAL_MS = 60_000
+const DELETION_LEASE_COMMIT_FENCE_MS = 60_000
 const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
 
 interface YjsSnapshotResponse {
@@ -36,6 +41,12 @@ type WorkflowPatch = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
 }
+
+export type YjsSessionDeletionLease = {
+  assertHeld: () => void
+}
+
+type YjsDeletionTransaction = Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>
 
 export class SocketServerBridgeError extends Error {
   status: number
@@ -373,7 +384,7 @@ export async function refreshEntityListSession(
 
 export async function withYjsSessionDeletionLease<T>(
   target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
-  mutate: () => Promise<T>
+  mutate: (lease: YjsSessionDeletionLease) => Promise<T>
 ): Promise<T> {
   const leaseId = randomUUID()
   const leaseUrl = new URL(
@@ -387,7 +398,8 @@ export async function withYjsSessionDeletionLease<T>(
       logger.warn('Failed to abort Yjs session deletion lease', { error, leaseId })
     }
   }
-  try {
+  let lastConfirmedAt = 0
+  const beginLease = async () => {
     await postJsonToSocketServerWithResponse(
       '/internal/yjs/session-deletions',
       { leaseId, ...target },
@@ -399,18 +411,49 @@ export async function withYjsSessionDeletionLease<T>(
         }
       }
     )
+    lastConfirmedAt = Date.now()
+  }
+  try {
+    await beginLease()
   } catch (error) {
     await abortLease()
     throw error
   }
 
+  let renewal: Promise<void> | null = null
+  const renewalTimer = setInterval(() => {
+    if (renewal) return
+    renewal = beginLease()
+      .catch((error) =>
+        logger.warn('Failed to renew Yjs session deletion lease', { error, leaseId })
+      )
+      .finally(() => {
+        renewal = null
+      })
+  }, DELETION_LEASE_RENEWAL_MS)
+  const stopRenewal = async () => {
+    clearInterval(renewalTimer)
+    await renewal
+  }
+
   let result: T
   try {
-    result = await mutate()
+    result = await mutate({
+      assertHeld: () => {
+        if (
+          Date.now() - lastConfirmedAt >
+          DELETION_LEASE_TTL_MS - DELETION_LEASE_RENEWAL_MS - 2 * DELETION_LEASE_COMMIT_FENCE_MS
+        ) {
+          throw new Error('Yjs session deletion lease is no longer confirmed')
+        }
+      },
+    })
   } catch (error) {
+    await stopRenewal()
     await abortLease()
     throw error
   }
+  await stopRenewal()
 
   try {
     await postJsonToSocketServer(
@@ -422,4 +465,21 @@ export async function withYjsSessionDeletionLease<T>(
     logger.warn('Yjs session deletion committed without lease acknowledgement', { error, leaseId })
   }
   return result
+}
+
+export function runYjsDeletionFencedTransaction<T>(
+  leases: readonly YjsSessionDeletionLease[],
+  run: (tx: YjsDeletionTransaction) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    const timeout = String(DELETION_LEASE_COMMIT_FENCE_MS)
+    await tx.execute(sql`
+      select
+        set_config('statement_timeout', ${timeout}, true),
+        set_config('idle_in_transaction_session_timeout', ${timeout}, true)
+    `)
+    const result = await run(tx)
+    for (const lease of leases) lease.assertHeld()
+    return result
+  })
 }

@@ -30,7 +30,11 @@ import {
   setEntityField,
 } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import {
+  bootstrapYjsProvider,
+  type YjsPendingLocalEdits,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -50,6 +54,10 @@ type SavedEntityYjsCollectionState = {
   error: string | null
 }
 
+type OpenYjsSession = (
+  pendingLocalEdits?: YjsPendingLocalEdits
+) => Promise<YjsProviderBootstrapResult>
+
 type SharedYjsSessionEntry = {
   key: string
   result: YjsProviderBootstrapResult | null
@@ -57,6 +65,7 @@ type SharedYjsSessionEntry = {
   refCount: number
   initPromise: Promise<void> | null
   listeners: Set<() => void>
+  pendingLocalEdits?: YjsPendingLocalEdits
 }
 
 const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
@@ -129,25 +138,27 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
 
 function initializeSharedYjsSessionEntry(
   entry: SharedYjsSessionEntry,
-  openSession: () => Promise<YjsProviderBootstrapResult>,
+  openSession: OpenYjsSession,
   errorMessage: string
 ): void {
   if (entry.error?.retryable === false || entry.initPromise || entry.result) return
 
   entry.error = null
   emitSharedYjsSessionEntry(entry)
-  entry.initPromise = openSession()
+  entry.initPromise = openSession(entry.pendingLocalEdits)
     .then((next) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
         next.dispose()
         return
       }
 
+      entry.pendingLocalEdits = undefined
       entry.result = next
       entry.error = null
       void next.lifecycle.then((event) => {
         if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
         if (event.type === 'resync-required') {
+          entry.pendingLocalEdits = event.pendingLocalEdits
           entry.result = null
           next.dispose()
           emitSharedYjsSessionEntry(entry)
@@ -181,7 +192,7 @@ const SESSION_REOPEN_RETRY_MS = 1_000
 
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
-  openSession: () => Promise<YjsProviderBootstrapResult>,
+  openSession: OpenYjsSession,
   errorMessage: string
 ): void {
   setTimeout(() => {
@@ -204,7 +215,7 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
 
 function retainSharedYjsSession(
   sessionKey: string,
-  openSession: () => Promise<YjsProviderBootstrapResult>,
+  openSession: OpenYjsSession,
   errorMessage: string,
   listener: (entry: SharedYjsSessionEntry) => void
 ): () => void {
@@ -253,7 +264,7 @@ function invalidateSavedEntityQueries(
 
 function useYjsSession(
   sessionKey: string | null,
-  openSession: (() => Promise<YjsProviderBootstrapResult>) | null,
+  openSession: OpenYjsSession | null,
   errorMessage: string
 ) {
   const [state, setState] = useState<SavedEntityYjsSessionState>({
@@ -293,7 +304,8 @@ export function useYjsTargetSession(
       ].join(':')
     : null
   const openSession = useCallback(
-    () => bootstrapYjsProvider(descriptor!, undefined, accessMode),
+    (pendingLocalEdits?: YjsPendingLocalEdits) =>
+      bootstrapYjsProvider(descriptor!, undefined, accessMode, pendingLocalEdits),
     [accessMode, descriptor]
   )
   const activeState = useYjsSession(sessionKey, sessionKey ? openSession : null, errorMessage)
@@ -419,7 +431,8 @@ export function useSavedEntityYjsSessionCollection(
     for (const binding of bindings) {
       binding.release = retainSharedYjsSession(
         binding.sessionKey,
-        () => bootstrapYjsProvider(binding.descriptor, undefined, accessMode),
+        (pendingLocalEdits) =>
+          bootstrapYjsProvider(binding.descriptor, undefined, accessMode, pendingLocalEdits),
         `Failed to open ${entityKind} entity session`,
         (entry) => {
           binding.entry = entry
@@ -463,7 +476,8 @@ export function useEntityList(
   }, [entityKind, ownerUserId, workspaceId])
   const sessionKey = descriptor ? descriptor.yjsSessionId : null
   const openSession = useCallback(
-    () => bootstrapYjsProvider(descriptor!, undefined, 'read'),
+    (pendingLocalEdits?: YjsPendingLocalEdits) =>
+      bootstrapYjsProvider(descriptor!, undefined, 'read', pendingLocalEdits),
     [descriptor]
   )
   const activeState = useYjsSession(

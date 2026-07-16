@@ -4,16 +4,15 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { reseedEntityListSessionFromDb } from '@/lib/yjs/server/bootstrap-review-target'
 import { peekDocument, reconcileDocument, setDocumentReconciler } from './upstream-utils'
 
-export function reconcileEntityListSession(
+export function bindEntityListSession(
   doc: Y.Doc,
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
-): Promise<void> {
-  setDocumentReconciler(doc, () =>
-    reseedEntityListSessionFromDb(doc, entityKind, workspaceId, ownerUserId)
-  )
-  return reconcileDocument(doc, true)
+): () => Promise<void> {
+  const reconcile = () => reseedEntityListSessionFromDb(doc, entityKind, workspaceId, ownerUserId)
+  setDocumentReconciler(doc, reconcile)
+  return reconcile
 }
 
 export async function refreshActiveEntityListSession(
@@ -24,6 +23,7 @@ export async function refreshActiveEntityListSession(
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
   const doc = peekDocument(descriptor.yjsSessionId)
   if (!doc) return null
-  await reconcileEntityListSession(doc, entityKind, workspaceId, ownerUserId)
+  bindEntityListSession(doc, entityKind, workspaceId, ownerUserId)
+  await reconcileDocument(doc, true)
   return doc
 }

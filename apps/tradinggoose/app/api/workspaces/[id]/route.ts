@@ -17,7 +17,10 @@ import {
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
-import { withYjsSessionDeletionLease } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  runYjsDeletionFencedTransaction,
+  withYjsSessionDeletionLease,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -177,8 +180,8 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    await withYjsSessionDeletionLease({ workspaceIds: [workspaceId] }, () =>
-      db.transaction(async (tx) => {
+    await withYjsSessionDeletionLease({ workspaceIds: [workspaceId] }, (lease) =>
+      runYjsDeletionFencedTransaction([lease], async (tx) => {
         for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
           await lockSavedEntityList(tx, entityKind, workspaceId)
         }

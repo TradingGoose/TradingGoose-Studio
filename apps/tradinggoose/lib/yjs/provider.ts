@@ -1,9 +1,10 @@
-import { WebsocketProvider } from 'y-websocket'
+import * as syncProtocol from '@y/protocols/sync'
+import * as decoding from 'lib0/decoding'
+import { isEqual } from 'lodash'
+import { messageSync, WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 import {
-  buildReviewTargetDescriptorFromEnvelope,
   buildYjsTransportEnvelope,
-  parseYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import {
@@ -13,26 +14,30 @@ import {
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
 } from '@/lib/copilot/review-sessions/types'
 import { getEnv } from '@/lib/env'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+
+export interface YjsPendingLocalEdits {
+  readonly base: Uint8Array
+  readonly current: Uint8Array
+}
 
 export interface YjsProviderBootstrapResult {
   readonly doc: Y.Doc
   readonly provider: WebsocketProvider
   readonly descriptor: ReviewTargetDescriptor
-  readonly accessMode: ReviewAccessMode
   readonly lifecycle: Promise<YjsProviderLifecycleEvent>
   readonly dispose: () => void
 }
 
 export type YjsProviderError = Error & { retryable: false }
 export type YjsProviderLifecycleEvent =
-  | { type: 'resync-required' }
+  | { type: 'resync-required'; pendingLocalEdits?: YjsPendingLocalEdits }
   | { type: 'terminal-failure'; error: YjsProviderError }
 
 function terminalProviderError(message: string): YjsProviderError {
   return Object.assign(new Error(message), { retryable: false as const })
 }
 
-const SOCKET_TOKEN_RETRY_MS = 1_000
 const SYNC_TIMEOUT_MS = 10_000
 
 function connectionCloseError(event: unknown): YjsProviderError | null {
@@ -51,12 +56,70 @@ function requireSuccessfulResponse(response: Response, label: string): void {
   throw terminalProviderError(message)
 }
 
-function updateCoversStateVector(update: Uint8Array, baseline: Map<number, number>): boolean {
-  const current = Y.decodeStateVector(Y.encodeStateVectorFromUpdate(update))
-  for (const [clientId, clock] of baseline) {
-    if ((current.get(clientId) ?? 0) < clock) return false
+function setYMapValue(target: Y.Map<unknown>, key: string, value: unknown): void {
+  target.set(
+    key,
+    value instanceof Y.Map || value instanceof Y.Text ? value.clone() : structuredClone(value)
+  )
+}
+
+function replaceYText(text: Y.Text, value: string): void {
+  if (text.toString() === value) return
+  if (text.length > 0) text.delete(0, text.length)
+  if (value) text.insert(0, value)
+}
+
+function applyYMapLocalEdits(
+  target: Y.Map<unknown>,
+  base: Y.Map<unknown>,
+  current: Y.Map<unknown>
+): void {
+  for (const key of new Set([...base.keys(), ...current.keys()])) {
+    if (!current.has(key)) {
+      if (base.has(key)) target.delete(key)
+      continue
+    }
+    const before = base.get(key)
+    const after = current.get(key)
+    if (!base.has(key)) {
+      setYMapValue(target, key, after)
+    } else if (before instanceof Y.Map && after instanceof Y.Map) {
+      const targetValue = target.get(key)
+      if (targetValue instanceof Y.Map) applyYMapLocalEdits(targetValue, before, after)
+      else if (!isEqual(before.toJSON(), after.toJSON())) setYMapValue(target, key, after)
+    } else if (before instanceof Y.Text && after instanceof Y.Text) {
+      if (before.toString() === after.toString()) continue
+      const targetValue = target.get(key)
+      if (targetValue instanceof Y.Text) replaceYText(targetValue, after.toString())
+      else setYMapValue(target, key, after)
+    } else if (
+      !isEqual(
+        before instanceof Y.Map || before instanceof Y.Text ? before.toJSON() : before,
+        after instanceof Y.Map || after instanceof Y.Text ? after.toJSON() : after
+      )
+    ) {
+      setYMapValue(target, key, after)
+    }
   }
-  return true
+}
+
+function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits | undefined): void {
+  if (!pending) return
+  const base = new Y.Doc()
+  const current = new Y.Doc()
+  try {
+    Y.applyUpdate(base, pending.base, YJS_ORIGINS.SYSTEM)
+    Y.applyUpdate(current, pending.current, YJS_ORIGINS.SYSTEM)
+    target.transact(() => {
+      for (const name of current.share.keys()) {
+        if (name === 'metadata') continue
+        applyYMapLocalEdits(target.getMap(name), base.getMap(name), current.getMap(name))
+      }
+    }, YJS_ORIGINS.SYSTEM)
+  } finally {
+    base.destroy()
+    current.destroy()
+  }
 }
 
 async function fetchSocketToken(): Promise<string> {
@@ -72,37 +135,6 @@ async function fetchSocketToken(): Promise<string> {
     throw terminalProviderError('Socket token response is malformed')
   }
   return data.token
-}
-
-async function fetchSnapshot(
-  sessionId: string,
-  envelopeParams: Record<string, string>
-): Promise<{ update: Uint8Array; descriptor: ReviewTargetDescriptor }> {
-  const response = await fetch(
-    `/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${new URLSearchParams({ ...envelopeParams, accessMode: 'write' })}`,
-    { cache: 'no-store' }
-  )
-  requireSuccessfulResponse(response, 'Snapshot fetch')
-  const data = (await response.json().catch(() => null)) as Record<string, unknown> | null
-  try {
-    const snapshotBase64 = data?.snapshotBase64
-    if (typeof snapshotBase64 !== 'string' || !snapshotBase64 || !data?.descriptor)
-      throw new Error()
-    const descriptor = buildReviewTargetDescriptorFromEnvelope(
-      parseYjsTransportEnvelope(
-        serializeYjsTransportEnvelope(
-          buildYjsTransportEnvelope(data.descriptor as ReviewTargetDescriptor)
-        )
-      )
-    )
-    const runtime = data.runtime as Record<string, unknown>
-    if (descriptor.yjsSessionId !== sessionId || runtime?.docState !== 'active') throw new Error()
-    const update = Uint8Array.from(atob(snapshotBase64), (character) => character.charCodeAt(0))
-    Y.decodeUpdate(update)
-    return { update, descriptor }
-  } catch {
-    throw terminalProviderError('Snapshot response is malformed')
-  }
 }
 
 export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
@@ -136,20 +168,35 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
   wsOrigin = getDefaultWsOrigin(),
-  accessMode: ReviewAccessMode = 'write'
+  accessMode: ReviewAccessMode = 'write',
+  pendingLocalEdits?: YjsPendingLocalEdits
 ): Promise<YjsProviderBootstrapResult> {
   const envelopeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   const token = await fetchSocketToken()
   const doc = new Y.Doc()
-
+  const acknowledged = new Y.Doc()
+  let active = true
   const provider = new WebsocketProvider(`${wsOrigin}/yjs`, descriptor.yjsSessionId, doc, {
     params: { token, accessMode, ...envelopeParams },
-    connect: true,
+    connect: false,
+    disableBc: true,
   })
-  let active = true
+  const applySyncMessage = provider.messageHandlers[messageSync]!
+  provider.messageHandlers[messageSync] = (encoder, decoder, source, emitSynced, messageType) => {
+    if (active) {
+      const mirror = decoding.clone(decoder)
+      const syncMessageType = decoding.readVarUint(mirror)
+      if (
+        syncMessageType === syncProtocol.messageYjsSyncStep2 ||
+        syncMessageType === syncProtocol.messageYjsUpdate
+      ) {
+        Y.applyUpdate(acknowledged, decoding.readVarUint8Array(mirror), YJS_ORIGINS.SYSTEM)
+      }
+    }
+    applySyncMessage(encoder, decoder, source, emitSynced, messageType)
+  }
+  provider.connect()
   let disposed = false
-  let reconnectRetry: ReturnType<typeof setTimeout> | null = null
-  let reconnectInFlight: Promise<void> | null = null
   let resolveLifecycle!: (event: YjsProviderLifecycleEvent) => void
   const lifecycle = new Promise<YjsProviderLifecycleEvent>((resolve) => {
     resolveLifecycle = resolve
@@ -158,11 +205,10 @@ export async function bootstrapYjsProvider(
   function deactivate(): void {
     if (!active) return
     active = false
-    if (reconnectRetry) clearTimeout(reconnectRetry)
-    reconnectRetry = null
     provider.off('connection-close', handleConnectionLoss)
     provider.off('connection-error', handleConnectionLoss)
     doc.off('destroy', deactivate)
+    acknowledged.destroy()
   }
 
   function dispose(): void {
@@ -182,50 +228,25 @@ export async function bootstrapYjsProvider(
     resolveLifecycle(event)
   }
 
-  function reauthorizeAndReconnect(): void {
-    if (!active || reconnectRetry || reconnectInFlight) return
-    provider.shouldConnect = false
-    reconnectInFlight = (async () => {
-      try {
-        const currentSnapshot = await fetchSnapshot(descriptor.yjsSessionId, envelopeParams)
-        if (!active) return
-        const baseline = Y.decodeStateVector(Y.encodeStateVector(doc))
-        baseline.delete(doc.clientID)
-        if (!updateCoversStateVector(currentSnapshot.update, baseline)) {
-          finishLifecycle({ type: 'resync-required' })
-          return
-        }
-        const nextToken = await fetchSocketToken()
-        if (!active) return
-        provider.params = { token: nextToken, accessMode, ...envelopeParams }
-        provider.connect()
-      } catch (error) {
-        console.error('[YjsProvider] Failed to reauthorize connection', error)
-        if ((error as { retryable?: unknown } | null)?.retryable === false) {
-          finishLifecycle({ type: 'terminal-failure', error: error as YjsProviderError })
-        } else if (active) {
-          reconnectRetry = setTimeout(() => {
-            reconnectRetry = null
-            reauthorizeAndReconnect()
-          }, SOCKET_TOKEN_RETRY_MS)
-        }
-      } finally {
-        reconnectInFlight = null
-      }
-    })()
-  }
-
   function handleConnectionLoss(event?: unknown): void {
     const terminalError = connectionCloseError(event)
     if (terminalError) {
       finishLifecycle({ type: 'terminal-failure', error: terminalError })
       return
     }
-    if (accessMode === 'read') {
-      finishLifecycle({ type: 'resync-required' })
-    } else if (provider.shouldConnect) {
-      reauthorizeAndReconnect()
-    }
+    provider.shouldConnect = false
+    queueMicrotask(() => {
+      if (!active) return
+      if (accessMode === 'read') finishLifecycle({ type: 'resync-required' })
+      else
+        finishLifecycle({
+          type: 'resync-required',
+          pendingLocalEdits: {
+            base: Y.encodeStateAsUpdate(acknowledged),
+            current: Y.encodeStateAsUpdate(doc),
+          },
+        })
+    })
   }
 
   provider.on('connection-close', handleConnectionLoss)
@@ -234,6 +255,7 @@ export async function bootstrapYjsProvider(
 
   try {
     await waitForYjsSync(provider)
+    applyYjsPendingLocalEdits(doc, pendingLocalEdits)
   } catch (error) {
     dispose()
     throw error
@@ -243,7 +265,6 @@ export async function bootstrapYjsProvider(
     doc,
     provider,
     descriptor,
-    accessMode,
     lifecycle,
     dispose,
   })

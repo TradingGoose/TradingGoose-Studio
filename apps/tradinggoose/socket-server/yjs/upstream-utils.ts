@@ -2,10 +2,11 @@
  * Local adaptation of the upstream y-websocket server `src/utils.js` contract.
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
- * needs: `getDocument`, `peekDocument`, `setupWSConnection`,
+ * needs: `acquireDocument`, `peekDocument`, `setupWSConnection`,
  * `discardDocument` and `cleanupAllDocuments`.
  */
 
+import { randomUUID } from 'crypto'
 import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
@@ -37,11 +38,16 @@ type DeletionLease = {
   targets: string[]
   drain: Promise<void>
   expiryTimer: ReturnType<typeof setTimeout> | null
+  heldLocally: boolean
 }
 const deletionLeases = new Map<string, DeletionLease>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+type DocumentInitialization = { state?: Uint8Array; workspaceId?: string | null }
+type DocumentInitializer = (
+  doc: Y.Doc
+) => Promise<DocumentInitialization | undefined> | DocumentInitialization | undefined
 export type DocumentReconciler = () => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
@@ -70,6 +76,7 @@ export class YjsSessionAdmissionError extends Error {
 class WSSharedDoc extends Y.Doc {
   name: string
   workspaceId: string | null
+  seeded: boolean
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
   onDocumentUpdate?: DocumentPersistenceHandler
@@ -88,12 +95,12 @@ class WSSharedDoc extends Y.Doc {
   lastReconciliationAt = 0
   isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
-  cleanupRequested = false
 
-  constructor(name: string, gc: boolean, workspaceId: string | null) {
+  constructor(name: string, gc: boolean, workspaceId: string | null, seeded: boolean) {
     super({ gc })
     this.name = name
     this.workspaceId = workspaceId
+    this.seeded = seeded
     this.conns = new Map()
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
@@ -189,15 +196,29 @@ function schedulePersistenceRetry(doc: WSSharedDoc): void {
   )
 }
 
-function cleanupDrainingDocumentIfSettled(doc: WSSharedDoc): void {
-  if (doc.isDraining && doc.cleanupRequested && doc.conns.size === 0 && isDocumentIdle(doc)) {
-    cleanupDocument(doc)
+function releaseDocument(candidate: Y.Doc): void {
+  if (!(candidate instanceof WSSharedDoc)) return
+  const doc = candidate
+  if (
+    docs.get(doc.name) !== doc ||
+    doc.conns.size > 0 ||
+    doc.pendingMutations > 0 ||
+    doc.pendingPersistRequests > 0 ||
+    doc.isPersisting
+  ) {
+    return
   }
-}
 
-function releaseSharedDocument(doc: WSSharedDoc): void {
-  if (docs.get(doc.name) !== doc || doc.isDraining || doc.conns.size > 0) return
-  if (doc.pendingMutations > 0 || !doc.hasUnsavedChanges) return
+  if (doc.isDraining) {
+    if (isDocumentIdle(doc)) cleanupDocument(doc)
+    return
+  }
+
+  if (!doc.hasUnsavedChanges || !doc.onDocumentUpdate) {
+    cleanupDocument(doc)
+    return
+  }
+
   void flushDocumentPersistence(doc).catch((error) => {
     console.error('[yjs upstream-utils] Failed to persist released document', error)
   })
@@ -225,7 +246,6 @@ function enqueueDocumentPersistence(
         terminalPersistenceError ??= error as Error
         doc.hasUnsavedChanges = false
         doc.isDraining = true
-        doc.cleanupRequested = true
         for (const conn of Array.from(doc.conns.keys())) {
           closeConn(doc, conn, YJS_CLOSE_CODE_DOCUMENT_REJECTED, 'Canonical document rejected')
         }
@@ -239,7 +259,7 @@ function enqueueDocumentPersistence(
   const settled = run.finally(() => {
     doc.pendingPersistRequests -= 1
     if (!doc.isDraining && doc.hasUnsavedChanges) schedulePersistenceRetry(doc)
-    cleanupDrainingDocumentIfSettled(doc)
+    if (doc.isDraining || !doc.hasUnsavedChanges) releaseDocument(doc)
   })
   doc.persistenceQueue = settled.catch(() => undefined)
   return settled
@@ -280,7 +300,7 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket, code?: number, reason?: st
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
 
     if (doc.conns.size === 0) {
-      releaseSharedDocument(doc)
+      releaseDocument(doc)
     }
   }
 
@@ -372,23 +392,37 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
   }
 }
 
-export function getDocument(
+export async function acquireDocument<T>(
   docId: string,
-  gc = true,
-  bootstrapState?: Uint8Array,
-  workspaceId?: string | null
-): { doc: Y.Doc; created: boolean } {
-  if (isYjsSessionAdmissionBlocked(docId, workspaceId)) throw new YjsSessionAdmissionError(docId)
-  const existing = docs.get(docId)
-  if (existing) return { doc: existing, created: false }
-
-  const doc = new WSSharedDoc(docId, gc, workspaceId ?? null)
-  if (bootstrapState) {
-    Y.applyUpdate(doc, bootstrapState, YJS_ORIGINS.SYSTEM)
-    doc.hasUnsavedChanges = false
+  options: {
+    gc?: boolean
+    workspaceId?: string | null
+    initialize: DocumentInitializer
+  },
+  use: (doc: Y.Doc) => Promise<T> | T
+): Promise<T> {
+  if (isYjsSessionAdmissionBlocked(docId, options.workspaceId)) {
+    throw new YjsSessionAdmissionError(docId)
   }
-  docs.set(docId, doc)
-  return { doc, created: true }
+  let doc = docs.get(docId)
+  if (!doc) {
+    doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
+    docs.set(docId, doc)
+  }
+  return runDocumentMutation(doc, async () => {
+    const shared = doc as WSSharedDoc
+    if (!shared.seeded) {
+      const resolved = await options.initialize(doc)
+      if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
+      if (isYjsSessionAdmissionBlocked(shared.name, shared.workspaceId)) {
+        throw new YjsSessionAdmissionError(shared.name)
+      }
+      if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
+      shared.seeded = true
+      shared.hasUnsavedChanges = false
+    }
+    return use(doc)
+  })
 }
 
 export function markDocumentPersisted(doc: Y.Doc, generation: number): void {
@@ -407,10 +441,7 @@ export function runDocumentMutation<T>(doc: Y.Doc, mutation: () => Promise<T> | 
   const result = doc.mutationQueue.then(mutation)
   const settled = result.finally(() => {
     doc.pendingMutations -= 1
-    cleanupDrainingDocumentIfSettled(doc)
-    if (!doc.isDraining && doc.conns.size === 0) {
-      releaseSharedDocument(doc)
-    }
+    releaseDocument(doc)
   })
   doc.mutationQueue = settled.then(
     () => undefined,
@@ -468,7 +499,8 @@ export async function flushDocumentPersistence(doc: Y.Doc): Promise<number> {
 }
 
 export function peekDocument(docId: string): Y.Doc | null {
-  return docs.get(docId) ?? null
+  const doc = docs.get(docId)
+  return doc?.seeded ? doc : null
 }
 
 export function isYjsSessionAdmissionBlocked(docId: string, workspaceId?: string | null): boolean {
@@ -485,24 +517,20 @@ export function setupWSConnection(
   conn: WebSocket,
   _req: IncomingMessage,
   opts: {
-    docId: string
+    doc: Y.Doc
     userId: string
     accessMode: ReviewAccessMode
     descriptor: ReviewTargetDescriptor
-    gc?: boolean
-    bootstrapState?: Uint8Array
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
     validateDocument?: DocumentValidator
   }
 ): void {
   const {
-    docId,
+    doc: candidate,
     userId,
     accessMode,
     descriptor,
-    gc = true,
-    bootstrapState,
     onDocumentUpdate,
     onDocumentUpdateDebounceMs,
     validateDocument,
@@ -510,7 +538,15 @@ export function setupWSConnection(
 
   conn.binaryType = 'arraybuffer'
 
-  const doc = getDocument(docId, gc, bootstrapState, descriptor.workspaceId).doc as WSSharedDoc
+  if (
+    !(candidate instanceof WSSharedDoc) ||
+    docs.get(candidate.name) !== candidate ||
+    !candidate.seeded ||
+    candidate.isDraining
+  ) {
+    throw new YjsDocumentDrainingError()
+  }
+  const doc = candidate
   if (onDocumentUpdate && !doc.onDocumentUpdate) {
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
@@ -606,8 +642,13 @@ export async function discardDocument(candidate: Y.Doc): Promise<void> {
 
 function refreshYjsSessionDeletionLease(leaseId: string, lease: DeletionLease): void {
   if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
+  if (lease.heldLocally) {
+    lease.expiryTimer = null
+    return
+  }
   lease.expiryTimer = setTimeout(() => {
-    if (deletionLeases.get(leaseId) === lease) abortYjsSessionDeletion(leaseId)
+    if (deletionLeases.get(leaseId) !== lease) return
+    abortYjsSessionDeletion(leaseId)
   }, DELETION_LEASE_TTL_MS)
 }
 
@@ -664,7 +705,7 @@ export async function beginYjsSessionDeletion(
 
     for (const deletionTarget of targets) deletionAdmissions.set(deletionTarget, leaseId)
     const drain = Promise.all(targetDocuments.map(discardDocument)).then(() => undefined)
-    lease = { targets, drain, expiryTimer: null }
+    lease = { targets, drain, expiryTimer: null, heldLocally: false }
     deletionLeases.set(leaseId, lease)
   }
   refreshYjsSessionDeletionLease(leaseId, lease)
@@ -681,12 +722,34 @@ export async function beginYjsSessionDeletion(
   }
 }
 
+export async function withYjsSessionDeletion<T>(
+  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
+  mutate: () => Promise<T>
+): Promise<T> {
+  const leaseId = randomUUID()
+  await beginYjsSessionDeletion(leaseId, target)
+  const lease = deletionLeases.get(leaseId)
+  if (!lease) throw new YjsSessionAdmissionError(leaseId)
+  lease.heldLocally = true
+  refreshYjsSessionDeletionLease(leaseId, lease)
+
+  try {
+    const result = await mutate()
+    commitYjsSessionDeletion(leaseId)
+    return result
+  } catch (error) {
+    abortYjsSessionDeletion(leaseId)
+    throw error
+  }
+}
+
 export function commitYjsSessionDeletion(leaseId: string): void {
   const lease = removeYjsSessionDeletionLease(leaseId)
   if (!lease) return
   for (const deletionTarget of lease.targets) {
-    if (deletionAdmissions.get(deletionTarget) === leaseId)
+    if (deletionAdmissions.get(deletionTarget) === leaseId) {
       deletionAdmissions.set(deletionTarget, null)
+    }
   }
 }
 
@@ -716,13 +779,24 @@ async function reconcileConnection(
 
 export async function reconcileWorkspaceConnections(
   workspaceId: string,
-  userIds?: ReadonlySet<string>
+  payload?: unknown
 ): Promise<void> {
+  const candidate =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : null
+  const selectedUserIds = Array.isArray(candidate?.userIds)
+    ? new Set(
+        candidate.userIds.filter(
+          (value): value is string => typeof value === 'string' && value.length > 0
+        )
+      )
+    : null
   const checks: Promise<void>[] = []
   for (const doc of docs.values()) {
     for (const [conn, connection] of doc.conns) {
       if (connection.descriptor.workspaceId !== workspaceId) continue
-      if (userIds && !userIds.has(connection.userId)) continue
+      if (selectedUserIds?.size && !selectedUserIds.has(connection.userId)) continue
 
       checks.push(reconcileConnection(doc, conn, connection))
     }
@@ -754,13 +828,7 @@ export async function drainAllDocuments(): Promise<void> {
     activeDocuments.map(async (doc) => {
       await doc.mutationQueue
       if (docs.get(doc.name) !== doc) return
-      if (doc.persistTimer) {
-        clearTimeout(doc.persistTimer)
-        doc.persistTimer = null
-      }
-      const persist = doc.onDocumentUpdate
-      if (doc.hasUnsavedChanges && persist) await enqueueDocumentPersistence(doc, persist)
-      await doc.persistenceQueue
+      await flushDocumentPersistence(doc)
     })
   )
 

@@ -2,17 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
-  transaction: vi.fn(),
+  fenced: vi.fn(),
   lease: vi.fn(),
   refresh: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
-  db: { select: mocks.select, transaction: mocks.transaction },
+  db: { select: mocks.select },
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   withYjsSessionDeletionLease: mocks.lease,
+  runYjsDeletionFencedTransaction: mocks.fenced,
   refreshEntityListSession: mocks.refresh,
 }))
 
@@ -43,7 +44,7 @@ describe('deleteSavedEntity', () => {
 
       await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(false)
       expect(mocks.lease).not.toHaveBeenCalled()
-      expect(mocks.transaction).not.toHaveBeenCalled()
+      expect(mocks.fenced).not.toHaveBeenCalled()
     }
   )
 
@@ -57,7 +58,7 @@ describe('deleteSavedEntity', () => {
     mocks.select.mockReturnValue(selectRows([{ workspaceId: 'workspace-1' }]))
     mocks.lease.mockImplementation(async (_target, mutate) => {
       events.push('lease')
-      return mutate()
+      return mutate({ assertHeld: vi.fn() })
     })
     const query = {
       where: () => ({
@@ -67,17 +68,18 @@ describe('deleteSavedEntity', () => {
         },
       }),
     }
-    mocks.transaction.mockImplementation(async (mutate) =>
-      mutate({
+    mocks.fenced.mockImplementation(async (_leases, mutate) => {
+      events.push('fence')
+      return mutate({
         execute: async () => events.push('lock'),
         delete: () => query,
         update: () => ({ set: () => query }),
       })
-    )
+    })
     mocks.refresh.mockImplementation(async () => void events.push('refresh'))
 
     await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(true)
     expect(mocks.lease).toHaveBeenCalledWith({ sessionIds: [entityId] }, expect.any(Function))
-    expect(events).toEqual(['lease', 'lock', write, 'refresh'])
+    expect(events).toEqual(['lease', 'fence', 'lock', write, 'refresh'])
   })
 })

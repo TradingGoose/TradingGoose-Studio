@@ -8,12 +8,12 @@ import {
   parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ReviewAccessMode,
   ReviewEntityKind,
   ReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/types'
+import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import { readPersistedDashboardWidgetBinding } from '@/lib/dashboard-layouts/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
@@ -27,15 +27,15 @@ import {
   saveDashboardYjsDocsToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
-import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
+import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { reconcileEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
+import { bindEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
 import {
+  acquireDocument,
   type DocumentValidator,
-  getDocument,
   isYjsSessionAdmissionBlocked,
-  peekDocument,
   setupWSConnection,
+  YjsSessionAdmissionError,
 } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
@@ -104,36 +104,59 @@ export function handleYjsUpgrade(
   }
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(
-      ({ accessMode, bootstrapState, userId, resolvedSessionId, descriptor, validateDocument }) => {
-        if (
-          !canAcceptConnection() ||
-          isYjsSessionAdmissionBlocked(resolvedSessionId, descriptor.workspaceId)
-        ) {
-          rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
-          return
+    .then(({ accessMode, userId, resolvedSessionId, descriptor, validateDocument }) => {
+      if (
+        !canAcceptConnection() ||
+        isYjsSessionAdmissionBlocked(resolvedSessionId, descriptor.workspaceId)
+      ) {
+        rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
+        return
+      }
+      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+        const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+        const rejectAttachment = (error: unknown) => {
+          logger.error('Failed to attach Yjs connection', { docId: resolvedSessionId, error })
+          const status = Number((error as { status?: unknown } | null)?.status)
+          ws.close(
+            !(error instanceof YjsSessionAdmissionError) && status >= 400 && status < 500
+              ? YJS_CLOSE_CODE_DOCUMENT_REJECTED
+              : 4409,
+            'Failed to attach Yjs session'
+          )
         }
-        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-          try {
-            logger.info('Yjs connection established', { docId: resolvedSessionId, userId })
+
+        logger.info('Yjs connection established', { docId: resolvedSessionId, userId })
+        void acquireDocument(
+          resolvedSessionId,
+          {
+            workspaceId: descriptor.workspaceId,
+            initialize: () => {
+              if (isListTarget) return
+              return initializeSavedReviewTargetDocument(descriptor)
+            },
+          },
+          async (doc) => {
+            if (isListTarget) {
+              await bindEntityListSession(
+                doc,
+                descriptor.entityKind as ReviewEntityKind,
+                descriptor.workspaceId as string,
+                descriptor.ownerUserId ?? null
+              )()
+            }
             setupWSConnection(ws, request, {
-              docId: resolvedSessionId,
+              doc,
               userId,
               accessMode,
               descriptor,
-              gc: true,
-              bootstrapState,
               onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
               onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
               validateDocument,
             })
-          } catch (error) {
-            logger.error('Failed to attach Yjs connection', { docId: resolvedSessionId, error })
-            ws.close(4409, 'Failed to attach Yjs session')
           }
-        })
-      }
-    )
+        ).catch(rejectAttachment)
+      })
+    })
     .catch((error) => {
       if (error instanceof YjsAuthError) {
         rejectUpgrade(socket, error.code, error.message)
@@ -149,7 +172,6 @@ async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
 ): Promise<{
-  bootstrapState?: Uint8Array
   userId: string
   resolvedSessionId: string
   accessMode: ReviewAccessMode
@@ -165,7 +187,6 @@ async function authenticateAndPrepareUpgrade(
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
   assertAccessModeAllowed(accessMode, descriptor)
-  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
 
   const access = await verifyReviewTargetAccess(
     userId,
@@ -195,34 +216,7 @@ async function authenticateAndPrepareUpgrade(
         : null,
   }
   const validateDocument = await prepareDocumentValidator(canonicalDescriptor)
-
-  let bootstrapState: Uint8Array | undefined
-  const liveDoc = peekDocument(pathSessionId)
-  let runtime = liveDoc ? getReviewTargetRuntimeState(liveDoc) : null
-  if (isListTarget) {
-    const listDoc = getDocument(pathSessionId, true, undefined, canonicalDescriptor.workspaceId).doc
-    await reconcileEntityListSession(
-      listDoc,
-      canonicalDescriptor.entityKind as ReviewEntityKind,
-      canonicalDescriptor.workspaceId as string,
-      canonicalDescriptor.ownerUserId ?? null
-    )
-    runtime = getReviewTargetRuntimeState(listDoc)
-  } else if (!liveDoc && canonicalDescriptor.entityId) {
-    const bootstrapped = await createSavedReviewTargetBootstrapUpdate(canonicalDescriptor)
-    bootstrapState = bootstrapped.state
-    runtime = bootstrapped.runtime
-  }
-
-  if (!runtime) {
-    throw new YjsAuthError(409, 'Review target is not bootstrapped')
-  }
-
-  if (runtime.docState === 'expired') {
-    throw new YjsAuthError(409, 'Review target expired')
-  }
   return {
-    bootstrapState,
     userId,
     resolvedSessionId: pathSessionId,
     accessMode,

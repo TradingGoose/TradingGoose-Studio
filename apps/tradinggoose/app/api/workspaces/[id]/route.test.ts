@@ -31,6 +31,7 @@ const {
 const deletionHarness = vi.hoisted(() => ({
   events: [] as string[],
   delete: vi.fn(),
+  fenced: vi.fn(),
   lease: vi.fn(),
   lockList: vi.fn(),
 }))
@@ -40,10 +41,6 @@ const mockUpdateSet = vi.fn(() => ({
 }))
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    transaction: async (mutate: (tx: { delete: typeof deletionHarness.delete }) => unknown) => {
-      deletionHarness.events.push('transaction')
-      return mutate({ delete: deletionHarness.delete })
-    },
     update: vi.fn(() => ({
       set: mockUpdateSet,
     })),
@@ -118,6 +115,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  runYjsDeletionFencedTransaction: deletionHarness.fenced,
   withYjsSessionDeletionLease: deletionHarness.lease,
 }))
 
@@ -139,9 +137,13 @@ describe('Workspace by id PATCH route', () => {
     deletionHarness.lockList.mockResolvedValue(undefined)
     deletionHarness.lease.mockImplementation(async (_target, mutate) => {
       deletionHarness.events.push('lease-begin')
-      const result = await mutate()
+      const result = await mutate({ assertHeld: vi.fn() })
       deletionHarness.events.push('lease-commit')
       return result
+    })
+    deletionHarness.fenced.mockImplementation(async (_leases, mutate) => {
+      deletionHarness.events.push('transaction')
+      return mutate({ delete: deletionHarness.delete })
     })
   })
 

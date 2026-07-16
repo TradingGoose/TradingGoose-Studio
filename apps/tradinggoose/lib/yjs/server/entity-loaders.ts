@@ -27,6 +27,7 @@ import {
 } from '@/lib/yjs/entity-state'
 import {
   refreshEntityListSession,
+  runYjsDeletionFencedTransaction,
   withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -124,18 +125,17 @@ export async function deleteSavedEntity(
 ): Promise<boolean> {
   if ((await resolveEntityWorkspaceId(entityKind, entityId)) !== workspaceId) return false
 
-  const deleted = await withYjsSessionDeletionLease({ sessionIds: [entityId] }, () =>
-    db.transaction(async (tx) => {
+  const deleted = await withYjsSessionDeletionLease({ sessionIds: [entityId] }, (lease) =>
+    runYjsDeletionFencedTransaction([lease], async (tx) => {
       await lockSavedEntityList(tx, entityKind, workspaceId)
+      let deleted: boolean
       if (entityKind === 'watchlist') {
         const [row] = await tx
           .delete(watchlistTable)
           .where(rootWatchlistCondition(workspaceId, entityId))
           .returning({ id: watchlistTable.id })
-        return Boolean(row)
-      }
-
-      if (entityKind === 'knowledge_base') {
+        deleted = Boolean(row)
+      } else if (entityKind === 'knowledge_base') {
         const now = new Date()
         const [row] = await tx
           .update(knowledgeBase)
@@ -147,17 +147,21 @@ export async function deleteSavedEntity(
             ])
           )
           .returning({ id: knowledgeBase.id })
-        return Boolean(row)
+        deleted = Boolean(row)
+      } else {
+        const { table } = ENTITY_TABLES[entityKind]
+        const [row] = await tx
+          .delete(table)
+          .where(
+            entityCondition(entityKind, [
+              eq(table.id, entityId),
+              eq(table.workspaceId, workspaceId),
+            ])
+          )
+          .returning({ id: table.id })
+        deleted = Boolean(row)
       }
-
-      const { table } = ENTITY_TABLES[entityKind]
-      const [row] = await tx
-        .delete(table)
-        .where(
-          entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
-        )
-        .returning({ id: table.id })
-      return Boolean(row)
+      return deleted
     })
   )
   if (deleted) await refreshEntityListSession(entityKind, workspaceId)

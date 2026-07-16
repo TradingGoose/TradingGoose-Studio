@@ -7,7 +7,6 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   applyYjsUpdateInSocketServer,
   SocketServerBridgeError,
@@ -66,32 +65,6 @@ async function authorizeYjsSnapshotRequest(request: NextRequest, sessionId: stri
           ? session.user.id
           : null,
     },
-  }
-}
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  if (request.nextUrl.searchParams.get('accessMode') !== 'write') {
-    return NextResponse.json({ error: 'Snapshot bootstrap requires write access' }, { status: 400 })
-  }
-
-  const authorized = await authorizeYjsSnapshotRequest(request, sessionId)
-  if ('response' in authorized) return authorized.response
-
-  try {
-    const snapshot = await readBootstrappedReviewTargetSnapshot(authorized.descriptor)
-    return NextResponse.json(snapshot, {
-      status: snapshot.runtime.docState === 'expired' ? 410 : 200,
-    })
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError) {
-      return NextResponse.json({ error: error.message }, { status: getPublicBridgeStatus(error) })
-    }
-
-    return NextResponse.json({ error: 'Failed to load snapshot' }, { status: 500 })
   }
 }
 

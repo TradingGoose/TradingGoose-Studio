@@ -7,6 +7,7 @@ import { deriveUserColor } from '@/lib/utils'
 import {
   bootstrapYjsProvider,
   waitForYjsSync,
+  type YjsPendingLocalEdits,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
@@ -51,6 +52,7 @@ interface SharedWorkflowSessionEntry {
   undoManager: Y.UndoManager | null
   syncUndoState: (() => void) | null
   cleanup: (() => void) | null
+  pendingLocalEdits?: YjsPendingLocalEdits
 }
 
 declare global {
@@ -175,17 +177,24 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
   }
 
   try {
-    const result = await bootstrapYjsProvider(descriptor)
+    const result = await bootstrapYjsProvider(
+      descriptor,
+      undefined,
+      'write',
+      entry.pendingLocalEdits
+    )
 
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
       result.dispose()
       return
     }
 
+    entry.pendingLocalEdits = undefined
     entry.result = result
     void result.lifecycle.then((event) => {
       if (entry.result !== result) return
       if (event.type === 'resync-required') {
+        entry.pendingLocalEdits = event.pendingLocalEdits
         disposeWorkflowSessionEntry(entry)
         setEntryState(entry, { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })
         if (entry.refCount > 0) entry.initPromise = initializeSharedSession(entry)

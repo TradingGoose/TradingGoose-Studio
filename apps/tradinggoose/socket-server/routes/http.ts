@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto'
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
 import {
@@ -51,7 +50,7 @@ import {
   saveDashboardYjsDocsToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
-import { createSavedReviewTargetBootstrapUpdate } from '@/lib/yjs/server/bootstrap-review-target'
+import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
@@ -59,14 +58,13 @@ import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-loc
 import { refreshActiveEntityListSession } from '@/socket-server/yjs/entity-list-session'
 import {
   abortYjsSessionDeletion,
+  acquireDocument,
   beginYjsSessionDeletion,
   commitYjsSessionDeletion,
   flushDocumentPersistence,
-  getDocument,
   markDocumentPersisted,
-  peekDocument,
   reconcileWorkspaceConnections,
-  runDocumentMutation,
+  withYjsSessionDeletion,
   YjsSessionAdmissionError,
 } from '@/socket-server/yjs/upstream-utils'
 import {
@@ -134,6 +132,23 @@ class InvalidInternalYjsRequestError extends Error {
     super(message)
     this.name = 'InvalidInternalYjsRequestError'
   }
+}
+
+function getYjsRequestErrorStatus(error: unknown): number {
+  if (
+    error instanceof InvalidInternalYjsRequestError ||
+    error instanceof McpServerSecretPlaceholderError
+  ) {
+    return 400
+  }
+  if (
+    error instanceof SavedEntityPersistenceError ||
+    error instanceof DashboardLayoutOperationError ||
+    error instanceof YjsSessionAdmissionError
+  ) {
+    return error.status
+  }
+  return 500
 }
 
 function isInternalRequestAuthorized(req: IncomingMessage): boolean {
@@ -338,29 +353,21 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   }
 }
 
-async function getBootstrappedApplyDocument(
-  descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
-): Promise<Y.Doc> {
-  const liveDoc = peekDocument(descriptor.yjsSessionId)
-  if (liveDoc) {
-    return getDocument(descriptor.yjsSessionId, true, undefined, descriptor.workspaceId).doc
-  }
-
+function withBootstrappedApplyDocument<T>(
+  descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>,
+  use: (doc: Y.Doc) => Promise<T> | T
+): Promise<T> {
   if (!descriptor.entityId) {
     throw new InvalidInternalYjsRequestError('Saved Yjs session required')
   }
-
-  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
-  if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-    throw new Error('Yjs review target is not active')
-  }
-
-  return getDocument(
+  return acquireDocument(
     descriptor.yjsSessionId,
-    true,
-    bootstrapped.state,
-    bootstrapped.descriptor.workspaceId
-  ).doc
+    {
+      workspaceId: descriptor.workspaceId,
+      initialize: () => initializeSavedReviewTargetDocument(descriptor),
+    },
+    use
+  )
 }
 
 /**
@@ -482,8 +489,7 @@ async function handleInternalYjsWorkflowApplyRequest(
       reviewSessionId: null,
       yjsSessionId: workflowId,
     } as const
-    const doc = await getBootstrappedApplyDocument(descriptor)
-    await runDocumentMutation(doc, () =>
+    await withBootstrappedApplyDocument(descriptor, (doc) =>
       applyThroughStaging(
         [{ doc, mutate: (target) => applyWorkflowApplyRequest(target, body) }],
         ([staged]) => saveWorkflowYjsDocToDb(workflowId, staged!)
@@ -492,8 +498,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
-    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
-    sendJson(res, status, {
+    sendJson(res, getYjsRequestErrorStatus(error), {
       error: error instanceof Error ? error.message : 'Failed to apply workflow state',
     })
   }
@@ -516,8 +521,7 @@ async function handleInternalYjsEntityApplyRequest(
       )
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, body.workspaceId)
-    const doc = await getBootstrappedApplyDocument(descriptor)
-    const persistedFields = await runDocumentMutation(doc, () =>
+    const persistedFields = await withBootstrappedApplyDocument(descriptor, (doc) =>
       applySavedEntityThroughStaging({
         doc,
         entityId,
@@ -561,16 +565,9 @@ async function handleInternalYjsEntityApplyRequest(
       sendJson(res, response.status, response.body)
       return
     }
-    const status =
-      error instanceof InvalidInternalYjsRequestError ||
-      error instanceof McpServerSecretPlaceholderError
-        ? 400
-        : error instanceof SavedEntityPersistenceError
-          ? error.status
-          : 500
     sendJson(
       res,
-      status,
+      getYjsRequestErrorStatus(error),
       error instanceof SavedEntityPersistenceError
         ? error.responseBody()
         : { error: error instanceof Error ? error.message : 'Failed to apply entity state' }
@@ -600,8 +597,10 @@ async function readDashboardProjectionFromLiveOwners(input: {
           workspaceId: input.workspaceId,
           ownerUserId: input.ownerUserId,
         })
-        const doc = await getBootstrappedApplyDocument(descriptor)
-        return [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
+        return withBootstrappedApplyDocument(
+          descriptor,
+          (doc) => [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
+        )
       })
     )
   )
@@ -614,9 +613,10 @@ async function readDashboardProjectionFromLiveOwners(input: {
           workspaceId: input.workspaceId,
           ownerUserId: input.ownerUserId,
         })
-        const doc = await getBootstrappedApplyDocument(descriptor)
-        const context = readDashboardColorPairDocument(doc)
-        return Object.keys(context).length > 0 ? { color, ...context } : null
+        return withBootstrappedApplyDocument(descriptor, (doc) => {
+          const context = readDashboardColorPairDocument(doc)
+          return Object.keys(context).length > 0 ? { color, ...context } : null
+        })
       })
     )
   ).filter((pair) => pair !== null)
@@ -693,13 +693,8 @@ async function commitDashboardStructurePlan(input: {
         ownerUserId: input.ownerUserId,
       }).yjsSessionId
   )
-  const deletionLeaseId = removedSessionIds.length > 0 ? randomUUID() : null
-  if (deletionLeaseId) {
-    await beginYjsSessionDeletion(deletionLeaseId, { sessionIds: removedSessionIds })
-  }
-
-  try {
-    await applyThroughStaging(
+  const commit = () =>
+    applyThroughStaging(
       [
         {
           doc: input.layoutDoc,
@@ -717,10 +712,10 @@ async function commitDashboardStructurePlan(input: {
           }
         )
     )
-    if (deletionLeaseId) commitYjsSessionDeletion(deletionLeaseId)
-  } catch (error) {
-    if (deletionLeaseId) abortYjsSessionDeletion(deletionLeaseId)
-    throw error
+  if (removedSessionIds.length > 0) {
+    await withYjsSessionDeletion({ sessionIds: removedSessionIds }, commit)
+  } else {
+    await commit()
   }
 
   return readDashboardProjectionFromLiveOwners({
@@ -759,10 +754,8 @@ async function handleInternalDashboardEditRequest(
     const descriptor = buildSavedEntityDescriptor('dashboard_layout', entityId, workspaceId, {
       ownerUserId,
     })
-    const layoutDoc = await getBootstrappedApplyDocument(descriptor)
-    let committed: DashboardLayoutProjectionContent
-    if (body.mutation === 'layout') {
-      committed = await runDocumentMutation(layoutDoc, async () => {
+    const committed = await withBootstrappedApplyDocument(descriptor, async (layoutDoc) => {
+      if (body.mutation === 'layout') {
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
         }
@@ -789,10 +782,9 @@ async function handleInternalDashboardEditRequest(
           current: currentProjection,
           plan,
         })
-      })
-    } else if (body.mutation === 'structure') {
-      const structure = parseDashboardStructureMutation(body.structure)
-      committed = await runDocumentMutation(layoutDoc, async () => {
+      }
+      if (body.mutation === 'structure') {
+        const structure = parseDashboardStructureMutation(body.structure)
         const current = await readDashboardProjectionFromLiveOwners({
           layoutDoc,
           layoutId: entityId,
@@ -808,16 +800,19 @@ async function handleInternalDashboardEditRequest(
           current,
           plan,
         })
-      })
-    } else if (body.mutation === 'widget') {
-      const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''
-      if (!panelId || !body.patch || typeof body.patch !== 'object' || Array.isArray(body.patch)) {
-        throw new InvalidInternalYjsRequestError('panelId and patch are required')
       }
-      const requestedPatch = body.patch as WidgetConfigMutationPatch
-      const scope = { workspaceId, ownerUserId }
-
-      committed = await runDocumentMutation(layoutDoc, async () => {
+      if (body.mutation === 'widget') {
+        const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''
+        if (
+          !panelId ||
+          !body.patch ||
+          typeof body.patch !== 'object' ||
+          Array.isArray(body.patch)
+        ) {
+          throw new InvalidInternalYjsRequestError('panelId and patch are required')
+        }
+        const requestedPatch = body.patch as WidgetConfigMutationPatch
+        const scope = { workspaceId, ownerUserId }
         const panel = requireDashboardWidgetPanel(
           readDashboardLayoutDocument(layoutDoc).layout,
           panelId
@@ -829,8 +824,7 @@ async function handleInternalDashboardEditRequest(
           workspaceId,
           ownerUserId,
         })
-        const widgetDoc = await getBootstrappedApplyDocument(widgetDescriptor)
-        return runDocumentMutation(widgetDoc, async () => {
+        return withBootstrappedApplyDocument(widgetDescriptor, async (widgetDoc) => {
           const widget = readDashboardWidgetDocument(widgetDoc, widgetKey)
           const patch: WidgetConfigMutationPatch = { ...requestedPatch }
           if (patch.params !== undefined) {
@@ -853,8 +847,7 @@ async function handleInternalDashboardEditRequest(
                   workspaceId,
                   ownerUserId,
                 })
-          const pairDoc = pairDescriptor ? await getBootstrappedApplyDocument(pairDescriptor) : null
-          const applyLockedEdit = async () => {
+          const applyLockedEdit = async (pairDoc: Y.Doc | null) => {
             const current = await readDashboardProjectionFromLiveOwners({
               layoutDoc,
               layoutId: entityId,
@@ -932,12 +925,13 @@ async function handleInternalDashboardEditRequest(
             }
           }
 
-          return pairDoc ? runDocumentMutation(pairDoc, applyLockedEdit) : applyLockedEdit()
+          return pairDescriptor
+            ? withBootstrappedApplyDocument(pairDescriptor, applyLockedEdit)
+            : applyLockedEdit(null)
         })
-      })
-    } else {
+      }
       throw new InvalidInternalYjsRequestError('Unknown dashboard mutation')
-    }
+    })
     sendJson(res, 200, { success: true, content: committed })
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
@@ -950,14 +944,7 @@ async function handleInternalDashboardEditRequest(
       sendJson(res, response.status, response.body)
       return
     }
-    const status =
-      error instanceof InvalidInternalYjsRequestError
-        ? 400
-        : error instanceof SavedEntityPersistenceError ||
-            error instanceof DashboardLayoutOperationError
-          ? error.status
-          : 500
-    sendJson(res, status, {
+    sendJson(res, getYjsRequestErrorStatus(error), {
       error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
     })
   }
@@ -1011,8 +998,7 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     if (identity && (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair')) {
       throw new InvalidInternalYjsRequestError('Dashboard document identity is not saved here')
     }
-    const doc = await getBootstrappedApplyDocument(descriptor)
-    await runDocumentMutation(doc, async () => {
+    await withBootstrappedApplyDocument(descriptor, async (doc) => {
       if (!descriptor.entityId || entityKind === 'workflow') return
       if (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair') {
         if (!descriptor.workspaceId || !descriptor.ownerUserId) {
@@ -1053,15 +1039,9 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying Yjs session update', { error, path: parsedUrl.pathname })
-    const status =
-      error instanceof InvalidInternalYjsRequestError
-        ? 400
-        : error instanceof SavedEntityPersistenceError
-          ? error.status
-          : 500
     sendJson(
       res,
-      status,
+      getYjsRequestErrorStatus(error),
       error instanceof SavedEntityPersistenceError
         ? error.responseBody()
         : { error: error instanceof Error ? error.message : 'Failed to apply session update' }
@@ -1097,36 +1077,13 @@ async function handleInternalYjsSnapshotRequest(
   }
 
   try {
-    const liveDoc = peekDocument(sessionId)
-    if (liveDoc) {
-      const activeDoc = getDocument(sessionId, true, undefined, descriptor.workspaceId).doc
-      sendJson(res, 200, {
-        snapshotBase64: Buffer.from(Y.encodeStateAsUpdate(activeDoc)).toString('base64'),
-        descriptor,
-        runtime: getReviewTargetRuntimeState(activeDoc),
-        touchedAt: null,
-      })
-      return
-    }
-
-    const bootstrapped = descriptor.entityId
-      ? await createSavedReviewTargetBootstrapUpdate(descriptor)
-      : null
-    if (!bootstrapped) {
-      sendJson(res, 404, { error: 'Session not found', sessionId })
-      return
-    }
-    if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-      sendJson(res, 410, { error: 'Session expired', sessionId })
-      return
-    }
-
-    sendJson(res, 200, {
-      snapshotBase64: Buffer.from(bootstrapped.state).toString('base64'),
-      descriptor: bootstrapped.descriptor,
-      runtime: bootstrapped.runtime,
+    const snapshot = await withBootstrappedApplyDocument(descriptor, (doc) => ({
+      snapshotBase64: Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64'),
+      descriptor,
+      runtime: getReviewTargetRuntimeState(doc),
       touchedAt: null,
-    })
+    }))
+    sendJson(res, 200, snapshot)
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
     const status = Number((error as { status?: unknown }).status) || 500
@@ -1170,13 +1127,7 @@ async function handleInternalYjsDeletionBeginRequest(
     sendJson(res, 200, { leaseId })
   } catch (error) {
     logger.error('Failed to begin Yjs deletion lease', { error })
-    const status =
-      error instanceof InvalidInternalYjsRequestError
-        ? 400
-        : error instanceof YjsSessionAdmissionError
-          ? 409
-          : 500
-    sendJson(res, status, {
+    sendJson(res, getYjsRequestErrorStatus(error), {
       error: error instanceof Error ? error.message : 'Failed to begin Yjs deletion lease',
     })
   }
@@ -1200,17 +1151,7 @@ async function handleInternalWorkspaceAccessChangedRequest(
 ): Promise<void> {
   try {
     const raw = await readJsonBody(req)
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new InvalidInternalYjsRequestError('Invalid workspace access body')
-    }
-    const candidate = raw as Record<string, unknown>
-    const userIds = Array.isArray(candidate.userIds)
-      ? candidate.userIds.filter((value): value is string => typeof value === 'string' && !!value)
-      : null
-    await reconcileWorkspaceConnections(
-      workspaceId,
-      userIds && userIds.length > 0 ? new Set(userIds) : undefined
-    )
+    await reconcileWorkspaceConnections(workspaceId, raw)
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Failed to reconcile workspace Yjs access', { error, workspaceId })

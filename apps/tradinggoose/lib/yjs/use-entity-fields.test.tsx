@@ -28,7 +28,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-function createResult(descriptor: any, accessMode: ReviewAccessMode) {
+function createResult(descriptor: any) {
   const doc = providerMocks.queuedDocs.shift() ?? new Y.Doc()
   let resolveLifecycle!: (event: unknown) => void
   const lifecycle = new Promise((resolve) => {
@@ -38,7 +38,6 @@ function createResult(descriptor: any, accessMode: ReviewAccessMode) {
     descriptor,
     doc,
     provider: {},
-    accessMode,
     lifecycle,
     dispose: vi.fn(() => doc.destroy()),
     emitLifecycle: resolveLifecycle,
@@ -65,9 +64,7 @@ describe('shared entity Yjs sessions', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    providerMocks.bootstrap.mockImplementation(async (descriptor, _origin, accessMode) =>
-      createResult(descriptor, accessMode)
-    )
+    providerMocks.bootstrap.mockImplementation(async (descriptor) => createResult(descriptor))
     vi.stubGlobal('fetch', vi.fn())
   })
 
@@ -144,7 +141,8 @@ describe('shared entity Yjs sessions', () => {
         yjsSessionId: 'list:dashboard_layout:workspace-1:user:user-b',
       }),
       undefined,
-      'read'
+      'read',
+      undefined
     )
   })
 
@@ -152,7 +150,7 @@ describe('shared entity Yjs sessions', () => {
     let resolveFirst!: (result: any) => void
     let resolveSecond!: (result: any) => void
     providerMocks.bootstrap.mockImplementation(
-      (descriptor, _origin, accessMode) =>
+      (descriptor) =>
         new Promise((resolve) => {
           if (descriptor.ownerUserId === 'user-a') resolveFirst = resolve
           else resolveSecond = resolve
@@ -166,13 +164,13 @@ describe('shared entity Yjs sessions', () => {
 
     await act(async () => root.render(<SwitchingHarness ownerUserId='user-a' />))
     await act(async () => root.render(<SwitchingHarness ownerUserId='user-b' />))
-    const second = createResult({ ownerUserId: 'user-b' }, 'read')
+    const second = createResult({ ownerUserId: 'user-b' })
     replaceEntityListSessionMembers(second.doc, [{ id: 'layout-b', name: 'Layout B' }])
     await act(async () => resolveSecond(second))
     await vi.waitFor(() =>
       expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-b'])
     )
-    const first = createResult({ ownerUserId: 'user-a' }, 'read')
+    const first = createResult({ ownerUserId: 'user-a' })
     await act(async () => resolveFirst(first))
 
     expect(first.dispose).toHaveBeenCalledOnce()

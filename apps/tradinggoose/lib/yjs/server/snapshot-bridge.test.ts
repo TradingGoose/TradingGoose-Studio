@@ -4,12 +4,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockFetch, mockLogger } = vi.hoisted(() => ({
+const { mockDbTransaction, mockFetch, mockLogger } = vi.hoisted(() => ({
+  mockDbTransaction: vi.fn(),
   mockFetch: vi.fn(),
   mockLogger: {
     warn: vi.fn(),
     error: vi.fn(),
   },
+}))
+
+vi.mock('@tradinggoose/db', () => ({
+  db: { transaction: mockDbTransaction },
 }))
 
 vi.mock('@/lib/env', () => ({
@@ -24,9 +29,34 @@ vi.mock('@/lib/logs/console/logger', () => ({
 beforeEach(() => {
   vi.resetModules()
   mockFetch.mockReset()
+  mockDbTransaction.mockReset()
   mockLogger.warn.mockReset()
   mockLogger.error.mockReset()
   vi.stubGlobal('fetch', mockFetch)
+})
+
+describe('runYjsDeletionFencedTransaction', () => {
+  it('bounds the transaction before mutation and checks every lease last', async () => {
+    const events: string[] = []
+    mockDbTransaction.mockImplementation((run) =>
+      run({
+        execute: vi.fn(async (statement) => {
+          expect(JSON.stringify(statement)).toMatch(
+            /statement_timeout.*60000.*idle_in_transaction_session_timeout.*60000/s
+          )
+          events.push('timeouts')
+        }),
+      })
+    )
+    const { runYjsDeletionFencedTransaction } = await import('./snapshot-bridge')
+
+    await runYjsDeletionFencedTransaction(
+      [{ assertHeld: () => events.push('lease') }],
+      async () => void events.push('mutation')
+    )
+
+    expect(events).toEqual(['timeouts', 'mutation', 'lease'])
+  })
 })
 
 afterEach(() => {
@@ -67,22 +97,15 @@ describe('applyEntityStateInSocketServer', () => {
       fields: persistedFields,
     })
 
-    const issue = { path: 'panelId', message: 'Unknown dashboard panel missing-panel' }
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({
-          error: 'Invalid widget target',
-          code: 'invalid_widget_target',
-          retryable: true,
-          issues: [issue],
-        }),
+        JSON.stringify({ error: 'Invalid widget target', code: 'invalid_widget_target' }),
         { status: 422 }
       )
     )
     await expect(applyEntityState({})).rejects.toMatchObject({
       status: 422,
       code: 'invalid_widget_target',
-      issues: [issue],
     })
   })
 
@@ -94,12 +117,9 @@ describe('applyEntityStateInSocketServer', () => {
   ])('rejects malformed success responses with %s', async (_label, payload) => {
     mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }))
 
-    await expect(
-      applyEntityState({
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      })
-    ).rejects.toThrow('Socket server returned malformed entity fields')
+    await expect(applyEntityState({})).rejects.toThrow(
+      'Socket server returned malformed entity fields'
+    )
   })
 })
 
@@ -153,6 +173,37 @@ describe('withYjsSessionDeletionLease', () => {
     expect(mockFetch).toHaveBeenCalledTimes(callsAfterRetry)
   }
 
+  it('renews a protected mutation and aborts after renewal can no longer confirm its lease', async () => {
+    vi.useFakeTimers()
+    let finishMutation!: () => void
+    let beginCount = 0
+    mockFetch.mockImplementation(async (_url, init) => {
+      if (init?.method === 'DELETE') return new Response('{}', { status: 200 })
+      const { leaseId } = JSON.parse(String(init?.body))
+      beginCount += 1
+      return beginCount <= 2
+        ? new Response(JSON.stringify({ leaseId }), { status: 200 })
+        : new Response('offline', { status: 503 })
+    })
+    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+    const deletion = withYjsSessionDeletionLease(
+      { sessionIds: ['slow-watchlist'] },
+      async (lease) => {
+        await new Promise<void>((resolve) => {
+          finishMutation = resolve
+        })
+        lease.assertHeld()
+      }
+    )
+
+    await vi.advanceTimersByTimeAsync(120_750)
+    expect(beginCount).toBe(5)
+    vi.setSystemTime(Date.now() + 59_251)
+    finishMutation()
+
+    await expect(deletion).rejects.toThrow('no longer confirmed')
+  })
+
   it('retries lost begin and commit acknowledgements with the same lease', async () => {
     vi.useFakeTimers()
     mockFetch
@@ -173,7 +224,6 @@ describe('withYjsSessionDeletionLease', () => {
 
     const deletion = withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
     await expectFetchRetryAfter(250, 1, 2)
     await expectFetchRetryAfter(500, 2, 4)
     await expectFetchRetryAfter(250, 4, 5)

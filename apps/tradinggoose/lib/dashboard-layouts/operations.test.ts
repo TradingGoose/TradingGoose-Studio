@@ -108,7 +108,10 @@ const m = vi.hoisted(() => {
     db: { ...store, transaction },
     bridge: {
       refreshEntityListSession: vi.fn(() => Promise.resolve()),
-      withYjsSessionDeletionLease: vi.fn(async (_target, mutate) => mutate()),
+      withYjsSessionDeletionLease: vi.fn(async (_target, mutate) =>
+        mutate({ assertHeld: vi.fn() })
+      ),
+      runYjsDeletionFencedTransaction: vi.fn(async (_leases, mutate) => transaction(mutate)),
     },
   }
 })

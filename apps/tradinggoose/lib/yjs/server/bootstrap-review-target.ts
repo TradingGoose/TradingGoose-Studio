@@ -337,6 +337,17 @@ export async function createSavedReviewTargetBootstrapUpdate(
   }
 }
 
+export async function initializeSavedReviewTargetDocument(descriptor: ReviewTargetDescriptor) {
+  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
+  if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+    throw new ReviewTargetBootstrapError(410, 'Review target expired')
+  }
+  return {
+    state: bootstrapped.state,
+    workspaceId: bootstrapped.descriptor.workspaceId,
+  }
+}
+
 export async function reseedEntityListSessionFromDb(
   doc: Y.Doc,
   entityKind: ReviewEntityKind,

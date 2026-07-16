@@ -31,14 +31,12 @@ import { createHttpHandler } from './http'
 const mocks = vi.hoisted(() => ({
   saveDashboard: vi.fn(),
   saveEntity: vi.fn(),
-  createTargetBootstrap: vi.fn(),
+  initializeTarget: vi.fn(),
   getRuntime: vi.fn(() => ({ docState: 'active' })),
   refreshActiveEntityList: vi.fn(),
-  getDocument: vi.fn(),
-  peekDocument: vi.fn(),
+  acquireDocument: vi.fn(),
   markPersisted: vi.fn(),
   flushPersistence: vi.fn(),
-  runMutation: vi.fn(),
   reconcileWorkspaceConnections: vi.fn(),
   seedEntity: vi.fn(),
   getEntityFields: vi.fn(),
@@ -46,6 +44,7 @@ const mocks = vi.hoisted(() => ({
   beginDeletion: vi.fn(),
   commitDeletion: vi.fn(),
   abortDeletion: vi.fn(),
+  withDeletion: vi.fn(),
 }))
 
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'internal-secret' } }))
@@ -68,7 +67,7 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  createSavedReviewTargetBootstrapUpdate: mocks.createTargetBootstrap,
+  initializeSavedReviewTargetDocument: mocks.initializeTarget,
 }))
 
 vi.mock('@/socket-server/yjs/entity-list-session', () => ({
@@ -80,16 +79,17 @@ vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
 }))
 
 vi.mock('@/socket-server/yjs/upstream-utils', () => ({
-  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {},
+  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
+    status = 409
+  },
+  acquireDocument: mocks.acquireDocument,
   abortYjsSessionDeletion: mocks.abortDeletion,
   beginYjsSessionDeletion: mocks.beginDeletion,
   commitYjsSessionDeletion: mocks.commitDeletion,
-  getDocument: mocks.getDocument,
-  peekDocument: mocks.peekDocument,
   markDocumentPersisted: mocks.markPersisted,
   flushDocumentPersistence: mocks.flushPersistence,
-  runDocumentMutation: mocks.runMutation,
   reconcileWorkspaceConnections: mocks.reconcileWorkspaceConnections,
+  withYjsSessionDeletion: mocks.withDeletion,
 }))
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
@@ -152,12 +152,8 @@ function setDashboardDocuments(input?: {
   if (input?.blue) documents.set('dashboard-color-pair:layout-1:blue', input.blue)
 }
 
-function snapshotOf(doc: Y.Doc, descriptor: Record<string, unknown> = {}) {
-  return {
-    descriptor,
-    runtime: { docState: 'active' },
-    state: Y.encodeStateAsUpdate(doc),
-  }
+function snapshotOf(doc: Y.Doc) {
+  return { state: Y.encodeStateAsUpdate(doc) }
 }
 
 async function invoke(method: string, url: string, body?: unknown) {
@@ -246,12 +242,12 @@ describe('socket internal HTTP Yjs routes', () => {
     documents = new Map()
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
-    mocks.runMutation.mockImplementation(
-      async (_doc: Y.Doc, mutation: () => Promise<unknown> | unknown) => mutation()
-    )
     mocks.flushPersistence.mockResolvedValue(0)
     mocks.saveDashboard.mockResolvedValue({})
     mocks.beginDeletion.mockResolvedValue(undefined)
+    mocks.withDeletion.mockImplementation(
+      async (_target: unknown, mutation: () => Promise<unknown>) => mutation()
+    )
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
         layout: commit.layout,
@@ -261,16 +257,32 @@ describe('socket internal HTTP Yjs routes', () => {
       async (_kind: string, _id: string, _workspaceId: string, doc: Y.Doc) =>
         doc.getMap('test').get('fields')
     )
-    mocks.peekDocument.mockImplementation((sessionId: string) => documents.get(sessionId) ?? null)
-    mocks.getDocument.mockImplementation((sessionId: string, _gc: boolean, state?: Uint8Array) => {
-      const existing = documents.get(sessionId)
-      if (existing) return { doc: existing, created: false }
-      const doc = new Y.Doc()
-      if (state) Y.applyUpdate(doc, state)
-      documents.set(sessionId, doc)
-      return { doc, created: true }
-    })
-    mocks.createTargetBootstrap.mockImplementation(async (descriptor: { entityKind: string }) => {
+    mocks.acquireDocument.mockImplementation(
+      async (
+        sessionId: string,
+        options: {
+          initialize: (
+            doc: Y.Doc
+          ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
+        },
+        use: (doc: Y.Doc) => Promise<unknown> | unknown
+      ) => {
+        let doc = documents.get(sessionId)
+        const created = !doc
+        if (!doc) {
+          doc = new Y.Doc()
+          documents.set(sessionId, doc)
+          const initializedDocument = await options.initialize(doc)
+          if (initializedDocument?.state) Y.applyUpdate(doc, initializedDocument.state)
+        }
+        try {
+          return await use(doc)
+        } finally {
+          if (created) documents.delete(sessionId)
+        }
+      }
+    )
+    mocks.initializeTarget.mockImplementation(async (descriptor: { entityKind: string }) => {
       const source =
         descriptor.entityKind === 'dashboard_color_pair'
           ? createPairDoc()
@@ -298,30 +310,28 @@ describe('socket internal HTTP Yjs routes', () => {
 
   it('binds workflow snapshots and live applies through canonical document acquisition', async () => {
     const descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', null)
-    const resolvedDescriptor = { ...descriptor, workspaceId: 'workspace-1' }
     const source = new Y.Doc()
-    const bootstrap = snapshotOf(source, resolvedDescriptor)
+    const bootstrap = snapshotOf(source)
     source.destroy()
-    mocks.createTargetBootstrap.mockResolvedValue(bootstrap)
+    mocks.initializeTarget.mockResolvedValue(bootstrap)
     const query = new URLSearchParams(
       serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
     ).toString()
 
     const snapshot = await invoke('GET', `/internal/yjs/sessions/workflow-1/snapshot?${query}`)
-    expect(snapshot.body.descriptor.workspaceId).toBe('workspace-1')
-    expect(mocks.getDocument).not.toHaveBeenCalled()
+    expect(snapshot.body.descriptor).toEqual(descriptor)
+    expect(mocks.acquireDocument).toHaveBeenCalledOnce()
 
-    mocks.getDocument.mockClear()
-    mocks.createTargetBootstrap.mockClear()
+    mocks.acquireDocument.mockClear()
+    mocks.initializeTarget.mockClear()
     await expect(
       invoke('POST', '/internal/yjs/workflows/workflow-1/apply-state', { variables: {} })
     ).resolves.toMatchObject({ status: 200 })
-    expect(mocks.createTargetBootstrap).toHaveBeenCalledWith(descriptor)
-    expect(mocks.getDocument).toHaveBeenCalledWith(
+    expect(mocks.initializeTarget).toHaveBeenCalledWith(descriptor)
+    expect(mocks.acquireDocument).toHaveBeenCalledWith(
       'workflow-1',
-      true,
-      bootstrap.state,
-      'workspace-1'
+      expect.objectContaining({ initialize: expect.any(Function), workspaceId: null }),
+      expect.any(Function)
     )
   })
 
@@ -394,7 +404,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const query = new URLSearchParams(
       serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
     ).toString()
-    mocks.createTargetBootstrap.mockImplementation(async (target: { entityKind: string }) => {
+    mocks.initializeTarget.mockImplementation(async (target: { entityKind: string }) => {
       const source =
         target.entityKind === 'dashboard_widget'
           ? createWidgetDoc()
@@ -492,10 +502,12 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: ['widget-1'],
     })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith(expect.any(String), {
-      sessionIds: ['dashboard-widget:layout-1:widget-1'],
-    })
-    expect(mocks.commitDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
+    expect(mocks.withDeletion).toHaveBeenCalledWith(
+      {
+        sessionIds: ['dashboard-widget:layout-1:widget-1'],
+      },
+      expect.any(Function)
+    )
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
@@ -526,7 +538,7 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: [],
     })
-    expect(mocks.beginDeletion).not.toHaveBeenCalled()
+    expect(mocks.withDeletion).not.toHaveBeenCalled()
   })
 
   it('applies a delayed resize to the live topology after a split', async () => {
@@ -558,7 +570,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('keeps live topology unchanged and aborts child deletion when structural persistence fails', async () => {
+  it('keeps live topology unchanged when protected structural persistence fails', async () => {
     setDashboardDocuments({ widget: createWidgetDoc() })
     const before = readDashboardLayoutDocument(documents.get('layout-1')!)
     mocks.commitDashboardStructure.mockRejectedValueOnce(new Error('database offline'))
@@ -572,8 +584,10 @@ describe('socket internal HTTP Yjs routes', () => {
 
     expect(response.status).toBe(500)
     expect(readDashboardLayoutDocument(documents.get('layout-1')!)).toEqual(before)
-    expect(mocks.abortDeletion).toHaveBeenCalledWith(mocks.beginDeletion.mock.calls[0]?.[0])
-    expect(mocks.commitDeletion).not.toHaveBeenCalled()
+    expect(mocks.withDeletion).toHaveBeenCalledWith(
+      { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
+      expect.any(Function)
+    )
   })
 
   it('persists a local parameter edit only through the widget owner', async () => {
@@ -673,22 +687,6 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.markPersisted).not.toHaveBeenCalled()
   })
 
-  it('releases the exact widget and pair documents when child persistence flush fails', async () => {
-    const widgetDoc = createWidgetDoc('red')
-    const pairDoc = createPairDoc({ listing: listing('AAPL') })
-    setDashboardDocuments({ widget: widgetDoc, red: pairDoc })
-    const current = dashboardProjection({ red: { listing: listing('AAPL') } })
-    const patch = { colorPair: { listing: listing('NVDA') } }
-    const expectedReviewBaseStateHash = widgetReviewHash(current, patch)
-    mocks.flushPersistence.mockImplementation(async (doc: Y.Doc) => {
-      if (doc === pairDoc) throw new Error('database offline')
-    })
-
-    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
-
-    expect(response).toMatchObject({ status: 500, body: { error: 'database offline' } })
-  })
-
   it('validates the accepted widget review inside the widget mutation queue', async () => {
     const widgetDoc = createWidgetDoc('gray', { view: { interval: '15m' } })
     setDashboardDocuments({ widget: widgetDoc })
@@ -696,19 +694,18 @@ describe('socket internal HTTP Yjs routes', () => {
     const patch = { params: { view: { interval: '1h' } } }
     const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
     let injected = false
-    mocks.runMutation.mockImplementation(
-      async (doc: Y.Doc, queuedMutation: () => Promise<unknown> | unknown) => {
-        if (doc === widgetDoc && !injected) {
-          injected = true
-          const before = readDashboardWidgetDocument(doc, 'data_chart')
-          applyDashboardWidgetDocumentDelta(doc, 'data_chart', before, {
-            pairColor: 'gray',
-            params: { view: { interval: '30m' } },
-          })
-        }
-        return queuedMutation()
+    const acquire = mocks.acquireDocument.getMockImplementation()!
+    mocks.acquireDocument.mockImplementation((...args: Parameters<typeof acquire>) => {
+      if (args[0] === 'dashboard-widget:layout-1:widget-1' && !injected) {
+        injected = true
+        const before = readDashboardWidgetDocument(widgetDoc, 'data_chart')
+        applyDashboardWidgetDocumentDelta(widgetDoc, 'data_chart', before, {
+          pairColor: 'gray',
+          params: { view: { interval: '30m' } },
+        })
       }
-    )
+      return acquire(...args)
+    })
 
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
@@ -811,7 +808,7 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     expect(invalid.status).toBe(400)
 
-    const committed = await invoke('POST', '/internal/yjs/session-deletions/lease-1/commit', {})
+    const committed = await invoke('POST', '/internal/yjs/session-deletions/lease-1/commit')
     expect(committed.status).toBe(200)
     expect(mocks.commitDeletion).toHaveBeenCalledWith('lease-1')
 

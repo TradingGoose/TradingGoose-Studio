@@ -20,7 +20,10 @@ import {
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import { withYjsSessionDeletionLease } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  runYjsDeletionFencedTransaction,
+  withYjsSessionDeletionLease,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -243,16 +246,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    await withYjsSessionDeletionLease({ sessionIds: [workflowId] }, async () => {
-      if (workflowData.workspaceId) {
-        await db.transaction(async (tx) => {
+    await withYjsSessionDeletionLease({ sessionIds: [workflowId] }, (lease) =>
+      runYjsDeletionFencedTransaction([lease], async (tx) => {
+        if (workflowData.workspaceId) {
           await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
-          await tx.delete(workflow).where(eq(workflow.id, workflowId))
-        })
-        return
-      }
-      await db.delete(workflow).where(eq(workflow.id, workflowId))
-    })
+        }
+        await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      })
+    )
 
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)

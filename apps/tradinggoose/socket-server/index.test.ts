@@ -21,12 +21,13 @@ import {
   replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import {
+  acquireDocument,
   cleanupAllDocuments,
-  getDocument,
   peekDocument,
   setupWSConnection,
 } from '@/socket-server/yjs/upstream-utils'
@@ -82,18 +83,12 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  createSavedReviewTargetBootstrapUpdate: vi.fn(async (descriptor) => {
+  initializeSavedReviewTargetDocument: vi.fn(async (descriptor) => {
     const Y = await import('yjs')
     const doc = new Y.Doc()
     const state = Y.encodeStateAsUpdate(doc)
     doc.destroy()
-    return {
-      descriptor,
-      runtime: {
-        docState: 'active',
-      },
-      state,
-    }
+    return { state, workspaceId: descriptor.workspaceId }
   }),
 }))
 
@@ -244,13 +239,19 @@ function connectTestDocument(docId: string) {
   const descriptor = listMatch
     ? buildEntityListDescriptor(listMatch[1] as any, listMatch[2])
     : buildSavedEntityDescriptor('skill', docId, 'workspace-1')
-  setupWSConnection(conn, {} as any, {
+  return acquireDocument(
     docId,
-    userId: 'user-1',
-    accessMode: listMatch ? 'read' : 'write',
-    descriptor,
-  })
-  return { conn, doc: peekDocument(docId)! }
+    { workspaceId: descriptor.workspaceId, initialize: () => undefined },
+    (doc) => {
+      setupWSConnection(conn, {} as any, {
+        doc,
+        userId: 'user-1',
+        accessMode: listMatch ? 'read' : 'write',
+        descriptor,
+      })
+      return { conn, doc }
+    }
+  )
 }
 
 describe('Socket Server Index Integration', () => {
@@ -410,7 +411,6 @@ describe('Socket Server Index Integration', () => {
 
       expect(response.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
-      const liveDoc = peekDocument('workflow-1')!
       expect(savedWorkflowStates[0]?.blocks['block-1']).toEqual(
         expect.objectContaining({
           id: 'block-1',
@@ -424,24 +424,11 @@ describe('Socket Server Index Integration', () => {
           value: 'secret',
         })
       )
-      expect(extractPersistedStateFromDoc(liveDoc).blocks['block-1']).toBeDefined()
-
-      const variables = {
-        var1: { id: 'var1', workflowId: 'workflow-1', name: 'riskLimit', value: 25 },
-      }
-      const variablesResponse = await applyWorkflowPatch({ variables })
-
-      expect(variablesResponse.statusCode).toBe(200)
-      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
-      expect(savedWorkflowStates[1]?.variables).toEqual(variables)
-      expect(savedWorkflowStates[1]?.blocks['block-1'].subBlocks.prompt.value).toBe(
-        'Use <variable.risklimit> in this prompt'
-      )
-      expect(peekDocument('workflow-1')).toBe(liveDoc)
+      expect(peekDocument('workflow-1')).toBeNull()
     })
 
     it('applies watchlist content without changing its list identity', async () => {
-      const { conn, doc: listDoc } = connectTestDocument('list:watchlist:workspace-1')
+      const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
       replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
 
       const response = await sendHttpRequestWithOptions(
@@ -482,10 +469,7 @@ describe('Socket Server Index Integration', () => {
           },
         },
       ])
-      expect(getEntityFields(peekDocument('watchlist-1')!, 'watchlist')).toEqual({
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      })
+      expect(peekDocument('watchlist-1')).toBeNull()
       expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
         {
           entityId: 'watchlist-1',
@@ -497,7 +481,7 @@ describe('Socket Server Index Integration', () => {
       await new Promise((resolve) => setImmediate(resolve))
     })
 
-    it('retains an unmutated idle workflow document when materialization fails', async () => {
+    it('releases an idle workflow document when materialization fails', async () => {
       mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
 
       const response = await sendHttpRequestWithOptions(
@@ -523,11 +507,11 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(extractPersistedStateFromDoc(peekDocument('workflow-failed')!).blocks).toEqual({})
+      expect(peekDocument('workflow-failed')).toBeNull()
     })
 
     it('does not mutate a connected live workflow session when persistence fails', async () => {
-      const { conn, doc: liveDoc } = connectTestDocument('workflow-connected')
+      const { conn, doc: liveDoc } = await connectTestDocument('workflow-connected')
       setWorkflowState(
         liveDoc,
         { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
@@ -578,14 +562,11 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(500)
-      expect(getEntityFields(peekDocument('skill-update-failed')!, 'skill')).toEqual({
-        description: '',
-        content: '',
-      })
+      expect(peekDocument('skill-update-failed')).toBeNull()
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {
-      const { conn, doc: liveDoc } = connectTestDocument('skill-update-connected')
+      const { conn, doc: liveDoc } = await connectTestDocument('skill-update-connected')
       seedEntitySession(liveDoc, {
         entityKind: 'skill',
         payload: {
@@ -624,11 +605,10 @@ describe('Socket Server Index Integration', () => {
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
       const { getReviewTargetRuntimeState } = await import('@/lib/copilot/review-sessions/runtime')
 
-      getDocument('workflow-state-update')
-      const liveDoc = peekDocument('workflow-state-update')
+      const { conn, doc: liveDoc } = await connectTestDocument('workflow-state-update')
 
       setWorkflowState(
-        liveDoc!,
+        liveDoc,
         {
           blocks: {
             current: {
@@ -674,7 +654,7 @@ describe('Socket Server Index Integration', () => {
           reviewSessionId: null,
           yjsSessionId: 'workflow-state-update',
         },
-        runtime: getReviewTargetRuntimeState(liveDoc!),
+        runtime: getReviewTargetRuntimeState(liveDoc),
         touchedAt: null,
       })
 
@@ -690,6 +670,7 @@ describe('Socket Server Index Integration', () => {
         )
       } finally {
         doc.destroy()
+        conn.emit('close')
       }
     })
 
@@ -730,24 +711,12 @@ describe('Socket Server Index Integration', () => {
     it('does not apply client updates from read-only Yjs connections', async () => {
       const bootstrapDoc = new Y.Doc()
       replaceEntityListSessionMembers(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
-      const bootstrapState = Y.encodeStateAsUpdate(bootstrapDoc)
+      const bootstrapUpdate = Y.encodeStateAsUpdate(bootstrapDoc)
       bootstrapDoc.destroy()
 
-      const conn = new (await import('node:events')).EventEmitter() as any
-      conn.readyState = 1
-      conn.send = vi.fn((_message, _options, callback) => callback?.())
-      conn.ping = vi.fn()
-      conn.close = vi.fn()
+      const { conn, doc } = await connectTestDocument('list:skill:workspace-1')
+      Y.applyUpdate(doc, bootstrapUpdate, YJS_ORIGINS.SYSTEM)
 
-      setupWSConnection(conn, {} as any, {
-        docId: 'list:skill:workspace-1',
-        userId: 'user-1',
-        accessMode: 'read',
-        descriptor: buildEntityListDescriptor('skill', 'workspace-1'),
-        bootstrapState,
-      })
-
-      const doc = peekDocument('list:skill:workspace-1')!
       const updateDoc = new Y.Doc()
       replaceEntityListSessionMembers(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
       conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))
