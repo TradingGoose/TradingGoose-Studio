@@ -2299,7 +2299,6 @@ describe('copilot streaming regressions', () => {
       contextEntityKind: 'dashboard_layout',
       contextEntityId: 'layout-current',
       workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
     })
 
     await store.getState().executeCopilotToolCall(toolCallId)
@@ -2319,7 +2318,6 @@ describe('copilot streaming regressions', () => {
         contextEntityKind: 'dashboard_layout',
         contextEntityId: 'layout-current',
         workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
       },
     })
   })
@@ -3117,7 +3115,6 @@ describe('copilot tool user action delegation', () => {
             contextEntityKind: 'dashboard_layout',
             contextEntityId: 'layout-1',
             workspaceId: 'workspace-1',
-            ownerUserId: 'user-1',
           },
         } as any,
       },
@@ -3141,7 +3138,6 @@ describe('copilot tool user action delegation', () => {
         contextEntityKind: 'dashboard_layout',
         contextEntityId: 'layout-1',
         workspaceId: 'workspace-1',
-        ownerUserId: 'user-1',
       },
     })
     expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)

@@ -4,12 +4,9 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import {
-  listOAuthConnectionsForUser,
-  listOAuthCredentialsForUser,
-} from '@/lib/credentials/oauth'
+import { requireUserId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
+import { listOAuthConnectionsForUser, listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 type ReadOAuthCredentialsParams =
   | { scope: 'personal' }
@@ -23,11 +20,7 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
   ): Promise<any> {
     const logger = createLogger('ReadOAuthCredentialsServerTool')
 
-    if (!context?.userId) {
-      throw new Error('Authentication required')
-    }
-
-    const userId = context.userId
+    const userId = requireUserId(context)
     if (params.scope === 'personal') {
       const credentials = await listOAuthConnectionsForUser({ userId })
       logger.info('Fetched personal OAuth credentials', { userId, count: credentials.length })
@@ -35,13 +28,7 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
     }
 
     const scopedContext = withWorkspaceArgContext(context, params)
-    const workspaceId = scopedContext?.workspaceId
-    if (!workspaceId) throw new Error('workspaceId is required')
-
-    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-      throw new Error('Access denied: You do not have permission to use this workspace')
-    }
+    const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
 
     logger.info('Reading OAuth credentials for authenticated user', {
       userId,

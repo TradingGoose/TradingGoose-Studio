@@ -64,6 +64,7 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
     }),
     emitTerminal: (error: Error & { retryable: false }) =>
       resolveLifecycle({ type: 'terminal-failure', error }),
+    emitResync: () => resolveLifecycle({ type: 'resync-required' }),
   }
   return result
 }
@@ -216,6 +217,31 @@ describe('workflow shared session lifecycle', () => {
     expect(mockBootstrapYjsProvider).toHaveBeenCalledOnce()
     releaseEditor()
     releaseChat()
+  })
+
+  it('replaces a workflow session whose server history changed', async () => {
+    const stale = createBootstrapResult(new Y.Doc(), createMockProvider())
+    const fresh = createBootstrapResult(new Y.Doc(), createMockProvider())
+    mockBootstrapYjsProvider.mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh)
+
+    const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
+      './workflow-shared-session'
+    )
+    const release = acquireSharedWorkflowSession({
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+    })
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(stale.doc)
+    })
+
+    stale.emitResync()
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(fresh.doc)
+    })
+
+    expect(stale.dispose).toHaveBeenCalledOnce()
+    release()
   })
 
   it('keeps the shared session alive when a new consumer reacquires during the destroy grace window', async () => {

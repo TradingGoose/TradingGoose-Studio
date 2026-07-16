@@ -393,7 +393,7 @@ export async function reorderDashboardLayout(
   await refreshLayoutList(scope)
 }
 
-async function withDashboardLayoutOwnerLock<T>(
+export async function withDashboardLayoutOwnerLock<T>(
   scope: DashboardLayoutOwnerScope,
   callback: (tx: DashboardLayoutWriteStore) => Promise<T>
 ): Promise<T> {
@@ -461,7 +461,7 @@ export async function commitDashboardLayoutStructure(
   }))
   const removedIdentityIds = [...new Set(commit.removedIdentityIds)]
 
-  await db.transaction(async (tx) => {
+  await withDashboardLayoutOwnerLock(scope, async (tx) => {
     await readOwnedLayoutRow(scope, layoutId, tx)
     if (createdWidgets.length > 0) await tx.insert(layoutWidgets).values(createdWidgets)
     const updated = await tx
@@ -507,8 +507,7 @@ export async function persistDashboardWidgetDocument(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
   identityId: string,
-  content: DashboardWidgetDocument,
-  selectedColorPairDocument?: PairColorContext
+  content: DashboardWidgetDocument
 ): Promise<DashboardWidgetDocument> {
   return db.transaction(async (tx) => {
     const layout = await readOwnedLayoutRow(scope, layoutId, tx)
@@ -516,16 +515,6 @@ export async function persistDashboardWidgetDocument(
       requireDashboardWidgetKey(layout, identityId),
       content
     )
-    let colorPair: { color: LinkedPairColor; document: PairColorContext } | undefined
-    if (selectedColorPairDocument !== undefined) {
-      if (normalized.pairColor === 'gray') {
-        throw new DashboardLayoutOperationError(400, 'Gray widgets do not own color-pair documents')
-      }
-      colorPair = {
-        color: normalized.pairColor,
-        document: normalizeDashboardColorPairDocument(selectedColorPairDocument),
-      }
-    }
     const rows = await tx
       .update(layoutWidgets)
       .set({ pairColor: normalized.pairColor, params: normalized.params })
@@ -533,8 +522,6 @@ export async function persistDashboardWidgetDocument(
       .returning({ id: layoutWidgets.id })
     if (rows.length === 0)
       throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
-    if (colorPair)
-      await writeDashboardColorPairDocument(tx, layoutId, colorPair.color, colorPair.document)
     return normalized
   })
 }

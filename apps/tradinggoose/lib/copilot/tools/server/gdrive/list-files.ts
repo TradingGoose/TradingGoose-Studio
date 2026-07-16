@@ -4,9 +4,9 @@ import {
   throwIfServerToolAborted,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeTool } from '@/tools'
 
 interface ListGDriveFilesParams {
@@ -22,19 +22,8 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
     const logger = createLogger('ListGDriveFilesServerTool')
     const scopedContext = withWorkspaceArgContext(context, params)
     const { credentialId, search_query, num_results } = params || {}
-    const uid = scopedContext?.userId
-    if (!uid || typeof uid !== 'string' || uid.trim().length === 0 || !credentialId) {
-      throw new Error('Authentication and credentialId are required')
-    }
-
-    const workspaceId = scopedContext?.workspaceId
-    if (!workspaceId) {
-      throw new Error('workspaceId is required')
-    }
-    const workspaceAccess = await checkWorkspaceAccess(workspaceId, uid)
-    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-      throw new Error('Access denied: You do not have permission to use this workspace')
-    }
+    const { userId: uid, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
+    if (!credentialId) throw new Error('credentialId is required')
     throwIfServerToolAborted(scopedContext)
 
     const query = search_query

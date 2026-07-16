@@ -118,8 +118,6 @@ describe('bootstrapYjsProvider', () => {
 
   const runtime: ReviewTargetRuntimeState = {
     docState: 'active',
-    replaySafe: true,
-    reseededFromCanonical: false,
   }
 
   async function bootstrapSyncedProvider() {
@@ -152,6 +150,8 @@ describe('bootstrapYjsProvider', () => {
   it('reauthorizes before reconnecting and terminates an offline-revoked writer', async () => {
     const tokens = ['token-1', 'token-2']
     const reconnectSource = new Y.Doc()
+    reconnectSource.getMap('fields').set('seed', true)
+    const initialUpdate = Y.encodeStateAsUpdate(reconnectSource)
     reconnectSource.getMap('fields').set('server-only', true)
     const reconnectSnapshot = Buffer.from(Y.encodeStateAsUpdate(reconnectSource)).toString('base64')
     reconnectSource.destroy()
@@ -170,7 +170,7 @@ describe('bootstrapYjsProvider', () => {
         if (revoked) return jsonResponse({ error: 'Forbidden' }, 403)
         snapshotRequest += 1
         return jsonResponse({
-          snapshotBase64: snapshotRequest === 1 ? 'AAA=' : reconnectSnapshot,
+          snapshotBase64: reconnectSnapshot,
           descriptor,
           runtime,
         })
@@ -180,6 +180,7 @@ describe('bootstrapYjsProvider', () => {
     })
 
     const { result, provider } = await bootstrapSyncedProvider()
+    Y.applyUpdate(result.doc, initialUpdate)
     result.doc.getMap('fields').set('offline-edit', true)
 
     expect(provider.params.token).toBe('token-1')
@@ -218,6 +219,39 @@ describe('bootstrapYjsProvider', () => {
     vi.useFakeTimers()
     await vi.advanceTimersByTimeAsync(2_000)
     expect(fetchMock).toHaveBeenCalledTimes(requestsBeforeClose + 1)
+  })
+
+  it('requires a fresh bootstrap when the server snapshot has unrelated history', async () => {
+    const snapshots = ['Initial', 'Replacement'].map((name) => {
+      const doc = new Y.Doc()
+      doc.getMap('fields').set('name', name)
+      const update = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
+      doc.destroy()
+      return update
+    })
+    let snapshotRequest = 0
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
+      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
+        snapshotRequest += 1
+        return jsonResponse({
+          snapshotBase64: snapshots[1],
+          descriptor,
+          runtime,
+        })
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const { result, provider } = await bootstrapSyncedProvider()
+    Y.applyUpdate(result.doc, Buffer.from(snapshots[0], 'base64'))
+    result.doc.getMap('fields').set('offline-edit', true)
+    provider.emit('connection-close', null, provider)
+
+    await expect(result.lifecycle).resolves.toEqual({ type: 'resync-required' })
+    expect(provider.connect).toHaveBeenCalledOnce()
   })
 
   it('ignores a late token refresh after provider disposal', async () => {
@@ -270,8 +304,8 @@ describe('bootstrapYjsProvider', () => {
 
       if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
         snapshotRequest += 1
-        if (snapshotRequest === 2) return jsonResponse({ error: 'Unavailable' }, 503)
-        if (snapshotRequest === 4) {
+        if (snapshotRequest === 1) return jsonResponse({ error: 'Unavailable' }, 503)
+        if (snapshotRequest === 3) {
           return jsonResponse({ snapshotBase64: 'AQID', descriptor, runtime })
         }
         return jsonResponse({
@@ -310,7 +344,7 @@ describe('bootstrapYjsProvider', () => {
       type: 'terminal-failure',
       error: expect.objectContaining({ retryable: false }),
     })
-    expect([snapshotRequest, tokenRequest, provider.connect.mock.calls.length]).toEqual([4, 2, 2])
+    expect([snapshotRequest, tokenRequest, provider.connect.mock.calls.length]).toEqual([3, 2, 2])
 
     consoleErrorSpy.mockRestore()
   })
@@ -345,7 +379,7 @@ describe('bootstrapYjsProvider', () => {
 
     provider.emit('connection-close', null, provider)
     provider.emit('connection-error', new Event('error'), provider)
-    await expect(result.lifecycle).resolves.toEqual({ type: 'reader-disconnected' })
+    await expect(result.lifecycle).resolves.toEqual({ type: 'resync-required' })
 
     expect(fetchMock).toHaveBeenCalledTimes(tokenFetches)
     expect(provider.connect).toHaveBeenCalledTimes(1)
@@ -354,54 +388,19 @@ describe('bootstrapYjsProvider', () => {
     result.dispose()
   })
 
-  it.each<[string, Record<string, any>]>([
-    ['empty update', { snapshotBase64: '' }],
-    ['invalid base64', { snapshotBase64: '%%%' }],
-    ['expired runtime', { runtime: { docState: 'expired' } }],
-    ['missing replay safety', { runtime: { replaySafe: undefined } }],
-    ['invalid replay safety', { runtime: { replaySafe: 'yes' } }],
-    ['missing reseed state', { runtime: { reseededFromCanonical: undefined } }],
-    ['invalid reseed state', { runtime: { reseededFromCanonical: 'no' } }],
-    ['missing kind', { descriptor: { entityKind: undefined } }],
-    ['missing identity', { descriptor: { entityId: undefined } }],
-    ['missing workspace', { descriptor: { entityKind: 'watchlist', workspaceId: undefined } }],
-    ['missing dashboard owner', { descriptor: { entityKind: 'dashboard_layout' } }],
-  ])(
-    'rejects a malformed writer snapshot with %s before publishing a provider',
-    async (_label, overrides) => {
-      fetchMock.mockResolvedValueOnce(
-        jsonResponse({
-          snapshotBase64: overrides.snapshotBase64 ?? 'AAA=',
-          descriptor: { ...descriptor, ...overrides.descriptor },
-          runtime: { ...runtime, ...overrides.runtime },
-        })
-      )
-      const { bootstrapYjsProvider } = await import('./provider')
-
-      await expect(
-        bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'write')
-      ).rejects.toMatchObject({ retryable: false })
-      expect([fetchMock.mock.calls.length, providerInstances.length]).toEqual([1, 0])
-    }
-  )
-
-  it('applies the canonical snapshot before creating the provider', async () => {
-    const source = new Y.Doc()
-    source.getMap('fields').set('name', 'Snapshot value')
-    const snapshotBase64 = Buffer.from(Y.encodeStateAsUpdate(source)).toString('base64')
-    source.destroy()
+  it('uses websocket admission as the sole initial history owner', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({ snapshotBase64, descriptor, runtime })
-      }
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    const { result, dispose } = await bootstrapSyncedProvider()
+    const { result, provider, dispose } = await bootstrapSyncedProvider()
 
-    expect(result.doc.getMap('fields').get('name')).toBe('Snapshot value')
+    expect(result.descriptor).toEqual(descriptor)
+    expect(result.doc.getMap('fields').size).toBe(0)
+    expect(provider.params).toMatchObject({ accessMode: 'write', entityId: 'workflow-1' })
+    expect(fetchMock).toHaveBeenCalledOnce()
     dispose()
   })
 })

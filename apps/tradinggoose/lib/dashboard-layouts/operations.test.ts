@@ -227,6 +227,7 @@ describe('dashboard layout operations', () => {
     })
 
     expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.store.execute).toHaveBeenCalledOnce()
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'insert', table: 'layout_widgets' }),
       expect.objectContaining({ kind: 'update', table: 'layout_maps' }),
@@ -234,18 +235,15 @@ describe('dashboard layout operations', () => {
     ])
   })
 
-  it('persists a widget and its selected color-pair in one transaction', async () => {
+  it('persists only the widget row through the widget owner', async () => {
     m.selectResults.push([layoutRow()])
     m.returningResults.push([{ id: 'widget-1' }])
-    await persistDashboardWidgetDocument(
-      scope,
-      'layout-1',
-      'widget-1',
-      { pairColor: 'blue', params: { view: { interval: '1h' } } },
-      { watchlistId: 'watchlist-1' }
-    )
+    await persistDashboardWidgetDocument(scope, 'layout-1', 'widget-1', {
+      pairColor: 'blue',
+      params: { view: { interval: '1h' } },
+    })
     expect(m.transaction).toHaveBeenCalledOnce()
-    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
+    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets'])
     m.mutations.length = 0
     const invalidWidget = { pairColor: 'blue' as const, params: { watchlistId: 'watchlist-1' } }
     m.selectResults.push([layoutRow()])

@@ -653,7 +653,7 @@ app:
   env:
     BETTER_AUTH_SECRET: "your-secure-random-string-here"
     ENCRYPTION_KEY: "your-secure-encryption-key-here"
-    INTERNAL_API_SECRET: "your-secure-internal-api-secret-here"
+    INTERNAL_API_SECRET: ""
     CRON_SECRET: "your-secure-cron-secret-here"
     API_ENCRYPTION_KEY: "your-64-char-hex-string-for-api-key-encryption"
 

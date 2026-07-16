@@ -24,8 +24,6 @@ import {
 import {
   commitDashboardLayoutStructure,
   DashboardLayoutOperationError,
-  persistDashboardColorPairDocument,
-  persistDashboardWidgetDocument,
 } from '@/lib/dashboard-layouts/operations'
 import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
 import {
@@ -338,12 +336,6 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   }
 }
 
-function clearSessionReseededFromCanonical(doc: Y.Doc): void {
-  doc.transact(() => {
-    doc.getMap('metadata').delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SYSTEM)
-}
-
 async function getBootstrappedApplyDocument(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
 ): Promise<Y.Doc> {
@@ -378,6 +370,7 @@ async function applyThroughStaging<T>(
   mutate: (target: Y.Doc) => void,
   persist: (staged: Y.Doc) => Promise<T>
 ): Promise<T> {
+  const persistedGeneration = await flushDocumentPersistence(doc)
   const liveState = Y.encodeStateVector(doc)
   const staging = new Y.Doc()
   Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
@@ -385,7 +378,7 @@ async function applyThroughStaging<T>(
     mutate(staging)
     const persisted = await persist(staging)
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging, liveState), YJS_ORIGINS.SYSTEM)
-    markDocumentPersisted(doc)
+    markDocumentPersisted(doc, persistedGeneration)
     return persisted
   } finally {
     staging.destroy()
@@ -410,22 +403,15 @@ async function applySavedEntityThroughStaging(input: {
   validate?: (current: Y.Doc) => void
   mutate: (staged: Y.Doc) => void
 }): Promise<Record<string, unknown>> {
-  await flushDocumentPersistence(input.doc)
   input.validate?.(input.doc)
-  const persisted = await applyThroughStaging(
-    input.doc,
-    (staged) => {
-      input.mutate(staged)
-      clearSessionReseededFromCanonical(staged)
-    },
-    (staged) =>
-      saveSavedEntityYjsDocToDb(
-        input.entityKind,
-        input.entityId,
-        input.workspaceId,
-        staged,
-        input.identity ? { identity: input.identity } : undefined
-      )
+  const persisted = await applyThroughStaging(input.doc, input.mutate, (staged) =>
+    saveSavedEntityYjsDocToDb(
+      input.entityKind,
+      input.entityId,
+      input.workspaceId,
+      staged,
+      input.identity ? { identity: input.identity } : undefined
+    )
   )
   await refreshActiveEntityListSession(input.entityKind, input.workspaceId).catch(() => undefined)
   return persisted
@@ -783,7 +769,6 @@ async function handleInternalDashboardEditRequest(
     let committed: DashboardLayoutProjectionContent
     if (body.mutation === 'layout') {
       committed = await runDocumentMutation(layoutDoc, async () => {
-        await flushDocumentPersistence(layoutDoc)
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
         }
@@ -814,7 +799,6 @@ async function handleInternalDashboardEditRequest(
     } else if (body.mutation === 'structure') {
       const structure = parseDashboardStructureMutation(body.structure)
       committed = await runDocumentMutation(layoutDoc, async () => {
-        await flushDocumentPersistence(layoutDoc)
         const current = await readDashboardProjectionFromLiveOwners({
           layoutDoc,
           layoutId: entityId,
@@ -840,24 +824,21 @@ async function handleInternalDashboardEditRequest(
       const scope = { workspaceId, ownerUserId }
 
       committed = await runDocumentMutation(layoutDoc, async () => {
-        await flushDocumentPersistence(layoutDoc)
         const panel = findDashboardTopologyPanel(
           readDashboardLayoutDocument(layoutDoc).layout,
           panelId
         )
         if (!panel?.widgetKey) throw new Error(`Dashboard panel ${panelId} has no widget`)
         const { identityId, widgetKey } = panel
-        const widgetDoc = await getBootstrappedApplyDocument(
-          buildDashboardWidgetDescriptor({
-            layoutId: entityId,
-            identityId,
-            workspaceId,
-            ownerUserId,
-          })
-        )
+        const widgetDescriptor = buildDashboardWidgetDescriptor({
+          layoutId: entityId,
+          identityId,
+          workspaceId,
+          ownerUserId,
+        })
+        const widgetDoc = await getBootstrappedApplyDocument(widgetDescriptor)
         try {
           return await runDocumentMutation(widgetDoc, async () => {
-            await flushDocumentPersistence(widgetDoc)
             const widget = readDashboardWidgetDocument(widgetDoc, widgetKey)
             const patch: WidgetConfigMutationPatch = { ...requestedPatch }
             if (patch.params !== undefined) {
@@ -871,20 +852,20 @@ async function handleInternalDashboardEditRequest(
               : requestedPatch.pairColor === undefined
                 ? widget.pairColor
                 : 'gray'
-            const pairDoc =
+            const pairDescriptor =
               pairColor === 'gray'
                 ? null
-                : await getBootstrappedApplyDocument(
-                    buildDashboardColorPairDescriptor({
-                      layoutId: entityId,
-                      color: pairColor,
-                      workspaceId,
-                      ownerUserId,
-                    })
-                  )
+                : buildDashboardColorPairDescriptor({
+                    layoutId: entityId,
+                    color: pairColor,
+                    workspaceId,
+                    ownerUserId,
+                  })
+            const pairDoc = pairDescriptor
+              ? await getBootstrappedApplyDocument(pairDescriptor)
+              : null
             try {
               const applyLockedEdit = async () => {
-                if (pairDoc) await flushDocumentPersistence(pairDoc)
                 const current = await readDashboardProjectionFromLiveOwners({
                   layoutDoc,
                   layoutId: entityId,
@@ -914,37 +895,32 @@ async function handleInternalDashboardEditRequest(
                 )
                 const pairChange = planned.colorPairDiff[0]
                 if (widgetChanged) {
-                  await persistDashboardWidgetDocument(
-                    scope,
-                    entityId,
-                    identityId,
-                    planned.widgetDocument,
-                    pairChange?.after
-                  )
-                } else if (pairChange) {
-                  await persistDashboardColorPairDocument(
-                    scope,
-                    entityId,
-                    pairChange.color,
-                    pairChange.after
-                  )
-                }
-
-                if (widgetChanged) {
-                  applyDashboardWidgetDocumentDelta(
+                  await applyThroughStaging(
                     widgetDoc,
-                    widgetKey,
-                    widget,
-                    planned.widgetDocument,
-                    YJS_ORIGINS.SYSTEM
+                    (staged) =>
+                      applyDashboardWidgetDocumentDelta(
+                        staged,
+                        widgetKey,
+                        widget,
+                        planned.widgetDocument,
+                        YJS_ORIGINS.SAVE
+                      ),
+                    (staged) =>
+                      saveDashboardWidgetYjsDocToDb(widgetDescriptor.yjsSessionId, scope, staged)
                   )
                 }
-                if (pairChange && pairDoc) {
-                  applyDashboardColorPairDocumentDelta(
+                if (pairChange && pairDoc && pairDescriptor) {
+                  await applyThroughStaging(
                     pairDoc,
-                    pairChange.before,
-                    pairChange.after,
-                    YJS_ORIGINS.SYSTEM
+                    (staged) =>
+                      applyDashboardColorPairDocumentDelta(
+                        staged,
+                        pairChange.before,
+                        pairChange.after,
+                        YJS_ORIGINS.SAVE
+                      ),
+                    (staged) =>
+                      saveDashboardColorPairYjsDocToDb(pairDescriptor.yjsSessionId, scope, staged)
                   )
                 }
                 return {
@@ -1055,13 +1031,9 @@ async function handleInternalYjsSessionApplyUpdateRequest(
           throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
         }
         const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
-        await flushDocumentPersistence(doc)
         await applyThroughStaging(
           doc,
-          (staged) => {
-            Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE)
-            clearSessionReseededFromCanonical(staged)
-          },
+          (staged) => Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE),
           (staged) =>
             (entityKind === 'dashboard_widget'
               ? saveDashboardWidgetYjsDocToDb
@@ -1133,44 +1105,35 @@ async function handleInternalYjsSnapshotRequest(
     return
   }
 
-  let requestCreatedDoc: Y.Doc | null = null
   try {
-    let responseDescriptor = descriptor
-    let liveDoc = peekDocument(sessionId)
+    const liveDoc = peekDocument(sessionId)
     if (liveDoc) {
-      liveDoc = getDocument(sessionId, true, undefined, descriptor.workspaceId).doc
-    } else {
-      const bootstrapped = descriptor.entityId
-        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
-        : null
-      if (bootstrapped) {
-        if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-          sendJson(res, 410, { error: 'Session expired', sessionId })
-          return
-        }
-        responseDescriptor = bootstrapped.descriptor
-        const acquired = getDocument(
-          sessionId,
-          true,
-          bootstrapped.state,
-          responseDescriptor.workspaceId
-        )
-        liveDoc = acquired.doc
-        if (acquired.created) requestCreatedDoc = acquired.doc
-      }
-    }
-
-    if (!liveDoc) {
-      sendJson(res, 404, { error: 'Session not found', sessionId })
+      const activeDoc = getDocument(sessionId, true, undefined, descriptor.workspaceId).doc
+      sendJson(res, 200, {
+        snapshotBase64: Buffer.from(Y.encodeStateAsUpdate(activeDoc)).toString('base64'),
+        descriptor,
+        runtime: getReviewTargetRuntimeState(activeDoc),
+        touchedAt: null,
+      })
       return
     }
 
-    const state = Y.encodeStateAsUpdate(liveDoc)
+    const bootstrapped = descriptor.entityId
+      ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+      : null
+    if (!bootstrapped) {
+      sendJson(res, 404, { error: 'Session not found', sessionId })
+      return
+    }
+    if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+      sendJson(res, 410, { error: 'Session expired', sessionId })
+      return
+    }
 
     sendJson(res, 200, {
-      snapshotBase64: Buffer.from(state).toString('base64'),
-      descriptor: responseDescriptor,
-      runtime: getReviewTargetRuntimeState(liveDoc),
+      snapshotBase64: Buffer.from(bootstrapped.state).toString('base64'),
+      descriptor: bootstrapped.descriptor,
+      runtime: bootstrapped.runtime,
       touchedAt: null,
     })
   } catch (error) {
@@ -1179,8 +1142,6 @@ async function handleInternalYjsSnapshotRequest(
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to get snapshot',
     })
-  } finally {
-    if (requestCreatedDoc) discardDocumentIfIdle(requestCreatedDoc)
   }
 }
 

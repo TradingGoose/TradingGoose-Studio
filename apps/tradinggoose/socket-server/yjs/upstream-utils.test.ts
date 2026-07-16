@@ -28,8 +28,10 @@ import {
   discardDocument,
   discardDocumentIfIdle,
   drainAllDocuments,
+  flushDocumentPersistence,
   getDocument,
   isYjsSessionAdmissionBlocked,
+  markDocumentPersisted,
   peekDocument,
   reconcileDocument,
   reconcileWorkspaceConnections,
@@ -125,6 +127,19 @@ describe('shared document lifecycle', () => {
 
     expect(mutation).not.toHaveBeenCalled()
     expect(peekDocument('layout-replaced')).toBe(replacement)
+  })
+
+  it('flushes an edit newer than the last persisted generation before disconnect', async () => {
+    const socket = new TestSocket()
+    const persist = vi.fn()
+    const doc = setupWatchlistSocket(socket, 'watchlist-generation', persist, 60_000)
+    const persistedGeneration = await flushDocumentPersistence(doc)
+
+    doc.getMap('fields').set('pending', true)
+    markDocumentPersisted(doc, persistedGeneration)
+    await discardDocument(doc)
+
+    expect(persist).toHaveBeenCalledOnce()
   })
 
   it('retries a failed shared-document reconciliation once per heartbeat', async () => {

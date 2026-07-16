@@ -20569,6 +20569,8 @@
         "body": {
           "selectWorkspace": "选择一个工作区以使用 watchlists。",
           "failedToLoadWatchlists": "无法加载 watchlists。",
+          "createWatchlistToGetStarted": "创建一个 watchlist 以开始使用。",
+          "watchlistNotFound": "未找到 watchlist。",
           "noItemsInThisWatchlist": "此 watchlist 中没有项目。",
           "symbol": "符号",
           "asset": "资产",

@@ -4,7 +4,11 @@ import {
   checkPublicApiEndpointRateLimit,
   type RateLimitResult,
 } from '@/lib/api/rate-limit'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyType,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
@@ -30,6 +34,7 @@ type JsonRpcRequest = {
 
 type AuthenticatedMcpUser = {
   userId: string
+  apiKeyType: ApiKeyType
 }
 
 function jsonRpcResult(id: JsonRpcId, result: unknown) {
@@ -120,7 +125,7 @@ async function authenticateCopilotMcpRequest(
   }
 
   const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
-  if (!auth.success || !auth.userId) {
+  if (!auth.success || !auth.userId || auth.keyType !== 'personal') {
     return { error: 'Invalid TradingGoose MCP token' }
   }
 
@@ -128,7 +133,7 @@ async function authenticateCopilotMcpRequest(
     await updateApiKeyLastUsed(auth.keyId)
   }
 
-  return { userId: auth.userId }
+  return { userId: auth.userId, apiKeyType: auth.keyType }
 }
 
 async function buildInstructions(userId: string) {
@@ -285,6 +290,7 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
         try {
           const result = await routeExecution(toolCall.name, toolCall.args, {
             userId: auth.userId,
+            apiKeyType: auth.apiKeyType,
             accessLevel: 'full',
           })
           return jsonRpcResult(id, {

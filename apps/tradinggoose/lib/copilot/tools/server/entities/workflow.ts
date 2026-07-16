@@ -5,7 +5,6 @@ import * as Y from 'yjs'
 import { z } from 'zod'
 import { getStableVibrantColor } from '@/lib/colors'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
-import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { ENTITY_KIND_WORKFLOW, type ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type {
@@ -31,7 +30,11 @@ import {
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
+import {
+  type EntityListReadStore,
+  lockSavedEntityList,
+  readEntityListMembersFromDb,
+} from '@/lib/yjs/server/entity-loaders'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
@@ -39,7 +42,12 @@ import {
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { executeRenameEntityMutation, requireUserId, verifyWorkspaceContext } from './shared'
+import {
+  executeRenameEntityMutation,
+  requireUserId,
+  verifySavedEntityContext,
+  verifyWorkspaceContext,
+} from './shared'
 
 type WorkflowSummary = {
   blocks: Array<{
@@ -80,19 +88,20 @@ type WorkflowVariableDocumentEntry = {
   value?: unknown
 }
 
-async function hashWorkflowCreateReviewBase(workspaceId: string): Promise<string> {
-  const rows = await db
-    .select({ entityId: workflow.id, entityName: workflow.name })
-    .from(workflow)
-    .where(eq(workflow.workspaceId, workspaceId))
-  rows.sort(
-    (left, right) =>
-      left.entityName.localeCompare(right.entityName) || left.entityId.localeCompare(right.entityId)
+async function hashWorkflowCreateReviewBase(
+  workspaceId: string,
+  store: EntityListReadStore = db
+): Promise<string> {
+  const members = await readEntityListMembersFromDb(
+    ENTITY_KIND_WORKFLOW,
+    workspaceId,
+    undefined,
+    store
   )
   return hashServerToolReviewBase({
     kind: ENTITY_KIND_WORKFLOW,
     workspaceId,
-    entities: rows,
+    entities: members.map(({ id, name }) => ({ entityId: id, entityName: name })),
   })
 }
 
@@ -183,30 +192,6 @@ function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary 
   }
 }
 
-async function verifyWorkflowContext(
-  workflowId: string,
-  context: ServerToolExecutionContext | undefined,
-  accessMode: ReviewAccessMode
-) {
-  const userId = requireUserId(context)
-  const access = await verifyReviewTargetAccess(
-    userId,
-    {
-      workspaceId: context?.workspaceId?.trim() ?? null,
-      entityKind: ENTITY_KIND_WORKFLOW,
-      entityId: workflowId,
-    },
-    accessMode
-  )
-  if (!access.hasAccess) {
-    throw new Error(
-      `Access denied: You do not have permission to ${accessMode === 'write' ? 'edit' : 'read'} this workflow`
-    )
-  }
-
-  return { userId, workspaceId: access.workspaceId }
-}
-
 export async function loadWorkflowSnapshotForCopilot(
   workflowId: string,
   context: ServerToolExecutionContext | undefined,
@@ -218,7 +203,12 @@ export async function loadWorkflowSnapshotForCopilot(
   workflowState: WorkflowSnapshot
   variables: Record<string, any>
 }> {
-  const { workspaceId } = await verifyWorkflowContext(workflowId, context, accessMode)
+  const { workspaceId } = await verifySavedEntityContext(
+    context,
+    ENTITY_KIND_WORKFLOW,
+    workflowId,
+    accessMode
+  )
   const [workflowRow] = await db
     .select({
       id: workflow.id,
@@ -506,35 +496,44 @@ export const createWorkflowServerTool: BaseServerTool<
       }
     }
 
-    if (context?.acceptedReviewBaseStateHash) {
-      assertAcceptedServerToolReviewBase(context, await hashWorkflowCreateReviewBase(workspaceId))
-    }
     const workflowId = crypto.randomUUID()
     const now = new Date()
     const description = typeof args.description === 'string' ? args.description : 'New workflow'
     const color = getStableVibrantColor(workflowId)
     const workflowState = createWorkflowSnapshot()
 
-    await db.insert(workflow).values({
-      id: workflowId,
-      userId,
-      workspaceId,
-      folderId: args.folderId || null,
-      name,
-      description,
-      color,
-      lastSynced: now,
-      createdAt: now,
-      updatedAt: now,
-      isDeployed: false,
-      collaborators: [],
-      runCount: 0,
+    await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, ENTITY_KIND_WORKFLOW, workspaceId)
+      if (context?.acceptedReviewBaseStateHash) {
+        assertAcceptedServerToolReviewBase(
+          context,
+          await hashWorkflowCreateReviewBase(workspaceId, tx)
+        )
+      }
+      await tx.insert(workflow).values({
+        id: workflowId,
+        userId,
+        workspaceId,
+        folderId: args.folderId || null,
+        name,
+        description,
+        color,
+        lastSynced: now,
+        createdAt: now,
+        updatedAt: now,
+        isDeployed: false,
+        collaborators: [],
+        runCount: 0,
+      })
     })
 
     try {
       await applyWorkflowState(workflowId, workflowState, {})
     } catch (error) {
-      await db.delete(workflow).where(eq(workflow.id, workflowId))
+      await db.transaction(async (tx) => {
+        await lockSavedEntityList(tx, ENTITY_KIND_WORKFLOW, workspaceId)
+        await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      })
       throw error
     }
     await refreshWorkflowListForWorkflow(workflowId)

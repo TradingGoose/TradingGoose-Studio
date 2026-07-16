@@ -15,6 +15,7 @@ import {
   executeCreateEntityDocumentMutation,
   executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
+  verifyWorkspaceContext,
 } from './shared'
 
 const { mockApplySavedEntityState, mockRenameSavedEntityIdentity } = vi.hoisted(() => ({
@@ -68,6 +69,7 @@ describe('entity document mutation helpers', () => {
       exists: true,
       hasAccess: true,
       canWrite: true,
+      workspace: { id: 'workspace-1', allowPersonalApiKeys: true },
     })
     mockVerifyReviewTargetAccess.mockResolvedValue({
       hasAccess: true,
@@ -103,6 +105,22 @@ describe('entity document mutation helpers', () => {
       },
     ])
     expect(mockReadEntityListMembersFromDb).toHaveBeenCalledWith('skill', 'workspace-1')
+  })
+
+  it('enforces personal API-key policy at workspace resolution', async () => {
+    mockCheckWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: true,
+      canWrite: true,
+      workspace: { id: 'workspace-1', allowPersonalApiKeys: false },
+    })
+
+    await expect(
+      verifyWorkspaceContext(
+        { userId: 'user-1', workspaceId: 'workspace-1', apiKeyType: 'personal' },
+        'read'
+      )
+    ).rejects.toMatchObject({ status: 403, code: 'personal_api_keys_disabled' })
   })
 
   it('applies full-access updates without building a review preview', async () => {

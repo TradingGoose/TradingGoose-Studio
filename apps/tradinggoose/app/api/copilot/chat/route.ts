@@ -745,7 +745,6 @@ export async function POST(req: NextRequest) {
       workspaceId: incomingWorkspaceId,
       contexts,
     } = ChatMessageSchema.parse(body)
-    const modelMessage = stripCopilotWorkspaceEntityMentions(message, contexts as ChatContext[])
     const userMessageIdToUse = userMessageId || crypto.randomUUID()
     try {
       logger.info(`[${tracker.requestId}] Received chat POST`, {
@@ -764,29 +763,26 @@ export async function POST(req: NextRequest) {
     } catch {}
     let agentContexts: Array<{ type: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
-      try {
-        const { processContextsServer } = await import('@/lib/copilot/process-contents')
-        const processed = await processContextsServer(
-          contexts as any,
-          authenticatedUserId,
-          modelMessage,
-          incomingWorkspaceId
+      const { processContextsServer } = await import('@/lib/copilot/process-contents')
+      const processed = await processContextsServer(
+        contexts as any,
+        authenticatedUserId,
+        message,
+        incomingWorkspaceId
+      )
+      agentContexts = processed
+      logger.info(`[${tracker.requestId}] Contexts processed for request`, {
+        processedCount: agentContexts.length,
+        kinds: agentContexts.map((c) => c.type),
+        lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
+      })
+      if (agentContexts.length === 0) {
+        logger.warn(
+          `[${tracker.requestId}] Contexts provided but none processed. Check executionId for logs contexts.`
         )
-        agentContexts = processed
-        logger.info(`[${tracker.requestId}] Contexts processed for request`, {
-          processedCount: agentContexts.length,
-          kinds: agentContexts.map((c) => c.type),
-          lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
-        })
-        if (Array.isArray(contexts) && contexts.length > 0 && agentContexts.length === 0) {
-          logger.warn(
-            `[${tracker.requestId}] Contexts provided but none processed. Check executionId for logs contexts.`
-          )
-        }
-      } catch (e) {
-        logger.error(`[${tracker.requestId}] Failed to process contexts`, e)
       }
     }
+    const modelMessage = stripCopilotWorkspaceEntityMentions(message, contexts as ChatContext[])
 
     // Start file attachment processing early so it runs in parallel with session loading/creation
     const fileProcessingPromise =

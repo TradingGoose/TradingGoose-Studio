@@ -84,6 +84,7 @@ describe('Copilot MCP route', () => {
       success: true,
       userId: 'user-1',
       keyId: 'key-1',
+      keyType: 'personal',
     })
     mockCheckApiEndpointRateLimit.mockResolvedValue({
       allowed: true,
@@ -294,7 +295,7 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).toHaveBeenCalledWith(
       'search_listing',
       { query: 'Apple' },
-      { userId: 'user-1', accessLevel: 'full' }
+      { userId: 'user-1', apiKeyType: 'personal', accessLevel: 'full' }
     )
     expect(body.result.structuredContent).toEqual({ results: [] })
     expect(body.result.content[0].text).toBe(JSON.stringify({ results: [] }, null, 2))
@@ -365,7 +366,7 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).toHaveBeenCalledWith(
       'edit_workflow',
       { workflowId: 'workflow-1', mermaid: 'graph TD' },
-      { userId: 'user-1', accessLevel: 'full' }
+      { userId: 'user-1', apiKeyType: 'personal', accessLevel: 'full' }
     )
     expect(body.result.structuredContent).toEqual({ success: true })
   })

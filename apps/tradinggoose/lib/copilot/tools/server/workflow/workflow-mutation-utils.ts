@@ -5,6 +5,7 @@ import {
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { validateWorkflowState } from '@/lib/workflows/validation'
@@ -103,19 +104,10 @@ export async function loadBaseWorkflowState(
   workflowId: string,
   context?: ServerToolExecutionContext
 ): Promise<WorkflowSnapshot & { variables: Record<string, any> }> {
-  const userId = context?.userId?.trim()
-  if (!userId) {
-    throw new Error('Authenticated user is required to edit workflow state')
-  }
-
-  const { verifyWorkflowAccess } = await import('@/lib/copilot/review-sessions/permissions')
-  const access = await verifyWorkflowAccess(userId, workflowId, 'write')
-  if (!access.hasAccess) {
-    throw new Error('Access denied: You do not have permission to edit this workflow')
-  }
+  const { workspaceId } = await verifySavedEntityContext(context, 'workflow', workflowId, 'write')
 
   const snapshot = await readBootstrappedReviewTargetSnapshot({
-    workspaceId: access.workspaceId ?? context?.workspaceId ?? null,
+    workspaceId,
     ownerUserId: null,
     entityKind: 'workflow',
     entityId: workflowId,

@@ -20582,6 +20582,8 @@
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
+          "createWatchlistToGetStarted": "Crea una watchlist para comenzar.",
+          "watchlistNotFound": "No se encontró la watchlist.",
           "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
           "symbol": "Símbolo",
           "asset": "Activo",

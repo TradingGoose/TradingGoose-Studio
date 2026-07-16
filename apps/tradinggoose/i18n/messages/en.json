@@ -20582,6 +20582,8 @@
         "body": {
           "selectWorkspace": "Select a workspace to use watchlists.",
           "failedToLoadWatchlists": "Failed to load watchlists.",
+          "createWatchlistToGetStarted": "Create a watchlist to get started.",
+          "watchlistNotFound": "Watchlist not found.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",

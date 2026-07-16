@@ -27,6 +27,7 @@ describe('Workflow By ID API Route', () => {
   const mockDbUpdateSet = vi.fn()
   const mockDbUpdate = vi.fn()
   const mockRenameSavedEntityIdentity = vi.fn()
+  const mockLockSavedEntityList = vi.fn()
 
   class MockSavedEntityIdentityError extends Error {
     constructor(
@@ -95,6 +96,7 @@ describe('Workflow By ID API Route', () => {
     mockDbUpdateSet.mockReset()
     mockDbUpdate.mockReset()
     mockRenameSavedEntityIdentity.mockReset()
+    mockLockSavedEntityList.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
     mockRefreshWorkflowListForWorkflow.mockResolvedValue(undefined)
     mockDbUpdateWhere.mockReturnValue({ returning: mockDbUpdateReturning })
@@ -115,9 +117,14 @@ describe('Workflow By ID API Route', () => {
       name: 'Updated Workflow',
       updatedAt: new Date('2026-03-17T11:00:00.000Z'),
     })
+    mockLockSavedEntityList.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       withYjsSessionDeletionLease: mockWithYjsSessionDeletionLease,
+    }))
+
+    vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
+      lockSavedEntityList: mockLockSavedEntityList,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -142,6 +149,11 @@ describe('Workflow By ID API Route', () => {
       }
     )
     expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
+    expect(mockLockSavedEntityList).toHaveBeenCalledWith(
+      expect.anything(),
+      'workflow',
+      'workspace-456'
+    )
   }
 
   describe('GET /api/workflows/[id]', () => {
@@ -539,7 +551,7 @@ describe('Workflow By ID API Route', () => {
       const deleteWorkflow = vi.fn().mockReturnValue({ where: deleteWhere })
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: deleteWorkflow,
+          transaction: vi.fn(async (callback) => callback({ delete: deleteWorkflow })),
         },
         workflow: {},
       }))
@@ -558,6 +570,11 @@ describe('Workflow By ID API Route', () => {
       expect(mockRefreshWorkflowList).toHaveBeenCalledWith('workspace-456')
       expect(deleteWorkflow).toHaveBeenCalledOnce()
       expect(deleteWhere).toHaveBeenCalledOnce()
+      expect(mockLockSavedEntityList).toHaveBeenCalledWith(
+        expect.anything(),
+        'workflow',
+        'workspace-456'
+      )
     })
 
     it('should deny deletion for non-admin users', async () => {

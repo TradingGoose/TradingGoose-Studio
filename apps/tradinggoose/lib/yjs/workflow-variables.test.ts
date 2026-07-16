@@ -226,7 +226,6 @@ describe('workflow variable Yjs mutations', () => {
 
   it('replaces the variable map and rewrites renamed variable references by id', () => {
     const doc = createDoc()
-    doc.getMap('metadata').set('reseededFromCanonical', true)
 
     addWorkflowVariable(
       doc,
@@ -250,7 +249,6 @@ describe('workflow variable Yjs mutations', () => {
     )
 
     expect(getVariablesSnapshot(doc)['var-1']).toMatchObject({ id: 'var-1', name: 'Bar Value' })
-    expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
     expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
       'Use <variable.barvalue> in this prompt'
     )

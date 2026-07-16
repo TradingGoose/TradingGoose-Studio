@@ -12,8 +12,8 @@ import {
 import { and, eq, isNull } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
-import { isSavedEntityListLockKind, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { withDashboardLayoutOwnerLock } from '@/lib/dashboard-layouts/operations'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityIdentityMutation = {
@@ -212,20 +212,21 @@ export async function renameSavedEntityIdentity(
   input: SavedEntityIdentityInput
 ): Promise<{ name: string; updatedAt: Date }> {
   let identity: { name: string; updatedAt: Date }
-  if (input.entityKind === 'watchlist') {
-    identity = await db.transaction((tx) =>
-      withWatchlistRootListLock(tx, input.workspaceId, () =>
-        renameSavedEntityIdentityInTx(tx, input)
-      )
+  if (input.entityKind === 'dashboard_layout') {
+    const ownerUserId = input.ownerUserId?.trim()
+    if (!ownerUserId) {
+      throw new SavedEntityIdentityError(400, 'Dashboard layout ownerUserId is required')
+    }
+    identity = await withDashboardLayoutOwnerLock(
+      { workspaceId: input.workspaceId, ownerUserId },
+      (tx) => renameSavedEntityIdentityInTx(tx, input)
     )
-  } else if (isSavedEntityListLockKind(input.entityKind)) {
+  } else {
     const entityKind = input.entityKind
     identity = await db.transaction(async (tx) => {
       await lockSavedEntityList(tx, entityKind, input.workspaceId)
       return renameSavedEntityIdentityInTx(tx, input)
     })
-  } else {
-    identity = await renameSavedEntityIdentityInTx(db, input)
   }
   await refreshEntityListSession(
     input.entityKind,

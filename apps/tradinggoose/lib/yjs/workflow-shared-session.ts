@@ -183,9 +183,14 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     }
 
     entry.result = result
-    entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
     void result.lifecycle.then((event) => {
-      if (event.type !== 'terminal-failure' || entry.result !== result) return
+      if (entry.result !== result) return
+      if (event.type === 'resync-required') {
+        disposeWorkflowSessionEntry(entry)
+        setEntryState(entry, { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })
+        if (entry.refCount > 0) entry.initPromise = initializeSharedSession(entry)
+        return
+      }
       entry.isTerminal = true
       disposeWorkflowSessionEntry(entry)
       setEntryState(entry, {

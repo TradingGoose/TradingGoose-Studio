@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockFetch, mockLogger } = vi.hoisted(() => ({
   mockFetch: vi.fn(),
@@ -27,6 +27,10 @@ beforeEach(() => {
   mockLogger.warn.mockReset()
   mockLogger.error.mockReset()
   vi.stubGlobal('fetch', mockFetch)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('applyEntityStateInSocketServer', () => {
@@ -135,7 +139,19 @@ describe('refreshEntityListSession', () => {
 })
 
 describe('withYjsSessionDeletionLease', () => {
+  async function expectFetchRetryAfter(
+    delayMs: number,
+    callsBeforeRetry: number,
+    callsAfterRetry: number
+  ) {
+    await vi.advanceTimersByTimeAsync(delayMs - 1)
+    expect(mockFetch).toHaveBeenCalledTimes(callsBeforeRetry)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(mockFetch).toHaveBeenCalledTimes(callsAfterRetry)
+  }
+
   it('retries lost begin and commit acknowledgements with the same lease', async () => {
+    vi.useFakeTimers()
     mockFetch
       .mockRejectedValueOnce(new TypeError('begin response lost'))
       .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
@@ -152,9 +168,15 @@ describe('withYjsSessionDeletionLease', () => {
     })
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
-    await expect(
-      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
-    ).resolves.toBe('deleted')
+    const deletion = withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    await expectFetchRetryAfter(250, 1, 2)
+    await expectFetchRetryAfter(500, 2, 4)
+    await expectFetchRetryAfter(250, 4, 5)
+    await expectFetchRetryAfter(500, 5, 6)
+
+    await expect(deletion).resolves.toBe('deleted')
 
     const beginBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))
     expect(beginBody).toEqual({
@@ -173,6 +195,7 @@ describe('withYjsSessionDeletionLease', () => {
   })
 
   it('aborts the lease when the database mutation fails', async () => {
+    vi.useFakeTimers()
     mockFetch
       .mockImplementationOnce(async (_url, init) => {
         const leaseId = JSON.parse(String(init?.body)).leaseId
@@ -183,11 +206,17 @@ describe('withYjsSessionDeletionLease', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
     const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
 
-    await expect(
-      withYjsSessionDeletionLease({ workspaceIds: ['workspace-1'] }, async () => {
-        throw new Error('database offline')
-      })
-    ).rejects.toThrow('database offline')
+    const deletion = withYjsSessionDeletionLease({ workspaceIds: ['workspace-1'] }, async () => {
+      throw new Error('database offline')
+    })
+    const rejectedDeletion = expect(deletion).rejects.toThrow('database offline')
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    await expectFetchRetryAfter(250, 2, 3)
+    await expectFetchRetryAfter(500, 3, 4)
+
+    await rejectedDeletion
 
     expect(mockFetch.mock.calls[2]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])
     expect(mockFetch.mock.calls[3]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])

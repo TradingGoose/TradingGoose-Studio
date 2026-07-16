@@ -23,6 +23,7 @@ import {
 
 const logger = createLogger('YjsSnapshotBridge')
 const DELETION_LEASE_ATTEMPTS = 3
+const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
 
 interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -102,6 +103,9 @@ async function fetchFromSocketServer<T = Response>(
       if (!canRetry) {
         throw error
       }
+      await new Promise((resolve) =>
+        setTimeout(resolve, SOCKET_SERVER_RETRY_BACKOFF_BASE_MS * 2 ** (attempt - 1))
+      )
     }
   }
 

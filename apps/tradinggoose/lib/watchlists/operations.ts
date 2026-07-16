@@ -1,27 +1,23 @@
 import { db } from '@tradinggoose/db'
 import { watchlistTable } from '@tradinggoose/db/schema'
-import { sql } from 'drizzle-orm'
 import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
   listRootWatchlistRowsInTx,
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
-  type WatchlistDocumentTx,
 } from '@/lib/watchlists/document'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
   normalizeWatchlistDocumentFields,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
-import type { EntityListBeforeInsert } from '@/lib/yjs/server/entity-loaders'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 type WatchlistScope = {
   workspaceId: string
 }
-
-const WATCHLIST_ROOT_LIST_LOCK_NAMESPACE = 1_904_202_617
 
 export class WatchlistOperationError extends Error {
   status: number
@@ -55,17 +51,6 @@ function isDuplicateWatchlistNameViolation(error: unknown): boolean {
     current = record.cause
   }
   return false
-}
-
-export async function withWatchlistRootListLock<T>(
-  tx: WatchlistDocumentTx,
-  workspaceId: string,
-  mutate: () => Promise<T>
-): Promise<T> {
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(${WATCHLIST_ROOT_LIST_LOCK_NAMESPACE}, hashtext(${workspaceId}))`
-  )
-  return mutate()
 }
 
 function buildWatchlistRecordFromDocument(
@@ -114,40 +99,39 @@ export async function createWatchlistFromDocument(
   const fields = normalizeWatchlistDocumentFields(rawFields)
 
   try {
-    const created = await db.transaction((tx) =>
-      withWatchlistRootListLock(tx, scope.workspaceId, async () => {
-        await options?.beforeInsert?.(tx)
-        const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-        const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
-        const [createdRoot] = await tx
-          .insert(watchlistTable)
-          .values({
-            id: crypto.randomUUID(),
-            workspaceId: scope.workspaceId,
-            userId: null,
-            parentId: null,
-            name: fields.name,
-            sortOrder,
+    const created = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'watchlist', scope.workspaceId)
+      await options?.beforeInsert?.(tx)
+      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
+      const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
+      const [createdRoot] = await tx
+        .insert(watchlistTable)
+        .values({
+          id: crypto.randomUUID(),
+          workspaceId: scope.workspaceId,
+          userId: null,
+          parentId: null,
+          name: fields.name,
+          sortOrder,
+          settings: fields.settings,
+        })
+        .returning({ id: watchlistTable.id })
+
+      if (!createdRoot) {
+        throw new WatchlistDocumentError('Failed to create watchlist', 500)
+      }
+
+      return {
+        id: createdRoot.id,
+        fields: {
+          name: fields.name,
+          ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
             settings: fields.settings,
-          })
-          .returning({ id: watchlistTable.id })
-
-        if (!createdRoot) {
-          throw new WatchlistDocumentError('Failed to create watchlist', 500)
-        }
-
-        return {
-          id: createdRoot.id,
-          fields: {
-            name: fields.name,
-            ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
-              settings: fields.settings,
-              items: fields.items,
-            })),
-          },
-        }
-      })
-    )
+            items: fields.items,
+          })),
+        },
+      }
+    })
 
     await refreshEntityListSession('watchlist', scope.workspaceId)
     return created

@@ -204,11 +204,10 @@ describe('buildTurnProvenanceFromContexts', () => {
       contextEntityKind: 'dashboard_layout',
       contextEntityId: 'layout-current',
       workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
     })
   })
 
-  it('keeps dashboard layout scope for server-side ownership validation', () => {
+  it('keeps the dashboard layout candidate for dashboard tool pinning', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [

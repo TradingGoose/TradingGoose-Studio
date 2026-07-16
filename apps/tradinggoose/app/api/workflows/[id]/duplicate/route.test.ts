@@ -11,6 +11,7 @@ describe('Workflow Duplicate API Route', () => {
   let refreshWorkflowListForWorkflowMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
   let deleteWhereMock: ReturnType<typeof vi.fn>
+  let lockSavedEntityListMock: ReturnType<typeof vi.fn>
 
   const sourceWorkflowRow = {
     id: 'workflow-id',
@@ -48,6 +49,7 @@ describe('Workflow Duplicate API Route', () => {
     refreshWorkflowListForWorkflowMock = vi.fn().mockResolvedValue(undefined)
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
     deleteWhereMock = vi.fn().mockResolvedValue(undefined)
+    lockSavedEntityListMock = vi.fn().mockResolvedValue(undefined)
 
     vi.doMock('drizzle-orm', () => ({
       eq: vi.fn((field, value) => ({ field, value })),
@@ -74,6 +76,12 @@ describe('Workflow Duplicate API Route', () => {
         delete: vi.fn().mockReturnValue({
           where: deleteWhereMock,
         }),
+        transaction: vi.fn(async (callback) =>
+          callback({
+            insert: vi.fn().mockReturnValue({ values: insertValuesMock }),
+            delete: vi.fn().mockReturnValue({ where: deleteWhereMock }),
+          })
+        ),
       },
     }))
 
@@ -119,6 +127,10 @@ describe('Workflow Duplicate API Route', () => {
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowState: applyWorkflowStateMock,
     }))
+
+    vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
+      lockSavedEntityList: lockSavedEntityListMock,
+    }))
   })
 
   afterEach(() => {
@@ -163,6 +175,11 @@ describe('Workflow Duplicate API Route', () => {
 
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
+    expect(lockSavedEntityListMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'workflow',
+      'workspace-id'
+    )
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledOnce()
 
@@ -214,6 +231,7 @@ describe('Workflow Duplicate API Route', () => {
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(refreshWorkflowListForWorkflowMock).not.toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
+    expect(lockSavedEntityListMock).toHaveBeenCalledTimes(2)
   })
 
   it('rejects duplication without workspace scope', async () => {

@@ -285,6 +285,28 @@ describe('WatchlistWidgetBody', () => {
     expect(container.textContent).not.toContain('Create a watchlist to get started.')
   })
 
+  it.each([
+    [[], { provider: 'alpaca' }, 'Create a watchlist to get started.'],
+    [[watchlist], { provider: 'alpaca', watchlistId: 'missing' }, 'Watchlist not found.'],
+  ])('renders a distinct unavailable-list state', async (watchlists, params, message) => {
+    currentWatchlists = watchlists
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          channelId='watchlist-panel-1'
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='gray'
+          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
+          params={params}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain(message)
+    expect(mockWatchlistTable).not.toHaveBeenCalled()
+  })
+
   it('clears linked selections through the explicit pair callback', async () => {
     const onWidgetParamsPatch = vi.fn()
     const onWidgetLinkedParamsPatch = vi.fn()

@@ -28,10 +28,7 @@ import {
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
-import {
-  type CopilotWorkspaceEntityKind,
-  readCopilotWorkspaceEntityContext,
-} from '@/widgets/widgets/copilot/workspace-entities'
+import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type AgentContextType =
   | 'past_chat'
@@ -75,14 +72,10 @@ export async function processContextsServer(
     try {
       const entityContext = readCopilotWorkspaceEntityContext(ctx)
       if (entityContext?.entityId) {
-        return await processWorkspaceEntityContext({
-          contextKind: ctx.kind as AgentContextType,
-          entityKind: entityContext.entityKind,
-          entityId: entityContext.entityId,
-          userId,
-          workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
-          ownerUserId: entityContext.ownerUserId,
-        })
+        return {
+          type: ctx.kind as AgentContextType,
+          content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
+        }
       }
 
       if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
@@ -114,19 +107,14 @@ export async function processContextsServer(
         return await processWorkflowBlockContext(ctx.workflowId, ctx.blockId, userId, ctx.label)
       }
       if (ctx.kind === 'docs') {
-        try {
-          const { searchDocumentationServerTool } = await import(
-            '@/lib/copilot/tools/server/docs/search-documentation'
-          )
-          const rawQuery = (userMessage || '').trim() || ctx.label || 'TradingGoose Documentation'
-          const query = sanitizeMessageForDocs(rawQuery, contexts)
-          const res = await searchDocumentationServerTool.execute({ query, topK: 10 })
-          const content = JSON.stringify(res?.results || [])
-          return { type: 'docs', tag: ctx.label ? `@${ctx.label}` : '@', content }
-        } catch (e) {
-          logger.error('Failed to process docs context', e)
-          return null
-        }
+        const { searchDocumentationServerTool } = await import(
+          '@/lib/copilot/tools/server/docs/search-documentation'
+        )
+        const rawQuery = (userMessage || '').trim() || ctx.label || 'TradingGoose Documentation'
+        const query = sanitizeMessageForDocs(rawQuery, contexts)
+        const res = await searchDocumentationServerTool.execute({ query, topK: 10 })
+        const content = JSON.stringify(res?.results || [])
+        return { type: 'docs', tag: ctx.label ? `@${ctx.label}` : '@', content }
       }
       return null
     } catch (error) {
@@ -144,65 +132,6 @@ export async function processContextsServer(
     kinds: Array.from(filtered.reduce((s, r) => s.add(r.type), new Set<string>())),
   })
   return filtered
-}
-
-async function processWorkspaceEntityContext(params: {
-  contextKind: AgentContextType
-  entityKind: CopilotWorkspaceEntityKind
-  entityId: string
-  userId: string
-  workspaceId: string | null
-  ownerUserId: string | null
-}): Promise<AgentContext | null> {
-  if (params.entityKind === 'workflow') {
-    const access = await verifyWorkflowAccess(params.userId, params.entityId, 'read')
-    if (!access.hasAccess) {
-      logger.warn('Skipping unauthorized copilot workflow context', {
-        entityId: params.entityId,
-        userId: params.userId,
-      })
-      return null
-    }
-    return {
-      type: params.contextKind,
-      content: JSON.stringify({ entityId: params.entityId }, null, 2),
-    }
-  }
-
-  if (
-    params.entityKind === 'dashboard_layout' &&
-    (!params.workspaceId || params.ownerUserId !== params.userId)
-  ) {
-    logger.warn('Skipping dashboard layout context outside authenticated owner scope', {
-      entityId: params.entityId,
-      workspaceId: params.workspaceId,
-      userId: params.userId,
-      ownerUserId: params.ownerUserId,
-    })
-    return null
-  }
-
-  const access = await verifyReviewTargetAccess(
-    params.userId,
-    buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId, {
-      ownerUserId: params.ownerUserId,
-    }),
-    'read'
-  )
-  if (!access.hasAccess || !access.workspaceId) {
-    logger.warn('Skipping unauthorized copilot entity context', {
-      entityKind: params.entityKind,
-      entityId: params.entityId,
-      workspaceId: params.workspaceId,
-      userId: params.userId,
-    })
-    return null
-  }
-
-  return {
-    type: params.contextKind,
-    content: JSON.stringify({ entityId: params.entityId }, null, 2),
-  }
 }
 
 async function readBootstrappedCopilotYjsDoc<T>(

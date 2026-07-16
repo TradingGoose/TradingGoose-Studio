@@ -204,7 +204,7 @@ describe('shared entity Yjs sessions', () => {
     await vi.waitFor(() => expect(renderCount).toBeGreaterThan(beforeUpdate))
   })
 
-  it('keeps a stale read list through transient failure, then publishes a fresh replacement', async () => {
+  it('drops a stale list before opening a fresh Yjs history', async () => {
     vi.useFakeTimers()
     let currentList!: ReturnType<typeof useEntityList>
     const ListHarness = () => {
@@ -225,13 +225,14 @@ describe('shared entity Yjs sessions', () => {
     const replacement = new Y.Doc()
     replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
     providerMocks.queuedDocs.push(replacement)
-    await act(async () => stale.emitLifecycle({ type: 'reader-disconnected' }))
+    await act(async () => stale.emitLifecycle({ type: 'resync-required' }))
+    expect(currentList.members).toEqual([])
+    expect(stale.dispose).toHaveBeenCalledOnce()
+
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
-    expect(currentList.members).toHaveLength(2)
-    expect(stale.dispose).not.toHaveBeenCalled()
+    expect(currentList.members).toEqual([])
 
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept'])
-    expect(stale.dispose).toHaveBeenCalledOnce()
   })
 })

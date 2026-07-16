@@ -5,11 +5,11 @@ import { setVariables, setWorkflowState, type WorkflowSnapshot } from '@/lib/yjs
 
 const mocks = vi.hoisted(() => ({
   readBootstrappedReviewTargetSnapshot: vi.fn(),
-  verifyWorkflowAccess: vi.fn(),
+  verifySavedEntityContext: vi.fn(),
 }))
 
-vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyWorkflowAccess: (...args: any[]) => mocks.verifyWorkflowAccess(...args),
+vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
+  verifySavedEntityContext: (...args: any[]) => mocks.verifySavedEntityContext(...args),
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
@@ -34,7 +34,8 @@ function encodeWorkflowSnapshot(
 describe('workflow mutation Yjs loader', () => {
   beforeEach(() => {
     mocks.readBootstrappedReviewTargetSnapshot.mockReset()
-    mocks.verifyWorkflowAccess.mockReset()
+    mocks.verifySavedEntityContext.mockReset()
+    mocks.verifySavedEntityContext.mockResolvedValue({ workspaceId: 'workspace-1' })
   })
 
   it('loads the base workflow state from an authorized Yjs snapshot', async () => {
@@ -56,18 +57,12 @@ describe('workflow mutation Yjs loader', () => {
       parallels: {},
     }
 
-    mocks.verifyWorkflowAccess.mockResolvedValue({
-      hasAccess: true,
-      workspaceId: 'workspace-1',
-      userPermission: 'admin',
-      isOwner: false,
-    })
     mocks.readBootstrappedReviewTargetSnapshot.mockResolvedValue({
       snapshotBase64: encodeWorkflowSnapshot(workflowState, {
         token: { id: 'token', name: 'token', value: 'secret' },
       }),
       descriptor: {},
-      runtime: { docState: 'active', replaySafe: true, reseededFromCanonical: false },
+      runtime: { docState: 'active' },
     })
 
     const result = await loadBaseWorkflowState('workflow-1', {
@@ -75,7 +70,12 @@ describe('workflow mutation Yjs loader', () => {
       workspaceId: 'workspace-from-context',
     })
 
-    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'write')
+    expect(mocks.verifySavedEntityContext).toHaveBeenCalledWith(
+      { userId: 'user-1', workspaceId: 'workspace-from-context' },
+      'workflow',
+      'workflow-1',
+      'write'
+    )
     expect(mocks.readBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 'workspace-1',
@@ -95,21 +95,20 @@ describe('workflow mutation Yjs loader', () => {
   })
 
   it('rejects workflow edits without authenticated user context', async () => {
+    mocks.verifySavedEntityContext.mockRejectedValueOnce(
+      new Error('Authenticated user is required to edit workflow state')
+    )
     await expect(loadBaseWorkflowState('workflow-1')).rejects.toThrow(
       'Authenticated user is required to edit workflow state'
     )
 
-    expect(mocks.verifyWorkflowAccess).not.toHaveBeenCalled()
     expect(mocks.readBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
   })
 
   it('rejects workflow edits without write access', async () => {
-    mocks.verifyWorkflowAccess.mockResolvedValue({
-      hasAccess: false,
-      workspaceId: 'workspace-1',
-      userPermission: null,
-      isOwner: false,
-    })
+    mocks.verifySavedEntityContext.mockRejectedValueOnce(
+      new Error('Access denied: You do not have permission to edit this workflow')
+    )
 
     await expect(loadBaseWorkflowState('workflow-1', { userId: 'user-1' })).rejects.toThrow(
       'Access denied: You do not have permission to edit this workflow'

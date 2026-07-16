@@ -1396,9 +1396,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : {}),
               ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
-              ...(provenance?.contextEntityKind === 'dashboard_layout' && provenance.ownerUserId
-                ? { ownerUserId: provenance.ownerUserId }
-                : {}),
             }
             const reviewResult = get().toolCallsById[id]?.result
             const reviewToken =

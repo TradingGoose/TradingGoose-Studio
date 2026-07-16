@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import { normalizeWatchlistDocumentContent } from '@/lib/watchlists/validation'
 import {
+  getEntityFields,
   getEntityListMembers,
   readWatchlistItems,
   replaceEntityListSessionMembers,
@@ -75,6 +76,68 @@ describe('watchlist entity sessions', () => {
     },
   })
 
+  const rawItems = (doc: Y.Doc) => doc.getMap('fields').get('items') as Y.Map<Y.Map<unknown>>
+  const rawEntry = (doc: Y.Doc) => rawItems(doc).values().next().value!
+
+  const invalidRawEntries: Array<[string, (doc: Y.Doc) => void]> = [
+    ['unknown type', (doc) => rawEntry(doc).set('type', 'unknown')],
+    [
+      'unlabeled section',
+      (doc) => {
+        const entry = rawEntry(doc)
+        entry.set('type', 'section')
+        entry.set('label', '')
+        entry.delete('listing')
+      },
+    ],
+    [
+      'nested section',
+      (doc) => {
+        const entry = rawEntry(doc)
+        entry.set('type', 'section')
+        entry.set('label', 'Section')
+        entry.set('parentId', 'parent')
+        entry.delete('listing')
+      },
+    ],
+    ['invalid listing', (doc) => rawEntry(doc).set('listing', {})],
+    [
+      'padded id',
+      (doc) => {
+        const items = rawItems(doc)
+        const [id, entry] = items.entries().next().value!
+        const clone = entry.clone()
+        items.delete(id)
+        items.set(` ${id}`, clone)
+      },
+    ],
+    ['padded parentId', (doc) => rawEntry(doc).set('parentId', ' section-1 ')],
+    ['dangling parentId', (doc) => rawEntry(doc).set('parentId', 'section-1')],
+    [
+      'duplicate canonical listing',
+      (doc) => rawItems(doc).set('00000000-0000-4000-8000-000000000002', rawEntry(doc).clone()),
+    ],
+    ['non-map value', (doc) => (rawItems(doc) as Y.Map<unknown>).set('broken', 'not-a-map')],
+  ]
+
+  it.each(invalidRawEntries)('rejects a raw %s entry', (_label, mutate) => {
+    const doc = new Y.Doc()
+    try {
+      const id = '00000000-0000-4000-8000-000000000001'
+      seedEntitySession(doc, {
+        entityKind: 'watchlist',
+        payload: {
+          settings: { showLogo: true, showTicker: true, showDescription: true },
+          items: [listing(id)],
+        },
+      })
+      mutate(doc)
+      expect(() => getEntityFields(doc, 'watchlist')).toThrow()
+    } finally {
+      doc.destroy()
+    }
+  })
+
   it('merges concurrent item additions without replacing either collaborator row', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
@@ -122,54 +185,6 @@ describe('watchlist entity sessions', () => {
           .sort()
       ).toEqual(expected)
       expect(left.getMap('fields').get('items')).toBeInstanceOf(Y.Map)
-    } finally {
-      source.destroy()
-      left.destroy()
-      right.destroy()
-    }
-  })
-
-  it('converges concurrent additions of the same listing to one canonical row', () => {
-    const source = new Y.Doc()
-    const left = new Y.Doc()
-    const right = new Y.Doc()
-    try {
-      seedEntitySession(source, {
-        entityKind: 'watchlist',
-        payload: {
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [],
-        },
-      })
-      const state = Y.encodeStateAsUpdate(source)
-      Y.applyUpdate(left, state)
-      Y.applyUpdate(right, state)
-      const leftBase = Y.encodeStateVector(left)
-      const rightBase = Y.encodeStateVector(right)
-
-      updateWatchlistItems(left, (items) => [
-        ...items,
-        listing('00000000-0000-4000-8000-000000000001', 'AAPL'),
-      ])
-      updateWatchlistItems(right, (items) => [
-        ...items,
-        listing('00000000-0000-4000-8000-000000000002', 'AAPL'),
-      ])
-      const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
-      const rightUpdate = Y.encodeStateAsUpdate(right, rightBase)
-      Y.applyUpdate(left, rightUpdate)
-      Y.applyUpdate(right, leftUpdate)
-
-      const leftItems = readWatchlistItems(left)
-      const rightItems = readWatchlistItems(right)
-      expect(leftItems).toEqual(rightItems)
-      expect(leftItems).toHaveLength(1)
-      expect(
-        normalizeWatchlistDocumentContent({
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: leftItems,
-        }).items
-      ).toHaveLength(1)
     } finally {
       source.destroy()
       left.destroy()

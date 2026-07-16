@@ -16,7 +16,7 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: mocks.refresh,
 }))
 
-import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { deleteSavedEntity, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
 
 function selectRows(rows: unknown[]) {
   return {
@@ -30,6 +30,10 @@ function selectRows(rows: unknown[]) {
 
 describe('deleteSavedEntity', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('uses one shared lock-kind set for workspace entity lists', () => {
+    expect(SAVED_ENTITY_LIST_LOCK_KINDS).toEqual(expect.arrayContaining(['workflow', 'watchlist']))
+  })
 
   it.each(['skill', 'watchlist'] as const)(
     'does not lease %s outside the workspace',

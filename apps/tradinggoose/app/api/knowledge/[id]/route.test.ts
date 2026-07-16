@@ -29,7 +29,6 @@ vi.mock('@/app/api/knowledge/utils', () => ({
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   deleteSavedEntity: vi.fn(),
-  isSavedEntityListLockKind: vi.fn(),
   lockSavedEntityList: vi.fn(),
 }))
 

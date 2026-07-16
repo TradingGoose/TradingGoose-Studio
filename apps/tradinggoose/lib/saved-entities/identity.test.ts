@@ -98,8 +98,9 @@ const m = vi.hoisted(() => {
     update,
     execute,
     transaction,
-    withWatchlistRootListLock: vi.fn(
-      async (_tx: unknown, _workspaceId: string, mutate: () => Promise<unknown>) => mutate()
+    withDashboardLayoutOwnerLock: vi.fn(
+      async (_scope: unknown, mutate: (tx: unknown) => Promise<unknown>) =>
+        mutate({ update, execute })
     ),
     refreshEntityListSession: vi.fn((..._args: unknown[]) => Promise.resolve()),
   }
@@ -116,8 +117,8 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: m.refreshEntityListSession,
 }))
-vi.mock('@/lib/watchlists/operations', () => ({
-  withWatchlistRootListLock: m.withWatchlistRootListLock,
+vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  withDashboardLayoutOwnerLock: m.withDashboardLayoutOwnerLock,
 }))
 
 describe('renameSavedEntityIdentity', () => {
@@ -164,6 +165,7 @@ describe('renameSavedEntityIdentity', () => {
         },
       })
       expect(m.refreshEntityListSession).toHaveBeenCalledWith(entityKind, 'workspace-1', null)
+      if (entityKind === 'workflow') expect(m.execute).toHaveBeenCalledOnce()
     }
   )
 
@@ -184,11 +186,7 @@ describe('renameSavedEntityIdentity', () => {
       ],
     })
     expect(m.transaction).toHaveBeenCalledTimes(1)
-    expect(m.withWatchlistRootListLock).toHaveBeenCalledWith(
-      expect.objectContaining({ update: m.update }),
-      'workspace-1',
-      expect.any(Function)
-    )
+    expect(m.execute).toHaveBeenCalledOnce()
   })
 
   it('scopes layout identity to the authenticated owner', async () => {
@@ -211,6 +209,10 @@ describe('renameSavedEntityIdentity', () => {
       'dashboard_layout',
       'workspace-1',
       'user-1'
+    )
+    expect(m.withDashboardLayoutOwnerLock).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      expect.any(Function)
     )
   })
 

@@ -53,7 +53,6 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
 }))
 const searchListingExecute = vi.fn(async () => ({ results: [] }))
 const noopEntityExecute = vi.fn(async () => ({}))
-const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
 
@@ -208,10 +207,6 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
-vi.mock('@/lib/permissions/utils', () => ({
-  checkWorkspaceAccess,
-}))
-
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
@@ -239,13 +234,6 @@ beforeEach(() => {
   setEnvironmentVariablesExecute.mockClear()
   searchListingExecute.mockClear()
   noopEntityExecute.mockClear()
-  checkWorkspaceAccess.mockReset()
-  checkWorkspaceAccess.mockResolvedValue({
-    exists: true,
-    hasAccess: true,
-    canWrite: true,
-    workspace: { id: 'workspace-1' },
-  })
 })
 
 describe('copilot contract registry', () => {
@@ -576,26 +564,6 @@ describe('routeExecution', () => {
     })
   })
 
-  it('rejects inaccessible workspace context before invoking the tool', async () => {
-    checkWorkspaceAccess.mockResolvedValueOnce({
-      exists: true,
-      hasAccess: false,
-      canWrite: false,
-      workspace: { id: 'workspace-denied' },
-    })
-
-    await expect(
-      routeExecution(
-        'list_workflows',
-        { workspaceId: 'workspace-denied' },
-        { userId: 'user-1', accessLevel: 'full' }
-      )
-    ).rejects.toThrow('Access denied: You do not have permission to use this workspace')
-
-    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-denied', 'user-1')
-    expect(noopEntityExecute).not.toHaveBeenCalled()
-  })
-
   it('routes indicator catalog requests through the central contract', async () => {
     await expect(
       routeExecution('get_indicator_catalog', { query: 'input', includeItems: true })
@@ -634,7 +602,6 @@ describe('routeExecution', () => {
         signal: undefined,
       }
     )
-    expect(checkWorkspaceAccess).not.toHaveBeenCalled()
   })
 
   it('routes agent accessory catalog requests through the central contract', async () => {

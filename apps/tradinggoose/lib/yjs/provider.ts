@@ -25,7 +25,7 @@ export interface YjsProviderBootstrapResult {
 
 export type YjsProviderError = Error & { retryable: false }
 export type YjsProviderLifecycleEvent =
-  | { type: 'reader-disconnected' }
+  | { type: 'resync-required' }
   | { type: 'terminal-failure'; error: YjsProviderError }
 
 function terminalProviderError(message: string): YjsProviderError {
@@ -49,6 +49,14 @@ function requireSuccessfulResponse(response: Response, label: string): void {
     throw new Error(message)
   }
   throw terminalProviderError(message)
+}
+
+function updateCoversStateVector(update: Uint8Array, baseline: Map<number, number>): boolean {
+  const current = Y.decodeStateVector(Y.encodeStateVectorFromUpdate(update))
+  for (const [clientId, clock] of baseline) {
+    if ((current.get(clientId) ?? 0) < clock) return false
+  }
+  return true
 }
 
 async function fetchSocketToken(): Promise<string> {
@@ -88,14 +96,7 @@ async function fetchSnapshot(
       )
     )
     const runtime = data.runtime as Record<string, unknown>
-    if (
-      descriptor.yjsSessionId !== sessionId ||
-      runtime?.docState !== 'active' ||
-      ![runtime.replaySafe, runtime.reseededFromCanonical].every(
-        (value) => typeof value === 'boolean'
-      )
-    )
-      throw new Error()
+    if (descriptor.yjsSessionId !== sessionId || runtime?.docState !== 'active') throw new Error()
     const update = Uint8Array.from(atob(snapshotBase64), (character) => character.charCodeAt(0))
     Y.decodeUpdate(update)
     return { update, descriptor }
@@ -137,22 +138,11 @@ export async function bootstrapYjsProvider(
   wsOrigin = getDefaultWsOrigin(),
   accessMode: ReviewAccessMode = 'write'
 ): Promise<YjsProviderBootstrapResult> {
-  const snapshot =
-    accessMode === 'write'
-      ? await fetchSnapshot(
-          descriptor.yjsSessionId,
-          serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-        )
-      : null
-  const resolvedDescriptor = snapshot?.descriptor ?? descriptor
-  const envelopeParams = serializeYjsTransportEnvelope(
-    buildYjsTransportEnvelope(resolvedDescriptor)
-  )
+  const envelopeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   const token = await fetchSocketToken()
   const doc = new Y.Doc()
-  if (snapshot) Y.applyUpdate(doc, snapshot.update)
 
-  const provider = new WebsocketProvider(`${wsOrigin}/yjs`, resolvedDescriptor.yjsSessionId, doc, {
+  const provider = new WebsocketProvider(`${wsOrigin}/yjs`, descriptor.yjsSessionId, doc, {
     params: { token, accessMode, ...envelopeParams },
     connect: true,
   })
@@ -197,8 +187,14 @@ export async function bootstrapYjsProvider(
     provider.shouldConnect = false
     reconnectInFlight = (async () => {
       try {
-        await fetchSnapshot(resolvedDescriptor.yjsSessionId, envelopeParams)
+        const currentSnapshot = await fetchSnapshot(descriptor.yjsSessionId, envelopeParams)
         if (!active) return
+        const baseline = Y.decodeStateVector(Y.encodeStateVector(doc))
+        baseline.delete(doc.clientID)
+        if (!updateCoversStateVector(currentSnapshot.update, baseline)) {
+          finishLifecycle({ type: 'resync-required' })
+          return
+        }
         const nextToken = await fetchSocketToken()
         if (!active) return
         provider.params = { token: nextToken, accessMode, ...envelopeParams }
@@ -226,7 +222,7 @@ export async function bootstrapYjsProvider(
       return
     }
     if (accessMode === 'read') {
-      finishLifecycle({ type: 'reader-disconnected' })
+      finishLifecycle({ type: 'resync-required' })
     } else if (provider.shouldConnect) {
       reauthorizeAndReconnect()
     }
@@ -246,7 +242,7 @@ export async function bootstrapYjsProvider(
   return Object.freeze<YjsProviderBootstrapResult>({
     doc,
     provider,
-    descriptor: resolvedDescriptor,
+    descriptor,
     accessMode,
     lifecycle,
     dispose,

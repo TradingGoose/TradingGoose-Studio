@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   getDashboardWidgetMap,
   seedDashboardColorPairSession,
@@ -27,25 +28,11 @@ class MockDashboardLayoutOperationError extends Error {
     this.name = 'DashboardLayoutOperationError'
   }
 }
-class MockWatchlistDocumentError extends Error {
-  constructor(
-    message: string,
-    public status = 400
-  ) {
-    super(message)
-    this.name = 'WatchlistDocumentError'
-  }
-}
 const mockMaterializeWatchlistDocumentInTx = vi.fn()
-const mockNormalizeWatchlistDocumentContent = vi.fn((value: Record<string, unknown>) => ({
-  settings: value.settings ?? { showLogo: true, showTicker: true, showDescription: true },
-  items: Array.isArray(value.items) ? value.items : [],
-}))
 const mockUpdateReturning = vi.fn()
 const mockUpdateSet = vi.fn()
 const mockUpdateWhere = vi.fn()
 const mockRenameSavedEntityIdentityInTx = vi.fn()
-const mockWithWatchlistRootListLock = vi.fn()
 class MockSavedEntityIdentityError extends Error {
   constructor(
     public status: number,
@@ -81,8 +68,6 @@ vi.mock('@/lib/copilot/entity-documents', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
-  isSavedEntityListLockKind: (entityKind: string) =>
-    ['skill', 'custom_tool', 'indicator', 'mcp_server', 'knowledge_base'].includes(entityKind),
   lockSavedEntityList: (...args: unknown[]) => mockLockSavedEntityList(...args),
 }))
 
@@ -103,22 +88,6 @@ vi.mock('@/lib/saved-entities/identity', () => ({
 
 vi.mock('@/lib/watchlists/document', () => ({
   materializeWatchlistDocumentInTx: mockMaterializeWatchlistDocumentInTx,
-}))
-
-vi.mock('@/lib/watchlists/operations', () => ({
-  withWatchlistRootListLock: mockWithWatchlistRootListLock,
-}))
-
-vi.mock('@/lib/watchlists/validation', () => ({
-  normalizeWatchlistDocumentContent: mockNormalizeWatchlistDocumentContent,
-  resolveWatchlistDocumentItemIds: vi.fn((items) =>
-    items.map((item: Record<string, unknown>, index: number) => ({
-      ...item,
-      id: item.id ?? `item-${index + 1}`,
-      parentId: item.parentId ?? null,
-    }))
-  ),
-  WatchlistDocumentError: MockWatchlistDocumentError,
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
@@ -146,7 +115,6 @@ describe('applySavedEntityState', () => {
       name: 'Renamed',
       updatedAt: new Date('2026-07-13T12:00:00.000Z'),
     })
-    mockWithWatchlistRootListLock.mockImplementation(async (_tx, _workspaceId, mutate) => mutate())
     mockMaterializeWatchlistDocumentInTx.mockResolvedValue({
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [
@@ -236,7 +204,7 @@ describe('applySavedEntityState', () => {
     )
     expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
-    expect(mockWithWatchlistRootListLock).not.toHaveBeenCalled()
+    expect(mockLockSavedEntityList).not.toHaveBeenCalled()
   })
 
   it('serializes a watchlist Yjs rename with its materialization', async () => {
@@ -250,9 +218,8 @@ describe('applySavedEntityState', () => {
         items: [],
       },
     })
-    mockWithWatchlistRootListLock.mockImplementationOnce(async (_tx, workspaceId, mutate) => {
-      events.push(`lock:${workspaceId}`)
-      return mutate()
+    mockLockSavedEntityList.mockImplementationOnce(async (_tx, entityKind, workspaceId) => {
+      events.push(`lock:${entityKind}:${workspaceId}`)
     })
     mockRenameSavedEntityIdentityInTx.mockImplementationOnce(async () => {
       events.push('rename')
@@ -280,7 +247,7 @@ describe('applySavedEntityState', () => {
         name: 'Renamed',
       }
     )
-    expect(events).toEqual(['lock:workspace-1', 'rename', 'materialize'])
+    expect(events).toEqual(['lock:watchlist:workspace-1', 'rename', 'materialize'])
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
@@ -319,62 +286,34 @@ describe('applySavedEntityState', () => {
   it('materializes watchlist DB state from a provided Yjs document through the document helper', async () => {
     const { getEntityFields, seedEntitySession } = await import('@/lib/yjs/entity-session')
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const fields = {
+      settings: { showLogo: true, showTicker: true, showDescription: false },
+      items: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          type: 'listing' as const,
+          parentId: null,
+          listing: {
+            listing_type: 'default' as const,
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+          },
+        },
+      ],
+    }
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
-      payload: {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            id: 'listing-1',
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      },
+      payload: fields,
     })
+    mockMaterializeWatchlistDocumentInTx.mockResolvedValueOnce(fields)
     try {
       await expect(
         saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc)
-      ).resolves.toEqual({
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            id: 'listing-1',
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      })
+      ).resolves.toEqual(fields)
 
-      expect(getEntityFields(doc, 'watchlist')).toEqual({
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            id: 'listing-1',
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      })
+      expect(getEntityFields(doc, 'watchlist')).toEqual(fields)
     } finally {
       doc.destroy()
     }
@@ -384,22 +323,7 @@ describe('applySavedEntityState', () => {
       { update: mockDbUpdate },
       'workspace-1',
       'watchlist-1',
-      {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            id: 'listing-1',
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      }
+      fields
     )
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
@@ -487,7 +411,7 @@ describe('applySavedEntityState', () => {
       },
     })
     mockMaterializeWatchlistDocumentInTx.mockRejectedValueOnce(
-      new MockWatchlistDocumentError('Invalid watchlist hierarchy', 409)
+      new WatchlistDocumentError('Invalid watchlist hierarchy', 409)
     )
 
     try {

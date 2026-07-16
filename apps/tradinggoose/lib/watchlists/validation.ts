@@ -54,6 +54,30 @@ export const WatchlistDocumentItemSchema = z.union([
   WatchlistDocumentSectionItemSchema,
 ])
 
+const canonicalYjsString = z
+  .string()
+  .min(1)
+  .refine((value) => value === value.trim(), 'Value must not contain surrounding whitespace')
+
+export const WatchlistYjsItemSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('listing'),
+      parentId: canonicalYjsString.nullable(),
+      listing: ListingIdentitySchema,
+      order: z.number().finite(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('section'),
+      parentId: z.null(),
+      label: canonicalYjsString,
+      order: z.number().finite(),
+    })
+    .strict(),
+])
+
 export const WatchlistContentDocumentSchema = z
   .object({
     settings: WatchlistSettingsSchema,
@@ -283,7 +307,7 @@ function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   }
 }
 
-function assertNoDuplicateListings(
+export function assertNoDuplicateListings(
   items: Array<{
     type: string
     parentId?: string | null
@@ -301,7 +325,7 @@ function assertNoDuplicateListings(
   }
 }
 
-function assertValidParentTree(
+export function assertValidParentTree(
   items: Array<{ id?: string; type: string; parentId?: string | null }>
 ) {
   const sectionIds = new Set<string>()

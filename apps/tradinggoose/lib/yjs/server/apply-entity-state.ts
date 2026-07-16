@@ -30,7 +30,6 @@ import {
   materializeWatchlistDocumentInTx,
   type WatchlistDocumentTx,
 } from '@/lib/watchlists/document'
-import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   readDashboardColorPairDocument,
@@ -38,7 +37,7 @@ import {
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { isSavedEntityListLockKind, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
@@ -261,24 +260,16 @@ export async function saveSavedEntityYjsDocToDb(
   const normalizedFields = normalizeSavedEntityFields(entityKind, entityFields)
   try {
     return await db.transaction(async (tx) => {
-      const persist = async () => {
-        if (options?.identity) {
-          await renameSavedEntityIdentityInTx(tx, {
-            entityKind,
-            entityId,
-            workspaceId,
-            name: options.identity.name,
-          })
-        }
-        return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
+      await lockSavedEntityList(tx, entityKind, workspaceId)
+      if (options?.identity) {
+        await renameSavedEntityIdentityInTx(tx, {
+          entityKind,
+          entityId,
+          workspaceId,
+          name: options.identity.name,
+        })
       }
-      if (entityKind === 'watchlist' && options?.identity) {
-        return withWatchlistRootListLock(tx, workspaceId, persist)
-      }
-      if (isSavedEntityListLockKind(entityKind)) {
-        await lockSavedEntityList(tx, entityKind, workspaceId)
-      }
-      return persist()
+      return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
     })
   } catch (error) {
     if (error instanceof SavedEntityPersistenceError) throw error

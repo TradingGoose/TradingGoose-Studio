@@ -5,9 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
-  access: vi.fn(),
   isToolId: vi.fn(),
-  isAgnostic: vi.fn(),
   route: vi.fn(),
   stage: vi.fn(),
   accept: vi.fn(),
@@ -32,7 +30,6 @@ vi.mock('@/lib/copilot/server-tool-errors', () => ({
 }))
 
 vi.mock('@/lib/copilot/tools/server/router', () => ({
-  isWorkspaceAgnosticServerTool: mocks.isAgnostic,
   routeExecution: mocks.route,
 }))
 
@@ -45,13 +42,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
 }))
 
-vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
-
 const layoutContext = {
   contextEntityKind: 'dashboard_layout',
   contextEntityId: 'layout-1',
   workspaceId: 'workspace-1',
-  ownerUserId: 'user-1',
 }
 
 async function post(body: Record<string, unknown>) {
@@ -69,9 +63,7 @@ describe('execute copilot server tool route', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.auth.mockResolvedValue({ userId: 'user-1', isAuthenticated: true })
-    mocks.access.mockResolvedValue({ exists: true, hasAccess: true })
     mocks.isToolId.mockReturnValue(true)
-    mocks.isAgnostic.mockReturnValue(false)
     mocks.route.mockResolvedValue({ success: true })
     mocks.stage.mockImplementation(async (_tool, _payload, result) => result)
     mocks.accept.mockResolvedValue({ success: true })
@@ -79,9 +71,9 @@ describe('execute copilot server tool route', () => {
 
   it.each([
     [
-      'execution context without authenticated owner scope',
-      { ...layoutContext, ownerUserId: undefined },
-      'dashboard_layout context requires contextEntityId, workspaceId, and authenticated ownerUserId',
+      'execution context without workspace scope',
+      { ...layoutContext, workspaceId: undefined },
+      'dashboard_layout context requires contextEntityId and workspaceId',
     ],
     [
       'composed context ids at the execution boundary',
@@ -101,7 +93,7 @@ describe('execute copilot server tool route', () => {
     expect(mocks.route).not.toHaveBeenCalled()
   })
 
-  it('passes complete dashboard layout context into staged execution', async () => {
+  it('passes dashboard layout identity into staged execution', async () => {
     const response = await post({
       toolName: 'edit_layout',
       payload: { entityId: 'layout-1' },
@@ -117,12 +109,11 @@ describe('execute copilot server tool route', () => {
         workspaceId: 'workspace-1',
         contextEntityKind: 'dashboard_layout',
         contextEntityId: 'layout-1',
-        ownerUserId: 'user-1',
       })
     )
   })
 
-  it('omits ownerUserId when accepting a staged review', async () => {
+  it('passes review acceptance to the canonical dispatcher', async () => {
     const response = await post({
       toolName: 'edit_layout',
       reviewAction: 'accept',
@@ -134,7 +125,7 @@ describe('execute copilot server tool route', () => {
     expect(mocks.accept).toHaveBeenCalledWith(
       'edit_layout',
       'review-token-1',
-      expect.not.objectContaining({ ownerUserId: expect.anything() })
+      expect.objectContaining({ userId: 'user-1' })
     )
   })
 })

@@ -9,6 +9,8 @@ describe('Workflow API Route', () => {
   const deleteWhereMock = vi.fn()
   const applyWorkflowStateMock = vi.fn()
   const refreshWorkflowListForWorkflowMock = vi.fn()
+  const lockSavedEntityListMock = vi.fn()
+  const transactionMock = vi.fn()
   const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -26,6 +28,13 @@ describe('Workflow API Route', () => {
 
     insertValuesMock.mockResolvedValue(undefined)
     deleteWhereMock.mockResolvedValue(undefined)
+    lockSavedEntityListMock.mockResolvedValue(undefined)
+    transactionMock.mockImplementation(async (callback) =>
+      callback({
+        insert: vi.fn().mockReturnValue({ values: insertValuesMock }),
+        delete: vi.fn().mockReturnValue({ where: deleteWhereMock }),
+      })
+    )
     applyWorkflowStateMock.mockResolvedValue(undefined)
     refreshWorkflowListForWorkflowMock.mockResolvedValue(undefined)
     randomUUIDMock.mockReset()
@@ -42,6 +51,7 @@ describe('Workflow API Route', () => {
         delete: vi.fn().mockReturnValue({
           where: deleteWhereMock,
         }),
+        transaction: transactionMock,
       },
     }))
 
@@ -92,6 +102,10 @@ describe('Workflow API Route', () => {
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowState: applyWorkflowStateMock,
+    }))
+
+    vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
+      lockSavedEntityList: lockSavedEntityListMock,
     }))
 
     vi.doMock('@/app/api/workflows/utils', () => ({
@@ -146,6 +160,11 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(200)
     expect(insertValuesMock).toHaveBeenCalledOnce()
+    expect(lockSavedEntityListMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'workflow',
+      'workspace-1'
+    )
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
@@ -196,6 +215,7 @@ describe('Workflow API Route', () => {
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(refreshWorkflowListForWorkflowMock).not.toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
+    expect(lockSavedEntityListMock).toHaveBeenCalledTimes(2)
   })
 
   it('applies default workflow state when no initial state is provided', async () => {

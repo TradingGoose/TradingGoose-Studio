@@ -136,7 +136,7 @@ async function runYjsUpgrade(input: {
   const bootstrap =
     input.bootstrap === undefined
       ? {
-          runtime: { docState: 'active', replaySafe: true, reseededFromCanonical: true },
+          runtime: { docState: 'active' },
           state: bootstrapState,
         }
       : input.bootstrap

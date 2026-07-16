@@ -20,7 +20,6 @@ import {
   loadWatchlistDocumentFields,
   rootWatchlistCondition,
 } from '@/lib/watchlists/document'
-import { withWatchlistRootListLock } from '@/lib/watchlists/operations'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
@@ -42,18 +41,19 @@ const ENTITY_TABLES = {
 const SAVED_ENTITY_LIST_LOCK_NAMESPACE = 1_904_202_618
 
 export type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
-export const SAVED_ENTITY_LIST_LOCK_KINDS = Object.keys(ENTITY_TABLES) as RowBackedSavedEntityKind[]
+export type SavedEntityListLockKind = RowBackedSavedEntityKind | 'workflow' | 'watchlist'
+export const SAVED_ENTITY_LIST_LOCK_KINDS: SavedEntityListLockKind[] = [
+  ...(Object.keys(ENTITY_TABLES) as RowBackedSavedEntityKind[]),
+  'workflow',
+  'watchlist',
+]
 export type EntityListReadStore = Pick<typeof db, 'select'>
 export type EntityListBeforeInsert = (store: EntityListReadStore) => Promise<void> | void
 type EntityListLockWriter = Pick<typeof db, 'execute'>
 
-export function isSavedEntityListLockKind(value: string): value is RowBackedSavedEntityKind {
-  return Object.hasOwn(ENTITY_TABLES, value)
-}
-
 export async function lockSavedEntityList(
   tx: EntityListLockWriter,
-  entityKind: RowBackedSavedEntityKind,
+  entityKind: SavedEntityListLockKind,
   workspaceId: string
 ): Promise<void> {
   await tx.execute(
@@ -126,17 +126,15 @@ export async function deleteSavedEntity(
 
   const deleted = await withYjsSessionDeletionLease({ sessionIds: [entityId] }, () =>
     db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, entityKind, workspaceId)
       if (entityKind === 'watchlist') {
-        return withWatchlistRootListLock(tx, workspaceId, async () => {
-          const [row] = await tx
-            .delete(watchlistTable)
-            .where(rootWatchlistCondition(workspaceId, entityId))
-            .returning({ id: watchlistTable.id })
-          return Boolean(row)
-        })
+        const [row] = await tx
+          .delete(watchlistTable)
+          .where(rootWatchlistCondition(workspaceId, entityId))
+          .returning({ id: watchlistTable.id })
+        return Boolean(row)
       }
 
-      await lockSavedEntityList(tx, entityKind, workspaceId)
       if (entityKind === 'knowledge_base') {
         const now = new Date()
         const [row] = await tx

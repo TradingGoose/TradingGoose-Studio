@@ -19,6 +19,7 @@ import {
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { withYjsSessionDeletionLease } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -242,9 +243,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    await withYjsSessionDeletionLease({ sessionIds: [workflowId] }, () =>
-      db.delete(workflow).where(eq(workflow.id, workflowId))
-    )
+    await withYjsSessionDeletionLease({ sessionIds: [workflowId] }, async () => {
+      if (workflowData.workspaceId) {
+        await db.transaction(async (tx) => {
+          await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
+          await tx.delete(workflow).where(eq(workflow.id, workflowId))
+        })
+        return
+      }
+      await db.delete(workflow).where(eq(workflow.id, workflowId))
+    })
 
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)
@@ -328,6 +336,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updatedWorkflow =
       hasRowUpdates || updates.name
         ? await db.transaction(async (tx) => {
+            if (updates.name) {
+              await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
+            }
             let row = workflowData
             if (hasRowUpdates) {
               const [updated] = await tx

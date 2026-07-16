@@ -197,7 +197,6 @@ export function createExecutionContext(params: {
     ...(contextEntityKind ? { contextEntityKind } : {}),
     ...(contextEntityId ? { contextEntityId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    ...(provenance.ownerUserId ? { ownerUserId: provenance.ownerUserId } : {}),
     log: (level, message, extra) => {
       try {
         logger[level](message, {

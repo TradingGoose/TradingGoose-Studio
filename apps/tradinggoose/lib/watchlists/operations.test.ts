@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
 const mockRefreshEntityList = vi.hoisted(() => vi.fn())
+const mockLockSavedEntityList = vi.hoisted(() =>
+  vi.fn((tx: { execute: () => Promise<unknown> }) => tx.execute())
+)
 
 vi.mock('@tradinggoose/db', () => ({
   db: { transaction: mockDbTransaction },
@@ -44,11 +47,10 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
-  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
-    kind: 'sql',
-    strings: [...strings],
-    values,
-  }),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  lockSavedEntityList: mockLockSavedEntityList,
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({

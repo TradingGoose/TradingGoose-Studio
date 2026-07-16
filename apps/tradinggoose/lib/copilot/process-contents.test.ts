@@ -190,95 +190,34 @@ describe('processContextsServer', () => {
       const label = `Attached ${entityKind}`
       const { processContextsServer } = await import('@/lib/copilot/process-contents')
 
-      for (const current of [false, true]) {
-        const context = buildCopilotWorkspaceEntityContext({
+      const contexts = [false, true].map((current) =>
+        buildCopilotWorkspaceEntityContext({
           entityKind,
           entityId,
-          workspaceId: 'workspace-1',
+          workspaceId: 'workspace-metadata',
           ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
           label,
           current,
         })
-        const result = await processContextsServer([context], 'user-1')
+      )
+      const result = await processContextsServer(contexts, 'user-1')
 
-        expect(result).toEqual([
-          {
-            type: context.kind,
-            content: JSON.stringify({ entityId }, null, 2),
-          },
-        ])
-        expect(Object.keys(JSON.parse(result[0]!.content))).toEqual(['entityId'])
-        expect(result[0]).not.toHaveProperty('tag')
+      expect(result).toEqual(
+        contexts.map((context) => ({
+          type: context.kind,
+          content: JSON.stringify({ entityId }, null, 2),
+        }))
+      )
+      for (const context of result) {
+        expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
+        expect(context).not.toHaveProperty('tag')
       }
 
-      if (entityKind === 'workflow') {
-        expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', entityId, 'read')
-        expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
-      } else {
-        expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
-          'user-1',
-          {
-            entityKind,
-            entityId,
-            draftSessionId: null,
-            reviewSessionId: null,
-            ownerUserId: entityKind === 'dashboard_layout' ? 'user-1' : null,
-            workspaceId: 'workspace-1',
-            yjsSessionId: entityId,
-          },
-          'read'
-        )
-      }
+      expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
       expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
       expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     }
   )
-
-  it('skips dashboard layout contexts outside the authenticated owner scope', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'dashboard_layout',
-          label: 'Other Layout',
-          workspaceId: 'workspace-1',
-          ownerUserId: 'user-2',
-          dashboardLayoutId: 'layout-1',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(result).toEqual([])
-    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
-    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
-  })
-
-  it('skips workspace entity contexts without read access', async () => {
-    mockVerifyReviewTargetAccess.mockResolvedValueOnce({
-      hasAccess: false,
-      userPermission: null,
-      workspaceId: null,
-      isOwner: false,
-    })
-
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_skill',
-          label: 'Current Skill',
-          workspaceId: 'workspace-1',
-          skillId: 'skill-1',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalled()
-    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
-    expect(result).toEqual([])
-  })
 
   it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
@@ -287,7 +226,7 @@ describe('processContextsServer', () => {
     mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue({
       snapshotBase64,
       descriptor: {},
-      runtime: { docState: 'active', replaySafe: false, reseededFromCanonical: false },
+      runtime: { docState: 'active' },
     })
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
@@ -325,24 +264,7 @@ describe('processContextsServer', () => {
     ])
   })
 
-  it.each([
-    {
-      context: {
-        kind: 'workflow',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-        label: 'Attached Workflow',
-      } as const,
-    },
-    {
-      context: {
-        kind: 'workflow_block',
-        workflowId: 'workflow-1',
-        blockId: 'block-1',
-        label: 'Attached Block',
-      } as const,
-    },
-  ])('skips workflow-derived contexts without workflow read access', async ({ context }) => {
+  it('skips workflow block contexts without workflow read access', async () => {
     mockVerifyWorkflowAccess.mockResolvedValueOnce({
       hasAccess: false,
       userPermission: null,
@@ -351,7 +273,17 @@ describe('processContextsServer', () => {
     })
 
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer([context], 'user-1')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'workflow_block',
+          workflowId: 'workflow-1',
+          blockId: 'block-1',
+          label: 'Attached Block',
+        },
+      ],
+      'user-1'
+    )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()

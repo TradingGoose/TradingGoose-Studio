@@ -79,7 +79,6 @@ import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
 import { readWorkflowLogsServerTool } from '@/lib/copilot/tools/server/workflow/read-workflow-logs'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ServerToolRouter')
 
@@ -288,17 +287,6 @@ async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, 
   return serverToolRegistry[toolName] ?? null
 }
 
-async function assertWorkspaceAccess(context?: ServerToolExecutionContext): Promise<void> {
-  if (!context?.workspaceId) {
-    return
-  }
-
-  const access = await checkWorkspaceAccess(context.workspaceId, context.userId)
-  if (!access.exists || !access.hasAccess) {
-    throw new Error('Access denied: You do not have permission to use this workspace')
-  }
-}
-
 export async function routeExecution(
   toolName: string,
   payload: unknown,
@@ -360,7 +348,6 @@ export async function routeExecution(
   }
   const executionContext = withWorkspaceArgContext(context, args)
   throwIfServerToolAborted(executionContext)
-  await assertWorkspaceAccess(executionContext)
 
   const result = await tool.execute(args, executionContext)
   throwIfServerToolAborted(executionContext)

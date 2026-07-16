@@ -6,9 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
+  const select = vi.fn(() => chain)
   chain.from = vi.fn(() => chain)
-  chain.innerJoin = vi.fn(() => chain)
-  chain.leftJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() =>
@@ -32,9 +31,11 @@ const mocks = vi.hoisted(() => {
     and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
     eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
     or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
-    select: vi.fn(() => chain),
+    select,
   }
 })
+
+const toolMocks = vi.hoisted(() => ({ verifyWorkspaceContext: vi.fn() }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -43,11 +44,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  permissions: {
-    entityType: 'permissions.entityType',
-    entityId: 'permissions.entityId',
-    userId: 'permissions.userId',
-  },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     workflowId: 'workflowExecutionLogs.workflowId',
@@ -61,10 +57,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     totalDurationMs: 'workflowExecutionLogs.totalDurationMs',
     executionData: 'workflowExecutionLogs.executionData',
     cost: 'workflowExecutionLogs.cost',
-  },
-  workspace: {
-    id: 'workspace.id',
-    ownerId: 'workspace.ownerId',
   },
 }))
 
@@ -89,9 +81,17 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
 }))
 
+vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
+  verifyWorkspaceContext: toolMocks.verifyWorkspaceContext,
+}))
+
 describe('readWorkflowLogsServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    toolMocks.verifyWorkspaceContext.mockImplementation(async (context) => {
+      if (!context?.userId) throw new Error('Authenticated user is required')
+      return { userId: context.userId, workspaceId: context.workspaceId }
+    })
   })
 
   it('matches console logs by live workflow id or durable workflow summary id', async () => {
@@ -99,37 +99,17 @@ describe('readWorkflowLogsServerTool', () => {
     const result = await readWorkflowLogsServerTool.execute(
       {
         entityId: 'deleted-workflow-1',
+        workspaceId: 'workspace-1',
         includeDetails: false,
       },
       { userId: 'user-1' }
     )
 
-    expect(mocks.chain.innerJoin).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'workspace.id',
-        ownerId: 'workspace.ownerId',
-      }),
-      {
-        field: 'workspace.id',
-        type: 'eq',
-        value: 'workflowExecutionLogs.workspaceId',
-      }
+    expect(toolMocks.verifyWorkspaceContext).toHaveBeenCalledWith(
+      { userId: 'user-1', workspaceId: 'workspace-1' },
+      'read'
     )
-    expect(mocks.chain.leftJoin).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entityId: 'permissions.entityId',
-        entityType: 'permissions.entityType',
-        userId: 'permissions.userId',
-      }),
-      expect.objectContaining({ type: 'and' })
-    )
-    expect(mocks.eq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
-    expect(mocks.eq).toHaveBeenCalledWith(
-      'permissions.entityId',
-      'workflowExecutionLogs.workspaceId'
-    )
-    expect(mocks.eq).toHaveBeenCalledWith('permissions.userId', 'user-1')
-    expect(mocks.eq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
+    expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workflowId', 'deleted-workflow-1')
     expect(mocks.or).toHaveBeenCalled()
     expect(result).toMatchObject({
@@ -144,9 +124,10 @@ describe('readWorkflowLogsServerTool', () => {
     await expect(
       readWorkflowLogsServerTool.execute({
         entityId: 'deleted-workflow-1',
+        workspaceId: 'workspace-1',
         includeDetails: false,
       })
-    ).rejects.toThrow('Authenticated user context is required')
+    ).rejects.toThrow('Authenticated user is required')
 
     expect(mocks.select).not.toHaveBeenCalled()
   })

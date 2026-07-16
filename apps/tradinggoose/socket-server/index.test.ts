@@ -95,8 +95,6 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       descriptor,
       runtime: {
         docState: 'active',
-        replaySafe: false,
-        reseededFromCanonical: true,
       },
       state,
     }

@@ -449,6 +449,7 @@ export const ToolArgSchemas = {
 
   [CopilotTool.read_workflow_logs]: z.object({
     entityId: RequiredId,
+    workspaceId: RequiredId.optional(),
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),

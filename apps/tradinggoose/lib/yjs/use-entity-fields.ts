@@ -130,23 +130,15 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
 function initializeSharedYjsSessionEntry(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
-  errorMessage: string,
-  staleResult?: YjsProviderBootstrapResult
+  errorMessage: string
 ): void {
-  if (entry.error?.retryable === false || entry.initPromise || (!staleResult && entry.result))
-    return
+  if (entry.error?.retryable === false || entry.initPromise || entry.result) return
 
-  if (!staleResult) {
-    entry.error = null
-    emitSharedYjsSessionEntry(entry)
-  }
+  entry.error = null
+  emitSharedYjsSessionEntry(entry)
   entry.initPromise = openSession()
     .then((next) => {
-      if (
-        sharedYjsSessionEntries.get(entry.key) !== entry ||
-        entry.refCount === 0 ||
-        (staleResult && entry.result !== staleResult)
-      ) {
+      if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
         next.dispose()
         return
       }
@@ -155,8 +147,11 @@ function initializeSharedYjsSessionEntry(
       entry.error = null
       void next.lifecycle.then((event) => {
         if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
-        if (event.type === 'reader-disconnected') {
-          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, next)
+        if (event.type === 'resync-required') {
+          entry.result = null
+          next.dispose()
+          emitSharedYjsSessionEntry(entry)
+          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
         } else {
           entry.result = null
           entry.error = event.error
@@ -164,10 +159,6 @@ function initializeSharedYjsSessionEntry(
           emitSharedYjsSessionEntry(entry)
         }
       })
-      if (staleResult) {
-        emitSharedYjsSessionEntry(entry)
-        staleResult.dispose()
-      }
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
@@ -175,20 +166,13 @@ function initializeSharedYjsSessionEntry(
         retryable?: boolean
       }
       entry.error = error
-      if (error.retryable === false && staleResult && entry.result === staleResult) {
-        entry.result = null
-        staleResult.dispose()
-      }
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
-      if (
-        entry.error?.retryable !== false &&
-        (staleResult ? entry.result === staleResult : !entry.result)
-      ) {
-        scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, staleResult)
+      if (entry.error?.retryable !== false && !entry.result) {
+        scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
       }
     })
 }
@@ -198,12 +182,11 @@ const SESSION_REOPEN_RETRY_MS = 1_000
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
-  errorMessage: string,
-  staleResult?: YjsProviderBootstrapResult
+  errorMessage: string
 ): void {
   setTimeout(() => {
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-    initializeSharedYjsSessionEntry(entry, openSession, errorMessage, staleResult)
+    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
   }, SESSION_REOPEN_RETRY_MS)
 }
 

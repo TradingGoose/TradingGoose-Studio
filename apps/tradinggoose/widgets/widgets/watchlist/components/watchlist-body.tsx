@@ -143,6 +143,14 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     )
   }
 
+  if (selectedDocument.members.length === 0) {
+    return <WatchlistMessage message={copy.createWatchlistToGetStarted} />
+  }
+
+  if (!selectedWatchlist) {
+    return <WatchlistMessage message={copy.watchlistNotFound} />
+  }
+
   return (
     <WatchlistTable
       watchlist={selectedWatchlist}

@@ -19,7 +19,11 @@ import {
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import {
+  checkWorkspaceAccess,
+  getWorkspaceById,
+  type WorkspaceRecord,
+} from '@/lib/permissions/utils'
 import {
   normalizeSavedEntityIdentity,
   renameSavedEntityIdentity,
@@ -108,6 +112,23 @@ const ENTITY_KIND_LABELS: Record<ReviewEntityKind, string> = {
   dashboard_layout: 'dashboard layout',
 }
 
+async function assertWorkspaceApiKeyPolicy(
+  context: ServerToolExecutionContext | undefined,
+  workspace: WorkspaceRecord | string | null | undefined
+): Promise<void> {
+  if (context?.apiKeyType !== 'personal' || !workspace) return
+  const record = typeof workspace === 'string' ? await getWorkspaceById(workspace) : workspace
+  if (record?.allowPersonalApiKeys) return
+
+  throw new StructuredServerToolError({
+    status: 403,
+    body: {
+      code: 'personal_api_keys_disabled',
+      error: 'This workspace does not allow personal API keys.',
+    },
+  })
+}
+
 export function requireUserId(context?: ServerToolExecutionContext): string {
   const userId = context?.userId?.trim()
   if (!userId) {
@@ -137,7 +158,7 @@ export async function verifyWorkspaceContext(
   if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
     throw new Error('Access denied: You do not have permission to use this workspace')
   }
-
+  await assertWorkspaceApiKeyPolicy(context, access.workspace)
   return { userId, workspaceId }
 }
 
@@ -165,6 +186,7 @@ export async function verifySavedEntityContext(
       `Access denied: You do not have permission to ${accessMode === 'write' ? 'edit' : 'read'} this ${ENTITY_KIND_LABELS[entityKind]}`
     )
   }
+  await assertWorkspaceApiKeyPolicy(context, access.workspaceId)
 
   return { userId, workspaceId: access.workspaceId, ownerUserId }
 }

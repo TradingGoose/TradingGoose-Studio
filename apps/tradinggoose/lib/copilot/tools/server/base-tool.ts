@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import type { ApiKeyType } from '@/lib/api-key/service'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import type { ToolId } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
@@ -7,12 +8,12 @@ import { stableStringifyJsonValue } from '@/lib/json/stable'
 
 export interface ServerToolExecutionContext {
   userId: string
+  apiKeyType?: ApiKeyType
   accessLevel?: CopilotAccessLevel
   acceptedReviewBaseStateHash?: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
-  ownerUserId?: string
   signal?: AbortSignal
 }
 

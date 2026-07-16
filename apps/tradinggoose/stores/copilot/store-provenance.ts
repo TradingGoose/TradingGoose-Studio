@@ -127,21 +127,15 @@ export function withPinnedToolExecutionProvenance(
     baseProvenance ?? {}
   const { dashboardLayoutContext: _toolDashboardLayoutContext, ...toolProvenanceRest } =
     toolCall.provenance ?? {}
-  let mergedProvenance = {
+  const mergedProvenance = {
     ...baseProvenanceRest,
     ...toolProvenanceRest,
-  }
-
-  if (mergedProvenance.contextEntityKind !== 'dashboard_layout') {
-    const { ownerUserId: _ownerUserId, ...withoutOwnerScope } = mergedProvenance
-    mergedProvenance = withoutOwnerScope
   }
 
   if (dashboardLayoutContext && DASHBOARD_LAYOUT_TOOL_NAMES.has(toolCall.name)) {
     mergedProvenance.contextEntityKind = 'dashboard_layout'
     mergedProvenance.contextEntityId = dashboardLayoutContext.entityId
     mergedProvenance.workspaceId = dashboardLayoutContext.workspaceId
-    mergedProvenance.ownerUserId = dashboardLayoutContext.ownerUserId
   }
 
   return {

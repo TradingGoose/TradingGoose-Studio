@@ -67,7 +67,6 @@ export interface ClientToolExecutionContext {
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
-  ownerUserId?: string
   log?: (
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,

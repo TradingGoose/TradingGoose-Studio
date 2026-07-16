@@ -46,8 +46,6 @@ export type ReviewTargetDocState = 'active' | 'expired'
 
 export interface ReviewTargetRuntimeState {
   docState: ReviewTargetDocState
-  replaySafe: boolean
-  reseededFromCanonical: boolean
 }
 
 export interface ResolvedReviewTarget {

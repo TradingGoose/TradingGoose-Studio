@@ -8,26 +8,10 @@ function isReviewTargetDocState(value: unknown): value is ReviewTargetDocState {
   return value === 'active' || value === 'expired'
 }
 
-export function getReviewTargetRuntimeState(
-  doc: Y.Doc,
-  baseRuntime?: ReviewTargetRuntimeState | null
-): ReviewTargetRuntimeState {
+export function getReviewTargetRuntimeState(doc: Y.Doc): ReviewTargetRuntimeState {
   const metadata = doc.getMap<unknown>('metadata')
   const rawDocState = metadata.get('docState')
-  const docState = isReviewTargetDocState(rawDocState)
-    ? rawDocState
-    : (baseRuntime?.docState ?? 'active')
-  const reseededFromCanonical = metadata.get('reseededFromCanonical') === true
-
   return {
-    docState,
-    replaySafe: docState === 'active' && !reseededFromCanonical,
-    reseededFromCanonical,
+    docState: isReviewTargetDocState(rawDocState) ? rawDocState : 'active',
   }
-}
-
-export function isReplaySafeReviewTarget(
-  runtime: ReviewTargetRuntimeState | null | undefined
-): boolean {
-  return runtime?.docState === 'active' && runtime.replaySafe === true
 }

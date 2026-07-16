@@ -123,11 +123,10 @@ export interface CopilotToolExecutionProvenance {
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
-  ownerUserId?: string
   /**
    * Owner-scoped dashboard layout context candidate. Carried per turn and
-   * applied to the canonical flat fields only for dashboard layout tools at
-   * pin time; never sent as a parallel identity contract.
+   * used only to pin the canonical layout identity for dashboard tools; the
+   * authenticated server session owns layout scope.
    */
   dashboardLayoutContext?: {
     entityId: string

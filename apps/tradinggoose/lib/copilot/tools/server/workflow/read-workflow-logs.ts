@@ -1,17 +1,19 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, desc, eq, or, sql } from 'drizzle-orm'
 import { CopilotTool } from '@/lib/copilot/registry'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import type {
-  BaseServerTool,
-  ServerToolExecutionContext,
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 
 interface ReadWorkflowLogsArgs {
   entityId: string
+  workspaceId?: string
   limit?: number
   includeDetails?: boolean
 }
@@ -227,16 +229,13 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
     const { limit = 3, includeDetails = true } = rawArgs || ({} as ReadWorkflowLogsArgs)
     const workflowId = requireCopilotEntityId(rawArgs, { toolName: CopilotTool.read_workflow_logs })
 
-    if (!context?.userId) {
-      throw new Error('Authenticated user context is required')
-    }
+    const { workspaceId } = await verifyWorkspaceContext(
+      withWorkspaceArgContext(context, rawArgs),
+      'read'
+    )
 
     logger.info('Reading workflow logs', { workflowId, limit, includeDetails })
 
-    const workspaceAccess = buildWorkspaceAccessScope(
-      context.userId,
-      workflowExecutionLogs.workspaceId
-    )
     const executionLogs = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -250,15 +249,13 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
         cost: workflowExecutionLogs.cost,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(workspace, workspaceAccess.workspaceJoin)
-      .leftJoin(permissions, workspaceAccess.permissionJoin)
       .where(
         and(
+          eq(workflowExecutionLogs.workspaceId, workspaceId),
           or(
             eq(workflowExecutionLogs.workflowId, workflowId),
             sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
-          ),
-          workspaceAccess.accessFilter
+          )
         )
       )
       .orderBy(desc(workflowExecutionLogs.startedAt))

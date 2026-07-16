@@ -317,7 +317,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
       metadata.set('draftSessionId', descriptor.draftSessionId)
       metadata.set('reviewSessionId', descriptor.reviewSessionId)
     }
-    metadata.set('reseededFromCanonical', true)
     const state = Y.encodeStateAsUpdate(doc)
 
     return {
@@ -345,8 +344,5 @@ export async function reseedEntityListSessionFromDb(
   ownerUserId?: string | null
 ): Promise<void> {
   const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
-  doc.transact(() => {
-    replaceEntityListSessionMembers(doc, members)
-    getMetadataMap(doc).set('reseededFromCanonical', true)
-  }, YJS_ORIGINS.SYSTEM)
+  replaceEntityListSessionMembers(doc, members)
 }

@@ -143,6 +143,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         content: 'Saved response',
       }),
     })
+    mockProcessContextsServer.mockResolvedValue([])
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -325,7 +326,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists a collaborator reply on an existing generic copilot session', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
@@ -391,7 +391,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists non-streaming tool-only assistant turns', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
@@ -578,7 +577,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(mockProcessContextsServer.mock.calls[0]?.[2]).toBe(modelMessage)
+    expect(mockProcessContextsServer.mock.calls[0]?.[2]).toBe(message)
     expect(mockProxyCopilotRequest.mock.calls[0]?.[0].body.message).toBe(modelMessage)
     expect(mockRequestCopilotTitle).toHaveBeenCalledWith(
       expect.objectContaining({ message: modelMessage })
@@ -592,7 +591,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
@@ -655,7 +653,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('derives append sequences from the latest in-transaction session history', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
@@ -701,7 +698,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('rewrites an already-persisted user turn with finalized assistant content', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
@@ -821,7 +817,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('creates a fresh generic copilot session in the workspace history bucket', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-1',
@@ -879,7 +874,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('creates a new generic copilot session even when older chats exist in the same workspace', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-newer',
@@ -932,7 +926,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists the finalized assistant item text from a streamed reply', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValueOnce({
       id: 'review-session-finalized-stream',
       userId: 'collaborator-user',
@@ -1003,7 +996,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists streamed reasoning content blocks from a streamed reply', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValueOnce({
       id: 'review-session-reasoning-stream',
       userId: 'collaborator-user',
@@ -1113,7 +1105,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('marks rewritten streamed error replies as error turns instead of completed turns', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValueOnce({
       id: 'review-session-error-stream',
       userId: 'collaborator-user',
@@ -1160,7 +1151,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('normalizes JSON-string function call arguments before persisting streamed tool calls', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValueOnce({
       id: 'review-session-stringified-tool-args',
       userId: 'collaborator-user',
@@ -1223,7 +1213,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('keeps a newly created workspace copilot chat when a streamed reply ends without assistant content', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockInsertReturning.mockResolvedValueOnce([
       {
         id: 'review-session-channel-empty',
@@ -1263,7 +1252,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('does not delete an existing generic copilot chat selected by reviewSessionId after an empty streamed reply', async () => {
-    mockProcessContextsServer.mockResolvedValue([])
     mockLoadReviewSessionForUser.mockResolvedValueOnce({
       id: 'review-session-existing-scope',
       userId: 'collaborator-user',

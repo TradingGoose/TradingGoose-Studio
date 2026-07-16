@@ -28,15 +28,15 @@
 
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import {
-  areListingIdentitiesEqual,
-  getListingIdentityKey,
-  type ListingIdentity,
-} from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
 import {
+  assertNoDuplicateListings,
+  assertValidParentTree,
   normalizeWatchlistDocumentContent,
   resolveWatchlistDocumentItemIds,
+  WatchlistDocumentError,
+  WatchlistYjsItemSchema,
 } from '@/lib/watchlists/validation'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
@@ -139,48 +139,19 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
   if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
   const itemMap = items as Y.Map<Y.Map<unknown>>
   itemMap.forEach((entry, id) => {
-    if (!id) return
-    const type = entry.get('type')
-    const order = Number(entry.get('order') ?? 0)
-    if (type === 'section') {
-      const label = entry.get('label')
-      if (typeof label === 'string' && label.trim()) {
-        entries.push({ id, type, parentId: null, label, order })
-      }
-      return
+    const parsed = entry instanceof Y.Map ? WatchlistYjsItemSchema.safeParse(entry.toJSON()) : null
+    if (!id || id !== id.trim() || !parsed?.success) {
+      throw new WatchlistDocumentError('Invalid watchlist item')
     }
-    if (type !== 'listing') return
-    const listing = entry.get('listing')
-    const parentId = entry.get('parentId')
-    entries.push({
-      id,
-      type,
-      parentId: typeof parentId === 'string' && parentId ? parentId : null,
-      listing: listing as ListingIdentity,
-      order,
-    })
+    entries.push({ id, ...parsed.data })
   })
 
-  const sections = new Set(entries.filter((item) => item.type === 'section').map((item) => item.id))
-  const canonicalListings = new Map<
-    string,
-    Extract<(typeof entries)[number], { type: 'listing' }>
-  >()
-  for (const item of entries) {
-    if (item.type !== 'listing') continue
-    const parentId = item.parentId && sections.has(item.parentId) ? item.parentId : '__root__'
-    const key = `${parentId}:${getListingIdentityKey(item.listing)}`
-    const current = canonicalListings.get(key)
-    if (!current || item.id.localeCompare(current.id) < 0) canonicalListings.set(key, item)
-  }
-  const canonicalListingIds = new Set([...canonicalListings.values()].map((item) => item.id))
+  assertNoDuplicateListings(entries)
+  assertValidParentTree(entries)
+
   const byParent = new Map<string, Array<WatchlistItem & { order: number }>>()
   for (const item of entries) {
-    if (item.type === 'listing' && !canonicalListingIds.has(item.id)) continue
-    const parentId =
-      item.type === 'listing' && item.parentId && sections.has(item.parentId)
-        ? item.parentId
-        : '__root__'
+    const parentId = item.parentId ?? '__root__'
     byParent.set(parentId, [...(byParent.get(parentId) ?? []), item])
   }
   const sortItems = (items: Array<WatchlistItem & { order: number }>) =>

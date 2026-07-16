@@ -9,13 +9,14 @@ import {
   type BaseServerTool,
   hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
 import { updateMonitorForUser } from '@/app/api/monitors/update-service'
 
@@ -30,10 +31,6 @@ type EditMonitorArgs = {
 export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
   name: 'edit_monitor',
   async execute(args, context) {
-    const userId = context?.userId?.trim()
-    if (!userId) {
-      throw new Error('Authenticated user is required to edit monitors')
-    }
     if (args.documentFormat && args.documentFormat !== MONITOR_DOCUMENT_FORMAT) {
       throw new Error(
         `Unsupported documentFormat "${args.documentFormat}". Expected ${MONITOR_DOCUMENT_FORMAT}`
@@ -47,6 +44,10 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
     if (!row.workflow.workspaceId) {
       throw new Error('Monitor workspace is missing')
     }
+    const { userId } = await verifyWorkspaceContext(
+      withWorkspaceArgContext(context, { workspaceId: row.workflow.workspaceId }),
+      'write'
+    )
 
     const nextFields = parseMonitorDocument(args.monitorDocument)
     const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
@@ -54,11 +55,6 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
     const reviewBaseStateHash = hashServerToolReviewBase(currentDocument)
 
     if (shouldStageServerToolMutationForReview(context)) {
-      const access = await checkWorkspaceAccess(row.workflow.workspaceId, userId)
-      if (!access.exists || !access.hasAccess || !access.canWrite) {
-        throw new Error('Access denied: You do not have permission to edit this monitor')
-      }
-
       const nextDocument = serializeMonitorDocument(nextFields)
       return {
         requiresReview: true,

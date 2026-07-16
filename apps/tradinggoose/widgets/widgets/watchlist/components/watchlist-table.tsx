@@ -74,7 +74,7 @@ import {
 } from '@/widgets/widgets/watchlist/components/watchlist-table-utils'
 
 type WatchlistTableProps = {
-  watchlist: WatchlistRecord | null
+  watchlist: WatchlistRecord
   quotes: Record<string, MarketQuoteSnapshot>
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
@@ -175,7 +175,7 @@ export const WatchlistTable = ({
   const parsedRows = useMemo(() => {
     const allRows: ListingRowEntry[] = []
     const allContainers: ContainerBlock[] = []
-    const items = watchlist?.items ?? []
+    const items = watchlist.items
     const listingRowsByParent = new Map<string, ListingRowEntry[]>()
 
     for (const item of items) {
@@ -275,9 +275,9 @@ export const WatchlistTable = ({
   useEffect(() => {
     if (!activeContainerId) return
 
-    const exists =
-      watchlist?.items.some((item) => item.type === 'section' && item.id === activeContainerId) ??
-      false
+    const exists = watchlist.items.some(
+      (item) => item.type === 'section' && item.id === activeContainerId
+    )
     if (!exists) {
       setActiveContainerId(null)
     }
@@ -322,7 +322,7 @@ export const WatchlistTable = ({
   const commitListingSelection = async (itemId: string, listingOption: ListingOption | null) => {
     const listing = toListingValue(listingOption)
     if (!listing) return
-    const previousListing = watchlist?.items.find(
+    const previousListing = watchlist.items.find(
       (item): item is WatchlistListingItem => item.type === 'listing' && item.id === itemId
     )?.listing
     const shouldSyncSelection =
@@ -347,7 +347,7 @@ export const WatchlistTable = ({
 
   useEffect(() => {
     if (!editingListingId) return
-    if (watchlist?.items.some((item) => item.id === editingListingId)) return
+    if (watchlist.items.some((item) => item.id === editingListingId)) return
     setEditingListingId(null)
   }, [editingListingId, watchlist])
 
@@ -420,7 +420,7 @@ export const WatchlistTable = ({
     const draggedItem = resolveDraggedItem(String(active.id))
     const listing =
       draggedItem?.type === 'listing'
-        ? watchlist?.items.find((item) => item.type === 'listing' && item.id === draggedItem.itemId)
+        ? watchlist.items.find((item) => item.type === 'listing' && item.id === draggedItem.itemId)
         : null
     const activeTop = active.rect.current.translated?.top
 
@@ -433,7 +433,7 @@ export const WatchlistTable = ({
   }
 
   const commitDrop = async (activeSortableId: string, overSortableId: string) => {
-    if (!watchlist || !dragEnabled) return
+    if (!dragEnabled) return
 
     const nextItems = moveWatchlistItem(watchlist.items, activeSortableId, overSortableId)
     if (!nextItems) return
@@ -447,7 +447,7 @@ export const WatchlistTable = ({
   }
 
   const handleDragOver = ({ active, over }: DragOverEvent) => {
-    if (!dragEnabled || !watchlist || !over) {
+    if (!dragEnabled || !over) {
       setDropTarget(null)
       return
     }
@@ -538,7 +538,7 @@ export const WatchlistTable = ({
     onSelectListing?.(nextListing)
   }
 
-  if (!watchlist || listingRows.length + parsedRows.allContainers.length === 0) {
+  if (listingRows.length + parsedRows.allContainers.length === 0) {
     return (
       <div className='flex h-full max-h-full min-h-0 flex-col overflow-hidden bg-background'>
         <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>

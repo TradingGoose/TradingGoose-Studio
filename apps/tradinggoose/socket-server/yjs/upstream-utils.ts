@@ -411,8 +411,8 @@ export function getDocument(
   return { doc, created: true }
 }
 
-export function markDocumentPersisted(doc: Y.Doc): void {
-  if (doc instanceof WSSharedDoc) {
+export function markDocumentPersisted(doc: Y.Doc, generation: number): void {
+  if (doc instanceof WSSharedDoc && doc.changeGeneration === generation) {
     doc.hasUnsavedChanges = false
   }
 }
@@ -477,13 +477,14 @@ export function reconcileDocument(doc: Y.Doc, force = false): Promise<void> {
   })
 }
 
-export async function flushDocumentPersistence(doc: Y.Doc): Promise<void> {
-  if (!(doc instanceof WSSharedDoc)) return
+export async function flushDocumentPersistence(doc: Y.Doc): Promise<number> {
+  if (!(doc instanceof WSSharedDoc)) return 0
   if (doc.persistTimer) {
     clearTimeout(doc.persistTimer)
     doc.persistTimer = null
   }
   await enqueueDocumentPersistence(doc, doc.onDocumentUpdate)
+  return doc.changeGeneration
 }
 
 export function peekDocument(docId: string): Y.Doc | null {
