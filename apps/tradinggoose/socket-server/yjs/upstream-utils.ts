@@ -31,6 +31,7 @@ const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
 const DELETION_LEASE_TTL_MS = 5 * 60_000
+const DOCUMENT_RETENTION_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
 const deletionAdmissions = new Map<string, string | null>()
@@ -96,6 +97,8 @@ class WSSharedDoc extends Y.Doc {
   lastReconciliationAt = 0
   isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
+  retentionTimer: ReturnType<typeof setTimeout> | null = null
+  retainUntil: number | null = null
 
   constructor(name: string, gc: boolean, workspaceId: string | null, seeded: boolean) {
     super({ gc })
@@ -143,7 +146,7 @@ class WSSharedDoc extends Y.Doc {
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeUpdate(encoder, update)
       const message = encoding.toUint8Array(encoder)
-      this.conns.forEach((_ids, conn) => send(this, conn, message))
+      this.conns.forEach((_ids, conn) => conn !== origin && send(this, conn, message))
     })
   }
 }
@@ -175,7 +178,7 @@ function scheduleDocumentPersistence(doc: WSSharedDoc): void {
 
 function isDocumentIdle(doc: WSSharedDoc): boolean {
   return (
-    !doc.hasUnsavedChanges &&
+    (!doc.hasUnsavedChanges || !doc.onDocumentUpdate) &&
     !doc.isPersisting &&
     doc.pendingPersistRequests === 0 &&
     doc.pendingMutations === 0 &&
@@ -215,14 +218,26 @@ function releaseDocument(candidate: Y.Doc): void {
     return
   }
 
-  if (!doc.hasUnsavedChanges || !doc.onDocumentUpdate) {
-    cleanupDocument(doc)
+  if (doc.hasUnsavedChanges && doc.onDocumentUpdate) {
+    void flushDocumentPersistence(doc).catch((error) => {
+      console.error('[yjs upstream-utils] Failed to persist released document', error)
+    })
     return
   }
 
-  void flushDocumentPersistence(doc).catch((error) => {
-    console.error('[yjs upstream-utils] Failed to persist released document', error)
-  })
+  if (doc.retainUntil === null) {
+    cleanupDocument(doc)
+    return
+  }
+  if (doc.retentionTimer) return
+  doc.retentionTimer = setTimeout(
+    () => {
+      doc.retentionTimer = null
+      doc.retainUntil = null
+      releaseDocument(doc)
+    },
+    Math.max(0, doc.retainUntil - Date.now())
+  )
 }
 
 function enqueueDocumentPersistence(
@@ -273,6 +288,8 @@ function cleanupDocument(doc: WSSharedDoc): void {
 
   if (doc.persistTimer) clearTimeout(doc.persistTimer)
   doc.persistTimer = null
+  if (doc.retentionTimer) clearTimeout(doc.retentionTimer)
+  doc.retentionTimer = null
   docs.delete(doc.name)
   doc.destroy()
 }
@@ -301,6 +318,7 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket, code?: number, reason?: st
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
 
     if (doc.conns.size === 0) {
+      doc.retainUntil = Date.now() + DOCUMENT_RETENTION_MS
       releaseDocument(doc)
     }
   }
@@ -552,6 +570,9 @@ export function setupWSConnection(
     throw new YjsDocumentDrainingError()
   }
   const doc = candidate
+  if (doc.retentionTimer) clearTimeout(doc.retentionTimer)
+  doc.retentionTimer = null
+  doc.retainUntil = null
   if (onDocumentUpdate && !doc.onDocumentUpdate) {
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0

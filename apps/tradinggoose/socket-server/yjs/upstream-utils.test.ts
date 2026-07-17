@@ -165,17 +165,26 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('layout-replaced')).toBe(replacement)
   })
 
-  it('releases an idle lineage before the next connection', async () => {
+  it('retains a flushed lineage without echoing client updates', async () => {
+    vi.useFakeTimers()
+    const persist = vi.fn()
     const firstSocket = new TestSocket()
-    const first = await setupWatchlistSocket(firstSocket, 'watchlist-reconnect', vi.fn())
+    const first = await setupWatchlistSocket(firstSocket, 'watchlist-reconnect', persist, 60_000)
+    const sentMessages = firstSocket.send.mock.calls.length
+    firstSocket.emit('message', createSyncUpdateMessage(createFieldsUpdate(first, 'pending', true)))
+    await vi.waitFor(() => expect(first.getMap('fields').get('pending')).toBe(true))
+    expect(firstSocket.send).toHaveBeenCalledTimes(sentMessages)
     firstSocket.emit('close')
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
 
-    expect(peekDocument('watchlist-reconnect')).toBeNull()
+    expect(peekDocument('watchlist-reconnect')).toBe(first)
 
     const secondSocket = new TestSocket()
-    const second = await setupWatchlistSocket(secondSocket, 'watchlist-reconnect', vi.fn())
-    expect(second).not.toBe(first)
+    const second = await setupWatchlistSocket(secondSocket, 'watchlist-reconnect', persist)
+    expect(second).toBe(first)
     secondSocket.emit('close')
+    expect(peekDocument('watchlist-reconnect')).toBe(first)
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
     expect(peekDocument('watchlist-reconnect')).toBeNull()
   })
 
@@ -534,7 +543,7 @@ describe('document mutation queue', () => {
     socket.emit('close')
   })
 
-  it('persists and releases dirty watchlist state after a pending mutation fails', async () => {
+  it('persists and retains dirty watchlist state after a pending mutation fails', async () => {
     const socket = new TestSocket()
     const persistedValue = vi.fn()
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
@@ -555,7 +564,7 @@ describe('document mutation queue', () => {
 
     await expect(failedMutation).rejects.toThrow('mutation failed')
     await vi.waitFor(() => expect(persistedValue).toHaveBeenCalledWith(true))
-    expect(peekDocument('watchlist-cleanup')).toBeNull()
+    expect(peekDocument('watchlist-cleanup')).toBe(doc)
   })
 })
 

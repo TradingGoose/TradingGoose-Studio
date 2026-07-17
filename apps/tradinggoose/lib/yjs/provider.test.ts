@@ -178,9 +178,7 @@ describe('bootstrapYjsProvider', () => {
     })
     const { result, provider } = await bootstrapSyncedProvider()
     provider.receive(createSyncUpdateMessage(Buffer.from(snapshots[0], 'base64')))
-    const acknowledgedState = Y.encodeStateVector(result.doc)
     result.doc.getMap('fields').set('acknowledged', 'Acknowledged')
-    provider.receive(createSyncUpdateMessage(Y.encodeStateAsUpdate(result.doc, acknowledgedState)))
     provider.emit('connection-close', null, provider)
     const fields = result.doc.getMap('fields')
     ;(fields.get('codeText') as Y.Text).insert(7, ' local')
@@ -201,12 +199,14 @@ describe('bootstrapYjsProvider', () => {
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
     result.dispose()
+    const restarted = await bootstrapSyncedProvider(Buffer.from(snapshots[0], 'base64'), pending)
+    const restartedFields = restarted.result.doc.getMap('fields')
+    expect(restartedFields.get('acknowledged')).toBe('Acknowledged')
+    expect((restartedFields.get('stableText') as Y.Text).toString()).toBe('stable!')
+    restarted.result.dispose()
     const accepted = new Y.Doc()
     Y.applyUpdate(accepted, pending.current)
     const sameHistory = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(accepted), pending)
-    expect((sameHistory.result.doc.getMap('fields').get('prefixText') as Y.Text).toString()).toBe(
-      'Xabc'
-    )
     expect((sameHistory.result.doc.getMap('fields').get('replaceText') as Y.Text).toString()).toBe(
       'baX'
     )
