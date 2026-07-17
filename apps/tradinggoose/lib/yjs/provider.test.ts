@@ -141,6 +141,11 @@ describe('bootstrapYjsProvider', () => {
     fetchMock.mockReset()
     providerInstances.length = 0
     vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
   })
 
   afterEach(() => {
@@ -155,11 +160,11 @@ describe('bootstrapYjsProvider', () => {
       fields.set('serverName', name)
       fields.set('acknowledged', name)
       fields.set('codeText', new Y.Text(name))
-      fields.set('overlapText', new Y.Text(name))
-      fields.set('repeatedText', new Y.Text(name === 'Initial' ? 'aaaa' : 'Saaa'))
-      fields.set('repeatedInsert', new Y.Text(name === 'Initial' ? 'aaaa' : 'Saaa'))
-      fields.set('multiText', new Y.Text(name === 'Initial' ? 'abcdefghij' : 'abcdeXghij'))
-      fields.set('mixedText', new Y.Text(name === 'Initial' ? 'abcdefghij' : 'abcdXfghij'))
+      fields.set('stableText', new Y.Text('stable'))
+      fields.set('interleavedText', new Y.Text(name === 'Initial' ? '' : 'aba'))
+      fields.set('prefixText', new Y.Text(name === 'Initial' ? 'abc' : 'abcY'))
+      fields.set('runText', new Y.Text(name === 'Initial' ? 'aa' : 'baaa'))
+      fields.set('replaceText', new Y.Text(name === 'Initial' ? 'aab' : 'baXb'))
       if (name === 'Initial') fields.set('deletedText', new Y.Text('hello'))
       fields.set('retypedText', name === 'Initial' ? new Y.Text('hello') : 42)
       fields.set('removed', name === 'Initial' ? true : 'Replacement')
@@ -171,12 +176,6 @@ describe('bootstrapYjsProvider', () => {
       doc.destroy()
       return update
     })
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/auth/socket-token') return jsonResponse({ token: 'token-1' })
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
     const { result, provider } = await bootstrapSyncedProvider()
     provider.receive(createSyncUpdateMessage(Buffer.from(snapshots[0], 'base64')))
     const acknowledgedState = Y.encodeStateVector(result.doc)
@@ -185,39 +184,58 @@ describe('bootstrapYjsProvider', () => {
     provider.emit('connection-close', null, provider)
     const fields = result.doc.getMap('fields')
     ;(fields.get('codeText') as Y.Text).insert(7, ' local')
-    ;(fields.get('overlapText') as Y.Text).delete(0, 7)
-    ;(fields.get('overlapText') as Y.Text).insert(0, 'Offline')
-    ;(fields.get('repeatedText') as Y.Text).delete(0, 1)
-    ;(fields.get('repeatedText') as Y.Text).insert(0, 'X')
-    ;(fields.get('repeatedInsert') as Y.Text).insert(2, 'X')
+    ;(fields.get('stableText') as Y.Text).insert(6, '!')
+    ;(fields.get('interleavedText') as Y.Text).insert(0, 'aa')
+    ;(fields.get('prefixText') as Y.Text).insert(0, 'X')
+    ;(fields.get('runText') as Y.Text).insert(1, 'a')
+    ;(fields.get('replaceText') as Y.Text).delete(0, 3)
+    ;(fields.get('replaceText') as Y.Text).insert(0, 'baX')
     ;(fields.get('deletedText') as Y.Text).insert(5, '!')
     ;(fields.get('retypedText') as Y.Text).insert(5, '!')
-    for (const key of ['multiText', 'mixedText']) {
-      ;(fields.get(key) as Y.Text).delete(4, 1)
-      ;(fields.get(key) as Y.Text).insert(4, 'E')
-      ;(fields.get(key) as Y.Text).delete(6, 1)
-      ;(fields.get(key) as Y.Text).insert(6, 'G')
-    }
     ;(fields.get('nested') as Y.Map<unknown>).set('offline', true)
     fields.set('settings', { local: 'Offline', server: 'Initial' })
     fields.delete('removed')
 
     const event = await result.lifecycle
     if (event.type !== 'resync-required') throw event.error
+    const pending = event.pendingLocalEdits
+    if (!pending) throw new Error('Expected pending local edits')
     result.dispose()
-    const replacement = await bootstrapSyncedProvider(
-      Buffer.from(snapshots[1], 'base64'),
-      event.pendingLocalEdits
+    const accepted = new Y.Doc()
+    Y.applyUpdate(accepted, pending.current)
+    const sameHistory = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(accepted), pending)
+    expect((sameHistory.result.doc.getMap('fields').get('prefixText') as Y.Text).toString()).toBe(
+      'Xabc'
     )
+    expect((sameHistory.result.doc.getMap('fields').get('replaceText') as Y.Text).toString()).toBe(
+      'baX'
+    )
+    sameHistory.result.dispose()
+    accepted.destroy()
+    const concurrent = new Y.Doc()
+    Y.applyUpdate(concurrent, pending.base)
+    ;(concurrent.getMap('fields').get('codeText') as Y.Text).insert(0, 'Server ')
+    const concurrentPrefix = concurrent.getMap('fields').get('prefixText') as Y.Text
+    concurrentPrefix.insert(concurrentPrefix.length, 'Y')
+    const merged = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(concurrent), pending)
+    expect((merged.result.doc.getMap('fields').get('codeText') as Y.Text).toString()).toBe(
+      'Server Initial local'
+    )
+    expect((merged.result.doc.getMap('fields').get('prefixText') as Y.Text).toString()).toBe(
+      'XabcY'
+    )
+    merged.result.dispose()
+    concurrent.destroy()
+    const replacement = await bootstrapSyncedProvider(Buffer.from(snapshots[1], 'base64'), pending)
     const rebased = replacement.result.doc.getMap('fields')
     expect(rebased.get('serverName')).toBe('Replacement')
     expect(rebased.get('acknowledged')).toBe('Replacement')
-    expect((rebased.get('codeText') as Y.Text).toString()).toBe('Replacement local')
-    expect((rebased.get('overlapText') as Y.Text).toString()).toBe('Replacement')
-    expect((rebased.get('repeatedText') as Y.Text).toString()).toBe('Saaa')
-    expect((rebased.get('repeatedInsert') as Y.Text).toString()).toBe('SaaXa')
-    expect((rebased.get('multiText') as Y.Text).toString()).toBe('abcdEXGhij')
-    expect((rebased.get('mixedText') as Y.Text).toString()).toBe('abcdXfGhij')
+    expect((rebased.get('codeText') as Y.Text).toString()).toBe('Replacement')
+    expect((rebased.get('stableText') as Y.Text).toString()).toBe('stable!')
+    expect((rebased.get('interleavedText') as Y.Text).toString()).toBe('aba')
+    expect((rebased.get('prefixText') as Y.Text).toString()).toBe('abcY')
+    expect((rebased.get('runText') as Y.Text).toString()).toBe('baaa')
+    expect((rebased.get('replaceText') as Y.Text).toString()).toBe('baXb')
     expect(rebased.has('deletedText')).toBe(false)
     expect(rebased.get('retypedText')).toBe(42)
     expect((rebased.get('nested') as Y.Map<unknown>).toJSON()).toEqual({
@@ -231,16 +249,6 @@ describe('bootstrapYjsProvider', () => {
   })
 
   it('waits for authoritative reader sync without applying the HTTP snapshot', async () => {
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: 'token-1' })
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
     const { bootstrapYjsProvider } = await import('./provider')
     const bootstrap = bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
     await vi.waitFor(() => expect(providerInstances).toHaveLength(1))

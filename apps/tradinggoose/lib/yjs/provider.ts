@@ -1,5 +1,4 @@
 import * as syncProtocol from '@y/protocols/sync'
-import { diffChars } from 'diff'
 import * as decoding from 'lib0/decoding'
 import { isEqual } from 'lodash'
 import { messageSync, WebsocketProvider } from 'y-websocket'
@@ -64,122 +63,10 @@ function setYMapValue(target: Y.Map<unknown>, key: string, value: unknown): void
   )
 }
 
-interface TextEdit {
-  index: number
-  remove: number
-  insert: string
-}
-
-interface TextChange {
-  value: string
-  added?: boolean
-  removed?: boolean
-}
-
-function collectTextEdits(changes: Iterable<TextChange>): TextEdit[] {
-  const edits: TextEdit[] = []
-  let index = 0
-  for (const change of changes) {
-    if (!change.added && !change.removed) {
-      index += change.value.length
-      continue
-    }
-    const previous = edits.at(-1)
-    const previousEnd = previous ? previous.index + previous.remove : -1
-    const edit = previous && index === previousEnd ? previous : { index, remove: 0, insert: '' }
-    if (edit !== previous) edits.push(edit)
-    if (change.removed) {
-      edit.remove += change.value.length
-      index += change.value.length
-    } else {
-      edit.insert += change.value
-    }
-  }
-  return edits
-}
-
-function collectTextClaims(base: string, edits: TextEdit[]): TextEdit[] {
-  const claims = edits.map((edit) => ({ ...edit }))
-  for (let index = 0; index < claims.length - 1; index += 1) {
-    const pair = claims.slice(index, index + 2)
-    const insertion = pair.find((edit) => edit.remove === 0)
-    const removal = pair.find((edit) => edit.insert === '')
-    if (!insertion?.insert || !removal?.remove) continue
-    const start = Math.min(insertion.index, removal.index)
-    const end = Math.max(insertion.index, removal.index + removal.remove)
-    const run = base.slice(start, end)
-    if (!run || run.replaceAll(run[0]!, '') !== '') continue
-    claims.splice(index, 2, {
-      index: start,
-      remove: end - start,
-      insert: '',
-    })
-  }
-  return claims
-}
-
-function textEditsOverlap(left: TextEdit, right: TextEdit): boolean {
-  const leftEnd = left.index + left.remove
-  const rightEnd = right.index + right.remove
-  return left.remove === 0
-    ? right.index < left.index && left.index < rightEnd
-    : right.remove === 0
-      ? left.index < right.index && right.index < leftEnd
-      : Math.max(left.index, right.index) < Math.min(leftEnd, rightEnd)
-}
-
-function readYTextLocalEdits(
-  current: Y.Text,
-  baseSnapshot: Y.Snapshot,
-  currentSnapshot: Y.Snapshot
-): TextEdit[] {
-  const delta = current.toDelta(currentSnapshot, baseSnapshot, (change) => change) as Array<{
-    insert?: unknown
-    attributes?: { ychange?: unknown }
-  }>
-  return collectTextEdits(
-    delta.map((operation) => ({
-      value: typeof operation.insert === 'string' ? operation.insert : '',
-      added: operation.attributes?.ychange === 'added',
-      removed: operation.attributes?.ychange === 'removed',
-    }))
-  )
-}
-
-function applyYTextLocalEdits(
-  target: Y.Text,
-  base: Y.Text,
-  current: Y.Text,
-  baseSnapshot: Y.Snapshot,
-  currentSnapshot: Y.Snapshot
-): void {
-  const baseText = base.toString()
-  const currentText = current.toString()
-  const targetText = target.toString()
-  if (baseText === currentText || targetText === currentText) return
-
-  const remote = collectTextEdits(diffChars(baseText, targetText))
-  const remoteClaims = collectTextClaims(baseText, remote)
-  let localShift = 0
-  for (const edit of readYTextLocalEdits(current, baseSnapshot, currentSnapshot)) {
-    const conflicts = edit.remove === 0 ? remote : remoteClaims
-    if (conflicts.some((remoteEdit) => textEditsOverlap(edit, remoteEdit))) continue
-    const remoteShift = remote
-      .filter((remoteEdit) => remoteEdit.index + remoteEdit.remove <= edit.index)
-      .reduce((shift, remoteEdit) => shift + remoteEdit.insert.length - remoteEdit.remove, 0)
-    const index = edit.index + remoteShift + localShift
-    if (edit.remove > 0) target.delete(index, edit.remove)
-    if (edit.insert) target.insert(index, edit.insert)
-    localShift += edit.insert.length - edit.remove
-  }
-}
-
 function applyYMapLocalEdits(
   target: Y.Map<unknown>,
   base: Y.Map<unknown>,
-  current: Y.Map<unknown>,
-  baseSnapshot: Y.Snapshot,
-  currentSnapshot: Y.Snapshot
+  current: Y.Map<unknown>
 ): void {
   const yValueJson = (value: unknown) =>
     value instanceof Y.Map || value instanceof Y.Text ? value.toJSON() : value
@@ -201,11 +88,7 @@ function applyYMapLocalEdits(
       continue
     }
     if (before instanceof Y.Map && after instanceof Y.Map && targetValue instanceof Y.Map) {
-      applyYMapLocalEdits(targetValue, before, after, baseSnapshot, currentSnapshot)
-      continue
-    }
-    if (before instanceof Y.Text && after instanceof Y.Text && targetValue instanceof Y.Text) {
-      applyYTextLocalEdits(targetValue, before, after, baseSnapshot, currentSnapshot)
+      applyYMapLocalEdits(targetValue, before, after)
       continue
     }
     if (!yValuesEqual(before, after) && yValuesEqual(targetValue, before)) {
@@ -216,24 +99,24 @@ function applyYMapLocalEdits(
 
 function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits | undefined): void {
   if (!pending) return
+  const baseState = Y.decodeStateVector(Y.encodeStateVectorFromUpdate(pending.base))
+  const targetState = Y.decodeStateVector(Y.encodeStateVector(target))
+  if (
+    baseState.size > 0 &&
+    [...baseState].every(([client, clock]) => (targetState.get(client) ?? 0) >= clock)
+  ) {
+    Y.applyUpdate(target, pending.current, YJS_ORIGINS.SYSTEM)
+    return
+  }
   const base = new Y.Doc()
-  const current = new Y.Doc({ gc: false })
+  const current = new Y.Doc()
   try {
     Y.applyUpdate(base, pending.base, YJS_ORIGINS.SYSTEM)
-    Y.applyUpdate(current, pending.base, YJS_ORIGINS.SYSTEM)
-    const baseSnapshot = Y.snapshot(current)
     Y.applyUpdate(current, pending.current, YJS_ORIGINS.SYSTEM)
-    const currentSnapshot = Y.snapshot(current)
     target.transact(() => {
       for (const name of current.share.keys()) {
         if (name === 'metadata') continue
-        applyYMapLocalEdits(
-          target.getMap(name),
-          base.getMap(name),
-          current.getMap(name),
-          baseSnapshot,
-          currentSnapshot
-        )
+        applyYMapLocalEdits(target.getMap(name), base.getMap(name), current.getMap(name))
       }
     }, YJS_ORIGINS.SYSTEM)
   } finally {
