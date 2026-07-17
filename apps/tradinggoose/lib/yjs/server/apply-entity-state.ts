@@ -34,7 +34,7 @@ import {
   readDashboardColorPairDocument,
   readDashboardWidgetStorageDocument,
 } from '@/lib/yjs/dashboard-layout-session'
-import { getEntityFields } from '@/lib/yjs/entity-session'
+import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import {
   type SavedEntityKind,
   SavedEntityPersistenceError,
@@ -45,6 +45,7 @@ import {
   applyEntityStateInSocketServer,
   SocketServerBridgeError,
 } from '@/lib/yjs/server/snapshot-bridge'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
 export function toSavedEntityTransportError(error: unknown): SavedEntityPersistenceError | null {
@@ -248,6 +249,8 @@ export async function saveSavedEntityYjsDocToDb(
     )
   }
   const normalizedFields = normalizeSavedEntityFields(entityKind, entityFields)
+  seedEntitySession(doc, { entityKind, payload: normalizedFields }, YJS_ORIGINS.SYSTEM)
+  const canonicalFields = getEntityFields(doc, entityKind)
   try {
     return await db.transaction(async (tx) => {
       await lockSavedEntityList(tx, entityKind, workspaceId)
@@ -259,7 +262,7 @@ export async function saveSavedEntityYjsDocToDb(
           name: options.identity.name,
         })
       }
-      return persistSavedEntityStateInTx(tx, entityKind, entityId, normalizedFields, workspaceId)
+      return persistSavedEntityStateInTx(tx, entityKind, entityId, canonicalFields, workspaceId)
     })
   } catch (error) {
     if (error instanceof SavedEntityPersistenceError) throw error

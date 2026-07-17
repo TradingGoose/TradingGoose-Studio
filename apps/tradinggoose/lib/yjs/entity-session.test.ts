@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
-import { normalizeWatchlistDocumentContent } from '@/lib/watchlists/validation'
 import {
   getEntityFields,
   getEntityListMembers,
@@ -113,10 +112,7 @@ describe('watchlist entity sessions', () => {
     ],
     ['padded parentId', (doc) => rawEntry(doc).set('parentId', ' section-1 ')],
     ['dangling parentId', (doc) => rawEntry(doc).set('parentId', 'section-1')],
-    [
-      'duplicate canonical listing',
-      (doc) => rawItems(doc).set('00000000-0000-4000-8000-000000000002', rawEntry(doc).clone()),
-    ],
+    ['non-uuid listing id', (doc) => rawEntry(doc).set('id', 'listing-1')],
     ['non-map value', (doc) => (rawItems(doc) as Y.Map<unknown>).set('broken', 'not-a-map')],
   ]
 
@@ -138,7 +134,7 @@ describe('watchlist entity sessions', () => {
     }
   })
 
-  it('merges concurrent item additions without replacing either collaborator row', () => {
+  it('merges concurrent additions and edits to distinct listing memberships', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
     const right = new Y.Doc()
@@ -147,7 +143,11 @@ describe('watchlist entity sessions', () => {
         entityKind: 'watchlist',
         payload: {
           settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [listing('00000000-0000-4000-8000-000000000001')],
+          items: [
+            listing('00000000-0000-4000-8000-000000000001'),
+            listing('00000000-0000-4000-8000-000000000002', 'MSFT'),
+            listing('00000000-0000-4000-8000-000000000003', 'GOOG'),
+          ],
         },
       })
       const state = Y.encodeStateAsUpdate(source)
@@ -157,102 +157,37 @@ describe('watchlist entity sessions', () => {
       const rightBase = Y.encodeStateVector(right)
 
       updateWatchlistItems(left, (items) => [
-        ...items,
-        listing('00000000-0000-4000-8000-000000000002'),
+        ...items.map((item) =>
+          item.type === 'listing' && item.listing.listing_id === 'MSFT'
+            ? listing(item.id, 'NVDA')
+            : item
+        ),
+        listing('00000000-0000-4000-8000-000000000004', 'AAPL'),
       ])
       updateWatchlistItems(right, (items) => [
-        ...items,
-        listing('00000000-0000-4000-8000-000000000003'),
+        ...items.map((item) =>
+          item.type === 'listing' && item.listing.listing_id === 'GOOG'
+            ? listing(item.id, 'TSLA')
+            : item
+        ),
+        listing('00000000-0000-4000-8000-000000000005', 'AAPL'),
       ])
       const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
       const rightUpdate = Y.encodeStateAsUpdate(right, rightBase)
       Y.applyUpdate(left, rightUpdate)
       Y.applyUpdate(right, leftUpdate)
 
-      const expected = [
-        '00000000-0000-4000-8000-000000000001',
-        '00000000-0000-4000-8000-000000000002',
-        '00000000-0000-4000-8000-000000000003',
-      ]
-      expect(
-        readWatchlistItems(left)
-          .map((item) => item.id)
-          .sort()
-      ).toEqual(expected)
-      expect(
-        readWatchlistItems(right)
-          .map((item) => item.id)
-          .sort()
-      ).toEqual(expected)
-      expect(left.getMap('fields').get('items')).toBeInstanceOf(Y.Map)
-    } finally {
-      source.destroy()
-      left.destroy()
-      right.destroy()
-    }
-  })
-
-  it('keeps the same listing distinct when it belongs to different sections', () => {
-    const doc = new Y.Doc()
-    const firstSection = '00000000-0000-4000-8000-000000000001'
-    const secondSection = '00000000-0000-4000-8000-000000000002'
-    try {
-      seedEntitySession(doc, {
-        entityKind: 'watchlist',
-        payload: {
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [
-            { id: firstSection, type: 'section', parentId: null, label: 'First' },
-            { id: secondSection, type: 'section', parentId: null, label: 'Second' },
-            { ...listing('00000000-0000-4000-8000-000000000003', 'AAPL'), parentId: firstSection },
-            { ...listing('00000000-0000-4000-8000-000000000004', 'AAPL'), parentId: secondSection },
-          ],
-        },
-      })
-
-      expect(readWatchlistItems(doc).filter((item) => item.type === 'listing')).toHaveLength(2)
-    } finally {
-      doc.destroy()
-    }
-  })
-
-  it('merges concurrent edits to different listing rows', () => {
-    const source = new Y.Doc()
-    const left = new Y.Doc()
-    const right = new Y.Doc()
-    const firstId = '00000000-0000-4000-8000-000000000001'
-    const secondId = '00000000-0000-4000-8000-000000000002'
-    try {
-      seedEntitySession(source, {
-        entityKind: 'watchlist',
-        payload: {
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [listing(firstId, 'AAPL'), listing(secondId, 'MSFT')],
-        },
-      })
-      const state = Y.encodeStateAsUpdate(source)
-      Y.applyUpdate(left, state)
-      Y.applyUpdate(right, state)
-      const leftBase = Y.encodeStateVector(left)
-      const rightBase = Y.encodeStateVector(right)
-
-      updateWatchlistItems(left, (items) =>
-        items.map((item) => (item.id === firstId ? listing(firstId, 'GOOG') : item))
-      )
-      updateWatchlistItems(right, (items) =>
-        items.map((item) => (item.id === secondId ? listing(secondId, 'NVDA') : item))
-      )
-      const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
-      const rightUpdate = Y.encodeStateAsUpdate(right, rightBase)
-      Y.applyUpdate(left, rightUpdate)
-      Y.applyUpdate(right, leftUpdate)
-
-      const symbols = (doc: Y.Doc) =>
-        readWatchlistItems(doc).map((item) =>
-          item.type === 'listing' ? item.listing.listing_id : ''
+      for (const doc of [left, right]) {
+        const symbols = readWatchlistItems(doc).flatMap((item) =>
+          item.type === 'listing' ? item.listing.listing_id : []
         )
-      expect(symbols(left)).toEqual(['GOOG', 'NVDA'])
-      expect(symbols(right)).toEqual(['GOOG', 'NVDA'])
+        expect(symbols.sort()).toEqual([
+          '00000000-0000-4000-8000-000000000001',
+          'AAPL',
+          'NVDA',
+          'TSLA',
+        ])
+      }
     } finally {
       source.destroy()
       left.destroy()
@@ -260,13 +195,14 @@ describe('watchlist entity sessions', () => {
     }
   })
 
-  it('merges a concurrent move and listing edit into the same durable item', () => {
+  it('preserves concurrent move and listing-edit memberships', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
     const right = new Y.Doc()
     const firstSection = '00000000-0000-4000-8000-000000000001'
     const secondSection = '00000000-0000-4000-8000-000000000002'
     const itemId = '00000000-0000-4000-8000-000000000003'
+    const rootItemId = '00000000-0000-4000-8000-000000000004'
     try {
       seedEntitySession(source, {
         entityKind: 'watchlist',
@@ -276,6 +212,7 @@ describe('watchlist entity sessions', () => {
             { id: firstSection, type: 'section', parentId: null, label: 'First' },
             { id: secondSection, type: 'section', parentId: null, label: 'Second' },
             { ...listing(itemId, 'AAPL'), parentId: firstSection },
+            listing(rootItemId, 'AAPL'),
           ],
         },
       })
@@ -303,21 +240,15 @@ describe('watchlist entity sessions', () => {
       Y.applyUpdate(right, leftUpdate)
 
       for (const doc of [left, right]) {
-        const item = readWatchlistItems(doc).find((entry) => entry.id === itemId)
-        expect(item).toMatchObject({
-          id: itemId,
-          type: 'listing',
-          parentId: secondSection,
-          listing: { listing_id: 'GOOG' },
-        })
-        const rawItems = doc.getMap('fields').get('items') as Y.Map<Y.Map<unknown>>
-        expect(rawItems.get(itemId)?.has('id')).toBe(false)
         expect(
-          normalizeWatchlistDocumentContent({
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            items: readWatchlistItems(doc),
-          }).items
-        ).toHaveLength(3)
+          readWatchlistItems(doc)
+            .filter((item) => item.type === 'listing')
+            .map((item) => [item.parentId, item.listing.listing_id])
+        ).toEqual([
+          [firstSection, 'GOOG'],
+          [secondSection, 'AAPL'],
+          [null, 'AAPL'],
+        ])
       }
     } finally {
       source.destroy()

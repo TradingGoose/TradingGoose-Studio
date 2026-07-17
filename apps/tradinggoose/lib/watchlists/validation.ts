@@ -62,6 +62,7 @@ const canonicalYjsString = z
 export const WatchlistYjsItemSchema = z.discriminatedUnion('type', [
   z
     .object({
+      id: z.string().uuid(),
       type: z.literal('listing'),
       parentId: canonicalYjsString.nullable(),
       listing: ListingIdentitySchema,
@@ -155,8 +156,11 @@ const hasOnlyKeys = (value: Record<string, unknown>, allowedKeys: Set<string>) =
 
 const listingItemKeys = new Set(['id', 'type', 'parentId', 'listing'])
 const containerItemKeys = new Set(['id', 'type', 'parentId', 'label'])
-const ROOT_PARENT_KEY = '__root__'
-const parentKey = (parentId: string | null | undefined) => parentId ?? ROOT_PARENT_KEY
+
+export const watchlistListingMembershipKey = (
+  parentId: string | null | undefined,
+  listing: ListingIdentity
+) => `listing:${parentId ?? '__root__'}:${getListingIdentityKey(listing)}`
 
 const normalizeWatchlistDocumentListingInputItem = (
   value: unknown
@@ -307,7 +311,7 @@ function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   }
 }
 
-export function assertNoDuplicateListings(
+function assertNoDuplicateListings(
   items: Array<{
     type: string
     parentId?: string | null
@@ -317,7 +321,7 @@ export function assertNoDuplicateListings(
   const seen = new Set<string>()
   for (const item of items) {
     if (item.type !== 'listing' || !item.listing) continue
-    const key = `${parentKey(item.parentId)}:${getListingIdentityKey(item.listing)}`
+    const key = watchlistListingMembershipKey(item.parentId, item.listing)
     if (seen.has(key)) {
       throw new WatchlistDocumentError('Listing already exists in watchlist', 409)
     }

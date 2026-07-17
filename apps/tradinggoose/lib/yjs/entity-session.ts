@@ -26,17 +26,19 @@
  *                       Yjs owners and never enter this entity fields map
  */
 
+import { isEqual } from 'lodash'
+import { validate as isUuid } from 'uuid'
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
 import {
-  assertNoDuplicateListings,
   assertValidParentTree,
   normalizeWatchlistDocumentContent,
   resolveWatchlistDocumentItemIds,
   WatchlistDocumentError,
   WatchlistYjsItemSchema,
+  watchlistListingMembershipKey,
 } from '@/lib/watchlists/validation'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
@@ -64,28 +66,39 @@ const setMapValue = (map: Y.Map<unknown>, key: string, value: unknown) => {
   if (map.get(key) !== value) map.set(key, value)
 }
 
+const watchlistItemKey = (item: WatchlistDocumentInputItem & { id: string }) =>
+  item.type === 'section' ? item.id : watchlistListingMembershipKey(item.parentId, item.listing)
+
 function writeWatchlistItem(
   items: Y.Map<Y.Map<unknown>>,
   item: WatchlistDocumentInputItem & { id: string },
-  order: number
+  order: number,
+  previousListingKeys: Map<string, string>
 ): void {
-  let entry = items.get(item.id)
+  const key = watchlistItemKey(item)
+  let entry = items.get(key)
   if (!(entry instanceof Y.Map)) {
     entry = new Y.Map<unknown>()
-    items.set(item.id, entry)
+    items.set(key, entry)
   }
   setMapValue(entry, 'type', item.type)
   setMapValue(entry, 'parentId', item.parentId ?? null)
   setMapValue(entry, 'order', order)
   if (item.type === 'section') {
     setMapValue(entry, 'label', item.label)
-    entry.delete('listing')
   } else {
+    const currentId = entry.get('id')
+    const id =
+      typeof currentId === 'string'
+        ? currentId
+        : previousListingKeys.has(item.id) && previousListingKeys.get(item.id) !== key
+          ? crypto.randomUUID()
+          : item.id
+    setMapValue(entry, 'id', id)
     const currentListing = entry.get('listing') as ListingIdentity | undefined
     if (!areListingIdentitiesEqual(currentListing, item.listing)) {
       entry.set('listing', item.listing)
     }
-    entry.delete('label')
   }
 }
 
@@ -116,11 +129,20 @@ export function replaceWatchlistItems(
   const orders = siblingOrders(items)
   doc.transact(() => {
     const map = getWatchlistItemsMap(doc)
-    const keys = new Set(items.map((item) => item.id))
+    const previousListingKeys = new Map<string, string>()
+    map.forEach((entry, key) => {
+      if (entry instanceof Y.Map && entry.get('type') === 'listing') {
+        const id = entry.get('id')
+        if (typeof id === 'string') previousListingKeys.set(id, key)
+      }
+    })
+    const keys = new Set(items.map(watchlistItemKey))
     map.forEach((_entry, key) => {
       if (!keys.has(key)) map.delete(key)
     })
-    for (const item of items) writeWatchlistItem(map, item, orders.get(item) ?? 0)
+    for (const item of items) {
+      writeWatchlistItem(map, item, orders.get(item) ?? 0, previousListingKeys)
+    }
   }, origin)
 }
 
@@ -138,15 +160,27 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
   if (items === undefined) return []
   if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
   const itemMap = items as Y.Map<Y.Map<unknown>>
-  itemMap.forEach((entry, id) => {
+  const ids = new Set<string>()
+  itemMap.forEach((entry, key) => {
     const parsed = entry instanceof Y.Map ? WatchlistYjsItemSchema.safeParse(entry.toJSON()) : null
-    if (!id || id !== id.trim() || !parsed?.success) {
+    if (!parsed?.success) {
       throw new WatchlistDocumentError('Invalid watchlist item')
     }
-    entries.push({ id, ...parsed.data })
+    const item = parsed.data
+    const id = item.type === 'listing' ? item.id : key
+    const expectedKey = item.type === 'listing' ? watchlistItemKey(item) : id
+    if (key !== expectedKey || !isUuid(id) || ids.has(id)) {
+      throw new WatchlistDocumentError('Invalid watchlist item')
+    }
+    ids.add(id)
+    if (item.type === 'listing') {
+      const { id: _id, ...fields } = item
+      entries.push({ id, ...fields })
+    } else {
+      entries.push({ id, ...item })
+    }
   })
 
-  assertNoDuplicateListings(entries)
   assertValidParentTree(entries)
 
   const byParent = new Map<string, Array<WatchlistItem & { order: number }>>()
@@ -314,65 +348,57 @@ export function seedEntitySession(
 
   doc.transact(() => {
     const fields = getFieldsMap(doc)
-    const metadata = doc.getMap('metadata')
-
-    // Set bootstrap-touch marker
-    metadata.set('bootstrap-touch', Date.now())
+    const setField = (key: string, value: unknown) => {
+      if (!isEqual(fields.get(key), value)) fields.set(key, value)
+    }
 
     switch (entityKind) {
       case 'skill':
-        fields.set('description', payload.description ?? '')
-        fields.set('content', payload.content ?? '')
+        setField('description', payload.description ?? '')
+        setField('content', payload.content ?? '')
         break
 
       case 'custom_tool': {
-        // schemaText and codeText are Y.Text for Monaco binding
-        const schemaText = new Y.Text()
-        schemaText.insert(0, payload.schemaText ?? '')
-        fields.set('schemaText', schemaText)
-        const codeText = new Y.Text()
-        codeText.insert(0, payload.codeText ?? '')
-        fields.set('codeText', codeText)
+        replaceEntityTextField(doc, 'schemaText', payload.schemaText ?? '', origin)
+        replaceEntityTextField(doc, 'codeText', payload.codeText ?? '', origin)
         break
       }
 
       case 'indicator': {
-        fields.set('color', payload.color ?? '')
-        const pineCode = new Y.Text()
-        pineCode.insert(0, payload.pineCode ?? '')
-        fields.set('pineCode', pineCode)
+        setField('color', payload.color ?? '')
+        replaceEntityTextField(doc, 'pineCode', payload.pineCode ?? '', origin)
         break
       }
 
       case 'knowledge_base':
-        fields.set('description', payload.description ?? '')
-        fields.set('chunkingConfig', payload.chunkingConfig)
-        if ('tokenCount' in payload) fields.set('tokenCount', payload.tokenCount ?? 0)
+        setField('description', payload.description ?? '')
+        setField('chunkingConfig', payload.chunkingConfig)
+        if ('tokenCount' in payload) setField('tokenCount', payload.tokenCount ?? 0)
         if ('embeddingModel' in payload) {
-          fields.set('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
+          setField('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
         }
         if ('embeddingDimension' in payload) {
-          fields.set('embeddingDimension', payload.embeddingDimension ?? 1536)
+          setField('embeddingDimension', payload.embeddingDimension ?? 1536)
         }
         break
 
       case 'mcp_server':
-        fields.set('description', payload.description ?? MCP_SERVER_DEFAULTS.description)
-        fields.set('transport', payload.transport ?? 'http')
-        fields.set('url', payload.url ?? MCP_SERVER_DEFAULTS.url)
-        fields.set('headers', payload.headers ?? {})
-        fields.set('command', payload.command ?? MCP_SERVER_DEFAULTS.command)
-        fields.set('args', payload.args ?? [])
-        fields.set('env', payload.env ?? {})
-        fields.set('timeout', payload.timeout ?? MCP_SERVER_DEFAULTS.timeout)
-        fields.set('retries', payload.retries ?? MCP_SERVER_DEFAULTS.retries)
-        fields.set('enabled', payload.enabled ?? MCP_SERVER_DEFAULTS.enabled)
+        setField('description', payload.description ?? MCP_SERVER_DEFAULTS.description)
+        setField('transport', payload.transport ?? 'http')
+        setField('url', payload.url ?? MCP_SERVER_DEFAULTS.url)
+        setField('headers', payload.headers ?? {})
+        setField('command', payload.command ?? MCP_SERVER_DEFAULTS.command)
+        setField('args', payload.args ?? [])
+        setField('env', payload.env ?? {})
+        setField('timeout', payload.timeout ?? MCP_SERVER_DEFAULTS.timeout)
+        setField('retries', payload.retries ?? MCP_SERVER_DEFAULTS.retries)
+        setField('enabled', payload.enabled ?? MCP_SERVER_DEFAULTS.enabled)
         break
 
       case 'watchlist': {
         const watchlist = normalizeWatchlistDocumentContent(payload)
-        fields.set('settings', watchlist.settings)
-        replaceWatchlistItems(doc, watchlist.items, YJS_ORIGINS.SYSTEM)
+        setField('settings', watchlist.settings)
+        replaceWatchlistItems(doc, watchlist.items, origin)
         break
       }
     }
@@ -465,6 +491,7 @@ export function replaceEntityTextField(
 ): void {
   const text = ensureEntityTextField(doc, key)
   doc.transact(() => {
+    if (text.toString() === value) return
     text.delete(0, text.length)
     if (value) {
       text.insert(0, value)

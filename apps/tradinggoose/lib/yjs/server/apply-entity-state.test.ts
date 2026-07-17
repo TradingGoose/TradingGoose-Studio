@@ -259,27 +259,35 @@ describe('applySavedEntityState', () => {
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
-    const { getEntityFields } = await import('@/lib/yjs/entity-session')
+    const { getEntityFields, getFieldsMap, seedEntitySession } = await import(
+      '@/lib/yjs/entity-session'
+    )
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    mockNormalizeEntityFields.mockImplementationOnce((_entityKind, fields) => fields)
-    const doc = buildDoc({
+    mockNormalizeEntityFields.mockReturnValueOnce({
       color: '#ff0000',
-      pineCode: 'indicator("Draft")',
+      pineCode: 'indicator("Canonical")',
     })
+    const doc = new Y.Doc()
+    seedEntitySession(doc, {
+      entityKind: 'indicator',
+      payload: { color: ' #ff0000 ', pineCode: 'indicator("Draft")' },
+    })
+    const pineCode = getFieldsMap(doc).get('pineCode')
 
     try {
       await saveSavedEntityYjsDocToDb('indicator', 'indicator-1', 'workspace-1', doc)
       expect(getEntityFields(doc, 'indicator')).toEqual({
         color: '#ff0000',
-        pineCode: 'indicator("Draft")',
+        pineCode: 'indicator("Canonical")',
       })
+      expect(getFieldsMap(doc).get('pineCode')).toBe(pineCode)
     } finally {
       doc.destroy()
     }
 
     expect(mockUpdateSet).toHaveBeenCalledWith({
       color: '#ff0000',
-      pineCode: 'indicator("Draft")',
+      pineCode: 'indicator("Canonical")',
       updatedAt: expect.any(Date),
     })
     expect(mockUpdateWhere).toHaveBeenCalledWith({
