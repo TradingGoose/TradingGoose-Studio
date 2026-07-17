@@ -233,4 +233,27 @@ describe('Watchlist import API route', () => {
       { identity: { name: 'Imported Watchlist' } }
     )
   })
+
+  it('returns a retryable response when realtime persistence is unavailable', async () => {
+    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
+    mockApplyEntityStateInSocketServer.mockRejectedValueOnce(
+      new MockSocketServerBridgeError(502, 'Socket server unavailable')
+    )
+
+    const response = await POST(
+      createMockRequest('POST', {
+        workspaceId: 'workspace-1',
+        file: importedFile,
+      }),
+      {
+        params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+      }
+    )
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'SAVED_ENTITY_REALTIME_REQUIRED',
+      retryable: true,
+    })
+  })
 })

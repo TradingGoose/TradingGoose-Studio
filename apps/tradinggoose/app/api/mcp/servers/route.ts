@@ -6,6 +6,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { toSavedEntityTransportError } from '@/lib/yjs/server/apply-entity-state'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { CreateMcpServerSchema } from './schema'
 
@@ -168,6 +169,9 @@ export const DELETE = withMcpAuth('write')(
         message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
+      const transportError = toSavedEntityTransportError(error)
+      if (transportError)
+        return createMcpErrorResponse(transportError, transportError.message, transportError.status)
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),

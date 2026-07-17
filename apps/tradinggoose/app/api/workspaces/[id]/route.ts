@@ -21,6 +21,7 @@ import {
   runYjsDeletionFencedTransaction,
   withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -204,6 +205,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`Error deleting workspace ${workspaceId}:`, error)
     return NextResponse.json({ error: 'Failed to delete workspace' }, { status: 500 })
   }

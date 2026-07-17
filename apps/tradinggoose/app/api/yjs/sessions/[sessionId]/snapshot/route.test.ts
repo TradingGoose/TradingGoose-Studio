@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -11,12 +12,24 @@ vi.mock('@/lib/auth', () => ({ getSession: mocks.getSession }))
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: mocks.verify,
 }))
-vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+vi.mock('@/lib/yjs/server/snapshot-bridge', async (importOriginal) => ({
+  ...(await importOriginal()),
   applyYjsUpdateInSocketServer: mocks.applyUpdate,
-  SocketServerBridgeError: class SocketServerBridgeError extends Error {
-    status = 500
-  },
 }))
+
+async function postSkill(body: Record<string, unknown>) {
+  const query =
+    'targetKind=entity&sessionId=skill-1&workspaceId=workspace-1' +
+    '&entityKind=skill&entityId=skill-1&accessMode=write'
+  const { POST } = await import('./route')
+  return POST(
+    new NextRequest(`http://localhost/api/yjs/sessions/skill-1/snapshot?${query}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ sessionId: 'skill-1' }) }
+  )
+}
 
 describe('dashboard layout Yjs snapshot route', () => {
   beforeEach(() => {
@@ -43,20 +56,10 @@ describe('dashboard layout Yjs snapshot route', () => {
   })
 
   it('forwards a saved-entity identity sidecar with the Yjs update', async () => {
-    const query =
-      'targetKind=entity&sessionId=skill-1&workspaceId=workspace-1' +
-      '&entityKind=skill&entityId=skill-1&accessMode=write'
-    const { POST } = await import('./route')
-    const response = await POST(
-      new NextRequest(`http://localhost/api/yjs/sessions/skill-1/snapshot?${query}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          updateBase64: 'dXBkYXRl',
-          identity: { name: 'Renamed Skill' },
-        }),
-      }),
-      { params: Promise.resolve({ sessionId: 'skill-1' }) }
-    )
+    const response = await postSkill({
+      updateBase64: 'dXBkYXRl',
+      identity: { name: 'Renamed Skill' },
+    })
 
     expect(response?.status).toBe(200)
     expect(mocks.applyUpdate).toHaveBeenCalledWith(
@@ -65,5 +68,17 @@ describe('dashboard layout Yjs snapshot route', () => {
       'dXBkYXRl',
       { name: 'Renamed Skill' }
     )
+  })
+
+  it('returns the canonical retryable response when realtime persistence is unavailable', async () => {
+    mocks.applyUpdate.mockRejectedValueOnce(new SocketServerBridgeError(502, 'Unavailable'))
+    const response = await postSkill({ updateBase64: 'dXBkYXRl' })
+    const payload = await response?.json()
+
+    expect(response?.status).toBe(503)
+    expect(payload).toMatchObject({
+      code: 'SAVED_ENTITY_REALTIME_REQUIRED',
+      retryable: true,
+    })
   })
 })

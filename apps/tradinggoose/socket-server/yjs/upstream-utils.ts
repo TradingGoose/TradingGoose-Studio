@@ -65,11 +65,12 @@ export class YjsDocumentDrainingError extends Error {
 }
 
 export class YjsSessionAdmissionError extends Error {
-  readonly status = 409
+  readonly status: 409 | 410
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, status: 409 | 410 = 409) {
     super(`Yjs session ${sessionId} is not accepting connections`)
     this.name = 'YjsSessionAdmissionError'
+    this.status = status
   }
 }
 
@@ -374,6 +375,7 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
             return
           }
           console.error('[yjs upstream-utils] Error applying queued sync message', error)
+          closeConn(doc, conn)
         })
         break
       }
@@ -401,9 +403,7 @@ export async function acquireDocument<T>(
   },
   use: (doc: Y.Doc) => Promise<T> | T
 ): Promise<T> {
-  if (isYjsSessionAdmissionBlocked(docId, options.workspaceId)) {
-    throw new YjsSessionAdmissionError(docId)
-  }
+  assertYjsSessionAdmission(docId, options.workspaceId)
   let doc = docs.get(docId)
   if (!doc) {
     doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
@@ -414,9 +414,7 @@ export async function acquireDocument<T>(
     if (!shared.seeded) {
       const resolved = await options.initialize(doc)
       if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
-      if (isYjsSessionAdmissionBlocked(shared.name, shared.workspaceId)) {
-        throw new YjsSessionAdmissionError(shared.name)
-      }
+      assertYjsSessionAdmission(shared.name, shared.workspaceId)
       if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
       shared.seeded = true
       shared.hasUnsavedChanges = false
@@ -503,14 +501,21 @@ export function peekDocument(docId: string): Y.Doc | null {
   return doc?.seeded ? doc : null
 }
 
-export function isYjsSessionAdmissionBlocked(docId: string, workspaceId?: string | null): boolean {
+export function assertYjsSessionAdmission(docId: string, workspaceId?: string | null): void {
   const resolvedWorkspaceId = workspaceId ?? docs.get(docId)?.workspaceId
-  return (
+  const sessionTarget = `session:${docId}`
+  const workspaceTarget = resolvedWorkspaceId ? `workspace:${resolvedWorkspaceId}` : null
+  const blocked =
     isDrainingAllDocuments ||
-    deletionAdmissions.has(`session:${docId}`) ||
-    (!!resolvedWorkspaceId && deletionAdmissions.has(`workspace:${resolvedWorkspaceId}`)) ||
+    deletionAdmissions.has(sessionTarget) ||
+    (workspaceTarget !== null && deletionAdmissions.has(workspaceTarget)) ||
     docs.get(docId)?.isDraining === true
-  )
+  if (!blocked) return
+
+  const deleted =
+    deletionAdmissions.get(sessionTarget) === null ||
+    (workspaceTarget !== null && deletionAdmissions.get(workspaceTarget) === null)
+  throw new YjsSessionAdmissionError(docId, deleted ? 410 : 409)
 }
 
 export function setupWSConnection(

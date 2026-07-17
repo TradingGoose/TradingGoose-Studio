@@ -39,18 +39,21 @@ import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
   applyDashboardColorPairDocumentDelta,
   applyDashboardWidgetDocumentDelta,
-  readDashboardColorPairDocument,
   readDashboardLayoutDocument,
   readDashboardWidgetDocument,
   setDashboardLayoutTopology,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
+import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 import {
-  SavedEntityPersistenceError,
   saveDashboardYjsDocsToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
-import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  assembleDashboardLayoutProjection,
+  initializeSavedReviewTargetDocument,
+  ReviewTargetBootstrapError,
+} from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
@@ -74,11 +77,9 @@ import {
   type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
   type DashboardLayoutStructureMutation,
-  type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
-  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { isPairColor, PAIR_COLORS } from '@/widgets/pair-colors'
+import { isPairColor } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
   isWidgetConfigValidationError,
@@ -144,6 +145,7 @@ function getYjsRequestErrorStatus(error: unknown): number {
   if (
     error instanceof SavedEntityPersistenceError ||
     error instanceof DashboardLayoutOperationError ||
+    error instanceof ReviewTargetBootstrapError ||
     error instanceof YjsSessionAdmissionError
   ) {
     return error.status
@@ -169,6 +171,25 @@ function isInternalRequestAuthorized(req: IncomingMessage): boolean {
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
+}
+
+function sendYjsRequestError(res: ServerResponse, error: unknown, fallback: string): void {
+  if (
+    error instanceof StructuredServerToolError ||
+    error instanceof DashboardLayoutValidationError ||
+    isWidgetConfigValidationError(error)
+  ) {
+    const response = buildCopilotServerToolErrorResponse(undefined, error)
+    sendJson(res, response.status, response.body)
+    return
+  }
+  sendJson(
+    res,
+    getYjsRequestErrorStatus(error),
+    error instanceof SavedEntityPersistenceError
+      ? error.responseBody()
+      : { error: error instanceof Error ? error.message : fallback }
+  )
 }
 
 function rejectUnauthorizedRequest(
@@ -466,9 +487,7 @@ async function handleInternalYjsEntityListMembersRequest(
     sendJson(res, 200, { success: true, applied: true })
   } catch (error) {
     logger.error('Error applying entity-list members', { error, sessionId })
-    sendJson(res, error instanceof InvalidInternalYjsRequestError ? 400 : 500, {
-      error: error instanceof Error ? error.message : 'Failed to apply entity-list members',
-    })
+    sendYjsRequestError(res, error, 'Failed to apply entity-list members')
   }
 }
 
@@ -498,9 +517,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
-    sendJson(res, getYjsRequestErrorStatus(error), {
-      error: error instanceof Error ? error.message : 'Failed to apply workflow state',
-    })
+    sendYjsRequestError(res, error, 'Failed to apply workflow state')
   }
 }
 
@@ -560,18 +577,7 @@ async function handleInternalYjsEntityApplyRequest(
     sendJson(res, 200, { success: true, fields: persistedFields })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
-    if (error instanceof StructuredServerToolError) {
-      const response = buildCopilotServerToolErrorResponse(undefined, error)
-      sendJson(res, response.status, response.body)
-      return
-    }
-    sendJson(
-      res,
-      getYjsRequestErrorStatus(error),
-      error instanceof SavedEntityPersistenceError
-        ? error.responseBody()
-        : { error: error instanceof Error ? error.message : 'Failed to apply entity state' }
-    )
+    sendYjsRequestError(res, error, 'Failed to apply entity state')
   }
 }
 
@@ -580,50 +586,17 @@ async function readDashboardProjectionFromLiveOwners(input: {
   layoutId: string
   workspaceId: string
   ownerUserId: string
+  heldDocs?: ReadonlyMap<string, Y.Doc>
 }): Promise<DashboardLayoutProjectionContent> {
-  const document = readDashboardLayoutDocument(input.layoutDoc)
-  const panels: Array<Extract<DashboardLayoutTopologyNode, { type: 'panel' }>> = []
-  const collect = (node: DashboardLayoutTopologyNode) => {
-    if (node.type === 'panel') panels.push(node)
-    else node.children.forEach(collect)
-  }
-  collect(document.layout)
-  const widgets = Object.fromEntries(
-    await Promise.all(
-      panels.map(async (panel) => {
-        const descriptor = buildDashboardWidgetDescriptor({
-          layoutId: input.layoutId,
-          identityId: panel.identityId,
-          workspaceId: input.workspaceId,
-          ownerUserId: input.ownerUserId,
-        })
-        return withBootstrappedApplyDocument(
-          descriptor,
-          (doc) => [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
-        )
-      })
-    )
-  )
-  const pairs = (
-    await Promise.all(
-      PAIR_COLORS.filter((color) => color !== 'gray').map(async (color) => {
-        const descriptor = buildDashboardColorPairDescriptor({
-          layoutId: input.layoutId,
-          color,
-          workspaceId: input.workspaceId,
-          ownerUserId: input.ownerUserId,
-        })
-        return withBootstrappedApplyDocument(descriptor, (doc) => {
-          const context = readDashboardColorPairDocument(doc)
-          return Object.keys(context).length > 0 ? { color, ...context } : null
-        })
-      })
-    )
-  ).filter((pair) => pair !== null)
-  return normalizeDashboardLayoutProjection({
-    ...document,
-    widgets,
-    colorPairs: { pairs },
+  return assembleDashboardLayoutProjection({
+    document: readDashboardLayoutDocument(input.layoutDoc),
+    layoutId: input.layoutId,
+    workspaceId: input.workspaceId,
+    ownerUserId: input.ownerUserId,
+    readOwnerDocument: (descriptor, read) => {
+      const held = input.heldDocs?.get(descriptor.yjsSessionId)
+      return held ? Promise.resolve(read(held)) : withBootstrappedApplyDocument(descriptor, read)
+    },
   })
 }
 
@@ -848,11 +821,14 @@ async function handleInternalDashboardEditRequest(
                   ownerUserId,
                 })
           const applyLockedEdit = async (pairDoc: Y.Doc | null) => {
+            const heldDocs = new Map<string, Y.Doc>([[widgetDescriptor.yjsSessionId, widgetDoc]])
+            if (pairDescriptor && pairDoc) heldDocs.set(pairDescriptor.yjsSessionId, pairDoc)
             const current = await readDashboardProjectionFromLiveOwners({
               layoutDoc,
               layoutId: entityId,
               workspaceId,
               ownerUserId,
+              heldDocs,
             })
             const planned = applyWidgetConfigMutation({
               origin: 'copilot',
@@ -935,18 +911,7 @@ async function handleInternalDashboardEditRequest(
     sendJson(res, 200, { success: true, content: committed })
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
-    if (
-      error instanceof StructuredServerToolError ||
-      error instanceof DashboardLayoutValidationError ||
-      isWidgetConfigValidationError(error)
-    ) {
-      const response = buildCopilotServerToolErrorResponse(undefined, error)
-      sendJson(res, response.status, response.body)
-      return
-    }
-    sendJson(res, getYjsRequestErrorStatus(error), {
-      error: error instanceof Error ? error.message : 'Failed to apply dashboard edit',
-    })
+    sendYjsRequestError(res, error, 'Failed to apply dashboard edit')
   }
 }
 
@@ -1039,13 +1004,7 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying Yjs session update', { error, path: parsedUrl.pathname })
-    sendJson(
-      res,
-      getYjsRequestErrorStatus(error),
-      error instanceof SavedEntityPersistenceError
-        ? error.responseBody()
-        : { error: error instanceof Error ? error.message : 'Failed to apply session update' }
-    )
+    sendYjsRequestError(res, error, 'Failed to apply session update')
   }
 }
 
@@ -1086,10 +1045,7 @@ async function handleInternalYjsSnapshotRequest(
     sendJson(res, 200, snapshot)
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
-    const status = Number((error as { status?: unknown }).status) || 500
-    sendJson(res, status, {
-      error: error instanceof Error ? error.message : 'Failed to get snapshot',
-    })
+    sendYjsRequestError(res, error, 'Failed to get snapshot')
   }
 }
 
@@ -1127,9 +1083,7 @@ async function handleInternalYjsDeletionBeginRequest(
     sendJson(res, 200, { leaseId })
   } catch (error) {
     logger.error('Failed to begin Yjs deletion lease', { error })
-    sendJson(res, getYjsRequestErrorStatus(error), {
-      error: error instanceof Error ? error.message : 'Failed to begin Yjs deletion lease',
-    })
+    sendYjsRequestError(res, error, 'Failed to begin Yjs deletion lease')
   }
 }
 
@@ -1155,9 +1109,7 @@ async function handleInternalWorkspaceAccessChangedRequest(
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Failed to reconcile workspace Yjs access', { error, workspaceId })
-    sendJson(res, error instanceof InvalidInternalYjsRequestError ? 400 : 500, {
-      error: error instanceof Error ? error.message : 'Failed to reconcile workspace access',
-    })
+    sendYjsRequestError(res, error, 'Failed to reconcile workspace access')
   }
 }
 

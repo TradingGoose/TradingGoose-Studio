@@ -3,9 +3,8 @@ import { z } from 'zod'
 import { createIndicators, listIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -80,9 +79,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listIndicators({ workspaceId }) }, { status: 200 })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching indicators:`, error)
     return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })
   }
@@ -148,15 +146,11 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      if (validationError instanceof SavedEntityPersistenceError) {
-        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
-      }
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error creating indicators`, error)
     return NextResponse.json({ error: 'Failed to create indicators' }, { status: 500 })
   }
@@ -212,6 +206,8 @@ export async function DELETE(request: NextRequest) {
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting indicator`, error)
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }

@@ -10,8 +10,8 @@ import {
 } from '@/lib/skills/import-export'
 import { createSkills, listSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('SkillsAPI')
 
@@ -62,9 +62,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching skills:`, error)
     return NextResponse.json({ error: 'Failed to fetch skills' }, { status: 500 })
   }
@@ -130,9 +129,8 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error updating skills`, error)
     return NextResponse.json({ error: 'Failed to update skills' }, { status: 500 })
   }
@@ -184,6 +182,8 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting skill:`, error)
     return NextResponse.json({ error: 'Failed to delete skill' }, { status: 500 })
   }

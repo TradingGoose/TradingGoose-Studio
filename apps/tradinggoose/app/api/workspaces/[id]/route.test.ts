@@ -116,6 +116,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   runYjsDeletionFencedTransaction: deletionHarness.fenced,
+  SocketServerBridgeError: class SocketServerBridgeError extends Error {},
   withYjsSessionDeletionLease: deletionHarness.lease,
 }))
 

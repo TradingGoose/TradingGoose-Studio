@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { WatchlistOperationError } from '@/lib/watchlists/operations'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WatchlistByIdAPI')
 
@@ -40,6 +41,8 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
       { status: 400 }
     )
   }
+  const realtimeResponse = createSavedEntityErrorResponse(error)
+  if (realtimeResponse) return realtimeResponse
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
 }

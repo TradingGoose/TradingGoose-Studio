@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerNotFoundError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { toSavedEntityTransportError } from '@/lib/yjs/server/apply-entity-state'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -65,12 +65,9 @@ export const POST = withMcpAuth('read')(
           `[${requestId}] Successfully connected to server ${serverId}, discovered ${toolCount} tools`
         )
       } catch (error) {
-        if (
-          error instanceof McpServerNotFoundError ||
-          error instanceof SavedEntityRealtimeRequiredError
-        ) {
-          throw error
-        }
+        if (error instanceof McpServerNotFoundError) throw error
+        const transportError = toSavedEntityTransportError(error)
+        if (transportError) throw transportError
         connectionStatus = 'error'
         lastError = error instanceof Error ? error.message : 'Connection test failed'
         logger.warn(`[${requestId}] Failed to connect to server ${serverId}:`, error)
@@ -107,9 +104,9 @@ export const POST = withMcpAuth('read')(
       if (error instanceof McpServerNotFoundError) {
         return createMcpErrorResponse(error, 'Server not found', error.status)
       }
-      if (error instanceof SavedEntityRealtimeRequiredError) {
-        return createMcpErrorResponse(error, error.message, error.status)
-      }
+      const transportError = toSavedEntityTransportError(error)
+      if (transportError)
+        return createMcpErrorResponse(transportError, transportError.message, transportError.status)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to refresh MCP server'),
         'Failed to refresh MCP server',

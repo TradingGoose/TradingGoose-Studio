@@ -8,12 +8,14 @@ import {
   parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import type {
-  ReviewAccessMode,
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
+import {
+  type ReviewAccessMode,
+  type ReviewEntityKind,
+  type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
+  YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
-import { YJS_CLOSE_CODE_DOCUMENT_REJECTED } from '@/lib/copilot/review-sessions/types'
 import { readPersistedDashboardWidgetBinding } from '@/lib/dashboard-layouts/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
@@ -22,8 +24,8 @@ import {
   readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields } from '@/lib/yjs/entity-session'
+import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 import {
-  SavedEntityPersistenceError,
   saveDashboardYjsDocsToDb,
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
@@ -33,7 +35,6 @@ import { bindEntityListSession, refreshActiveEntityListSession } from './entity-
 import {
   acquireDocument,
   type DocumentValidator,
-  isYjsSessionAdmissionBlocked,
   setupWSConnection,
   YjsSessionAdmissionError,
 } from './upstream-utils'
@@ -98,74 +99,68 @@ export function handleYjsUpgrade(
   }
 
   const yjsSessionId = decodeURIComponent(match[1])
-  if (!canAcceptConnection() || isYjsSessionAdmissionBlocked(yjsSessionId)) {
-    rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
-    return
-  }
+  wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+    ws.pause()
+    const rejectConnection = (error: unknown) => {
+      logger.error('Failed to attach Yjs connection', { docId: yjsSessionId, error })
+      ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
+    }
 
-  void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ accessMode, userId, resolvedSessionId, descriptor, validateDocument }) => {
-      if (
-        !canAcceptConnection() ||
-        isYjsSessionAdmissionBlocked(resolvedSessionId, descriptor.workspaceId)
-      ) {
-        rejectUpgrade(socket, 409, 'Yjs session is not accepting connections')
-        return
-      }
-      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-        const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
-        const rejectAttachment = (error: unknown) => {
-          logger.error('Failed to attach Yjs connection', { docId: resolvedSessionId, error })
-          const status = Number((error as { status?: unknown } | null)?.status)
-          ws.close(
-            !(error instanceof YjsSessionAdmissionError) && status >= 400 && status < 500
-              ? YJS_CLOSE_CODE_DOCUMENT_REJECTED
-              : 4409,
-            'Failed to attach Yjs session'
-          )
-        }
+    void (async () => {
+      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+      const { accessMode, userId, descriptor, validateDocument } =
+        await authenticateAndPrepareUpgrade(yjsSessionId, url)
+      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
 
-        logger.info('Yjs connection established', { docId: resolvedSessionId, userId })
-        void acquireDocument(
-          resolvedSessionId,
-          {
-            workspaceId: descriptor.workspaceId,
-            initialize: () => {
-              if (isListTarget) return
-              return initializeSavedReviewTargetDocument(descriptor)
-            },
+      const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+      logger.info('Yjs connection established', { docId: yjsSessionId, userId })
+      await acquireDocument(
+        yjsSessionId,
+        {
+          workspaceId: descriptor.workspaceId,
+          initialize: () => {
+            if (isListTarget) return
+            return initializeSavedReviewTargetDocument(descriptor)
           },
-          async (doc) => {
-            if (isListTarget) {
-              await bindEntityListSession(
-                doc,
-                descriptor.entityKind as ReviewEntityKind,
-                descriptor.workspaceId as string,
-                descriptor.ownerUserId ?? null
-              )()
-            }
-            setupWSConnection(ws, request, {
+        },
+        async (doc) => {
+          if (isListTarget) {
+            await bindEntityListSession(
               doc,
-              userId,
-              accessMode,
-              descriptor,
-              onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
-              onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
-              validateDocument,
-            })
+              descriptor.entityKind as ReviewEntityKind,
+              descriptor.workspaceId as string,
+              descriptor.ownerUserId ?? null
+            )()
           }
-        ).catch(rejectAttachment)
-      })
-    })
-    .catch((error) => {
-      if (error instanceof YjsAuthError) {
-        rejectUpgrade(socket, error.code, error.message)
-        return
-      }
+          setupWSConnection(ws, request, {
+            doc,
+            userId,
+            accessMode,
+            descriptor,
+            onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
+            onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+            validateDocument,
+          })
+          ws.resume()
+        }
+      )
+    })().catch(rejectConnection)
+  })
+}
 
-      logger.error('Yjs upgrade error', { error })
-      rejectUpgrade(socket, 500, 'Internal error')
-    })
+function yjsConnectionRejectionCode(error: unknown): number {
+  if (error instanceof YjsSessionAdmissionError) {
+    return error.status === 410 ? YJS_CLOSE_CODE_DOCUMENT_REJECTED : YJS_CLOSE_CODE_RETRY_REQUIRED
+  }
+  if (error instanceof YjsAuthError) {
+    if (error.code === 403) return YJS_CLOSE_CODE_AUTHORIZATION_REVOKED
+    if (error.code === 401 || error.code >= 500) return YJS_CLOSE_CODE_RETRY_REQUIRED
+    if (error.code >= 400) return YJS_CLOSE_CODE_DOCUMENT_REJECTED
+  }
+  const status = Number((error as { status?: unknown } | null)?.status)
+  return status >= 400 && status < 500
+    ? YJS_CLOSE_CODE_DOCUMENT_REJECTED
+    : YJS_CLOSE_CODE_RETRY_REQUIRED
 }
 
 async function authenticateAndPrepareUpgrade(
@@ -173,7 +168,6 @@ async function authenticateAndPrepareUpgrade(
   url: URL
 ): Promise<{
   userId: string
-  resolvedSessionId: string
   accessMode: ReviewAccessMode
   descriptor: ReviewTargetDescriptor
   validateDocument?: DocumentValidator
@@ -218,7 +212,6 @@ async function authenticateAndPrepareUpgrade(
   const validateDocument = await prepareDocumentValidator(canonicalDescriptor)
   return {
     userId,
-    resolvedSessionId: pathSessionId,
     accessMode,
     descriptor: canonicalDescriptor,
     validateDocument,

@@ -26,24 +26,8 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   deleteSavedEntity: vi.fn(),
 }))
 
-vi.mock('@/lib/yjs/entity-state', () => ({
-  SavedEntityRealtimeRequiredError: class SavedEntityRealtimeRequiredError extends Error {
-    status = 409
-
-    responseBody() {
-      return { error: this.message }
-    }
-  },
-}))
-
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  SavedEntityPersistenceError: class SavedEntityPersistenceError extends Error {
-    status = 500
-
-    responseBody() {
-      return { error: this.message }
-    }
-  },
+  toSavedEntityTransportError: vi.fn(() => null),
 }))
 
 describe('Skills API Routes', () => {

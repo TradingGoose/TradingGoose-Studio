@@ -222,10 +222,13 @@ describe('workflow shared session lifecycle', () => {
     releaseChat()
   })
 
-  it('replaces a workflow session whose server history changed', async () => {
+  it('retries a failed workflow rebootstrap with the retained local edits', async () => {
     const stale = createBootstrapResult(new Y.Doc(), createMockProvider())
     const fresh = createBootstrapResult(new Y.Doc(), createMockProvider())
-    mockBootstrapYjsProvider.mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh)
+    mockBootstrapYjsProvider
+      .mockResolvedValueOnce(stale)
+      .mockRejectedValueOnce(new Error('realtime unavailable'))
+      .mockResolvedValueOnce(fresh)
 
     const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
       './workflow-shared-session'
@@ -241,16 +244,28 @@ describe('workflow shared session lifecycle', () => {
     const pendingLocalEdits = { base: new Uint8Array([0]), current: new Uint8Array([1]) }
     stale.emitResync(pendingLocalEdits)
     await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').error).toBe('realtime unavailable')
+    })
+    await vi.advanceTimersByTimeAsync(1_000)
+    await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(fresh.doc)
     })
 
     expect(stale.dispose).toHaveBeenCalledOnce()
-    expect(mockBootstrapYjsProvider).toHaveBeenLastCalledWith(
-      expect.objectContaining({ yjsSessionId: 'workflow-1' }),
-      undefined,
-      'write',
-      pendingLocalEdits
-    )
+    expect(mockBootstrapYjsProvider.mock.calls.slice(1)).toEqual([
+      [
+        expect.objectContaining({ yjsSessionId: 'workflow-1' }),
+        undefined,
+        'write',
+        pendingLocalEdits,
+      ],
+      [
+        expect.objectContaining({ yjsSessionId: 'workflow-1' }),
+        undefined,
+        'write',
+        pendingLocalEdits,
+      ],
+    ])
     release()
   })
 

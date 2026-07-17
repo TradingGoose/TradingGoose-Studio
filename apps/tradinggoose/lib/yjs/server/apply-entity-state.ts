@@ -35,31 +35,33 @@ import {
   readDashboardWidgetStorageDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields } from '@/lib/yjs/entity-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import {
+  type SavedEntityKind,
+  SavedEntityPersistenceError,
+  SavedEntityRealtimeRequiredError,
+} from '@/lib/yjs/entity-state'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyEntityStateInSocketServer,
+  SocketServerBridgeError,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
-export class SavedEntityPersistenceError extends Error {
-  readonly retryable: boolean
-
-  constructor(
-    public status: number,
-    message: string,
-    public code?: string
+export function toSavedEntityTransportError(error: unknown): SavedEntityPersistenceError | null {
+  if (error instanceof SavedEntityPersistenceError) return error
+  if (error instanceof StructuredServerToolError) {
+    return new SavedEntityPersistenceError(error.status, error.message, error.code, error.retryable)
+  }
+  if (!(error instanceof SocketServerBridgeError)) return null
+  if (
+    error.status === 400 ||
+    error.status === 404 ||
+    error.status === 409 ||
+    error.status === 410
   ) {
-    super(message)
-    this.name = 'SavedEntityPersistenceError'
-    this.retryable = status >= 500
+    return new SavedEntityPersistenceError(error.status, error.message)
   }
-
-  responseBody() {
-    return {
-      error: this.message,
-      ...(this.code ? { code: this.code } : {}),
-      retryable: this.retryable,
-    }
-  }
+  return new SavedEntityRealtimeRequiredError()
 }
 
 function objectField(value: unknown): Record<string, unknown> {
@@ -225,18 +227,7 @@ export async function applySavedEntityState(
     )
   } catch (error) {
     if (error instanceof StructuredServerToolError) throw error
-    const status = Number((error as { status?: unknown }).status)
-    if (status === 400 || status === 404 || status === 409) {
-      throw new SavedEntityPersistenceError(
-        status,
-        error instanceof Error ? error.message : 'Saved entity persistence failed'
-      )
-    }
-    throw new SavedEntityPersistenceError(
-      503,
-      'Saved entity realtime orchestration is required',
-      'SAVED_ENTITY_REALTIME_REQUIRED'
-    )
+    throw toSavedEntityTransportError(error) ?? new SavedEntityRealtimeRequiredError()
   }
 }
 

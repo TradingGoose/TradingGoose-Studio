@@ -71,18 +71,11 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  SavedEntityPersistenceError: class SavedEntityPersistenceError extends Error {
-    constructor(
-      public status: number,
-      message: string
-    ) {
-      super(message)
-    }
-  },
   saveSavedEntityYjsDocToDb: mockSaveSavedEntityYjsDocToDb,
 }))
 
-vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
+  ...(await importOriginal()),
   initializeSavedReviewTargetDocument: vi.fn(async (descriptor) => {
     const Y = await import('yjs')
     const doc = new Y.Doc()

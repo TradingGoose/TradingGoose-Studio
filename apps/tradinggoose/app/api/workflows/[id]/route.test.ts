@@ -129,6 +129,7 @@ describe('Workflow By ID API Route', () => {
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       runYjsDeletionFencedTransaction: mockRunYjsDeletionFencedTransaction,
+      SocketServerBridgeError: class SocketServerBridgeError extends Error {},
       withYjsSessionDeletionLease: mockWithYjsSessionDeletionLease,
     }))
 

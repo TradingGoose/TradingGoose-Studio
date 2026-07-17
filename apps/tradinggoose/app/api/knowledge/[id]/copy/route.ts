@@ -4,8 +4,8 @@ import { getSession } from '@/lib/auth'
 import { copyKnowledgeBaseToWorkspace } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseCopyAPI')
 
@@ -45,9 +45,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: copiedKnowledgeBase,
     })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },

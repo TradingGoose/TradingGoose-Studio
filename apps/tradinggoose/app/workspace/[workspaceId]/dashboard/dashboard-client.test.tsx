@@ -62,9 +62,6 @@ const mockSetPanelGroupLayout = vi.fn((sizes: number[]) => {
   mockPanelGroupLayout = sizes
 })
 let mockPanelGroupLayout: number[] = []
-const dashboardPermissions = {
-  workspaceCanWrite: true,
-} as const
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
@@ -287,6 +284,31 @@ describe('DashboardClient', () => {
   let container: HTMLDivElement
   let root: Root
 
+  function renderDashboard({
+    topology,
+    workspaceId = 'ws-a',
+    ownerUserId = 'user-a',
+    layoutId = 'layout-a',
+    workspaceCanWrite = true,
+  }: {
+    topology: DashboardLayoutTopologyNode
+    workspaceId?: string
+    ownerUserId?: string
+    layoutId?: string
+    workspaceCanWrite?: boolean
+  }) {
+    root.render(
+      <DashboardClient
+        initialTopology={topology}
+        workspaceId={workspaceId}
+        ownerUserId={ownerUserId}
+        layoutId={layoutId}
+        initialLayouts={createLayouts(layoutId)}
+        workspaceCanWrite={workspaceCanWrite}
+      />
+    )
+  }
+
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
@@ -338,16 +360,7 @@ describe('DashboardClient', () => {
 
   it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
     expect(readWidgetSurface(container)).toEqual({
@@ -364,16 +377,12 @@ describe('DashboardClient', () => {
     })
 
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-b', 'wf-b')}
-          workspaceId='ws-b'
-          ownerUserId='user-b'
-          layoutId='layout-b'
-          initialLayouts={createLayouts('layout-b')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({
+        topology: createPanelLayout('panel-b', 'wf-b'),
+        workspaceId: 'ws-b',
+        ownerUserId: 'user-b',
+        layoutId: 'layout-b',
+      })
     })
 
     expect(readWidgetSurface(container)).toEqual({
@@ -392,16 +401,10 @@ describe('DashboardClient', () => {
 
   it('keeps personal layout controls writable for workspace readers', async () => {
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          workspaceCanWrite={false}
-        />
-      )
+      renderDashboard({
+        topology: createPanelLayout('panel-a', 'wf-a'),
+        workspaceCanWrite: false,
+      })
     })
 
     const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
@@ -425,30 +428,12 @@ describe('DashboardClient', () => {
   it('applies remote group-size changes to the mounted panel group', async () => {
     mockPanelGroupLayout = [50, 50]
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createGroupLayout([50, 50])}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createGroupLayout([50, 50]) })
     })
     expect(mockSetPanelGroupLayout).not.toHaveBeenCalled()
 
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createGroupLayout([35, 65])}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createGroupLayout([35, 65]) })
     })
 
     expect(mockSetPanelGroupLayout).toHaveBeenCalledWith([35, 65])
@@ -462,16 +447,7 @@ describe('DashboardClient', () => {
     mockLayoutMutation.mockRejectedValueOnce(closeError).mockRejectedValueOnce(replaceError)
     try {
       await act(async () => {
-        root.render(
-          <DashboardClient
-            initialTopology={createGroupLayout([50, 50])}
-            workspaceId='ws-a'
-            ownerUserId='user-a'
-            layoutId='layout-a'
-            initialLayouts={createLayouts('layout-a')}
-            {...dashboardPermissions}
-          />
-        )
+        renderDashboard({ topology: createGroupLayout([50, 50]) })
       })
 
       const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
@@ -513,16 +489,7 @@ describe('DashboardClient', () => {
       })
     )
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
     if (!mockSelectLayout) {
@@ -536,16 +503,12 @@ describe('DashboardClient', () => {
     expect(mockLayoutTabsIsBusy).toBe(true)
 
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-b', 'wf-b')}
-          workspaceId='ws-b'
-          ownerUserId='user-b'
-          layoutId='layout-b'
-          initialLayouts={createLayouts('layout-b')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({
+        topology: createPanelLayout('panel-b', 'wf-b'),
+        workspaceId: 'ws-b',
+        ownerUserId: 'user-b',
+        layoutId: 'layout-b',
+      })
       await Promise.resolve()
     })
 
@@ -575,17 +538,7 @@ describe('DashboardClient', () => {
           resolveActivation = resolve
         })
       )
-      const render = () =>
-        root.render(
-          <DashboardClient
-            initialTopology={createPanelLayout('panel-a', 'wf-a')}
-            workspaceId='ws-a'
-            ownerUserId='user-a'
-            layoutId='layout-a'
-            initialLayouts={createLayouts('layout-a')}
-            {...dashboardPermissions}
-          />
-        )
+      const render = () => renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
       await act(async () => render())
       await act(async () => {
         void mockSelectLayout?.('layout-b')
@@ -662,16 +615,7 @@ describe('DashboardClient', () => {
     )
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
       mockSelectLayout?.('layout-b')
       await Promise.resolve()
     })
@@ -688,16 +632,7 @@ describe('DashboardClient', () => {
     }
 
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
     expect(mockLayoutTabsLayouts).toEqual([])
@@ -715,16 +650,7 @@ describe('DashboardClient', () => {
     }
 
     await act(async () => {
-      root.render(
-        <DashboardClient
-          initialTopology={createPanelLayout('panel-a', 'wf-a')}
-          workspaceId='ws-a'
-          ownerUserId='user-a'
-          layoutId='layout-a'
-          initialLayouts={createLayouts('layout-a')}
-          {...dashboardPermissions}
-        />
-      )
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
     expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()

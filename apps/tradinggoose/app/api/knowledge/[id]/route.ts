@@ -4,9 +4,9 @@ import { getSession } from '@/lib/auth'
 import { applyKnowledgeBaseMetadata, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseByIdAPI')
 
@@ -131,9 +131,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     logger.error(`[${requestId}] Error updating knowledge base`, error)
-    if (error instanceof SavedEntityPersistenceError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Failed to update knowledge base' }, { status: 500 })
   }
 }
@@ -171,6 +170,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       data: { message: 'Knowledge base deleted successfully' },
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting knowledge base`, error)
     return NextResponse.json({ error: 'Failed to delete knowledge base' }, { status: 500 })
   }

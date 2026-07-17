@@ -9,18 +9,30 @@ export type SavedEntityRow = {
   [key: string]: any
 }
 
-export class SavedEntityRealtimeRequiredError extends Error {
-  readonly code = 'SAVED_ENTITY_REALTIME_REQUIRED'
-  readonly status = 503
-  readonly retryable = true
-
-  constructor() {
-    super('Saved entity realtime orchestration is required')
-    this.name = 'SavedEntityRealtimeRequiredError'
+export class SavedEntityPersistenceError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string,
+    public readonly retryable = status >= 500
+  ) {
+    super(message)
+    this.name = 'SavedEntityPersistenceError'
   }
 
   responseBody() {
-    return { error: this.message, code: this.code, retryable: this.retryable }
+    return {
+      error: this.message,
+      ...(this.code ? { code: this.code } : {}),
+      retryable: this.retryable,
+    }
+  }
+}
+
+export class SavedEntityRealtimeRequiredError extends SavedEntityPersistenceError {
+  constructor() {
+    super(503, 'Saved entity realtime orchestration is required', 'SAVED_ENTITY_REALTIME_REQUIRED')
+    this.name = 'SavedEntityRealtimeRequiredError'
   }
 }
 

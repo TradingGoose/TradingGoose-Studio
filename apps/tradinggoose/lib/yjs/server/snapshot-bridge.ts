@@ -15,7 +15,7 @@ import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
   type DashboardLayoutProjectionContent,
@@ -417,7 +417,8 @@ export async function withYjsSessionDeletionLease<T>(
     await beginLease()
   } catch (error) {
     await abortLease()
-    throw error
+    if (error instanceof SocketServerBridgeError && error.status < 500) throw error
+    throw new SavedEntityRealtimeRequiredError()
   }
 
   let renewal: Promise<void> | null = null

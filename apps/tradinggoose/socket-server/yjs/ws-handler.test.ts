@@ -8,6 +8,7 @@ import type { Duplex } from 'stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocketServer } from 'ws'
 import * as Y from 'yjs'
+import { YJS_CLOSE_CODE_RETRY_REQUIRED } from '@/lib/copilot/review-sessions/types'
 import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 
 const mockLogger = {
@@ -29,6 +30,8 @@ const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshActiveEntityListSession = vi.fn()
 const mockUpgradedSocketClose = vi.fn()
+const mockUpgradedSocketPause = vi.fn()
+const mockUpgradedSocketResume = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -37,6 +40,15 @@ class MockYjsAuthError extends Error {
   ) {
     super(message)
     this.name = 'YjsAuthError'
+  }
+}
+
+class MockYjsSessionAdmissionError extends Error {
+  constructor(
+    _sessionId: string,
+    public status: 409 | 410 = 409
+  ) {
+    super('Yjs session is not accepting connections')
   }
 }
 
@@ -88,7 +100,11 @@ function createWebSocketServer() {
   }
 
   wss.handleUpgrade = vi.fn((request, socket, head, callback) => {
-    callback({ close: mockUpgradedSocketClose } as any)
+    callback({
+      close: mockUpgradedSocketClose,
+      pause: mockUpgradedSocketPause,
+      resume: mockUpgradedSocketResume,
+    } as any)
   })
 
   return wss
@@ -191,6 +207,8 @@ beforeEach(() => {
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
   mockUpgradedSocketClose.mockReset()
+  mockUpgradedSocketPause.mockReset()
+  mockUpgradedSocketResume.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -227,11 +245,8 @@ beforeEach(() => {
   }))
 
   vi.doMock('./upstream-utils', () => ({
-    YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
-      status = 409
-    },
+    YjsSessionAdmissionError: MockYjsSessionAdmissionError,
     acquireDocument: mockAcquireDocument,
-    isYjsSessionAdmissionBlocked: vi.fn(() => false),
     setupWSConnection: mockSetupWSConnection,
   }))
 })
@@ -277,9 +292,10 @@ describe('handleYjsUpgrade', () => {
     })
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(expect.stringContaining('409'))
-    expect(socket.destroy).toHaveBeenCalledOnce()
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
+      YJS_CLOSE_CODE_RETRY_REQUIRED,
+      'Failed to attach Yjs session'
+    )
   })
 
   it('rejects websocket upgrades when the Yjs auth token is invalid', async () => {
@@ -297,16 +313,17 @@ describe('handleYjsUpgrade', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(
-      expect.stringContaining('401 Invalid or expired token')
+    expect(mockUpgradedSocketPause).toHaveBeenCalledOnce()
+    expect(mockUpgradedSocketResume).not.toHaveBeenCalled()
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
+      YJS_CLOSE_CODE_RETRY_REQUIRED,
+      'Failed to attach Yjs session'
     )
-    expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
   it('rejects websocket upgrades for read-only access', async () => {
     const sessionId = 'workflow-123'
-    const { socket, wss } = await runYjsUpgrade({
+    await runYjsUpgrade({
       target: { sessionId, entityKind: 'workflow' },
       access: {
         hasAccess: false,
@@ -317,9 +334,7 @@ describe('handleYjsUpgrade', () => {
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(expect.stringContaining('403 Forbidden'))
-    expect(socket.destroy).toHaveBeenCalledTimes(1)
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4403, 'Failed to attach Yjs session')
   })
 
   it('allows dashboard widget write upgrades with canonical validation', async () => {
@@ -357,6 +372,12 @@ describe('handleYjsUpgrade', () => {
         validateDocument: expect.any(Function),
       })
     )
+    expect(mockUpgradedSocketPause.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAuthenticateYjsConnection.mock.invocationCallOrder[0]!
+    )
+    expect(mockSetupWSConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpgradedSocketResume.mock.invocationCallOrder[0]!
+    )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
 
@@ -373,15 +394,21 @@ describe('handleYjsUpgrade', () => {
     }
   })
 
-  it('allows saved entity read-mode websocket upgrades after target authorization', async () => {
-    const sessionId = 'watchlist-read'
-    const { request, wss } = await runYjsUpgrade({
-      target: { sessionId, entityKind: 'watchlist' },
-      accessMode: 'read',
-    })
+  it.each([
+    ['saved entity', { sessionId: 'watchlist-read', entityKind: 'watchlist' }],
+    [
+      'dashboard layout',
+      {
+        sessionId: 'layout-read',
+        entityKind: 'dashboard_layout',
+        ownerUserId: 'user-1',
+      },
+    ],
+  ])('allows %s read-mode websocket upgrades', async (_label, target) => {
+    const { request, wss } = await runYjsUpgrade({ target, accessMode: 'read' })
 
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
-    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
+    expect(wss.handleUpgrade).toHaveBeenCalledOnce()
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
       request,
@@ -405,7 +432,10 @@ describe('handleYjsUpgrade', () => {
       })
       expect(failed.wss.handleUpgrade).toHaveBeenCalledOnce()
       expect(mockSetupWSConnection).not.toHaveBeenCalled()
-      expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4409, 'Failed to attach Yjs session')
+      expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
+        YJS_CLOSE_CODE_RETRY_REQUIRED,
+        'Failed to attach Yjs session'
+      )
 
       mockUpgradedSocketClose.mockClear()
       const { request, wss } = await runYjsUpgrade({
@@ -492,36 +522,9 @@ describe('handleYjsUpgrade', () => {
     doc.destroy()
   })
 
-  it('allows dashboard layout read-mode websocket upgrades without live persistence callbacks', async () => {
-    const sessionId = 'layout-read'
-    const { request, socket, wss } = await runYjsUpgrade({
-      target: {
-        sessionId,
-        entityKind: 'dashboard_layout',
-        ownerUserId: 'user-1',
-      },
-      accessMode: 'read',
-    })
-
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
-    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
-    expect(mockSetupWSConnection).toHaveBeenCalledWith(
-      expect.anything(),
-      request,
-      expect.objectContaining({
-        doc: expect.any(Y.Doc),
-        accessMode: 'read',
-        onDocumentUpdate: undefined,
-      })
-    )
-    expect(socket.write).not.toHaveBeenCalled()
-    expect(socket.destroy).not.toHaveBeenCalled()
-  })
-
   it('rejects writable dashboard layout websocket upgrades', async () => {
     const sessionId = 'layout-write'
-    const { socket, wss } = await runYjsUpgrade({
+    await runYjsUpgrade({
       target: {
         sessionId,
         entityKind: 'dashboard_layout',
@@ -531,16 +534,27 @@ describe('handleYjsUpgrade', () => {
 
     expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
     expect(mockSetupWSConnection).not.toHaveBeenCalled()
-    expect(wss.handleUpgrade).not.toHaveBeenCalled()
-    expect(socket.write).toHaveBeenCalledWith(
-      expect.stringContaining('403 Dashboard layout websocket is read-only')
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4403, 'Failed to attach Yjs session')
+  })
+
+  it.each([
+    [409, YJS_CLOSE_CODE_RETRY_REQUIRED],
+    [410, 4410],
+  ] as const)('maps Yjs admission status %s to close code %s', async (status, closeCode) => {
+    mockAcquireDocument.mockRejectedValueOnce(
+      new MockYjsSessionAdmissionError('watchlist-fenced', status)
     )
-    expect(socket.destroy).toHaveBeenCalledOnce()
+
+    await runYjsUpgrade({
+      target: { sessionId: 'watchlist-fenced', entityKind: 'watchlist' },
+    })
+
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(closeCode, 'Failed to attach Yjs session')
   })
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {
     const sessionId = 'review-unbootstrapped'
-    const { socket, wss } = await runYjsUpgrade({
+    await runYjsUpgrade({
       target: {
         sessionId,
         entityKind: 'skill',
@@ -553,9 +567,6 @@ describe('handleYjsUpgrade', () => {
       bootstrap: null,
     })
 
-    expect(wss.handleUpgrade).toHaveBeenCalledOnce()
     expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4410, 'Failed to attach Yjs session')
-    expect(socket.write).not.toHaveBeenCalled()
-    expect(socket.destroy).not.toHaveBeenCalled()
   })
 })

@@ -25,6 +25,7 @@ import {
   withYjsSessionDeletionLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowByIdAPI')
@@ -267,6 +268,8 @@ export async function DELETE(
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
     const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
     if (realtimeResponse) return realtimeResponse
+    const savedEntityResponse = createSavedEntityErrorResponse(error)
+    if (savedEntityResponse) return savedEntityResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

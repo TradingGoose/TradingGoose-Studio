@@ -49,8 +49,9 @@ import {
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import {
+  collectDashboardTopologyReferences,
+  type DashboardLayoutDocument,
   type DashboardLayoutProjectionContent,
-  type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
   normalizeDashboardLayoutDocument,
   normalizeDashboardLayoutProjection,
@@ -78,6 +79,16 @@ function isNotFoundError(error: unknown): boolean {
   return (
     typeof error === 'object' && error !== null && (error as { status?: number }).status === 404
   )
+}
+
+function readSnapshotDocument<T>(snapshotBase64: string, read: (doc: Y.Doc) => T): T {
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshotBase64, 'base64'))
+    return read(doc)
+  } finally {
+    doc.destroy()
+  }
 }
 
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
@@ -150,15 +161,59 @@ export async function readBootstrappedSavedEntityFields(
     throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
   }
 
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return entityKind === 'dashboard_layout'
+  return readSnapshotDocument(snapshot.snapshotBase64, (doc) =>
+    entityKind === 'dashboard_layout'
       ? readDashboardLayoutDocument(doc)
       : getEntityFields(doc, entityKind)
-  } finally {
-    doc.destroy()
-  }
+  )
+}
+
+export async function assembleDashboardLayoutProjection(input: {
+  document: DashboardLayoutDocument
+  layoutId: string
+  workspaceId: string
+  ownerUserId: string
+  readOwnerDocument: <T>(descriptor: ReviewTargetDescriptor, read: (doc: Y.Doc) => T) => Promise<T>
+}): Promise<DashboardLayoutProjectionContent> {
+  const widgets = Object.fromEntries(
+    await Promise.all(
+      [...collectDashboardTopologyReferences(input.document.layout)].map(
+        ([identityId, widgetKey]) =>
+          input.readOwnerDocument(
+            buildDashboardWidgetDescriptor({
+              layoutId: input.layoutId,
+              identityId,
+              workspaceId: input.workspaceId,
+              ownerUserId: input.ownerUserId,
+            }),
+            (doc) => [identityId, readDashboardWidgetDocument(doc, widgetKey)] as const
+          )
+      )
+    )
+  )
+  const pairs = (
+    await Promise.all(
+      PAIR_COLORS.filter((color) => color !== 'gray').map((color) =>
+        input.readOwnerDocument(
+          buildDashboardColorPairDescriptor({
+            layoutId: input.layoutId,
+            color,
+            workspaceId: input.workspaceId,
+            ownerUserId: input.ownerUserId,
+          }),
+          (doc) => {
+            const context = readDashboardColorPairDocument(doc)
+            return Object.keys(context).length > 0 ? { color, ...context } : null
+          }
+        )
+      )
+    )
+  ).filter((pair) => pair !== null)
+  return normalizeDashboardLayoutProjection({
+    ...input.document,
+    widgets,
+    colorPairs: { pairs },
+  })
 }
 
 export async function readBootstrappedDashboardLayoutProjection(
@@ -169,54 +224,17 @@ export async function readBootstrappedDashboardLayoutProjection(
   const document = normalizeDashboardLayoutDocument(
     await readBootstrappedSavedEntityFields('dashboard_layout', layoutId, workspaceId, ownerUserId)
   )
-  const panels: Array<Extract<DashboardLayoutTopologyNode, { type: 'panel' }>> = []
-  const collect = (node: DashboardLayoutTopologyNode) => {
-    if (node.type === 'panel') panels.push(node)
-    else node.children.forEach(collect)
-  }
-  collect(document.layout)
-  const widgets = Object.fromEntries(
-    await Promise.all(
-      panels.map(async (panel) => {
-        const snapshot = await readBootstrappedReviewTargetSnapshot(
-          buildDashboardWidgetDescriptor({
-            layoutId,
-            identityId: panel.identityId,
-            workspaceId,
-            ownerUserId,
-          })
-        ).catch(mapSavedEntitySnapshotError)
-        const doc = new Y.Doc()
-        try {
-          Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-          return [panel.identityId, readDashboardWidgetDocument(doc, panel.widgetKey)] as const
-        } finally {
-          doc.destroy()
-        }
-      })
-    )
-  )
-  const pairs = (
-    await Promise.all(
-      PAIR_COLORS.filter((color) => color !== 'gray').map(async (color) => {
-        const snapshot = await readBootstrappedReviewTargetSnapshot(
-          buildDashboardColorPairDescriptor({ layoutId, color, workspaceId, ownerUserId })
-        ).catch(mapSavedEntitySnapshotError)
-        const doc = new Y.Doc()
-        try {
-          Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-          const context = readDashboardColorPairDocument(doc)
-          return Object.keys(context).length > 0 ? { color, ...context } : null
-        } finally {
-          doc.destroy()
-        }
-      })
-    )
-  ).filter((pair) => pair !== null)
-  return normalizeDashboardLayoutProjection({
-    ...document,
-    widgets,
-    colorPairs: { pairs },
+  return assembleDashboardLayoutProjection({
+    document,
+    layoutId,
+    workspaceId,
+    ownerUserId,
+    readOwnerDocument: async (descriptor, read) => {
+      const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor).catch(
+        mapSavedEntitySnapshotError
+      )
+      return readSnapshotDocument(snapshot.snapshotBase64, read)
+    },
   })
 }
 

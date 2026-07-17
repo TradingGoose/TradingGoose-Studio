@@ -7,17 +7,10 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import {
-  applyYjsUpdateInSocketServer,
-  SocketServerBridgeError,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyYjsUpdateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 export const dynamic = 'force-dynamic'
-
-function getPublicBridgeStatus(error: SocketServerBridgeError) {
-  const { status } = error
-  return status === 400 || status === 404 || status === 409 || status === 410 ? status : 503
-}
 
 async function authorizeYjsSnapshotRequest(request: NextRequest, sessionId: string) {
   const session = await getSession()
@@ -106,10 +99,8 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof SocketServerBridgeError) {
-      return NextResponse.json({ error: error.message }, { status: getPublicBridgeStatus(error) })
-    }
-
+    const savedEntityResponse = createSavedEntityErrorResponse(error)
+    if (savedEntityResponse) return savedEntityResponse
     return NextResponse.json({ error: 'Failed to save Yjs session' }, { status: 500 })
   }
 }

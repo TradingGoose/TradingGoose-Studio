@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ListingIdentity } from '@/lib/listing/identity'
@@ -108,6 +108,25 @@ describe('WatchlistWidgetBody', () => {
   let container: HTMLDivElement
   let root: Root
 
+  function renderWatchlist({
+    pairColor = 'gray',
+    context = { workspaceId: 'workspace-1' },
+    params = { provider: 'alpaca' },
+    ...props
+  }: Partial<ComponentProps<typeof WatchlistWidgetBody>> = {}) {
+    root.render(
+      <WatchlistWidgetBody
+        channelId='watchlist-panel-1'
+        context={context}
+        panelId='panel-1'
+        pairColor={pairColor}
+        widget={props.widget ?? ({ key: 'watchlist', pairColor } as any)}
+        params={params}
+        {...props}
+      />
+    )
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -130,18 +149,7 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca' }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({ pairColor: 'red', onWidgetParamsPatch, onWidgetLinkedParamsPatch })
     })
 
     const button = Array.from(container.querySelectorAll('button')).find(
@@ -162,18 +170,12 @@ describe('WatchlistWidgetBody', () => {
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca', listing: selectedListing }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({
+        pairColor: 'red',
+        params: { provider: 'alpaca', listing: selectedListing },
+        onWidgetParamsPatch,
+        onWidgetLinkedParamsPatch,
+      })
     })
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
@@ -188,18 +190,11 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1', canWrite: false }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{ provider: 'alpaca' }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({
+        context: { workspaceId: 'workspace-1', canWrite: false },
+        onWidgetParamsPatch,
+        onWidgetLinkedParamsPatch,
+      })
     })
 
     expect(lastSelectedWatchlistArgs).toMatchObject({ accessMode: 'read' })
@@ -227,18 +222,12 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1', canWrite: false }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca' }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({
+        pairColor: 'red',
+        context: { workspaceId: 'workspace-1', canWrite: false },
+        onWidgetParamsPatch,
+        onWidgetLinkedParamsPatch,
+      })
     })
 
     expect(lastSelectedWatchlistArgs).toMatchObject({ accessMode: 'read' })
@@ -260,18 +249,7 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca' }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({ pairColor: 'red', onWidgetParamsPatch, onWidgetLinkedParamsPatch })
     })
 
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
@@ -291,16 +269,7 @@ describe('WatchlistWidgetBody', () => {
   ])('renders a distinct unavailable-list state', async (watchlists, params, message) => {
     currentWatchlists = watchlists
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={params}
-        />
-      )
+      renderWatchlist({ params })
     })
 
     expect(container.textContent).toContain(message)
@@ -312,18 +281,12 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetLinkedParamsPatch = vi.fn()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca', listing: selectedListing }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({
+        pairColor: 'red',
+        params: { provider: 'alpaca', listing: selectedListing },
+        onWidgetParamsPatch,
+        onWidgetLinkedParamsPatch,
+      })
     })
 
     const button = Array.from(container.querySelectorAll('button')).find(
@@ -344,18 +307,12 @@ describe('WatchlistWidgetBody', () => {
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='red'
-          widget={{ key: 'watchlist', pairColor: 'red' } as any}
-          params={{ provider: 'alpaca', listing: null }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+      renderWatchlist({
+        pairColor: 'red',
+        params: { provider: 'alpaca', listing: null },
+        onWidgetParamsPatch,
+        onWidgetLinkedParamsPatch,
+      })
     })
 
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
@@ -367,20 +324,13 @@ describe('WatchlistWidgetBody', () => {
 
   it('uses watchlist item ids as shared quote request keys', async () => {
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{
-            provider: 'alpaca',
-            auth: { apiKey: '{{ ALPACA_API_KEY }}' },
-            providerParams: { feed: 'iex' },
-          }}
-        />
-      )
+      renderWatchlist({
+        params: {
+          provider: 'alpaca',
+          auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+          providerParams: { feed: 'iex' },
+        },
+      })
     })
 
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
@@ -401,35 +351,11 @@ describe('WatchlistWidgetBody', () => {
 
   it('uses runtime.refreshAt as the shared quote refresh key without refetching quotes directly', async () => {
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{
-            provider: 'alpaca',
-            runtime: { refreshAt: 100 },
-          }}
-        />
-      )
+      renderWatchlist({ params: { provider: 'alpaca', runtime: { refreshAt: 100 } } })
     })
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{
-            provider: 'alpaca',
-            runtime: { refreshAt: 200 },
-          }}
-        />
-      )
+      renderWatchlist({ params: { provider: 'alpaca', runtime: { refreshAt: 200 } } })
     })
 
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0]).toEqual(
@@ -490,16 +416,7 @@ describe('WatchlistWidgetBody', () => {
     ]
 
     await act(async () => {
-      root.render(
-        <WatchlistWidgetBody
-          channelId='watchlist-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          panelId='panel-1'
-          pairColor='gray'
-          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
-          params={{ provider: 'alpaca' }}
-        />
-      )
+      renderWatchlist()
     })
 
     const button = Array.from(container.querySelectorAll('button')).find(

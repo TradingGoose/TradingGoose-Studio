@@ -7,8 +7,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -59,9 +59,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listCustomTools({ workspaceId }) }, { status: 200 })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching custom tools:`, error)
     return NextResponse.json({ error: 'Failed to fetch custom tools' }, { status: 500 })
   }
@@ -131,9 +130,8 @@ export async function POST(req: NextRequest) {
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error updating custom tools`, error)
     return NextResponse.json({ error: 'Failed to update custom tools' }, { status: 500 })
   }
@@ -185,6 +183,8 @@ export async function DELETE(request: NextRequest) {
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting custom tool:`, error)
     return NextResponse.json({ error: 'Failed to delete custom tool' }, { status: 500 })
   }

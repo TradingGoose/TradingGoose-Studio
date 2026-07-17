@@ -6,10 +6,8 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import { getWatchlist, WatchlistOperationError } from '@/lib/watchlists/operations'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
-import {
-  applyEntityStateInSocketServer,
-  SocketServerBridgeError,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WatchlistImportAPI')
 
@@ -60,9 +58,8 @@ const handleRouteError = (error: unknown, errorMessage: string) => {
       { status: 400 }
     )
   }
-  if (error instanceof SocketServerBridgeError) {
-    return NextResponse.json({ error: error.message }, { status: error.status })
-  }
+  const realtimeResponse = createSavedEntityErrorResponse(error)
+  if (realtimeResponse) return realtimeResponse
   logger.error(errorMessage, { error })
   return NextResponse.json({ error: errorMessage }, { status: 500 })
 }

@@ -4,12 +4,14 @@
 
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   getDashboardWidgetMap,
   seedDashboardColorPairSession,
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
+import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 
 const events: string[] = []
 const mockApplyEntityStateInSocketServer = vi.fn()
@@ -41,7 +43,14 @@ class MockSavedEntityIdentityError extends Error {
     super(message)
   }
 }
-
+class MockSocketServerBridgeError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message)
+  }
+}
 vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: mockDbTransaction,
@@ -90,6 +99,7 @@ vi.mock('@/lib/watchlists/document', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
+  SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
 function buildDoc(fields: Record<string, unknown>) {
@@ -335,9 +345,7 @@ describe('applySavedEntityState', () => {
   })
 
   it('persists only canonical widget child documents', async () => {
-    const { SavedEntityPersistenceError, saveDashboardYjsDocsToDb } = await import(
-      './apply-entity-state'
-    )
+    const { saveDashboardYjsDocsToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedDashboardWidgetSession(doc, { pairColor: 'blue', params: { view: {} } })
 
@@ -468,18 +476,40 @@ describe('applySavedEntityState', () => {
     }
   })
 
-  it('returns the saved-entity realtime contract when the Yjs bridge is unavailable', async () => {
-    const { applySavedEntityState } = await import('./apply-entity-state')
-    mockApplyEntityStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
+  it.each([
+    [new MockSocketServerBridgeError(410, 'Review target expired'), 410, false],
+    [new TypeError('fetch failed'), 503, true],
+  ])(
+    'maps socket transport failures to the saved-entity contract',
+    async (failure, status, retryable) => {
+      const { applySavedEntityState } = await import('./apply-entity-state')
+      mockApplyEntityStateInSocketServer.mockRejectedValueOnce(failure)
 
-    await expect(
-      applySavedEntityState('skill', 'skill-1', 'workspace-1', {
-        description: 'Copilot description',
-        content: 'Use the Copilot input.',
-      })
-    ).rejects.toMatchObject({ status: 503 })
+      await expect(
+        applySavedEntityState('skill', 'skill-1', 'workspace-1', {
+          description: 'Copilot description',
+          content: 'Use the Copilot input.',
+        })
+      ).rejects.toMatchObject({ status, retryable })
 
-    expect(mockDbUpdate).not.toHaveBeenCalled()
-    expect(events).toEqual([])
+      expect(mockDbUpdate).not.toHaveBeenCalled()
+      expect(events).toEqual([])
+    }
+  )
+
+  it('preserves structured bridge status, code, and retryability', async () => {
+    const { toSavedEntityTransportError } = await import('./apply-entity-state')
+    expect(
+      toSavedEntityTransportError(
+        new StructuredServerToolError({
+          status: 409,
+          body: { error: 'Review is stale', code: 'stale_server_tool_review', retryable: true },
+        })
+      )
+    ).toMatchObject({
+      status: 409,
+      code: 'stale_server_tool_review',
+      retryable: true,
+    })
   })
 })

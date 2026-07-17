@@ -21,6 +21,8 @@ import {
   seedDashboardLayoutSession,
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { ReviewTargetBootstrapError } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   applyLayoutEditDocument,
   type DashboardLayoutProjectionContent,
@@ -56,17 +58,12 @@ vi.mock('@/socket-server/monitor-runtime-lock', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  SavedEntityPersistenceError: class SavedEntityPersistenceError extends Error {
-    status = 422
-    responseBody() {
-      return { error: this.message }
-    }
-  },
   saveDashboardYjsDocsToDb: mocks.saveDashboard,
   saveSavedEntityYjsDocToDb: mocks.saveEntity,
 }))
 
-vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
+  ...(await importOriginal()),
   initializeSavedReviewTargetDocument: mocks.initializeTarget,
 }))
 
@@ -104,6 +101,7 @@ vi.mock('@/lib/yjs/entity-session', () => ({
 
 const logger = { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() }
 let documents = new Map<string, Y.Doc>()
+let activeAcquisitions = new Set<string>()
 
 function createLayoutDoc(
   layout: Parameters<typeof seedDashboardLayoutSession>[1]['layout'] = {
@@ -240,6 +238,7 @@ describe('socket internal HTTP Yjs routes', () => {
   beforeEach(() => {
     for (const doc of documents.values()) doc.destroy()
     documents = new Map()
+    activeAcquisitions = new Set()
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
     mocks.flushPersistence.mockResolvedValue(0)
@@ -267,17 +266,22 @@ describe('socket internal HTTP Yjs routes', () => {
         },
         use: (doc: Y.Doc) => Promise<unknown> | unknown
       ) => {
+        if (activeAcquisitions.has(sessionId)) {
+          throw new Error(`Nested document acquisition: ${sessionId}`)
+        }
+        activeAcquisitions.add(sessionId)
         let doc = documents.get(sessionId)
         const created = !doc
-        if (!doc) {
-          doc = new Y.Doc()
-          documents.set(sessionId, doc)
-          const initializedDocument = await options.initialize(doc)
-          if (initializedDocument?.state) Y.applyUpdate(doc, initializedDocument.state)
-        }
         try {
+          if (!doc) {
+            doc = new Y.Doc()
+            documents.set(sessionId, doc)
+            const initializedDocument = await options.initialize(doc)
+            if (initializedDocument?.state) Y.applyUpdate(doc, initializedDocument.state)
+          }
           return await use(doc)
         } finally {
+          activeAcquisitions.delete(sessionId)
           if (created) documents.delete(sessionId)
         }
       }
@@ -306,6 +310,32 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     expect(response).toMatchObject({ status: 400, body: { error: 'Invalid entityKind' } })
     expect(mocks.saveEntity).not.toHaveBeenCalled()
+  })
+
+  it('preserves saved-entity owner error details', async () => {
+    mocks.initializeTarget.mockRejectedValueOnce(
+      new ReviewTargetBootstrapError(410, 'Review target expired')
+    )
+
+    await expect(
+      invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+        entityKind: 'skill',
+        workspaceId: 'workspace-1',
+        fields: { description: 'Skill', content: 'Content' },
+      })
+    ).resolves.toMatchObject({ status: 410, body: { error: 'Review target expired' } })
+    mocks.saveEntity.mockRejectedValueOnce(new SavedEntityRealtimeRequiredError())
+
+    await expect(
+      invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+        entityKind: 'skill',
+        workspaceId: 'workspace-1',
+        fields: { description: 'Skill', content: 'Content' },
+      })
+    ).resolves.toMatchObject({
+      status: 503,
+      body: { code: 'SAVED_ENTITY_REALTIME_REQUIRED', retryable: true },
+    })
   })
 
   it('binds workflow snapshots and live applies through canonical document acquisition', async () => {

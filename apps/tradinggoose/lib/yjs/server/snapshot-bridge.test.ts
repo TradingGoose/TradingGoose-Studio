@@ -173,6 +173,39 @@ describe('withYjsSessionDeletionLease', () => {
     expect(mockFetch).toHaveBeenCalledTimes(callsAfterRetry)
   }
 
+  it('preserves a rejected deletion admission status for the API consumer', async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response('{"error":"deletion in progress"}', { status: 409 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const mutate = vi.fn()
+    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+
+    await expect(
+      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
+    ).rejects.toMatchObject({ name: 'SocketServerBridgeError', status: 409 })
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
+  it('normalizes an unavailable realtime deletion fence to the saved-entity contract', async () => {
+    vi.useFakeTimers()
+    mockFetch
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+
+    const deletion = expect(
+      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, vi.fn())
+    ).rejects.toMatchObject({
+      name: 'SavedEntityRealtimeRequiredError',
+      status: 503,
+    })
+    await vi.advanceTimersByTimeAsync(750)
+
+    await deletion
+  })
+
   it('renews a protected mutation and aborts after renewal can no longer confirm its lease', async () => {
     vi.useFakeTimers()
     let finishMutation!: () => void

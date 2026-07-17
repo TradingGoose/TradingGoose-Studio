@@ -72,6 +72,7 @@ export const EMPTY_SHARED_WORKFLOW_SESSION_STATE: SharedWorkflowSessionState = {
 }
 
 const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
+const SESSION_REOPEN_RETRY_MS = 1_000
 
 function getSharedSessionEntries(): Map<string, SharedWorkflowSessionEntry> {
   if (!globalThis.__workflowYjsSessionEntries) {
@@ -277,9 +278,18 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to initialize workflow session',
     })
+    if (!entry.isTerminal) scheduleWorkflowSessionReopen(entry)
   } finally {
     entry.initPromise = null
   }
+}
+
+function scheduleWorkflowSessionReopen(entry: SharedWorkflowSessionEntry): void {
+  setTimeout(() => {
+    if (getSharedSessionEntries().get(entry.workflowId) === entry && entry.refCount > 0) {
+      ensureSharedSessionInitialized(entry)
+    }
+  }, SESSION_REOPEN_RETRY_MS)
 }
 
 function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void {
