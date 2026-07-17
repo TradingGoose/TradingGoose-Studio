@@ -39,7 +39,7 @@ export async function deleteDashboardLayoutAction(workspaceId: string, layoutId:
 
 export async function activateDashboardLayoutAction(workspaceId: string, layoutId: string) {
   const scope = await requireDashboardLayoutScope(workspaceId)
-  await activateDashboardLayout(scope, layoutId)
+  return activateDashboardLayout(scope, layoutId)
 }
 
 export async function reorderDashboardLayoutAction(

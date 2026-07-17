@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  activateDashboardLayout,
   commitDashboardLayoutStructure,
   createDashboardLayout,
   deleteDashboardLayout,
@@ -107,7 +108,7 @@ const m = vi.hoisted(() => {
     transaction,
     db: { ...store, transaction },
     bridge: {
-      refreshEntityListSession: vi.fn(() => Promise.resolve()),
+      refreshEntityListSession: vi.fn(() => Promise.resolve(true)),
       withYjsSessionDeletionLease: vi.fn(async (_target, mutate) =>
         mutate({ assertHeld: vi.fn() })
       ),
@@ -178,6 +179,15 @@ describe('dashboard layout operations', () => {
     const result = await readActiveDashboardLayoutProjection(scope)
     expect(result.activeLayout?.topology).toEqual(topology())
     expect(m.db.select).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports whether active-layout fanout converged', async () => {
+    m.selectResults.push([layoutRow(), layoutRow({ id: 'layout-2', isActive: false })])
+    m.bridge.refreshEntityListSession.mockResolvedValueOnce(false)
+
+    await expect(activateDashboardLayout(scope, 'layout-2')).resolves.toEqual({
+      listConverged: false,
+    })
   })
 
   it('creates a default root and every null-widget child in one transaction', async () => {

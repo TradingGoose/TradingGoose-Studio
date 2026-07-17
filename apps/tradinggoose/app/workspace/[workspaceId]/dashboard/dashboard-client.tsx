@@ -272,7 +272,6 @@ export function DashboardClient({
   const [pendingActivation, setPendingActivation] = useState<{
     workspaceId: string
     layoutId: string
-    phase: 'activating' | 'loading'
   } | null>(null)
   const isCreatingLayoutRef = useRef(false)
   const router = useRouter()
@@ -305,43 +304,32 @@ export function DashboardClient({
   })
   const rawTree = layoutDocument.topology
   const hasLayoutFailure = Boolean(dashboardLayoutList.error || layoutDocument.error)
-  const canMutateLayouts = !hasLayoutFailure
+  const canMutateLayouts = !dashboardLayoutList.error
   const activePendingActivation =
     pendingActivation?.workspaceId === workspaceId ? pendingActivation : null
   const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
-  const canEditContent =
-    !activePendingActivation &&
-    canMutateLayouts &&
+  const isActiveDocumentReady =
+    !hasLayoutFailure &&
     layoutDocument.isProviderReady &&
     rawTree !== null &&
     activeLayoutId !== null
+  const canEditContent = !activePendingActivation && isActiveDocumentReady
 
   useEffect(() => {
     if (!activePendingActivation) return
-    if (dashboardLayoutList.isTerminalError || layoutDocument.isTerminalError) {
-      setPendingActivation((current) => (current?.workspaceId === workspaceId ? null : current))
-      return
-    }
+    const targetIsActive = activeLayoutId === activePendingActivation.layoutId
     if (
-      activePendingActivation.phase === 'loading' &&
-      activeLayoutId === activePendingActivation.layoutId &&
-      layoutDocument.isProviderReady &&
-      rawTree !== null &&
-      !hasLayoutFailure
+      dashboardLayoutList.isTerminalError ||
+      (targetIsActive && (layoutDocument.isTerminalError || isActiveDocumentReady))
     ) {
-      setPendingActivation((current) =>
-        current?.workspaceId === workspaceId && current.layoutId === activeLayoutId ? null : current
-      )
+      setPendingActivation(null)
     }
   }, [
     activeLayoutId,
     dashboardLayoutList.isTerminalError,
-    hasLayoutFailure,
-    layoutDocument.isProviderReady,
     layoutDocument.isTerminalError,
     activePendingActivation,
-    rawTree,
-    workspaceId,
+    isActiveDocumentReady,
   ])
 
   useEffect(() => {
@@ -551,17 +539,15 @@ export function DashboardClient({
         activePendingActivation
       )
         return
-      setPendingActivation({ workspaceId, layoutId: nextLayoutId, phase: 'activating' })
+      setPendingActivation({ workspaceId, layoutId: nextLayoutId })
 
+      let keepPending = false
       try {
-        await activateDashboardLayoutAction(workspaceId, nextLayoutId)
-        setPendingActivation((current) =>
-          current?.workspaceId === workspaceId && current.layoutId === nextLayoutId
-            ? { ...current, phase: 'loading' }
-            : current
-        )
+        keepPending = (await activateDashboardLayoutAction(workspaceId, nextLayoutId)).listConverged
       } catch (error) {
         console.error('Failed to switch layout:', error)
+      }
+      if (!keepPending) {
         setPendingActivation((current) =>
           current?.workspaceId === workspaceId && current.layoutId === nextLayoutId ? null : current
         )

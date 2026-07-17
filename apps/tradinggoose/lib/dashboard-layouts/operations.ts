@@ -186,10 +186,8 @@ function assembleLayoutProjection(
   }
 }
 
-async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<void> {
-  await refreshEntityListSession('dashboard_layout', scope.workspaceId, scope.ownerUserId).catch(
-    () => undefined
-  )
+async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<boolean> {
+  return refreshEntityListSession('dashboard_layout', scope.workspaceId, scope.ownerUserId)
 }
 
 async function readDashboardLayoutRows(
@@ -350,7 +348,7 @@ export async function ensureDashboardLayoutProvisioned(
 export async function activateDashboardLayout(
   scope: DashboardLayoutOwnerScope,
   layoutId: string
-): Promise<void> {
+): Promise<{ listConverged: boolean }> {
   await withDashboardLayoutOwnerLock(scope, async (tx) => {
     const rows = await readDashboardLayoutRows(scope, tx)
     if (!rows.some((row) => row.id === layoutId)) {
@@ -365,7 +363,7 @@ export async function activateDashboardLayout(
       )
     )
   })
-  await refreshLayoutList(scope)
+  return { listConverged: await refreshLayoutList(scope) }
 }
 
 export async function reorderDashboardLayout(

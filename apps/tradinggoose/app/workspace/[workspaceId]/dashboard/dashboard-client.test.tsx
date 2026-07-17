@@ -29,7 +29,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 const mockPush = vi.fn()
 const dashboardClientMocks = vi.hoisted(() => ({
-  activateDashboardLayoutAction: vi.fn(() => Promise.resolve()),
+  activateDashboardLayoutAction: vi.fn(() => Promise.resolve({ listConverged: true })),
   createDashboardLayoutAction: vi.fn(() => Promise.resolve({ layoutId: 'layout-new' })),
   deleteDashboardLayoutAction: vi.fn(() => Promise.resolve()),
   renameSavedEntityAction: vi.fn(() => Promise.resolve()),
@@ -335,7 +335,7 @@ describe('DashboardClient', () => {
     mockSetPanelGroupLayout.mockClear()
     mockPanelGroupLayout = []
     dashboardClientMocks.activateDashboardLayoutAction.mockReset()
-    dashboardClientMocks.activateDashboardLayoutAction.mockResolvedValue(undefined)
+    dashboardClientMocks.activateDashboardLayoutAction.mockResolvedValue({ listConverged: true })
     dashboardClientMocks.createDashboardLayoutAction.mockClear()
     dashboardClientMocks.deleteDashboardLayoutAction.mockClear()
     resetDashboardStores()
@@ -482,9 +482,9 @@ describe('DashboardClient', () => {
   })
 
   it('does not carry a pending activation into another workspace', async () => {
-    let resolveActivation!: () => void
+    let resolveActivation!: (result: { listConverged: boolean }) => void
     dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
+      new Promise<{ listConverged: boolean }>((resolve) => {
         resolveActivation = resolve
       })
     )
@@ -525,16 +525,16 @@ describe('DashboardClient', () => {
       pairColor: 'gray',
     })
 
-    await act(async () => resolveActivation())
+    await act(async () => resolveActivation({ listConverged: true }))
     expect(mockLayoutTabsIsBusy).toBe(false)
   })
 
   it.each(['success', 'list', 'document'] as const)(
     'settles activation only after the %s resolution',
     async (resolution) => {
-      let resolveActivation!: () => void
+      let resolveActivation!: (result: { listConverged: boolean }) => void
       dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
-        new Promise<void>((resolve) => {
+        new Promise<{ listConverged: boolean }>((resolve) => {
           resolveActivation = resolve
         })
       )
@@ -561,12 +561,12 @@ describe('DashboardClient', () => {
             .querySelector('[data-testid^="widget-surface-"]')
             ?.getAttribute('data-can-write')
         ).toBe('false')
-        await act(async () => resolveActivation())
+        await act(async () => resolveActivation({ listConverged: true }))
         expect(mockLayoutTabsIsBusy).toBe(false)
         return
       }
 
-      await act(async () => resolveActivation())
+      await act(async () => resolveActivation({ listConverged: true }))
       expect(mockLayoutTabsIsBusy).toBe(true)
       mockDashboardLayoutList = {
         layouts: createLayouts('layout-b'),
@@ -592,7 +592,12 @@ describe('DashboardClient', () => {
         }
         await act(async () => render())
         expect(mockLayoutTabsIsBusy).toBe(false)
-        expect(mockLayoutTabsCanMutate).toBe(false)
+        expect(mockLayoutTabsCanMutate).toBe(true)
+        await act(async () => {
+          mockSelectLayout?.('layout-a')
+          await Promise.resolve()
+        })
+        expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledTimes(2)
         return
       }
 
@@ -608,6 +613,26 @@ describe('DashboardClient', () => {
       expect(mockLayoutTabsIsBusy).toBe(false)
     }
   )
+
+  it('does not wait for a list projection that did not converge', async () => {
+    dashboardClientMocks.activateDashboardLayoutAction.mockResolvedValueOnce({
+      listConverged: false,
+    })
+    await act(async () => {
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
+    })
+    await act(async () => {
+      mockSelectLayout?.('layout-b')
+      await Promise.resolve()
+    })
+
+    expect(mockLayoutTabsIsBusy).toBe(false)
+    expect(mockLayoutTabsCanMutate).toBe(true)
+    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledWith(
+      'ws-a',
+      'layout-b'
+    )
+  })
 
   it('clears activation busy state when the action rejects', async () => {
     dashboardClientMocks.activateDashboardLayoutAction.mockRejectedValueOnce(

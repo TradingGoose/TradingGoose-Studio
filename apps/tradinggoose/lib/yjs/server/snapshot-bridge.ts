@@ -367,7 +367,7 @@ export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
-): Promise<void> {
+): Promise<boolean> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
   const params = new URLSearchParams(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
@@ -378,8 +378,10 @@ export async function refreshEntityListSession(
       {},
       3
     )
+    return true
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
+    return false
   }
 }
 
