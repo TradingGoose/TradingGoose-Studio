@@ -125,13 +125,16 @@ describe('applyEntityStateInSocketServer', () => {
 
 describe('refreshEntityListSession', () => {
   it('keeps a committed mutation independent from non-destructive list fanout failure', async () => {
-    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
+    vi.useFakeTimers()
+    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
 
     const { refreshEntityListSession } = await import('./snapshot-bridge')
+    const refresh = refreshEntityListSession('skill', 'workspace-1')
+    await vi.runAllTimersAsync()
 
-    await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBeUndefined()
+    await expect(refresh).resolves.toBeUndefined()
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch).toHaveBeenCalledTimes(3)
     const [refreshUrl] = mockFetch.mock.calls[0]
     expect(refreshUrl).toContain('/internal/yjs/sessions/list%3Askill%3Aworkspace-1/members')
     expect(mockLogger.warn).toHaveBeenCalledWith(

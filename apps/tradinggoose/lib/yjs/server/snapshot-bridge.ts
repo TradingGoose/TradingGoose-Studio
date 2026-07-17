@@ -375,7 +375,8 @@ export async function refreshEntityListSession(
   try {
     await postJsonToSocketServer(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
-      {}
+      {},
+      3
     )
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
