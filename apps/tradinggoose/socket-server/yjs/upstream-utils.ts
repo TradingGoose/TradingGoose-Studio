@@ -92,8 +92,6 @@ class WSSharedDoc extends Y.Doc {
   persistenceQueue: Promise<void> = Promise.resolve()
   pendingMutations = 0
   mutationQueue: Promise<void> = Promise.resolve()
-  reconciliationInFlight: Promise<void> | null = null
-  reconciliationFollowUp: Promise<void> | null = null
   lastReconciliationAt = 0
   isDraining = false
   persistTimer: ReturnType<typeof setTimeout> | null = null
@@ -478,17 +476,6 @@ export function reconcileDocument(doc: Y.Doc, force = false): Promise<void> {
   if (docs.get(doc.name) !== doc || doc.isDraining) {
     return Promise.reject(new YjsDocumentDrainingError())
   }
-  if (doc.reconciliationFollowUp) return doc.reconciliationFollowUp
-  if (doc.reconciliationInFlight) {
-    if (!force) return doc.reconciliationInFlight
-    doc.reconciliationFollowUp = doc.reconciliationInFlight
-      .catch(() => undefined)
-      .then(() => {
-        doc.reconciliationFollowUp = null
-        return reconcileDocument(doc, true)
-      })
-    return doc.reconciliationFollowUp
-  }
   if (
     !doc.onDocumentReconcile ||
     (!force && Date.now() - doc.lastReconciliationAt < PING_TIMEOUT)
@@ -498,10 +485,10 @@ export function reconcileDocument(doc: Y.Doc, force = false): Promise<void> {
 
   doc.lastReconciliationAt = Date.now()
   const reconciliation = runDocumentMutation(doc, doc.onDocumentReconcile)
-  doc.reconciliationInFlight = reconciliation
-  return reconciliation.finally(() => {
-    if (doc.reconciliationInFlight === reconciliation) doc.reconciliationInFlight = null
+  reconciliation.catch(() => {
+    doc.lastReconciliationAt = 0
   })
+  return reconciliation
 }
 
 export async function flushDocumentPersistence(doc: Y.Doc): Promise<number> {

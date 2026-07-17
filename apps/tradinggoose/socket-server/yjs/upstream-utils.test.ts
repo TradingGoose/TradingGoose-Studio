@@ -201,7 +201,7 @@ describe('shared document lifecycle', () => {
     expect(persist).toHaveBeenCalledOnce()
   })
 
-  it('retries a failed shared-document reconciliation once per heartbeat', async () => {
+  it('retries a failed shared-document reconciliation on the next heartbeat', async () => {
     vi.useFakeTimers()
     const sockets = [new TestSocket(), new TestSocket()]
     const descriptor = buildSavedEntityDescriptor('watchlist', 'watchlist-list', 'workspace-1')
@@ -227,39 +227,19 @@ describe('shared document lifecycle', () => {
       doc.transact(() => doc.getMap('members').set('current', 'canonical'), YJS_ORIGINS.SYSTEM)
     })
     setDocumentReconciler(doc, reconcile)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     try {
-      await vi.advanceTimersByTimeAsync(30_000)
+      await vi.advanceTimersByTimeAsync(15_000)
+      await expect(reconcileDocument(doc, true)).rejects.toThrow('database unavailable')
       expect(reconcile).toHaveBeenCalledOnce()
       expect(doc.getMap('members').get('current')).toBe('stale')
 
-      sockets.forEach((socket) => socket.emit('pong'))
-      await vi.advanceTimersByTimeAsync(30_000)
+      await vi.advanceTimersByTimeAsync(15_000)
       expect(reconcile).toHaveBeenCalledTimes(2)
       expect(doc.getMap('members').get('current')).toBe('canonical')
     } finally {
-      consoleError.mockRestore()
       sockets.forEach((socket) => socket.emit('close'))
     }
-  })
-
-  it('coalesces forced reconciliation behind an in-flight database read', async () => {
-    const socket = new TestSocket()
-    const doc = await setupWatchlistSocket(socket, 'list:watchlist:workspace-1', vi.fn())
-    const gate = deferred()
-    const reconcile = vi.fn(() => (reconcile.mock.calls.length === 1 ? gate.promise : undefined))
-    setDocumentReconciler(doc, reconcile)
-    void reconcileDocument(doc, true)
-    const followUp = reconcileDocument(doc, true)
-    const inFlight = Reflect.get(doc, 'reconciliationInFlight') as Promise<void>
-    const joinGap = vi.fn(() => reconcileDocument(doc, true))
-    void inFlight.then(joinGap)
-    gate.resolve()
-    await vi.waitFor(() => expect(joinGap).toHaveReturnedWith(followUp))
-    await followUp
-    expect(reconcile).toHaveBeenCalledTimes(2)
-    socket.emit('close')
   })
 })
 
