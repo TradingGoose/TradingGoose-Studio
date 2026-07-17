@@ -241,7 +241,7 @@ describe('workflow shared session lifecycle', () => {
       expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(stale.doc)
     })
 
-    const pendingLocalEdits = { base: new Uint8Array([0]), current: new Uint8Array([1]) }
+    const pendingLocalEdits = { base: new Uint8Array([0]), updates: [new Uint8Array([1])] }
     stale.emitResync(pendingLocalEdits)
     await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').error).toBe('realtime unavailable')

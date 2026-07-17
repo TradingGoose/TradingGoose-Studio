@@ -18,7 +18,7 @@ import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 export interface YjsPendingLocalEdits {
   readonly base: Uint8Array
-  readonly current: Uint8Array
+  readonly updates: readonly Uint8Array[]
 }
 
 export interface YjsProviderBootstrapResult {
@@ -105,18 +105,22 @@ function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits 
     baseState.size > 0 &&
     [...baseState].every(([client, clock]) => (targetState.get(client) ?? 0) >= clock)
   ) {
-    Y.applyUpdate(target, pending.current, YJS_ORIGINS.SYSTEM)
+    for (const update of pending.updates) Y.applyUpdate(target, update, YJS_ORIGINS.SYSTEM)
     return
   }
   const base = new Y.Doc()
   const current = new Y.Doc()
   try {
     Y.applyUpdate(base, pending.base, YJS_ORIGINS.SYSTEM)
-    Y.applyUpdate(current, pending.current, YJS_ORIGINS.SYSTEM)
+    Y.applyUpdate(current, pending.base, YJS_ORIGINS.SYSTEM)
+    for (const update of pending.updates) Y.applyUpdate(current, update, YJS_ORIGINS.SYSTEM)
     target.transact(() => {
-      for (const name of current.share.keys()) {
-        if (name === 'metadata') continue
-        applyYMapLocalEdits(target.getMap(name), base.getMap(name), current.getMap(name))
+      for (const update of pending.updates) {
+        for (const name of current.share.keys()) {
+          if (name === 'metadata') continue
+          applyYMapLocalEdits(target.getMap(name), base.getMap(name), current.getMap(name))
+        }
+        Y.applyUpdate(base, update, YJS_ORIGINS.SYSTEM)
       }
     }, YJS_ORIGINS.SYSTEM)
   } finally {
@@ -184,6 +188,10 @@ export async function bootstrapYjsProvider(
     connect: false,
     disableBc: true,
   })
+  const localUpdates: Uint8Array[] = []
+  doc.on('update', (update: Uint8Array, origin: unknown) => {
+    if (origin !== provider) localUpdates.push(update)
+  })
   const applySyncMessage = provider.messageHandlers[messageSync]!
   provider.messageHandlers[messageSync] = (encoder, decoder, source, emitSynced, messageType) => {
     if (active) {
@@ -246,7 +254,7 @@ export async function bootstrapYjsProvider(
           type: 'resync-required',
           pendingLocalEdits: {
             base: Y.encodeStateAsUpdate(acknowledged),
-            current: Y.encodeStateAsUpdate(doc),
+            updates: localUpdates,
           },
         })
     })

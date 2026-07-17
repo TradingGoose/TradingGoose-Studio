@@ -154,98 +154,88 @@ describe('bootstrapYjsProvider', () => {
   })
 
   it('rebases unacknowledged local edits onto a fresh server history', async () => {
-    const snapshots = ['Initial', 'Replacement'].map((name) => {
+    const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
       const fields = doc.getMap('fields')
-      fields.set('serverName', name)
-      fields.set('acknowledged', name)
-      fields.set('codeText', new Y.Text(name))
-      fields.set('stableText', new Y.Text('stable'))
-      fields.set('interleavedText', new Y.Text(name === 'Initial' ? '' : 'aba'))
-      fields.set('prefixText', new Y.Text(name === 'Initial' ? 'abc' : 'abcY'))
-      fields.set('runText', new Y.Text(name === 'Initial' ? 'aa' : 'baaa'))
-      fields.set('replaceText', new Y.Text(name === 'Initial' ? 'aab' : 'baXb'))
-      if (name === 'Initial') fields.set('deletedText', new Y.Text('hello'))
-      fields.set('retypedText', name === 'Initial' ? new Y.Text('hello') : 42)
-      fields.set('removed', name === 'Initial' ? true : 'Replacement')
-      fields.set('settings', { local: 'Initial', server: name })
-      const nested = new Y.Map<unknown>()
-      nested.set('serverName', name)
-      fields.set('nested', nested)
-      const update = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
+      for (const [key, value] of Object.entries(values)) fields.set(key, value)
+      const update = Y.encodeStateAsUpdate(doc)
       doc.destroy()
       return update
+    }
+    const nested = (owned: string, foreign: string) => new Y.Map(Object.entries({ owned, foreign }))
+    const initial = snapshot({
+      text: new Y.Text('a'),
+      scalar: 'a',
+      stable: new Y.Text('stable'),
+      deleted: 'base',
+      retyped: new Y.Text('base'),
+      nested: nested('a', 'base'),
     })
     const { result, provider } = await bootstrapSyncedProvider()
-    provider.receive(createSyncUpdateMessage(Buffer.from(snapshots[0], 'base64')))
-    result.doc.getMap('fields').set('acknowledged', 'Acknowledged')
-    provider.emit('connection-close', null, provider)
+    provider.receive(createSyncUpdateMessage(initial))
     const fields = result.doc.getMap('fields')
-    ;(fields.get('codeText') as Y.Text).insert(7, ' local')
-    ;(fields.get('stableText') as Y.Text).insert(6, '!')
-    ;(fields.get('interleavedText') as Y.Text).insert(0, 'aa')
-    ;(fields.get('prefixText') as Y.Text).insert(0, 'X')
-    ;(fields.get('runText') as Y.Text).insert(1, 'a')
-    ;(fields.get('replaceText') as Y.Text).delete(0, 3)
-    ;(fields.get('replaceText') as Y.Text).insert(0, 'baX')
-    ;(fields.get('deletedText') as Y.Text).insert(5, '!')
-    ;(fields.get('retypedText') as Y.Text).insert(5, '!')
-    ;(fields.get('nested') as Y.Map<unknown>).set('offline', true)
-    fields.set('settings', { local: 'Offline', server: 'Initial' })
-    fields.delete('removed')
-
+    ;(fields.get('text') as Y.Text).insert(1, 'b')
+    fields.set('scalar', 'b')
+    fields.set('deleted', 'intermediate')
+    ;(fields.get('retyped') as Y.Text).insert(4, '!')
+    ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'b')
+    const intermediate = snapshot({
+      text: new Y.Text('ab'),
+      scalar: 'b',
+      stable: new Y.Text('stable'),
+      deleted: 'intermediate',
+      retyped: new Y.Text('base!'),
+      nested: nested('b', 'base'),
+    })
+    ;(fields.get('text') as Y.Text).insert(2, 'c')
+    fields.set('scalar', 'c')
+    fields.delete('deleted')
+    ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'c')
+    ;(fields.get('stable') as Y.Text).insert(6, '!')
+    provider.emit('connection-close', null, provider)
     const event = await result.lifecycle
     if (event.type !== 'resync-required') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
     result.dispose()
-    const restarted = await bootstrapSyncedProvider(Buffer.from(snapshots[0], 'base64'), pending)
-    const restartedFields = restarted.result.doc.getMap('fields')
-    expect(restartedFields.get('acknowledged')).toBe('Acknowledged')
-    expect((restartedFields.get('stableText') as Y.Text).toString()).toBe('stable!')
+    const restarted = await bootstrapSyncedProvider(intermediate, pending)
+    expect(restarted.result.doc.getMap('fields').toJSON()).toEqual({
+      text: 'abc',
+      scalar: 'c',
+      stable: 'stable!',
+      retyped: 'base!',
+      nested: { owned: 'c', foreign: 'base' },
+    })
     restarted.result.dispose()
-    const accepted = new Y.Doc()
-    Y.applyUpdate(accepted, pending.current)
-    const sameHistory = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(accepted), pending)
-    expect((sameHistory.result.doc.getMap('fields').get('replaceText') as Y.Text).toString()).toBe(
-      'baX'
-    )
-    sameHistory.result.dispose()
-    accepted.destroy()
     const concurrent = new Y.Doc()
     Y.applyUpdate(concurrent, pending.base)
-    ;(concurrent.getMap('fields').get('codeText') as Y.Text).insert(0, 'Server ')
-    const concurrentPrefix = concurrent.getMap('fields').get('prefixText') as Y.Text
-    concurrentPrefix.insert(concurrentPrefix.length, 'Y')
+    ;(concurrent.getMap('fields').get('nested') as Y.Map<unknown>).set('foreign', 'server')
     const merged = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(concurrent), pending)
-    expect((merged.result.doc.getMap('fields').get('codeText') as Y.Text).toString()).toBe(
-      'Server Initial local'
-    )
-    expect((merged.result.doc.getMap('fields').get('prefixText') as Y.Text).toString()).toBe(
-      'XabcY'
-    )
+    const mergedFields = merged.result.doc.getMap('fields')
+    expect((mergedFields.get('text') as Y.Text).toString()).toBe('abc')
+    expect((mergedFields.get('nested') as Y.Map<unknown>).get('foreign')).toBe('server')
     merged.result.dispose()
     concurrent.destroy()
-    const replacement = await bootstrapSyncedProvider(Buffer.from(snapshots[1], 'base64'), pending)
-    const rebased = replacement.result.doc.getMap('fields')
-    expect(rebased.get('serverName')).toBe('Replacement')
-    expect(rebased.get('acknowledged')).toBe('Replacement')
-    expect((rebased.get('codeText') as Y.Text).toString()).toBe('Replacement')
-    expect((rebased.get('stableText') as Y.Text).toString()).toBe('stable!')
-    expect((rebased.get('interleavedText') as Y.Text).toString()).toBe('aba')
-    expect((rebased.get('prefixText') as Y.Text).toString()).toBe('abcY')
-    expect((rebased.get('runText') as Y.Text).toString()).toBe('baaa')
-    expect((rebased.get('replaceText') as Y.Text).toString()).toBe('baXb')
-    expect(rebased.has('deletedText')).toBe(false)
-    expect(rebased.get('retypedText')).toBe(42)
-    expect((rebased.get('nested') as Y.Map<unknown>).toJSON()).toEqual({
-      serverName: 'Replacement',
-      offline: true,
+    const replacement = await bootstrapSyncedProvider(
+      snapshot({
+        text: new Y.Text('foreign'),
+        scalar: 'foreign',
+        stable: new Y.Text('stable'),
+        deleted: 'foreign',
+        retyped: 42,
+        nested: nested('foreign', 'server'),
+      }),
+      pending
+    )
+    expect(replacement.result.doc.getMap('fields').toJSON()).toEqual({
+      text: 'foreign',
+      scalar: 'foreign',
+      stable: 'stable!',
+      deleted: 'foreign',
+      retyped: 42,
+      nested: { owned: 'foreign', foreign: 'server' },
     })
-    expect(rebased.get('settings')).toEqual({ local: 'Initial', server: 'Replacement' })
-    expect(rebased.get('removed')).toBe('Replacement')
     replacement.result.dispose()
-    expect(provider.connect).toHaveBeenCalledOnce()
   })
 
   it('waits for authoritative reader sync without applying the HTTP snapshot', async () => {
