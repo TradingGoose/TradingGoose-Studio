@@ -44,10 +44,7 @@ class MockYjsAuthError extends Error {
 }
 
 class MockYjsSessionAdmissionError extends Error {
-  constructor(
-    _sessionId: string,
-    public status: 409 | 410 = 409
-  ) {
+  constructor(_sessionId: string) {
     super('Yjs session is not accepting connections')
   }
 }
@@ -537,19 +534,17 @@ describe('handleYjsUpgrade', () => {
     expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4403, 'Failed to attach Yjs session')
   })
 
-  it.each([
-    [409, YJS_CLOSE_CODE_RETRY_REQUIRED],
-    [410, 4410],
-  ] as const)('maps Yjs admission status %s to close code %s', async (status, closeCode) => {
-    mockAcquireDocument.mockRejectedValueOnce(
-      new MockYjsSessionAdmissionError('watchlist-fenced', status)
-    )
+  it('maps an active Yjs admission fence to a retryable close', async () => {
+    mockAcquireDocument.mockRejectedValueOnce(new MockYjsSessionAdmissionError('watchlist-fenced'))
 
     await runYjsUpgrade({
       target: { sessionId: 'watchlist-fenced', entityKind: 'watchlist' },
     })
 
-    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(closeCode, 'Failed to attach Yjs session')
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
+      YJS_CLOSE_CODE_RETRY_REQUIRED,
+      'Failed to attach Yjs session'
+    )
   })
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {

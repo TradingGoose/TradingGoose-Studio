@@ -87,16 +87,12 @@ function deferred() {
   return { promise, resolve }
 }
 
-function expectAdmissionStatus(
-  sessionId: string,
-  workspaceId: string | undefined,
-  status: 409 | 410
-) {
+function expectAdmissionBlocked(sessionId: string, workspaceId?: string) {
   try {
     assertYjsSessionAdmission(sessionId, workspaceId)
     throw new Error('Expected Yjs session admission to be rejected')
   } catch (error) {
-    expect(error).toMatchObject({ status })
+    expect(error).toMatchObject({ status: 409 })
   }
 }
 
@@ -295,7 +291,7 @@ describe('realtime shutdown', () => {
     await expect(
       runDocumentMutation(peekDocument('watchlist-drain-0')!, () => undefined)
     ).rejects.toThrow('draining')
-    expectAdmissionStatus('watchlist-drain-0', undefined, 409)
+    expectAdmissionBlocked('watchlist-drain-0')
     await expect(
       acquireDocument('new-during-drain', { initialize: () => undefined }, () => undefined)
     ).rejects.toThrow('not accepting connections')
@@ -585,7 +581,7 @@ describe('orderly document discard', () => {
     expect(persistedValue).toHaveBeenCalledWith(true)
     expect(socket.close).toHaveBeenCalledOnce()
     expect(peekDocument('leased-watchlist')).toBeNull()
-    expectAdmissionStatus('leased-watchlist', 'workspace-1', 409)
+    expectAdmissionBlocked('leased-watchlist', 'workspace-1')
     await expect(
       acquireDocument(
         'leased-watchlist',
@@ -603,10 +599,10 @@ describe('orderly document discard', () => {
     commitYjsSessionDeletion(committedLease)
     commitYjsSessionDeletion(committedLease)
     abortYjsSessionDeletion(committedLease)
-    expectAdmissionStatus('deleted-watchlist', undefined, 410)
+    expect(() => assertYjsSessionAdmission('deleted-watchlist')).not.toThrow()
     await expect(
       acquireDocument('deleted-watchlist', { initialize: () => undefined }, () => undefined)
-    ).rejects.toThrow('not accepting connections')
+    ).resolves.toBeUndefined()
 
     vi.useFakeTimers()
     const expiredLease = 'lease-expired'
@@ -614,7 +610,7 @@ describe('orderly document discard', () => {
     await vi.advanceTimersByTimeAsync(5 * 60_000 - 1)
     await beginYjsSessionDeletion(expiredLease, { sessionIds: ['orphaned-watchlist'] })
     await vi.advanceTimersByTimeAsync(1)
-    expectAdmissionStatus('orphaned-watchlist', undefined, 409)
+    expectAdmissionBlocked('orphaned-watchlist')
     await vi.runOnlyPendingTimersAsync()
     expect(() => assertYjsSessionAdmission('orphaned-watchlist')).not.toThrow()
 
@@ -623,7 +619,7 @@ describe('orderly document discard', () => {
     await vi.advanceTimersByTimeAsync(2.5 * 60_000)
     await beginYjsSessionDeletion('lease-cleanup', { sessionIds: ['cleanup-watchlist'] })
     await vi.advanceTimersByTimeAsync(2.5 * 60_000)
-    expectAdmissionStatus('cleanup-watchlist', undefined, 409)
+    expectAdmissionBlocked('cleanup-watchlist')
     await vi.runOnlyPendingTimersAsync()
     expect(() => assertYjsSessionAdmission('cleanup-watchlist')).not.toThrow()
   })
@@ -662,10 +658,10 @@ describe('orderly document discard', () => {
     )
     await vi.advanceTimersByTimeAsync(5 * 60_000)
 
-    expectAdmissionStatus('slow-dashboard-widget', undefined, 409)
+    expectAdmissionBlocked('slow-dashboard-widget')
     mutation.resolve()
     await deleting
-    expectAdmissionStatus('slow-dashboard-widget', undefined, 410)
+    expect(() => assertYjsSessionAdmission('slow-dashboard-widget')).not.toThrow()
   })
 
   it('reopens a current document after a retryable discard flush failure', async () => {

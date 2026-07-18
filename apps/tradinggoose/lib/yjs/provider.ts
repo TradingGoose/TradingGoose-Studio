@@ -42,6 +42,9 @@ const SYNC_TIMEOUT_MS = 10_000
 
 function connectionCloseError(event: unknown): YjsProviderError | null {
   const code = Number((event as { code?: unknown } | null)?.code)
+  if (code === 1009) {
+    return terminalProviderError('Yjs update exceeds the realtime transport payload limit')
+  }
   return code === YJS_CLOSE_CODE_AUTHORIZATION_REVOKED || code === YJS_CLOSE_CODE_DOCUMENT_REJECTED
     ? terminalProviderError('Yjs session was rejected')
     : null

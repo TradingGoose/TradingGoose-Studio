@@ -150,7 +150,7 @@ export function handleYjsUpgrade(
 
 function yjsConnectionRejectionCode(error: unknown): number {
   if (error instanceof YjsSessionAdmissionError) {
-    return error.status === 410 ? YJS_CLOSE_CODE_DOCUMENT_REJECTED : YJS_CLOSE_CODE_RETRY_REQUIRED
+    return YJS_CLOSE_CODE_RETRY_REQUIRED
   }
   if (error instanceof YjsAuthError) {
     if (error.code === 403) return YJS_CLOSE_CODE_AUTHORIZATION_REVOKED

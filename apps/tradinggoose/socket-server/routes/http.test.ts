@@ -820,7 +820,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('coordinates exact-session deletion leases through begin, commit, and abort', async () => {
+  it('releases exact-session deletion leases through commit and abort delegates', async () => {
     const begun = await invoke('POST', '/internal/yjs/session-deletions', {
       leaseId: 'lease-1',
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],

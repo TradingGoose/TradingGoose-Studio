@@ -257,4 +257,19 @@ describe('bootstrapYjsProvider', () => {
     expect(provider.disconnect).toHaveBeenCalledOnce()
     result.dispose()
   })
+
+  it('terminates an oversized writer update instead of replaying it', async () => {
+    const result = await bootstrapSyncedProvider()
+    const provider = result.provider as unknown as MockWebsocketProvider
+    result.doc.getMap('workflow').set('content', 'local edit')
+
+    provider.emit('connection-close', { code: 1009 }, provider)
+
+    await expect(result.lifecycle).resolves.toMatchObject({
+      type: 'terminal-failure',
+      error: { retryable: false },
+    })
+    expect(provider.disconnect).toHaveBeenCalledOnce()
+    result.dispose()
+  })
 })

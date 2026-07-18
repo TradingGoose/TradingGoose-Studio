@@ -34,7 +34,7 @@ const DELETION_LEASE_TTL_MS = 5 * 60_000
 const DOCUMENT_RETENTION_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
-const deletionAdmissions = new Map<string, string | null>()
+const deletionAdmissions = new Map<string, string>()
 type DeletionLease = {
   targets: string[]
   drain: Promise<void>
@@ -66,12 +66,11 @@ export class YjsDocumentDrainingError extends Error {
 }
 
 export class YjsSessionAdmissionError extends Error {
-  readonly status: 409 | 410
+  readonly status = 409
 
-  constructor(sessionId: string, status: 409 | 410 = 409) {
+  constructor(sessionId: string) {
     super(`Yjs session ${sessionId} is not accepting connections`)
     this.name = 'YjsSessionAdmissionError'
-    this.status = status
   }
 }
 
@@ -516,11 +515,7 @@ export function assertYjsSessionAdmission(docId: string, workspaceId?: string | 
     (workspaceTarget !== null && deletionAdmissions.has(workspaceTarget)) ||
     docs.get(docId)?.isDraining === true
   if (!blocked) return
-
-  const deleted =
-    deletionAdmissions.get(sessionTarget) === null ||
-    (workspaceTarget !== null && deletionAdmissions.get(workspaceTarget) === null)
-  throw new YjsSessionAdmissionError(docId, deleted ? 410 : 409)
+  throw new YjsSessionAdmissionError(docId)
 }
 
 export function setupWSConnection(
@@ -664,17 +659,18 @@ function refreshYjsSessionDeletionLease(leaseId: string, lease: DeletionLease): 
   }
   lease.expiryTimer = setTimeout(() => {
     if (deletionLeases.get(leaseId) !== lease) return
-    abortYjsSessionDeletion(leaseId)
+    releaseYjsSessionDeletionLease(leaseId)
   }, DELETION_LEASE_TTL_MS)
 }
 
-function removeYjsSessionDeletionLease(leaseId: string): DeletionLease | undefined {
+function releaseYjsSessionDeletionLease(leaseId: string): void {
   const lease = deletionLeases.get(leaseId)
-  if (!lease) return undefined
+  if (!lease) return
   deletionLeases.delete(leaseId)
   if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
-  lease.expiryTimer = null
-  return lease
+  for (const target of lease.targets) {
+    if (deletionAdmissions.get(target) === leaseId) deletionAdmissions.delete(target)
+  }
 }
 
 function normalizeDeletionTargetIds(ids: readonly string[] = []): string[] {
@@ -760,22 +756,11 @@ export async function withYjsSessionDeletion<T>(
 }
 
 export function commitYjsSessionDeletion(leaseId: string): void {
-  const lease = removeYjsSessionDeletionLease(leaseId)
-  if (!lease) return
-  for (const deletionTarget of lease.targets) {
-    if (deletionAdmissions.get(deletionTarget) === leaseId) {
-      deletionAdmissions.set(deletionTarget, null)
-    }
-  }
+  releaseYjsSessionDeletionLease(leaseId)
 }
 
 export function abortYjsSessionDeletion(leaseId: string): void {
-  const lease = removeYjsSessionDeletionLease(leaseId)
-  if (!lease) return
-  for (const deletionTarget of lease.targets) {
-    if (deletionAdmissions.get(deletionTarget) === leaseId)
-      deletionAdmissions.delete(deletionTarget)
-  }
+  releaseYjsSessionDeletionLease(leaseId)
 }
 
 async function reconcileConnection(
