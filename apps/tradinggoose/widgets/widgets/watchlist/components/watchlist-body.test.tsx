@@ -366,7 +366,7 @@ describe('WatchlistWidgetBody', () => {
     expect(mockRefetchQuotes).not.toHaveBeenCalled()
   })
 
-  it('removes a section block and promotes direct children when deleting a section', async () => {
+  it('removes a section and its owned listings without affecting a matching root listing', async () => {
     currentWatchlists = [
       {
         ...watchlist,
@@ -375,12 +375,7 @@ describe('WatchlistWidgetBody', () => {
             id: 'root-listing',
             type: 'listing' as const,
             parentId: null,
-            listing: {
-              listing_id: 'MSFT',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
+            listing: selectedListing,
           },
           {
             id: 'section-1',
@@ -430,17 +425,6 @@ describe('WatchlistWidgetBody', () => {
     expect(mockSetWatchlistItems).toHaveBeenCalledWith([
       {
         id: 'root-listing',
-        type: 'listing',
-        parentId: null,
-        listing: {
-          listing_id: 'MSFT',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-      {
-        id: 'section-listing',
         type: 'listing',
         parentId: null,
         listing: selectedListing,

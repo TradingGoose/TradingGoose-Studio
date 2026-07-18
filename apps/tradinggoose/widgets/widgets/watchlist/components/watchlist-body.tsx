@@ -15,18 +15,6 @@ const WatchlistMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-const removeContainerPromoteChildren = <
-  T extends { id: string; type: string; parentId?: string | null },
->(
-  items: T[],
-  containerId: string
-) =>
-  items
-    .filter((item) => item.id !== containerId)
-    .map((item) =>
-      item.type === 'listing' && item.parentId === containerId ? { ...item, parentId: null } : item
-    )
-
 export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const copy = useMessages().workspace.widgets.watchlist.body
   const {
@@ -92,7 +80,9 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   }
 
   const handleRemoveContainer = async (containerId: string) => {
-    await persistItems((items) => removeContainerPromoteChildren(items, containerId))
+    await persistItems((items) =>
+      items.filter((item) => item.id !== containerId && item.parentId !== containerId)
+    )
   }
 
   const handleRenameContainer = async (containerId: string, label: string) => {
