@@ -148,7 +148,7 @@ describe('bootstrapYjsProvider', () => {
     vi.unstubAllGlobals()
   })
 
-  it('rebases unacknowledged local edits onto a fresh server history', async () => {
+  it('rebases divergent local text edits onto a fresh server history', async () => {
     const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
       const fields = doc.getMap('workflow')
@@ -197,7 +197,7 @@ describe('bootstrapYjsProvider', () => {
     })
     restarted.dispose()
     const concurrent = snapshot({
-      text: new Y.Text('ab'),
+      text: new Y.Text('aX'),
       blocks: blocks('Base A', 'Remote B'),
       deleted: 'intermediate',
       nested: nested('b', 'server'),
@@ -222,7 +222,7 @@ describe('bootstrapYjsProvider', () => {
       pending
     )
     expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
-      text: 'foreign',
+      text: 'abc',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },

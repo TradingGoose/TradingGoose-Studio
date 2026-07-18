@@ -105,7 +105,7 @@ function mergeYMapValue(base: unknown, local: unknown, remote: unknown): unknown
     }
     return Object.fromEntries(merged)
   }
-  return remote
+  return [base, local, remote].every((value) => value instanceof Y.Text) ? local : remote
 }
 
 function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits | undefined): void {
@@ -124,9 +124,9 @@ function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits 
   try {
     Y.applyUpdate(base, pending.base, YJS_ORIGINS.SYSTEM)
     Y.applyUpdate(current, pending.base, YJS_ORIGINS.SYSTEM)
-    for (const update of pending.updates) Y.applyUpdate(current, update, YJS_ORIGINS.SYSTEM)
     target.transact(() => {
       for (const update of pending.updates) {
+        Y.applyUpdate(current, update, YJS_ORIGINS.SYSTEM)
         for (const name of current.share.keys()) {
           if (name === 'metadata') continue
           mergeYMapValue(base.getMap(name), current.getMap(name), target.getMap(name))
