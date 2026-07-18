@@ -153,6 +153,7 @@ app:
 realtime:
   # Enable/disable the realtime service
   enabled: true
+  terminationGracePeriodSeconds: 300
   
   # Image configuration
   image:

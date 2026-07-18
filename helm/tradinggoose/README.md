@@ -171,6 +171,7 @@ deployment strategy; autoscaling and pod disruption budget settings apply only t
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `realtime.enabled` | Enable the realtime service | `true` |
+| `realtime.terminationGracePeriodSeconds` | Time allowed for the realtime durability drain | `300` |
 | `realtime.image.repository` | Realtime image repository | `tradinggoose/realtime` |
 | `realtime.image.tag` | Realtime image tag | `latest` |
 | `realtime.image.pullPolicy` | Realtime image pull policy | `Always` |
