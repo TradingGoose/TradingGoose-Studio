@@ -1,6 +1,6 @@
 import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
-import { isEqual } from 'lodash'
+import { isEqual, isPlainObject } from 'lodash'
 import { messageSync, WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 import {
@@ -56,45 +56,56 @@ function requireSuccessfulResponse(response: Response, label: string): void {
   throw terminalProviderError(message)
 }
 
-function setYMapValue(target: Y.Map<unknown>, key: string, value: unknown): void {
-  target.set(
-    key,
-    value instanceof Y.Map || value instanceof Y.Text ? value.clone() : structuredClone(value)
-  )
-}
+const MISSING_Y_MAP_VALUE = Symbol('missing-y-map-value')
 
-function applyYMapLocalEdits(
-  target: Y.Map<unknown>,
-  base: Y.Map<unknown>,
-  current: Y.Map<unknown>
-): void {
-  const yValueJson = (value: unknown) =>
-    value instanceof Y.Map || value instanceof Y.Text ? value.toJSON() : value
-  const yValuesEqual = (left: unknown, right: unknown) =>
-    left instanceof Y.Map === right instanceof Y.Map &&
-    left instanceof Y.Text === right instanceof Y.Text &&
-    isEqual(yValueJson(left), yValueJson(right))
+const yValueJson = (value: unknown) =>
+  value instanceof Y.Map || value instanceof Y.Text ? value.toJSON() : value
+const yValuesEqual = (left: unknown, right: unknown) =>
+  left instanceof Y.Map === right instanceof Y.Map &&
+  left instanceof Y.Text === right instanceof Y.Text &&
+  isEqual(yValueJson(left), yValueJson(right))
 
-  for (const key of new Set([...base.keys(), ...current.keys()])) {
-    const before = base.get(key)
-    const after = current.get(key)
-    const targetValue = target.get(key)
-    if (!current.has(key)) {
-      if (base.has(key) && target.has(key) && yValuesEqual(targetValue, before)) target.delete(key)
-      continue
+function mergeYMapValue(base: unknown, local: unknown, remote: unknown): unknown {
+  if (base instanceof Y.Map && local instanceof Y.Map && remote instanceof Y.Map) {
+    for (const key of new Set([...base.keys(), ...local.keys()])) {
+      const remoteValue = remote.has(key) ? remote.get(key) : MISSING_Y_MAP_VALUE
+      const merged = mergeYMapValue(
+        base.has(key) ? base.get(key) : MISSING_Y_MAP_VALUE,
+        local.has(key) ? local.get(key) : MISSING_Y_MAP_VALUE,
+        remoteValue
+      )
+      if (merged === MISSING_Y_MAP_VALUE) {
+        remote.delete(key)
+      } else if (!yValuesEqual(remoteValue, merged)) {
+        remote.set(
+          key,
+          merged instanceof Y.Map || merged instanceof Y.Text
+            ? merged.clone()
+            : structuredClone(merged)
+        )
+      }
     }
-    if (!base.has(key)) {
-      if (!target.has(key)) setYMapValue(target, key, after)
-      continue
-    }
-    if (before instanceof Y.Map && after instanceof Y.Map && targetValue instanceof Y.Map) {
-      applyYMapLocalEdits(targetValue, before, after)
-      continue
-    }
-    if (!yValuesEqual(before, after) && yValuesEqual(targetValue, before)) {
-      setYMapValue(target, key, after)
-    }
+    return remote
   }
+  if (yValuesEqual(local, base)) return remote
+  if (yValuesEqual(remote, base)) return local
+  if (isPlainObject(base) && isPlainObject(local) && isPlainObject(remote)) {
+    const baseRecord = base as Record<string, unknown>
+    const localRecord = local as Record<string, unknown>
+    const remoteRecord = remote as Record<string, unknown>
+    const merged = new Map(Object.entries(remoteRecord))
+    for (const key of new Set([...Object.keys(baseRecord), ...Object.keys(localRecord)])) {
+      const value = mergeYMapValue(
+        Object.hasOwn(baseRecord, key) ? baseRecord[key] : MISSING_Y_MAP_VALUE,
+        Object.hasOwn(localRecord, key) ? localRecord[key] : MISSING_Y_MAP_VALUE,
+        Object.hasOwn(remoteRecord, key) ? remoteRecord[key] : MISSING_Y_MAP_VALUE
+      )
+      if (value === MISSING_Y_MAP_VALUE) merged.delete(key)
+      else merged.set(key, value)
+    }
+    return Object.fromEntries(merged)
+  }
+  return remote
 }
 
 function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits | undefined): void {
@@ -118,7 +129,7 @@ function applyYjsPendingLocalEdits(target: Y.Doc, pending: YjsPendingLocalEdits 
       for (const update of pending.updates) {
         for (const name of current.share.keys()) {
           if (name === 'metadata') continue
-          applyYMapLocalEdits(target.getMap(name), base.getMap(name), current.getMap(name))
+          mergeYMapValue(base.getMap(name), current.getMap(name), target.getMap(name))
         }
         Y.applyUpdate(base, update, YJS_ORIGINS.SYSTEM)
       }

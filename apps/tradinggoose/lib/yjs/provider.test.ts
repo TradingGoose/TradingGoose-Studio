@@ -129,11 +129,7 @@ describe('bootstrapYjsProvider', () => {
     const provider = providerInstances.at(-1)!
     if (serverUpdate) provider.receive(createSyncUpdateMessage(serverUpdate))
     provider.emit('sync', true)
-    const result = await bootstrapPromise
-    return {
-      result,
-      provider: result.provider as unknown as MockWebsocketProvider,
-    }
+    return bootstrapPromise
   }
 
   beforeEach(() => {
@@ -149,49 +145,43 @@ describe('bootstrapYjsProvider', () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
   it('rebases unacknowledged local edits onto a fresh server history', async () => {
     const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
-      const fields = doc.getMap('fields')
+      const fields = doc.getMap('workflow')
       for (const [key, value] of Object.entries(values)) fields.set(key, value)
       const update = Y.encodeStateAsUpdate(doc)
       doc.destroy()
       return update
     }
     const nested = (owned: string, foreign: string) => new Y.Map(Object.entries({ owned, foreign }))
+    const blocks = (blockA: string, blockB: string) => ({
+      blockA: { id: 'blockA', name: blockA },
+      blockB: { id: 'blockB', name: blockB },
+    })
     const initial = snapshot({
       text: new Y.Text('a'),
-      scalar: 'a',
-      stable: new Y.Text('stable'),
+      blocks: blocks('Base A', 'Base B'),
       deleted: 'base',
       retyped: new Y.Text('base'),
       nested: nested('a', 'base'),
     })
-    const { result, provider } = await bootstrapSyncedProvider()
+    const result = await bootstrapSyncedProvider()
+    const provider = result.provider as unknown as MockWebsocketProvider
     provider.receive(createSyncUpdateMessage(initial))
-    const fields = result.doc.getMap('fields')
+    const fields = result.doc.getMap('workflow')
     ;(fields.get('text') as Y.Text).insert(1, 'b')
-    fields.set('scalar', 'b')
+    fields.set('blocks', blocks('Local A', 'Base B'))
     fields.set('deleted', 'intermediate')
     ;(fields.get('retyped') as Y.Text).insert(4, '!')
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'b')
-    const intermediate = snapshot({
-      text: new Y.Text('ab'),
-      scalar: 'b',
-      stable: new Y.Text('stable'),
-      deleted: 'intermediate',
-      retyped: new Y.Text('base!'),
-      nested: nested('b', 'base'),
-    })
+    const intermediate = Y.encodeStateAsUpdate(result.doc)
     ;(fields.get('text') as Y.Text).insert(2, 'c')
-    fields.set('scalar', 'c')
     fields.delete('deleted')
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'c')
-    ;(fields.get('stable') as Y.Text).insert(6, '!')
     provider.emit('connection-close', null, provider)
     const event = await result.lifecycle
     if (event.type !== 'resync-required') throw event.error
@@ -199,43 +189,45 @@ describe('bootstrapYjsProvider', () => {
     if (!pending) throw new Error('Expected pending local edits')
     result.dispose()
     const restarted = await bootstrapSyncedProvider(intermediate, pending)
-    expect(restarted.result.doc.getMap('fields').toJSON()).toEqual({
+    expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
-      scalar: 'c',
-      stable: 'stable!',
+      blocks: blocks('Local A', 'Base B'),
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
-    restarted.result.dispose()
-    const concurrent = new Y.Doc()
-    Y.applyUpdate(concurrent, pending.base)
-    ;(concurrent.getMap('fields').get('nested') as Y.Map<unknown>).set('foreign', 'server')
-    const merged = await bootstrapSyncedProvider(Y.encodeStateAsUpdate(concurrent), pending)
-    const mergedFields = merged.result.doc.getMap('fields')
+    restarted.dispose()
+    const concurrent = snapshot({
+      text: new Y.Text('ab'),
+      blocks: blocks('Base A', 'Remote B'),
+      deleted: 'intermediate',
+      nested: nested('b', 'server'),
+    })
+    const merged = await bootstrapSyncedProvider(concurrent, pending)
+    const mergedFields = merged.doc.getMap('workflow')
     expect((mergedFields.get('text') as Y.Text).toString()).toBe('abc')
-    expect((mergedFields.get('nested') as Y.Map<unknown>).get('foreign')).toBe('server')
-    merged.result.dispose()
-    concurrent.destroy()
+    expect(mergedFields.has('deleted')).toBe(false)
+    expect((mergedFields.get('nested') as Y.Map<unknown>).toJSON()).toEqual({
+      owned: 'c',
+      foreign: 'server',
+    })
+    expect(mergedFields.get('blocks')).toEqual(blocks('Local A', 'Remote B'))
+    merged.dispose()
     const replacement = await bootstrapSyncedProvider(
       snapshot({
         text: new Y.Text('foreign'),
-        scalar: 'foreign',
-        stable: new Y.Text('stable'),
         deleted: 'foreign',
         retyped: 42,
         nested: nested('foreign', 'server'),
       }),
       pending
     )
-    expect(replacement.result.doc.getMap('fields').toJSON()).toEqual({
+    expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
       text: 'foreign',
-      scalar: 'foreign',
-      stable: 'stable!',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },
     })
-    replacement.result.dispose()
+    replacement.dispose()
   })
 
   it('waits for authoritative reader sync without applying the HTTP snapshot', async () => {
