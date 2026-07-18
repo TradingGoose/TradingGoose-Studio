@@ -17,7 +17,7 @@ interface LayoutTabsProps {
   isBusy?: boolean
   canMutate?: boolean
   onSelect: (layoutId: string) => void
-  onReorder: (layoutId: string, targetIndex: number) => void
+  onReorder: (layoutOrder: string[]) => void
   onCreate: () => void
   onRename?: (layoutId: string, name: string) => void
   onRequestRename?: (layoutId: string) => void
@@ -111,11 +111,8 @@ export function LayoutTabs({
       orientation='horizontal'
       value={layouts}
       getItemValue={(item) => item.id}
-      onMove={({ activeIndex, overIndex }) => {
-        if (controlsDisabled || activeIndex === overIndex) return
-        const moved = layouts[activeIndex]
-        if (!moved) return
-        onReorder(moved.id, overIndex)
+      onValueChange={(nextLayouts) => {
+        if (!controlsDisabled) onReorder(nextLayouts.map((layout) => layout.id))
       }}
       sensors={sensors}
       flatCursor

@@ -33,7 +33,7 @@ const dashboardClientMocks = vi.hoisted(() => ({
   createDashboardLayoutAction: vi.fn(() => Promise.resolve({ layoutId: 'layout-new' })),
   deleteDashboardLayoutAction: vi.fn(() => Promise.resolve()),
   renameSavedEntityAction: vi.fn(() => Promise.resolve()),
-  reorderDashboardLayoutAction: vi.fn(() => Promise.resolve()),
+  reorderDashboardLayoutsAction: vi.fn(() => Promise.resolve()),
 }))
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
@@ -111,7 +111,7 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
   activateDashboardLayoutAction: dashboardClientMocks.activateDashboardLayoutAction,
   createDashboardLayoutAction: dashboardClientMocks.createDashboardLayoutAction,
   deleteDashboardLayoutAction: dashboardClientMocks.deleteDashboardLayoutAction,
-  reorderDashboardLayoutAction: dashboardClientMocks.reorderDashboardLayoutAction,
+  reorderDashboardLayoutsAction: dashboardClientMocks.reorderDashboardLayoutsAction,
 }))
 vi.mock('@/lib/saved-entities/actions', () => ({
   renameSavedEntityAction: dashboardClientMocks.renameSavedEntityAction,

@@ -30,7 +30,7 @@ import {
   activateDashboardLayoutAction,
   createDashboardLayoutAction,
   deleteDashboardLayoutAction,
-  reorderDashboardLayoutAction,
+  reorderDashboardLayoutsAction,
 } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import {
@@ -586,9 +586,9 @@ export function DashboardClient({
   )
 
   const handleReorderLayouts = useCallback(
-    (layoutId: string, targetIndex: number) => {
+    (layoutOrder: string[]) => {
       if (!canMutateLayouts) return
-      reorderDashboardLayoutAction(workspaceId, layoutId, targetIndex).catch((error) => {
+      reorderDashboardLayoutsAction(workspaceId, layoutOrder).catch((error) => {
         console.error('Failed to reorder layouts:', error)
       })
     },

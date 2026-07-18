@@ -366,26 +366,22 @@ export async function activateDashboardLayout(
   return { listConverged: await refreshLayoutList(scope) }
 }
 
-export async function reorderDashboardLayout(
+export async function reorderDashboardLayouts(
   scope: DashboardLayoutOwnerScope,
-  layoutId: string,
-  sortOrder: number
+  layoutOrder: string[]
 ): Promise<void> {
   await withDashboardLayoutOwnerLock(scope, async (tx) => {
-    const rows = sortLayoutRows(await readDashboardLayoutRows(scope, tx))
-    const sourceIndex = rows.findIndex((row) => row.id === layoutId)
-    if (sourceIndex < 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
-    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder >= rows.length) {
-      throw new DashboardLayoutOperationError(400, 'sortOrder is out of range')
+    const rows = await readDashboardLayoutRows(scope, tx)
+    const remainingIds = new Set(rows.map((row) => row.id))
+    if (layoutOrder.length !== rows.length || layoutOrder.some((id) => !remainingIds.delete(id))) {
+      throw new DashboardLayoutOperationError(400, 'layoutOrder must contain every layout once')
     }
-    const [moved] = rows.splice(sourceIndex, 1)
-    if (moved) rows.splice(sortOrder, 0, moved)
     await Promise.all(
-      rows.map((row, index) =>
+      layoutOrder.map((id, index) =>
         tx
           .update(layoutMaps)
           .set({ sortOrder: index, updatedAt: new Date() })
-          .where(ownedWhere(scope, row.id))
+          .where(ownedWhere(scope, id))
       )
     )
   })

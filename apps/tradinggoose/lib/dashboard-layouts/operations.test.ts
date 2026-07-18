@@ -9,6 +9,7 @@ import {
   readActiveDashboardLayoutProjection,
   readPersistedDashboardLayoutProjection,
   readPersistedDashboardWidgetBinding,
+  reorderDashboardLayouts,
 } from '@/lib/dashboard-layouts/operations'
 
 const m = vi.hoisted(() => {
@@ -188,6 +189,24 @@ describe('dashboard layout operations', () => {
     await expect(activateDashboardLayout(scope, 'layout-2')).resolves.toEqual({
       listConverged: false,
     })
+  })
+
+  it('persists only complete layout orders', async () => {
+    const rows = [layoutRow(), layoutRow({ id: 'layout-2', sortOrder: 1, isActive: false })]
+    m.selectResults.push(rows)
+    await reorderDashboardLayouts(scope, ['layout-2', 'layout-1'])
+    expect(m.mutations.map(({ values }) => (values as { sortOrder: number }).sortOrder)).toEqual([
+      0, 1,
+    ])
+    expect(JSON.stringify(m.mutations.map(({ predicate }) => predicate))).toMatch(
+      /layout-2.*layout-1/
+    )
+    m.mutations.length = 0
+    for (const order of [['layout-1'], ['layout-1', 'layout-1'], ['layout-1', 'layout-3']]) {
+      m.selectResults.push(rows)
+      await expect(reorderDashboardLayouts(scope, order)).rejects.toMatchObject({ status: 400 })
+    }
+    expect(m.mutations).toEqual([])
   })
 
   it('creates a default root and every null-widget child in one transaction', async () => {

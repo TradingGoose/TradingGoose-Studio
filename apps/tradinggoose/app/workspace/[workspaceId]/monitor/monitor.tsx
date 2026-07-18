@@ -1077,19 +1077,10 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   ])
 
   const handleReorderViews = useCallback(
-    async (viewId: string, targetIndex: number) => {
-      const sourceIndex = activeModeRows.findIndex((row) => row.id === viewId)
-      if (sourceIndex === -1) return
-
-      const orderedRows = [...activeModeRows]
-      const [movedRow] = orderedRows.splice(sourceIndex, 1)
-      orderedRows.splice(
-        Math.max(0, Math.min(targetIndex, orderedRows.length)),
-        0,
-        movedRow
-      )
-      const nextRows = orderedRows.map((row, index) => ({
-        ...row,
+    async (viewOrder: string[]) => {
+      const rowsById = new Map(activeModeRows.map((row) => [row.id, row]))
+      const nextRows = viewOrder.map((id, index) => ({
+        ...rowsById.get(id)!,
         sortOrder: index,
       }))
       const previousRows = viewRows
@@ -1101,7 +1092,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       try {
         await reorderMonitorViews(workspaceId, {
           mode: activeMode,
-          viewOrder: nextRows.map((row) => row.id),
+          viewOrder,
           activeViewId: activeModeViewId ?? undefined,
         })
       } catch (errorValue) {
