@@ -1,8 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  readSavedEntityFieldsForExecution,
-  readSavedEntityListFieldsForExecution,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
@@ -13,32 +10,34 @@ export async function resolveSkillMetadata(
   workspaceId: string,
   isDeployedContext: boolean
 ): Promise<SkillMetadata[]> {
-  const skillIds = skillInputs
-    .map((skillInput) => skillInput.skillId)
-    .filter((skillId): skillId is string => typeof skillId === 'string' && skillId.length > 0)
+  const selectedSkills = skillInputs.filter(
+    (skillInput) => typeof skillInput.skillId === 'string' && skillInput.skillId.length > 0
+  )
 
-  if (skillIds.length === 0 || !workspaceId) {
+  if (selectedSkills.length === 0 || !workspaceId) {
     return []
   }
 
-  const requested = new Set(skillIds)
-  const entries = await readSavedEntityListFieldsForExecution(
-    'skill',
-    workspaceId,
-    isDeployedContext
+  const results = await Promise.allSettled(
+    selectedSkills.map((skillInput) =>
+      readSavedEntityFieldsForExecution('skill', skillInput.skillId, workspaceId, isDeployedContext)
+    )
   )
-  const resolved = entries
-    .filter((entry) => requested.has(entry.entityId))
-    .map((entry) => ({
-      id: entry.entityId,
-      name: entry.entityName,
-      description: String(entry.fields.description ?? ''),
-    }))
-  const resolvedIds = new Set(resolved.map((entry) => entry.id))
-  for (const skillId of skillIds) {
-    if (!resolvedIds.has(skillId)) logger.warn(`Skipping unavailable agent skill ${skillId}`)
-  }
-  return resolved
+
+  return results.flatMap((result, index) => {
+    const skillInput = selectedSkills[index]
+    if (result.status === 'fulfilled') {
+      return [
+        {
+          id: skillInput.skillId,
+          name: typeof skillInput.name === 'string' ? skillInput.name : '',
+          description: String(result.value.description ?? ''),
+        },
+      ]
+    }
+    logger.warn(`Skipping unavailable agent skill ${skillInput.skillId}:`, result.reason)
+    return []
+  })
 }
 
 export async function resolveSkillContent(
