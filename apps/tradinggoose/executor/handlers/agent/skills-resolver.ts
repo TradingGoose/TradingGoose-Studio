@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
@@ -18,6 +19,10 @@ export async function resolveSkillMetadata(
     return []
   }
 
+  const namesById = new Map(
+    (await readEntityListMembersFromDb('skill', workspaceId)).map(({ id, name }) => [id, name])
+  )
+
   const results = await Promise.allSettled(
     selectedSkills.map((skillInput) =>
       readSavedEntityFieldsForExecution('skill', skillInput.skillId, workspaceId, isDeployedContext)
@@ -26,16 +31,20 @@ export async function resolveSkillMetadata(
 
   return results.flatMap((result, index) => {
     const skillInput = selectedSkills[index]
-    if (result.status === 'fulfilled') {
+    const name = namesById.get(skillInput.skillId)
+    if (result.status === 'fulfilled' && name !== undefined) {
       return [
         {
           id: skillInput.skillId,
-          name: typeof skillInput.name === 'string' ? skillInput.name : '',
+          name,
           description: String(result.value.description ?? ''),
         },
       ]
     }
-    logger.warn(`Skipping unavailable agent skill ${skillInput.skillId}:`, result.reason)
+    logger.warn(
+      `Skipping unavailable agent skill ${skillInput.skillId}:`,
+      result.status === 'rejected' ? result.reason : 'canonical identity is missing'
+    )
     return []
   })
 }
