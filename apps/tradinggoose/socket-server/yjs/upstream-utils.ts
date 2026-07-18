@@ -601,10 +601,13 @@ export function setupWSConnection(
     }
   }, PING_TIMEOUT)
 
-  conn.on('close', () => {
+  const cleanupConnection = () => {
     closeConn(doc, conn)
     clearInterval(pingInterval)
-  })
+  }
+
+  conn.on('close', cleanupConnection)
+  conn.on('error', cleanupConnection)
 
   conn.on('pong', () => {
     pongReceived = true

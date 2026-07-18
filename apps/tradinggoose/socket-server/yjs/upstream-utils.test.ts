@@ -165,7 +165,7 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('layout-replaced')).toBe(replacement)
   })
 
-  it('retains a flushed lineage without echoing client updates', async () => {
+  it('retains a flushed lineage after a socket error without echoing client updates', async () => {
     vi.useFakeTimers()
     const persist = vi.fn()
     const firstSocket = new TestSocket()
@@ -174,7 +174,7 @@ describe('shared document lifecycle', () => {
     firstSocket.emit('message', createSyncUpdateMessage(createFieldsUpdate(first, 'pending', true)))
     await vi.waitFor(() => expect(first.getMap('fields').get('pending')).toBe(true))
     expect(firstSocket.send).toHaveBeenCalledTimes(sentMessages)
-    firstSocket.emit('close')
+    firstSocket.emit('error', new Error('Max payload size exceeded'))
     await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
 
     expect(peekDocument('watchlist-reconnect')).toBe(first)
