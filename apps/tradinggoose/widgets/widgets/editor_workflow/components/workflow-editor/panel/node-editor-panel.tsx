@@ -14,7 +14,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/use-workflow-doc'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
@@ -47,7 +47,7 @@ const panelClassName =
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
-  const userPermissions = useUserPermissionsContext()
+  const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const selectedLoop = useLoop(selectedNodeId ?? '')
   const selectedParallel = useParallel(selectedNodeId ?? '')
@@ -80,7 +80,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return getSubflowBlockConfig(selectedBlock.type) ?? null
   }, [selectedBlock])
 
-  const shouldDisableWrite = !userPermissions.canEdit || isSelectedBlockProtected
+  const shouldDisableWrite = !canEdit || isSelectedBlockProtected
   const {
     collaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName,
@@ -110,7 +110,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const handleSaveRename = useCallback(() => {
     const blockId = renamingBlockIdRef.current
-    if (!blockId || !isRenaming) return
+    if (!blockId || !isRenaming || shouldDisableWrite) return
 
     const trimmedName = editedName.trim()
     const currentName = selectedBlock?.name ?? ''
@@ -126,7 +126,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     renamingBlockIdRef.current = null
     setIsRenaming(false)
     setEditedName('')
-  }, [collaborativeUpdateBlockName, editedName, isRenaming, selectedBlock])
+  }, [collaborativeUpdateBlockName, editedName, isRenaming, selectedBlock, shouldDisableWrite])
 
   const handleCancelRename = useCallback(() => {
     renamingBlockIdRef.current = null
@@ -139,10 +139,10 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const handleToggleAdvancedFields = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation()
-      if (!selectedBlock) return
+      if (!selectedBlock || shouldDisableWrite) return
       collaborativeToggleBlockAdvancedMode(selectedBlock.id)
     },
-    [collaborativeToggleBlockAdvancedMode, selectedBlock]
+    [collaborativeToggleBlockAdvancedMode, selectedBlock, shouldDisableWrite]
   )
 
   useEffect(() => {

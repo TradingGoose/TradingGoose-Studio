@@ -122,8 +122,8 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   useBlockProtection: () => mockBlockProtection,
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
-  useUserPermissionsContext: () => ({ canEdit: true }),
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  useOptionalWorkflowSession: () => ({ canEdit: true }),
 }))
 
 vi.mock('@/blocks', () => ({

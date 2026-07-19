@@ -16,10 +16,7 @@ import { TriggerUtils } from '@/lib/workflows/triggers'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import {
-  useUserPermissionsContext,
-  useWorkspacePermissionsContext,
-} from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkspacePermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useCurrentWorkflow } from '@/hooks/workflow'
@@ -148,6 +145,7 @@ const WorkflowCanvas = React.memo(
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
     // Yjs awareness for collaborative presence
     const workflowSession = useOptionalWorkflowSession()
+    const canEdit = workflowSession?.canEdit === true
     const awarenessRef = useRef(workflowSession?.awareness)
     useEffect(() => {
       awarenessRef.current = workflowSession?.awareness
@@ -293,11 +291,6 @@ const WorkflowCanvas = React.memo(
 
     const edgesForDisplay = edges
 
-    // User permissions - get current user's specific permissions from context
-    const userPermissions = useUserPermissionsContext()
-
-    const effectivePermissions = userPermissions
-
     // Workspace permissions - get all users and their permissions for this workspace
     const { workspacePermissions, permissionsError } = useWorkspacePermissionsContext()
 
@@ -363,11 +356,14 @@ const WorkflowCanvas = React.memo(
     }, [permissionsError, workspaceId])
 
     const resizeLoopNodesWrapper = useCallback(() => {
+      if (!canEdit) return
       resizeContainerNodes(getNodes, updateNodeDimensions, blocks)
-    }, [getNodes, updateNodeDimensions, blocks])
+    }, [blocks, canEdit, getNodes, updateNodeDimensions])
 
     const updateNodeParent = useCallback(
       (nodeId: string, newParentId: string | null, affectedEdges: Edge[] = []) => {
+        if (!canEdit) return
+
         const result = updateNodeParentForCanvas({
           nodeId,
           newParentId,
@@ -403,6 +399,7 @@ const WorkflowCanvas = React.memo(
       },
       [
         blocks,
+        canEdit,
         getNodes,
         edgesForDisplay,
         collaborativeUpdateBlockPosition,
@@ -436,7 +433,7 @@ const WorkflowCanvas = React.memo(
 
     // Auto-layout handler
     const handleAutoLayout = useCallback(async () => {
-      if (Object.keys(blocks).length === 0) return
+      if (!canEdit || !effectiveWorkflowId || Object.keys(blocks).length === 0) return
 
       try {
         const { applyAutoLayoutToActiveWorkflow } = await import(
@@ -444,7 +441,7 @@ const WorkflowCanvas = React.memo(
         )
 
         const result = await applyAutoLayoutToActiveWorkflow({
-          workflowId: effectiveWorkflowId!,
+          workflowId: effectiveWorkflowId,
         })
 
         if (result.success) {
@@ -455,7 +452,7 @@ const WorkflowCanvas = React.memo(
       } catch (error) {
         logger.error('Auto layout error:', error)
       }
-    }, [blocks, effectiveWorkflowId, resolvedChannelId])
+    }, [blocks, canEdit, effectiveWorkflowId])
 
     const debouncedAutoLayout = useCallback(() => {
       const debounceTimer = setTimeout(() => {
@@ -479,14 +476,20 @@ const WorkflowCanvas = React.memo(
           return
         }
 
-        if (event.shiftKey && event.key === 'L' && !event.ctrlKey && !event.metaKey) {
+        if (canEdit && event.shiftKey && event.key === 'L' && !event.ctrlKey && !event.metaKey) {
           event.preventDefault()
           if (cleanup) cleanup()
           cleanup = debouncedAutoLayout()
-        } else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        } else if (
+          canEdit &&
+          (event.ctrlKey || event.metaKey) &&
+          event.key === 'z' &&
+          !event.shiftKey
+        ) {
           event.preventDefault()
           workflowSession?.undo()
         } else if (
+          canEdit &&
           (event.ctrlKey || event.metaKey) &&
           (event.key === 'Z' || (event.key === 'z' && event.shiftKey))
         ) {
@@ -501,11 +504,11 @@ const WorkflowCanvas = React.memo(
         window.removeEventListener('keydown', handleKeyDown)
         if (cleanup) cleanup()
       }
-    }, [debouncedAutoLayout, workflowSession])
+    }, [canEdit, debouncedAutoLayout, workflowSession])
 
     // Listen for explicit subflow detach actions from ActionBar
     useEffect(() => {
-      if (!effectiveWorkflowId) {
+      if (!canEdit || !effectiveWorkflowId) {
         return
       }
 
@@ -558,6 +561,7 @@ const WorkflowCanvas = React.memo(
       )
     }, [
       effectiveWorkflowId,
+      canEdit,
       resolvedChannelId,
       blocks,
       updateNodeParent,
@@ -634,7 +638,7 @@ const WorkflowCanvas = React.memo(
     useEffect(() => {
       const handleAddBlockFromToolbar = (detail: ToolbarAddBlockRequest) => {
         // Check if user has permission to interact with blocks
-        if (!effectivePermissions.canEdit) {
+        if (!canEdit) {
           return
         }
 
@@ -763,7 +767,7 @@ const WorkflowCanvas = React.memo(
       addBlock,
       findClosestOutput,
       determineSourceHandle,
-      effectivePermissions.canEdit,
+      canEdit,
       setTriggerWarning,
       projectViewportCenter,
       toolbarScopeId,
@@ -774,6 +778,8 @@ const WorkflowCanvas = React.memo(
     // Handler for trigger selection from list
     const handleTriggerSelect = useCallback(
       (triggerId: string, enableTriggerMode?: boolean) => {
+        if (!canEdit) return
+
         const additionIssue = TriggerUtils.getTriggerAdditionIssue(blocks, triggerId)
         if (additionIssue) {
           setTriggerWarning({
@@ -806,6 +812,7 @@ const WorkflowCanvas = React.memo(
       [
         addBlock,
         blocks,
+        canEdit,
         getCanonicalUniqueBlockName,
         getLocalizedDefaultBlockName,
         projectViewportCenter,
@@ -816,6 +823,7 @@ const WorkflowCanvas = React.memo(
     const onDrop = useCallback(
       (event: React.DragEvent) => {
         event.preventDefault()
+        if (!canEdit) return
 
         try {
           const data = JSON.parse(event.dataTransfer.getData('application/json'))
@@ -1041,6 +1049,7 @@ const WorkflowCanvas = React.memo(
       [
         screenToFlowPosition,
         blocks,
+        canEdit,
         addBlock,
         findClosestOutput,
         determineSourceHandle,
@@ -1056,6 +1065,7 @@ const WorkflowCanvas = React.memo(
     const onDragOver = useCallback(
       (event: React.DragEvent) => {
         event.preventDefault()
+        if (!canEdit) return
 
         // Only handle toolbar items
         if (!event.dataTransfer?.types.includes('application/json')) return
@@ -1081,7 +1091,7 @@ const WorkflowCanvas = React.memo(
           logger.error('Error in onDragOver', { err })
         }
       },
-      [screenToFlowPosition, isPointInLoopNodeWrapper, getNodes, blocks]
+      [blocks, canEdit, getNodes, isPointInLoopNodeWrapper, screenToFlowPosition]
     )
 
     const blockConfigCache = useRef(new Map())
@@ -1181,6 +1191,7 @@ const WorkflowCanvas = React.memo(
     // Update nodes - use store version to avoid collaborative feedback loops
     const onNodesChange = useCallback(
       (changes: any) => {
+        if (!canEdit) return
         changes.forEach((change: any) => {
           if (change.type === 'position' && change.position) {
             const node = nodes.find((n) => n.id === change.id)
@@ -1191,23 +1202,18 @@ const WorkflowCanvas = React.memo(
           }
         })
       },
-      [nodes, storeUpdateBlockPosition]
+      [canEdit, nodes, storeUpdateBlockPosition]
     )
 
-    // Effect to resize loops when nodes change (add/remove/position change)
     useEffect(() => {
-      // Skip during initial render when nodes aren't loaded yet
-      if (nodes.length === 0) return
-
-      // Resize all loops to fit their children
+      if (!canEdit || nodes.length === 0) return
       resizeLoopNodesWrapper()
-
-      // No need for cleanup with direct function
-      return () => {}
-    }, [nodes, resizeLoopNodesWrapper])
+    }, [canEdit, nodes, resizeLoopNodesWrapper])
 
     // Special effect to handle cleanup after node deletion
     useEffect(() => {
+      if (!canEdit) return
+
       // Create a mapping of node IDs to check for missing parent references
       const nodeIds = new Set(Object.keys(blocks))
 
@@ -1230,7 +1236,13 @@ const WorkflowCanvas = React.memo(
           updateParentId(id, '', 'parent')
         }
       })
-    }, [blocks, collaborativeUpdateBlockPosition, updateParentId, getNodeAbsolutePositionWrapper])
+    }, [
+      blocks,
+      canEdit,
+      collaborativeUpdateBlockPosition,
+      getNodeAbsolutePositionWrapper,
+      updateParentId,
+    ])
 
     // Validate nested subflows whenever blocks change
     useEffect(() => {
@@ -1247,6 +1259,8 @@ const WorkflowCanvas = React.memo(
 
     const removeEdgeIfAllowed = useCallback(
       (edgeId: string) => {
+        if (!canEdit) return false
+
         const edge = edgesForDisplay.find((candidate) => candidate.id === edgeId)
         if (edge && isProtectedBlockId(edge.target)) {
           return false
@@ -1255,7 +1269,7 @@ const WorkflowCanvas = React.memo(
         removeEdge(edgeId)
         return true
       },
-      [edgesForDisplay, isProtectedBlockId, removeEdge]
+      [canEdit, edgesForDisplay, isProtectedBlockId, removeEdge]
     )
 
     // Update edges
@@ -1272,7 +1286,7 @@ const WorkflowCanvas = React.memo(
 
     const onConnect = useCallback(
       (connection: any) => {
-        if (!connection?.target || isProtectedBlockId(connection.target)) {
+        if (!canEdit || !connection?.target || isProtectedBlockId(connection.target)) {
           return
         }
 
@@ -1288,12 +1302,14 @@ const WorkflowCanvas = React.memo(
 
         addEdge(nextEdge)
       },
-      [addEdge, getNodes, blocks, isProtectedBlockId]
+      [addEdge, blocks, canEdit, getNodes, isProtectedBlockId]
     )
 
     // Handle node drag to detect intersections with container nodes
     const onNodeDrag = useCallback(
       (_event: React.MouseEvent, node: any) => {
+        if (!canEdit) return
+
         collaborativeUpdateBlockPosition(node.id, node.position, {
           origin: YJS_ORIGINS.SYSTEM,
         })
@@ -1328,12 +1344,14 @@ const WorkflowCanvas = React.memo(
           setPotentialParentId(bestContainerId)
         }
       },
-      [getNodes, potentialParentId, blocks, collaborativeUpdateBlockPosition]
+      [blocks, canEdit, collaborativeUpdateBlockPosition, getNodes, potentialParentId]
     )
 
     // Add in a nodeDrag start event to set the dragStartParentId
     const onNodeDragStart = useCallback(
       (_event: React.MouseEvent, node: any) => {
+        if (!canEdit) return
+
         // Store the original parent ID when starting to drag
         const currentParentId = blocks[node.id]?.data?.parentId || null
         setDragStartParentId(currentParentId)
@@ -1345,12 +1363,14 @@ const WorkflowCanvas = React.memo(
           parentId: currentParentId,
         }
       },
-      [blocks]
+      [blocks, canEdit]
     )
 
     // Handle node drag stop to establish parent-child relationships
     const onNodeDragStop = useCallback(
       (_event: React.MouseEvent, node: any) => {
+        if (!canEdit) return
+
         clearContainerHighlights()
         collaborativeUpdateBlockPosition(node.id, node.position, {
           origin: YJS_ORIGINS.USER,
@@ -1448,6 +1468,7 @@ const WorkflowCanvas = React.memo(
         addEdge,
         determineSourceHandle,
         blocks,
+        canEdit,
         isProtectedBlockId,
         getNodeAbsolutePositionWrapper,
         resolvedChannelId,
@@ -1526,7 +1547,7 @@ const WorkflowCanvas = React.memo(
 
     // Handle sub-block value updates from custom events
     useEffect(() => {
-      if (!effectiveWorkflowId) {
+      if (!canEdit || !effectiveWorkflowId) {
         return
       }
 
@@ -1546,7 +1567,7 @@ const WorkflowCanvas = React.memo(
         { channelId: resolvedChannelId, workflowId: effectiveWorkflowId },
         handleSubBlockValueUpdate
       )
-    }, [collaborativeSetSubblockValue, resolvedChannelId, effectiveWorkflowId])
+    }, [canEdit, collaborativeSetSubblockValue, resolvedChannelId, effectiveWorkflowId])
 
     // Show skeleton UI until the routed workflow Yjs session is mounted.
     const showSkeletonUI = !isWorkflowReady
@@ -1598,12 +1619,12 @@ const WorkflowCanvas = React.memo(
             edges={edgesWithSelection}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={effectivePermissions.canEdit ? onConnect : undefined}
+            onConnect={canEdit ? onConnect : undefined}
             onNodeClick={onNodeClick}
             nodeTypes={workflowNodeTypes}
             edgeTypes={workflowEdgeTypes}
-            onDrop={effectivePermissions.canEdit ? onDrop : undefined}
-            onDragOver={effectivePermissions.canEdit ? onDragOver : undefined}
+            onDrop={canEdit ? onDrop : undefined}
+            onDragOver={canEdit ? onDragOver : undefined}
             onInit={(instance) => {
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -1623,16 +1644,16 @@ const WorkflowCanvas = React.memo(
             onEdgeClick={onEdgeClick}
             elementsSelectable={true}
             selectNodesOnDrag={false}
-            nodesConnectable={effectivePermissions.canEdit}
-            nodesDraggable={effectivePermissions.canEdit}
+            nodesConnectable={canEdit}
+            nodesDraggable={canEdit}
             draggable={false}
             noWheelClassName='allow-scroll'
             edgesFocusable={true}
-            edgesReconnectable={effectivePermissions.canEdit}
+            edgesReconnectable={canEdit}
             className='workflow-container h-full'
-            onNodeDrag={effectivePermissions.canEdit ? onNodeDrag : undefined}
-            onNodeDragStop={effectivePermissions.canEdit ? onNodeDragStop : undefined}
-            onNodeDragStart={effectivePermissions.canEdit ? onNodeDragStart : undefined}
+            onNodeDrag={canEdit ? onNodeDrag : undefined}
+            onNodeDragStop={canEdit ? onNodeDragStop : undefined}
+            onNodeDragStart={canEdit ? onNodeDragStart : undefined}
             snapToGrid={false}
             snapGrid={snapGrid}
             elevateEdgesOnSelect={true}
@@ -1640,8 +1661,8 @@ const WorkflowCanvas = React.memo(
             onlyRenderVisibleElements={true}
             deleteKeyCode={null}
             elevateNodesOnSelect={true}
-            autoPanOnConnect={effectivePermissions.canEdit}
-            autoPanOnNodeDrag={effectivePermissions.canEdit}
+            autoPanOnConnect={canEdit}
+            autoPanOnNodeDrag={canEdit}
             style={{
               backgroundColor: 'transparent',
             }}
@@ -1661,10 +1682,9 @@ const WorkflowCanvas = React.memo(
           />
 
           {/* Trigger list for empty workflows - only show after workflow has loaded and hydrated */}
-          {uiConfig.triggerList &&
-            isWorkflowReady &&
-            isWorkflowEmpty &&
-            effectivePermissions.canEdit && <TriggerList onSelect={handleTriggerSelect} />}
+          {uiConfig.triggerList && isWorkflowReady && isWorkflowEmpty && canEdit && (
+            <TriggerList onSelect={handleTriggerSelect} />
+          )}
         </div>
       </div>
     )

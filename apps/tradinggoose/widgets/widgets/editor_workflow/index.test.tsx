@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowEditorWidget } from './index'
 
-const { mockControlBar, mockEditorApp } = vi.hoisted(() => ({
+const { mockControlBar, mockEditorApp, mockToolbar } = vi.hoisted(() => ({
   mockControlBar: vi.fn(),
   mockEditorApp: vi.fn(),
+  mockToolbar: vi.fn(),
 }))
 
 vi.mock('next-intl', () => ({
@@ -46,7 +47,10 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-controlbar', () =
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/components/workflow-toolbar', () => ({
-  WorkflowToolbar: () => <div>toolbar</div>,
+  WorkflowToolbar: (props: Record<string, unknown>) => {
+    mockToolbar(props)
+    return <div>toolbar</div>
+  },
 }))
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-ui-context', () => ({
@@ -93,11 +97,11 @@ describe('workflowEditorWidget', () => {
     expect(markup).not.toContain('unableToLoadWorkflows')
   })
 
-  it('forwards the runtime channel to the editor and control bar', () => {
+  it('forwards the runtime channel and write barrier to every editor surface', () => {
     renderToStaticMarkup(
       createElement(workflowEditorWidget.component, {
         channelId: 'pair-red',
-        context: { workspaceId: 'ws-1' },
+        context: { workspaceId: 'ws-1', canWrite: false },
         params: { workflowId: 'wf-1' },
         widget: { key: 'editor_workflow' },
         panelId: 'panel-1',
@@ -105,17 +109,27 @@ describe('workflowEditorWidget', () => {
     )
     const header = workflowEditorWidget.renderHeader?.({
       channelId: 'pair-red',
-      context: { workspaceId: 'ws-1' },
+      context: { workspaceId: 'ws-1', canWrite: false },
       panelId: 'panel-1',
       widget: { key: 'editor_workflow', params: { workflowId: 'wf-1' } },
     } as any)
-    renderToStaticMarkup(<>{header?.right}</>)
+    renderToStaticMarkup(
+      <>
+        {header?.left}
+        {header?.right}
+      </>
+    )
 
     expect(mockEditorApp).toHaveBeenCalledWith(
-      expect.objectContaining({ channelId: 'pair-red', workflowId: 'wf-1' })
+      expect.objectContaining({ channelId: 'pair-red', workflowId: 'wf-1', canWrite: false })
     )
     expect(mockControlBar).toHaveBeenCalledWith(
-      expect.objectContaining({ channelId: 'pair-red', params: { workflowId: 'wf-1' } })
+      expect.objectContaining({
+        channelId: 'pair-red',
+        params: { workflowId: 'wf-1' },
+        canWrite: false,
+      })
     )
+    expect(mockToolbar).toHaveBeenCalledWith(expect.objectContaining({ canWrite: false }))
   })
 })

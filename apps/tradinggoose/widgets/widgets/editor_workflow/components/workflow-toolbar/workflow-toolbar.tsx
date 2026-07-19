@@ -25,32 +25,33 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
-import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
 import {
-  formatWorkflowTemplate,
-  type WorkflowToolbarCopy,
-} from '@/i18n/workflow-inspector-core'
-import {
   getBlocksForSidebar,
   getTriggersForSidebar,
   hasTriggerCapability,
 } from '@/lib/workflows/trigger-utils'
-import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import {
+  useUserPermissionsContext,
+  WorkspacePermissionsProvider,
+} from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
-import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
+import { formatWorkflowTemplate, type WorkflowToolbarCopy } from '@/i18n/workflow-inspector-core'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
 import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block'
 import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block'
+import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
+import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
   toolbarScopeId?: string
+  canWrite: boolean
 }
 
 type ToolbarMode = 'blocks' | 'tools' | 'triggers'
@@ -118,8 +119,7 @@ function useToolbarList(
     const triggerBlocks = isTriggerMode
       ? filtered
           .filter(
-            (block) =>
-              block.config.category === 'triggers' || hasTriggerCapability(block.config)
+            (block) => block.config.category === 'triggers' || hasTriggerCapability(block.config)
           )
           .sort((a, b) => a.name.localeCompare(b.name))
       : []
@@ -133,7 +133,7 @@ function useToolbarList(
   }, [getLocalizedBlockMetadata, searchQuery, mode, providerAvailability])
 }
 
-export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbarProps) {
+export function WorkflowToolbar({ workspaceId, toolbarScopeId, canWrite }: WorkflowToolbarProps) {
   const { workflowToolbarCopy: copy } = useWorkflowI18n()
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
     DEFAULT_PROVIDER_AVAILABILITY
@@ -177,13 +177,12 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
   return (
     <TooltipProvider>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
-        <ToolbarAddBlockProvider
-          onAddBlock={(request) => {
-            dispatchToolbarAddBlock(request, toolbarScopeId)
-          }}
-        >
-          <ToolbarDropdownGroup providerAvailability={providerAvailability} copy={copy} />
-        </ToolbarAddBlockProvider>
+        <ToolbarDropdownGroup
+          providerAvailability={providerAvailability}
+          copy={copy}
+          canWrite={canWrite}
+          toolbarScopeId={toolbarScopeId}
+        />
       </WorkspacePermissionsProvider>
     </TooltipProvider>
   )
@@ -192,11 +191,16 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
 function ToolbarDropdownGroup({
   providerAvailability,
   copy,
+  canWrite,
+  toolbarScopeId,
 }: {
   providerAvailability: ProviderAvailability
   copy: WorkflowToolbarCopy
+  canWrite: boolean
+  toolbarScopeId?: string
 }) {
   const { getLocalizedBlockMetadata } = useWorkflowI18n()
+  const disabled = !canWrite || !useUserPermissionsContext().canEdit
   const [blockSearch, setBlockSearch] = useState('')
   const [toolSearch, setToolSearch] = useState('')
   const [triggerSearch, setTriggerSearch] = useState('')
@@ -221,32 +225,46 @@ function ToolbarDropdownGroup({
   )
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <ToolbarDropdown
-        label={copy.blocks}
-        copy={copy}
-        searchValue={blockSearch}
-        onSearchChange={setBlockSearch}
-      >
-        <ToolbarDropdownContent data={blockData} mode='blocks' copy={copy} />
-      </ToolbarDropdown>
-      <ToolbarDropdown
-        label={copy.tools}
-        copy={copy}
-        searchValue={toolSearch}
-        onSearchChange={setToolSearch}
-      >
-        <ToolbarDropdownContent data={toolData} mode='tools' copy={copy} />
-      </ToolbarDropdown>
-      <ToolbarDropdown
-        label={copy.triggers}
-        copy={copy}
-        searchValue={triggerSearch}
-        onSearchChange={setTriggerSearch}
-      >
-        <ToolbarDropdownContent data={triggerData} mode='triggers' copy={copy} />
-      </ToolbarDropdown>
-    </div>
+    <ToolbarAddBlockProvider
+      onAddBlock={(request) => {
+        if (!disabled) dispatchToolbarAddBlock(request, toolbarScopeId)
+      }}
+    >
+      <div className={widgetHeaderButtonGroupClassName()}>
+        <ToolbarDropdown
+          label={copy.blocks}
+          copy={copy}
+          searchValue={blockSearch}
+          onSearchChange={setBlockSearch}
+          disabled={disabled}
+        >
+          <ToolbarDropdownContent data={blockData} mode='blocks' copy={copy} disabled={disabled} />
+        </ToolbarDropdown>
+        <ToolbarDropdown
+          label={copy.tools}
+          copy={copy}
+          searchValue={toolSearch}
+          onSearchChange={setToolSearch}
+          disabled={disabled}
+        >
+          <ToolbarDropdownContent data={toolData} mode='tools' copy={copy} disabled={disabled} />
+        </ToolbarDropdown>
+        <ToolbarDropdown
+          label={copy.triggers}
+          copy={copy}
+          searchValue={triggerSearch}
+          onSearchChange={setTriggerSearch}
+          disabled={disabled}
+        >
+          <ToolbarDropdownContent
+            data={triggerData}
+            mode='triggers'
+            copy={copy}
+            disabled={disabled}
+          />
+        </ToolbarDropdown>
+      </div>
+    </ToolbarAddBlockProvider>
   )
 }
 
@@ -255,6 +273,7 @@ interface ToolbarDropdownProps {
   copy: WorkflowToolbarCopy
   searchValue: string
   onSearchChange: (value: string) => void
+  disabled: boolean
   children: ReactNode
 }
 
@@ -263,6 +282,7 @@ function ToolbarDropdown({
   copy,
   searchValue,
   onSearchChange,
+  disabled,
   children,
 }: ToolbarDropdownProps) {
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
@@ -286,6 +306,7 @@ function ToolbarDropdown({
                   'group font-semibold text-muted-foreground hover:text-foreground'
                 )}
                 type='button'
+                disabled={disabled}
               >
                 <span className='flex items-center gap-1'>
                   <span className='text-xs'>{label}</span>
@@ -317,6 +338,7 @@ function ToolbarDropdown({
                 placeholder={formatWorkflowTemplate(copy.searchPlaceholder, { label })}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
+                disabled={disabled}
                 autoComplete='off'
                 autoCorrect='off'
                 spellCheck='false'
@@ -334,10 +356,12 @@ function ToolbarDropdownContent({
   data,
   mode,
   copy,
+  disabled,
 }: {
   data: ToolbarListData
   mode: ToolbarMode
   copy: WorkflowToolbarCopy
+  disabled: boolean
 }) {
   const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
   const modeLabel = mode === 'blocks' ? copy.blocks : mode === 'tools' ? copy.tools : copy.triggers
@@ -365,7 +389,7 @@ function ToolbarDropdownContent({
           <SectionLabel title={copy.blocks} />
           {regularBlocks.map((block) => (
             <DropdownMenuItem key={block.config.type} className='p-0 focus:bg-transparent'>
-              <ToolbarBlock config={block.config} label={block.name} />
+              <ToolbarBlock config={block.config} label={block.name} disabled={disabled} />
             </DropdownMenuItem>
           ))}
         </div>
@@ -375,10 +399,10 @@ function ToolbarDropdownContent({
         <div className='space-y-1 pb-2'>
           <SectionLabel title={copy.special} />
           <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <LoopToolbarItem />
+            <LoopToolbarItem disabled={disabled} />
           </DropdownMenuItem>
           <DropdownMenuItem className='p-0 focus:bg-transparent'>
-            <ParallelToolbarItem />
+            <ParallelToolbarItem disabled={disabled} />
           </DropdownMenuItem>
         </div>
       )}
@@ -388,7 +412,7 @@ function ToolbarDropdownContent({
           <SectionLabel title={copy.tools} />
           {toolBlocks.map((block) => (
             <DropdownMenuItem key={block.config.type} className='p-0 focus:bg-transparent'>
-              <ToolbarBlock config={block.config} label={block.name} />
+              <ToolbarBlock config={block.config} label={block.name} disabled={disabled} />
             </DropdownMenuItem>
           ))}
         </div>
@@ -403,6 +427,7 @@ function ToolbarDropdownContent({
                 config={block.config}
                 label={block.name}
                 enableTriggerMode={hasTriggerCapability(block.config)}
+                disabled={disabled}
               />
             </DropdownMenuItem>
           ))}

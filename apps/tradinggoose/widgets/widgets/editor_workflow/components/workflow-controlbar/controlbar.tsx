@@ -15,12 +15,14 @@ interface WorkflowWidgetControlBarProps {
   workspaceId?: string
   params?: Record<string, unknown> | null
   channelId: string
+  canWrite: boolean
 }
 
 export function WorkflowWidgetControlBar({
   workspaceId,
   params,
   channelId,
+  canWrite,
 }: WorkflowWidgetControlBarProps) {
   const copy = useWorkflowEditorCopy()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
@@ -35,7 +37,11 @@ export function WorkflowWidgetControlBar({
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
-        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
+        <WorkflowSessionProvider
+          workspaceId={workspaceId}
+          workflowId={resolvedWorkflowId}
+          canWrite={canWrite}
+        >
           <WorkflowRouteProvider
             workspaceId={workspaceId}
             workflowId={resolvedWorkflowId}
