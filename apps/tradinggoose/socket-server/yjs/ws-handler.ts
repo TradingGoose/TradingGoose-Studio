@@ -35,12 +35,57 @@ import { bindEntityListSession, refreshActiveEntityListSession } from './entity-
 import {
   acquireDocument,
   type DocumentValidator,
+  persistStagedDocuments,
   setupWSConnection,
   YjsSessionAdmissionError,
 } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
+
+function manualPersistenceHandler(
+  accessMode: ReviewAccessMode,
+  descriptor: ReviewTargetDescriptor
+) {
+  if (
+    accessMode !== 'write' ||
+    !descriptor.entityId ||
+    !descriptor.workspaceId ||
+    descriptor.draftSessionId !== null ||
+    descriptor.reviewSessionId !== null
+  ) {
+    return undefined
+  }
+  switch (descriptor.entityKind) {
+    case 'skill':
+    case 'custom_tool':
+    case 'indicator':
+    case 'knowledge_base':
+    case 'mcp_server':
+      break
+    default:
+      return undefined
+  }
+  const { entityId, entityKind, workspaceId } = descriptor
+  return async (doc: Y.Doc, requestId: string, identityName?: string) => {
+    if (identityName !== undefined && !identityName.trim()) {
+      throw new SavedEntityPersistenceError(400, 'identity.name is required')
+    }
+    await persistStagedDocuments(
+      [{ doc }],
+      ([staged]) =>
+        saveSavedEntityYjsDocToDb(
+          entityKind,
+          entityId,
+          workspaceId,
+          staged!,
+          identityName ? { identity: { name: identityName } } : undefined
+        ),
+      requestId
+    )
+    await refreshActiveEntityListSession(entityKind, workspaceId).catch(() => undefined)
+  }
+}
 
 function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: ReviewTargetDescriptor) {
   if (
@@ -137,6 +182,7 @@ export function handleYjsUpgrade(
             userId,
             accessMode,
             descriptor,
+            persist: manualPersistenceHandler(accessMode, descriptor),
             onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
             onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
             validateDocument,

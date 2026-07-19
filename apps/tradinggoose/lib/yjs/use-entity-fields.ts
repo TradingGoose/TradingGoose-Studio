@@ -13,8 +13,6 @@ import * as Y from 'yjs'
 import {
   buildEntityListDescriptor,
   buildSavedEntityDescriptor,
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewAccessMode,
@@ -70,34 +68,6 @@ type SharedYjsSessionEntry = {
 
 const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
 const EMPTY_ENTITY_LIST_MEMBERS: EntityListMember[] = []
-
-async function saveYjsSessionSnapshot(
-  result: YjsProviderBootstrapResult,
-  identityName?: string
-): Promise<void> {
-  const { descriptor } = result
-  const params = new URLSearchParams({
-    ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
-    accessMode: 'write',
-  })
-  const update = Y.encodeStateAsUpdate(result.doc)
-  const updateBase64 = btoa(Array.from(update, (byte) => String.fromCharCode(byte)).join(''))
-  const response = await fetch(
-    `/api/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${params}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        updateBase64,
-        ...(identityName ? { identity: { name: identityName } } : {}),
-      }),
-    }
-  )
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}))
-    throw new Error(data.error || 'Failed to save Yjs session')
-  }
-}
 
 function readSharedYjsSessionEntry(entry: SharedYjsSessionEntry): SavedEntityYjsSessionState {
   return {
@@ -157,7 +127,7 @@ function initializeSharedYjsSessionEntry(
       entry.error = null
       void next.lifecycle.then((event) => {
         if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
-        if (event.type === 'resync-required') {
+        if (event.type === 'lineage-replaced') {
           entry.pendingLocalEdits = event.pendingLocalEdits
           entry.result = null
           next.dispose()
@@ -343,7 +313,7 @@ export function useSavedEntityYjsSession(
         throw new Error('Yjs session is not ready')
       }
 
-      await saveYjsSessionSnapshot(targetSession.result, identityName)
+      await targetSession.result.persist(identityName)
       invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
     },
     [accessModeRef, entityId, entityKind, targetSession.result, workspaceId]

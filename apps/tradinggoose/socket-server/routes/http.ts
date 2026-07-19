@@ -64,8 +64,7 @@ import {
   acquireDocument,
   beginYjsSessionDeletion,
   commitYjsSessionDeletion,
-  flushDocumentPersistence,
-  markDocumentPersisted,
+  persistStagedDocuments,
   reconcileWorkspaceConnections,
   withYjsSessionDeletion,
   YjsSessionAdmissionError,
@@ -109,7 +108,6 @@ const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapsho
 const INTERNAL_YJS_DELETION_BEGIN_PATH = '/internal/yjs/session-deletions'
 const INTERNAL_YJS_DELETION_COMMIT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)\/commit$/
 const INTERNAL_YJS_DELETION_ABORT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)$/
-const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
 const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
 const INTERNAL_YJS_WORKSPACE_ACCESS_PATH = /^\/internal\/yjs\/workspaces\/([^/]+)\/access-changed$/
 
@@ -391,40 +389,6 @@ function withBootstrappedApplyDocument<T>(
   )
 }
 
-/**
- * Applies a server-authored mutation durably: the change is staged on a detached
- * copy and persisted before it is reflected into the live collaborative document.
- */
-async function applyThroughStaging<T>(
-  targets: Array<{ doc: Y.Doc; mutate: (target: Y.Doc) => void }>,
-  persist: (staged: Y.Doc[]) => Promise<T>
-): Promise<T> {
-  const persistedGenerations = await Promise.all(
-    targets.map(({ doc }) => flushDocumentPersistence(doc))
-  )
-  const liveStates = targets.map(({ doc }) => Y.encodeStateVector(doc))
-  const staging = targets.map(({ doc }) => {
-    const staged = new Y.Doc()
-    Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
-    return staged
-  })
-  try {
-    targets.forEach(({ mutate }, index) => mutate(staging[index]!))
-    const persisted = await persist(staging)
-    targets.forEach(({ doc }, index) => {
-      Y.applyUpdate(
-        doc,
-        Y.encodeStateAsUpdate(staging[index]!, liveStates[index]),
-        YJS_ORIGINS.SYSTEM
-      )
-      markDocumentPersisted(doc, persistedGenerations[index]!)
-    })
-    return persisted
-  } finally {
-    staging.forEach((doc) => doc.destroy())
-  }
-}
-
 function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest): void {
   if (body.workflowState) {
     replaceWorkflowDocumentState(doc, body.workflowState, body.variables)
@@ -444,7 +408,7 @@ async function applySavedEntityThroughStaging(input: {
   mutate: (staged: Y.Doc) => void
 }): Promise<Record<string, unknown>> {
   input.validate?.(input.doc)
-  const persisted = await applyThroughStaging(
+  const persisted = await persistStagedDocuments(
     [{ doc: input.doc, mutate: input.mutate }],
     ([staged]) =>
       saveSavedEntityYjsDocToDb(
@@ -505,7 +469,7 @@ async function handleInternalYjsWorkflowApplyRequest(
       yjsSessionId: workflowId,
     } as const
     await withBootstrappedApplyDocument(descriptor, (doc) =>
-      applyThroughStaging(
+      persistStagedDocuments(
         [{ doc, mutate: (target) => applyWorkflowApplyRequest(target, body) }],
         ([staged]) => saveWorkflowYjsDocToDb(workflowId, staged!)
       )
@@ -663,7 +627,7 @@ async function commitDashboardStructurePlan(input: {
       }).yjsSessionId
   )
   const commit = () =>
-    applyThroughStaging(
+    persistStagedDocuments(
       [
         {
           doc: input.layoutDoc,
@@ -878,7 +842,7 @@ async function handleInternalDashboardEditRequest(
               })
             }
             if (targets.length > 0) {
-              await applyThroughStaging(targets, (staged) =>
+              await persistStagedDocuments(targets, (staged) =>
                 saveDashboardYjsDocsToDb(
                   scope,
                   Object.fromEntries(
@@ -908,99 +872,6 @@ async function handleInternalDashboardEditRequest(
   } catch (error) {
     logger.error('Error applying dashboard edit', { error, entityId })
     sendYjsRequestError(res, error, 'Failed to apply dashboard edit')
-  }
-}
-
-async function handleInternalYjsSessionApplyUpdateRequest(
-  req: IncomingMessage,
-  parsedUrl: URL,
-  res: ServerResponse,
-  logger: Logger,
-  sessionId: string
-): Promise<void> {
-  try {
-    const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
-    if (envelope.sessionId !== sessionId) {
-      sendJson(res, 409, { error: 'Session ID mismatch', sessionId })
-      return
-    }
-
-    const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    const entityKind = descriptor.entityKind
-    if (entityKind === 'dashboard_layout') {
-      throw new InvalidInternalYjsRequestError(
-        'Dashboard layout updates require the structural edit route'
-      )
-    }
-    const rawBody = await readJsonBody(req)
-    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
-      throw new InvalidInternalYjsRequestError('Invalid apply session update body')
-    }
-    const body = rawBody as Record<string, unknown>
-    const unsupportedField = Object.keys(body).find(
-      (key) => key !== 'updateBase64' && key !== 'identity'
-    )
-    if (unsupportedField) {
-      throw new InvalidInternalYjsRequestError(
-        `Unsupported apply session update field: ${unsupportedField}`
-      )
-    }
-    const updateBase64 = body.updateBase64
-    if (typeof updateBase64 !== 'string' || !updateBase64) {
-      throw new InvalidInternalYjsRequestError('updateBase64 is required')
-    }
-    const submittedUpdate = Buffer.from(updateBase64, 'base64')
-    try {
-      Y.decodeUpdate(submittedUpdate)
-    } catch {
-      throw new InvalidInternalYjsRequestError('updateBase64 is invalid')
-    }
-    const identity = parseSavedEntityIdentityMutation(body.identity)
-    if (identity && (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair')) {
-      throw new InvalidInternalYjsRequestError('Dashboard document identity is not saved here')
-    }
-    await withBootstrappedApplyDocument(descriptor, async (doc) => {
-      if (!descriptor.entityId || entityKind === 'workflow') return
-      if (entityKind === 'dashboard_widget' || entityKind === 'dashboard_color_pair') {
-        if (!descriptor.workspaceId || !descriptor.ownerUserId) {
-          throw new InvalidInternalYjsRequestError('Dashboard child owner scope is required')
-        }
-        const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
-        const part = entityKind === 'dashboard_widget' ? 'widget' : 'colorPair'
-        await applyThroughStaging(
-          [
-            {
-              doc,
-              mutate: (staged) => Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE),
-            },
-          ],
-          ([staged]) =>
-            saveDashboardYjsDocsToDb(scope, {
-              [part]: { sessionId: descriptor.yjsSessionId, doc: staged! },
-            })
-        )
-        return
-      }
-
-      if (!descriptor.workspaceId) {
-        throw new InvalidInternalYjsRequestError('Saved entity workspace is required')
-      }
-      await applySavedEntityThroughStaging({
-        doc,
-        entityId: descriptor.entityId,
-        entityKind,
-        workspaceId: descriptor.workspaceId,
-        identity,
-        mutate: (staged) => {
-          Y.applyUpdate(staged, submittedUpdate, YJS_ORIGINS.SAVE)
-        },
-      })
-    })
-
-    sendJson(res, 200, { success: true })
-  } catch (error) {
-    logger.error('Error applying Yjs session update', { error, path: parsedUrl.pathname })
-    sendYjsRequestError(res, error, 'Failed to apply session update')
   }
 }
 
@@ -1205,17 +1076,6 @@ async function handleInternalYjsRequest(
   )
   if (abortDeletionLeaseId) {
     handleInternalYjsDeletionAbortRequest(res, abortDeletionLeaseId)
-    return true
-  }
-
-  const applyUpdateId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH,
-    'POST',
-    req.method
-  )
-  if (applyUpdateId) {
-    await handleInternalYjsSessionApplyUpdateRequest(req, parsedUrl, res, logger, applyUpdateId)
     return true
   }
 

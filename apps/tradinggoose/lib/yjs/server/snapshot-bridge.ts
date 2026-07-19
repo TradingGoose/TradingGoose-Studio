@@ -324,18 +324,6 @@ export function applyDashboardStructureMutationInSocketServer(input: {
   })
 }
 
-export async function applyYjsUpdateInSocketServer(
-  sessionId: string,
-  search: string,
-  updateBase64: string,
-  identity?: unknown
-): Promise<void> {
-  await postJsonToSocketServer(
-    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/apply-update${search}`,
-    { updateBase64, ...(identity ? { identity } : {}) }
-  )
-}
-
 /**
  * Converge the live entity-list projection after a committed membership
  * mutation. The DB rows are canonical and the list doc is a disposable

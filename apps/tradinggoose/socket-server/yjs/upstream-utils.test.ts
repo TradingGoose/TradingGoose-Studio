@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import type { IncomingMessage } from 'http'
 import * as syncProtocol from '@y/protocols/sync'
+import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocket } from 'ws'
@@ -19,6 +20,11 @@ import {
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import { getEntityFields, seedEntitySession, updateWatchlistItems } from '@/lib/yjs/entity-session'
+import {
+  decodeYjsLifecycleMessage,
+  encodeYjsPersistRequest,
+  YJS_MESSAGE_LIFECYCLE,
+} from '@/lib/yjs/lifecycle-protocol'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   abortYjsSessionDeletion,
@@ -30,8 +36,8 @@ import {
   discardDocument,
   drainAllDocuments,
   flushDocumentPersistence,
-  markDocumentPersisted,
   peekDocument,
+  persistStagedDocuments,
   reconcileDocument,
   reconcileWorkspaceConnections,
   runDocumentMutation,
@@ -113,6 +119,24 @@ function createFieldsUpdate(doc: Y.Doc, key: string, value: unknown): Uint8Array
   return update
 }
 
+function readMessageType(message: Uint8Array): number {
+  return decoding.readVarUint(decoding.createDecoder(message))
+}
+
+function readCheckpoint(message: Uint8Array) {
+  const decoder = decoding.createDecoder(message)
+  expect(decoding.readVarUint(decoder)).toBe(YJS_MESSAGE_LIFECYCLE)
+  const lifecycle = decodeYjsLifecycleMessage(decoder)
+  if (lifecycle.type !== 'checkpoint') throw new Error('Expected checkpoint')
+  return lifecycle
+}
+
+function readLifecycle(message: Uint8Array) {
+  const decoder = decoding.createDecoder(message)
+  expect(decoding.readVarUint(decoder)).toBe(YJS_MESSAGE_LIFECYCLE)
+  return decodeYjsLifecycleMessage(decoder)
+}
+
 afterEach(() => {
   vi.useRealTimers()
   cleanupAllDocuments()
@@ -149,9 +173,17 @@ describe('shared document lifecycle', () => {
   })
 
   it('does not discard a replacement document through a stale reference', async () => {
-    const stale = await setupWatchlistSocket(new TestSocket(), 'layout-replaced', vi.fn())
+    const staleSocket = new TestSocket()
+    const stale = await setupWatchlistSocket(staleSocket, 'layout-replaced', vi.fn())
+    expect(readMessageType(staleSocket.send.mock.calls[0]![0])).toBe(YJS_MESSAGE_LIFECYCLE)
+    expect(readMessageType(staleSocket.send.mock.calls[1]![0])).toBe(0)
+    const staleLineage = readCheckpoint(staleSocket.send.mock.calls[0]![0]).lineageId
     await discardDocument(stale)
-    const replacement = await setupWatchlistSocket(new TestSocket(), 'layout-replaced', vi.fn())
+    const replacementSocket = new TestSocket()
+    const replacement = await setupWatchlistSocket(replacementSocket, 'layout-replaced', vi.fn())
+    expect(readCheckpoint(replacementSocket.send.mock.calls[0]![0]).lineageId).not.toBe(
+      staleLineage
+    )
     const mutation = vi.fn()
 
     await discardDocument(stale)
@@ -161,22 +193,30 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('layout-replaced')).toBe(replacement)
   })
 
-  it('retains a flushed lineage after acknowledging an accepted client update', async () => {
+  it('retains a flushed lineage and checkpoints only after persistence', async () => {
     vi.useFakeTimers()
-    const persist = vi.fn()
+    const persist = vi.fn().mockRejectedValueOnce(new Error('database unavailable'))
     const firstSocket = new TestSocket()
     const first = await setupWatchlistSocket(firstSocket, 'watchlist-reconnect', persist, 60_000)
+    const secondSocket = new TestSocket()
+    const second = await setupWatchlistSocket(secondSocket, 'watchlist-reconnect', persist, 60_000)
+    const initialMessageCount = firstSocket.send.mock.calls.length
+    const secondInitialMessageCount = secondSocket.send.mock.calls.length
     const updateMessage = createSyncUpdateMessage(createFieldsUpdate(first, 'pending', true))
     firstSocket.emit('message', updateMessage)
     await vi.waitFor(() => expect(first.getMap('fields').get('pending')).toBe(true))
-    expect(firstSocket.send).toHaveBeenLastCalledWith(updateMessage, {}, expect.any(Function))
+    expect(firstSocket.send).toHaveBeenCalledTimes(initialMessageCount)
+    expect(secondSocket.send).toHaveBeenCalledTimes(secondInitialMessageCount + 1)
+    expect(readMessageType(secondSocket.send.mock.calls.at(-1)![0])).toBe(0)
+    await expect(flushDocumentPersistence(first)).rejects.toThrow('database unavailable')
+    expect(firstSocket.send).toHaveBeenCalledTimes(initialMessageCount)
+    await flushDocumentPersistence(first)
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(firstSocket.send).toHaveBeenCalledTimes(initialMessageCount + 1))
+    expect(readMessageType(firstSocket.send.mock.calls.at(-1)![0])).toBe(YJS_MESSAGE_LIFECYCLE)
     firstSocket.emit('error', new Error('Max payload size exceeded'))
-    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
 
     expect(peekDocument('watchlist-reconnect')).toBe(first)
-
-    const secondSocket = new TestSocket()
-    const second = await setupWatchlistSocket(secondSocket, 'watchlist-reconnect', persist)
     expect(second).toBe(first)
     secondSocket.emit('close')
     expect(peekDocument('watchlist-reconnect')).toBe(first)
@@ -184,14 +224,61 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('watchlist-reconnect')).toBeNull()
   })
 
-  it('flushes an edit newer than the last persisted generation before disconnect', async () => {
+  it('queues manual persistence behind updates and reports failure without losing the draft', async () => {
+    const socket = new TestSocket()
+    const descriptor = buildSavedEntityDescriptor('skill', 'skill-manual', 'workspace-1')
+    const persist = vi.fn((doc: Y.Doc, requestId: string) =>
+      persistStagedDocuments(
+        [{ doc }],
+        async ([staged]) => {
+          expect(staged!.getMap('fields').get('content')).toBe('saved')
+        },
+        requestId
+      )
+    )
+    const doc = await acquireDocument(
+      'skill-manual',
+      { workspaceId: 'workspace-1', initialize: () => undefined },
+      (shared) => {
+        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+          doc: shared,
+          userId: 'user-1',
+          accessMode: 'write',
+          descriptor,
+          persist,
+        })
+        return shared
+      }
+    )
+    const initialMessages = socket.send.mock.calls.length
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', 'saved')))
+    socket.emit('message', encodeYjsPersistRequest('request-1', 'Renamed skill'))
+
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(socket.send).toHaveBeenCalledTimes(initialMessages + 1))
+    expect(persist).toHaveBeenCalledWith(doc, 'request-1', 'Renamed skill')
+    expect(readCheckpoint(socket.send.mock.calls.at(-1)![0]).requestId).toBe('request-1')
+
+    persist.mockRejectedValueOnce(new Error('database unavailable'))
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'draft', true)))
+    socket.emit('message', encodeYjsPersistRequest('request-2'))
+    await vi.waitFor(() => expect(socket.send).toHaveBeenCalledTimes(initialMessages + 2))
+    expect(readLifecycle(socket.send.mock.calls.at(-1)![0])).toMatchObject({
+      type: 'persist-error',
+      requestId: 'request-2',
+      error: 'database unavailable',
+    })
+    expect(doc.getMap('fields').get('draft')).toBe(true)
+    socket.emit('close')
+  })
+
+  it('flushes an edit newer than a staged persistence before disconnect', async () => {
     const socket = new TestSocket()
     const persist = vi.fn()
     const doc = await setupWatchlistSocket(socket, 'watchlist-generation', persist, 60_000)
-    const persistedGeneration = await flushDocumentPersistence(doc)
-
-    doc.getMap('fields').set('pending', true)
-    markDocumentPersisted(doc, persistedGeneration)
+    await persistStagedDocuments([{ doc }], async () => {
+      doc.getMap('fields').set('pending', true)
+    })
     await discardDocument(doc)
 
     expect(persist).toHaveBeenCalledOnce()

@@ -6,7 +6,7 @@
  * `discardDocument` and `cleanupAllDocuments`.
  */
 
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
 import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
@@ -21,6 +21,12 @@ import {
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
 } from '@/lib/copilot/review-sessions/types'
+import {
+  decodeYjsLifecycleMessage,
+  encodeYjsDurableCheckpoint,
+  encodeYjsPersistError,
+  YJS_MESSAGE_LIFECYCLE,
+} from '@/lib/yjs/lifecycle-protocol'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
@@ -56,6 +62,7 @@ type ConnectionState = {
   userId: string
   accessMode: ReviewAccessMode
   descriptor: ReviewTargetDescriptor
+  persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
 }
 
 export class YjsDocumentDrainingError extends Error {
@@ -78,6 +85,7 @@ class WSSharedDoc extends Y.Doc {
   name: string
   workspaceId: string | null
   seeded: boolean
+  persistedSnapshot = Y.emptySnapshot
   conns: Map<WebSocket, ConnectionState>
   awareness: awarenessProtocol.Awareness
   onDocumentUpdate?: DocumentPersistenceHandler
@@ -243,13 +251,15 @@ function enqueueDocumentPersistence(
 ): Promise<void> {
   if (!persist) return doc.persistenceQueue
 
-  const requestedGeneration = doc.changeGeneration
   doc.pendingPersistRequests += 1
   const run = doc.persistenceQueue.then(async () => {
     if (!doc.hasUnsavedChanges) return
+    const requestedGeneration = doc.changeGeneration
+    const persistedSnapshot = Y.snapshot(doc)
     doc.isPersisting = true
     try {
       await persist(doc.name, doc)
+      publishPersistedSnapshot(doc, persistedSnapshot)
       const hasNewerChanges = doc.changeGeneration !== requestedGeneration
       doc.hasUnsavedChanges = hasNewerChanges
     } catch (error) {
@@ -276,6 +286,16 @@ function enqueueDocumentPersistence(
   })
   doc.persistenceQueue = settled.catch(() => undefined)
   return settled
+}
+
+function publishPersistedSnapshot(
+  doc: WSSharedDoc,
+  snapshot: Y.Snapshot,
+  requestId?: string
+): void {
+  doc.persistedSnapshot = snapshot
+  const message = encodeYjsDurableCheckpoint(doc.guid, snapshot, requestId)
+  doc.conns.forEach((_state, conn) => send(doc, conn, message))
 }
 
 function cleanupDocument(doc: WSSharedDoc): void {
@@ -383,9 +403,6 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
           return reconcileConnection(doc, conn, current).then(() => {
             if (doc.conns.get(conn) !== current) return
             applySyncMessage(conn, doc, message)
-            if (syncMessageType === syncProtocol.messageYjsUpdate && doc.conns.has(conn)) {
-              send(doc, conn, message)
-            }
           })
         }).catch((error) => {
           if (error instanceof YjsDocumentDrainingError) {
@@ -394,6 +411,26 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
           }
           console.error('[yjs upstream-utils] Error applying queued sync message', error)
           closeConn(doc, conn)
+        })
+        break
+      }
+      case YJS_MESSAGE_LIFECYCLE: {
+        const request = decodeYjsLifecycleMessage(decoder)
+        if (request.type !== 'persist-request' || !connection.persist) {
+          const requestId = request.type === 'persist-request' ? request.requestId : ''
+          send(doc, conn, encodeYjsPersistError(requestId, 'Persistence is not available'))
+          break
+        }
+        void runDocumentMutation(doc, async () => {
+          const current = doc.conns.get(conn)
+          if (!current) return
+          await reconcileConnection(doc, conn, current)
+          if (doc.conns.get(conn) !== current || !current.persist) return
+          await current.persist(doc, request.requestId, request.identityName)
+        }).catch((error) => {
+          if (!doc.conns.has(conn)) return
+          const message = error instanceof Error ? error.message : 'Failed to persist document'
+          send(doc, conn, encodeYjsPersistError(request.requestId, message))
         })
         break
       }
@@ -436,14 +473,40 @@ export async function acquireDocument<T>(
       if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
       shared.seeded = true
       shared.hasUnsavedChanges = false
+      shared.persistedSnapshot = Y.snapshot(shared)
     }
     return use(doc)
   })
 }
 
-export function markDocumentPersisted(doc: Y.Doc, generation: number): void {
-  if (doc instanceof WSSharedDoc && doc.changeGeneration === generation) {
-    doc.hasUnsavedChanges = false
+export async function persistStagedDocuments<T>(
+  targets: Array<{ doc: Y.Doc; mutate?: (staged: Y.Doc) => void }>,
+  persist: (staged: Y.Doc[]) => Promise<T>,
+  requestId?: string
+): Promise<T> {
+  const generations = await Promise.all(targets.map(({ doc }) => flushDocumentPersistence(doc)))
+  const liveStates = targets.map(({ doc }) => Y.encodeStateVector(doc))
+  const staging = targets.map(({ doc }) => {
+    const staged = new Y.Doc()
+    Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
+    return staged
+  })
+  try {
+    targets.forEach(({ mutate }, index) => mutate?.(staging[index]!))
+    const result = await persist(staging)
+    targets.forEach(({ doc }, index) => {
+      Y.applyUpdate(
+        doc,
+        Y.encodeStateAsUpdate(staging[index]!, liveStates[index]),
+        YJS_ORIGINS.SYSTEM
+      )
+      if (!(doc instanceof WSSharedDoc)) return
+      publishPersistedSnapshot(doc, Y.snapshot(staging[index]!), requestId)
+      if (doc.changeGeneration === generations[index]) doc.hasUnsavedChanges = false
+    })
+    return result
+  } finally {
+    staging.forEach((doc) => doc.destroy())
   }
 }
 
@@ -529,6 +592,7 @@ export function setupWSConnection(
     userId: string
     accessMode: ReviewAccessMode
     descriptor: ReviewTargetDescriptor
+    persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
     validateDocument?: DocumentValidator
@@ -539,6 +603,7 @@ export function setupWSConnection(
     userId,
     accessMode,
     descriptor,
+    persist,
     onDocumentUpdate,
     onDocumentUpdateDebounceMs,
     validateDocument,
@@ -563,7 +628,7 @@ export function setupWSConnection(
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
   if (validateDocument && !doc.validateDocument) doc.validateDocument = validateDocument
-  doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor })
+  doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor, persist })
 
   conn.on('message', (data: ArrayBuffer) => {
     handleMessage(conn, doc, new Uint8Array(data))
@@ -610,6 +675,8 @@ export function setupWSConnection(
   conn.on('pong', () => {
     pongReceived = true
   })
+
+  send(doc, conn, encodeYjsDurableCheckpoint(doc.guid, doc.persistedSnapshot))
 
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)

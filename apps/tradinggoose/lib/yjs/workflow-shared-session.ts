@@ -194,7 +194,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     entry.result = result
     void result.lifecycle.then((event) => {
       if (entry.result !== result) return
-      if (event.type === 'resync-required') {
+      if (event.type === 'lineage-replaced') {
         entry.pendingLocalEdits = event.pendingLocalEdits
         disposeWorkflowSessionEntry(entry)
         setEntryState(entry, { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })

@@ -37,8 +37,7 @@ const mocks = vi.hoisted(() => ({
   getRuntime: vi.fn(() => ({ docState: 'active' })),
   refreshActiveEntityList: vi.fn(),
   acquireDocument: vi.fn(),
-  markPersisted: vi.fn(),
-  flushPersistence: vi.fn(),
+  persistStaged: vi.fn(),
   reconcileWorkspaceConnections: vi.fn(),
   seedEntity: vi.fn(),
   getEntityFields: vi.fn(),
@@ -83,8 +82,7 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
   abortYjsSessionDeletion: mocks.abortDeletion,
   beginYjsSessionDeletion: mocks.beginDeletion,
   commitYjsSessionDeletion: mocks.commitDeletion,
-  markDocumentPersisted: mocks.markPersisted,
-  flushDocumentPersistence: mocks.flushPersistence,
+  persistStagedDocuments: mocks.persistStaged,
   reconcileWorkspaceConnections: mocks.reconcileWorkspaceConnections,
   withYjsSessionDeletion: mocks.withDeletion,
 }))
@@ -241,7 +239,29 @@ describe('socket internal HTTP Yjs routes', () => {
     activeAcquisitions = new Set()
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
-    mocks.flushPersistence.mockResolvedValue(0)
+    mocks.persistStaged.mockImplementation(
+      async (
+        targets: Array<{ doc: Y.Doc; mutate?: (staged: Y.Doc) => void }>,
+        persist: (staged: Y.Doc[]) => Promise<unknown>
+      ) => {
+        const liveStates = targets.map(({ doc }) => Y.encodeStateVector(doc))
+        const staging = targets.map(({ doc }) => {
+          const staged = new Y.Doc()
+          Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc))
+          return staged
+        })
+        try {
+          targets.forEach(({ mutate }, index) => mutate?.(staging[index]!))
+          const result = await persist(staging)
+          targets.forEach(({ doc }, index) =>
+            Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging[index]!, liveStates[index]))
+          )
+          return result
+        } finally {
+          staging.forEach((doc) => doc.destroy())
+        }
+      }
+    )
     mocks.saveDashboard.mockResolvedValue({})
     mocks.beginDeletion.mockResolvedValue(undefined)
     mocks.withDeletion.mockImplementation(
@@ -383,51 +403,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveEntity).not.toHaveBeenCalled()
   })
 
-  it('merges explicit saved-entity updates into the live Y.Text history', async () => {
-    const descriptor = buildSavedEntityDescriptor('custom_tool', 'tool-1', 'workspace-1')
-    const query = new URLSearchParams(
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    ).toString()
-    const live = new Y.Doc()
-    const liveText = new Y.Text('base')
-    live.getMap('fields').set('codeText', liveText)
-    documents.set(descriptor.yjsSessionId, live)
-
-    const submitted = new Y.Doc()
-    Y.applyUpdate(submitted, Y.encodeStateAsUpdate(live))
-    const submittedText = submitted.getMap('fields').get('codeText') as Y.Text
-    submittedText.insert(submittedText.length, ' submitted')
-    const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(submitted)).toString('base64')
-    submitted.destroy()
-
-    let releasePersistence!: () => void
-    const persistence = new Promise<void>((resolve) => {
-      releasePersistence = resolve
-    })
-    let beginPersistence!: () => void
-    const persistenceStarted = new Promise<void>((resolve) => {
-      beginPersistence = resolve
-    })
-    mocks.saveEntity.mockImplementationOnce(async () => {
-      beginPersistence()
-      await persistence
-      return {}
-    })
-
-    const response = invoke('POST', `/internal/yjs/sessions/tool-1/apply-update?${query}`, {
-      updateBase64,
-    })
-    await persistenceStarted
-    liveText.insert(liveText.length, ' concurrent')
-    releasePersistence()
-
-    await expect(response).resolves.toMatchObject({ status: 200, body: { success: true } })
-    expect(live.getMap('fields').get('codeText')).toBe(liveText)
-    expect(liveText.toString()).toContain('submitted')
-    expect(liveText.toString()).toContain('concurrent')
-  })
-
-  it('keeps snapshot-only layout state detached and rejects a later generic apply', async () => {
+  it('keeps snapshot-only layout state detached', async () => {
     const descriptor = buildSavedEntityDescriptor('dashboard_layout', 'layout-1', 'workspace-1', {
       ownerUserId: 'user-1',
     })
@@ -453,26 +429,6 @@ describe('socket internal HTTP Yjs routes', () => {
     const snapshot = await invoke('GET', `/internal/yjs/sessions/layout-1/snapshot?${query}`)
     expect(snapshot.status).toBe(200)
     expect(documents.has('layout-1')).toBe(false)
-
-    const client = new Y.Doc()
-    Y.applyUpdate(client, Buffer.from(snapshot.body.snapshotBase64, 'base64'))
-    client.getMap('layout').set('topology', {
-      id: 'panel-after',
-      type: 'panel',
-      identityId: 'widget-after',
-      widgetKey: null,
-    })
-    const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(client)).toString('base64')
-    client.destroy()
-
-    const response = await invoke('POST', `/internal/yjs/sessions/layout-1/apply-update?${query}`, {
-      updateBase64,
-    })
-    expect(response).toMatchObject({
-      status: 400,
-      body: { error: 'Dashboard layout updates require the structural edit route' },
-    })
-    expect(mocks.commitDashboardStructure).not.toHaveBeenCalled()
   })
 
   it('lets a topology review commit after an independent widget changes', async () => {
@@ -714,7 +670,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).toHaveBeenCalledOnce()
     expect(readDashboardWidgetDocument(widgetDoc, 'data_chart')).toEqual(beforeWidget)
     expect(readDashboardColorPairDocument(pairDoc)).toEqual(beforePair)
-    expect(mocks.markPersisted).not.toHaveBeenCalled()
+    expect(mocks.persistStaged).toHaveBeenCalledOnce()
   })
 
   it('validates the accepted widget review inside the widget mutation queue', async () => {

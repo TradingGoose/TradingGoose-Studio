@@ -28,17 +28,17 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-function createResult(descriptor: any) {
+function createResult() {
   const doc = providerMocks.queuedDocs.shift() ?? new Y.Doc()
   let resolveLifecycle!: (event: unknown) => void
   const lifecycle = new Promise((resolve) => {
     resolveLifecycle = resolve
   })
   const result = {
-    descriptor,
     doc,
     provider: {},
     lifecycle,
+    persist: vi.fn().mockResolvedValue(undefined),
     dispose: vi.fn(() => doc.destroy()),
     emitLifecycle: resolveLifecycle,
   }
@@ -52,7 +52,7 @@ describe('shared entity Yjs sessions', () => {
   let current: ReturnType<typeof useSavedEntityYjsSession>
 
   const Harness = ({ accessMode }: { accessMode: ReviewAccessMode }) => {
-    current = useSavedEntityYjsSession('watchlist', 'watchlist-1', 'workspace-1', null, accessMode)
+    current = useSavedEntityYjsSession('skill', 'skill-1', 'workspace-1', null, accessMode)
     return null
   }
 
@@ -64,22 +64,27 @@ describe('shared entity Yjs sessions', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    providerMocks.bootstrap.mockImplementation(async (descriptor) => createResult(descriptor))
-    vi.stubGlobal('fetch', vi.fn())
+    providerMocks.bootstrap.mockImplementation(async () => createResult())
   })
 
   afterEach(() => {
     act(() => root.unmount())
     vi.useRealTimers()
     container.remove()
-    vi.unstubAllGlobals()
   })
 
   it('keeps a terminal session closed and rejects a retained writer save as a reader', async () => {
     await act(async () => root.render(<Harness accessMode='write' />))
     await vi.waitFor(() => expect(current.doc).toBeInstanceOf(Y.Doc))
-    const retainedSave = current.save
     const result = providerMocks.results[0]
+    current.doc!.getMap('fields').set('content', 'saved')
+    await act(async () => current.save())
+    const retainedSave = current.save
+    expect(result.persist).toHaveBeenCalledWith(undefined)
+
+    result.persist.mockRejectedValueOnce(new Error('Yjs persistence failed'))
+    await expect(current.save()).rejects.toThrow('Yjs persistence failed')
+    const saveRequests = result.persist.mock.calls.length
 
     await act(async () =>
       result.emitLifecycle({
@@ -98,7 +103,7 @@ describe('shared entity Yjs sessions', () => {
 
     await act(async () => root.render(<Harness accessMode='read' />))
     await expect(retainedSave()).rejects.toThrow('Cannot save a read-only Yjs session')
-    expect(fetch).not.toHaveBeenCalled()
+    expect(result.persist).toHaveBeenCalledTimes(saveRequests)
   })
 
   it('keeps dashboard list members scoped to the current owner', async () => {
@@ -164,13 +169,13 @@ describe('shared entity Yjs sessions', () => {
 
     await act(async () => root.render(<SwitchingHarness ownerUserId='user-a' />))
     await act(async () => root.render(<SwitchingHarness ownerUserId='user-b' />))
-    const second = createResult({ ownerUserId: 'user-b' })
+    const second = createResult()
     replaceEntityListSessionMembers(second.doc, [{ id: 'layout-b', name: 'Layout B' }])
     await act(async () => resolveSecond(second))
     await vi.waitFor(() =>
       expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-b'])
     )
-    const first = createResult({ ownerUserId: 'user-a' })
+    const first = createResult()
     await act(async () => resolveFirst(first))
 
     expect(first.dispose).toHaveBeenCalledOnce()
@@ -225,7 +230,7 @@ describe('shared entity Yjs sessions', () => {
     const replacement = new Y.Doc()
     replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
     providerMocks.queuedDocs.push(replacement)
-    await act(async () => stale.emitLifecycle({ type: 'resync-required' }))
+    await act(async () => stale.emitLifecycle({ type: 'lineage-replaced' }))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept', 'removed'])
     expect(current.doc).toBe(staleEntity.doc)
     expect(stale.dispose).toHaveBeenCalledOnce()

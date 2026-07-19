@@ -26,6 +26,7 @@ const mockVerifyReviewTargetAccess = vi.fn()
 const mockAcquireDocument = vi.fn()
 const mockDocuments = new Map<string, { doc: Y.Doc; seeded: boolean }>()
 const mockSetupWSConnection = vi.fn()
+const mockPersistStagedDocuments = vi.fn()
 const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshActiveEntityListSession = vi.fn()
@@ -200,6 +201,12 @@ beforeEach(() => {
     }
   )
   mockSetupWSConnection.mockReset()
+  mockPersistStagedDocuments
+    .mockReset()
+    .mockImplementation(
+      async (targets: Array<{ doc: Y.Doc }>, persist: (staged: Y.Doc[]) => Promise<unknown>) =>
+        persist(targets.map(({ doc }) => doc))
+    )
   mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
@@ -244,6 +251,7 @@ beforeEach(() => {
   vi.doMock('./upstream-utils', () => ({
     YjsSessionAdmissionError: MockYjsSessionAdmissionError,
     acquireDocument: mockAcquireDocument,
+    persistStagedDocuments: mockPersistStagedDocuments,
     setupWSConnection: mockSetupWSConnection,
   }))
 })
@@ -516,6 +524,37 @@ describe('handleYjsUpgrade', () => {
       doc
     )
     expect(mockRefreshActiveEntityListSession).toHaveBeenCalledWith('watchlist', 'workspace-1')
+    doc.destroy()
+  })
+
+  it('persists manual saved-entity updates through the websocket lifecycle', async () => {
+    const sessionId = 'skill-write'
+    await runYjsUpgrade({ target: { sessionId, entityKind: 'skill' } })
+
+    const options = mockSetupWSConnection.mock.calls[0]?.[2]
+    expect(options).toEqual(
+      expect.objectContaining({
+        doc: expect.any(Y.Doc),
+        persist: expect.any(Function),
+        onDocumentUpdate: undefined,
+      })
+    )
+    const doc = new Y.Doc()
+    await options.persist(doc, 'request-1', 'Renamed skill')
+
+    expect(mockPersistStagedDocuments).toHaveBeenCalledWith(
+      [{ doc }],
+      expect.any(Function),
+      'request-1'
+    )
+    expect(mockSaveSavedEntityYjsDocToDb).toHaveBeenCalledWith(
+      'skill',
+      sessionId,
+      'workspace-1',
+      doc,
+      { identity: { name: 'Renamed skill' } }
+    )
+    expect(mockRefreshActiveEntityListSession).toHaveBeenCalledWith('skill', 'workspace-1')
     doc.destroy()
   })
 

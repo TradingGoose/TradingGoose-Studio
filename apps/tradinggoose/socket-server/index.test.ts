@@ -19,7 +19,6 @@ import {
   getEntityFields,
   getEntityListMembers,
   replaceEntityListSessionMembers,
-  seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
@@ -192,34 +191,11 @@ function sendHttpRequestWithOptions(
   })
 }
 
-function createSkillUpdateBase64(payload: Record<string, unknown>): string {
-  const updateDoc = new Y.Doc()
-  seedEntitySession(updateDoc, { entityKind: 'skill', payload })
-  const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(updateDoc)).toString('base64')
-  updateDoc.destroy()
-  return updateBase64
-}
-
 function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, 0)
   syncProtocol.writeUpdate(encoder, update)
   return encoding.toUint8Array(encoder)
-}
-
-function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: string) {
-  return sendHttpRequestWithOptions(
-    port,
-    `/internal/yjs/sessions/${sessionId}/apply-update?targetKind=entity&sessionId=${sessionId}&workspaceId=workspace-1&entityKind=skill&entityId=${sessionId}`,
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-internal-secret': INTERNAL_SECRET,
-      },
-      body: JSON.stringify({ updateBase64 }),
-    }
-  )
 }
 
 function connectTestDocument(docId: string) {
@@ -538,58 +514,6 @@ describe('Socket Server Index Integration', () => {
       const liveBlocks = extractPersistedStateFromDoc(peekDocument('workflow-connected')!).blocks
       expect(liveBlocks).toHaveProperty('keep')
       expect(liveBlocks).not.toHaveProperty('replaced')
-
-      conn.emit('close')
-      await new Promise((resolve) => setImmediate(resolve))
-    })
-
-    it('does not publish an idle saved entity update when persistence fails', async () => {
-      mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
-      const response = await applySkillSessionUpdate(
-        PORT,
-        'skill-update-failed',
-        createSkillUpdateBase64({
-          description: 'Draft',
-          content: 'Draft content',
-        })
-      )
-
-      expect(response.statusCode).toBe(500)
-      expect(peekDocument('skill-update-failed')).toBeNull()
-    })
-
-    it('keeps a connected saved entity draft when update materialization fails', async () => {
-      const { conn, doc: liveDoc } = await connectTestDocument('skill-update-connected')
-      seedEntitySession(liveDoc, {
-        entityKind: 'skill',
-        payload: {
-          description: 'Original',
-          content: 'Original content',
-        },
-      })
-      seedEntitySession(liveDoc, {
-        entityKind: 'skill',
-        payload: {
-          description: 'Draft',
-          content: 'Draft content',
-        },
-      })
-
-      mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
-      const response = await applySkillSessionUpdate(
-        PORT,
-        'skill-update-connected',
-        createSkillUpdateBase64({
-          description: 'Draft',
-          content: 'Draft content',
-        })
-      )
-
-      expect(response.statusCode).toBe(500)
-      expect(getEntityFields(peekDocument('skill-update-connected')!, 'skill')).toEqual({
-        description: 'Draft',
-        content: 'Draft content',
-      })
 
       conn.emit('close')
       await new Promise((resolve) => setImmediate(resolve))

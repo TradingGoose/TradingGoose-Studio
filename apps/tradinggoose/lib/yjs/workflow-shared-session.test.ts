@@ -28,6 +28,9 @@ function createMockProvider() {
     connect: vi.fn(),
     destroy: vi.fn(),
     disconnect: vi.fn(),
+    emit: (event: string, ...args: any[]) => {
+      for (const handler of listeners.get(event) ?? []) handler(...args)
+    },
     off: vi.fn((event: string, handler: (...args: any[]) => void) => {
       listeners.get(event)?.delete(handler)
     }),
@@ -47,15 +50,8 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
   const result = {
     doc,
     provider,
-    descriptor: {
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: 'workflow-1',
-    },
     lifecycle,
+    persist: vi.fn(),
     dispose: vi.fn(() => {
       provider.disconnect()
       provider.destroy()
@@ -63,8 +59,8 @@ function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMoc
     }),
     emitTerminal: (error: Error & { retryable: false }) =>
       resolveLifecycle({ type: 'terminal-failure', error }),
-    emitResync: (pendingLocalEdits?: unknown) =>
-      resolveLifecycle({ type: 'resync-required', pendingLocalEdits }),
+    emitLineageReplaced: (pendingLocalEdits?: unknown) =>
+      resolveLifecycle({ type: 'lineage-replaced', pendingLocalEdits }),
   }
   return result
 }
@@ -222,7 +218,7 @@ describe('workflow shared session lifecycle', () => {
     releaseChat()
   })
 
-  it('retries a failed workflow rebootstrap with the retained local edits', async () => {
+  it('retries a failed workflow replacement with the retained local edits', async () => {
     const stale = createBootstrapResult(new Y.Doc(), createMockProvider())
     const fresh = createBootstrapResult(new Y.Doc(), createMockProvider())
     mockBootstrapYjsProvider
@@ -241,8 +237,11 @@ describe('workflow shared session lifecycle', () => {
       expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(stale.doc)
     })
 
-    const pendingLocalEdits = { base: new Uint8Array([0]), updates: [new Uint8Array([1])] }
-    stale.emitResync(pendingLocalEdits)
+    const pendingLocalEdits = {
+      base: new Uint8Array([0]),
+      replay: [{ local: true, update: new Uint8Array([1]) }],
+    }
+    stale.emitLineageReplaced(pendingLocalEdits)
     await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').error).toBe('realtime unavailable')
     })
@@ -344,6 +343,14 @@ describe('workflow shared session lifecycle', () => {
     await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').canUndo).toBe(true)
     })
+
+    provider.emit('sync', false)
+    expect(getSharedWorkflowSessionState('workflow-1')).toMatchObject({
+      doc,
+      provider,
+      canUndo: true,
+    })
+    provider.emit('sync', true)
 
     undoSharedWorkflowSession('workflow-1')
 

@@ -8,16 +8,23 @@ import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import {
+  decodeYjsLifecycleMessage,
+  encodeYjsDurableCheckpoint,
+  encodeYjsPersistError,
+} from '@/lib/yjs/lifecycle-protocol'
 
 const fetchMock = vi.fn()
 
 class MockWebsocketProvider {
   connect = vi.fn(() => {
     this.shouldConnect = true
+    this.wsconnected = true
   })
   destroy = vi.fn()
   disconnect = vi.fn(() => {
     this.shouldConnect = false
+    this.wsconnected = false
   })
   doc: Y.Doc
   disableBc: boolean
@@ -26,6 +33,8 @@ class MockWebsocketProvider {
   params: Record<string, string>
   shouldConnect = false
   synced = false
+  ws = { send: vi.fn() }
+  wsconnected = false
 
   constructor(
     _serverUrl: string,
@@ -67,6 +76,10 @@ class MockWebsocketProvider {
     if (event === 'sync') {
       this.synced = args[0] === true
     }
+    if (event === 'connection-close') {
+      this.synced = false
+      this.wsconnected = false
+    }
     for (const handler of this.listeners.get(event) ?? []) {
       handler(...args)
     }
@@ -101,6 +114,12 @@ function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
   return encoding.toUint8Array(encoder)
 }
 
+function readLifecycleMessage(message: Uint8Array) {
+  const decoder = decoding.createDecoder(message)
+  decoding.readVarUint(decoder)
+  return decodeYjsLifecycleMessage(decoder)
+}
+
 describe('bootstrapYjsProvider', () => {
   const descriptor: ReviewTargetDescriptor = {
     workspaceId: 'workspace-1',
@@ -113,7 +132,8 @@ describe('bootstrapYjsProvider', () => {
 
   async function bootstrapSyncedProvider(
     serverUpdate?: Uint8Array,
-    pendingLocalEdits?: import('./provider').YjsPendingLocalEdits
+    pendingLocalEdits?: import('./provider').YjsPendingLocalEdits,
+    lineageId = 'lineage-1'
   ) {
     const { bootstrapYjsProvider } = await import('./provider')
     const providerCount = providerInstances.length + 1
@@ -127,6 +147,10 @@ describe('bootstrapYjsProvider', () => {
       expect(providerInstances).toHaveLength(providerCount)
     })
     const provider = providerInstances.at(-1)!
+    const checkpointDoc = new Y.Doc()
+    if (serverUpdate) Y.applyUpdate(checkpointDoc, serverUpdate)
+    provider.receive(encodeYjsDurableCheckpoint(lineageId, Y.snapshot(checkpointDoc)))
+    checkpointDoc.destroy()
     if (serverUpdate) provider.receive(createSyncUpdateMessage(serverUpdate))
     provider.emit('sync', true)
     return bootstrapPromise
@@ -166,7 +190,6 @@ describe('bootstrapYjsProvider', () => {
       text: new Y.Text('a'),
       blocks: blocks('Base A', 'Base B'),
       deleted: 'base',
-      retyped: new Y.Text('base'),
       nested: nested('a', 'base'),
     })
     const result = await bootstrapSyncedProvider()
@@ -181,34 +204,50 @@ describe('bootstrapYjsProvider', () => {
     provider.receive(createSyncUpdateMessage(acknowledgedUpdate))
     fields.set('blocks', blocks('Local A', 'Base B'))
     fields.set('deleted', 'intermediate')
-    ;(fields.get('retyped') as Y.Text).insert(4, '!')
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'b')
-    const intermediate = Y.encodeStateAsUpdate(result.doc)
+    const remote = new Y.Doc()
+    Y.applyUpdate(remote, Y.encodeStateAsUpdate(result.doc))
+    remote.getMap('workflow').set('retyped', new Y.Text('base'))
+    const intermediate = Y.encodeStateAsUpdate(remote)
+    provider.receive(
+      createSyncUpdateMessage(Y.encodeStateAsUpdate(remote, Y.encodeStateVector(result.doc)))
+    )
+    remote.destroy()
+    ;(fields.get('retyped') as Y.Text).insert(4, '!')
     ;(fields.get('text') as Y.Text).insert(2, 'c')
     fields.delete('deleted')
     ;(fields.get('nested') as Y.Map<unknown>).set('owned', 'c')
-    provider.emit('connection-close', null, provider)
+    provider.receive(encodeYjsDurableCheckpoint('lineage-2', Y.emptySnapshot))
+    const stale = snapshot({ stale: true })
+    provider.receive(createSyncUpdateMessage(stale))
+    expect(fields.has('stale')).toBe(false)
     const event = await result.lifecycle
-    if (event.type !== 'resync-required') throw event.error
+    if (event.type !== 'lineage-replaced') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
-    expect(pending.updates).toHaveLength(7)
+    expect(pending.replay).toHaveLength(9)
+    expect(pending.replay[0]).toEqual({ local: true, update: acknowledgedUpdate })
     result.dispose()
-    const restarted = await bootstrapSyncedProvider(intermediate, pending)
+    const restarted = await bootstrapSyncedProvider(intermediate, pending, 'lineage-2')
     expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
       blocks: blocks('Local A', 'Base B'),
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
+    const restartedProvider = restarted.provider as unknown as MockWebsocketProvider
+    restartedProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
+    const repeatedEvent = await restarted.lifecycle
+    if (repeatedEvent.type !== 'lineage-replaced') throw repeatedEvent.error
+    const replayedPending = repeatedEvent.pendingLocalEdits
     restarted.dispose()
     const concurrent = snapshot({
       text: new Y.Text('aX'),
-      blocks: blocks('Base A', 'Remote B'),
+      blocks: blocks('Local A', 'Remote B'),
       deleted: 'intermediate',
       nested: nested('b', 'server'),
     })
-    const merged = await bootstrapSyncedProvider(concurrent, pending)
+    const merged = await bootstrapSyncedProvider(concurrent, replayedPending, 'lineage-3')
     const mergedFields = merged.doc.getMap('workflow')
     expect((mergedFields.get('text') as Y.Text).toString()).toBe('abc')
     expect(mergedFields.has('deleted')).toBe(false)
@@ -225,13 +264,47 @@ describe('bootstrapYjsProvider', () => {
         retyped: 42,
         nested: nested('foreign', 'server'),
       }),
-      pending
+      pending,
+      'lineage-4'
     )
     expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },
+    })
+    const replacementFields = replacement.doc.getMap('workflow')
+    replacementFields.set('checkpointed', true)
+    const requested = new Y.Doc()
+    Y.applyUpdate(requested, Y.encodeStateAsUpdate(replacement.doc))
+    const replacementProvider = replacement.provider as unknown as MockWebsocketProvider
+    const persisted = replacement.persist('Renamed workflow')
+    replacementFields.set('after-request', true)
+    const persistRequest = readLifecycleMessage(replacementProvider.ws.send.mock.calls[0]![0])
+    if (persistRequest.type !== 'persist-request') throw new Error('Expected persist request')
+    expect(persistRequest.identityName).toBe('Renamed workflow')
+    replacementProvider.receive(
+      encodeYjsDurableCheckpoint('lineage-4', Y.snapshot(requested), persistRequest.requestId)
+    )
+    requested.destroy()
+    await expect(persisted).resolves.toBeUndefined()
+
+    const failed = replacement.persist()
+    const failedRequest = readLifecycleMessage(replacementProvider.ws.send.mock.calls[1]![0])
+    if (failedRequest.type !== 'persist-request') throw new Error('Expected persist request')
+    replacementProvider.receive(
+      encodeYjsPersistError(failedRequest.requestId, 'database unavailable')
+    )
+    await expect(failed).rejects.toThrow('database unavailable')
+
+    replacementFields.delete('checkpointed')
+    replacementProvider.receive(
+      encodeYjsDurableCheckpoint('lineage-4', Y.snapshot(replacement.doc))
+    )
+    replacementProvider.receive(encodeYjsDurableCheckpoint('lineage-5', Y.emptySnapshot))
+    await expect(replacement.lifecycle).resolves.toEqual({
+      type: 'lineage-replaced',
+      pendingLocalEdits: undefined,
     })
     replacement.dispose()
   })
@@ -246,7 +319,11 @@ describe('bootstrapYjsProvider', () => {
     expect(provider.disableBc).toBe(true)
     expect(provider.synced).toBe(false)
     expect(provider.doc.getMap('fields').get('name')).toBeUndefined()
-    provider.doc.getMap('fields').set('name', 'Authoritative value')
+    const server = new Y.Doc()
+    server.getMap('fields').set('name', 'Authoritative value')
+    provider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(server)))
+    provider.receive(createSyncUpdateMessage(Y.encodeStateAsUpdate(server)))
+    server.destroy()
     provider.emit('sync', true)
     const result = await bootstrap
 
@@ -255,22 +332,37 @@ describe('bootstrapYjsProvider', () => {
     const tokenFetches = fetchMock.mock.calls.length
 
     provider.emit('connection-close', null, provider)
-    provider.emit('connection-error', new Event('error'), provider)
-    await expect(result.lifecycle).resolves.toEqual({ type: 'resync-required' })
+    await vi.waitFor(() => expect(provider.connect).toHaveBeenCalledTimes(2))
 
-    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches)
-    expect(provider.connect).toHaveBeenCalledTimes(1)
-    expect(provider.disconnect).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 1)
+    expect(provider.disconnect).not.toHaveBeenCalled()
+    expect(result.doc).toBe(provider.doc)
+
+    let resolveToken!: (response: Response) => void
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveToken = resolve
+        })
+    )
+    provider.emit('connection-close', null, provider)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 2))
     result.dispose()
+    resolveToken(jsonResponse({ token: 'token-2' }))
+    await Promise.resolve()
+
+    expect(provider.connect).toHaveBeenCalledTimes(2)
   })
 
   it('terminates an oversized writer update instead of replaying it', async () => {
     const result = await bootstrapSyncedProvider()
     const provider = result.provider as unknown as MockWebsocketProvider
     result.doc.getMap('workflow').set('content', 'local edit')
+    const persistence = result.persist()
 
     provider.emit('connection-close', { code: 1009 }, provider)
 
+    await expect(persistence).rejects.toThrow('connection closed')
     await expect(result.lifecycle).resolves.toMatchObject({
       type: 'terminal-failure',
       error: { retryable: false },
