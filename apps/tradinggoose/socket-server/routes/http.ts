@@ -480,11 +480,7 @@ async function handleInternalYjsEntityListMembersRequest(
       descriptor.workspaceId as string,
       descriptor.ownerUserId ?? null
     )
-    if (!liveDoc) {
-      sendJson(res, 200, { success: true, applied: false })
-      return
-    }
-    sendJson(res, 200, { success: true, applied: true })
+    sendJson(res, 200, { success: true, applied: liveDoc !== null })
   } catch (error) {
     logger.error('Error applying entity-list members', { error, sessionId })
     sendYjsRequestError(res, error, 'Failed to apply entity-list members')

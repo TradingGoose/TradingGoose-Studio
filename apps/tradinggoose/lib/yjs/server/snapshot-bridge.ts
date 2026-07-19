@@ -123,20 +123,7 @@ async function fetchFromSocketServer<T = Response>(
   throw new Error('Socket server bridge failed')
 }
 
-async function postJsonToSocketServer(path: string, body: unknown, attempts = 1): Promise<void> {
-  await fetchFromSocketServer(
-    new URL(path, getInternalRealtimeUrl()),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-    10000,
-    attempts
-  )
-}
-
-async function postJsonToSocketServerWithResponse<T>(
+async function postJsonToSocketServer<T = unknown>(
   path: string,
   body: unknown,
   attempts = 1,
@@ -217,8 +204,7 @@ export async function applyEntityStateInSocketServer(
   }
 ): Promise<Record<string, unknown>> {
   try {
-    const response = await postJsonToSocketServerWithResponse<{
-      success?: unknown
+    const response = await postJsonToSocketServer<{
       fields?: unknown
     }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
       entityKind,
@@ -229,12 +215,7 @@ export async function applyEntityStateInSocketServer(
         : {}),
       ...(options?.identity ? { identity: options.identity } : {}),
     })
-    if (
-      response.success !== true ||
-      !response.fields ||
-      typeof response.fields !== 'object' ||
-      Array.isArray(response.fields)
-    ) {
+    if (!response.fields || typeof response.fields !== 'object' || Array.isArray(response.fields)) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
     }
     return response.fields as Record<string, unknown>
@@ -277,11 +258,10 @@ async function applyDashboardEditInSocketServer(
   body: Record<string, unknown>
 ): Promise<DashboardLayoutProjectionContent> {
   try {
-    const response = await postJsonToSocketServerWithResponse<{
-      success?: unknown
+    const response = await postJsonToSocketServer<{
       content?: unknown
     }>(`/internal/yjs/dashboard-layouts/${encodeURIComponent(entityId)}/edit`, body)
-    if (response.success !== true || !response.content) {
+    if (!response.content) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed dashboard content')
     }
     return normalizeDashboardLayoutProjection(response.content)
@@ -373,12 +353,14 @@ export async function refreshEntityListSession(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   )
   try {
-    await postJsonToSocketServer(
+    const response = await postJsonToSocketServer<{
+      applied?: unknown
+    }>(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
       {},
       3
     )
-    return true
+    return response.applied === true
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
     return false
@@ -403,7 +385,7 @@ export async function withYjsSessionDeletionLease<T>(
   }
   let lastConfirmedAt = 0
   const beginLease = async () => {
-    await postJsonToSocketServerWithResponse(
+    await postJsonToSocketServer(
       '/internal/yjs/session-deletions',
       { leaseId, ...target },
       DELETION_LEASE_ATTEMPTS,

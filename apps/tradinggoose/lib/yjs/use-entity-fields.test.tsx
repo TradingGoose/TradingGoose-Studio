@@ -202,11 +202,13 @@ describe('shared entity Yjs sessions', () => {
     await vi.waitFor(() => expect(renderCount).toBeGreaterThan(beforeUpdate))
   })
 
-  it('drops a stale list before opening a fresh Yjs history', async () => {
+  it('retains list membership until a fresh Yjs history replaces it', async () => {
     vi.useFakeTimers()
     let currentList!: ReturnType<typeof useEntityList>
     const ListHarness = () => {
       currentList = useEntityList('watchlist', 'workspace-1')
+      const selectedId = currentList.members[0]?.entityId
+      current = useSavedEntityYjsSession('watchlist', selectedId, 'workspace-1', null, 'write')
       return null
     }
     await act(async () => root.render(<ListHarness />))
@@ -217,20 +219,19 @@ describe('shared entity Yjs sessions', () => {
       { id: 'removed', name: 'Removed' },
     ])
     await act(async () => Promise.resolve())
+    const staleEntity = providerMocks.results[1]
     expect(currentList.members).toHaveLength(2)
 
-    providerMocks.bootstrap.mockRejectedValueOnce(new Error('replacement unavailable'))
     const replacement = new Y.Doc()
     replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
     providerMocks.queuedDocs.push(replacement)
     await act(async () => stale.emitLifecycle({ type: 'resync-required' }))
-    expect(currentList.members).toEqual([])
+    expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept', 'removed'])
+    expect(current.doc).toBe(staleEntity.doc)
     expect(stale.dispose).toHaveBeenCalledOnce()
 
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
-    expect(currentList.members).toEqual([])
-
-    await act(async () => vi.advanceTimersByTimeAsync(1_000))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept'])
+    expect(current.doc).toBe(staleEntity.doc)
   })
 })

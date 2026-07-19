@@ -173,7 +173,12 @@ describe('bootstrapYjsProvider', () => {
     const provider = result.provider as unknown as MockWebsocketProvider
     provider.receive(createSyncUpdateMessage(initial))
     const fields = result.doc.getMap('workflow')
+    let acknowledgedUpdate!: Uint8Array
+    result.doc.once('update', (update) => {
+      acknowledgedUpdate = update
+    })
     ;(fields.get('text') as Y.Text).insert(1, 'b')
+    provider.receive(createSyncUpdateMessage(acknowledgedUpdate))
     fields.set('blocks', blocks('Local A', 'Base B'))
     fields.set('deleted', 'intermediate')
     ;(fields.get('retyped') as Y.Text).insert(4, '!')
@@ -187,6 +192,7 @@ describe('bootstrapYjsProvider', () => {
     if (event.type !== 'resync-required') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
+    expect(pending.updates).toHaveLength(7)
     result.dispose()
     const restarted = await bootstrapSyncedProvider(intermediate, pending)
     expect(restarted.doc.getMap('workflow').toJSON()).toEqual({

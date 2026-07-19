@@ -8,7 +8,7 @@
  * read/write through the collaborative Yjs document when available.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
 import {
   buildEntityListDescriptor,
@@ -466,6 +466,10 @@ export function useEntityList(
   workspaceId: string | null | undefined,
   ownerUserId?: string | null | undefined
 ) {
+  const memberSnapshot = useRef<{
+    sessionKey: string | null
+    members: EntityListMember[]
+  }>({ sessionKey: null, members: EMPTY_ENTITY_LIST_MEMBERS })
   const descriptor = useMemo(() => {
     if (!workspaceId) return null
     try {
@@ -505,12 +509,17 @@ export function useEntityList(
     extract,
     EMPTY_ENTITY_LIST_MEMBERS
   )
+  const isTerminalError = activeState?.error?.retryable === false
+  if (doc) memberSnapshot.current = { sessionKey, members }
+  else if (!sessionKey || isTerminalError || memberSnapshot.current.sessionKey !== sessionKey) {
+    memberSnapshot.current = { sessionKey, members: EMPTY_ENTITY_LIST_MEMBERS }
+  }
 
   return {
-    members,
+    members: memberSnapshot.current.members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error?.message ?? null,
-    isTerminalError: activeState?.error?.retryable === false,
+    isTerminalError,
   }
 }
 

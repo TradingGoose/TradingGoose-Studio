@@ -204,7 +204,7 @@ export async function bootstrapYjsProvider(
   })
   const localUpdates: Uint8Array[] = []
   doc.on('update', (update: Uint8Array, origin: unknown) => {
-    if (origin !== provider) localUpdates.push(update)
+    if (active && origin !== provider) localUpdates.push(update)
   })
   const applySyncMessage = provider.messageHandlers[messageSync]!
   provider.messageHandlers[messageSync] = (encoder, decoder, source, emitSynced, messageType) => {
@@ -215,7 +215,9 @@ export async function bootstrapYjsProvider(
         syncMessageType === syncProtocol.messageYjsSyncStep2 ||
         syncMessageType === syncProtocol.messageYjsUpdate
       ) {
-        Y.applyUpdate(acknowledged, decoding.readVarUint8Array(mirror), YJS_ORIGINS.SYSTEM)
+        const update = decoding.readVarUint8Array(mirror)
+        Y.applyUpdate(acknowledged, update, YJS_ORIGINS.SYSTEM)
+        if (isEqual(localUpdates[0], update)) localUpdates.shift()
       }
     }
     applySyncMessage(encoder, decoder, source, emitSynced, messageType)

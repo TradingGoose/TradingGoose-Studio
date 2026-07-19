@@ -383,6 +383,9 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
           return reconcileConnection(doc, conn, current).then(() => {
             if (doc.conns.get(conn) !== current) return
             applySyncMessage(conn, doc, message)
+            if (syncMessageType === syncProtocol.messageYjsUpdate && doc.conns.has(conn)) {
+              send(doc, conn, message)
+            }
           })
         }).catch((error) => {
           if (error instanceof YjsDocumentDrainingError) {

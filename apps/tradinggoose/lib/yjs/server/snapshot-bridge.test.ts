@@ -144,14 +144,15 @@ describe('refreshEntityListSession', () => {
     expect(mockLogger.error).not.toHaveBeenCalled()
   })
 
-  it('reports successful entity-list fanout', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ success: true }), { status: 200 })
-    )
-
+  it.each([
+    ['applied', { success: true, applied: true }, true],
+    ['without a live document', { success: true, applied: false }, false],
+  ])('reports entity-list fanout %s', async (_, body, expected) => {
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(body), { status: 200 }))
     const { refreshEntityListSession } = await import('./snapshot-bridge')
 
-    await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBe(true)
+    await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBe(expected)
+    expect(mockLogger.warn).not.toHaveBeenCalled()
   })
 
   it('does not fail the committed mutation when access notification fails', async () => {

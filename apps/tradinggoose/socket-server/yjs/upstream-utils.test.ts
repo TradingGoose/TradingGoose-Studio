@@ -161,15 +161,15 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('layout-replaced')).toBe(replacement)
   })
 
-  it('retains a flushed lineage after a socket error without echoing client updates', async () => {
+  it('retains a flushed lineage after acknowledging an accepted client update', async () => {
     vi.useFakeTimers()
     const persist = vi.fn()
     const firstSocket = new TestSocket()
     const first = await setupWatchlistSocket(firstSocket, 'watchlist-reconnect', persist, 60_000)
-    const sentMessages = firstSocket.send.mock.calls.length
-    firstSocket.emit('message', createSyncUpdateMessage(createFieldsUpdate(first, 'pending', true)))
+    const updateMessage = createSyncUpdateMessage(createFieldsUpdate(first, 'pending', true))
+    firstSocket.emit('message', updateMessage)
     await vi.waitFor(() => expect(first.getMap('fields').get('pending')).toBe(true))
-    expect(firstSocket.send).toHaveBeenCalledTimes(sentMessages)
+    expect(firstSocket.send).toHaveBeenLastCalledWith(updateMessage, {}, expect.any(Function))
     firstSocket.emit('error', new Error('Max payload size exceeded'))
     await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
 
@@ -385,6 +385,7 @@ describe('document mutation queue', () => {
       input.prepareLive?.(doc)
       const before = input.read(doc)
       const sentBeforeRejection = peer.send.mock.calls.length
+      const senderMessagesBeforeRejection = sender.send.mock.calls.length
 
       const stateVector = Y.encodeStateVector(source)
       input.mutate(source)
@@ -399,6 +400,7 @@ describe('document mutation queue', () => {
       expect(input.read(doc)).toEqual(before)
       expect(peer.close).not.toHaveBeenCalled()
       expect(peer.send).toHaveBeenCalledTimes(sentBeforeRejection)
+      expect(sender.send).toHaveBeenCalledTimes(senderMessagesBeforeRejection)
       expect(persist).not.toHaveBeenCalled()
     } finally {
       sender.emit('close')
