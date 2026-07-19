@@ -172,7 +172,7 @@ describe('bootstrapYjsProvider', () => {
     vi.unstubAllGlobals()
   })
 
-  it('rebases divergent local text edits onto a fresh server history', async () => {
+  it('rebases pending local edits onto a fresh server history', async () => {
     const snapshot = (values: Record<string, unknown>) => {
       const doc = new Y.Doc()
       const fields = doc.getMap('workflow')
@@ -186,9 +186,18 @@ describe('bootstrapYjsProvider', () => {
       blockA: { id: 'blockA', name: blockA },
       blockB: { id: 'blockB', name: blockB },
     })
+    const edge = (id: string) => ({ id, source: `${id}-source`, target: `${id}-target` })
+    const layout = (ids: string[]) => ({
+      id: 'group',
+      children: ids.map((id) => ({ id })),
+      sizes: ids.map((_, index) => index + 1),
+    })
     const initial = snapshot({
       text: new Y.Text('a'),
       blocks: blocks('Base A', 'Base B'),
+      edges: [edge('B')],
+      layout: layout(['B']),
+      positional: ['base'],
       deleted: 'base',
       nested: nested('a', 'base'),
     })
@@ -213,6 +222,9 @@ describe('bootstrapYjsProvider', () => {
       createSyncUpdateMessage(Y.encodeStateAsUpdate(remote, Y.encodeStateVector(result.doc)))
     )
     remote.destroy()
+    fields.set('edges', [edge('B'), edge('L')])
+    fields.set('layout', layout(['B', 'L']))
+    fields.set('positional', ['local'])
     ;(fields.get('retyped') as Y.Text).insert(4, '!')
     ;(fields.get('text') as Y.Text).insert(2, 'c')
     fields.delete('deleted')
@@ -225,13 +237,16 @@ describe('bootstrapYjsProvider', () => {
     if (event.type !== 'lineage-replaced') throw event.error
     const pending = event.pendingLocalEdits
     if (!pending) throw new Error('Expected pending local edits')
-    expect(pending.replay).toHaveLength(9)
+    expect(pending.replay).toHaveLength(12)
     expect(pending.replay[0]).toEqual({ local: true, update: acknowledgedUpdate })
     result.dispose()
     const restarted = await bootstrapSyncedProvider(intermediate, pending, 'lineage-2')
     expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
       blocks: blocks('Local A', 'Base B'),
+      edges: [edge('B'), edge('L')],
+      layout: layout(['B', 'L']),
+      positional: ['local'],
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
@@ -244,6 +259,9 @@ describe('bootstrapYjsProvider', () => {
     const concurrent = snapshot({
       text: new Y.Text('aX'),
       blocks: blocks('Local A', 'Remote B'),
+      edges: [edge('B'), edge('R')],
+      layout: layout(['B', 'R']),
+      positional: ['remote'],
       deleted: 'intermediate',
       nested: nested('b', 'server'),
     })
@@ -256,6 +274,9 @@ describe('bootstrapYjsProvider', () => {
       foreign: 'server',
     })
     expect(mergedFields.get('blocks')).toEqual(blocks('Local A', 'Remote B'))
+    expect(mergedFields.get('edges')).toEqual([edge('B'), edge('R'), edge('L')])
+    expect(mergedFields.get('layout')).toEqual(layout(['B', 'R']))
+    expect(mergedFields.get('positional')).toEqual(['remote'])
     merged.dispose()
     const replacement = await bootstrapSyncedProvider(
       snapshot({

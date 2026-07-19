@@ -64,6 +64,19 @@ function requireSuccessfulResponse(response: Response, label: string): void {
 }
 
 const MISSING_Y_MAP_VALUE = Symbol('missing-y-map-value')
+type StableIdRecord = Record<string, unknown> & { id: string }
+
+function indexStableIdArray(value: unknown): Map<string, StableIdRecord> | null {
+  if (!Array.isArray(value)) return null
+  const items = new Map<string, StableIdRecord>()
+  for (const item of value) {
+    if (!isPlainObject(item)) return null
+    const id = (item as Record<string, unknown>).id
+    if (typeof id !== 'string' || !id.trim() || items.has(id)) return null
+    items.set(id, item as StableIdRecord)
+  }
+  return items
+}
 
 const yValueJson = (value: unknown) =>
   value instanceof Y.Map || value instanceof Y.Text ? value.toJSON() : value
@@ -72,14 +85,20 @@ const yValuesEqual = (left: unknown, right: unknown) =>
   left instanceof Y.Text === right instanceof Y.Text &&
   isEqual(yValueJson(left), yValueJson(right))
 
-function mergeYMapValue(base: unknown, local: unknown, remote: unknown): unknown {
+function mergeYMapValue(
+  base: unknown,
+  local: unknown,
+  remote: unknown,
+  allowStableIdCollection = false
+): unknown {
   if (base instanceof Y.Map && local instanceof Y.Map && remote instanceof Y.Map) {
     for (const key of new Set([...base.keys(), ...local.keys()])) {
       const remoteValue = remote.has(key) ? remote.get(key) : MISSING_Y_MAP_VALUE
       const merged = mergeYMapValue(
         base.has(key) ? base.get(key) : MISSING_Y_MAP_VALUE,
         local.has(key) ? local.get(key) : MISSING_Y_MAP_VALUE,
-        remoteValue
+        remoteValue,
+        true
       )
       if (merged === MISSING_Y_MAP_VALUE) {
         remote.delete(key)
@@ -96,6 +115,28 @@ function mergeYMapValue(base: unknown, local: unknown, remote: unknown): unknown
   }
   if (yValuesEqual(local, base)) return remote
   if (yValuesEqual(remote, base)) return local
+  const baseItems = allowStableIdCollection ? indexStableIdArray(base) : null
+  const localItems = allowStableIdCollection ? indexStableIdArray(local) : null
+  const remoteItems = allowStableIdCollection ? indexStableIdArray(remote) : null
+  if (baseItems && localItems && remoteItems) {
+    const merged = new Map<string, unknown>(remoteItems)
+    for (const id of new Set([...baseItems.keys(), ...localItems.keys()])) {
+      const value = mergeYMapValue(
+        baseItems.get(id) ?? MISSING_Y_MAP_VALUE,
+        localItems.get(id) ?? MISSING_Y_MAP_VALUE,
+        remoteItems.get(id) ?? MISSING_Y_MAP_VALUE,
+        false
+      )
+      if (value === MISSING_Y_MAP_VALUE) merged.delete(id)
+      else merged.set(id, value)
+    }
+    return [
+      ...[...remoteItems.keys()].flatMap((id) => (merged.has(id) ? [merged.get(id)] : [])),
+      ...[...localItems.keys()].flatMap((id) =>
+        !baseItems.has(id) && !remoteItems.has(id) && merged.has(id) ? [merged.get(id)] : []
+      ),
+    ]
+  }
   if (isPlainObject(base) && isPlainObject(local) && isPlainObject(remote)) {
     const baseRecord = base as Record<string, unknown>
     const localRecord = local as Record<string, unknown>
@@ -105,7 +146,8 @@ function mergeYMapValue(base: unknown, local: unknown, remote: unknown): unknown
       const value = mergeYMapValue(
         Object.hasOwn(baseRecord, key) ? baseRecord[key] : MISSING_Y_MAP_VALUE,
         Object.hasOwn(localRecord, key) ? localRecord[key] : MISSING_Y_MAP_VALUE,
-        Object.hasOwn(remoteRecord, key) ? remoteRecord[key] : MISSING_Y_MAP_VALUE
+        Object.hasOwn(remoteRecord, key) ? remoteRecord[key] : MISSING_Y_MAP_VALUE,
+        false
       )
       if (value === MISSING_Y_MAP_VALUE) merged.delete(key)
       else merged.set(key, value)
