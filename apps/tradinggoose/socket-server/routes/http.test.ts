@@ -702,13 +702,16 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('preserves stable-id credentials when a Copilot edit reorders records', async () => {
+  it('commits credential preserve, replace, and delete semantics by stable array id', async () => {
     const reviewedWidget = {
       pairColor: 'gray' as const,
       params: {
         view: {
           pineIndicators: [
-            { id: 'indicator-a', inputs: { apiKey: 'reviewed-a' } },
+            {
+              id: 'indicator-a',
+              inputs: { apiKey: 'reviewed-a', apiSecret: 'reviewed-secret-a' },
+            },
             { id: 'indicator-b', inputs: { apiKey: 'reviewed-b' } },
           ],
         },
@@ -717,7 +720,10 @@ describe('socket internal HTTP Yjs routes', () => {
     const liveWidget = createWidgetDoc('gray', {
       view: {
         pineIndicators: [
-          { id: 'indicator-a', inputs: { apiKey: 'latest-a' } },
+          {
+            id: 'indicator-a',
+            inputs: { apiKey: 'reviewed-a', apiSecret: 'reviewed-secret-a' },
+          },
           { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },
         ],
       },
@@ -729,7 +735,7 @@ describe('socket internal HTTP Yjs routes', () => {
         view: {
           pineIndicators: [
             { id: 'indicator-b', inputs: { apiKey: '[redacted]' } },
-            { id: 'indicator-a', inputs: { apiKey: '[redacted]' } },
+            { id: 'indicator-a', inputs: { apiKey: 'replacement-a' } },
           ],
         },
       },
@@ -747,7 +753,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(savedWidget?.params?.view).toEqual({
       pineIndicators: [
         { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },
-        { id: 'indicator-a', inputs: { apiKey: 'latest-a' } },
+        { id: 'indicator-a', inputs: { apiKey: 'replacement-a' } },
       ],
     })
   })

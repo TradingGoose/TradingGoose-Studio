@@ -217,10 +217,16 @@ describe('edit_widget server tool', () => {
   })
 
   it('stages edit_widget review with selected-widget JSON document diff', async () => {
+    const current = fx.createDashboardLayoutTestContent()
+    current.widgets['chart-widget'].params = {
+      ...DATA_CHART_PARAMS,
+      data: { ...DATA_CHART_PARAMS.data, auth: { apiKey: 'stored-secret' } },
+    }
+    toolMocks.setCurrentContent(current)
     toolMocks.shouldStage.mockReturnValue(true)
 
     const result = await execute(
-      { params: { data: { provider: 'polygon' } } },
+      { params: { data: { provider: 'polygon', auth: { apiKey: 'replacement-secret' } } } },
       { accessLevel: 'limited' }
     )
 
@@ -229,7 +235,9 @@ describe('edit_widget server tool', () => {
     expect(JSON.parse(result.entityDocument)).toMatchObject({
       layout: { id: 'root', type: 'group' },
       widgets: {
-        'chart-widget': { params: { data: { provider: 'polygon' } } },
+        'chart-widget': {
+          params: { data: { provider: 'polygon', auth: { apiKey: '[redacted]' } } },
+        },
         'order-widget': { params: null },
       },
       colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
@@ -247,9 +255,15 @@ describe('edit_widget server tool', () => {
       widgetKey: 'data_chart',
       widgetDocument: {
         pairColor: 'red',
-        params: { data: { provider: 'polygon' } },
+        params: { data: { provider: 'polygon', auth: { apiKey: '[redacted]' } } },
       },
     })
+    expect(before.credentialWritePaths).toEqual([])
+    expect(after.credentialWritePaths).toEqual(['widgetDocument.params.data.auth.apiKey'])
+    expect(before.widgetDocument.params.data.auth.apiKey).toBe('[redacted]')
+    expect(after.widgetDocument.params.data.auth.apiKey).toBe('[redacted]')
+    expect(JSON.stringify(result)).not.toContain('stored-secret')
+    expect(JSON.stringify(result)).not.toContain('replacement-secret')
   })
 
   it('rejects accepted edit_widget when the reviewed base hash is stale', async () => {

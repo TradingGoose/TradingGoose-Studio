@@ -356,6 +356,12 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
       'drawing state is user-managed'
     )
+    const editWidgetDescription = manifest.tools.find(
+      (tool) => tool.name === 'edit_widget'
+    )?.description
+    expect(editWidgetDescription).toContain('`[redacted]` preserve')
+    expect(editWidgetDescription).toContain('concrete value to replace')
+    expect(editWidgetDescription).toContain('omit it from a submitted credential object to delete')
     expect(manifest.tools.find((tool) => tool.name === 'create_layout')?.description).toContain(
       'first layout is active automatically; later layouts are inactive'
     )

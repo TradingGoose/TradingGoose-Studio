@@ -63,6 +63,35 @@ export function projectDashboardLayoutValueForCopilot(value: unknown): unknown {
   )
 }
 
+const isConcreteCredentialWrite = (value: unknown) =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value !== DASHBOARD_CREDENTIAL_PLACEHOLDER &&
+  !isEnvironmentReference(value)
+
+export function buildDashboardWidgetReviewDiffForCopilot({
+  before,
+  after,
+  requestedParams,
+}: {
+  before: Record<string, unknown>
+  after: Record<string, unknown>
+  requestedParams: unknown
+}) {
+  const credentialWritePaths: string[] = []
+  mapCredentialSlots(requestedParams, undefined, 'widgetDocument.params', (value, _, path) => {
+    if (isConcreteCredentialWrite(value)) credentialWritePaths.push(path)
+    return value
+  })
+  const projectedBefore = projectDashboardLayoutValueForCopilot(before) as Record<string, unknown>
+  const projectedAfter = projectDashboardLayoutValueForCopilot(after) as Record<string, unknown>
+  if (credentialWritePaths.length > 0) {
+    projectedBefore.credentialWritePaths = []
+    projectedAfter.credentialWritePaths = credentialWritePaths.sort()
+  }
+  return { before: projectedBefore, after: projectedAfter }
+}
+
 export function preserveDashboardLayoutCredentialPlaceholders(
   next: unknown,
   current: unknown

@@ -10,7 +10,7 @@ import {
   verifySavedEntityContext,
 } from '@/lib/copilot/tools/server/entities/shared'
 import { readDashboardLayoutMetadata } from '@/lib/dashboard-layouts/operations'
-import { projectDashboardLayoutValueForCopilot } from '@/lib/dashboard-layouts/read-projection'
+import { buildDashboardWidgetReviewDiffForCopilot } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardWidgetReviewBase,
   buildDashboardWidgetReviewDocument,
@@ -19,6 +19,7 @@ import {
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardWidgetEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { normalizeDashboardLayoutProjection } from '@/widgets/layout-document'
+import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -71,8 +72,13 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       colorPairs: next.colorPairs,
     })
     const reviewBase = buildDashboardWidgetReviewBase(current, args.panelId, next.reviewBase, patch)
-    const beforeReview = buildDashboardWidgetReviewDocument(current, args.panelId)
-    const afterReview = buildDashboardWidgetReviewDocument(nextContent, args.panelId)
+    const reviewDiff = buildDashboardWidgetReviewDiffForCopilot({
+      before: buildDashboardWidgetReviewDocument(current, args.panelId),
+      after: buildDashboardWidgetReviewDocument(nextContent, args.panelId),
+      requestedParams: patch.params
+        ? projectWidgetParamsForCopilot(panel.widgetKey, patch.params)
+        : patch.params,
+    })
     const result = {
       success: true,
       ...buildDashboardLayoutResult({
@@ -91,8 +97,8 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
         reviewBaseStateHash: hashServerToolReviewBase(reviewBase),
         preview: {
           documentDiff: {
-            before: JSON.stringify(projectDashboardLayoutValueForCopilot(beforeReview), null, 2),
-            after: JSON.stringify(projectDashboardLayoutValueForCopilot(afterReview), null, 2),
+            before: JSON.stringify(reviewDiff.before, null, 2),
+            after: JSON.stringify(reviewDiff.after, null, 2),
           },
         },
       }
