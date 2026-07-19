@@ -19,32 +19,35 @@ export async function resolveSkillMetadata(
     return []
   }
 
-  const namesById = new Map(
-    (await readEntityListMembersFromDb('skill', workspaceId)).map(({ id, name }) => [id, name])
+  const namesByIdPromise = readEntityListMembersFromDb('skill', workspaceId).then(
+    (members) => new Map(members.map(({ id, name }) => [id, name]))
   )
 
   const results = await Promise.allSettled(
-    selectedSkills.map((skillInput) =>
-      readSavedEntityFieldsForExecution('skill', skillInput.skillId, workspaceId, isDeployedContext)
-    )
+    selectedSkills.map(async (skillInput) => {
+      const [fields, namesById] = await Promise.all([
+        readSavedEntityFieldsForExecution(
+          'skill',
+          skillInput.skillId,
+          workspaceId,
+          isDeployedContext
+        ),
+        namesByIdPromise,
+      ])
+      const name = namesById.get(skillInput.skillId)
+      if (name === undefined) throw new Error('Canonical skill identity is missing')
+      return {
+        id: skillInput.skillId,
+        name,
+        description: String(fields.description ?? ''),
+      }
+    })
   )
 
   return results.flatMap((result, index) => {
     const skillInput = selectedSkills[index]
-    const name = namesById.get(skillInput.skillId)
-    if (result.status === 'fulfilled' && name !== undefined) {
-      return [
-        {
-          id: skillInput.skillId,
-          name,
-          description: String(result.value.description ?? ''),
-        },
-      ]
-    }
-    logger.warn(
-      `Skipping unavailable agent skill ${skillInput.skillId}:`,
-      result.status === 'rejected' ? result.reason : 'canonical identity is missing'
-    )
+    if (result.status === 'fulfilled') return [result.value]
+    logger.warn(`Skipping unavailable agent skill ${skillInput.skillId}:`, result.reason)
     return []
   })
 }

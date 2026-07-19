@@ -46,5 +46,13 @@ describe('resolveSkillMetadata', () => {
       ['skill', 'skill-missing', 'workspace-1', true],
       ['skill', 'skill-a', 'workspace-1', true],
     ])
+
+    readSavedEntityFieldsForExecutionMock.mockClear()
+    readEntityListMembersFromDbMock.mockRejectedValueOnce(new Error('list unavailable'))
+
+    await expect(
+      resolveSkillMetadata([{ skillId: 'skill-z' }, { skillId: 'skill-a' }], 'workspace-1', true)
+    ).resolves.toEqual([])
+    expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledTimes(2)
   })
 })
