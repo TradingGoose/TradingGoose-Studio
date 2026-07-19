@@ -145,7 +145,7 @@ describe('watchlist import/export', () => {
     })
   })
 
-  it('rejects id-less export documents while keeping imports permissive before persistence', () => {
+  it('rejects id-less export documents', () => {
     expect(() =>
       createWatchlistExportFile({
         fields: {
@@ -180,59 +180,6 @@ describe('watchlist import/export', () => {
         } as any,
       })
     ).toThrow('Invalid persisted watchlist item')
-
-    expect(
-      parseImportedWatchlistFile({
-        version: '1',
-        fileType: 'tradingGooseExport',
-        exportedAt: '2026-04-06T12:00:00.000Z',
-        exportedFrom: 'watchlistWidget',
-        resourceTypes: ['watchlists'],
-        watchlists: [
-          {
-            name: 'My Watchlist',
-            settings: { showLogo: true, showTicker: true, showDescription: true },
-            items: [
-              {
-                type: 'section',
-                label: 'Tech',
-              },
-              {
-                type: 'listing',
-                listing: {
-                  listing_id: 'aapl-id',
-                  base_id: '',
-                  quote_id: '',
-                  listing_type: 'default',
-                },
-              },
-            ],
-          },
-        ],
-      })
-    ).toEqual({
-      name: 'My Watchlist',
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      items: [
-        {
-          id: expect.any(String),
-          type: 'section',
-          parentId: null,
-          label: 'Tech',
-        },
-        {
-          id: expect.any(String),
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_id: 'aapl-id',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
-        },
-      ],
-    })
   })
 
   it('parses mixed unified import files and trims the watchlist name', () => {
@@ -271,13 +218,11 @@ describe('watchlist import/export', () => {
       settings: { showLogo: true, showTicker: true, showDescription: true },
       items: [
         {
-          id: expect.any(String),
           type: 'section',
           parentId: null,
           label: 'Tech',
         },
         {
-          id: expect.any(String),
           type: 'listing',
           parentId: null,
           listing: {

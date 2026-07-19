@@ -16,6 +16,7 @@ import {
   normalizeWatchlistSettings,
   resolveWatchlistDocumentItemIds,
   WatchlistDocumentError,
+  watchlistListingMembershipKey,
 } from '@/lib/watchlists/validation'
 
 type WatchlistContainerRow = typeof watchlistTable.$inferSelect
@@ -128,9 +129,6 @@ const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => 
     listing,
   }
 }
-
-const watchlistItemUniquenessKey = (containerId: string | null, listing: ListingIdentity) =>
-  `${containerId ?? ''}:${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const sortSiblingRows = (left: WatchlistSiblingRow, right: WatchlistSiblingRow) =>
   left.row.sortOrder - right.row.sortOrder ||
@@ -299,7 +297,10 @@ export async function materializeWatchlistDocumentInTx(
   currentSections.forEach(readContainerKind)
   const currentSectionIds = new Set(currentSections.map((section) => section.id))
   const currentListingIds = new Set(currentRows.items.map((item) => item.id))
-  const resolvedItems = resolveWatchlistDocumentItemIds(fields.items)
+  const resolvedItems = resolveWatchlistDocumentItemIds(
+    fields.items,
+    new Set([...currentSectionIds, ...currentListingIds])
+  )
   for (const item of resolvedItems) {
     if (item.type === 'section' && currentListingIds.has(item.id)) {
       throw new WatchlistDocumentError('Watchlist item id cannot change type')
@@ -341,14 +342,16 @@ export async function materializeWatchlistDocumentInTx(
     const submittedListingKeys = new Map<string, string>()
     for (const item of resolvedItems) {
       if (item.type !== 'listing') continue
-      const dbContainerId = item.parentId ?? root.id
-      submittedListingKeys.set(item.id, watchlistItemUniquenessKey(dbContainerId, item.listing))
+      submittedListingKeys.set(item.id, watchlistListingMembershipKey(item.parentId, item.listing))
     }
 
     for (const item of currentRows.items) {
       const submittedKey = submittedListingKeys.get(item.id)
       const currentKey = submittedKey
-        ? watchlistItemUniquenessKey(item.containerId, item.listing as ListingIdentity)
+        ? watchlistListingMembershipKey(
+            item.containerId === root.id ? null : item.containerId,
+            item.listing as ListingIdentity
+          )
         : null
       if (submittedKey === currentKey) continue
       await tx

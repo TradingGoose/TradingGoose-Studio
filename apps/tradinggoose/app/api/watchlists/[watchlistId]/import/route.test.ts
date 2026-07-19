@@ -101,7 +101,7 @@ describe('Watchlist import API route', () => {
     })
   })
 
-  it('imports one full watchlist document through the atomic socket mutation', async () => {
+  it('defers imported row identity ownership to the atomic socket mutation', async () => {
     const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
@@ -125,8 +125,8 @@ describe('Watchlist import API route', () => {
     })
     expect(options).toEqual({ identity: { name: 'Imported Watchlist' } })
     const [section, listing] = fields.items
-    expect(section.id).not.toBe('00000000-0000-4000-8000-000000000001')
-    expect(listing.id).not.toBe('00000000-0000-4000-8000-000000000002')
+    expect(section.id).toBe('00000000-0000-4000-8000-000000000001')
+    expect(listing.id).toBe('00000000-0000-4000-8000-000000000002')
     expect(listing.parentId).toBe(section.id)
   })
 

@@ -7,6 +7,7 @@ import {
   skill,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { isEqual } from 'lodash'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import {
@@ -252,7 +253,7 @@ export async function saveSavedEntityYjsDocToDb(
   seedEntitySession(doc, { entityKind, payload: normalizedFields }, YJS_ORIGINS.SYSTEM)
   const canonicalFields = getEntityFields(doc, entityKind)
   try {
-    return await db.transaction(async (tx) => {
+    const persistedFields = await db.transaction(async (tx) => {
       await lockSavedEntityList(tx, entityKind, workspaceId)
       if (options?.identity) {
         await renameSavedEntityIdentityInTx(tx, {
@@ -264,6 +265,10 @@ export async function saveSavedEntityYjsDocToDb(
       }
       return persistSavedEntityStateInTx(tx, entityKind, entityId, canonicalFields, workspaceId)
     })
+    if (entityKind === 'watchlist' && isEqual(getEntityFields(doc, entityKind), canonicalFields)) {
+      seedEntitySession(doc, { entityKind, payload: persistedFields }, YJS_ORIGINS.SYSTEM)
+    }
+    return persistedFields
   } catch (error) {
     if (error instanceof SavedEntityPersistenceError) throw error
     if (error instanceof SavedEntityIdentityError) {

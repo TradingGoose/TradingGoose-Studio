@@ -165,6 +165,8 @@ const rootItem = {
   updatedAt: rootRow.updatedAt,
 }
 const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, listing: NVDA }
+const materialize = (tx: any, fields: Record<string, unknown>) =>
+  materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', fields)
 
 describe('watchlist operations', () => {
   beforeEach(() => {
@@ -172,35 +174,59 @@ describe('watchlist operations', () => {
     mockRefreshEntityList.mockResolvedValue(undefined)
   })
 
-  it('persists new canonical UUIDs unchanged and updates the same rows on the next save', async () => {
-    const first = materializerTx({ updateResults: [[updatedRoot], [], [], []] })
-    await expect(
-      materializeWatchlistDocumentInTx(first.tx, 'workspace-1', 'watchlist-1', content)
-    ).resolves.toEqual(content)
+  it('remaps source IDs and parent references on create and foreign edits', async () => {
+    const sourceIds = content.items.map((item) => item.id)
+    const foreignTargetItem = { ...rootItem, id: crypto.randomUUID() }
+    for (const currentItems of [[], [foreignTargetItem]]) {
+      const store = materializerTx({
+        items: currentItems,
+        updateResults: [[updatedRoot], [], [], []],
+      })
+      const result = await materialize(store.tx, content)
+      const [rootListing, section, nestedListing] = result.items
+      const resolvedIds = result.items.map((item) => item.id)
 
-    expect(first.inserts.map(({ values }) => values.id)).toEqual([
-      sectionId,
-      rootListingId,
-      nestedListingId,
-    ])
+      expect(new Set([...resolvedIds, ...sourceIds]).size).toBe(6)
+      expect(nestedListing.parentId).toBe(section.id)
+      expect(store.inserts.map(({ values }) => values.id)).toEqual([
+        section.id,
+        rootListing.id,
+        nestedListing.id,
+      ])
+    }
+  })
 
-    const second = materializerTx({
+  it('preserves IDs already owned by the target and updates without inserts', async () => {
+    const store = materializerTx({
       containers: [rootRow, sectionRow],
       items: [rootItem, nestedItem],
       updateResults: [[updatedRoot], [sectionRow], [rootItem], [nestedItem]],
     })
 
-    await expect(
-      materializeWatchlistDocumentInTx(second.tx, 'workspace-1', 'watchlist-1', content)
-    ).resolves.toEqual(content)
-    expect(second.inserts).toEqual([])
+    await expect(materialize(store.tx, content)).resolves.toEqual(content)
+    expect(store.inserts).toEqual([])
+  })
 
+  it('rejects target-owned IDs submitted as a different item type', async () => {
+    const store = materializerTx({ items: [rootItem], updateResults: [] })
+
+    await expect(
+      materialize(store.tx, {
+        settings: content.settings,
+        items: [
+          { id: rootListingId, type: 'section', parentId: null, label: 'Invalid type change' },
+        ],
+      })
+    ).rejects.toThrow('Watchlist item id cannot change type')
+  })
+
+  it('deletes stale listing identities before scoped upserts', async () => {
     const collision = materializerTx({
       containers: [rootRow, sectionRow],
       items: [rootItem, { ...nestedItem, listing: SPY }],
       updateResults: [[updatedRoot], [sectionRow], []],
     })
-    await materializeWatchlistDocumentInTx(collision.tx, 'workspace-1', 'watchlist-1', {
+    await materialize(collision.tx, {
       ...content,
       items: [
         { id: sectionId, type: 'section', parentId: null, label: 'Semiconductors' },

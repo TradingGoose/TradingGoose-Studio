@@ -109,6 +109,25 @@ function buildDoc(fields: Record<string, unknown>) {
   return doc
 }
 
+const watchlistSettings = { showLogo: true, showTicker: true, showDescription: false }
+const watchlistListing = {
+  listing_type: 'default' as const,
+  listing_id: 'AAPL',
+  base_id: '',
+  quote_id: '',
+}
+const watchlistFields = (id?: string) => ({
+  settings: watchlistSettings,
+  items: [
+    {
+      ...(id ? { id, parentId: null } : {}),
+      type: 'listing' as const,
+      listing: watchlistListing,
+    },
+  ],
+})
+const emptyWatchlistFields = { settings: watchlistSettings, items: [] }
+
 describe('applySavedEntityState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -129,22 +148,7 @@ describe('applySavedEntityState', () => {
       name: 'Renamed',
       updatedAt: new Date('2026-07-13T12:00:00.000Z'),
     })
-    mockMaterializeWatchlistDocumentInTx.mockResolvedValue({
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          id: 'listing-1',
-          type: 'listing',
-          parentId: null,
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ],
-    })
+    mockMaterializeWatchlistDocumentInTx.mockResolvedValue(watchlistFields('listing-1'))
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
@@ -156,58 +160,19 @@ describe('applySavedEntityState', () => {
 
   it('applies watchlist changes through the socket-owned saved-entity Yjs session', async () => {
     const { applySavedEntityState } = await import('./apply-entity-state')
-    const persistedFields = {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          id: 'listing-1',
-          type: 'listing',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ],
-    }
+    const inputFields = watchlistFields()
+    const persistedFields = watchlistFields('listing-1')
     mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
 
     await expect(
-      applySavedEntityState('watchlist', 'watchlist-1', 'workspace-1', {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            type: 'listing',
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      })
+      applySavedEntityState('watchlist', 'watchlist-1', 'workspace-1', inputFields)
     ).resolves.toEqual(persistedFields)
 
     expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
       'watchlist-1',
       'watchlist',
       'workspace-1',
-      {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [
-          {
-            type: 'listing',
-            listing: {
-              listing_type: 'default',
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-            },
-          },
-        ],
-      },
+      inputFields,
       undefined
     )
     expect(mockDbTransaction).not.toHaveBeenCalled()
@@ -221,10 +186,7 @@ describe('applySavedEntityState', () => {
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
-      payload: {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      },
+      payload: emptyWatchlistFields,
     })
     mockLockSavedEntityList.mockImplementationOnce(async (_tx, entityKind, workspaceId) => {
       events.push(`lock:${entityKind}:${workspaceId}`)
@@ -235,7 +197,7 @@ describe('applySavedEntityState', () => {
     })
     mockMaterializeWatchlistDocumentInTx.mockImplementationOnce(async () => {
       events.push('materialize')
-      return { settings: { showLogo: true, showTicker: true, showDescription: false }, items: [] }
+      return emptyWatchlistFields
     })
 
     try {
@@ -299,48 +261,57 @@ describe('applySavedEntityState', () => {
     expect(events).toEqual(['db'])
   })
 
-  it('materializes watchlist DB state from a provided Yjs document through the document helper', async () => {
-    const { getEntityFields, seedEntitySession } = await import('@/lib/yjs/entity-session')
+  it('reconciles materialized watchlist IDs without overwriting a newer edit', async () => {
+    const { getEntityFields, seedEntitySession, updateWatchlistItems } = await import(
+      '@/lib/yjs/entity-session'
+    )
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const fields = {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        {
-          id: '00000000-0000-4000-8000-000000000001',
-          type: 'listing' as const,
-          parentId: null,
-          listing: {
-            listing_type: 'default' as const,
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-          },
-        },
-      ],
-    }
+    const fields = watchlistFields('00000000-0000-4000-8000-000000000001')
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
       payload: fields,
     })
-    mockMaterializeWatchlistDocumentInTx.mockResolvedValueOnce(fields)
+    const persistedFields = {
+      ...fields,
+      items: [{ ...fields.items[0], id: '00000000-0000-4000-8000-000000000009' }],
+    }
+    mockMaterializeWatchlistDocumentInTx.mockResolvedValueOnce(persistedFields)
     try {
       await expect(
         saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc)
-      ).resolves.toEqual(fields)
+      ).resolves.toEqual(persistedFields)
+      expect(getEntityFields(doc, 'watchlist')).toEqual(persistedFields)
+      expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledWith(
+        { update: mockDbUpdate },
+        'workspace-1',
+        'watchlist-1',
+        fields
+      )
 
-      expect(getEntityFields(doc, 'watchlist')).toEqual(fields)
+      let finishPersistence!: (fields: typeof persistedFields) => void
+      mockMaterializeWatchlistDocumentInTx.mockImplementationOnce(
+        () => new Promise((resolve) => (finishPersistence = resolve))
+      )
+      const saving = saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc)
+      await vi.waitFor(() => expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledTimes(2))
+      updateWatchlistItems(doc, () => [
+        {
+          ...fields.items[0],
+          id: '00000000-0000-4000-8000-000000000002',
+          listing: { ...fields.items[0].listing, listing_id: 'MSFT' },
+        },
+      ])
+      finishPersistence(persistedFields)
+
+      await expect(saving).resolves.toEqual(persistedFields)
+      expect(getEntityFields(doc, 'watchlist').items[0]).toMatchObject({
+        id: '00000000-0000-4000-8000-000000000002',
+        listing: { listing_id: 'MSFT' },
+      })
     } finally {
       doc.destroy()
     }
-
-    expect(mockDbTransaction).toHaveBeenCalledTimes(1)
-    expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledWith(
-      { update: mockDbUpdate },
-      'workspace-1',
-      'watchlist-1',
-      fields
-    )
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
@@ -430,10 +401,7 @@ describe('applySavedEntityState', () => {
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
-      payload: {
-        settings: { showLogo: true, showTicker: true, showDescription: false },
-        items: [],
-      },
+      payload: emptyWatchlistFields,
     })
     mockMaterializeWatchlistDocumentInTx.mockRejectedValueOnce(
       new WatchlistDocumentError('Invalid watchlist hierarchy', 409)

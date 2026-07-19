@@ -1,10 +1,6 @@
 import { z } from 'zod'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import {
-  getListingIdentityKey,
-  ListingIdentitySchema,
-  toListingValueObject,
-} from '@/lib/listing/identity'
+import { ListingIdentitySchema, toListingValueObject } from '@/lib/listing/identity'
 import { MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
   WatchlistDocumentFields,
@@ -160,7 +156,15 @@ const containerItemKeys = new Set(['id', 'type', 'parentId', 'label'])
 export const watchlistListingMembershipKey = (
   parentId: string | null | undefined,
   listing: ListingIdentity
-) => `listing:${parentId ?? '__root__'}:${getListingIdentityKey(listing)}`
+) =>
+  JSON.stringify([
+    'listing',
+    parentId ?? null,
+    listing.listing_type,
+    listing.listing_id,
+    listing.base_id,
+    listing.quote_id,
+  ])
 
 const normalizeWatchlistDocumentListingInputItem = (
   value: unknown
@@ -269,16 +273,16 @@ export const normalizeWatchlistDocumentInputItems = (
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function assignWatchlistDocumentItemIds(
+export function resolveWatchlistDocumentItemIds(
   items: WatchlistDocumentInputItem[],
-  preserveUuids: boolean
+  preservedIds: ReadonlySet<string>
 ): WatchlistItem[] {
   const resolvedIds = new Map<string, string>()
   for (const item of items) {
     if (item.id) {
       resolvedIds.set(
         item.id,
-        preserveUuids && UUID_PATTERN.test(item.id) ? item.id : crypto.randomUUID()
+        preservedIds.has(item.id) && UUID_PATTERN.test(item.id) ? item.id : crypto.randomUUID()
       )
     }
   }
@@ -293,12 +297,6 @@ function assignWatchlistDocumentItemIds(
     }
   })
 }
-
-export const resolveWatchlistDocumentItemIds = (items: WatchlistDocumentInputItem[]) =>
-  assignWatchlistDocumentItemIds(items, true)
-
-export const remapImportedWatchlistDocumentItemIds = (items: WatchlistDocumentInputItem[]) =>
-  assignWatchlistDocumentItemIds(items, false)
 
 function assertNoDuplicateSubmittedIds(items: Array<{ id?: string }>): void {
   const seen = new Set<string>()

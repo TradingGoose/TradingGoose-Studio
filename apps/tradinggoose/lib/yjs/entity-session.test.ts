@@ -199,7 +199,8 @@ describe('watchlist entity sessions', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
     const right = new Y.Doc()
-    const firstSection = '00000000-0000-4000-8000-000000000001'
+    const submittedFirstSection = '__root__'
+    let firstSection = submittedFirstSection
     const secondSection = '00000000-0000-4000-8000-000000000002'
     const itemId = '00000000-0000-4000-8000-000000000003'
     const rootItemId = '00000000-0000-4000-8000-000000000004'
@@ -209,13 +210,15 @@ describe('watchlist entity sessions', () => {
         payload: {
           settings: { showLogo: true, showTicker: true, showDescription: true },
           items: [
-            { id: firstSection, type: 'section', parentId: null, label: 'First' },
+            { id: submittedFirstSection, type: 'section', parentId: null, label: 'First' },
             { id: secondSection, type: 'section', parentId: null, label: 'Second' },
-            { ...listing(itemId, 'AAPL'), parentId: firstSection },
+            { ...listing(itemId, 'AAPL'), parentId: submittedFirstSection },
             listing(rootItemId, 'AAPL'),
           ],
         },
       })
+      firstSection = readWatchlistItems(source).find((item) => item.type === 'section')!.id
+      expect(firstSection).not.toBe(submittedFirstSection)
       const state = Y.encodeStateAsUpdate(source)
       Y.applyUpdate(left, state)
       Y.applyUpdate(right, state)

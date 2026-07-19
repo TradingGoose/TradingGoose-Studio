@@ -87,13 +87,10 @@ function writeWatchlistItem(
   if (item.type === 'section') {
     setMapValue(entry, 'label', item.label)
   } else {
-    const currentId = entry.get('id')
     const id =
-      typeof currentId === 'string'
-        ? currentId
-        : previousListingKeys.has(item.id) && previousListingKeys.get(item.id) !== key
-          ? crypto.randomUUID()
-          : item.id
+      previousListingKeys.has(item.id) && previousListingKeys.get(item.id) !== key
+        ? crypto.randomUUID()
+        : item.id
     setMapValue(entry, 'id', id)
     const currentListing = entry.get('listing') as ListingIdentity | undefined
     if (!areListingIdentitiesEqual(currentListing, item.listing)) {
@@ -106,9 +103,9 @@ function siblingOrders(
   items: WatchlistDocumentInputItem[]
 ): Map<WatchlistDocumentInputItem, number> {
   const result = new Map<WatchlistDocumentInputItem, number>()
-  const nextByParent = new Map<string, number>()
+  const nextByParent = new Map<string | null, number>()
   for (const item of items) {
-    const parent = item.parentId ?? '__root__'
+    const parent = item.parentId ?? null
     const next = nextByParent.get(parent) ?? 0
     nextByParent.set(parent, next + 1)
     result.set(item, next)
@@ -125,7 +122,10 @@ export function replaceWatchlistItems(
     settings: { showLogo: true, showTicker: true, showDescription: true },
     items: rawItems,
   }).items
-  const items = resolveWatchlistDocumentItemIds(normalized)
+  const items = resolveWatchlistDocumentItemIds(
+    normalized,
+    new Set(normalized.flatMap((item) => (item.id ? [item.id] : [])))
+  )
   const orders = siblingOrders(items)
   doc.transact(() => {
     const map = getWatchlistItemsMap(doc)
@@ -183,16 +183,16 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
 
   assertValidParentTree(entries)
 
-  const byParent = new Map<string, Array<WatchlistItem & { order: number }>>()
+  const byParent = new Map<string | null, Array<WatchlistItem & { order: number }>>()
   for (const item of entries) {
-    const parentId = item.parentId ?? '__root__'
+    const parentId = item.parentId ?? null
     byParent.set(parentId, [...(byParent.get(parentId) ?? []), item])
   }
   const sortItems = (items: Array<WatchlistItem & { order: number }>) =>
     items.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
 
   const output: WatchlistItem[] = []
-  for (const item of sortItems(byParent.get('__root__') ?? [])) {
+  for (const item of sortItems(byParent.get(null) ?? [])) {
     const { order: _order, ...value } = item
     output.push(value)
     if (value.type === 'section') {
