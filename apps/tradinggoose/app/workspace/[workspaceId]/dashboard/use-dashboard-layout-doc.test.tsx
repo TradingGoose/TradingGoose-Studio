@@ -11,8 +11,8 @@ import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 import { useDashboardLayoutDocument } from './use-dashboard-layout-doc'
 
 let mockLayoutDoc: Y.Doc | null = null
-const mockMutateStructure = vi.hoisted(() => vi.fn(() => Promise.resolve()))
 const mockUseSavedEntityYjsSession = vi.hoisted(() => vi.fn())
+const mockMutateStructure = vi.hoisted(() => vi.fn())
 
 const topology: DashboardLayoutTopologyNode = {
   id: 'panel-chart',
@@ -56,7 +56,8 @@ describe('useDashboardLayoutDocument live fields', () => {
   }
 
   beforeEach(() => {
-    mockMutateStructure.mockClear()
+    mockMutateStructure.mockReset()
+    mockMutateStructure.mockResolvedValue(undefined)
     mockUseSavedEntityYjsSession.mockClear()
     mockUseSavedEntityYjsSession.mockImplementation(() => ({
       doc: mockLayoutDoc,
@@ -72,7 +73,6 @@ describe('useDashboardLayoutDocument live fields', () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     if (root) act(() => root?.unmount())
     mockLayoutDoc?.destroy()
     mockLayoutDoc = null
@@ -107,34 +107,23 @@ describe('useDashboardLayoutDocument live fields', () => {
   it('isolates departed layout queues and recovers from resize failures', async () => {
     mockLayoutDoc = new Y.Doc()
     seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
-    vi.useFakeTimers()
-
     let rejectDepartedResize!: (error: Error) => void
     mockMutateStructure.mockImplementationOnce(
       () => new Promise<void>((_resolve, reject) => (rejectDepartedResize = reject))
     )
     act(() => root?.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
-    act(() => {
-      latest.updateGroupSizes('group-1', [20, 80])
-      latest.updateGroupSizes('group-1', [35, 65])
-    })
-    await act(async () => vi.advanceTimersByTimeAsync(500))
-    expect(mockMutateStructure).toHaveBeenCalledTimes(1)
-    expect(mockMutateStructure).toHaveBeenLastCalledWith('workspace-1', 'layout-1', {
+    const departedResize = latest.mutateStructure({
       type: 'resize',
       groupId: 'group-1',
       sizes: [35, 65],
     })
-
+    const departedFailure = expect(departedResize).rejects.toThrow('departed resize failed')
     const departedSplit = latest.mutateStructure({
       type: 'split',
       panelId: 'panel-chart',
       direction: 'horizontal',
     })
-    act(() => {
-      latest.updateGroupSizes('group-2', [25, 75])
-      root?.render(<Capture workspaceId='workspace-2' layoutId='layout-2' />)
-    })
+    act(() => root?.render(<Capture workspaceId='workspace-2' layoutId='layout-2' />))
     const replacement = latest.mutateStructure({
       type: 'replace',
       panelId: 'panel-chart',
@@ -142,7 +131,12 @@ describe('useDashboardLayoutDocument live fields', () => {
     })
     await act(async () => Promise.resolve())
     expect(mockMutateStructure).toHaveBeenCalledTimes(2)
-    expect(mockMutateStructure).toHaveBeenLastCalledWith('workspace-2', 'layout-2', {
+    expect(mockMutateStructure).toHaveBeenNthCalledWith(1, 'workspace-1', 'layout-1', {
+      type: 'resize',
+      groupId: 'group-1',
+      sizes: [35, 65],
+    })
+    expect(mockMutateStructure).toHaveBeenNthCalledWith(2, 'workspace-2', 'layout-2', {
       type: 'replace',
       panelId: 'panel-chart',
       widgetKey: 'watchlist',
@@ -150,13 +144,9 @@ describe('useDashboardLayoutDocument live fields', () => {
     await replacement
 
     rejectDepartedResize(new Error('departed resize failed'))
-    await vi.waitFor(() => expect(mockMutateStructure).toHaveBeenCalledTimes(4))
-    expect(mockMutateStructure).toHaveBeenNthCalledWith(3, 'workspace-1', 'layout-1', {
-      type: 'resize',
-      groupId: 'group-2',
-      sizes: [25, 75],
-    })
-    expect(mockMutateStructure).toHaveBeenNthCalledWith(4, 'workspace-1', 'layout-1', {
+    await departedFailure
+    await vi.waitFor(() => expect(mockMutateStructure).toHaveBeenCalledTimes(3))
+    expect(mockMutateStructure).toHaveBeenLastCalledWith('workspace-1', 'layout-1', {
       type: 'split',
       panelId: 'panel-chart',
       direction: 'horizontal',
@@ -165,13 +155,17 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.hasResizePersistenceError).toBe(false)
 
     mockMutateStructure.mockRejectedValueOnce(new Error('resize failed'))
-    act(() => latest.updateGroupSizes('group-1', [40, 60]))
-    await act(async () => vi.advanceTimersByTimeAsync(500))
-    await vi.waitFor(() => expect(latest.hasResizePersistenceError).toBe(true))
+    await act(async () => {
+      await expect(
+        latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [40, 60] })
+      ).rejects.toThrow('resize failed')
+    })
     expect(latest.resizeReconcileVersion).toBe(1)
+    expect(latest.hasResizePersistenceError).toBe(true)
 
-    act(() => latest.updateGroupSizes('group-1', [45, 55]))
-    await act(async () => vi.advanceTimersByTimeAsync(500))
-    await vi.waitFor(() => expect(latest.hasResizePersistenceError).toBe(false))
+    await act(async () => {
+      await latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [45, 55] })
+    })
+    expect(latest.hasResizePersistenceError).toBe(false)
   })
 })

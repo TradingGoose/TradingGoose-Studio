@@ -495,10 +495,8 @@ describe('socket internal HTTP Yjs routes', () => {
       expect.any(Function)
     )
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
-    expect(response.body.content.colorPairs.pairs).toContainEqual({
-      color: 'blue',
-      watchlistId: 'preserved-watchlist',
-    })
+    expect(response.body).toEqual({ success: true })
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
   })
 
   it('copies the live source widget when splitting a panel', async () => {
@@ -525,9 +523,13 @@ describe('socket internal HTTP Yjs routes', () => {
       removedIdentityIds: [],
     })
     expect(mocks.withDeletion).not.toHaveBeenCalled()
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
+      'layout-1',
+      'dashboard-widget:layout-1:widget-1',
+    ])
   })
 
-  it('applies a delayed resize to the live topology after a split', async () => {
+  it('applies a completed resize to the live topology after a split', async () => {
     setDashboardDocuments({ widget: createWidgetDoc() })
 
     const split = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
@@ -536,7 +538,9 @@ describe('socket internal HTTP Yjs routes', () => {
       ownerUserId: 'user-1',
       structure: { type: 'split', panelId: 'panel-1', direction: 'horizontal' },
     })
-    const groupId = split.body.content.layout.id
+    expect(split.status).toBe(200)
+    const groupId = readDashboardLayoutDocument(documents.get('layout-1')!).layout.id
+    mocks.acquireDocument.mockClear()
 
     const resize = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'structure',
@@ -554,6 +558,7 @@ describe('socket internal HTTP Yjs routes', () => {
     })
     expect(commit.layout.children).toHaveLength(2)
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
   })
 
   it('keeps live topology unchanged when protected structural persistence fails', async () => {

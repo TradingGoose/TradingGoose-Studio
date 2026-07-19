@@ -315,13 +315,16 @@ export function applyDashboardStructureMutationInSocketServer(input: {
   workspaceId: string
   ownerUserId: string
   mutation: DashboardLayoutStructureMutation
-}): Promise<DashboardLayoutProjectionContent> {
-  return applyDashboardEditInSocketServer(input.entityId, {
-    mutation: 'structure',
-    workspaceId: input.workspaceId,
-    ownerUserId: input.ownerUserId,
-    structure: input.mutation,
-  })
+}): Promise<void> {
+  return postJsonToSocketServer(
+    `/internal/yjs/dashboard-layouts/${encodeURIComponent(input.entityId)}/edit`,
+    {
+      mutation: 'structure',
+      workspaceId: input.workspaceId,
+      ownerUserId: input.ownerUserId,
+      structure: input.mutation,
+    }
+  ).then(() => undefined)
 }
 
 /**

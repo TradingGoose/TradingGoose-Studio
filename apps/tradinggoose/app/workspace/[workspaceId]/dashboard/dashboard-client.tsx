@@ -50,6 +50,7 @@ import {
   useWidgetConfigRuntimeActions,
   WidgetConfigRuntimeProvider,
 } from '@/widgets/widget-config-runtime'
+import { isWidgetKey } from '@/widgets/widget-contracts'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
 interface DashboardClientProps {
@@ -108,30 +109,28 @@ const DashboardNode = memo(function DashboardNode({
   replacePanelWidget,
 }: DashboardNodeProps) {
   const groupRef = useRef<ImperativePanelGroupHandle>(null)
-  const appliedLayoutRef = useRef<number[] | null>(null)
   const groupSizes = node.type === 'group' ? node.sizes : null
 
   useEffect(() => {
     if (!groupSizes || !groupRef.current) return
     const mounted = groupRef.current.getLayout()
     if (arePanelSizesEqual(mounted, groupSizes)) return
-    appliedLayoutRef.current = groupSizes
     groupRef.current.setLayout(groupSizes)
   }, [groupSizes, resizeReconcileVersion])
 
-  const handleGroupLayout = useCallback(
-    (sizes: number[]) => {
-      if (node.type !== 'group') return
-      const applied = appliedLayoutRef.current
-      if (applied && arePanelSizesEqual(applied, sizes)) {
-        appliedLayoutRef.current = null
-        return
-      }
-      appliedLayoutRef.current = null
-      if (arePanelSizesEqual(node.sizes, sizes)) return
-      persistGroup?.(node.id, sizes)
+  const persistMountedGroup = useCallback(() => {
+    if (node.type !== 'group') return
+    const sizes = groupRef.current?.getLayout()
+    if (!sizes) return
+    if (arePanelSizesEqual(node.sizes, sizes)) return
+    persistGroup?.(node.id, [...sizes])
+  }, [node, persistGroup])
+
+  const handleGroupDragging = useCallback(
+    (isDragging: boolean) => {
+      if (!isDragging) persistMountedGroup()
     },
-    [node, persistGroup]
+    [persistMountedGroup]
   )
 
   if (node.type === 'panel') {
@@ -163,7 +162,6 @@ const DashboardNode = memo(function DashboardNode({
       ref={groupRef}
       key={node.id}
       direction={node.direction}
-      onLayout={persistGroup ? handleGroupLayout : undefined}
       className='h-full w-full'
     >
       {node.children.map((child, index) => {
@@ -198,7 +196,13 @@ const DashboardNode = memo(function DashboardNode({
                 replacePanelWidget={replacePanelWidget}
               />
             </ResizablePanel>
-            {index < node.children.length - 1 && <ResizableHandle withHandle />}
+            {index < node.children.length - 1 && (
+              <ResizableHandle
+                withHandle
+                onDragging={handleGroupDragging}
+                onKeyUp={persistMountedGroup}
+              />
+            )}
           </Fragment>
         )
       })}
@@ -378,12 +382,18 @@ export function DashboardClient({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const persistGroup = useCallback(
-    (groupId: string, sizes: number[]) => {
+  const mutateLayoutStructure = useCallback(
+    (mutation: DashboardLayoutStructureMutation) => {
       if (!canMutateLayoutTopology) return
-      layoutDocument.updateGroupSizes(groupId, sizes)
+      void layoutDocument
+        .mutateStructure(mutation)
+        .catch((error) => console.error('Failed to update dashboard layout structure:', error))
     },
-    [canMutateLayoutTopology, layoutDocument.updateGroupSizes]
+    [canMutateLayoutTopology, layoutDocument.mutateStructure]
+  )
+  const persistGroup = useCallback(
+    (groupId: string, sizes: number[]) => mutateLayoutStructure({ type: 'resize', groupId, sizes }),
+    [mutateLayoutStructure]
   )
 
   const widgetContext = useMemo<WidgetRuntimeContext>(
@@ -486,37 +496,27 @@ export function DashboardClient({
     filteredDocs.length > 0
   const showDropdown = isSearchOpen
 
-  const mutatePanelStructure = useCallback(
-    async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
-      if (!canMutateLayoutTopology) return
-      try {
-        await layoutDocument.mutateStructure(mutation)
-      } catch (error) {
-        console.error('Failed to update dashboard layout structure:', error)
-      }
-    },
-    [canMutateLayoutTopology, layoutDocument.mutateStructure]
-  )
-
   const handleSplitPanelVertical = useCallback(
-    (panelId: string) => mutatePanelStructure({ type: 'split', panelId, direction: 'vertical' }),
-    [mutatePanelStructure]
+    (panelId: string) => mutateLayoutStructure({ type: 'split', panelId, direction: 'vertical' }),
+    [mutateLayoutStructure]
   )
 
   const handleSplitPanelHorizontal = useCallback(
-    (panelId: string) => mutatePanelStructure({ type: 'split', panelId, direction: 'horizontal' }),
-    [mutatePanelStructure]
+    (panelId: string) => mutateLayoutStructure({ type: 'split', panelId, direction: 'horizontal' }),
+    [mutateLayoutStructure]
   )
 
   const handleClosePanel = useCallback(
-    (panelId: string) => mutatePanelStructure({ type: 'close', panelId }),
-    [mutatePanelStructure]
+    (panelId: string) => mutateLayoutStructure({ type: 'close', panelId }),
+    [mutateLayoutStructure]
   )
 
   const handleReplacePanelWidget = useCallback(
-    (panelId: string, widgetKey: string) =>
-      mutatePanelStructure({ type: 'replace', panelId, widgetKey }),
-    [mutatePanelStructure]
+    (panelId: string, widgetKey: string) => {
+      if (!isWidgetKey(widgetKey)) return
+      return mutateLayoutStructure({ type: 'replace', panelId, widgetKey })
+    },
+    [mutateLayoutStructure]
   )
 
   const handleSelectLayout = useCallback(

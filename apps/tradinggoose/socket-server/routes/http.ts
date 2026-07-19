@@ -75,8 +75,8 @@ import {
   createDefaultDashboardWidgetDocument,
   type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
-  type DashboardLayoutStructureMutation,
   DashboardLayoutValidationError,
+  normalizeDashboardLayoutStructureMutation,
 } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
@@ -560,63 +560,29 @@ async function readDashboardProjectionFromLiveOwners(input: {
   })
 }
 
-function parseDashboardStructureMutation(value: unknown): DashboardLayoutStructureMutation {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new InvalidInternalYjsRequestError('structure is required')
-  }
-  const structure = value as Record<string, unknown>
-  if (structure.type === 'resize') {
-    const groupId = typeof structure.groupId === 'string' ? structure.groupId.trim() : ''
-    const rawSizes = Array.isArray(structure.sizes) ? structure.sizes : []
-    const sizes = rawSizes.filter((size): size is number => typeof size === 'number')
-    if (
-      !groupId ||
-      sizes.length !== rawSizes.length ||
-      sizes.some((size) => !Number.isFinite(size))
-    ) {
-      throw new InvalidInternalYjsRequestError('structure resize is invalid')
-    }
-    return { type: 'resize', groupId, sizes }
-  }
-  const panelId = typeof structure.panelId === 'string' ? structure.panelId.trim() : ''
-  if (!panelId) throw new InvalidInternalYjsRequestError('structure.panelId is required')
-
-  if (structure.type === 'split') {
-    if (structure.direction !== 'horizontal' && structure.direction !== 'vertical') {
-      throw new InvalidInternalYjsRequestError('structure.direction is invalid')
-    }
-    return { type: 'split', panelId, direction: structure.direction }
-  }
-  if (structure.type === 'close') return { type: 'close', panelId }
-  if (structure.type === 'replace') {
-    if (typeof structure.widgetKey !== 'string' || !structure.widgetKey.trim()) {
-      throw new InvalidInternalYjsRequestError('structure.widgetKey is required')
-    }
-    return { type: 'replace', panelId, widgetKey: structure.widgetKey.trim() }
-  }
-  throw new InvalidInternalYjsRequestError('structure.type is invalid')
-}
-
 async function commitDashboardStructurePlan(input: {
   layoutDoc: Y.Doc
   layoutId: string
   workspaceId: string
   ownerUserId: string
-  current: DashboardLayoutProjectionContent
   plan: DashboardLayoutEditPlan
-}): Promise<DashboardLayoutProjectionContent> {
-  const createdWidgets = input.plan.createdBindings.map((binding) => {
-    const source = binding.sourceIdentityId
-      ? input.current.widgets[binding.sourceIdentityId]
-      : undefined
-    if (binding.sourceIdentityId && !source) {
-      throw new Error(`Dashboard widget ${binding.sourceIdentityId} is missing`)
-    }
-    return {
+}): Promise<void> {
+  const createdWidgets = await Promise.all(
+    input.plan.createdBindings.map(async (binding) => ({
       binding,
-      document: source ?? createDefaultDashboardWidgetDocument(binding.widgetKey),
-    }
-  })
+      document: binding.sourceIdentityId
+        ? await withBootstrappedApplyDocument(
+            buildDashboardWidgetDescriptor({
+              layoutId: input.layoutId,
+              identityId: binding.sourceIdentityId,
+              workspaceId: input.workspaceId,
+              ownerUserId: input.ownerUserId,
+            }),
+            (doc) => readDashboardWidgetDocument(doc, binding.widgetKey)
+          )
+        : createDefaultDashboardWidgetDocument(binding.widgetKey),
+    }))
+  )
   const removedSessionIds = input.plan.removedIdentityIds.map(
     (identityId) =>
       buildDashboardWidgetDescriptor({
@@ -650,13 +616,6 @@ async function commitDashboardStructurePlan(input: {
   } else {
     await commit()
   }
-
-  return readDashboardProjectionFromLiveOwners({
-    layoutDoc: input.layoutDoc,
-    layoutId: input.layoutId,
-    workspaceId: input.workspaceId,
-    ownerUserId: input.ownerUserId,
-  })
 }
 
 async function handleInternalDashboardEditRequest(
@@ -695,44 +654,38 @@ async function handleInternalDashboardEditRequest(
         const removedPanelIds = Array.isArray(body.removedPanelIds)
           ? body.removedPanelIds.filter((value): value is string => typeof value === 'string')
           : []
-        const currentProjection = await readDashboardProjectionFromLiveOwners({
-          layoutDoc,
-          layoutId: entityId,
-          workspaceId,
-          ownerUserId,
-        })
-        const current = { layout: currentProjection.layout }
+        const current = readDashboardLayoutDocument(layoutDoc)
         const plan = applyLayoutEditDocument(current, body.entityDocument, removedPanelIds)
         assertAcceptedServerToolReviewBase(
           { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
           hashServerToolReviewBase(buildDashboardLayoutReviewBase(current, plan))
         )
-        return commitDashboardStructurePlan({
+        await commitDashboardStructurePlan({
           layoutDoc,
           layoutId: entityId,
           workspaceId,
           ownerUserId,
-          current: currentProjection,
           plan,
+        })
+        return readDashboardProjectionFromLiveOwners({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
         })
       }
       if (body.mutation === 'structure') {
-        const structure = parseDashboardStructureMutation(body.structure)
-        const current = await readDashboardProjectionFromLiveOwners({
-          layoutDoc,
-          layoutId: entityId,
-          workspaceId,
-          ownerUserId,
-        })
+        const structure = normalizeDashboardLayoutStructureMutation(body.structure)
+        const current = readDashboardLayoutDocument(layoutDoc)
         const plan = applyDashboardLayoutStructureMutation(current.layout, structure)
-        return commitDashboardStructurePlan({
+        await commitDashboardStructurePlan({
           layoutDoc,
           layoutId: entityId,
           workspaceId,
           ownerUserId,
-          current,
           plan,
         })
+        return
       }
       if (body.mutation === 'widget') {
         const panelId = typeof body.panelId === 'string' ? body.panelId.trim() : ''

@@ -57,11 +57,16 @@ let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
 let mockDocuments = new Set<Y.Doc>()
 let mockWidgetDocuments = new Map<string, Y.Doc>()
 let mockPairDocuments = new Map<string, Y.Doc>()
-const mockLayoutMutation = vi.fn()
+const mockLayoutMutation = vi.fn(() => Promise.resolve())
 const mockSetPanelGroupLayout = vi.fn((sizes: number[]) => {
   mockPanelGroupLayout = sizes
 })
 let mockPanelGroupLayout: number[] = []
+type MockResizeHandleProps = {
+  onDragging?: (isDragging: boolean) => void
+  onKeyUp?: () => void
+}
+let mockResizeHandleProps: MockResizeHandleProps | undefined
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
@@ -150,7 +155,6 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
       if (mockLayoutDocumentState) {
         return {
           ...mockLayoutDocumentState,
-          updateGroupSizes: mockLayoutMutation,
           mutateStructure: mockLayoutMutation,
         }
       }
@@ -161,7 +165,6 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
         isProviderReady: Boolean(doc),
         isLoading: false,
         error: null,
-        updateGroupSizes: mockLayoutMutation,
         mutateStructure: mockLayoutMutation,
       }
     },
@@ -208,7 +211,10 @@ vi.mock('@/components/ui/resizable', () => ({
     return <div>{children}</div>
   }),
   ResizablePanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  ResizableHandle: () => null,
+  ResizableHandle: (props: MockResizeHandleProps) => {
+    mockResizeHandleProps = props
+    return null
+  },
 }))
 
 vi.mock('@/widgets/widget-surface', async () => {
@@ -329,6 +335,7 @@ describe('DashboardClient', () => {
     mockLayoutMutation.mockClear()
     mockSetPanelGroupLayout.mockClear()
     mockPanelGroupLayout = []
+    mockResizeHandleProps = undefined
     dashboardClientMocks.activateDashboardLayoutAction.mockReset()
     dashboardClientMocks.activateDashboardLayoutAction.mockResolvedValue({ listConverged: true })
     dashboardClientMocks.createDashboardLayoutAction.mockClear()
@@ -414,7 +421,7 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('applies remote group-size changes to the mounted panel group', async () => {
+  it('applies remote sizes and persists only completed local resizes', async () => {
     mockPanelGroupLayout = [50, 50]
     await act(async () => {
       renderDashboard({ topology: createGroupLayout([50, 50]) })
@@ -427,6 +434,23 @@ describe('DashboardClient', () => {
 
     expect(mockSetPanelGroupLayout).toHaveBeenCalledWith([35, 65])
     expect(mockLayoutMutation).not.toHaveBeenCalled()
+
+    act(() => {
+      mockResizeHandleProps?.onDragging?.(true)
+      mockPanelGroupLayout = [25, 75]
+    })
+    expect(mockLayoutMutation).not.toHaveBeenCalled()
+
+    mockPanelGroupLayout = [25, 75]
+    act(() => mockResizeHandleProps?.onDragging?.(false))
+    expect(mockLayoutMutation).toHaveBeenCalledTimes(1)
+
+    mockPanelGroupLayout = [40, 60]
+    act(() => mockResizeHandleProps?.onKeyUp?.())
+    expect(mockLayoutMutation.mock.calls).toEqual([
+      [{ type: 'resize', groupId: 'group-a', sizes: [25, 75] }],
+      [{ type: 'resize', groupId: 'group-a', sizes: [40, 60] }],
+    ])
   })
 
   it('handles rejected panel structural actions at the client boundary', async () => {

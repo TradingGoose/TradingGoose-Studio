@@ -57,8 +57,6 @@ const snapshotsEqual = (
   left === right ||
   (left !== null && right !== null && JSON.stringify(left) === JSON.stringify(right))
 
-const RESIZE_DEBOUNCE_MS = 100
-
 export function useDashboardLayoutDocument(input: {
   workspaceId: string | null | undefined
   ownerUserId: string | null | undefined
@@ -89,14 +87,9 @@ export function useDashboardLayoutDocument(input: {
     return readDashboardLayoutTopology(doc)
   }, [doc, fallback])
   const topology = useYjsSubscription(subscribe, read, fallback, snapshotsEqual)
-  // Every mutation queue plus pending resize/timer state is owned by one
-  // workspace/layout identity, so unresolved work for a departed layout keeps
-  // chaining onto its own queue and never blocks the active layout.
   const mutationState = useMemo(
     () => ({
       queue: Promise.resolve() as Promise<void>,
-      pendingResizes: new Map<string, number[]>(),
-      resizeTimer: null as ReturnType<typeof setTimeout> | null,
       reportResizeOutcome: null as ((failed: boolean) => void) | null,
     }),
     [input.workspaceId, input.layoutId]
@@ -104,7 +97,7 @@ export function useDashboardLayoutDocument(input: {
   const [resizeReconcileVersion, setResizeReconcileVersion] = useState(0)
   const hasResizePersistenceError = resizeReconcileVersion > 0
 
-  const enqueueStructureMutation = useCallback(
+  const mutateStructure = useCallback(
     (mutation: DashboardLayoutStructureMutation) => {
       const commit = async () => {
         if (!input.workspaceId || !input.layoutId) return
@@ -112,42 +105,18 @@ export function useDashboardLayoutDocument(input: {
       }
       const next = mutationState.queue.then(commit, commit)
       mutationState.queue = next.catch(() => undefined)
-      return next
+      return mutation.type === 'resize'
+        ? next.then(
+            () => mutationState.reportResizeOutcome?.(false),
+            (error) => {
+              mutationState.reportResizeOutcome?.(true)
+              throw error
+            }
+          )
+        : next
     },
     [input.layoutId, input.workspaceId, mutationState]
   )
-
-  const flushQueuedResizes = useCallback(async () => {
-    if (mutationState.resizeTimer) {
-      clearTimeout(mutationState.resizeTimer)
-      mutationState.resizeTimer = null
-    }
-    const pendingResizes = Array.from(mutationState.pendingResizes, ([groupId, sizes]) => ({
-      groupId,
-      sizes,
-    }))
-    mutationState.pendingResizes.clear()
-    if (pendingResizes.length === 0) return
-    try {
-      await Promise.all(
-        pendingResizes.map(({ groupId, sizes }) =>
-          enqueueStructureMutation({ type: 'resize', groupId, sizes })
-        )
-      )
-      mutationState.reportResizeOutcome?.(false)
-    } catch (error) {
-      mutationState.reportResizeOutcome?.(true)
-      throw error
-    }
-  }, [enqueueStructureMutation, mutationState])
-
-  const scheduleResizeFlush = useCallback(() => {
-    if (mutationState.resizeTimer) clearTimeout(mutationState.resizeTimer)
-    mutationState.resizeTimer = setTimeout(() => {
-      mutationState.resizeTimer = null
-      void flushQueuedResizes().catch(() => undefined)
-    }, RESIZE_DEBOUNCE_MS)
-  }, [flushQueuedResizes, mutationState])
 
   useEffect(() => {
     mutationState.reportResizeOutcome = (failed) =>
@@ -155,25 +124,8 @@ export function useDashboardLayoutDocument(input: {
     setResizeReconcileVersion(0)
     return () => {
       mutationState.reportResizeOutcome = null
-      void flushQueuedResizes().catch(() => undefined)
     }
-  }, [flushQueuedResizes, mutationState])
-
-  const mutateStructure = useCallback(
-    async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
-      await flushQueuedResizes()
-      await enqueueStructureMutation(mutation)
-    },
-    [enqueueStructureMutation, flushQueuedResizes]
-  )
-
-  const updateGroupSizes = useCallback(
-    (groupId: string, sizes: number[]) => {
-      mutationState.pendingResizes.set(groupId, sizes)
-      scheduleResizeFlush()
-    },
-    [mutationState, scheduleResizeFlush]
-  )
+  }, [mutationState])
 
   return {
     doc,
@@ -184,7 +136,6 @@ export function useDashboardLayoutDocument(input: {
     isTerminalError,
     resizeReconcileVersion,
     hasResizePersistenceError,
-    updateGroupSizes,
     mutateStructure,
   }
 }

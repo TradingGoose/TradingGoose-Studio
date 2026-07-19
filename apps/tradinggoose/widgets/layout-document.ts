@@ -69,12 +69,6 @@ export type DashboardLayoutEditPlan = {
   removedIdentityIds: string[]
 }
 
-export type DashboardLayoutStructureMutation =
-  | { type: 'split'; panelId: string; direction: 'horizontal' | 'vertical' }
-  | { type: 'close'; panelId: string }
-  | { type: 'replace'; panelId: string; widgetKey: string }
-  | { type: 'resize'; groupId: string; sizes: number[] }
-
 export type DashboardLayoutValidationIssue = { path: string; message: string }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -105,6 +99,35 @@ export const DashboardLayoutPanelNodeSchema = z
 const DashboardGroupSizesSchema = z
   .array(z.number().finite().nonnegative())
   .refine((sizes) => sizes.some((size) => size > 0), 'sizes must contain a positive size')
+
+export const DashboardLayoutStructureMutationSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('split'),
+      panelId: z.string().trim().min(1),
+      direction: z.enum(['horizontal', 'vertical']),
+    })
+    .strict(),
+  z.object({ type: z.literal('close'), panelId: z.string().trim().min(1) }).strict(),
+  z
+    .object({
+      type: z.literal('replace'),
+      panelId: z.string().trim().min(1),
+      widgetKey: WidgetKeySchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('resize'),
+      groupId: z.string().trim().min(1),
+      sizes: DashboardGroupSizesSchema,
+    })
+    .strict(),
+])
+
+export type DashboardLayoutStructureMutation = z.infer<
+  typeof DashboardLayoutStructureMutationSchema
+>
 
 const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
   .object({
@@ -243,6 +266,14 @@ function zodValidationError(error: z.ZodError, prefix = ''): DashboardLayoutVali
       message: issue.message,
     }))
   )
+}
+
+export function normalizeDashboardLayoutStructureMutation(
+  value: unknown
+): DashboardLayoutStructureMutation {
+  const parsed = DashboardLayoutStructureMutationSchema.safeParse(value)
+  if (!parsed.success) throw zodValidationError(parsed.error, 'structure')
+  return parsed.data
 }
 
 type DashboardPanelTopologyNode = Extract<DashboardLayoutTopologyNode, { type: 'panel' }>
