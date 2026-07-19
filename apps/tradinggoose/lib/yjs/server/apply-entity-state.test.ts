@@ -120,8 +120,9 @@ const watchlistFields = (id?: string) => ({
   settings: watchlistSettings,
   items: [
     {
-      ...(id ? { id, parentId: null } : {}),
+      ...(id ? { id } : {}),
       type: 'listing' as const,
+      parentId: null,
       listing: watchlistListing,
     },
   ],
