@@ -21,7 +21,8 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
 }))
 
-vi.mock('@/lib/workflows/utils', () => ({
+vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/workflows/utils')>()),
   readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 

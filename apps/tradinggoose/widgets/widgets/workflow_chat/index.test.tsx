@@ -135,7 +135,6 @@ describe('chatWidget header', () => {
       } as any,
       context: {
         workspaceId: 'ws-1',
-        canWrite: false,
       } as any,
       panelId: 'panel-1',
     })

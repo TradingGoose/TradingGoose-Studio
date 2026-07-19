@@ -8,6 +8,7 @@ import { WorkflowToolbar } from './workflow-toolbar'
 const mocks = vi.hoisted(() => ({
   addBlock: null as ((request: { type: string }) => void) | null,
   dispatch: vi.fn(),
+  canEdit: true,
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => {
@@ -34,7 +35,7 @@ vi.mock('@/components/ui/tooltip', () => {
 })
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
   WorkspacePermissionsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useUserPermissionsContext: () => ({ canEdit: true }),
+  useUserPermissionsContext: () => ({ canEdit: mocks.canEdit }),
 }))
 vi.mock('@/lib/workflows/block-availability', () => ({
   getProviderIdsForBlocks: () => [],
@@ -69,7 +70,7 @@ vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
   }),
 }))
 
-it('disables open toolbar actions when the runtime becomes read-only', async () => {
+it('disables open toolbar actions when local workspace permission becomes read-only', async () => {
   const container = document.createElement('div')
   const root = createRoot(container)
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -77,18 +78,18 @@ it('disables open toolbar actions when the runtime becomes read-only', async () 
     'fetch',
     vi.fn(async () => ({ ok: true, json: async () => ({}) }))
   )
-  const render = async (canWrite: boolean) => {
+  const render = async () => {
     await act(async () => {
-      root.render(
-        <WorkflowToolbar workspaceId='workspace-1' toolbarScopeId='scope-1' canWrite={canWrite} />
-      )
+      root.render(<WorkflowToolbar workspaceId='workspace-1' toolbarScopeId='scope-1' />)
     })
   }
 
-  await render(true)
+  mocks.canEdit = true
+  await render()
   mocks.addBlock?.({ type: 'agent' })
   expect(mocks.dispatch).toHaveBeenCalledOnce()
-  await render(false)
+  mocks.canEdit = false
+  await render()
   mocks.addBlock?.({ type: 'agent' })
 
   expect(mocks.dispatch).toHaveBeenCalledOnce()

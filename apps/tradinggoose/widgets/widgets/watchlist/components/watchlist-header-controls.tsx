@@ -43,6 +43,7 @@ import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -62,7 +63,6 @@ type WatchlistHeaderControlsSlotProps = {
   panelId?: string
   widget?: WidgetInstance | null
   canEditWidgetParams?: boolean
-  canMutateWatchlist?: boolean
 }
 
 const resolveProviderId = (params: WatchlistWidgetParams | null | undefined) => {
@@ -212,9 +212,10 @@ export const WatchlistHeaderCenterControls = ({
   workspaceId,
   panelId,
   widget,
-  canMutateWatchlist,
 }: WatchlistHeaderControlsSlotProps) => {
   const copy = useMessages().workspace.widgets.watchlist.header
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canMutateWatchlist = !isPermissionsLoading && canEdit
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
@@ -222,13 +223,12 @@ export const WatchlistHeaderCenterControls = ({
     params,
   })
   const selectedDocument = useSelectedWatchlistYjsDocument({
-    workspaceId,
+    workspaceId: isPermissionsLoading ? null : workspaceId,
     watchlistId: requestedWatchlistId,
     accessMode: canMutateWatchlist ? 'write' : 'read',
   })
   const selectedWatchlist = selectedDocument.record
-  const canMutateSelectedWatchlist =
-    canMutateWatchlist === true && selectedDocument.canMutateDocument
+  const canMutateSelectedWatchlist = canMutateWatchlist && selectedDocument.canMutateDocument
   const selectorInstanceId = useMemo(
     () => buildWatchlistHeaderListingSelectorId(panelId, widgetKey),
     [panelId, widgetKey]
@@ -357,9 +357,10 @@ export const WatchlistHeaderRightControls = ({
   panelId,
   widget,
   canEditWidgetParams,
-  canMutateWatchlist,
 }: WatchlistHeaderControlsSlotProps) => {
   const copy = useMessages().workspace.widgets.watchlist
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canMutateWatchlist = !isPermissionsLoading && canEdit
   const [listDropdownOpen, setListDropdownOpen] = useState(false)
   const [listActionsOpen, setListActionsOpen] = useState(false)
   const [editingListId, setEditingListId] = useState<string | null>(null)
@@ -375,7 +376,7 @@ export const WatchlistHeaderRightControls = ({
     params,
   })
   const selectedDocument = useSelectedWatchlistYjsDocument({
-    workspaceId,
+    workspaceId: isPermissionsLoading ? null : workspaceId,
     watchlistId: requestedWatchlistId,
     accessMode: canMutateWatchlist ? 'write' : 'read',
   })
@@ -395,8 +396,7 @@ export const WatchlistHeaderRightControls = ({
   const canReadSelectedWatchlist = Boolean(
     workspaceId && selectedWatchlist && selectedDocument.isDocumentReady
   )
-  const canMutateSelectedWatchlist =
-    canMutateWatchlist === true && selectedDocument.canMutateDocument
+  const canMutateSelectedWatchlist = canMutateWatchlist && selectedDocument.canMutateDocument
   const canManageContainers = canMutateSelectedWatchlist && hasSelectedWatchlist
   const isMutating = Boolean(pendingAction)
 
@@ -889,7 +889,6 @@ export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = 
         workspaceId={context?.workspaceId}
         panelId={panelId}
         widget={widget}
-        canMutateWatchlist={context?.canWrite === true}
       />
     ),
     right: (
@@ -898,7 +897,6 @@ export const renderWatchlistHeader: DashboardWidgetDefinition['renderHeader'] = 
         panelId={panelId}
         widget={widget}
         canEditWidgetParams={Boolean(canEditWidgetParams)}
-        canMutateWatchlist={context?.canWrite === true}
       />
     ),
   }

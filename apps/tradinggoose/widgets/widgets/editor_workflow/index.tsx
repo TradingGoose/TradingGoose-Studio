@@ -36,7 +36,6 @@ const WorkflowEditorWidgetBody = ({
   widget,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
-  const canWrite = context?.canWrite !== false
   const copy = useWorkflowEditorMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const widgetKey = widget?.key ?? 'editor_workflow'
@@ -141,7 +140,6 @@ const WorkflowEditorWidgetBody = ({
           workflowId={resolvedWorkflowId}
           channelId={channelId}
           toolbarScopeId={toolbarScopeId}
-          canWrite={canWrite}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
         />
@@ -184,16 +182,8 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
   renderHeader: ({ channelId, widget, context, panelId }) => {
     const widgetKey = widget?.key ?? 'editor_workflow'
     const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-    const canWrite = context?.canWrite !== false
-
     return {
-      left: (
-        <WorkflowToolbar
-          workspaceId={context?.workspaceId}
-          toolbarScopeId={toolbarScopeId}
-          canWrite={canWrite}
-        />
-      ),
+      left: <WorkflowToolbar workspaceId={context?.workspaceId} toolbarScopeId={toolbarScopeId} />,
       center: (
         <WorkflowEditorHeaderSelector workspaceId={context?.workspaceId} params={widget?.params} />
       ),
@@ -202,7 +192,6 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
           workspaceId={context?.workspaceId}
           params={widget?.params}
           channelId={channelId}
-          canWrite={canWrite}
         />
       ),
     }

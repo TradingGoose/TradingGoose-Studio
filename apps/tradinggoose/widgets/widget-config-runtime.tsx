@@ -32,7 +32,6 @@ type WidgetConfigRuntime = {
   widgetKey: string | null
   widget: DashboardWidgetDocument | null
   pairContext: PairColorContext
-  canWrite: boolean
   isWidgetReady: boolean
   isPairReady: boolean
   error: string | null
@@ -54,7 +53,6 @@ export function WidgetConfigRuntimeProvider({
   layoutId,
   identityId,
   widgetKey,
-  canWrite,
 }: {
   children: ReactNode
   workspaceId: string
@@ -62,7 +60,6 @@ export function WidgetConfigRuntimeProvider({
   layoutId: string
   identityId: string
   widgetKey: string | null
-  canWrite: boolean
 }) {
   const widgetDescriptor = useMemo(
     () =>
@@ -128,24 +125,23 @@ export function WidgetConfigRuntimeProvider({
   const isPairReady = pairColor === 'gray' || Boolean(pairDoc)
   const writeWidget = useCallback(
     (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => {
-      if (!canWrite || !widgetDoc || !isWidgetKey(widgetKey)) return
+      if (!widgetDoc || !isWidgetKey(widgetKey)) return
       applyDashboardWidgetDocumentDelta(widgetDoc, widgetKey, baseline, target, YJS_ORIGINS.USER)
     },
-    [canWrite, widgetDoc, widgetKey]
+    [widgetDoc, widgetKey]
   )
   const writePair = useCallback(
     (baseline: PairColorContext, target: PairColorContext) => {
-      if (!canWrite || !pairDoc) return
+      if (!pairDoc) return
       applyDashboardColorPairDocumentDelta(pairDoc, baseline, target, YJS_ORIGINS.USER)
     },
-    [canWrite, pairDoc]
+    [pairDoc]
   )
   const value = useMemo(
     () => ({
       widgetKey,
       widget,
       pairContext,
-      canWrite,
       isWidgetReady,
       isPairReady,
       error: widgetSession.error ?? pairSession.error,
@@ -153,7 +149,6 @@ export function WidgetConfigRuntimeProvider({
       writePair,
     }),
     [
-      canWrite,
       isPairReady,
       isWidgetReady,
       pairContext,
@@ -176,12 +171,10 @@ export function LocalWidgetConfigRuntimeProvider({
   children,
   doc,
   widgetKey,
-  canWrite,
 }: {
   children: ReactNode
   doc: Y.Doc
   widgetKey: string | null
-  canWrite: boolean
 }) {
   const subscribe = useMemo(() => {
     const map = getDashboardWidgetMap(doc)
@@ -201,25 +194,24 @@ export function LocalWidgetConfigRuntimeProvider({
   const widget = useYjsSubscription(subscribe, read, null, areJsonValuesEqual)
   const writeWidget = useCallback(
     (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => {
-      if (canWrite && isWidgetKey(widgetKey)) {
+      if (isWidgetKey(widgetKey)) {
         applyDashboardWidgetDocumentDelta(doc, widgetKey, baseline, target, YJS_ORIGINS.USER)
       }
     },
-    [canWrite, doc, widgetKey]
+    [doc, widgetKey]
   )
   const value = useMemo<WidgetConfigRuntime>(
     () => ({
       widgetKey,
       widget,
       pairContext: EMPTY_PAIR_CONTEXT,
-      canWrite,
       isWidgetReady: true,
       isPairReady: true,
       error: null,
       writeWidget,
       writePair: () => undefined,
     }),
-    [canWrite, widget, widgetKey, writeWidget]
+    [widget, widgetKey, writeWidget]
   )
   return (
     <WidgetConfigRuntimeContext.Provider value={value}>
@@ -240,10 +232,7 @@ export const useWidgetConfigRuntimeActions = () => {
   const runtime = useWidgetConfigRuntime()
   return useMemo(() => {
     const widgetOwnerReady =
-      runtime.canWrite &&
-      runtime.isWidgetReady &&
-      runtime.widget !== null &&
-      isWidgetKey(runtime.widgetKey)
+      runtime.isWidgetReady && runtime.widget !== null && isWidgetKey(runtime.widgetKey)
     const pairColor =
       runtime.widget && isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
     const linkedOwnerReady = widgetOwnerReady && (pairColor === 'gray' || runtime.isPairReady)

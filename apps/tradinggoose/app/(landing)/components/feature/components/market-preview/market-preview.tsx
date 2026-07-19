@@ -208,7 +208,7 @@ export function MarketPreview() {
   React.useEffect(() => () => doc.destroy(), [doc])
 
   return (
-    <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={LANDING_MARKET_WIDGET_KEY} canWrite>
+    <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={LANDING_MARKET_WIDGET_KEY}>
       <MarketPreviewContent />
     </LocalWidgetConfigRuntimeProvider>
   )

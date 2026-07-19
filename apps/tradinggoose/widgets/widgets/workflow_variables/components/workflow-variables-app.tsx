@@ -13,7 +13,6 @@ import { Variables } from '@/widgets/widgets/workflow_variables/components/varia
 interface WorkflowVariablesAppProps {
   workspaceId: string
   workflowId: string
-  canWrite: boolean
   channelId?: string
   panelId?: string
 }
@@ -21,7 +20,6 @@ interface WorkflowVariablesAppProps {
 const WorkflowVariablesApp = ({
   workspaceId,
   workflowId,
-  canWrite,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   panelId,
 }: WorkflowVariablesAppProps) => {
@@ -37,12 +35,7 @@ const WorkflowVariablesApp = ({
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-        canWrite={canWrite}
-      >
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}

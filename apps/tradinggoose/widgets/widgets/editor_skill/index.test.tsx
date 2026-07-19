@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
 import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
 
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,

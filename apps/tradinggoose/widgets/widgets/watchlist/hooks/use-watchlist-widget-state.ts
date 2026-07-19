@@ -1,5 +1,6 @@
 'use client'
 
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSelectedWatchlistYjsDocument } from '@/widgets/utils/watchlist-yjs'
 import { resolveEntityId } from '@/widgets/widget-contracts'
@@ -15,7 +16,8 @@ const resolveProviderId = (params: WatchlistWidgetParams | null) => {
 
 export function useWatchlistWidgetState({ context, params }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
-  const canWrite = context?.canWrite !== false
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditWatchlist = !isPermissionsLoading && canEdit
   const widgetParams =
     params && typeof params === 'object' ? (params as WatchlistWidgetParams) : null
   const providerId = resolveProviderId(widgetParams)
@@ -28,10 +30,11 @@ export function useWatchlistWidgetState({ context, params }: WidgetComponentProp
     params: paramsRecord,
   })
   const selectedDocument = useSelectedWatchlistYjsDocument({
-    workspaceId,
+    workspaceId: isPermissionsLoading ? null : workspaceId,
     watchlistId: requestedWatchlistId,
-    accessMode: canWrite ? 'write' : 'read',
+    accessMode: canEditWatchlist ? 'write' : 'read',
   })
+  const canWrite = canEditWatchlist && selectedDocument.canMutateDocument
 
   return {
     workspaceId,

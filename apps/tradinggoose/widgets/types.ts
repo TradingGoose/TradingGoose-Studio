@@ -8,7 +8,6 @@ export type WidgetRuntimeContext = {
   dashboardLayoutId?: string
   dashboardLayoutName?: string
   dashboardLayoutOwnerUserId?: string
-  canWrite?: boolean
 }
 
 export type { WidgetCategory }

@@ -8,6 +8,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool'
 
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,

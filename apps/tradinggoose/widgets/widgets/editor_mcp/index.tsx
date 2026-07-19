@@ -3,6 +3,7 @@
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -47,15 +48,14 @@ const McpEditorHeaderActions = ({
   panelId,
   params,
   widgetKey,
-  canEditEntity,
 }: {
   workspaceId?: string | null
   panelId?: string
   params?: Record<string, unknown> | null
   widgetKey?: string
-  canEditEntity: boolean
 }) => {
   const copy = useMessages().workspace.widgets.mcpEditor
+  const { canEdit: canEditEntity } = useUserPermissionsContext()
   const hasSelection = !!resolveEntityId('mcpServerId', { params })
 
   const emitAction = (action: 'save' | 'refresh' | 'close' | 'reset' | 'test') => {
@@ -130,7 +130,6 @@ export const editorMcpWidget: DashboardWidgetDefinition = {
           panelId={panelId}
           params={params}
           widgetKey={widget?.key}
-          canEditEntity={context?.canWrite !== false}
         />
       ),
     }

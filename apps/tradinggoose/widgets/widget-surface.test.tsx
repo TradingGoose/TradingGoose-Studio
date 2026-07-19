@@ -79,7 +79,7 @@ describe('WidgetSurface', () => {
 
     await act(async () => {
       root.render(
-        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart' canWrite>
+        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart'>
           <WidgetSurface
             context={context}
             panelId='panel-1'
@@ -112,7 +112,7 @@ describe('WidgetSurface', () => {
 
     await act(async () => {
       root.render(
-        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={null} canWrite>
+        <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={null}>
           <WidgetSurface panelId='panel-1' onWidgetChange={onWidgetChange} />
         </LocalWidgetConfigRuntimeProvider>
       )

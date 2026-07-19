@@ -54,7 +54,6 @@ export default async function WorkspaceDashboardPage({
           ownerUserId={userId}
           layoutId={activeLayout.id}
           initialLayouts={projection.layouts}
-          workspaceCanWrite={access.canWrite}
         />
       </div>
     </div>

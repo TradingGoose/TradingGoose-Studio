@@ -10,7 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
-import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import { hasWorkflowWriteAccess, readWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { resolveTriggerExecutionIdentity } from '@/triggers/resolution'
 
@@ -158,12 +158,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
-    if (
-      !accessContext.isOwner &&
-      !accessContext.isWorkspaceOwner &&
-      accessContext.workspacePermission !== 'write' &&
-      accessContext.workspacePermission !== 'admin'
-    ) {
+    if (!hasWorkflowWriteAccess(accessContext)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

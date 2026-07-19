@@ -2,6 +2,7 @@
 
 import { Download, Save } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
@@ -38,7 +39,6 @@ interface SkillEditorActionButtonProps {
   skillId?: string | null
   panelId?: string
   widgetKey?: string
-  canEditEntity?: boolean
 }
 
 export function SkillEditorExportButton({
@@ -68,12 +68,12 @@ export function SkillEditorSaveButton({
   skillId,
   panelId,
   widgetKey,
-  canEditEntity = true,
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
+  const { canEdit } = useUserPermissionsContext()
   const resolvedSkillId = skillId ?? null
-  const disabled = !canEditEntity || !workspaceId || !resolvedSkillId
+  const disabled = !canEdit || !workspaceId || !resolvedSkillId
 
   return (
     <EntityEditorHeaderButton

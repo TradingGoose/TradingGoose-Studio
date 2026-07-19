@@ -199,7 +199,7 @@ describe('HeatmapWidgetBody', () => {
       root.render(
         <HeatmapWidgetBody
           channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1', canWrite: false }}
+          context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'heatmap' } as any}
           panelId='panel-1'
           params={{

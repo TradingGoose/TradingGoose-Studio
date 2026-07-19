@@ -67,7 +67,6 @@ interface WorkflowSessionProviderProps {
   workspaceId: string | null
   workflowId: string
   user?: WorkflowSessionUser
-  canWrite?: boolean
   children: ReactNode
 }
 
@@ -75,11 +74,10 @@ export function WorkflowSessionProvider({
   workspaceId,
   workflowId,
   user,
-  canWrite = true,
   children,
 }: WorkflowSessionProviderProps) {
   const { canEdit: canEditWorkspace, isLoading: isPermissionsLoading } = useUserPermissionsContext()
-  const canEdit = canEditWorkspace && canWrite
+  const canEdit = !isPermissionsLoading && canEditWorkspace
   const [writeState, setWriteState] = useState<SharedWorkflowSessionState>(() =>
     getSharedWorkflowSessionState(workflowId)
   )
@@ -98,7 +96,7 @@ export function WorkflowSessionProvider({
   const readOnly = !isPermissionsLoading && !canEdit
   const doc = isPermissionsLoading ? null : readOnly ? readSession.doc : writeState.doc
   const writableDocRef = useRef<Y.Doc | null>(null)
-  writableDocRef.current = !isPermissionsLoading && canEdit ? writeState.doc : null
+  writableDocRef.current = canEdit ? writeState.doc : null
   const awareness = isPermissionsLoading
     ? null
     : readOnly
@@ -112,8 +110,8 @@ export function WorkflowSessionProvider({
   const isLoading =
     isPermissionsLoading || (readOnly ? readSession.isLoading : writeState.isLoading)
   const error = isPermissionsLoading ? null : readOnly ? readSession.error : writeState.error
-  const canUndo = !isPermissionsLoading && canEdit && writeState.canUndo
-  const canRedo = !isPermissionsLoading && canEdit && writeState.canRedo
+  const canUndo = canEdit && writeState.canUndo
+  const canRedo = canEdit && writeState.canRedo
 
   useEffect(() => {
     if (!canEdit) return

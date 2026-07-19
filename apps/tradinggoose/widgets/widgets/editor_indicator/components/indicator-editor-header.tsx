@@ -2,6 +2,7 @@
 
 import { Check, Download, Save } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
@@ -43,7 +44,6 @@ interface IndicatorEditorActionButtonProps {
   indicatorId?: string | null
   panelId?: string
   widgetKey?: string
-  canEditEntity?: boolean
 }
 
 export function IndicatorEditorExportButton({
@@ -73,12 +73,12 @@ export function IndicatorEditorSaveButton({
   indicatorId,
   panelId,
   widgetKey,
-  canEditEntity = true,
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.header
+  const { canEdit } = useUserPermissionsContext()
   const resolvedIndicatorId = indicatorId ?? null
-  const saveDisabled = !canEditEntity || !workspaceId || !resolvedIndicatorId
+  const saveDisabled = !canEdit || !workspaceId || !resolvedIndicatorId
 
   return (
     <EntityEditorHeaderButton

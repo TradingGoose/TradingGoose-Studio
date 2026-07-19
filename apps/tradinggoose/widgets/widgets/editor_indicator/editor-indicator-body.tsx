@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
@@ -23,6 +24,8 @@ export function EditorIndicatorWidgetBody({
 }: EditorIndicatorWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
 
   const paramsIndicatorId = getIndicatorIdFromParams(params)
@@ -47,10 +50,10 @@ export function EditorIndicatorWidgetBody({
     indicatorMembers.find((member) => member.entityId === indicatorId) ?? null
   const indicatorSession = useSavedEntityYjsSession(
     'indicator',
-    indicatorId,
-    workspaceId,
+    isPermissionsLoading ? null : indicatorId,
+    isPermissionsLoading ? null : workspaceId,
     null,
-    context?.canWrite === false ? 'read' : 'write'
+    canEditEntity ? 'write' : 'read'
   )
 
   const codeExportRef = useRef<() => void>(() => {})
@@ -128,7 +131,7 @@ export function EditorIndicatorWidgetBody({
         exportRef={codeExportRef}
         saveRef={codeSaveRef}
         verifyRef={codeVerifyRef}
-        readOnly={context?.canWrite === false}
+        readOnly={!canEditEntity}
       />
     </div>
   )

@@ -37,7 +37,6 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
             skillId={skillId}
             panelId={panelId}
             widgetKey={widget?.key}
-            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

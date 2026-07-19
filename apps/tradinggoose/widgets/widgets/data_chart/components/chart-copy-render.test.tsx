@@ -52,7 +52,7 @@ describe('data chart localized component copy', () => {
     root.render(
       <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
         <TooltipProvider>
-          <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart' canWrite>
+          <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart'>
             {element}
           </LocalWidgetConfigRuntimeProvider>
         </TooltipProvider>

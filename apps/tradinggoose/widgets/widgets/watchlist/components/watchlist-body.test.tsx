@@ -15,6 +15,11 @@ const mockUseMarketQuoteSnapshots = vi.fn((_request: unknown) => ({
   data: {},
   refetch: mockRefetchQuotes,
 }))
+const mockPermissions = vi.hoisted(() => ({ canEdit: true, isLoading: false }))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => mockPermissions,
+}))
 
 const selectedListing: ListingIdentity = {
   listing_id: 'BTC',
@@ -62,6 +67,7 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
         mockSetWatchlistItems(update(record?.items ?? [])),
       isLoading: false,
       error: null,
+      canMutateDocument: args.accessMode === 'write' && Boolean(record),
       members: currentWatchlists.map((entry) => ({
         entityId: entry.id,
         entityName: entry.name,
@@ -131,6 +137,8 @@ describe('WatchlistWidgetBody', () => {
     vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     currentWatchlists = [watchlist]
+    mockPermissions.canEdit = true
+    mockPermissions.isLoading = false
     lastSelectedWatchlistArgs = undefined
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -189,9 +197,9 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetParamsPatch = vi.fn()
     const onWidgetLinkedParamsPatch = vi.fn()
 
+    mockPermissions.canEdit = false
     await act(async () => {
       renderWatchlist({
-        context: { workspaceId: 'workspace-1', canWrite: false },
         onWidgetParamsPatch,
         onWidgetLinkedParamsPatch,
       })
@@ -221,10 +229,10 @@ describe('WatchlistWidgetBody', () => {
     const onWidgetParamsPatch = vi.fn()
     const onWidgetLinkedParamsPatch = vi.fn()
 
+    mockPermissions.canEdit = false
     await act(async () => {
       renderWatchlist({
         pairColor: 'red',
-        context: { workspaceId: 'workspace-1', canWrite: false },
         onWidgetParamsPatch,
         onWidgetLinkedParamsPatch,
       })

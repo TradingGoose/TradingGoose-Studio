@@ -8,6 +8,7 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { LocaleCode } from '@/i18n/utils'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
@@ -96,6 +97,8 @@ function EditorCustomToolWidgetBody({
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const exportRef = useRef<() => void>(() => {})
   const saveRef = useRef<() => void>(() => {})
@@ -138,10 +141,10 @@ function EditorCustomToolWidgetBody({
 
   const customToolSession = useSavedEntityYjsSession(
     'custom_tool',
-    selectedToolId,
-    workspaceId,
+    isPermissionsLoading ? null : selectedToolId,
+    isPermissionsLoading ? null : workspaceId,
     null,
-    context?.canWrite === false ? 'read' : 'write'
+    canEditEntity ? 'write' : 'read'
   )
 
   useEffect(() => {
@@ -215,7 +218,7 @@ function EditorCustomToolWidgetBody({
           exportRef={exportRef}
           saveRef={saveRef}
           blockId='dashboard-custom-tool-editor'
-          readOnly={context?.canWrite === false}
+          readOnly={!canEditEntity}
         />
       </div>
     </WorkflowRouteProvider>
@@ -320,18 +323,17 @@ function CustomToolEditorSaveButton({
   customToolId,
   panelId,
   widgetKey,
-  canEditEntity,
 }: {
   workspaceId?: string
   customToolId?: string | null
   panelId?: string
   widgetKey?: string
-  canEditEntity: boolean
 }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
+  const { canEdit } = useUserPermissionsContext()
   const resolvedCustomToolId = customToolId ?? null
-  const saveDisabled = !canEditEntity || !workspaceId || !resolvedCustomToolId || !panelId
+  const saveDisabled = !canEdit || !workspaceId || !resolvedCustomToolId || !panelId
 
   return (
     <Tooltip>
@@ -448,7 +450,6 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
             customToolId={customToolId}
             panelId={panelId}
             widgetKey={widget?.key}
-            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

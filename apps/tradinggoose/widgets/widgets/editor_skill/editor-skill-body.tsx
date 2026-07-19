@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
@@ -23,6 +24,8 @@ export function EditorSkillWidgetBody({
 }: EditorSkillWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const exportRef = useRef<() => void>(() => {})
   const saveRef = useRef<() => void>(() => {})
@@ -47,10 +50,10 @@ export function EditorSkillWidgetBody({
   const selectedSkillMember = skillMembers.find((member) => member.entityId === skillId) ?? null
   const skillSession = useSavedEntityYjsSession(
     'skill',
-    skillId,
-    workspaceId,
+    isPermissionsLoading ? null : skillId,
+    isPermissionsLoading ? null : workspaceId,
     null,
-    context?.canWrite === false ? 'read' : 'write'
+    canEditEntity ? 'write' : 'read'
   )
 
   useSkillEditorActions({
@@ -107,7 +110,7 @@ export function EditorSkillWidgetBody({
         entityName={selectedSkillMember?.entityName ?? ''}
         exportRef={exportRef}
         saveRef={saveRef}
-        readOnly={context?.canWrite === false}
+        readOnly={!canEditEntity}
       />
     </div>
   )

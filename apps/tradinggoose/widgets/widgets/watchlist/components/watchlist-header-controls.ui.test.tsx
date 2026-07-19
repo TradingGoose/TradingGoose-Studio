@@ -18,6 +18,11 @@ import {
 const mockSetWatchlistItems = vi.fn()
 const mockPatchWidgetParams = vi.fn()
 const mockPatchWidgetLinkedParams = vi.fn()
+const mockPermissions = vi.hoisted(() => ({ canEdit: true, isLoading: false }))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => mockPermissions,
+}))
 
 const rootWatchlist: WatchlistRecord = {
   id: 'watchlist-1',
@@ -191,6 +196,8 @@ describe('watchlist header controls', () => {
     currentWatchlist = rootWatchlist
     currentWatchlists = [rootWatchlist]
     isSelectedWatchlistDocumentReady = true
+    mockPermissions.canEdit = true
+    mockPermissions.isLoading = false
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -217,7 +224,6 @@ describe('watchlist header controls', () => {
             key: 'watchlist-widget',
             params: { provider: 'alpaca' },
           })}
-          canMutateWatchlist
         />
       )
     })
@@ -272,7 +278,6 @@ describe('watchlist header controls', () => {
           panelId='panel-1'
           widget={createWidget({ key: 'watchlist', params: {} })}
           canEditWidgetParams
-          canMutateWatchlist
         />
       )
     })
@@ -300,6 +305,7 @@ describe('watchlist header controls', () => {
   })
 
   it('allows widget-param updates while keeping watchlist mutations disabled', async () => {
+    mockPermissions.canEdit = false
     await act(async () => {
       root.render(
         <WatchlistHeaderRightControls
@@ -307,7 +313,6 @@ describe('watchlist header controls', () => {
           panelId='panel-4'
           widget={createWidget({ key: 'watchlist-widget', params: { provider: 'alpaca' } })}
           canEditWidgetParams
-          canMutateWatchlist={false}
         />
       )
     })
@@ -344,7 +349,6 @@ describe('watchlist header controls', () => {
           panelId='panel-5'
           widget={createWidget({ key: 'watchlist', params: { watchlistId: 'missing-watchlist' } })}
           canEditWidgetParams
-          canMutateWatchlist
         />
       )
     })
@@ -377,7 +381,6 @@ describe('watchlist header controls', () => {
             params: { watchlistId: rootWatchlist.id },
           })}
           canEditWidgetParams
-          canMutateWatchlist
         />
       )
     })

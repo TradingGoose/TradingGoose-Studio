@@ -97,11 +97,11 @@ describe('workflowEditorWidget', () => {
     expect(markup).not.toContain('unableToLoadWorkflows')
   })
 
-  it('forwards the runtime channel and write barrier to every editor surface', () => {
+  it('forwards the runtime channel to every editor surface', () => {
     renderToStaticMarkup(
       createElement(workflowEditorWidget.component, {
         channelId: 'pair-red',
-        context: { workspaceId: 'ws-1', canWrite: false },
+        context: { workspaceId: 'ws-1' },
         params: { workflowId: 'wf-1' },
         widget: { key: 'editor_workflow' },
         panelId: 'panel-1',
@@ -109,7 +109,7 @@ describe('workflowEditorWidget', () => {
     )
     const header = workflowEditorWidget.renderHeader?.({
       channelId: 'pair-red',
-      context: { workspaceId: 'ws-1', canWrite: false },
+      context: { workspaceId: 'ws-1' },
       panelId: 'panel-1',
       widget: { key: 'editor_workflow', params: { workflowId: 'wf-1' } },
     } as any)
@@ -121,15 +121,13 @@ describe('workflowEditorWidget', () => {
     )
 
     expect(mockEditorApp).toHaveBeenCalledWith(
-      expect.objectContaining({ channelId: 'pair-red', workflowId: 'wf-1', canWrite: false })
+      expect.objectContaining({ channelId: 'pair-red', workflowId: 'wf-1' })
     )
     expect(mockControlBar).toHaveBeenCalledWith(
       expect.objectContaining({
         channelId: 'pair-red',
         params: { workflowId: 'wf-1' },
-        canWrite: false,
       })
     )
-    expect(mockToolbar).toHaveBeenCalledWith(expect.objectContaining({ canWrite: false }))
   })
 })

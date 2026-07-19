@@ -81,7 +81,7 @@ describe('copilotWidget', () => {
             params: {
               workflowId: 'wf-stale',
             },
-            context: { workspaceId: 'ws-1', canWrite: false },
+            context: { workspaceId: 'ws-1' },
             pairColor: 'blue',
             panelId: 'panel-1',
             widget: {

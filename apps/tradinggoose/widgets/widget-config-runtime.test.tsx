@@ -57,7 +57,7 @@ describe('independent widget config runtime owners', () => {
     return null
   }
 
-  const render = (canWrite = true) => {
+  const render = () => {
     act(() => {
       root.render(
         <WidgetConfigRuntimeProvider
@@ -66,7 +66,6 @@ describe('independent widget config runtime owners', () => {
           layoutId='layout-1'
           identityId='widget-1'
           widgetKey='data_chart'
-          canWrite={canWrite}
         >
           <Capture />
         </WidgetConfigRuntimeProvider>
@@ -120,6 +119,16 @@ describe('independent widget config runtime owners', () => {
   })
 
   it('waits for the selected pair owner before exposing effective params or linked edits', () => {
+    sessions.widgets.delete('widget-1')
+    render()
+    expect(renderState).toMatchObject({ isWidgetReady: false, renderWidget: null })
+    expect(actions).toEqual({
+      changeWidgetPairColor: undefined,
+      patchWidgetParams: undefined,
+      patchWidgetLinkedParams: undefined,
+    })
+
+    sessions.widgets.set('widget-1', widgetDoc)
     sessions.pairs.delete('red')
     render()
 
@@ -176,19 +185,5 @@ describe('independent widget config runtime owners', () => {
     expect(renderState?.renderWidget?.params).toMatchObject({
       listing: { ...AAPL, listing_id: 'NVDA' },
     })
-  })
-
-  it('read-only runtime actions leave both owners unchanged', () => {
-    render(false)
-    const widgetVector = Y.encodeStateVector(widgetDoc)
-    const pairVector = Y.encodeStateVector(pairDoc)
-
-    act(() => {
-      actions?.patchWidgetParams?.({ view: { interval: '1h' } })
-      actions?.patchWidgetLinkedParams?.({ watchlistId: 'watchlist-1' })
-    })
-
-    expect(Y.encodeStateVector(widgetDoc)).toEqual(widgetVector)
-    expect(Y.encodeStateVector(pairDoc)).toEqual(pairVector)
   })
 })

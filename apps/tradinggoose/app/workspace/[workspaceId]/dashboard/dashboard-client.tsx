@@ -58,7 +58,6 @@ interface DashboardClientProps {
   ownerUserId: string
   layoutId: string
   initialLayouts: LayoutTab[]
-  workspaceCanWrite: boolean
 }
 
 interface DashboardNodeProps {
@@ -66,7 +65,6 @@ interface DashboardNodeProps {
   workspaceId: string
   ownerUserId: string
   layoutId: string
-  canEditContent: boolean
   persistGroup?: (id: string, sizes: number[]) => void
   resizeReconcileVersion: number
   widgetContext: WidgetRuntimeContext
@@ -99,7 +97,6 @@ const DashboardNode = memo(function DashboardNode({
   workspaceId,
   ownerUserId,
   layoutId,
-  canEditContent,
   persistGroup,
   resizeReconcileVersion,
   widgetContext,
@@ -148,12 +145,10 @@ const DashboardNode = memo(function DashboardNode({
         layoutId={layoutId}
         identityId={node.identityId}
         widgetKey={node.widgetKey}
-        canWrite={canEditContent}
       >
         <DashboardPanel
           panelId={node.id}
           widgetContext={widgetContext}
-          canEditContent={canEditContent}
           splitPanelVertical={canSplitVertical ? splitPanelVertical : undefined}
           splitPanelHorizontal={canSplitHorizontal ? splitPanelHorizontal : undefined}
           closePanel={closePanel}
@@ -192,7 +187,6 @@ const DashboardNode = memo(function DashboardNode({
                 workspaceId={workspaceId}
                 ownerUserId={ownerUserId}
                 layoutId={layoutId}
-                canEditContent={canEditContent}
                 persistGroup={persistGroup}
                 resizeReconcileVersion={resizeReconcileVersion}
                 widgetContext={widgetContext}
@@ -215,7 +209,6 @@ const DashboardNode = memo(function DashboardNode({
 function DashboardPanel({
   panelId,
   widgetContext,
-  canEditContent,
   splitPanelVertical,
   splitPanelHorizontal,
   closePanel,
@@ -223,7 +216,6 @@ function DashboardPanel({
 }: {
   panelId: string
   widgetContext: WidgetRuntimeContext
-  canEditContent: boolean
   splitPanelVertical?: (panelId: string) => void
   splitPanelHorizontal?: (panelId: string) => void
   closePanel?: (panelId: string) => void
@@ -249,10 +241,10 @@ function DashboardPanel({
     <WidgetSurface
       context={widgetContext}
       panelId={panelId}
-      onPairColorChange={canEditContent ? changeWidgetPairColor : undefined}
-      onWidgetChange={canEditContent && replacePanelWidget ? handleWidgetChange : undefined}
-      onWidgetParamsPatch={canEditContent ? patchWidgetParams : undefined}
-      onWidgetLinkedParamsPatch={canEditContent ? patchWidgetLinkedParams : undefined}
+      onPairColorChange={changeWidgetPairColor}
+      onWidgetChange={replacePanelWidget ? handleWidgetChange : undefined}
+      onWidgetParamsPatch={patchWidgetParams}
+      onWidgetLinkedParamsPatch={patchWidgetLinkedParams}
       onPanelSplit={splitPanelVertical ? handlePanelSplitVertical : undefined}
       onPanelSplitHorizontal={splitPanelHorizontal ? handlePanelSplitHorizontal : undefined}
       onPanelClose={closePanel ? handlePanelClose : undefined}
@@ -266,7 +258,6 @@ export function DashboardClient({
   ownerUserId,
   layoutId,
   initialLayouts,
-  workspaceCanWrite,
 }: DashboardClientProps) {
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const [pendingActivation, setPendingActivation] = useState<{
@@ -313,7 +304,7 @@ export function DashboardClient({
     layoutDocument.isProviderReady &&
     rawTree !== null &&
     activeLayoutId !== null
-  const canEditContent = !activePendingActivation && isActiveDocumentReady
+  const canMutateLayoutTopology = !activePendingActivation && isActiveDocumentReady
 
   useEffect(() => {
     if (!activePendingActivation) return
@@ -389,22 +380,20 @@ export function DashboardClient({
 
   const persistGroup = useCallback(
     (groupId: string, sizes: number[]) => {
-      if (!canEditContent) return
+      if (!canMutateLayoutTopology) return
       layoutDocument.updateGroupSizes(groupId, sizes)
     },
-    [canEditContent, layoutDocument.updateGroupSizes]
+    [canMutateLayoutTopology, layoutDocument.updateGroupSizes]
   )
 
-  const canWriteNestedEntities = workspaceCanWrite && canEditContent
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
       dashboardLayoutId: activeLayoutId ?? undefined,
       dashboardLayoutName: listActiveLayout?.name,
       dashboardLayoutOwnerUserId: ownerUserId,
-      canWrite: canWriteNestedEntities,
     }),
-    [activeLayoutId, canWriteNestedEntities, listActiveLayout?.name, ownerUserId, workspaceId]
+    [activeLayoutId, listActiveLayout?.name, ownerUserId, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -499,14 +488,14 @@ export function DashboardClient({
 
   const mutatePanelStructure = useCallback(
     async (mutation: Exclude<DashboardLayoutStructureMutation, { type: 'resize' }>) => {
-      if (!canEditContent) return
+      if (!canMutateLayoutTopology) return
       try {
         await layoutDocument.mutateStructure(mutation)
       } catch (error) {
         console.error('Failed to update dashboard layout structure:', error)
       }
     },
-    [canEditContent, layoutDocument.mutateStructure]
+    [canMutateLayoutTopology, layoutDocument.mutateStructure]
   )
 
   const handleSplitPanelVertical = useCallback(
@@ -760,16 +749,15 @@ export function DashboardClient({
             workspaceId={workspaceId}
             ownerUserId={ownerUserId}
             layoutId={activeLayoutId as string}
-            persistGroup={canEditContent ? persistGroup : undefined}
+            persistGroup={canMutateLayoutTopology ? persistGroup : undefined}
             resizeReconcileVersion={layoutDocument.resizeReconcileVersion}
             widgetContext={widgetContext}
             availableWidth={100}
             availableHeight={100}
-            canEditContent={canEditContent}
-            splitPanelVertical={canEditContent ? handleSplitPanelVertical : undefined}
-            splitPanelHorizontal={canEditContent ? handleSplitPanelHorizontal : undefined}
-            closePanel={canEditContent && canClosePanel ? handleClosePanel : undefined}
-            replacePanelWidget={canEditContent ? handleReplacePanelWidget : undefined}
+            splitPanelVertical={canMutateLayoutTopology ? handleSplitPanelVertical : undefined}
+            splitPanelHorizontal={canMutateLayoutTopology ? handleSplitPanelHorizontal : undefined}
+            closePanel={canMutateLayoutTopology && canClosePanel ? handleClosePanel : undefined}
+            replacePanelWidget={canMutateLayoutTopology ? handleReplacePanelWidget : undefined}
           />
         ) : (
           <div

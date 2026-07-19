@@ -14,6 +14,9 @@ import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 
 const mockPatchWidgetParams = vi.fn()
 const mockPatchWidgetLinkedParams = vi.fn()
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,

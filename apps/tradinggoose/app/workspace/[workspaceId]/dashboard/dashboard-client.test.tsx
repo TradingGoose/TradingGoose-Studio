@@ -227,7 +227,6 @@ vi.mock('@/widgets/widget-surface', async () => {
         dashboardLayoutId?: string
         dashboardLayoutName?: string
         dashboardLayoutOwnerUserId?: string
-        canWrite?: boolean
       }
       panelId?: string
       onPairColorChange?: (color: PairColor) => void
@@ -248,7 +247,6 @@ vi.mock('@/widgets/widget-surface', async () => {
             data-dashboard-layout-id={context?.dashboardLayoutId ?? ''}
             data-dashboard-layout-name={context?.dashboardLayoutName ?? ''}
             data-dashboard-layout-owner-user-id={context?.dashboardLayoutOwnerUserId ?? ''}
-            data-can-write={String(context?.canWrite ?? '')}
           />
           <button
             type='button'
@@ -289,13 +287,11 @@ describe('DashboardClient', () => {
     workspaceId = 'ws-a',
     ownerUserId = 'user-a',
     layoutId = 'layout-a',
-    workspaceCanWrite = true,
   }: {
     topology: DashboardLayoutTopologyNode
     workspaceId?: string
     ownerUserId?: string
     layoutId?: string
-    workspaceCanWrite?: boolean
   }) {
     root.render(
       <DashboardClient
@@ -304,7 +300,6 @@ describe('DashboardClient', () => {
         ownerUserId={ownerUserId}
         layoutId={layoutId}
         initialLayouts={createLayouts(layoutId)}
-        workspaceCanWrite={workspaceCanWrite}
       />
     )
   }
@@ -373,7 +368,6 @@ describe('DashboardClient', () => {
       dashboardLayoutId: 'layout-a',
       dashboardLayoutName: 'Layout A',
       dashboardLayoutOwnerUserId: 'user-a',
-      canWrite: true,
     })
 
     await act(async () => {
@@ -395,16 +389,12 @@ describe('DashboardClient', () => {
       dashboardLayoutId: 'layout-b',
       dashboardLayoutName: 'Layout B',
       dashboardLayoutOwnerUserId: 'user-b',
-      canWrite: true,
     })
   })
 
-  it('keeps personal layout controls writable for workspace readers', async () => {
+  it('keeps personal widget controls independent of workspace entity permission', async () => {
     await act(async () => {
-      renderDashboard({
-        topology: createPanelLayout('panel-a', 'wf-a'),
-        workspaceCanWrite: false,
-      })
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
     const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
@@ -422,7 +412,6 @@ describe('DashboardClient', () => {
       workspaceId: 'ws-a',
       pairColor: 'red',
     })
-    expect(readWidgetRuntimeContext(container).canWrite).toBe(false)
   })
 
   it('applies remote group-size changes to the mounted panel group', async () => {
@@ -545,6 +534,13 @@ describe('DashboardClient', () => {
         await Promise.resolve()
       })
       expect(mockLayoutTabsIsBusy).toBe(true)
+      expect(
+        (container.querySelector('[data-testid^="pair-color-red-"]') as HTMLButtonElement).disabled
+      ).toBe(false)
+      expect(
+        (container.querySelector('[data-testid^="widget-watchlist-"]') as HTMLButtonElement)
+          .disabled
+      ).toBe(true)
 
       if (resolution === 'list') {
         mockDashboardLayoutList = {
@@ -557,10 +553,13 @@ describe('DashboardClient', () => {
         expect(mockLayoutTabsIsBusy).toBe(false)
         expect(mockLayoutTabsCanMutate).toBe(false)
         expect(
-          container
-            .querySelector('[data-testid^="widget-surface-"]')
-            ?.getAttribute('data-can-write')
-        ).toBe('false')
+          (container.querySelector('[data-testid^="pair-color-red-"]') as HTMLButtonElement)
+            .disabled
+        ).toBe(false)
+        expect(
+          (container.querySelector('[data-testid^="widget-watchlist-"]') as HTMLButtonElement)
+            .disabled
+        ).toBe(true)
         await act(async () => resolveActivation({ listConverged: true }))
         expect(mockLayoutTabsIsBusy).toBe(false)
         return
@@ -804,6 +803,5 @@ function readWidgetRuntimeContext(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutId: element.dataset.dashboardLayoutId ?? '',
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
-    canWrite: element.dataset.canWrite === 'true',
   }
 }

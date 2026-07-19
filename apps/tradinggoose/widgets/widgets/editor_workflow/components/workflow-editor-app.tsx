@@ -14,7 +14,6 @@ interface WorkflowEditorAppProps {
   ui?: WorkflowCanvasUIConfig
   channelId?: string
   toolbarScopeId?: string
-  canWrite: boolean
   viewportBounds?: { x: number; y: number; width: number; height: number }
 }
 
@@ -24,7 +23,6 @@ const WorkflowEditorApp = ({
   ui,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   toolbarScopeId,
-  canWrite,
   viewportBounds,
 }: WorkflowEditorAppProps) => {
   const session = useSession()
@@ -40,12 +38,7 @@ const WorkflowEditorApp = ({
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-        canWrite={canWrite}
-      >
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}

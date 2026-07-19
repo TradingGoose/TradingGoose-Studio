@@ -46,7 +46,6 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
             indicatorId={indicatorId}
             panelId={panelId}
             widgetKey={widget?.key}
-            canEditEntity={context?.canWrite !== false}
           />
         </div>
       ),

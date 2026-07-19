@@ -3,6 +3,7 @@ import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   useWorkflowDropdownMessages,
   useWorkflowVariablesMessages,
@@ -65,7 +66,6 @@ const WorkflowVariablesWidgetBody = ({
       <WorkflowVariablesApp
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
-        canWrite={context?.canWrite !== false}
         channelId={channelId}
         panelId={panelId}
       />
@@ -78,7 +78,6 @@ type WorkflowVariablesHeaderActionsProps = {
   workspaceId?: string
   params?: Record<string, unknown> | null
   panelId?: string
-  canEditEntity: boolean
 }
 
 const WorkflowVariablesHeaderActions = ({
@@ -86,15 +85,15 @@ const WorkflowVariablesHeaderActions = ({
   workspaceId,
   params,
   panelId,
-  canEditEntity,
 }: WorkflowVariablesHeaderActionsProps) => {
   const copy = useWorkflowVariablesMessages()
+  const { canEdit } = useUserPermissionsContext()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     params,
   })
 
-  const isDisabled = !canEditEntity || !workspaceId || !resolvedWorkflowId
+  const isDisabled = !canEdit || !workspaceId || !resolvedWorkflowId
 
   const handleAddVariable = useCallback(() => {
     if (isDisabled || !resolvedWorkflowId) return
@@ -176,7 +175,6 @@ export const workflowVariablesWidget: DashboardWidgetDefinition = {
           workspaceId={context?.workspaceId}
           params={widget?.params}
           panelId={panelId}
-          canEditEntity={context?.canWrite !== false}
         />
       ),
     }

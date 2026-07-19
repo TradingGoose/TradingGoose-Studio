@@ -51,7 +51,6 @@ import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 interface WorkflowToolbarProps {
   workspaceId?: string
   toolbarScopeId?: string
-  canWrite: boolean
 }
 
 type ToolbarMode = 'blocks' | 'tools' | 'triggers'
@@ -133,7 +132,7 @@ function useToolbarList(
   }, [getLocalizedBlockMetadata, searchQuery, mode, providerAvailability])
 }
 
-export function WorkflowToolbar({ workspaceId, toolbarScopeId, canWrite }: WorkflowToolbarProps) {
+export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbarProps) {
   const { workflowToolbarCopy: copy } = useWorkflowI18n()
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
     DEFAULT_PROVIDER_AVAILABILITY
@@ -180,7 +179,6 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId, canWrite }: Workf
         <ToolbarDropdownGroup
           providerAvailability={providerAvailability}
           copy={copy}
-          canWrite={canWrite}
           toolbarScopeId={toolbarScopeId}
         />
       </WorkspacePermissionsProvider>
@@ -191,16 +189,14 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId, canWrite }: Workf
 function ToolbarDropdownGroup({
   providerAvailability,
   copy,
-  canWrite,
   toolbarScopeId,
 }: {
   providerAvailability: ProviderAvailability
   copy: WorkflowToolbarCopy
-  canWrite: boolean
   toolbarScopeId?: string
 }) {
   const { getLocalizedBlockMetadata } = useWorkflowI18n()
-  const disabled = !canWrite || !useUserPermissionsContext().canEdit
+  const disabled = !useUserPermissionsContext().canEdit
   const [blockSearch, setBlockSearch] = useState('')
   const [toolSearch, setToolSearch] = useState('')
   const [triggerSearch, setTriggerSearch] = useState('')

@@ -119,6 +119,15 @@ export interface WorkflowAccessContext {
   isWorkspaceOwner: boolean
 }
 
+export function hasWorkflowWriteAccess(context: WorkflowAccessContext) {
+  return (
+    context.isOwner ||
+    context.isWorkspaceOwner ||
+    context.workspacePermission === 'write' ||
+    context.workspacePermission === 'admin'
+  )
+}
+
 export async function readWorkflowAccessContext(
   workflowId: string,
   userId?: string
@@ -580,8 +589,7 @@ export async function validateWorkflowPermissions(
       // Any workspace permission allows read
       hasPermission = workspacePermission !== null
     } else if (action === 'write') {
-      // Write or admin permission allows write
-      hasPermission = workspacePermission === 'write' || workspacePermission === 'admin'
+      hasPermission = hasWorkflowWriteAccess(accessContext)
     } else if (action === 'admin') {
       // Only admin permission allows admin actions
       hasPermission = workspacePermission === 'admin'

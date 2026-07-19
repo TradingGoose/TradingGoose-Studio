@@ -16,6 +16,7 @@ import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
@@ -139,7 +140,8 @@ export function EditorMcpWidgetBody({
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
-  const canEditEntity = context?.canWrite !== false
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
   const canEditRef = useLatestRef(canEditEntity)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [identityName, setIdentityName] = useState('')
@@ -174,10 +176,10 @@ export function EditorMcpWidgetBody({
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
   const serverSession = useSavedEntityYjsSession(
     'mcp_server',
-    selectedServerId,
-    workspaceId,
+    isPermissionsLoading ? null : selectedServerId,
+    isPermissionsLoading ? null : workspaceId,
     null,
-    context?.canWrite === false ? 'read' : 'write'
+    canEditEntity ? 'write' : 'read'
   )
   const formFallback = useMemo(
     () => ({ ...defaultFormData, name: identityName }),

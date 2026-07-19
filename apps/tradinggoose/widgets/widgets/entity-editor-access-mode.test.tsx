@@ -21,6 +21,7 @@ const mockRefreshTools = vi.hoisted(() => vi.fn())
 const mockRenameSavedEntity = vi.hoisted(() => vi.fn())
 const mockMcpEditorActions = vi.hoisted(() => vi.fn())
 const mockMcpForm = vi.hoisted(() => ({ setFormData: null as null | ((next: any) => void) }))
+const mockPermissions = vi.hoisted(() => ({ canEdit: true, isLoading: false }))
 
 const entityIds = {
   indicator: 'indicator-1',
@@ -63,6 +64,10 @@ vi.mock('@/components/ui/loading-agent', () => ({ LoadingAgent: () => <div>Loadi
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useEntityList: mockUseEntityList,
   useSavedEntityYjsSession: mockUseSavedEntityYjsSession,
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => mockPermissions,
 }))
 
 vi.mock('@/hooks/use-mcp-tools', () => ({
@@ -125,6 +130,15 @@ const cases: Array<{
   },
 ]
 
+const renderEditor = (testCase = cases[0]!) =>
+  renderToString(
+    testCase.render({
+      channelId: 'entity-editor-panel-1',
+      params: testCase.params,
+      context: { workspaceId: 'workspace-1' },
+    })
+  )
+
 describe('saved-entity editor access mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -132,6 +146,8 @@ describe('saved-entity editor access mode', () => {
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true
     mockMcpForm.setFormData = null
+    mockPermissions.canEdit = true
+    mockPermissions.isLoading = false
     mockUseEntityList.mockImplementation((entityKind: keyof typeof entityIds) => ({
       members: [{ entityId: entityIds[entityKind], entityName: 'Entity' }],
       isLoading: true,
@@ -147,13 +163,8 @@ describe('saved-entity editor access mode', () => {
 
   it.each(cases)('opens $entityKind in read mode for workspace readers', (testCase) => {
     mockUseSavedEntityYjsSession.mockClear()
-    renderToString(
-      testCase.render({
-        channelId: 'entity-editor-panel-1',
-        params: testCase.params,
-        context: { workspaceId: 'workspace-1', canWrite: false },
-      })
-    )
+    mockPermissions.canEdit = false
+    renderEditor(testCase)
 
     expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith(
       testCase.entityKind,
@@ -164,15 +175,9 @@ describe('saved-entity editor access mode', () => {
     )
   })
 
-  it('keeps writer editor sessions writable', () => {
+  it('opens a writer session only after local permissions resolve', () => {
     mockUseSavedEntityYjsSession.mockClear()
-    renderToString(
-      <EditorIndicatorWidgetBody
-        channelId='indicator-editor-panel-1'
-        params={{ indicatorId: entityIds.indicator }}
-        context={{ workspaceId: 'workspace-1', canWrite: true }}
-      />
-    )
+    renderEditor()
 
     expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith(
       'indicator',
@@ -181,6 +186,11 @@ describe('saved-entity editor access mode', () => {
       null,
       'write'
     )
+    mockUseSavedEntityYjsSession.mockClear()
+    mockPermissions.isLoading = true
+    renderEditor()
+
+    expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith('indicator', null, null, null, 'read')
   })
 
   it('makes retained MCP writer callbacks harmless after a read-only downgrade', async () => {
@@ -210,17 +220,17 @@ describe('saved-entity editor access mode', () => {
       error: null,
     })
     mockUseSavedEntityYjsSession.mockReturnValue({ doc, save, isLoading: false, error: null })
-    const renderEditor = (canWrite: boolean) => (
+    const renderEditor = () => (
       <EditorMcpWidgetBody
         channelId='mcp-editor-panel-1'
         params={{ mcpServerId: entityIds.mcp_server }}
-        context={{ workspaceId: 'workspace-1', canWrite }}
+        context={{ workspaceId: 'workspace-1' }}
         panelId='panel-1'
         widget={{ key: 'editor_mcp', pairColor: 'gray', params: null }}
       />
     )
 
-    await act(async () => root.render(renderEditor(true)))
+    await act(async () => root.render(renderEditor()))
     await act(async () => {
       mockMcpForm.setFormData?.((current: Record<string, unknown>) => ({
         ...current,
@@ -237,7 +247,8 @@ describe('saved-entity editor access mode', () => {
     }
     const baseline = getFieldsMap(doc).toJSON()
 
-    await act(async () => root.render(renderEditor(false)))
+    mockPermissions.canEdit = false
+    await act(async () => root.render(renderEditor()))
     const clearCount = mockClearTestResult.mock.calls.length
     await act(async () => {
       retainedSetFormData((current: Record<string, unknown>) => ({

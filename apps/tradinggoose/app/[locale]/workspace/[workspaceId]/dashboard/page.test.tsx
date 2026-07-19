@@ -77,7 +77,6 @@ describe('WorkspaceDashboardPage', () => {
       initialTopology: activeLayout.topology,
       layoutId: 'layout-active',
       ownerUserId: 'user-1',
-      workspaceCanWrite: true,
     })
     expect(m.clientProps).not.toHaveProperty('initialWidgets')
     expect(m.clientProps).not.toHaveProperty('initialColorPairs')
@@ -115,7 +114,6 @@ describe('WorkspaceDashboardPage', () => {
     expect(m.clientProps).toMatchObject({
       layoutId: 'layout-active',
       ownerUserId: 'user-1',
-      workspaceCanWrite: false,
     })
   })
 
