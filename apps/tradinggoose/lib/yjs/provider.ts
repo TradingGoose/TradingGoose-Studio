@@ -1,3 +1,4 @@
+import { diffChars } from 'diff'
 import { isEqual, isPlainObject } from 'lodash'
 import { messageSync, WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
@@ -85,6 +86,46 @@ const yValuesEqual = (left: unknown, right: unknown) =>
   left instanceof Y.Text === right instanceof Y.Text &&
   isEqual(yValueJson(left), yValueJson(right))
 
+function readTextBranch(base: string, next: string) {
+  const kept = Array.from(base, () => false)
+  const insertions = Array.from({ length: kept.length + 1 }, () => '')
+  let baseIndex = 0
+
+  for (const change of diffChars(base, next)) {
+    if (change.added) {
+      insertions[baseIndex] += change.value
+      continue
+    }
+    const length = Array.from(change.value).length
+    if (!change.removed) kept.fill(true, baseIndex, baseIndex + length)
+    baseIndex += length
+  }
+  return { kept, insertions }
+}
+
+function mergeYTextValue(base: Y.Text, local: Y.Text, remote: Y.Text): Y.Text {
+  const baseValue = base.toString()
+  const localBranch = readTextBranch(baseValue, local.toString())
+  const remoteBranch = readTextBranch(baseValue, remote.toString())
+  let merged = ''
+
+  for (const [index, character] of [...baseValue, ''].entries()) {
+    merged += remoteBranch.insertions[index]! + localBranch.insertions[index]!
+    if (character && remoteBranch.kept[index] && localBranch.kept[index]) merged += character
+  }
+
+  remote.applyDelta(
+    diffChars(remote.toString(), merged).map((change) =>
+      change.added
+        ? { insert: change.value }
+        : change.removed
+          ? { delete: change.value.length }
+          : { retain: change.value.length }
+    )
+  )
+  return remote
+}
+
 function mergeYMapValue(
   base: unknown,
   local: unknown,
@@ -112,6 +153,9 @@ function mergeYMapValue(
       }
     }
     return remote
+  }
+  if (base instanceof Y.Text && local instanceof Y.Text && remote instanceof Y.Text) {
+    return mergeYTextValue(base, local, remote)
   }
   if (yValuesEqual(local, base)) return remote
   if (yValuesEqual(remote, base)) return local
@@ -154,7 +198,7 @@ function mergeYMapValue(
     }
     return Object.fromEntries(merged)
   }
-  return [base, local, remote].every((value) => value instanceof Y.Text) ? local : remote
+  return remote
 }
 
 function replayYjsPendingLocalEdits(
@@ -168,8 +212,9 @@ function replayYjsPendingLocalEdits(
     Y.applyUpdate(base, pending.base, YJS_ORIGINS.SYSTEM)
     Y.applyUpdate(current, pending.base, YJS_ORIGINS.SYSTEM)
     for (const { local, update } of pending.replay) {
+      const alreadyApplied = local && Y.snapshotContainsUpdate(Y.snapshot(target), update)
       Y.applyUpdate(current, update, YJS_ORIGINS.SYSTEM)
-      if (local)
+      if (local && !alreadyApplied)
         target.transact(() => {
           for (const name of current.share.keys()) {
             if (name === 'metadata') continue

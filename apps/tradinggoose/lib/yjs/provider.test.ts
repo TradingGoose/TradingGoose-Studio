@@ -194,6 +194,7 @@ describe('bootstrapYjsProvider', () => {
     })
     const initial = snapshot({
       text: new Y.Text('a'),
+      same: new Y.Text('ab'),
       blocks: blocks('Base A', 'Base B'),
       edges: [edge('B')],
       layout: layout(['B']),
@@ -243,6 +244,7 @@ describe('bootstrapYjsProvider', () => {
     const restarted = await bootstrapSyncedProvider(intermediate, pending, 'lineage-2')
     expect(restarted.doc.getMap('workflow').toJSON()).toEqual({
       text: 'abc',
+      same: 'ab',
       blocks: blocks('Local A', 'Base B'),
       edges: [edge('B'), edge('L')],
       layout: layout(['B', 'L']),
@@ -250,6 +252,7 @@ describe('bootstrapYjsProvider', () => {
       retyped: 'base!',
       nested: { owned: 'c', foreign: 'base' },
     })
+    ;(restarted.doc.getMap('workflow').get('same') as Y.Text).insert(1, 'X')
     const restartedProvider = restarted.provider as unknown as MockWebsocketProvider
     restartedProvider.receive(encodeYjsDurableCheckpoint('lineage-3', Y.emptySnapshot))
     const repeatedEvent = await restarted.lifecycle
@@ -258,6 +261,7 @@ describe('bootstrapYjsProvider', () => {
     restarted.dispose()
     const concurrent = snapshot({
       text: new Y.Text('aX'),
+      same: new Y.Text('aXb'),
       blocks: blocks('Local A', 'Remote B'),
       edges: [edge('B'), edge('R')],
       layout: layout(['B', 'R']),
@@ -267,7 +271,8 @@ describe('bootstrapYjsProvider', () => {
     })
     const merged = await bootstrapSyncedProvider(concurrent, replayedPending, 'lineage-3')
     const mergedFields = merged.doc.getMap('workflow')
-    expect((mergedFields.get('text') as Y.Text).toString()).toBe('abc')
+    expect((mergedFields.get('text') as Y.Text).toString()).toBe('aXc')
+    expect((mergedFields.get('same') as Y.Text).toString()).toBe('aXXb')
     expect(mergedFields.has('deleted')).toBe(false)
     expect((mergedFields.get('nested') as Y.Map<unknown>).toJSON()).toEqual({
       owned: 'c',
@@ -289,7 +294,7 @@ describe('bootstrapYjsProvider', () => {
       'lineage-4'
     )
     expect(replacement.doc.getMap('workflow').toJSON()).toEqual({
-      text: 'abc',
+      text: 'foreignbc',
       deleted: 'foreign',
       retyped: 42,
       nested: { owned: 'foreign', foreign: 'server' },
