@@ -15,6 +15,7 @@ import {
   executeCreateEntityDocumentMutation,
   executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
+  verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
@@ -107,7 +108,7 @@ describe('entity document mutation helpers', () => {
     expect(mockReadEntityListMembersFromDb).toHaveBeenCalledWith('skill', 'workspace-1')
   })
 
-  it('enforces personal API-key policy at workspace resolution', async () => {
+  it('returns the canonical structured workspace and entity authorization denials', async () => {
     mockCheckWorkspaceAccess.mockResolvedValueOnce({
       exists: true,
       hasAccess: true,
@@ -121,6 +122,23 @@ describe('entity document mutation helpers', () => {
         'read'
       )
     ).rejects.toMatchObject({ status: 403, code: 'personal_api_keys_disabled' })
+
+    mockCheckWorkspaceAccess
+      .mockResolvedValueOnce({ exists: false, hasAccess: false, canWrite: false })
+      .mockResolvedValueOnce({ exists: true, hasAccess: true, canWrite: false })
+    mockVerifyReviewTargetAccess.mockResolvedValueOnce({ hasAccess: false, workspaceId: null })
+    for (const denial of [
+      verifyWorkspaceContext({ userId: 'user-1', workspaceId: 'workspace-1' }, 'read'),
+      verifyWorkspaceContext({ userId: 'user-1', workspaceId: 'workspace-1' }, 'write'),
+      verifySavedEntityContext(
+        { userId: 'user-1', workspaceId: 'workspace-1' },
+        'skill',
+        'skill-1',
+        'read'
+      ),
+    ]) {
+      await expect(denial).rejects.toMatchObject({ status: 403, code: 'access_denied' })
+    }
   })
 
   it('applies full-access updates without building a review preview', async () => {

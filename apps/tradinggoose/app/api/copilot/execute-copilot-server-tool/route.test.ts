@@ -2,6 +2,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -21,13 +22,6 @@ vi.mock('@/lib/copilot/auth', () => ({
 }))
 
 vi.mock('@/lib/copilot/registry', () => ({ isToolId: mocks.isToolId }))
-
-vi.mock('@/lib/copilot/server-tool-errors', () => ({
-  buildCopilotServerToolErrorResponse: (_toolName: string | undefined, error: unknown) => ({
-    status: 500,
-    body: { code: 'server_tool_execution_failed', error: String(error) },
-  }),
-}))
 
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: mocks.route,
@@ -127,5 +121,18 @@ describe('execute copilot server tool route', () => {
       'review-token-1',
       expect.objectContaining({ userId: 'user-1' })
     )
+  })
+
+  it('returns structured authorization denials from the canonical dispatcher', async () => {
+    const denial = { code: 'access_denied', error: 'Access denied', retryable: false }
+    mocks.route.mockRejectedValueOnce(new StructuredServerToolError({ status: 403, body: denial }))
+    const response = await post({
+      toolName: 'list_watchlist',
+      payload: {},
+      context: { workspaceId: 'workspace-1' },
+    })
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual(denial)
   })
 })

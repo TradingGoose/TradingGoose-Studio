@@ -40,6 +40,13 @@ import {
 
 type SavedEntityDocumentKind = EntityDocumentKind
 type GenericSavedEntityDocumentKind = Exclude<SavedEntityDocumentKind, 'dashboard_layout'>
+
+const accessDenied = (message: string) =>
+  new StructuredServerToolError({
+    status: 403,
+    body: { code: 'access_denied', error: message, retryable: false },
+  })
+
 export type EntityDocumentArgs = {
   entityId?: string
   runtimeId?: string
@@ -156,7 +163,7 @@ export async function verifyWorkspaceContext(
   const access = await checkWorkspaceAccess(workspaceId, userId)
 
   if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
-    throw new Error('Access denied: You do not have permission to use this workspace')
+    throw accessDenied('Access denied: You do not have permission to use this workspace')
   }
   await assertWorkspaceApiKeyPolicy(context, access.workspace)
   return { userId, workspaceId }
@@ -182,7 +189,7 @@ export async function verifySavedEntityContext(
   )
 
   if (!access.hasAccess || !access.workspaceId) {
-    throw new Error(
+    throw accessDenied(
       `Access denied: You do not have permission to ${accessMode === 'write' ? 'edit' : 'read'} this ${ENTITY_KIND_LABELS[entityKind]}`
     )
   }

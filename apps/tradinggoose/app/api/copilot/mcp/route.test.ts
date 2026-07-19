@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 
 const {
   mockAuthenticateApiKeyFromHeader,
@@ -371,26 +372,26 @@ describe('Copilot MCP route', () => {
     expect(body.result.structuredContent).toEqual({ success: true })
   })
 
-  it('returns a sanitized tool result when a tool execution fails', async () => {
+  it('returns structured authorization denials as MCP tool errors', async () => {
     const { POST } = await import('./route')
-    mockGetMcpServerToolIds.mockReturnValue(['list_workflows'])
-    mockRouteExecution.mockRejectedValueOnce(new Error('connection refused at db.internal:5432'))
+    const denial = { code: 'access_denied', error: 'Access denied', retryable: false }
+    mockGetMcpServerToolIds.mockReturnValue(['list_watchlist'])
+    mockRouteExecution.mockRejectedValueOnce(
+      new StructuredServerToolError({ status: 403, body: denial })
+    )
 
     const response = await POST(
       createMcpRequest({
         jsonrpc: '2.0',
         id: 6,
         method: 'tools/call',
-        params: { name: 'list_workflows', arguments: {} },
+        params: { name: 'list_watchlist', arguments: { workspaceId: 'workspace-1' } },
       })
     )
     const body = await response.json()
 
-    expect(body.error).toBeUndefined()
     expect(body.result.isError).toBe(true)
-    expect(body.result.structuredContent.code).toBe('server_tool_execution_failed')
-    expect(body.result.structuredContent.error).toBe('Server tool execution failed')
-    expect(body.result.content[0].text).not.toContain('db.internal')
+    expect(body.result.structuredContent).toEqual(denial)
   })
 
   it('sanitizes errors thrown by non-tool methods instead of leaking a raw response', async () => {
