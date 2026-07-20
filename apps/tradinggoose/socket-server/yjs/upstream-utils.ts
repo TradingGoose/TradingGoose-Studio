@@ -36,18 +36,18 @@ const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
-const DELETION_LEASE_TTL_MS = 5 * 60_000
+const DRAIN_LEASE_TTL_MS = 5 * 60_000
 const DOCUMENT_RETENTION_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
-const deletionAdmissions = new Map<string, string>()
-type DeletionLease = {
+const drainAdmissions = new Map<string, string>()
+type DrainLease = {
   targets: string[]
   drain: Promise<void>
   expiryTimer: ReturnType<typeof setTimeout> | null
   heldLocally: boolean
 }
-const deletionLeases = new Map<string, DeletionLease>()
+const drainLeases = new Map<string, DrainLease>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
@@ -577,8 +577,8 @@ export function assertYjsSessionAdmission(docId: string, workspaceId?: string | 
   const workspaceTarget = resolvedWorkspaceId ? `workspace:${resolvedWorkspaceId}` : null
   const blocked =
     isDrainingAllDocuments ||
-    deletionAdmissions.has(sessionTarget) ||
-    (workspaceTarget !== null && deletionAdmissions.has(workspaceTarget)) ||
+    drainAdmissions.has(sessionTarget) ||
+    (workspaceTarget !== null && drainAdmissions.has(workspaceTarget)) ||
     docs.get(docId)?.isDraining === true
   if (!blocked) return
   throw new YjsSessionAdmissionError(docId)
@@ -721,51 +721,51 @@ export async function discardDocument(candidate: Y.Doc): Promise<void> {
   if (docs.get(doc.name) === doc) cleanupDocument(doc)
 }
 
-function refreshYjsSessionDeletionLease(leaseId: string, lease: DeletionLease): void {
+function refreshYjsSessionDrainLease(leaseId: string, lease: DrainLease): void {
   if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
   if (lease.heldLocally) {
     lease.expiryTimer = null
     return
   }
   lease.expiryTimer = setTimeout(() => {
-    if (deletionLeases.get(leaseId) !== lease) return
-    releaseYjsSessionDeletionLease(leaseId)
-  }, DELETION_LEASE_TTL_MS)
+    if (drainLeases.get(leaseId) !== lease) return
+    releaseYjsSessionDrainLease(leaseId)
+  }, DRAIN_LEASE_TTL_MS)
 }
 
-function releaseYjsSessionDeletionLease(leaseId: string): void {
-  const lease = deletionLeases.get(leaseId)
+function releaseYjsSessionDrainLease(leaseId: string): void {
+  const lease = drainLeases.get(leaseId)
   if (!lease) return
-  deletionLeases.delete(leaseId)
+  drainLeases.delete(leaseId)
   if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
   for (const target of lease.targets) {
-    if (deletionAdmissions.get(target) === leaseId) deletionAdmissions.delete(target)
+    if (drainAdmissions.get(target) === leaseId) drainAdmissions.delete(target)
   }
 }
 
-function normalizeDeletionTargetIds(ids: readonly string[] = []): string[] {
+function normalizeDrainTargetIds(ids: readonly string[] = []): string[] {
   return [...new Set(ids)].sort()
 }
 
-export async function beginYjsSessionDeletion(
+export async function beginYjsSessionDrain(
   leaseId: string,
   target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] }
 ): Promise<void> {
-  if (!leaseId.trim()) throw new Error('A non-empty Yjs deletion lease ID is required')
-  const orderedSessionIds = normalizeDeletionTargetIds(target.sessionIds)
-  const orderedWorkspaceIds = normalizeDeletionTargetIds(target.workspaceIds)
+  if (!leaseId.trim()) throw new Error('A non-empty Yjs drain lease ID is required')
+  const orderedSessionIds = normalizeDrainTargetIds(target.sessionIds)
+  const orderedWorkspaceIds = normalizeDrainTargetIds(target.workspaceIds)
   if (
     orderedSessionIds.length + orderedWorkspaceIds.length === 0 ||
     [...orderedSessionIds, ...orderedWorkspaceIds].some((id) => !id.trim())
   ) {
-    throw new Error('At least one non-empty Yjs deletion target is required')
+    throw new Error('At least one non-empty Yjs drain target is required')
   }
   const targets = [
     ...orderedSessionIds.map((id) => `session:${id}`),
     ...orderedWorkspaceIds.map((id) => `workspace:${id}`),
   ]
   const firstTarget = targets[0]!
-  let lease = deletionLeases.get(leaseId)
+  let lease = drainLeases.get(leaseId)
   if (lease) {
     if (JSON.stringify(lease.targets) !== JSON.stringify(targets)) {
       throw new YjsSessionAdmissionError(firstTarget)
@@ -779,58 +779,58 @@ export async function beginYjsSessionDeletion(
     )
     if (
       isDrainingAllDocuments ||
-      targets.some((deletionTarget) => deletionAdmissions.has(deletionTarget)) ||
+      targets.some((drainTarget) => drainAdmissions.has(drainTarget)) ||
       targetDocuments.some((doc) => doc.isDraining)
     ) {
       throw new YjsSessionAdmissionError(firstTarget)
     }
 
-    for (const deletionTarget of targets) deletionAdmissions.set(deletionTarget, leaseId)
+    for (const drainTarget of targets) drainAdmissions.set(drainTarget, leaseId)
     const drain = Promise.all(targetDocuments.map(discardDocument)).then(() => undefined)
     lease = { targets, drain, expiryTimer: null, heldLocally: false }
-    deletionLeases.set(leaseId, lease)
+    drainLeases.set(leaseId, lease)
   }
-  refreshYjsSessionDeletionLease(leaseId, lease)
+  refreshYjsSessionDrainLease(leaseId, lease)
 
   try {
     await lease.drain
-    if (deletionLeases.get(leaseId) !== lease) {
+    if (drainLeases.get(leaseId) !== lease) {
       throw new YjsSessionAdmissionError(firstTarget)
     }
-    refreshYjsSessionDeletionLease(leaseId, lease)
+    refreshYjsSessionDrainLease(leaseId, lease)
   } catch (error) {
-    if (deletionLeases.get(leaseId) === lease) abortYjsSessionDeletion(leaseId)
+    if (drainLeases.get(leaseId) === lease) abortYjsSessionDrain(leaseId)
     throw error
   }
 }
 
-export async function withYjsSessionDeletion<T>(
+export async function withYjsSessionDrain<T>(
   target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
   mutate: () => Promise<T>
 ): Promise<T> {
   const leaseId = randomUUID()
-  await beginYjsSessionDeletion(leaseId, target)
-  const lease = deletionLeases.get(leaseId)
+  await beginYjsSessionDrain(leaseId, target)
+  const lease = drainLeases.get(leaseId)
   if (!lease) throw new YjsSessionAdmissionError(leaseId)
   lease.heldLocally = true
-  refreshYjsSessionDeletionLease(leaseId, lease)
+  refreshYjsSessionDrainLease(leaseId, lease)
 
   try {
     const result = await mutate()
-    commitYjsSessionDeletion(leaseId)
+    commitYjsSessionDrain(leaseId)
     return result
   } catch (error) {
-    abortYjsSessionDeletion(leaseId)
+    abortYjsSessionDrain(leaseId)
     throw error
   }
 }
 
-export function commitYjsSessionDeletion(leaseId: string): void {
-  releaseYjsSessionDeletionLease(leaseId)
+export function commitYjsSessionDrain(leaseId: string): void {
+  releaseYjsSessionDrainLease(leaseId)
 }
 
-export function abortYjsSessionDeletion(leaseId: string): void {
-  releaseYjsSessionDeletionLease(leaseId)
+export function abortYjsSessionDrain(leaseId: string): void {
+  releaseYjsSessionDrainLease(leaseId)
 }
 
 async function reconcileConnection(
@@ -848,44 +848,16 @@ async function reconcileConnection(
   }
 }
 
-export async function reconcileWorkspaceConnections(
-  workspaceId: string,
-  payload?: unknown
-): Promise<void> {
-  const candidate =
-    payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as Record<string, unknown>)
-      : null
-  const selectedUserIds = Array.isArray(candidate?.userIds)
-    ? new Set(
-        candidate.userIds.filter(
-          (value): value is string => typeof value === 'string' && value.length > 0
-        )
-      )
-    : null
-  const checks: Promise<void>[] = []
-  for (const doc of docs.values()) {
-    for (const [conn, connection] of doc.conns) {
-      if (connection.descriptor.workspaceId !== workspaceId) continue
-      if (selectedUserIds?.size && !selectedUserIds.has(connection.userId)) continue
-
-      checks.push(reconcileConnection(doc, conn, connection))
-    }
-  }
-  const results = await Promise.allSettled(checks)
-  for (const result of results) if (result.status === 'rejected') throw result.reason
-}
-
 export function cleanupAllDocuments(): void {
   for (const doc of Array.from(docs.values())) {
     for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
     cleanupDocument(doc)
   }
-  for (const lease of deletionLeases.values()) {
+  for (const lease of drainLeases.values()) {
     if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
   }
-  deletionLeases.clear()
-  deletionAdmissions.clear()
+  drainLeases.clear()
+  drainAdmissions.clear()
   isDrainingAllDocuments = false
   terminalPersistenceError = null
 }

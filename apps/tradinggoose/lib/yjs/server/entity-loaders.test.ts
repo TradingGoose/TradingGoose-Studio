@@ -12,8 +12,8 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  withYjsSessionDeletionLease: mocks.lease,
-  runYjsDeletionFencedTransaction: mocks.fenced,
+  withYjsSessionDrainLease: mocks.lease,
+  runYjsDrainFencedTransaction: mocks.fenced,
   refreshEntityListSession: mocks.refresh,
 }))
 

@@ -37,6 +37,9 @@ describe('Workspace member DELETE route', () => {
     })),
   }))
   const mockHasWorkspaceAdminAccess = vi.fn()
+  const mockWithYjsSessionDrainLease = vi.fn()
+  const mockRunYjsDrainFencedTransaction = vi.fn()
+  const mockCreateSavedEntityErrorResponse = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -94,7 +97,25 @@ describe('Workspace member DELETE route', () => {
       ),
     }))
 
+    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+      withYjsSessionDrainLease: mockWithYjsSessionDrainLease,
+      runYjsDrainFencedTransaction: mockRunYjsDrainFencedTransaction,
+    }))
+
+    vi.doMock('@/app/api/saved-entity-error-response', () => ({
+      createSavedEntityErrorResponse: mockCreateSavedEntityErrorResponse,
+    }))
+
     mockHasWorkspaceAdminAccess.mockResolvedValue(true)
+    mockWithYjsSessionDrainLease.mockImplementation(
+      async (_target: unknown, operation: (lease: unknown) => Promise<unknown>) =>
+        operation({ assertHeld: vi.fn() })
+    )
+    mockRunYjsDrainFencedTransaction.mockImplementation(
+      async (_leases: unknown, operation: (tx: unknown) => Promise<unknown>) =>
+        operation({ delete: deleteMock })
+    )
+    mockCreateSavedEntityErrorResponse.mockReturnValue(null)
   })
 
   afterEach(() => {
@@ -168,7 +189,38 @@ describe('Workspace member DELETE route', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
+    expect(mockWithYjsSessionDrainLease).toHaveBeenCalledWith(
+      { workspaceIds: ['workspace-1'] },
+      expect.any(Function)
+    )
+    expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalled()
     expect(deleteMock).toHaveBeenCalledWith(expect.anything())
     expect(deleteWhereMock).toHaveBeenCalled()
+  })
+
+  it('does not remove the member when the workspace drain cannot be acquired', async () => {
+    selectResults.push(
+      [
+        {
+          ownerId: 'owner-1',
+          billingOwnerType: 'user',
+          billingOwnerUserId: 'owner-1',
+        },
+      ],
+      [{ userId: 'user-2', permissionType: 'write' }]
+    )
+    mockWithYjsSessionDrainLease.mockRejectedValueOnce(new Error('drain unavailable'))
+    mockCreateSavedEntityErrorResponse.mockReturnValueOnce(
+      new Response(JSON.stringify({ error: 'Realtime state is temporarily unavailable' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+
+    const response = await deleteMember('user-2')
+
+    expect(response.status).toBe(503)
+    expect(deleteMock).not.toHaveBeenCalled()
+    expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
   })
 })

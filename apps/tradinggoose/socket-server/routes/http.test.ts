@@ -38,14 +38,13 @@ const mocks = vi.hoisted(() => ({
   refreshActiveEntityList: vi.fn(),
   acquireDocument: vi.fn(),
   persistStaged: vi.fn(),
-  reconcileWorkspaceConnections: vi.fn(),
   seedEntity: vi.fn(),
   getEntityFields: vi.fn(),
   commitDashboardStructure: vi.fn(),
-  beginDeletion: vi.fn(),
-  commitDeletion: vi.fn(),
-  abortDeletion: vi.fn(),
-  withDeletion: vi.fn(),
+  beginDrain: vi.fn(),
+  commitDrain: vi.fn(),
+  abortDrain: vi.fn(),
+  withDrain: vi.fn(),
 }))
 
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'internal-secret' } }))
@@ -79,12 +78,11 @@ vi.mock('@/socket-server/yjs/upstream-utils', () => ({
     status = 409
   },
   acquireDocument: mocks.acquireDocument,
-  abortYjsSessionDeletion: mocks.abortDeletion,
-  beginYjsSessionDeletion: mocks.beginDeletion,
-  commitYjsSessionDeletion: mocks.commitDeletion,
+  abortYjsSessionDrain: mocks.abortDrain,
+  beginYjsSessionDrain: mocks.beginDrain,
+  commitYjsSessionDrain: mocks.commitDrain,
   persistStagedDocuments: mocks.persistStaged,
-  reconcileWorkspaceConnections: mocks.reconcileWorkspaceConnections,
-  withYjsSessionDeletion: mocks.withDeletion,
+  withYjsSessionDrain: mocks.withDrain,
 }))
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
@@ -263,9 +261,9 @@ describe('socket internal HTTP Yjs routes', () => {
       }
     )
     mocks.saveDashboard.mockResolvedValue({})
-    mocks.beginDeletion.mockResolvedValue(undefined)
-    mocks.withDeletion.mockImplementation(
-      async (_target: unknown, mutation: () => Promise<unknown>) => mutation()
+    mocks.beginDrain.mockResolvedValue(undefined)
+    mocks.withDrain.mockImplementation(async (_target: unknown, mutation: () => Promise<unknown>) =>
+      mutation()
     )
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
@@ -488,7 +486,7 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: ['widget-1'],
     })
-    expect(mocks.withDeletion).toHaveBeenCalledWith(
+    expect(mocks.withDrain).toHaveBeenCalledWith(
       {
         sessionIds: ['dashboard-widget:layout-1:widget-1'],
       },
@@ -522,7 +520,7 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: [],
     })
-    expect(mocks.withDeletion).not.toHaveBeenCalled()
+    expect(mocks.withDrain).not.toHaveBeenCalled()
     expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
       'layout-1',
       'dashboard-widget:layout-1:widget-1',
@@ -575,7 +573,7 @@ describe('socket internal HTTP Yjs routes', () => {
 
     expect(response.status).toBe(500)
     expect(readDashboardLayoutDocument(documents.get('layout-1')!)).toEqual(before)
-    expect(mocks.withDeletion).toHaveBeenCalledWith(
+    expect(mocks.withDrain).toHaveBeenCalledWith(
       { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
       expect.any(Function)
     )
@@ -787,30 +785,30 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('releases exact-session deletion leases through commit and abort delegates', async () => {
-    const begun = await invoke('POST', '/internal/yjs/session-deletions', {
+  it('releases exact-session drain leases through commit and abort delegates', async () => {
+    const begun = await invoke('POST', '/internal/yjs/session-drains', {
       leaseId: 'lease-1',
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
       workspaceIds: ['workspace-1'],
     })
     expect(begun).toEqual({ status: 200, body: { leaseId: 'lease-1' } })
-    expect(mocks.beginDeletion).toHaveBeenCalledWith('lease-1', {
+    expect(mocks.beginDrain).toHaveBeenCalledWith('lease-1', {
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
       workspaceIds: ['workspace-1'],
     })
 
-    const invalid = await invoke('POST', '/internal/yjs/session-deletions', {
+    const invalid = await invoke('POST', '/internal/yjs/session-drains', {
       leaseId: 'bad-1',
       sessionIds: 'bad',
     })
     expect(invalid.status).toBe(400)
 
-    const committed = await invoke('POST', '/internal/yjs/session-deletions/lease-1/commit')
+    const committed = await invoke('POST', '/internal/yjs/session-drains/lease-1/commit')
     expect(committed.status).toBe(200)
-    expect(mocks.commitDeletion).toHaveBeenCalledWith('lease-1')
+    expect(mocks.commitDrain).toHaveBeenCalledWith('lease-1')
 
-    const aborted = await invoke('DELETE', '/internal/yjs/session-deletions/lease-2')
+    const aborted = await invoke('DELETE', '/internal/yjs/session-drains/lease-2')
     expect(aborted.status).toBe(200)
-    expect(mocks.abortDeletion).toHaveBeenCalledWith('lease-2')
+    expect(mocks.abortDrain).toHaveBeenCalledWith('lease-2')
   })
 })

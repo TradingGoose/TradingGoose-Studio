@@ -28,7 +28,7 @@ const {
     warn: vi.fn(),
   },
 }))
-const deletionHarness = vi.hoisted(() => ({
+const drainHarness = vi.hoisted(() => ({
   events: [] as string[],
   delete: vi.fn(),
   fenced: vi.fn(),
@@ -111,13 +111,13 @@ vi.mock('@/lib/workspaces/service', () => ({
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   SAVED_ENTITY_LIST_LOCK_KINDS: ['workflow', 'watchlist'],
-  lockSavedEntityList: deletionHarness.lockList,
+  lockSavedEntityList: drainHarness.lockList,
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  runYjsDeletionFencedTransaction: deletionHarness.fenced,
+  runYjsDrainFencedTransaction: drainHarness.fenced,
   SocketServerBridgeError: class SocketServerBridgeError extends Error {},
-  withYjsSessionDeletionLease: deletionHarness.lease,
+  withYjsSessionDrainLease: drainHarness.lease,
 }))
 
 describe('Workspace by id PATCH route', () => {
@@ -133,18 +133,18 @@ describe('Workspace by id PATCH route', () => {
     mockResolveWorkspaceBillingOwnerUpdate.mockReset()
     mockUpdateWhere.mockReset()
     mockUpdateSet.mockClear()
-    deletionHarness.events.length = 0
-    deletionHarness.delete.mockReturnValue({ where: vi.fn() })
-    deletionHarness.lockList.mockResolvedValue(undefined)
-    deletionHarness.lease.mockImplementation(async (_target, mutate) => {
-      deletionHarness.events.push('lease-begin')
+    drainHarness.events.length = 0
+    drainHarness.delete.mockReturnValue({ where: vi.fn() })
+    drainHarness.lockList.mockResolvedValue(undefined)
+    drainHarness.lease.mockImplementation(async (_target, mutate) => {
+      drainHarness.events.push('lease-begin')
       const result = await mutate({ assertHeld: vi.fn() })
-      deletionHarness.events.push('lease-commit')
+      drainHarness.events.push('lease-commit')
       return result
     })
-    deletionHarness.fenced.mockImplementation(async (_leases, mutate) => {
-      deletionHarness.events.push('transaction')
-      return mutate({ delete: deletionHarness.delete })
+    drainHarness.fenced.mockImplementation(async (_leases, mutate) => {
+      drainHarness.events.push('transaction')
+      return mutate({ delete: drainHarness.delete })
     })
   })
 
@@ -155,10 +155,10 @@ describe('Workspace by id PATCH route', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(deletionHarness.lease.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
-    expect(deletionHarness.events).toEqual(['lease-begin', 'transaction', 'lease-commit'])
-    expect(deletionHarness.lockList).toHaveBeenCalledTimes(2)
-    expect(deletionHarness.delete).toHaveBeenCalledTimes(4)
+    expect(drainHarness.lease.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
+    expect(drainHarness.events).toEqual(['lease-begin', 'transaction', 'lease-commit'])
+    expect(drainHarness.lockList).toHaveBeenCalledTimes(2)
+    expect(drainHarness.delete).toHaveBeenCalledTimes(4)
   })
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {

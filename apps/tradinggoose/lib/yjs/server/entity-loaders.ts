@@ -27,8 +27,8 @@ import {
 } from '@/lib/yjs/entity-state'
 import {
   refreshEntityListSession,
-  runYjsDeletionFencedTransaction,
-  withYjsSessionDeletionLease,
+  runYjsDrainFencedTransaction,
+  withYjsSessionDrainLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const ENTITY_TABLES = {
@@ -125,8 +125,8 @@ export async function deleteSavedEntity(
 ): Promise<boolean> {
   if ((await resolveEntityWorkspaceId(entityKind, entityId)) !== workspaceId) return false
 
-  const deleted = await withYjsSessionDeletionLease({ sessionIds: [entityId] }, (lease) =>
-    runYjsDeletionFencedTransaction([lease], async (tx) => {
+  const deleted = await withYjsSessionDrainLease({ sessionIds: [entityId] }, (lease) =>
+    runYjsDrainFencedTransaction([lease], async (tx) => {
       await lockSavedEntityList(tx, entityKind, workspaceId)
       let deleted: boolean
       if (entityKind === 'watchlist') {

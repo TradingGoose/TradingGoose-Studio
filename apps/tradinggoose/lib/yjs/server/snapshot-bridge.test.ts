@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch)
 })
 
-describe('runYjsDeletionFencedTransaction', () => {
+describe('runYjsDrainFencedTransaction', () => {
   it('bounds the transaction before mutation and checks every lease last', async () => {
     const events: string[] = []
     mockDbTransaction.mockImplementation((run) =>
@@ -48,9 +48,9 @@ describe('runYjsDeletionFencedTransaction', () => {
         }),
       })
     )
-    const { runYjsDeletionFencedTransaction } = await import('./snapshot-bridge')
+    const { runYjsDrainFencedTransaction } = await import('./snapshot-bridge')
 
-    await runYjsDeletionFencedTransaction(
+    await runYjsDrainFencedTransaction(
       [{ assertHeld: () => events.push('lease') }],
       async () => void events.push('mutation')
     )
@@ -154,28 +154,9 @@ describe('refreshEntityListSession', () => {
     await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBe(expected)
     expect(mockLogger.warn).not.toHaveBeenCalled()
   })
-
-  it('does not fail the committed mutation when access notification fails', async () => {
-    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
-
-    const { notifyWorkspaceYjsAccessChanged } = await import('./snapshot-bridge')
-
-    await expect(
-      notifyWorkspaceYjsAccessChanged('workspace-1', ['user-1'])
-    ).resolves.toBeUndefined()
-
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(mockFetch.mock.calls[0]?.[0]).toBe(
-      'http://socket.test/internal/yjs/workspaces/workspace-1/access-changed'
-    )
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Failed to notify realtime server about workspace access changes',
-      expect.objectContaining({ workspaceId: 'workspace-1', userIds: ['user-1'] })
-    )
-  })
 })
 
-describe('withYjsSessionDeletionLease', () => {
+describe('withYjsSessionDrainLease', () => {
   async function expectFetchRetryAfter(
     delayMs: number,
     callsBeforeRetry: number,
@@ -187,15 +168,15 @@ describe('withYjsSessionDeletionLease', () => {
     expect(mockFetch).toHaveBeenCalledTimes(callsAfterRetry)
   }
 
-  it('preserves a rejected deletion admission status for the API consumer', async () => {
+  it('preserves a rejected drain admission status for the API consumer', async () => {
     mockFetch
       .mockResolvedValueOnce(new Response('{"error":"deletion in progress"}', { status: 409 }))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
     const mutate = vi.fn()
-    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
 
     await expect(
-      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
+      withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, mutate)
     ).rejects.toMatchObject({ name: 'SocketServerBridgeError', status: 409 })
     expect(mutate).not.toHaveBeenCalled()
   })
@@ -207,10 +188,10 @@ describe('withYjsSessionDeletionLease', () => {
       .mockRejectedValueOnce(new TypeError('fetch failed'))
       .mockRejectedValueOnce(new TypeError('fetch failed'))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
 
     const deletion = expect(
-      withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, vi.fn())
+      withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, vi.fn())
     ).rejects.toMatchObject({
       name: 'SavedEntityRealtimeRequiredError',
       status: 503,
@@ -232,16 +213,13 @@ describe('withYjsSessionDeletionLease', () => {
         ? new Response(JSON.stringify({ leaseId }), { status: 200 })
         : new Response('offline', { status: 503 })
     })
-    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
-    const deletion = withYjsSessionDeletionLease(
-      { sessionIds: ['slow-watchlist'] },
-      async (lease) => {
-        await new Promise<void>((resolve) => {
-          finishMutation = resolve
-        })
-        lease.assertHeld()
-      }
-    )
+    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
+    const deletion = withYjsSessionDrainLease({ sessionIds: ['slow-watchlist'] }, async (lease) => {
+      await new Promise<void>((resolve) => {
+        finishMutation = resolve
+      })
+      lease.assertHeld()
+    })
 
     await vi.advanceTimersByTimeAsync(120_750)
     expect(beginCount).toBe(5)
@@ -267,9 +245,9 @@ describe('withYjsSessionDeletionLease', () => {
       expect(mockFetch).toHaveBeenCalledTimes(3)
       return 'deleted'
     })
-    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
 
-    const deletion = withYjsSessionDeletionLease({ sessionIds: ['watchlist-1'] }, mutate)
+    const deletion = withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, mutate)
 
     await expectFetchRetryAfter(250, 1, 2)
     await expectFetchRetryAfter(500, 2, 4)
@@ -287,7 +265,7 @@ describe('withYjsSessionDeletionLease', () => {
       expect(JSON.parse(String(init?.body))).toEqual(beginBody)
     }
     expect(mockFetch.mock.calls[3]?.[0]).toBe(
-      `http://socket.test/internal/yjs/session-deletions/${beginBody.leaseId}/commit`
+      `http://socket.test/internal/yjs/session-drains/${beginBody.leaseId}/commit`
     )
     expect(mockFetch.mock.calls[4]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
     expect(mockFetch.mock.calls[5]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
@@ -304,9 +282,9 @@ describe('withYjsSessionDeletionLease', () => {
       .mockRejectedValueOnce(new TypeError('abort response lost'))
       .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const { withYjsSessionDeletionLease } = await import('./snapshot-bridge')
+    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
 
-    const deletion = withYjsSessionDeletionLease({ workspaceIds: ['workspace-1'] }, async () => {
+    const deletion = withYjsSessionDrainLease({ workspaceIds: ['workspace-1'] }, async () => {
       throw new Error('database offline')
     })
     const rejectedDeletion = expect(deletion).rejects.toThrow('database offline')

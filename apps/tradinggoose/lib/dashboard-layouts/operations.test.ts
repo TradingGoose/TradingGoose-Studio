@@ -110,10 +110,8 @@ const m = vi.hoisted(() => {
     db: { ...store, transaction },
     bridge: {
       refreshEntityListSession: vi.fn(() => Promise.resolve(true)),
-      withYjsSessionDeletionLease: vi.fn(async (_target, mutate) =>
-        mutate({ assertHeld: vi.fn() })
-      ),
-      runYjsDeletionFencedTransaction: vi.fn(async (_leases, mutate) => transaction(mutate)),
+      withYjsSessionDrainLease: vi.fn(async (_target, mutate) => mutate({ assertHeld: vi.fn() })),
+      runYjsDrainFencedTransaction: vi.fn(async (_leases, mutate) => transaction(mutate)),
     },
   }
 })
@@ -350,8 +348,8 @@ describe('dashboard layout operations', () => {
 
     await deleteDashboardLayout(scope, 'layout-1')
 
-    expect(m.bridge.withYjsSessionDeletionLease.mock.calls[0]?.[0].sessionIds).toEqual(['layout-1'])
-    const childSessionIds = m.bridge.withYjsSessionDeletionLease.mock.calls[1]?.[0].sessionIds
+    expect(m.bridge.withYjsSessionDrainLease.mock.calls[0]?.[0].sessionIds).toEqual(['layout-1'])
+    const childSessionIds = m.bridge.withYjsSessionDrainLease.mock.calls[1]?.[0].sessionIds
     expect(childSessionIds).toContain('dashboard-widget:layout-1:widget-1')
     expect(childSessionIds).toContain('dashboard-color-pair:layout-1:red')
     expect(childSessionIds).toHaveLength(6)
@@ -361,7 +359,7 @@ describe('dashboard layout operations', () => {
   it('rejects active layout deletion before session or database side effects', async () => {
     m.selectResults.push([layoutRow()])
     await expect(deleteDashboardLayout(scope, 'layout-1')).rejects.toMatchObject({ status: 400 })
-    expect(m.bridge.withYjsSessionDeletionLease).not.toHaveBeenCalled()
+    expect(m.bridge.withYjsSessionDrainLease).not.toHaveBeenCalled()
     expect(m.mutations).toEqual([])
   })
 })

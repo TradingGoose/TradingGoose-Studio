@@ -60,13 +60,12 @@ import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import { refreshActiveEntityListSession } from '@/socket-server/yjs/entity-list-session'
 import {
-  abortYjsSessionDeletion,
+  abortYjsSessionDrain,
   acquireDocument,
-  beginYjsSessionDeletion,
-  commitYjsSessionDeletion,
+  beginYjsSessionDrain,
+  commitYjsSessionDrain,
   persistStagedDocuments,
-  reconcileWorkspaceConnections,
-  withYjsSessionDeletion,
+  withYjsSessionDrain,
   YjsSessionAdmissionError,
 } from '@/socket-server/yjs/upstream-utils'
 import {
@@ -105,11 +104,10 @@ const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/([^/]+)\/edit$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_DELETION_BEGIN_PATH = '/internal/yjs/session-deletions'
-const INTERNAL_YJS_DELETION_COMMIT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)\/commit$/
-const INTERNAL_YJS_DELETION_ABORT_PATH = /^\/internal\/yjs\/session-deletions\/([^/]+)$/
+const INTERNAL_YJS_DRAIN_BEGIN_PATH = '/internal/yjs/session-drains'
+const INTERNAL_YJS_DRAIN_COMMIT_PATH = /^\/internal\/yjs\/session-drains\/([^/]+)\/commit$/
+const INTERNAL_YJS_DRAIN_ABORT_PATH = /^\/internal\/yjs\/session-drains\/([^/]+)$/
 const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
-const INTERNAL_YJS_WORKSPACE_ACCESS_PATH = /^\/internal\/yjs\/workspaces\/([^/]+)\/access-changed$/
 
 type ApplyWorkflowStateRequest = {
   workflowState?: WorkflowSnapshot
@@ -612,7 +610,7 @@ async function commitDashboardStructurePlan(input: {
         )
     )
   if (removedSessionIds.length > 0) {
-    await withYjsSessionDeletion({ sessionIds: removedSessionIds }, commit)
+    await withYjsSessionDrain({ sessionIds: removedSessionIds }, commit)
   } else {
     await commit()
   }
@@ -869,7 +867,7 @@ async function handleInternalYjsSnapshotRequest(
   }
 }
 
-async function handleInternalYjsDeletionBeginRequest(
+async function handleInternalYjsDrainBeginRequest(
   req: IncomingMessage,
   res: ServerResponse,
   logger: Logger
@@ -877,7 +875,7 @@ async function handleInternalYjsDeletionBeginRequest(
   try {
     const raw = await readJsonBody(req)
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new InvalidInternalYjsRequestError('Invalid Yjs deletion lease body')
+      throw new InvalidInternalYjsRequestError('Invalid Yjs drain lease body')
     }
     const { leaseId, sessionIds, workspaceIds } = raw as Record<string, unknown>
     if (typeof leaseId !== 'string' || !leaseId.trim()) {
@@ -896,41 +894,25 @@ async function handleInternalYjsDeletionBeginRequest(
         'sessionIds or workspaceIds must contain a non-empty string ID'
       )
     }
-    await beginYjsSessionDeletion(leaseId, {
+    await beginYjsSessionDrain(leaseId, {
       sessionIds: sessionIds as string[] | undefined,
       workspaceIds: workspaceIds as string[] | undefined,
     })
     sendJson(res, 200, { leaseId })
   } catch (error) {
-    logger.error('Failed to begin Yjs deletion lease', { error })
-    sendYjsRequestError(res, error, 'Failed to begin Yjs deletion lease')
+    logger.error('Failed to begin Yjs drain lease', { error })
+    sendYjsRequestError(res, error, 'Failed to begin Yjs drain lease')
   }
 }
 
-function handleInternalYjsDeletionCommitRequest(res: ServerResponse, leaseId: string): void {
-  commitYjsSessionDeletion(leaseId)
+function handleInternalYjsDrainCommitRequest(res: ServerResponse, leaseId: string): void {
+  commitYjsSessionDrain(leaseId)
   sendJson(res, 200, { success: true })
 }
 
-function handleInternalYjsDeletionAbortRequest(res: ServerResponse, leaseId: string): void {
-  abortYjsSessionDeletion(leaseId)
+function handleInternalYjsDrainAbortRequest(res: ServerResponse, leaseId: string): void {
+  abortYjsSessionDrain(leaseId)
   sendJson(res, 200, { success: true })
-}
-
-async function handleInternalWorkspaceAccessChangedRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-  logger: Logger,
-  workspaceId: string
-): Promise<void> {
-  try {
-    const raw = await readJsonBody(req)
-    await reconcileWorkspaceConnections(workspaceId, raw)
-    sendJson(res, 200, { success: true })
-  } catch (error) {
-    logger.error('Failed to reconcile workspace Yjs access', { error, workspaceId })
-    sendYjsRequestError(res, error, 'Failed to reconcile workspace access')
-  }
 }
 
 function matchInternalRoute(
@@ -1005,41 +987,30 @@ async function handleInternalYjsRequest(
     return true
   }
 
-  if (req.method === 'POST' && parsedUrl.pathname === INTERNAL_YJS_DELETION_BEGIN_PATH) {
-    await handleInternalYjsDeletionBeginRequest(req, res, logger)
+  if (req.method === 'POST' && parsedUrl.pathname === INTERNAL_YJS_DRAIN_BEGIN_PATH) {
+    await handleInternalYjsDrainBeginRequest(req, res, logger)
     return true
   }
 
-  const commitDeletionLeaseId = matchInternalRoute(
+  const commitDrainLeaseId = matchInternalRoute(
     parsedUrl.pathname,
-    INTERNAL_YJS_DELETION_COMMIT_PATH,
+    INTERNAL_YJS_DRAIN_COMMIT_PATH,
     'POST',
     req.method
   )
-  if (commitDeletionLeaseId) {
-    handleInternalYjsDeletionCommitRequest(res, commitDeletionLeaseId)
+  if (commitDrainLeaseId) {
+    handleInternalYjsDrainCommitRequest(res, commitDrainLeaseId)
     return true
   }
 
-  const abortDeletionLeaseId = matchInternalRoute(
+  const abortDrainLeaseId = matchInternalRoute(
     parsedUrl.pathname,
-    INTERNAL_YJS_DELETION_ABORT_PATH,
+    INTERNAL_YJS_DRAIN_ABORT_PATH,
     'DELETE',
     req.method
   )
-  if (abortDeletionLeaseId) {
-    handleInternalYjsDeletionAbortRequest(res, abortDeletionLeaseId)
-    return true
-  }
-
-  const accessWorkspaceId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_WORKSPACE_ACCESS_PATH,
-    'POST',
-    req.method
-  )
-  if (accessWorkspaceId) {
-    await handleInternalWorkspaceAccessChangedRequest(req, res, logger, accessWorkspaceId)
+  if (abortDrainLeaseId) {
+    handleInternalYjsDrainAbortRequest(res, abortDrainLeaseId)
     return true
   }
 

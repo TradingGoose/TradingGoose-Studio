@@ -18,8 +18,8 @@ import {
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
 import {
-  runYjsDeletionFencedTransaction,
-  withYjsSessionDeletionLease,
+  runYjsDrainFencedTransaction,
+  withYjsSessionDrainLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
@@ -181,8 +181,8 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    await withYjsSessionDeletionLease({ workspaceIds: [workspaceId] }, (lease) =>
-      runYjsDeletionFencedTransaction([lease], async (tx) => {
+    await withYjsSessionDrainLease({ workspaceIds: [workspaceId] }, (lease) =>
+      runYjsDrainFencedTransaction([lease], async (tx) => {
         for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
           await lockSavedEntityList(tx, entityKind, workspaceId)
         }

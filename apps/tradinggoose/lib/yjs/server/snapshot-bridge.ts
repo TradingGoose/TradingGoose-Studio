@@ -24,10 +24,10 @@ import {
 } from '@/widgets/layout-document'
 
 const logger = createLogger('YjsSnapshotBridge')
-const DELETION_LEASE_ATTEMPTS = 3
-const DELETION_LEASE_TTL_MS = 5 * 60_000
-const DELETION_LEASE_RENEWAL_MS = 60_000
-const DELETION_LEASE_COMMIT_FENCE_MS = 60_000
+const DRAIN_LEASE_ATTEMPTS = 3
+const DRAIN_LEASE_TTL_MS = 5 * 60_000
+const DRAIN_LEASE_RENEWAL_MS = 60_000
+const DRAIN_LEASE_COMMIT_FENCE_MS = 60_000
 const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
 
 interface YjsSnapshotResponse {
@@ -42,11 +42,11 @@ type WorkflowPatch = {
   variables?: Record<string, any>
 }
 
-export type YjsSessionDeletionLease = {
+export type YjsSessionDrainLease = {
   assertHeld: () => void
 }
 
-type YjsDeletionTransaction = Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>
+type YjsDrainTransaction = Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>
 
 export class SocketServerBridgeError extends Error {
   status: number
@@ -173,24 +173,6 @@ export async function applyWorkflowPatchInSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
     patch
   )
-}
-
-export async function notifyWorkspaceYjsAccessChanged(
-  workspaceId: string,
-  userIds?: string[]
-): Promise<void> {
-  try {
-    await postJsonToSocketServer(
-      `/internal/yjs/workspaces/${encodeURIComponent(workspaceId)}/access-changed`,
-      { ...(userIds ? { userIds } : {}) }
-    )
-  } catch (error) {
-    logger.warn('Failed to notify realtime server about workspace access changes', {
-      error,
-      workspaceId,
-      userIds,
-    })
-  }
 }
 
 export async function applyEntityStateInSocketServer(
@@ -358,32 +340,32 @@ export async function refreshEntityListSession(
   }
 }
 
-export async function withYjsSessionDeletionLease<T>(
+export async function withYjsSessionDrainLease<T>(
   target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
-  mutate: (lease: YjsSessionDeletionLease) => Promise<T>
+  mutate: (lease: YjsSessionDrainLease) => Promise<T>
 ): Promise<T> {
   const leaseId = randomUUID()
   const leaseUrl = new URL(
-    `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}`,
+    `/internal/yjs/session-drains/${encodeURIComponent(leaseId)}`,
     getInternalRealtimeUrl()
   )
   const abortLease = async () => {
     try {
-      await fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, DELETION_LEASE_ATTEMPTS)
+      await fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, DRAIN_LEASE_ATTEMPTS)
     } catch (error) {
-      logger.warn('Failed to abort Yjs session deletion lease', { error, leaseId })
+      logger.warn('Failed to abort Yjs session drain lease', { error, leaseId })
     }
   }
   let lastConfirmedAt = 0
   const beginLease = async () => {
     await postJsonToSocketServer(
-      '/internal/yjs/session-deletions',
+      '/internal/yjs/session-drains',
       { leaseId, ...target },
-      DELETION_LEASE_ATTEMPTS,
+      DRAIN_LEASE_ATTEMPTS,
       async (response) => {
         const ready = (await response.json()) as { leaseId?: unknown }
         if (ready.leaseId !== leaseId) {
-          throw new SocketServerBridgeError(502, 'Socket server returned malformed deletion lease')
+          throw new SocketServerBridgeError(502, 'Socket server returned malformed drain lease')
         }
       }
     )
@@ -401,13 +383,11 @@ export async function withYjsSessionDeletionLease<T>(
   const renewalTimer = setInterval(() => {
     if (renewal) return
     renewal = beginLease()
-      .catch((error) =>
-        logger.warn('Failed to renew Yjs session deletion lease', { error, leaseId })
-      )
+      .catch((error) => logger.warn('Failed to renew Yjs session drain lease', { error, leaseId }))
       .finally(() => {
         renewal = null
       })
-  }, DELETION_LEASE_RENEWAL_MS)
+  }, DRAIN_LEASE_RENEWAL_MS)
   const stopRenewal = async () => {
     clearInterval(renewalTimer)
     await renewal
@@ -419,9 +399,9 @@ export async function withYjsSessionDeletionLease<T>(
       assertHeld: () => {
         if (
           Date.now() - lastConfirmedAt >
-          DELETION_LEASE_TTL_MS - DELETION_LEASE_RENEWAL_MS - 2 * DELETION_LEASE_COMMIT_FENCE_MS
+          DRAIN_LEASE_TTL_MS - DRAIN_LEASE_RENEWAL_MS - 2 * DRAIN_LEASE_COMMIT_FENCE_MS
         ) {
-          throw new Error('Yjs session deletion lease is no longer confirmed')
+          throw new Error('Yjs session drain lease is no longer confirmed')
         }
       },
     })
@@ -434,22 +414,22 @@ export async function withYjsSessionDeletionLease<T>(
 
   try {
     await postJsonToSocketServer(
-      `/internal/yjs/session-deletions/${encodeURIComponent(leaseId)}/commit`,
+      `/internal/yjs/session-drains/${encodeURIComponent(leaseId)}/commit`,
       {},
-      DELETION_LEASE_ATTEMPTS
+      DRAIN_LEASE_ATTEMPTS
     )
   } catch (error) {
-    logger.warn('Yjs session deletion committed without lease acknowledgement', { error, leaseId })
+    logger.warn('Yjs session drain committed without lease acknowledgement', { error, leaseId })
   }
   return result
 }
 
-export function runYjsDeletionFencedTransaction<T>(
-  leases: readonly YjsSessionDeletionLease[],
-  run: (tx: YjsDeletionTransaction) => Promise<T>
+export function runYjsDrainFencedTransaction<T>(
+  leases: readonly YjsSessionDrainLease[],
+  run: (tx: YjsDrainTransaction) => Promise<T>
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    const timeout = String(DELETION_LEASE_COMMIT_FENCE_MS)
+    const timeout = String(DRAIN_LEASE_COMMIT_FENCE_MS)
     await tx.execute(sql`
       select
         set_config('statement_timeout', ${timeout}, true),
