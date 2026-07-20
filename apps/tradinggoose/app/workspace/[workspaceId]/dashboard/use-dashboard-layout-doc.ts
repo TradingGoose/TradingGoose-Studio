@@ -28,9 +28,13 @@ function toLayoutListEntry(member: EntityListMember) {
   if (typeof member.sortOrder !== 'number' || !Number.isFinite(member.sortOrder)) {
     throw new Error(`dashboard_layout ${member.entityId} is missing sortOrder`)
   }
+  if (typeof member.isActive !== 'boolean') {
+    throw new Error(`dashboard_layout ${member.entityId} is missing isActive`)
+  }
   return {
     id: member.entityId,
     name,
+    isActive: member.isActive,
   }
 }
 
@@ -42,7 +46,7 @@ type DashboardLayoutListMutation = {
 export function useDashboardLayoutList(
   workspaceId: string,
   ownerUserId: string,
-  initialLayouts: readonly { id: string; name: string }[]
+  initialLayouts: readonly { id: string; name: string; isActive: boolean }[]
 ) {
   const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
   const liveLayouts = useMemo(() => members.map(toLayoutListEntry), [members])

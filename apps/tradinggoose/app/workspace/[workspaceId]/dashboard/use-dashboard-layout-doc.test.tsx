@@ -12,7 +12,12 @@ import { useDashboardLayoutDocument, useDashboardLayoutList } from './use-dashbo
 
 let mockLayoutDoc: Y.Doc | null = null
 let mockEntityList = {
-  members: [] as Array<{ entityId: string; entityName: string; sortOrder: number }>,
+  members: [] as Array<{
+    entityId: string
+    entityName: string
+    sortOrder: number
+    isActive: boolean
+  }>,
   hasLiveSnapshot: false,
   isLoading: true,
   error: null as string | null,
@@ -77,8 +82,8 @@ describe('useDashboardLayoutDocument live fields', () => {
 
   const CaptureList = ({ workspaceId = 'workspace-1', ownerUserId = 'user-1' }) => {
     latestList = useDashboardLayoutList(workspaceId, ownerUserId, [
-      { id: 'layout-a', name: 'Layout A' },
-      { id: 'layout-b', name: 'Layout B' },
+      { id: 'layout-a', name: 'Layout A', isActive: true },
+      { id: 'layout-b', name: 'Layout B', isActive: false },
     ])
     return null
   }
@@ -213,6 +218,9 @@ describe('useDashboardLayoutDocument live fields', () => {
     })
     expect(mockListActions.reorder).toHaveBeenCalledTimes(1)
     expect(listIds()).toEqual(['layout-b', 'layout-a'])
+    expect(latestList.layouts.find(({ isActive }: { isActive: boolean }) => isActive)?.id).toBe(
+      'layout-a'
+    )
     expect(latestList.isBusy).toBe(true)
 
     mockEntityList = liveLayoutList(['layout-a', 'layout-b'])
@@ -255,6 +263,7 @@ function liveLayoutList(order: string[]) {
       entityId,
       entityName: entityId === 'layout-a' ? 'Layout A' : 'Layout B',
       sortOrder,
+      isActive: entityId === 'layout-a',
     })),
     hasLiveSnapshot: true,
     isLoading: false,

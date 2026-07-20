@@ -44,6 +44,7 @@ let mockDashboardLayoutList: {
 } | null = null
 let mockLayoutDocumentLayoutId: string | null = null
 let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
+let mockLayoutTopologies = new Map<string, DashboardLayoutTopologyNode>()
 let mockDocuments = new Set<Y.Doc>()
 let mockWidgetDocuments = new Map<string, Y.Doc>()
 let mockPairDocuments = new Map<string, Y.Doc>()
@@ -91,6 +92,7 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
           entityId: layout.id,
           entityName: layout.name,
           sortOrder,
+          isActive: layout.isActive,
         })),
       }
     }
@@ -160,10 +162,12 @@ vi.mock(
         initialTopology?: DashboardLayoutTopologyNode | null
       }) => {
         mockLayoutDocumentLayoutId = layoutId ?? null
-        const doc = initialTopology ? (mockTopologyDocuments.get(initialTopology) ?? null) : null
+        const topology =
+          initialTopology ?? (layoutId ? (mockLayoutTopologies.get(layoutId) ?? null) : null)
+        const doc = topology ? (mockTopologyDocuments.get(topology) ?? null) : null
         return {
           doc,
-          topology: initialTopology ?? null,
+          topology,
           isLoading: false,
           error: null,
           mutateStructure: mockLayoutMutation,
@@ -319,6 +323,7 @@ describe('DashboardClient', () => {
     mockDashboardLayoutList = null
     mockLayoutDocumentLayoutId = null
     mockTopologyDocuments = new WeakMap()
+    mockLayoutTopologies = new Map()
     mockDocuments = new Set()
     mockWidgetDocuments = new Map()
     mockPairDocuments = new Map()
@@ -472,7 +477,7 @@ describe('DashboardClient', () => {
     }
   })
 
-  it('selects immediately, settles, and yields to a newer server selection', async () => {
+  it('requests activation and waits for the live layout list selection', async () => {
     let resolveActivation!: () => void
     dashboardClientMocks.activateLayout.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -486,36 +491,47 @@ describe('DashboardClient', () => {
       await Promise.resolve()
     })
 
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-b'))
-
-    await act(async () => resolveActivation())
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-
-    dashboardClientMocks.activateLayout.mockReturnValueOnce(
-      new Promise<void>((resolve) => (resolveActivation = resolve))
-    )
-    await act(async () => void mockSelectLayout?.('layout-a'))
+    expect(dashboardClientMocks.activateLayout).toHaveBeenCalledWith('ws-a', 'layout-b')
     expect(mockLayoutDocumentLayoutId).toBe('layout-a')
-    await renderDashboard({
-      topology: createPanelLayout('panel-b', 'wf-b'),
-      layoutId: 'layout-b',
-    })
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-a'))
+
     await act(async () => resolveActivation())
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
+    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
   })
 
-  it('rolls back the scoped selection when activation rejects', async () => {
-    dashboardClientMocks.activateLayout.mockRejectedValueOnce(new Error('activation failed'))
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
-    await act(async () => {
-      mockSelectLayout?.('layout-b')
-      await Promise.resolve()
+  it('follows the live active layout when another client activates and deletes the previous one', async () => {
+    const layoutA = createPanelLayout('panel-a', 'wf-a')
+    const layoutB = createPanelLayout('panel-b', 'wf-b')
+    mockLayoutTopologies.set('layout-b', layoutB)
+    await renderDashboard({ topology: layoutA })
+
+    mockDashboardLayoutList = {
+      layouts: createLayouts('layout-b'),
+      hasLiveSnapshot: true,
+      isLoading: false,
+      error: null,
+    }
+    await renderDashboard({ topology: layoutA })
+
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-b'))
+    expect(readWidgetRuntimeContext(container)).toEqual({
+      dashboardLayoutId: 'layout-b',
+      dashboardLayoutName: 'Layout B',
+      dashboardLayoutOwnerUserId: 'user-a',
     })
 
-    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
-    consoleError.mockRestore()
+    mockDashboardLayoutList = {
+      layouts: createLayouts('layout-b').filter((layout) => layout.id !== 'layout-a'),
+      hasLiveSnapshot: true,
+      isLoading: false,
+      error: null,
+    }
+    await renderDashboard({ topology: layoutA })
+
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
+    expect(mockLayoutTabsLayouts).toEqual([{ id: 'layout-b', name: 'Layout B', isActive: true }])
+    expect(container.querySelector('[data-testid="dashboard-layout-document-state"]')).toBeNull()
   })
 
   it('keeps the layout ready when the live layout list is unavailable', async () => {

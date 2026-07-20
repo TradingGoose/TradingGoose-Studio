@@ -54,13 +54,6 @@ interface DashboardClientProps {
   initialLayouts: LayoutTab[]
 }
 
-type DashboardLayoutSelection = {
-  workspaceId: string
-  ownerUserId: string
-  layoutId: string
-  sourceLayoutId: string
-}
-
 interface DashboardNodeProps {
   node: DashboardLayoutTopologyNode
   workspaceId: string
@@ -263,12 +256,6 @@ export function DashboardClient({
   layoutId,
   initialLayouts,
 }: DashboardClientProps) {
-  const [selection, setSelection] = useState<DashboardLayoutSelection>(() => ({
-    workspaceId,
-    ownerUserId,
-    layoutId,
-    sourceLayoutId: layoutId,
-  }))
   const router = useRouter()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
@@ -282,25 +269,8 @@ export function DashboardClient({
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId, initialLayouts)
   const { layouts } = dashboardLayoutList
-  const scopedSelection =
-    selection.workspaceId === workspaceId &&
-    selection.ownerUserId === ownerUserId &&
-    selection.sourceLayoutId === layoutId
-      ? selection
-      : { workspaceId, ownerUserId, layoutId, sourceLayoutId: layoutId }
-  if (scopedSelection !== selection) {
-    setSelection(scopedSelection)
-  }
-  const selectedLayoutId = scopedSelection.layoutId
-  const selectedLayout = layouts.find((layout) => layout.id === selectedLayoutId) ?? null
-  const layoutTabs = useMemo(
-    () =>
-      layouts.map((layout) => ({
-        ...layout,
-        isActive: layout.id === selectedLayoutId,
-      })),
-    [layouts, selectedLayoutId]
-  )
+  const selectedLayout = layouts.find((layout) => layout.isActive) ?? null
+  const selectedLayoutId = selectedLayout?.id ?? null
   const selectedInitialTopology = selectedLayoutId === layoutId ? initialTopology : null
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
@@ -382,11 +352,15 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
-      dashboardLayoutId: selectedLayoutId,
-      dashboardLayoutName: selectedLayout?.name,
+      ...(selectedLayout
+        ? {
+            dashboardLayoutId: selectedLayout.id,
+            dashboardLayoutName: selectedLayout.name,
+          }
+        : {}),
       dashboardLayoutOwnerUserId: ownerUserId,
     }),
-    [ownerUserId, selectedLayout?.name, selectedLayoutId, workspaceId]
+    [ownerUserId, selectedLayout, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -503,16 +477,11 @@ export function DashboardClient({
   )
 
   const handleSelectLayout = useCallback(
-    async (nextLayoutId: string) => {
-      if (!canMutateLayouts || !nextLayoutId || nextLayoutId === scopedSelection.layoutId) return
-      const previousSelection = scopedSelection
-      const attempt = { ...scopedSelection, layoutId: nextLayoutId }
-      setSelection(attempt)
-      if (!(await dashboardLayoutList.activateLayout(nextLayoutId))) {
-        setSelection((current) => (current === attempt ? previousSelection : current))
-      }
+    (nextLayoutId: string) => {
+      if (!canMutateLayouts || !nextLayoutId || nextLayoutId === selectedLayoutId) return
+      void dashboardLayoutList.activateLayout(nextLayoutId)
     },
-    [canMutateLayouts, dashboardLayoutList.activateLayout, scopedSelection]
+    [canMutateLayouts, dashboardLayoutList.activateLayout, selectedLayoutId]
   )
 
   const headerLeftContent = (
@@ -622,7 +591,7 @@ export function DashboardClient({
 
   const headerCenterContent = (
     <LayoutTabs
-      layouts={layoutTabs}
+      layouts={layouts}
       isBusy={dashboardLayoutList.isBusy}
       canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
@@ -657,7 +626,7 @@ export function DashboardClient({
             {t('layoutState.resizePersistenceError')}
           </div>
         )}
-        {rawTree && layoutDocument.doc ? (
+        {selectedLayoutId && rawTree && layoutDocument.doc ? (
           <DashboardNode
             key={selectedLayoutId}
             node={rawTree}
