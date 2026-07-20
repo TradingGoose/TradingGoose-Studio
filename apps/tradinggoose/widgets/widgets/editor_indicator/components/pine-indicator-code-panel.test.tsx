@@ -7,7 +7,13 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  getEntityFields,
+  replaceEntityTextField,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
+import { INDICATOR_EDITOR_ACTION_EVENT } from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { IndicatorCodePanel } from './pine-indicator-code-panel'
 
 const wandInputs = vi.hoisted(() => [] as Array<{ onStreamChunk?: (chunk: string) => void }>)
@@ -35,7 +41,14 @@ vi.mock('@/components/monaco-editor', () => ({
 
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor',
-  () => ({ CodeEditor: () => <div data-testid='indicator-code-editor' /> })
+  () => ({
+    CodeEditor: ({ editorHandleRef }: { editorHandleRef?: { current: unknown } }) => {
+      if (editorHandleRef) {
+        editorHandleRef.current = { getEditor: () => ({ getValue: () => '$.pine' }) }
+      }
+      return <div data-testid='indicator-code-editor' />
+    },
+  })
 )
 
 vi.mock('@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar', () => ({
@@ -69,7 +82,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-describe('IndicatorCodePanel access downgrade', () => {
+describe('IndicatorCodePanel', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -87,7 +100,7 @@ describe('IndicatorCodePanel access downgrade', () => {
     container.remove()
   })
 
-  it('blocks a retained pre-downgrade stream callback from mutating Yjs', async () => {
+  it('keeps save and retained callbacks on the current Yjs access state', async () => {
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'indicator',
@@ -105,10 +118,24 @@ describe('IndicatorCodePanel access downgrade', () => {
 
     await act(async () => root.render(<IndicatorCodePanel {...props} />))
     const retainedStreamChunk = wandInputs[0]?.onStreamChunk
-    await act(async () => root.render(<IndicatorCodePanel {...props} readOnly={true} />))
-    act(() => retainedStreamChunk?.('\nplot(open)'))
 
-    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(close)')
+    await act(async () => {
+      replaceEntityTextField(doc, 'pineCode', 'plot(open)')
+      emitEditorAction(INDICATOR_EDITOR_ACTION_EVENT, {
+        action: 'save',
+        entityId: 'indicator-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_indicator',
+      })
+    })
+
+    await vi.waitFor(() => expect(props.save).toHaveBeenCalledOnce())
+    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(open)')
+
+    await act(async () => root.render(<IndicatorCodePanel {...props} readOnly={true} />))
+    act(() => retainedStreamChunk?.('\nplot(high)'))
+
+    expect(getEntityFields(doc, 'indicator').pineCode).toBe('plot(open)')
     doc.destroy()
   })
 })

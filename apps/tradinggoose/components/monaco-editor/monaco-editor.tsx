@@ -1,10 +1,9 @@
 'use client'
 
-import { loader } from '@monaco-editor/react'
-import dynamic from 'next/dynamic'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { editor as MonacoEditorTypes, IDisposable } from 'monaco-editor'
-import { cn } from '@/lib/utils'
+import { loader } from '@monaco-editor/react'
+import type { IDisposable, editor as MonacoEditorTypes } from 'monaco-editor'
+import dynamic from 'next/dynamic'
 import {
   buildMonacoScriptDiagnosticSource,
   isMonacoDiagnosticLanguage,
@@ -17,6 +16,7 @@ import type {
   MonacoInjectedText,
   MonacoModule,
 } from '@/components/monaco-editor/monaco-editor-types'
+import { cn } from '@/lib/utils'
 
 const MonacoReactEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 const VIRTUAL_DIAGNOSTICS_OWNER = 'tradinggoose-virtual-diagnostics'
@@ -131,8 +131,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       onFocus,
       autoHeight = false,
       extraLibs = [],
-      path,
-      keepCurrentModel,
       yText,
       awareness,
       diagnosticSourceBuilder,
@@ -160,7 +158,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const minHeightPx = parsePx(minHeight)
     const maxHeightPx = parsePx(maxHeight)
     const resolvedPath = useMemo(() => {
-      if (path) return path
       const extension =
         language === 'typescript'
           ? 'ts'
@@ -184,9 +181,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const nextPath = `inmemory://model/monaco-${id}.${extension}`
       modelPathRef.current = nextPath
       return nextPath
-    }, [language, path])
-    const shouldKeepCurrentModel = keepCurrentModel ?? Boolean(path)
-    const shouldClearModelDiagnosticsOnUnmount = !shouldKeepCurrentModel
+    }, [language])
 
     const resolvedHeight = useMemo(() => {
       if (autoHeight) {
@@ -254,7 +249,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                 return injectedCursorStops.Right
               case 'none':
                 return injectedCursorStops.None
-              case 'both':
               default:
                 return injectedCursorStops.Both
             }
@@ -696,41 +690,19 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       return () => {
         markerSubscription.dispose()
         contentSubscription.dispose()
-        if (shouldClearModelDiagnosticsOnUnmount) {
-          clearModelDiagnostics(editor.getModel())
-        }
+        clearModelDiagnostics(editor.getModel())
         disposeDiagnosticsModel()
       }
-    }, [
-      diagnosticSourceBuilder,
-      editorReady,
-      extraLibs,
-      language,
-      resolvedPath,
-      shouldClearModelDiagnosticsOnUnmount,
-    ])
+    }, [diagnosticSourceBuilder, editorReady, extraLibs, language, resolvedPath])
 
     useEffect(() => {
       return () => {
         subscriptionsRef.current.forEach((subscription) => subscription.dispose())
         subscriptionsRef.current = []
-        if (shouldClearModelDiagnosticsOnUnmount) {
-          clearModelDiagnostics(editorRef.current?.getModel())
-        }
+        clearModelDiagnostics(editorRef.current?.getModel())
         disposeDiagnosticsModel()
-
-        // Dispose auto-generated models on unmount to avoid stale script files
-        // piling up in Monaco's TS project and triggering duplicate identifier diagnostics.
-        if (!path) {
-          const monaco = monacoRef.current
-          const currentPath = modelPathRef.current
-          if (monaco && currentPath) {
-            const model = monaco.editor.getModel(monaco.Uri.parse(currentPath))
-            model?.dispose()
-          }
-        }
       }
-    }, [path, shouldClearModelDiagnosticsOnUnmount])
+    }, [])
 
     useEffect(() => {
       applyDecorations()
@@ -899,7 +871,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
           value={yText ? undefined : value}
           language={language}
           path={resolvedPath}
-          keepCurrentModel={shouldKeepCurrentModel}
           defaultLanguage={language}
           theme={theme}
           onChange={yText ? undefined : (nextValue) => onChange?.(nextValue ?? '')}

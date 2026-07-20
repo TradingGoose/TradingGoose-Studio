@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type * as Y from 'yjs'
 import {
   buildMonacoIndicatorDiagnosticSource,
@@ -24,6 +24,7 @@ import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
@@ -197,11 +198,6 @@ export function IndicatorCodePanel({
   const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
   const disallowedGlobalMessage =
     'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
-  const monacoModelPath = useMemo(
-    () =>
-      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(indicatorId)}.ts`,
-    [workspaceId, indicatorId]
-  )
 
   const validateNoDollarGlobals = (code: string) =>
     /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
@@ -272,7 +268,7 @@ export function IndicatorCodePanel({
 
   const handleSave = useCallback(async () => {
     if (readOnlyRef.current || !workspaceId || !indicatorId || !doc) return
-    const currentPineCode = codeEditorHandleRef.current?.getEditor()?.getValue() ?? pineCode
+    const currentPineCode = getEntityFields(doc, 'indicator').pineCode
     const disallowedMessage = validateNoDollarGlobals(currentPineCode)
     if (disallowedMessage) {
       setSaveError(null)
@@ -283,16 +279,12 @@ export function IndicatorCodePanel({
     setSaveError(null)
 
     try {
-      if (currentPineCode !== pineCode) {
-        setPineCode(currentPineCode)
-      }
-
       await save()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save indicator.')
       console.error('Failed to update indicator', err)
     }
-  }, [workspaceId, indicatorId, doc, pineCode, readOnlyRef, save, setPineCode])
+  }, [workspaceId, indicatorId, doc, readOnlyRef, save])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -494,7 +486,6 @@ export function IndicatorCodePanel({
           value={pineCode}
           onChange={handleCodeChange}
           language='typescript'
-          path={monacoModelPath}
           placeholder='Write PineTS code here...'
           minHeight='0px'
           className='min-h-0 flex-1'
