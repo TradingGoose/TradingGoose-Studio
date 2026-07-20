@@ -19,6 +19,7 @@ import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
   createWatchlistContainerSortableId,
   createWatchlistListingSortableId,
+  WATCHLIST_ROOT_SORTABLE_ID,
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 
@@ -222,7 +223,7 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   quotes: {},
   providerId: 'alpaca',
   onUpdateItemListing: vi.fn().mockResolvedValue(true),
-  onReorderItems: vi.fn(),
+  onMoveItem: vi.fn(),
   onRemoveItem: vi.fn(),
   onRenameContainer: vi.fn(),
   onRemoveContainer: vi.fn(),
@@ -287,9 +288,9 @@ describe('WatchlistTable section interactions', () => {
   })
 
   it('moves a section listing to the list root when it reaches the top boundary', async () => {
-    const onReorderItems = vi.fn().mockResolvedValue(undefined)
+    const onMoveItem = vi.fn().mockResolvedValue(undefined)
 
-    await renderTable({ onReorderItems })
+    await renderTable({ onMoveItem })
 
     const sortableProps = mockSortableRender.mock.lastCall?.[0] as {
       value: string[]
@@ -310,10 +311,7 @@ describe('WatchlistTable section interactions', () => {
       })
     })
 
-    expect(onReorderItems).toHaveBeenCalledWith([
-      { ...watchlist.items[1], parentId: null },
-      watchlist.items[0],
-    ])
+    expect(onMoveItem).toHaveBeenCalledWith(listingSortableId, WATCHLIST_ROOT_SORTABLE_ID)
   })
 
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {

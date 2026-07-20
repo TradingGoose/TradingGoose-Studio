@@ -52,7 +52,6 @@ import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
 import type {
   WatchlistContainerItem,
-  WatchlistItem,
   WatchlistListingItem,
   WatchlistRecord,
 } from '@/lib/watchlists/types'
@@ -62,7 +61,6 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
   createWatchlistContainerSortableId,
   createWatchlistListingSortableId,
-  moveWatchlistItem,
   resolveDraggedItem,
   resolveEffectiveDropTarget,
   WATCHLIST_ROOT_SORTABLE_ID,
@@ -78,7 +76,7 @@ type WatchlistTableProps = {
   quotes: Record<string, MarketQuoteSnapshot>
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
-  onReorderItems: (items: WatchlistItem[]) => Promise<void>
+  onMoveItem: (activeSortableId: string, overSortableId: string) => Promise<void>
   onRemoveItem: (itemId: string) => Promise<void> | void
   onRenameContainer: (containerId: string, label: string) => Promise<void> | void
   onRemoveContainer: (containerId: string) => Promise<void> | void
@@ -148,7 +146,7 @@ export const WatchlistTable = ({
   quotes,
   providerId,
   onUpdateItemListing,
-  onReorderItems,
+  onMoveItem,
   onRemoveItem,
   onRenameContainer,
   onRemoveContainer,
@@ -432,18 +430,9 @@ export const WatchlistTable = ({
       : String(over.id)
   }
 
-  const commitDrop = async (activeSortableId: string, overSortableId: string) => {
-    if (!dragEnabled) return
-
-    const nextItems = moveWatchlistItem(watchlist.items, activeSortableId, overSortableId)
-    if (!nextItems) return
-
-    await onReorderItems(nextItems)
-  }
-
   const handleMove = (activeId: UniqueIdentifier, overId: UniqueIdentifier | null) => {
     if (!dragEnabled || !overId) return
-    void commitDrop(String(activeId), String(overId))
+    void onMoveItem(String(activeId), String(overId))
   }
 
   const handleDragOver = ({ active, over }: DragOverEvent) => {

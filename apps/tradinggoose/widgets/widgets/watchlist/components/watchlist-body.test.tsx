@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watchlist-body'
+import { createWatchlistListingSortableId } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 
 const mockWatchlistTable = vi.fn()
 const mockRefetchQuotes = vi.fn()
@@ -63,8 +64,10 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
       name: record?.name ?? '',
       settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
       items: record?.items ?? [],
-      updateItems: (update: (items: unknown[]) => unknown[]) =>
-        mockSetWatchlistItems(update(record?.items ?? [])),
+      updateItems: (update: (items: unknown[]) => unknown[]) => {
+        const current = currentWatchlists.find((entry) => entry.id === selectedId)
+        mockSetWatchlistItems(update(current?.items ?? []))
+      },
       isLoading: false,
       error: null,
       canMutateDocument: args.accessMode === 'write' && Boolean(record),
@@ -87,6 +90,7 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-table', () => ({
   WatchlistTable: (props: {
     selectedListing?: ListingIdentity | null
     onSelectListing?: (listing: ListingIdentity | null) => void
+    onMoveItem?: (activeSortableId: string, overSortableId: string) => Promise<void>
     onRemoveContainer?: (containerId: string) => void
   }) => {
     mockWatchlistTable(props)
@@ -250,6 +254,45 @@ describe('WatchlistWidgetBody', () => {
 
     expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ listing: selectedListing })
     expect(onWidgetParamsPatch).not.toHaveBeenCalled()
+  })
+
+  it('rebases completed reorders onto items added after render', async () => {
+    const secondListing = {
+      id: 'listing-2',
+      type: 'listing' as const,
+      parentId: null,
+      listing: { ...selectedListing, listing_id: 'ETH' },
+    }
+    const concurrentListing = {
+      id: 'listing-3',
+      type: 'listing' as const,
+      parentId: null,
+      listing: { ...selectedListing, listing_id: 'SOL' },
+    }
+    const initial = {
+      ...watchlist,
+      items: [{ ...watchlist.items[0], parentId: null }, secondListing],
+    }
+    currentWatchlists = [initial]
+
+    await act(async () => {
+      renderWatchlist()
+    })
+    currentWatchlists = [{ ...initial, items: [...initial.items, concurrentListing] }]
+
+    const onMoveItem = mockWatchlistTable.mock.lastCall?.[0]?.onMoveItem
+    await act(async () => {
+      await onMoveItem?.(
+        createWatchlistListingSortableId('listing-2'),
+        createWatchlistListingSortableId('listing-1')
+      )
+    })
+
+    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
+      secondListing,
+      initial.items[0],
+      concurrentListing,
+    ])
   })
 
   it('does not auto-claim the first watchlist when the widget is linked without a pair watchlist', async () => {

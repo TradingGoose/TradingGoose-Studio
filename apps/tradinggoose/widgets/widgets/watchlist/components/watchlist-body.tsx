@@ -6,6 +6,7 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { moveWatchlistItem } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 import { useWatchlistWidgetState } from '@/widgets/widgets/watchlist/hooks/use-watchlist-widget-state'
 
@@ -93,8 +94,11 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
     )
   }
 
-  const handleReorderItems = async (items: typeof selectedDocument.items) => {
-    await persistItems(() => items)
+  const handleMoveItem = async (activeSortableId: string, overSortableId: string) => {
+    await persistItems(
+      (currentItems) =>
+        moveWatchlistItem(currentItems, activeSortableId, overSortableId) ?? currentItems
+    )
   }
   const selectedListing = widgetParams?.listing ?? null
 
@@ -147,7 +151,7 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
       quotes={quotes}
       providerId={providerId}
       onUpdateItemListing={handleUpdateItemListing}
-      onReorderItems={handleReorderItems}
+      onMoveItem={handleMoveItem}
       onRemoveItem={handleRemoveItem}
       onRenameContainer={handleRenameContainer}
       onRemoveContainer={handleRemoveContainer}
