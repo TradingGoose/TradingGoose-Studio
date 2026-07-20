@@ -219,7 +219,11 @@ export async function DELETE(
     }
     const workflowData = accessContext.workflow
 
-    if (!hasWorkflowWriteAccess(accessContext)) {
+    if (
+      !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
+      accessContext.workspacePermission !== 'admin'
+    ) {
       logger.warn(
         `[${requestId}] User ${userId} denied permission to delete workflow ${workflowId}`
       )

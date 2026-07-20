@@ -451,7 +451,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: 'write',
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -589,7 +589,7 @@ describe('Workflow By ID API Route', () => {
       )
     })
 
-    it('should deny deletion for non-admin users', async () => {
+    it('should deny a non-creator with workspace write permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'other-user',
@@ -607,7 +607,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: false,
         isWorkspaceOwner: false,
       })
