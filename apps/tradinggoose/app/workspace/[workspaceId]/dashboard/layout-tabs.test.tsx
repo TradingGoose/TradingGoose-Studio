@@ -15,7 +15,6 @@ const layouts: LayoutTab[] = [
   {
     id: 'layout-1',
     name: 'Layout 1',
-    sortOrder: 0,
     isActive: true,
   },
 ]

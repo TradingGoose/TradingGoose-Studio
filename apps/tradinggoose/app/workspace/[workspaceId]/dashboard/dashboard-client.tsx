@@ -24,14 +24,7 @@ import type { ImperativePanelGroupHandle } from 'react-resizable-panels'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
-import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import {
-  activateDashboardLayoutAction,
-  createDashboardLayoutAction,
-  deleteDashboardLayoutAction,
-  reorderDashboardLayoutsAction,
-} from '@/app/workspace/[workspaceId]/dashboard/actions'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import {
   useDashboardLayoutDocument,
@@ -270,15 +263,12 @@ export function DashboardClient({
   layoutId,
   initialLayouts,
 }: DashboardClientProps) {
-  const [isCreatingLayout, setIsCreatingLayout] = useState(false)
   const [selection, setSelection] = useState<DashboardLayoutSelection>(() => ({
     workspaceId,
     ownerUserId,
     layoutId,
     sourceLayoutId: layoutId,
   }))
-  const [pendingActivation, setPendingActivation] = useState<DashboardLayoutSelection | null>(null)
-  const isCreatingLayoutRef = useRef(false)
   const router = useRouter()
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
@@ -290,8 +280,8 @@ export function DashboardClient({
   const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
   const t = useTranslations('workspace.dashboard')
-  const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
-  const layouts = dashboardLayoutList.hasLiveSnapshot ? dashboardLayoutList.layouts : initialLayouts
+  const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId, initialLayouts)
+  const { layouts } = dashboardLayoutList
   const scopedSelection =
     selection.workspaceId === workspaceId &&
     selection.ownerUserId === ownerUserId &&
@@ -300,7 +290,6 @@ export function DashboardClient({
       : { workspaceId, ownerUserId, layoutId, sourceLayoutId: layoutId }
   if (scopedSelection !== selection) {
     setSelection(scopedSelection)
-    setPendingActivation(null)
   }
   const selectedLayoutId = scopedSelection.layoutId
   const selectedLayout = layouts.find((layout) => layout.id === selectedLayoutId) ?? null
@@ -320,10 +309,7 @@ export function DashboardClient({
     initialTopology: selectedInitialTopology,
   })
   const rawTree = layoutDocument.topology
-  const canMutateLayouts =
-    dashboardLayoutList.hasLiveSnapshot &&
-    !dashboardLayoutList.isLoading &&
-    !dashboardLayoutList.error
+  const canMutateLayouts = dashboardLayoutList.canMutate
   const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
   const canMutateLayoutTopology =
     !layoutDocument.error && layoutDocument.doc !== null && rawTree !== null
@@ -518,84 +504,16 @@ export function DashboardClient({
 
   const handleSelectLayout = useCallback(
     async (nextLayoutId: string) => {
-      if (
-        !canMutateLayouts ||
-        !nextLayoutId ||
-        nextLayoutId === scopedSelection.layoutId ||
-        pendingActivation
-      )
-        return
+      if (!canMutateLayouts || !nextLayoutId || nextLayoutId === scopedSelection.layoutId) return
       const previousSelection = scopedSelection
       const attempt = { ...scopedSelection, layoutId: nextLayoutId }
       setSelection(attempt)
-      setPendingActivation(attempt)
-
-      try {
-        await activateDashboardLayoutAction(scopedSelection.workspaceId, nextLayoutId)
-      } catch (error) {
+      if (!(await dashboardLayoutList.activateLayout(nextLayoutId))) {
         setSelection((current) => (current === attempt ? previousSelection : current))
-        console.error('Failed to switch layout:', error)
-      } finally {
-        setPendingActivation((current) => (current === attempt ? null : current))
       }
     },
-    [canMutateLayouts, pendingActivation, scopedSelection]
+    [canMutateLayouts, dashboardLayoutList.activateLayout, scopedSelection]
   )
-
-  const handleRenameLayout = useCallback(
-    async (layoutId: string, name: string) => {
-      if (!canMutateLayouts) return
-      try {
-        await renameSavedEntityAction({
-          entityKind: 'dashboard_layout',
-          entityId: layoutId,
-          workspaceId,
-          name,
-        })
-      } catch (error) {
-        console.error('Failed to rename layout:', error)
-      }
-    },
-    [canMutateLayouts, workspaceId]
-  )
-
-  const handleDeleteLayout = useCallback(
-    async (layoutId: string) => {
-      if (!canMutateLayouts) return
-      try {
-        await deleteDashboardLayoutAction(workspaceId, layoutId)
-      } catch (error) {
-        console.error('Failed to delete layout:', error)
-      }
-    },
-    [canMutateLayouts, workspaceId]
-  )
-
-  const handleReorderLayouts = useCallback(
-    (layoutOrder: string[]) => {
-      if (!canMutateLayouts) return
-      reorderDashboardLayoutsAction(workspaceId, layoutOrder).catch((error) => {
-        console.error('Failed to reorder layouts:', error)
-      })
-    },
-    [canMutateLayouts, workspaceId]
-  )
-
-  const handleAddLayout = useCallback(async () => {
-    if (!canMutateLayouts || isCreatingLayoutRef.current) return
-
-    isCreatingLayoutRef.current = true
-    setIsCreatingLayout(true)
-
-    try {
-      await createDashboardLayoutAction(workspaceId)
-    } catch (error) {
-      console.error('Failed to create layout:', error)
-    } finally {
-      isCreatingLayoutRef.current = false
-      setIsCreatingLayout(false)
-    }
-  }, [canMutateLayouts, workspaceId])
 
   const headerLeftContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
@@ -705,13 +623,13 @@ export function DashboardClient({
   const headerCenterContent = (
     <LayoutTabs
       layouts={layoutTabs}
-      isBusy={isCreatingLayout || pendingActivation !== null}
+      isBusy={dashboardLayoutList.isBusy}
       canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
-      onReorder={handleReorderLayouts}
-      onCreate={handleAddLayout}
-      onRename={handleRenameLayout}
-      onDelete={handleDeleteLayout}
+      onReorder={dashboardLayoutList.reorderLayouts}
+      onCreate={dashboardLayoutList.createLayout}
+      onRename={dashboardLayoutList.renameLayout}
+      onDelete={dashboardLayoutList.deleteLayout}
     />
   )
 

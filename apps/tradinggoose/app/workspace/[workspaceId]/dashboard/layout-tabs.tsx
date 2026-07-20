@@ -12,7 +12,6 @@ import { formatTemplate } from '@/i18n/utils'
 export type LayoutTab = {
   id: string
   name: string
-  sortOrder: number
   isActive: boolean
 }
 

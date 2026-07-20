@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -8,20 +9,20 @@ import {
 import type { EntityListMember } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import { mutateDashboardLayoutStructureAction } from '@/app/workspace/[workspaceId]/dashboard/actions'
+import {
+  activateDashboardLayoutAction,
+  createDashboardLayoutAction,
+  deleteDashboardLayoutAction,
+  mutateDashboardLayoutStructureAction,
+  reorderDashboardLayoutsAction,
+} from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
   type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
   normalizeDashboardLayoutTopology,
 } from '@/widgets/layout-document'
 
-export type DashboardLayoutListEntry = {
-  id: string
-  name: string
-  sortOrder: number
-}
-
-function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
+function toLayoutListEntry(member: EntityListMember) {
   const name = member.entityName?.trim()
   if (!name) throw new Error(`dashboard_layout ${member.entityId} is missing entityName`)
   if (typeof member.sortOrder !== 'number' || !Number.isFinite(member.sortOrder)) {
@@ -30,18 +31,97 @@ function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
   return {
     id: member.entityId,
     name,
-    sortOrder: member.sortOrder,
   }
 }
 
+type DashboardLayoutListMutation = {
+  scopeKey: string
+  layoutOrder: string[] | null
+  isSubmitting: boolean
+}
+
 export function useDashboardLayoutList(
-  workspaceId: string | null | undefined,
-  ownerUserId: string | null | undefined
+  workspaceId: string,
+  ownerUserId: string,
+  initialLayouts: readonly { id: string; name: string }[]
 ) {
   const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
+  const liveLayouts = useMemo(() => members.map(toLayoutListEntry), [members])
+  const layouts = session.hasLiveSnapshot ? liveLayouts : initialLayouts
+  const scopeKey = `${workspaceId}:${ownerUserId}`
+  const [mutation, setMutation] = useState<DashboardLayoutListMutation | null>(null)
+  const mutationRef = useRef<DashboardLayoutListMutation | null>(null)
+  const currentMutation = mutation?.scopeKey === scopeKey ? mutation : null
+  const displayedLayouts = useMemo(() => {
+    if (!currentMutation?.layoutOrder) return layouts
+    const layoutsById = new Map(layouts.map((layout) => [layout.id, layout]))
+    const seen = new Set<string>()
+    const order = currentMutation.layoutOrder.filter((id) => {
+      if (!layoutsById.has(id) || seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+    for (const layout of layouts) if (!seen.has(layout.id)) order.push(layout.id)
+    return order.map((id) => layoutsById.get(id)!)
+  }, [currentMutation, layouts])
+
+  useEffect(() => {
+    if (!currentMutation?.layoutOrder || currentMutation.isSubmitting) return
+    if (layouts.every((layout, index) => layout.id === displayedLayouts[index]?.id)) {
+      if (mutationRef.current === currentMutation) mutationRef.current = null
+      setMutation((current) => (current === currentMutation ? null : current))
+    }
+  }, [currentMutation, displayedLayouts, layouts])
+
+  const submit = async (
+    action: () => Promise<unknown>,
+    layoutOrder?: string[]
+  ): Promise<boolean> => {
+    if (mutationRef.current?.scopeKey === scopeKey && mutationRef.current.isSubmitting) return false
+    const previous =
+      mutationRef.current?.scopeKey === scopeKey ? mutationRef.current : currentMutation
+    const attempt: DashboardLayoutListMutation = {
+      scopeKey,
+      layoutOrder: layoutOrder ?? previous?.layoutOrder ?? null,
+      isSubmitting: true,
+    }
+    mutationRef.current = attempt
+    setMutation(attempt)
+    try {
+      await action()
+      const settled = attempt.layoutOrder ? { ...attempt, isSubmitting: false } : null
+      if (mutationRef.current === attempt) mutationRef.current = settled
+      setMutation((current) => (current === attempt ? settled : current))
+      return true
+    } catch (error) {
+      const restored = previous ? { ...previous, isSubmitting: false } : null
+      if (mutationRef.current === attempt) mutationRef.current = restored
+      setMutation((current) => (current === attempt ? restored : current))
+      console.error('Failed to update dashboard layouts:', error)
+      return false
+    }
+  }
+
   return {
-    layouts: useMemo(() => members.map(toLayoutListEntry), [members]),
-    ...session,
+    layouts: displayedLayouts,
+    canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
+    isBusy: currentMutation?.isSubmitting === true,
+    createLayout: () => submit(() => createDashboardLayoutAction(workspaceId)),
+    activateLayout: (layoutId: string) =>
+      submit(() => activateDashboardLayoutAction(workspaceId, layoutId)),
+    renameLayout: (layoutId: string, name: string) =>
+      submit(() =>
+        renameSavedEntityAction({
+          entityKind: 'dashboard_layout',
+          entityId: layoutId,
+          workspaceId,
+          name,
+        })
+      ),
+    deleteLayout: (layoutId: string) =>
+      submit(() => deleteDashboardLayoutAction(workspaceId, layoutId)),
+    reorderLayouts: (layoutOrder: string[]) =>
+      submit(() => reorderDashboardLayoutsAction(workspaceId, layoutOrder), [...layoutOrder]),
   }
 }
 
