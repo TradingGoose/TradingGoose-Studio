@@ -384,6 +384,7 @@ export async function bootstrapYjsProvider(
     if (reconnectTimer) clearTimeout(reconnectTimer)
     reconnectTimer = null
     provider.off('connection-close', handleConnectionLoss)
+    provider.off('connection-error', handleConnectionError)
     rejectPersistRequests(new Error('Yjs session closed before persistence completed'))
     doc.off('beforeTransaction', handleBeforeTransaction)
     doc.off('update', handleDocumentUpdate)
@@ -451,6 +452,10 @@ export async function bootstrapYjsProvider(
     if (ready) scheduleReconnect()
   }
 
+  function handleConnectionError(): void {
+    provider.disconnect()
+  }
+
   function persist(identityName?: string): Promise<void> {
     if (
       !active ||
@@ -474,6 +479,7 @@ export async function bootstrapYjsProvider(
   }
 
   provider.on('connection-close', handleConnectionLoss)
+  provider.on('connection-error', handleConnectionError)
   doc.on('beforeTransaction', handleBeforeTransaction)
   doc.on('update', handleDocumentUpdate)
   doc.on('destroy', deactivate)

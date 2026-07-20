@@ -24,7 +24,7 @@ class MockWebsocketProvider {
   destroy = vi.fn()
   disconnect = vi.fn(() => {
     this.shouldConnect = false
-    this.wsconnected = false
+    this.emit('connection-close', null, this)
   })
   doc: Y.Doc
   disableBc: boolean
@@ -357,11 +357,11 @@ describe('bootstrapYjsProvider', () => {
     expect(result.doc.getMap('fields').get('name')).toBe('Authoritative value')
     const tokenFetches = fetchMock.mock.calls.length
 
-    provider.emit('connection-close', null, provider)
+    provider.emit('connection-error', new Event('error'), provider)
     await vi.waitFor(() => expect(provider.connect).toHaveBeenCalledTimes(2))
 
     expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 1)
-    expect(provider.disconnect).not.toHaveBeenCalled()
+    expect(provider.disconnect).toHaveBeenCalledOnce()
     expect(result.doc).toBe(provider.doc)
 
     let resolveToken!: (response: Response) => void
@@ -374,6 +374,7 @@ describe('bootstrapYjsProvider', () => {
     provider.emit('connection-close', null, provider)
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 2))
     result.dispose()
+    expect(provider.listeners.get('connection-error')?.size).toBe(0)
     resolveToken(jsonResponse({ token: 'token-2' }))
     await Promise.resolve()
 
