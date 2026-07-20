@@ -215,17 +215,16 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(listIds()).toEqual(['layout-b', 'layout-a'])
     expect(latestList.isBusy).toBe(true)
 
+    mockEntityList = liveLayoutList(['layout-a', 'layout-b'])
     renderList()
     expect(listIds()).toEqual(['layout-b', 'layout-a'])
     await act(async () => resolveReorder())
     expect(latestList.isBusy).toBe(false)
-    expect(listIds()).toEqual(['layout-b', 'layout-a'])
+    expect(listIds()).toEqual(['layout-a', 'layout-b'])
 
     mockEntityList = liveLayoutList(['layout-b', 'layout-a'])
     renderList()
-    await act(async () =>
-      expect(latestList.reorderLayouts(['layout-a', 'layout-b'])).resolves.toBe(true)
-    )
+    expect(listIds()).toEqual(['layout-b', 'layout-a'])
     mockEntityList = liveLayoutList(['layout-a', 'layout-b'])
     renderList()
     expect(listIds()).toEqual(['layout-a', 'layout-b'])

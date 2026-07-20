@@ -37,7 +37,6 @@ function toLayoutListEntry(member: EntityListMember) {
 type DashboardLayoutListMutation = {
   scopeKey: string
   layoutOrder: string[] | null
-  isSubmitting: boolean
 }
 
 export function useDashboardLayoutList(
@@ -65,47 +64,33 @@ export function useDashboardLayoutList(
     return order.map((id) => layoutsById.get(id)!)
   }, [currentMutation, layouts])
 
-  useEffect(() => {
-    if (!currentMutation?.layoutOrder || currentMutation.isSubmitting) return
-    if (layouts.every((layout, index) => layout.id === displayedLayouts[index]?.id)) {
-      if (mutationRef.current === currentMutation) mutationRef.current = null
-      setMutation((current) => (current === currentMutation ? null : current))
-    }
-  }, [currentMutation, displayedLayouts, layouts])
-
   const submit = async (
     action: () => Promise<unknown>,
     layoutOrder?: string[]
   ): Promise<boolean> => {
-    if (mutationRef.current?.scopeKey === scopeKey && mutationRef.current.isSubmitting) return false
-    const previous =
-      mutationRef.current?.scopeKey === scopeKey ? mutationRef.current : currentMutation
+    if (mutationRef.current?.scopeKey === scopeKey) return false
     const attempt: DashboardLayoutListMutation = {
       scopeKey,
-      layoutOrder: layoutOrder ?? previous?.layoutOrder ?? null,
-      isSubmitting: true,
+      layoutOrder: layoutOrder ?? null,
     }
     mutationRef.current = attempt
     setMutation(attempt)
     try {
       await action()
-      const settled = attempt.layoutOrder ? { ...attempt, isSubmitting: false } : null
-      if (mutationRef.current === attempt) mutationRef.current = settled
-      setMutation((current) => (current === attempt ? settled : current))
       return true
     } catch (error) {
-      const restored = previous ? { ...previous, isSubmitting: false } : null
-      if (mutationRef.current === attempt) mutationRef.current = restored
-      setMutation((current) => (current === attempt ? restored : current))
       console.error('Failed to update dashboard layouts:', error)
       return false
+    } finally {
+      if (mutationRef.current === attempt) mutationRef.current = null
+      setMutation((current) => (current === attempt ? null : current))
     }
   }
 
   return {
     layouts: displayedLayouts,
     canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
-    isBusy: currentMutation?.isSubmitting === true,
+    isBusy: currentMutation !== null,
     createLayout: () => submit(() => createDashboardLayoutAction(workspaceId)),
     activateLayout: (layoutId: string) =>
       submit(() => activateDashboardLayoutAction(workspaceId, layoutId)),
