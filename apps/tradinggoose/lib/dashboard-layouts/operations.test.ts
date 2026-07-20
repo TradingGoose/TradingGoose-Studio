@@ -182,13 +182,16 @@ describe('dashboard layout operations', () => {
     expect(m.db.select).toHaveBeenCalledTimes(1)
   })
 
-  it('reports whether active-layout fanout converged', async () => {
+  it('refreshes the active-layout list after updating it', async () => {
     m.selectResults.push([layoutRow(), layoutRow({ id: 'layout-2', isActive: false })])
     m.bridge.refreshEntityListSession.mockResolvedValueOnce(false)
 
-    await expect(activateDashboardLayout(scope, 'layout-2')).resolves.toEqual({
-      listConverged: false,
-    })
+    await expect(activateDashboardLayout(scope, 'layout-2')).resolves.toBeUndefined()
+    expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
+      'dashboard_layout',
+      scope.workspaceId,
+      scope.ownerUserId
+    )
   })
 
   it('persists only complete layout orders', async () => {

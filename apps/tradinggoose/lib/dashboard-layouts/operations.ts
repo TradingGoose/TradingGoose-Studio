@@ -348,7 +348,7 @@ export async function ensureDashboardLayoutProvisioned(
 export async function activateDashboardLayout(
   scope: DashboardLayoutOwnerScope,
   layoutId: string
-): Promise<{ listConverged: boolean }> {
+): Promise<void> {
   await withDashboardLayoutOwnerLock(scope, async (tx) => {
     const rows = await readDashboardLayoutRows(scope, tx)
     if (!rows.some((row) => row.id === layoutId)) {
@@ -363,7 +363,7 @@ export async function activateDashboardLayout(
       )
     )
   })
-  return { listConverged: await refreshLayoutList(scope) }
+  await refreshLayoutList(scope)
 }
 
 export async function reorderDashboardLayouts(

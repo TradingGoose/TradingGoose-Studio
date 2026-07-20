@@ -7,10 +7,14 @@ import { Check, Pencil, Plus, X } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
 import { cn } from '@/lib/utils'
-import type { DashboardLayoutListEntry } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
 import { formatTemplate } from '@/i18n/utils'
 
-export type LayoutTab = DashboardLayoutListEntry
+export type LayoutTab = {
+  id: string
+  name: string
+  sortOrder: number
+  isActive: boolean
+}
 
 interface LayoutTabsProps {
   layouts: LayoutTab[]

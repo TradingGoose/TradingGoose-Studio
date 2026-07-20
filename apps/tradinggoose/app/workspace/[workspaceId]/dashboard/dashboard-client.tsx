@@ -311,23 +311,6 @@ export function DashboardClient({
   const canMutateLayoutTopology = !activePendingActivation && isActiveDocumentReady
 
   useEffect(() => {
-    if (!activePendingActivation) return
-    const targetIsActive = activeLayoutId === activePendingActivation.layoutId
-    if (
-      dashboardLayoutList.isTerminalError ||
-      (targetIsActive && (layoutDocument.isTerminalError || isActiveDocumentReady))
-    ) {
-      setPendingActivation(null)
-    }
-  }, [
-    activeLayoutId,
-    dashboardLayoutList.isTerminalError,
-    layoutDocument.isTerminalError,
-    activePendingActivation,
-    isActiveDocumentReady,
-  ])
-
-  useEffect(() => {
     setPendingActivation((current) => (current?.workspaceId === workspaceId ? current : null))
   }, [workspaceId])
 
@@ -528,18 +511,15 @@ export function DashboardClient({
         activePendingActivation
       )
         return
-      setPendingActivation({ workspaceId, layoutId: nextLayoutId })
+      const attempt = { workspaceId, layoutId: nextLayoutId }
+      setPendingActivation(attempt)
 
-      let keepPending = false
       try {
-        keepPending = (await activateDashboardLayoutAction(workspaceId, nextLayoutId)).listConverged
+        await activateDashboardLayoutAction(workspaceId, nextLayoutId)
       } catch (error) {
         console.error('Failed to switch layout:', error)
-      }
-      if (!keepPending) {
-        setPendingActivation((current) =>
-          current?.workspaceId === workspaceId && current.layoutId === nextLayoutId ? null : current
-        )
+      } finally {
+        setPendingActivation((current) => (current === attempt ? null : current))
       }
     },
     [activeLayoutId, activePendingActivation, canMutateLayouts, workspaceId]
