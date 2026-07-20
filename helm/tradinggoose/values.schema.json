@@ -96,8 +96,8 @@
             },
             "INTERNAL_API_SECRET": {
               "type": "string",
-              "minLength": 32,
-              "description": "Internal service authentication secret (minimum 32 characters required)"
+              "pattern": "^$|^.{32,}$",
+              "description": "Internal service authentication secret; leave empty only when extraEnvVars supplies its secretKeyRef"
             },
             "API_ENCRYPTION_KEY": {
               "type": "string",

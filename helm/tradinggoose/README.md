@@ -641,7 +641,7 @@ For production deployments, make sure to:
 **Required Secrets:**
 - `BETTER_AUTH_SECRET`: Authentication JWT signing (minimum 32 characters)
 - `ENCRYPTION_KEY`: Encrypts sensitive data like environment variables (minimum 32 characters)
-- `INTERNAL_API_SECRET`: Internal service-to-service authentication (minimum 32 characters)
+- `INTERNAL_API_SECRET`: Internal service authentication via a 32+ character literal or `extraEnvVars` `valueFrom.secretKeyRef`
 
 **Optional Security (Recommended for Production):**
 - `CRON_SECRET`: Authenticates scheduled job requests to API endpoints (required only if `cronjobs.enabled=true`)

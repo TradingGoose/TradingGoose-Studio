@@ -195,8 +195,14 @@ Validate required secrets and reject default placeholder values
 {{- if and .Values.app.enabled (eq .Values.app.env.ENCRYPTION_KEY "CHANGE-ME-32-CHAR-ENCRYPTION-KEY-FOR-PROD") }}
 {{- fail "app.env.ENCRYPTION_KEY must not use the default placeholder value. Generate a secure key with: openssl rand -hex 32" }}
 {{- end }}
-{{- if and (or .Values.app.enabled .Values.realtime.enabled) (lt (len (.Values.app.env.INTERNAL_API_SECRET | default "")) 32) }}
-{{- fail "app.env.INTERNAL_API_SECRET must be at least 32 characters for internal service authentication" }}
+{{- $hasInternalApiSecretRef := false }}
+{{- range (.Values.extraEnvVars | default (list)) }}
+{{- if and (eq (.name | default "") "INTERNAL_API_SECRET") .valueFrom .valueFrom.secretKeyRef }}
+{{- $hasInternalApiSecretRef = true }}
+{{- end }}
+{{- end }}
+{{- if and (or .Values.app.enabled .Values.realtime.enabled) (lt (len (.Values.app.env.INTERNAL_API_SECRET | default "")) 32) (not $hasInternalApiSecretRef) }}
+{{- fail "INTERNAL_API_SECRET requires a 32-character app.env value or extraEnvVars valueFrom.secretKeyRef" }}
 {{- end }}
 {{- if and .Values.app.enabled .Values.app.env.API_ENCRYPTION_KEY (not (regexMatch "^[a-fA-F0-9]{64}$" .Values.app.env.API_ENCRYPTION_KEY)) }}
 {{- fail "app.env.API_ENCRYPTION_KEY must be exactly 64 hex characters. Generate it with: openssl rand -hex 32" }}
