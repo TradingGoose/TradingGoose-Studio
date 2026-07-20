@@ -533,7 +533,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     )
   })
 
-  it('keeps entity labels in the saved message but omits all seven kinds from model text', async () => {
+  it('keeps entity labels in the saved message but sends ordered ids to the model', async () => {
     const contexts = [
       { kind: 'workflow', workflowId: 'workflow-1', label: 'Workflow' },
       { kind: 'skill', skillId: 'skill-1', label: 'Skill' },
@@ -550,7 +550,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
       },
     ]
     const message = '@Workflow @Skill @Indicator @Tool @MCP @Watchlist @Layout'
-    const modelMessage = 'Use the attached workspace entity context.'
+    const modelMessage = '@workflow-1 @skill-1 @indicator-1 @tool-1 @mcp-1 @watchlist-1 @layout-1'
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',

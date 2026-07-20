@@ -205,12 +205,12 @@ describe('processContextsServer', () => {
       expect(result).toEqual(
         contexts.map((context) => ({
           type: context.kind,
+          tag: `@${entityId}`,
           content: JSON.stringify({ entityId }, null, 2),
         }))
       )
       for (const context of result) {
         expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
-        expect(context).not.toHaveProperty('tag')
       }
 
       expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()

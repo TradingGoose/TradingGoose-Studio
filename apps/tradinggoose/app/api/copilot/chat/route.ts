@@ -17,7 +17,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { stripCopilotWorkspaceEntityMentions } from '@/lib/copilot/chat-contexts'
+import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
@@ -761,7 +761,7 @@ export async function POST(req: NextRequest) {
           : undefined,
       })
     } catch {}
-    let agentContexts: Array<{ type: string; content: string }> = []
+    let agentContexts: Array<{ type: string; tag?: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
       const { processContextsServer } = await import('@/lib/copilot/process-contents')
       const processed = await processContextsServer(
@@ -782,7 +782,10 @@ export async function POST(req: NextRequest) {
         )
       }
     }
-    const modelMessage = stripCopilotWorkspaceEntityMentions(message, contexts as ChatContext[])
+    const modelMessage = replaceCopilotWorkspaceEntityMentionsWithIds(
+      message,
+      contexts as ChatContext[]
+    )
 
     // Start file attachment processing early so it runs in parallel with session loading/creation
     const fileProcessingPromise =

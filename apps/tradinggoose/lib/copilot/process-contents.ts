@@ -74,6 +74,7 @@ export async function processContextsServer(
       if (entityContext?.entityId) {
         return {
           type: ctx.kind as AgentContextType,
+          tag: `@${entityContext.entityId}`,
           content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
         }
       }

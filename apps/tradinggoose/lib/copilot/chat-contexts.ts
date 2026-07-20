@@ -125,22 +125,19 @@ export function buildCopilotContextMentionRanges(
   return ranges.sort((left, right) => left.start - right.start)
 }
 
-const MODEL_MESSAGE_WITH_ONLY_ENTITY_CONTEXT = 'Use the attached workspace entity context.'
-
-export function stripCopilotWorkspaceEntityMentions(
+export function replaceCopilotWorkspaceEntityMentionsWithIds(
   message: string,
   contexts: ChatContext[] | null | undefined
 ): string {
-  const ranges = buildCopilotContextMentionRanges(message, contexts).filter((range) =>
-    Boolean(readCopilotWorkspaceEntityContext(range.context))
+  const ranges = buildCopilotContextMentionRanges(message, contexts).filter(
+    (range) => readCopilotWorkspaceEntityContext(range.context)?.entityId
   )
   if (ranges.length === 0) return message
 
-  const stripped = [...ranges]
-    .reverse()
-    .reduce((text, range) => `${text.slice(0, range.start)}${text.slice(range.end)}`, message)
-
-  return stripped.trim() ? stripped : MODEL_MESSAGE_WITH_ONLY_ENTITY_CONTEXT
+  return [...ranges].reverse().reduce((text, range) => {
+    const entityId = readCopilotWorkspaceEntityContext(range.context)?.entityId
+    return entityId ? `${text.slice(0, range.start)}@${entityId}${text.slice(range.end)}` : text
+  }, message)
 }
 
 const dedupeCopilotContexts = (contexts: ChatContext[]): ChatContext[] => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripCopilotWorkspaceEntityMentions } from '@/lib/copilot/chat-contexts'
+import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import enMessages from '../../../../../i18n/messages/en.json'
 import esMessages from '../../../../../i18n/messages/es.json'
 import zhMessages from '../../../../../i18n/messages/zh.json'
@@ -171,12 +171,14 @@ describe('mention-utils', () => {
     ])
   })
 
-  it('strips only workspace-entity ranges from model-bound text', () => {
+  it('replaces ordered workspace-entity ranges with ids in model-bound text', () => {
     const contexts = [
-      { kind: 'docs' as const, label: 'Shared' },
-      { kind: 'workflow' as const, workflowId: 'workflow-1', label: 'Shared' },
+      { kind: 'workflow' as const, workflowId: 'workflow-source', label: 'Shared' },
+      { kind: 'workflow' as const, workflowId: 'workflow-target', label: 'Shared' },
     ]
 
-    expect(stripCopilotWorkspaceEntityMentions('@Shared @Shared', contexts)).toBe('@Shared ')
+    expect(
+      replaceCopilotWorkspaceEntityMentionsWithIds('Copy (@Shared) into @Shared.', contexts)
+    ).toBe('Copy (@workflow-source) into @workflow-target.')
   })
 })
