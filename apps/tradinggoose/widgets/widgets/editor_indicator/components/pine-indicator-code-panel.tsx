@@ -1,6 +1,6 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type * as Y from 'yjs'
 import {
   buildMonacoIndicatorDiagnosticSource,
@@ -28,6 +28,11 @@ import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
 import {
+  INDICATOR_EDITOR_ACTION_EVENT,
+  type IndicatorEditorActionEventDetail,
+} from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
+import {
   CHEAT_SHEET_GROUPS,
   type CheatSheetGroup,
 } from '@/widgets/widgets/editor_indicator/components/pine-cheat-sheet'
@@ -40,9 +45,8 @@ type IndicatorCodePanelProps = {
   workspaceId: string
   doc: Y.Doc | null
   save: () => Promise<void>
-  exportRef: MutableRefObject<() => void>
-  saveRef: MutableRefObject<() => void>
-  verifyRef: MutableRefObject<() => void>
+  panelId?: string
+  widgetKey?: string
   readOnly?: boolean
 }
 
@@ -167,9 +171,8 @@ export function IndicatorCodePanel({
   workspaceId,
   doc,
   save,
-  exportRef,
-  saveRef,
-  verifyRef,
+  panelId,
+  widgetKey,
   readOnly = false,
 }: IndicatorCodePanelProps) {
   const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
@@ -319,10 +322,6 @@ export function IndicatorCodePanel({
     URL.revokeObjectURL(blobUrl)
   }, [doc, indicatorName, pineCode])
 
-  useEffect(() => {
-    exportRef.current = handleExport
-  }, [exportRef, handleExport])
-
   const handleVerify = useCallback(async () => {
     if (!workspaceId) return
     if (verifyStatus.state === 'running') return
@@ -364,13 +363,14 @@ export function IndicatorCodePanel({
     }
   }, [workspaceId, pineCode, verifyStatus.state])
 
-  useEffect(() => {
-    saveRef.current = handleSave
-  }, [handleSave, saveRef])
-
-  useEffect(() => {
-    verifyRef.current = handleVerify
-  }, [handleVerify, verifyRef])
+  useEditorActions<IndicatorEditorActionEventDetail>(INDICATOR_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: indicatorId,
+    export: handleExport,
+    save: handleSave,
+    verify: handleVerify,
+  })
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden p-2'>

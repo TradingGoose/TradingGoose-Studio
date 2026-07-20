@@ -1,13 +1,11 @@
 'use client'
 
-import { useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
@@ -27,9 +25,6 @@ export function EditorSkillWidgetBody({
   const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
   const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const exportRef = useRef<() => void>(() => {})
-  const saveRef = useRef<() => void>(() => {})
-
   const paramsSkillId = getSkillIdFromParams(params)
   const requestedSkillId = paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
@@ -55,13 +50,6 @@ export function EditorSkillWidgetBody({
     null,
     canEditEntity ? 'write' : 'read'
   )
-
-  useSkillEditorActions({
-    panelId,
-    widget,
-    onExport: () => exportRef.current(),
-    onSave: () => saveRef.current(),
-  })
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
@@ -108,8 +96,8 @@ export function EditorSkillWidgetBody({
         save={skillSession.save}
         skillId={skillId}
         entityName={selectedSkillMember?.entityName ?? ''}
-        exportRef={exportRef}
-        saveRef={saveRef}
+        panelId={panelId}
+        widgetKey={widget?.key}
         readOnly={!canEditEntity}
       />
     </div>

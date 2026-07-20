@@ -4,8 +4,7 @@ import { ToolCase } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import {
-  SkillEditorExportButton,
-  SkillEditorSaveButton,
+  SkillEditorActionButtons,
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
 import { skillEditorWidgetContract } from '@/widgets/widgets/editor_skill/contract'
@@ -26,13 +25,7 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
       center: <SkillEditorSelector workspaceId={context?.workspaceId} skillId={skillId} />,
       right: (
         <div className='flex items-center gap-1'>
-          <SkillEditorExportButton
-            workspaceId={context?.workspaceId}
-            skillId={skillId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-          />
-          <SkillEditorSaveButton
+          <SkillEditorActionButtons
             workspaceId={context?.workspaceId}
             skillId={skillId}
             panelId={panelId}

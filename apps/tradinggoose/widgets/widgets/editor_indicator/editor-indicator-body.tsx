@@ -1,13 +1,11 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
@@ -55,30 +53,6 @@ export function EditorIndicatorWidgetBody({
     null,
     canEditEntity ? 'write' : 'read'
   )
-
-  const codeExportRef = useRef<() => void>(() => {})
-  const codeSaveRef = useRef<() => void>(() => {})
-  const codeVerifyRef = useRef<() => void>(() => {})
-
-  const handleExport = useCallback(() => {
-    codeExportRef.current()
-  }, [])
-
-  const handleSave = useCallback(() => {
-    codeSaveRef.current()
-  }, [])
-
-  const handleVerify = useCallback(() => {
-    codeVerifyRef.current()
-  }, [])
-
-  useIndicatorEditorActions({
-    panelId,
-    widget,
-    onExport: handleExport,
-    onSave: handleSave,
-    onVerify: handleVerify,
-  })
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
@@ -128,9 +102,8 @@ export function EditorIndicatorWidgetBody({
         workspaceId={workspaceId}
         doc={indicatorSession.doc}
         save={indicatorSession.save}
-        exportRef={codeExportRef}
-        saveRef={codeSaveRef}
-        verifyRef={codeVerifyRef}
+        panelId={panelId}
+        widgetKey={widget?.key}
         readOnly={!canEditEntity}
       />
     </div>

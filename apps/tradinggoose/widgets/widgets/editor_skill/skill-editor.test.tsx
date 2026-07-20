@@ -2,12 +2,13 @@
  * @vitest-environment jsdom
  */
 
-import type { MutableRefObject } from 'react'
-import { act, createRef } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -35,25 +36,22 @@ describe('SkillEditor save', () => {
 
   it('saves identity and content through one session mutation', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
     const doc = new Y.Doc()
     const initialValues = {
       description: 'Investigate the market.',
       content: 'Use multiple trusted sources.',
     }
-    saveRef.current = () => {}
     seedEntitySession(doc, { entityKind: 'skill', payload: initialValues })
 
     await act(async () => {
       root.render(
         <SkillEditor
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
           skillId='skill-1'
           entityName='Market Research'
           doc={doc}
           save={save}
+          panelId='panel-1'
+          widgetKey='editor_skill'
         />
       )
     })
@@ -69,7 +67,12 @@ describe('SkillEditor save', () => {
     })
 
     await act(async () => {
-      saveRef.current?.()
+      emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+        action: 'save',
+        entityId: 'skill-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_skill',
+      })
     })
 
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
@@ -79,22 +82,19 @@ describe('SkillEditor save', () => {
 
   it('makes retained writer callbacks harmless after a read-only downgrade', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
     const doc = new Y.Doc()
-    saveRef.current = () => {}
     seedEntitySession(doc, {
       entityKind: 'skill',
       payload: { description: 'Original description', content: 'Original content' },
     })
     const renderEditor = (readOnly: boolean) => (
       <SkillEditor
-        exportRef={exportRef as MutableRefObject<() => void>}
-        saveRef={saveRef as MutableRefObject<() => void>}
         skillId='skill-1'
         entityName='Market Research'
         doc={doc}
         save={save}
+        panelId='panel-1'
+        widgetKey='editor_skill'
         readOnly={readOnly}
       />
     )
@@ -107,8 +107,6 @@ describe('SkillEditor save', () => {
       nameInput.dispatchEvent(new Event('input', { bubbles: true }))
       nameInput.dispatchEvent(new Event('change', { bubbles: true }))
     })
-    const retainedSave = saveRef.current!
-
     await act(async () => root.render(renderEditor(true)))
     const descriptionInput = container.querySelector(
       '#skill-editor-description'
@@ -118,7 +116,12 @@ describe('SkillEditor save', () => {
       valueSetter?.call(descriptionInput, 'Forbidden description')
       descriptionInput.dispatchEvent(new Event('input', { bubbles: true }))
       descriptionInput.dispatchEvent(new Event('change', { bubbles: true }))
-      retainedSave()
+      emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+        action: 'save',
+        entityId: 'skill-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_skill',
+      })
     })
 
     expect(String(doc.getMap('fields').get('description'))).toBe('Original description')

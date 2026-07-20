@@ -1,10 +1,13 @@
 'use client'
 
 import { Download, Save } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { SkillDropdown } from '@/widgets/widgets/components/skill-dropdown'
 
@@ -14,7 +17,6 @@ interface SkillEditorSelectorProps {
 }
 
 export function SkillEditorSelector({ workspaceId, skillId }: SkillEditorSelectorProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
   const actions = useWidgetConfigRuntimeActions()
   const resolvedSkillId = skillId ?? null
@@ -41,48 +43,58 @@ interface SkillEditorActionButtonProps {
   widgetKey?: string
 }
 
-export function SkillEditorExportButton({
+export function SkillEditorActionButtons({
   workspaceId,
-  skillId,
+  skillId: requestedSkillId,
   panelId,
   widgetKey,
 }: SkillEditorActionButtonProps) {
-  const locale = useLocale()
-  const copy = useMessages().workspace.widgets.skillEditor.header
-  const resolvedSkillId = skillId ?? null
-  const exportDisabled = !workspaceId || !resolvedSkillId
-
-  return (
-    <EntityEditorHeaderButton
-      tooltip={copy.exportSkill}
-      label={copy.exportSkill}
-      icon={Download}
-      disabled={exportDisabled}
-      onClick={() => emitSkillEditorAction({ action: 'export', panelId, widgetKey })}
-    />
-  )
-}
-
-export function SkillEditorSaveButton({
-  workspaceId,
-  skillId,
-  panelId,
-  widgetKey,
-}: SkillEditorActionButtonProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.header
   const { canEdit } = useUserPermissionsContext()
-  const resolvedSkillId = skillId ?? null
-  const disabled = !canEdit || !workspaceId || !resolvedSkillId
+  const { members } = useEntityList('skill', workspaceId)
+  const resolvedSkillId = resolveEntityIdFromList({
+    requestedEntityId: requestedSkillId,
+    entityIds: members.map((member) => member.entityId),
+    useDefaultEntity: false,
+  })
+  const exportDisabled = !workspaceId || !resolvedSkillId
+  const saveDisabled = !canEdit || exportDisabled
 
   return (
-    <EntityEditorHeaderButton
-      tooltip={copy.saveSkill}
-      label={copy.saveSkill}
-      icon={Save}
-      disabled={disabled}
-      variant='default'
-      onClick={() => emitSkillEditorAction({ action: 'save', panelId, widgetKey })}
-    />
+    <>
+      <EntityEditorHeaderButton
+        tooltip={copy.exportSkill}
+        label={copy.exportSkill}
+        icon={Download}
+        disabled={exportDisabled}
+        onClick={() => {
+          if (resolvedSkillId) {
+            emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+              action: 'export',
+              entityId: resolvedSkillId,
+              panelId,
+              widgetKey,
+            })
+          }
+        }}
+      />
+      <EntityEditorHeaderButton
+        tooltip={copy.saveSkill}
+        label={copy.saveSkill}
+        icon={Save}
+        disabled={saveDisabled}
+        variant='default'
+        onClick={() => {
+          if (resolvedSkillId) {
+            emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+              action: 'save',
+              entityId: resolvedSkillId,
+              panelId,
+              widgetKey,
+            })
+          }
+        }}
+      />
+    </>
   )
 }

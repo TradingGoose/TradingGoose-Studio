@@ -7,12 +7,14 @@ export const MCP_EDITOR_ACTION_EVENT = 'mcp-editor:action'
 
 export type IndicatorEditorActionEventDetail = {
   action: 'export' | 'save' | 'verify'
+  entityId: string
   panelId?: string
   widgetKey?: string
 }
 
 export type CustomToolEditorActionEventDetail = {
   action: 'export' | 'save' | 'set-section'
+  entityId: string
   section?: 'schema' | 'code'
   panelId?: string
   widgetKey?: string
@@ -20,6 +22,7 @@ export type CustomToolEditorActionEventDetail = {
 
 export type SkillEditorActionEventDetail = {
   action: 'export' | 'save'
+  entityId: string
   panelId?: string
   widgetKey?: string
 }

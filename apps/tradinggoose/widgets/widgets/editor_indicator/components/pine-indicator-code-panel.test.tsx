@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import type { MutableRefObject, ReactNode } from 'react'
-import { act, createRef } from 'react'
+import type { ReactNode } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -93,18 +93,14 @@ describe('IndicatorCodePanel access downgrade', () => {
       entityKind: 'indicator',
       payload: { color: '#ffffff', pineCode: 'plot(close)' },
     })
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    const verifyRef = createRef<() => void>()
     const props = {
       indicatorId: 'indicator-1',
       indicatorName: 'Indicator',
       workspaceId: 'workspace-1',
       doc,
       save: vi.fn(async () => {}),
-      exportRef: exportRef as MutableRefObject<() => void>,
-      saveRef: saveRef as MutableRefObject<() => void>,
-      verifyRef: verifyRef as MutableRefObject<() => void>,
+      panelId: 'panel-1',
+      widgetKey: 'editor_indicator',
     }
 
     await act(async () => root.render(<IndicatorCodePanel {...props} />))

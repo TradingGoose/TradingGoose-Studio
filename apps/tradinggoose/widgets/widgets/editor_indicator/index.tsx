@@ -3,10 +3,8 @@
 import { SquareFunction } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
-  IndicatorEditorExportButton,
-  IndicatorEditorSaveButton,
+  IndicatorEditorActionButtons,
   IndicatorEditorSelector,
-  IndicatorEditorVerifyButton,
 } from '@/widgets/widgets/editor_indicator/components/indicator-editor-header'
 import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
 import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/editor-indicator-body'
@@ -29,19 +27,7 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
       ),
       right: (
         <div className='flex items-center gap-1'>
-          <IndicatorEditorVerifyButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-          />
-          <IndicatorEditorExportButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-          />
-          <IndicatorEditorSaveButton
+          <IndicatorEditorActionButtons
             workspaceId={context?.workspaceId}
             indicatorId={indicatorId}
             panelId={panelId}

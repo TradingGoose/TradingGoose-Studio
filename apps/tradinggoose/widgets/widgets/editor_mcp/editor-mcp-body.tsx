@@ -21,8 +21,9 @@ import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
+import { MCP_EDITOR_ACTION_EVENT, type McpEditorActionEventDetail } from '@/widgets/events'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
@@ -312,9 +313,9 @@ export function EditorMcpWidgetBody({
     workspaceId,
   ])
 
-  useMcpEditorActions({
+  useEditorActions<McpEditorActionEventDetail>(MCP_EDITOR_ACTION_EVENT, {
     panelId,
-    widget,
+    widgetKey: widget?.key,
     save: handleSave,
     refresh: handleRefreshTools,
     reset: handleResetForm,

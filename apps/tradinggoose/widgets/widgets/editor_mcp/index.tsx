@@ -4,8 +4,9 @@ import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { MCP_EDITOR_ACTION_EVENT, type McpEditorActionEventDetail } from '@/widgets/events'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityId } from '@/widgets/widget-contracts'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
@@ -59,7 +60,7 @@ const McpEditorHeaderActions = ({
   const hasSelection = !!resolveEntityId('mcpServerId', { params })
 
   const emitAction = (action: 'save' | 'refresh' | 'close' | 'reset' | 'test') => {
-    emitMcpEditorAction({
+    emitEditorAction<McpEditorActionEventDetail>(MCP_EDITOR_ACTION_EVENT, {
       action,
       panelId,
       widgetKey,

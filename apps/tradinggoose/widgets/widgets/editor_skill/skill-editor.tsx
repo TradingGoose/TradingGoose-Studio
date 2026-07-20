@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,8 @@ import { isValidSkillName } from '@/hooks/queries/skills'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 
 const logger = createLogger('SkillEditor')
 
@@ -19,8 +21,8 @@ interface SkillEditorProps {
   entityName: string
   doc: Y.Doc | null
   save: (identityName?: string) => Promise<void>
-  exportRef: MutableRefObject<() => void>
-  saveRef: MutableRefObject<() => void>
+  panelId?: string
+  widgetKey?: string
   readOnly?: boolean
 }
 
@@ -29,8 +31,8 @@ export function SkillEditor({
   entityName,
   doc,
   save,
-  exportRef,
-  saveRef,
+  panelId,
+  widgetKey,
   readOnly = false,
 }: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
@@ -111,15 +113,13 @@ export function SkillEditor({
     URL.revokeObjectURL(blobUrl)
   }, [content, description, doc, name])
 
-  useEffect(() => {
-    exportRef.current = handleExport
-  }, [exportRef, handleExport])
-
-  useEffect(() => {
-    saveRef.current = () => {
-      void handleSave()
-    }
-  }, [handleSave, saveRef])
+  useEditorActions<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: skillId,
+    export: handleExport,
+    save: handleSave,
+  })
 
   return (
     <div className='flex h-full flex-col overflow-hidden'>

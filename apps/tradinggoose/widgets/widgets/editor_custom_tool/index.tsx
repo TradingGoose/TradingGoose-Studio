@@ -1,25 +1,25 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Download, Save, SquareTerminal } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import type { LocaleCode } from '@/i18n/utils'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { emitEditorAction, useEditorActions } from '@/widgets/utils/editor-actions'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { resolveCustomToolId } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
+import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
   CustomToolEditor,
@@ -27,66 +27,6 @@ import {
 } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-
-function emitCustomToolEditorAction(detail: CustomToolEditorActionEventDetail) {
-  window.dispatchEvent(
-    new CustomEvent<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
-      detail,
-    })
-  )
-}
-
-function useCustomToolEditorActions({
-  panelId,
-  widgetKey,
-  onExport,
-  onSave,
-  onSectionChange,
-}: {
-  panelId?: string
-  widgetKey?: string
-  onExport?: () => void
-  onSave?: () => void
-  onSectionChange?: (section: CustomToolEditorSection) => void
-}) {
-  const exportRef = useRef(onExport)
-  const saveRef = useRef(onSave)
-  const sectionChangeRef = useRef(onSectionChange)
-
-  exportRef.current = onExport
-  saveRef.current = onSave
-  sectionChangeRef.current = onSectionChange
-
-  useEffect(() => {
-    if (!panelId) return
-
-    const handleAction = (event: Event) => {
-      const detail = (event as CustomEvent<CustomToolEditorActionEventDetail>).detail
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-      if (widgetKey && detail.widgetKey && detail.widgetKey !== widgetKey) return
-
-      if (detail.action === 'export') {
-        exportRef.current?.()
-        return
-      }
-
-      if (detail.action === 'save') {
-        saveRef.current?.()
-        return
-      }
-
-      if (detail.action === 'set-section' && detail.section) {
-        sectionChangeRef.current?.(detail.section)
-      }
-    }
-
-    window.addEventListener(CUSTOM_TOOL_EDITOR_ACTION_EVENT, handleAction as EventListener)
-
-    return () => {
-      window.removeEventListener(CUSTOM_TOOL_EDITOR_ACTION_EVENT, handleAction as EventListener)
-    }
-  }, [panelId, widgetKey])
-}
 
 function EditorCustomToolWidgetBody({
   context,
@@ -100,8 +40,6 @@ function EditorCustomToolWidgetBody({
   const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
   const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const exportRef = useRef<() => void>(() => {})
-  const saveRef = useRef<() => void>(() => {})
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
 
   const paramsCustomToolId = resolveCustomToolId({ params })
@@ -127,16 +65,17 @@ function EditorCustomToolWidgetBody({
   const syncActiveSection = useCallback(
     (section: CustomToolEditorSection) => {
       setActiveSection(section)
-      if (!panelId) return
+      if (!panelId || !selectedToolId) return
 
-      emitCustomToolEditorAction({
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
         action: 'set-section',
+        entityId: selectedToolId,
         section,
         panelId,
         widgetKey: widget?.key,
       })
     },
-    [panelId, widget?.key]
+    [panelId, selectedToolId, widget?.key]
   )
 
   const customToolSession = useSavedEntityYjsSession(
@@ -155,12 +94,15 @@ function EditorCustomToolWidgetBody({
     syncActiveSection('schema')
   }, [selectedToolId, syncActiveSection])
 
-  useCustomToolEditorActions({
-    onExport: () => exportRef.current(),
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
     panelId,
     widgetKey: widget?.key,
-    onSave: () => saveRef.current(),
-    onSectionChange: setActiveSection,
+    entityId: selectedToolId ?? undefined,
+    'set-section': selectedToolId
+      ? (detail) => {
+          if (detail.section) setActiveSection(detail.section)
+        }
+      : undefined,
   })
 
   if (!workspaceId) {
@@ -215,8 +157,8 @@ function EditorCustomToolWidgetBody({
           toolId={selectedToolId}
           toolTitle={selectedToolMember?.entityName ?? ''}
           onSectionChange={syncActiveSection}
-          exportRef={exportRef}
-          saveRef={saveRef}
+          panelId={panelId}
+          widgetKey={widget?.key}
           blockId='dashboard-custom-tool-editor'
           readOnly={!canEditEntity}
         />
@@ -231,7 +173,6 @@ type CustomToolEditorSelectorProps = {
 }
 
 function CustomToolEditorSelector({ workspaceId, params }: CustomToolEditorSelectorProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
   const actions = useWidgetConfigRuntimeActions()
 
@@ -252,158 +193,92 @@ function CustomToolEditorSelector({ workspaceId, params }: CustomToolEditorSelec
   )
 }
 
-const CUSTOM_TOOL_EDITOR_SECTIONS: Array<{ id: CustomToolEditorSection; label: string }> = [
-  { id: 'schema', label: 'Config' },
-  { id: 'code', label: 'Code' },
-]
+const CUSTOM_TOOL_EDITOR_SECTIONS: CustomToolEditorSection[] = ['schema', 'code']
 
-function CustomToolEditorSectionSwitch({
+function CustomToolEditorActionControls({
+  workspaceId,
+  requestedEntityId,
   panelId,
-  params,
   widgetKey,
 }: {
+  workspaceId?: string
+  requestedEntityId: string | null
   panelId?: string
-  params?: Record<string, unknown> | null
   widgetKey?: string
 }) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
+  const { canEdit } = useUserPermissionsContext()
+  const { members } = useEntityList('custom_tool', workspaceId)
+  const entityId = resolveEntityIdFromList({
+    requestedEntityId,
+    entityIds: members.map((member) => member.entityId),
+    useDefaultEntity: false,
+  })
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
-  const customToolId = resolveCustomToolId({ params })
-  const isDisabled = !customToolId || !panelId
+  const controlsDisabled = !entityId || !panelId
+  const exportDisabled = !workspaceId || controlsDisabled
 
-  useCustomToolEditorActions({
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
     panelId,
     widgetKey,
-    onSectionChange: setActiveSection,
+    entityId: entityId ?? undefined,
+    'set-section': entityId
+      ? (detail) => {
+          if (detail.section) setActiveSection(detail.section)
+        }
+      : undefined,
   })
 
-  useEffect(() => {
-    setActiveSection('schema')
-  }, [customToolId])
+  useEffect(() => setActiveSection('schema'), [entityId])
 
-  const selectSection = (section: CustomToolEditorSection) => {
-    if (isDisabled) return
-
-    setActiveSection(section)
-    emitCustomToolEditorAction({
-      action: 'set-section',
-      section,
+  const emitAction = (detail: Pick<CustomToolEditorActionEventDetail, 'action' | 'section'>) => {
+    if (!entityId) return
+    emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+      ...detail,
+      entityId,
       panelId,
       widgetKey,
     })
   }
 
   return (
-    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
-      {CUSTOM_TOOL_EDITOR_SECTIONS.map((section) => {
-        const isSelected = section.id === activeSection
-
-        return (
+    <div className={widgetHeaderButtonGroupClassName()}>
+      <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
+        {CUSTOM_TOOL_EDITOR_SECTIONS.map((section) => (
           <Button
-            key={section.id}
+            key={section}
             type='button'
-            variant={isSelected ? 'default' : 'ghost'}
+            variant={section === activeSection ? 'default' : 'ghost'}
             size='sm'
             className='h-5 min-w-14 rounded-xs px-3 text-sm'
-            disabled={isDisabled}
-            onClick={() => selectSection(section.id)}
-            aria-pressed={isSelected}
+            disabled={controlsDisabled}
+            onClick={() => {
+              setActiveSection(section)
+              emitAction({ action: 'set-section', section })
+            }}
+            aria-pressed={section === activeSection}
           >
-            {section.id === 'schema' ? copy.config : copy.code}
+            {section === 'schema' ? copy.config : copy.code}
           </Button>
-        )
-      })}
+        ))}
+      </div>
+      <EntityEditorHeaderButton
+        tooltip={copy.exportCustomTool}
+        label={copy.exportCustomTool}
+        icon={Download}
+        disabled={exportDisabled}
+        variant='outline'
+        onClick={() => emitAction({ action: 'export' })}
+      />
+      <EntityEditorHeaderButton
+        tooltip={copy.saveCustomTool}
+        label={copy.saveCustomTool}
+        icon={Save}
+        disabled={!canEdit || exportDisabled}
+        variant='default'
+        onClick={() => emitAction({ action: 'save' })}
+      />
     </div>
-  )
-}
-
-function CustomToolEditorSaveButton({
-  workspaceId,
-  customToolId,
-  panelId,
-  widgetKey,
-}: {
-  workspaceId?: string
-  customToolId?: string | null
-  panelId?: string
-  widgetKey?: string
-}) {
-  const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.customToolEditor.header
-  const { canEdit } = useUserPermissionsContext()
-  const resolvedCustomToolId = customToolId ?? null
-  const saveDisabled = !canEdit || !workspaceId || !resolvedCustomToolId || !panelId
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='default'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={() => {
-              emitCustomToolEditorAction({
-                action: 'save',
-                panelId,
-                widgetKey,
-              })
-            }}
-            disabled={saveDisabled}
-          >
-            <Save className='h-4 w-4' />
-            <span className='sr-only'>{copy.saveCustomTool}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{copy.saveCustomTool}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function CustomToolEditorExportButton({
-  workspaceId,
-  customToolId,
-  panelId,
-  widgetKey,
-}: {
-  workspaceId?: string
-  customToolId?: string | null
-  panelId?: string
-  widgetKey?: string
-}) {
-  const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedCustomToolId = customToolId ?? null
-  const exportDisabled = !workspaceId || !resolvedCustomToolId || !panelId
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={() => {
-              emitCustomToolEditorAction({
-                action: 'export',
-                panelId,
-                widgetKey,
-              })
-            }}
-            disabled={exportDisabled}
-          >
-            <Download className='h-4 w-4' />
-            <span className='sr-only'>{copy.exportCustomTool}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{copy.exportCustomTool}</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -429,29 +304,12 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
         />
       ),
       right: (
-        <div className={widgetHeaderButtonGroupClassName()}>
-          <CustomToolEditorSectionSwitch
-            panelId={panelId}
-            params={
-              widget?.params && typeof widget.params === 'object'
-                ? (widget.params as Record<string, unknown>)
-                : null
-            }
-            widgetKey={widget?.key}
-          />
-          <CustomToolEditorExportButton
-            workspaceId={context?.workspaceId}
-            customToolId={customToolId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-          />
-          <CustomToolEditorSaveButton
-            workspaceId={context?.workspaceId}
-            customToolId={customToolId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-          />
-        </div>
+        <CustomToolEditorActionControls
+          workspaceId={context?.workspaceId}
+          requestedEntityId={customToolId}
+          panelId={panelId}
+          widgetKey={widget?.key}
+        />
       ),
     }
   },

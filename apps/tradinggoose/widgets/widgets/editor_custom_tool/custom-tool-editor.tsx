@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
 import type * as Y from 'yjs'
 import {
@@ -17,6 +17,11 @@ import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import {
+  CUSTOM_TOOL_EDITOR_ACTION_EVENT,
+  type CustomToolEditorActionEventDetail,
+} from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -33,8 +38,8 @@ interface CustomToolEditorProps {
   doc: Y.Doc | null
   save: () => Promise<void>
   onSectionChange: (section: CustomToolEditorSection) => void
-  exportRef: MutableRefObject<() => void>
-  saveRef: MutableRefObject<() => void>
+  panelId?: string
+  widgetKey?: string
   readOnly?: boolean
 }
 
@@ -46,8 +51,8 @@ export function CustomToolEditor({
   doc,
   save,
   onSectionChange,
-  exportRef,
-  saveRef,
+  panelId,
+  widgetKey,
   readOnly = false,
 }: CustomToolEditorProps) {
   const copy = useWorkspaceWidgetsMessages().customToolEditor
@@ -429,17 +434,13 @@ IMPORTANT FORMATTING RULES:
     URL.revokeObjectURL(blobUrl)
   }, [copy.validation.failedToSave, functionCode, onSectionChange, parseCurrentSchema, toolTitle])
 
-  useEffect(() => {
-    saveRef.current = () => {
-      void handleSave()
-    }
-  }, [handleSave, saveRef])
-
-  useEffect(() => {
-    exportRef.current = () => {
-      handleExport()
-    }
-  }, [exportRef, handleExport])
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: toolId,
+    export: handleExport,
+    save: handleSave,
+  })
 
   const handleCursorChange = (
     offset: number,

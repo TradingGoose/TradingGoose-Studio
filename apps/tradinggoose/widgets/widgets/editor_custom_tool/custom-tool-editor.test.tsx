@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import type { MutableRefObject, ReactNode, TextareaHTMLAttributes } from 'react'
-import { act, createRef } from 'react'
+import type { ReactNode, TextareaHTMLAttributes } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -12,6 +12,11 @@ import {
   replaceEntityTextField,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
+import {
+  CUSTOM_TOOL_EDITOR_ACTION_EVENT,
+  type CustomToolEditorActionEventDetail,
+} from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
 const mockUseWand = vi.fn()
@@ -186,10 +191,6 @@ describe('CustomToolEditor', () => {
   })
 
   it('exports the current schema and code buffer using the unified envelope', async () => {
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    exportRef.current = () => {}
-    saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
       schema: {
@@ -214,8 +215,8 @@ describe('CustomToolEditor', () => {
           toolId='tool-1'
           toolTitle='Tool 1'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
           doc={doc}
           save={vi.fn()}
         />
@@ -256,8 +257,8 @@ describe('CustomToolEditor', () => {
           toolId='tool-1'
           toolTitle='fetchTopMoversCurrent'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
           doc={doc}
           save={vi.fn()}
         />
@@ -269,7 +270,12 @@ describe('CustomToolEditor', () => {
     })
 
     await act(async () => {
-      exportRef.current?.()
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+        action: 'export',
+        entityId: 'tool-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_custom_tool',
+      })
     })
 
     expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
@@ -315,10 +321,6 @@ describe('CustomToolEditor', () => {
   })
 
   it('blocks export when the current schema is invalid', async () => {
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    exportRef.current = () => {}
-    saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
       schema: {
@@ -342,8 +344,8 @@ describe('CustomToolEditor', () => {
           toolId='tool-1'
           toolTitle='Tool 1'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
           doc={doc}
           save={vi.fn()}
         />
@@ -355,7 +357,12 @@ describe('CustomToolEditor', () => {
     })
 
     await act(async () => {
-      exportRef.current?.()
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+        action: 'export',
+        entityId: 'tool-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_custom_tool',
+      })
     })
 
     expect(createObjectUrlSpy).not.toHaveBeenCalled()
@@ -364,10 +371,6 @@ describe('CustomToolEditor', () => {
   })
 
   it('closes autocomplete and blocks its retained callback after becoming read-only', async () => {
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    exportRef.current = () => {}
-    saveRef.current = () => {}
     const doc = createCustomToolDoc({
       schema: {
         type: 'function',
@@ -384,8 +387,8 @@ describe('CustomToolEditor', () => {
       toolId: 'tool-1',
       toolTitle: 'Tool 1',
       onSectionChange: vi.fn(),
-      exportRef: exportRef as MutableRefObject<() => void>,
-      saveRef: saveRef as MutableRefObject<() => void>,
+      panelId: 'panel-1',
+      widgetKey: 'editor_custom_tool',
       doc,
       save: vi.fn(),
     }

@@ -94,13 +94,11 @@ vi.mock('@/widgets/widgets/_shared/mcp/components/mcp-server-form', () => ({
   },
 }))
 
-vi.mock('@/widgets/utils/indicator-editor-actions', () => ({
-  useIndicatorEditorActions: () => {},
-}))
-
-vi.mock('@/widgets/utils/skill-editor-actions', () => ({ useSkillEditorActions: () => {} }))
-vi.mock('@/widgets/utils/mcp-editor-actions', () => ({
-  useMcpEditorActions: (actions: unknown) => mockMcpEditorActions(actions),
+vi.mock('@/widgets/utils/editor-actions', () => ({
+  useEditorActions: (eventName: string, actions: unknown) => {
+    if (eventName === 'mcp-editor:action') mockMcpEditorActions(actions)
+  },
+  emitEditorAction: vi.fn(),
 }))
 
 const cases: Array<{
