@@ -1,7 +1,7 @@
 import type { WatchlistItem } from '@/lib/watchlists/types'
 
 export type WatchlistDropTarget =
-  | { type: 'before'; itemId: string }
+  | { type: 'position'; itemId: string }
   | { type: 'container'; containerId: string }
   | { type: 'root' }
 
@@ -41,7 +41,7 @@ export const resolveDropTarget = (sortableId: string): WatchlistDropTarget | nul
 
   if (sortableId.startsWith(LISTING_SORTABLE_PREFIX)) {
     const itemId = sortableId.slice(LISTING_SORTABLE_PREFIX.length)
-    return itemId ? { type: 'before', itemId } : null
+    return itemId ? { type: 'position', itemId } : null
   }
 
   if (sortableId.startsWith(CONTAINER_SORTABLE_PREFIX)) {
@@ -61,7 +61,7 @@ const resolveTargetParentId = (
   target: WatchlistDropTarget
 ) => {
   if (active.type === 'container') {
-    return target.type === 'before' && target.itemId === active.itemId ? undefined : null
+    return target.type === 'position' && target.itemId === active.itemId ? undefined : null
   }
   if (target.type === 'root') return null
   if (target.type === 'container') {
@@ -74,30 +74,31 @@ const resolveTargetParentId = (
 
 const resolveInsertIndex = (
   items: WatchlistItem[],
+  remaining: WatchlistItem[],
   target: WatchlistDropTarget,
   parentId: string | null
 ) => {
-  if (target.type === 'before') {
+  if (target.type === 'position') {
     return items.findIndex((item) => item.id === target.itemId)
   }
 
   if (target.type === 'root') {
-    const firstSectionIndex = items.findIndex((item) => item.type === 'section')
-    return firstSectionIndex === -1 ? items.length : firstSectionIndex
+    const firstSectionIndex = remaining.findIndex((item) => item.type === 'section')
+    return firstSectionIndex === -1 ? remaining.length : firstSectionIndex
   }
 
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    if ((items[index]?.parentId ?? null) === parentId) {
+  for (let index = remaining.length - 1; index >= 0; index -= 1) {
+    if ((remaining[index]?.parentId ?? null) === parentId) {
       return index + 1
     }
   }
 
   if (target.type === 'container') {
-    const containerIndex = items.findIndex((item) => item.id === target.containerId)
-    return containerIndex === -1 ? items.length : containerIndex + 1
+    const containerIndex = remaining.findIndex((item) => item.id === target.containerId)
+    return containerIndex === -1 ? remaining.length : containerIndex + 1
   }
 
-  return items.length
+  return remaining.length
 }
 
 const moveItem = (
@@ -120,7 +121,7 @@ const moveItem = (
     parentId: active.type === 'container' ? null : nextParentId,
   } as WatchlistItem
   const remaining = items.filter((item) => item.id !== active.itemId)
-  const insertIndex = resolveInsertIndex(remaining, target, nextParentId)
+  const insertIndex = resolveInsertIndex(items, remaining, target, nextParentId)
   if (insertIndex === -1) return null
 
   const nextItems = [
@@ -152,13 +153,13 @@ export const resolveEffectiveDropTarget = (
   if (rawTarget.type === 'container') {
     return rawTarget.containerId === active.itemId
       ? null
-      : { type: 'before', itemId: rawTarget.containerId }
+      : { type: 'position', itemId: rawTarget.containerId }
   }
 
   const targetItem = findItem(items, rawTarget.itemId)
   const parentId = targetItem?.parentId ?? null
   if (!parentId) return rawTarget.itemId === active.itemId ? null : rawTarget
-  return parentId === active.itemId ? null : { type: 'before', itemId: parentId }
+  return parentId === active.itemId ? null : { type: 'position', itemId: parentId }
 }
 
 export const moveWatchlistItem = (

@@ -42,6 +42,25 @@ describe('watchlist reorder helpers', () => {
     expect(next?.map((item) => item.id)).toEqual(['a', 'c', 'b', 's1'])
   })
 
+  it('moves listings to the hovered final index when dragging downward', () => {
+    const items = [listing('a'), listing('b'), listing('c')]
+
+    expect(
+      moveWatchlistItem(
+        items,
+        createWatchlistListingSortableId('a'),
+        createWatchlistListingSortableId('b')
+      )?.map((item) => item.id)
+    ).toEqual(['b', 'a', 'c'])
+    expect(
+      moveWatchlistItem(
+        items,
+        createWatchlistListingSortableId('a'),
+        createWatchlistListingSortableId('c')
+      )?.map((item) => item.id)
+    ).toEqual(['b', 'c', 'a'])
+  })
+
   it('moves a listing to the end of a target section', () => {
     const items = [
       listing('a'),
@@ -106,6 +125,18 @@ describe('watchlist reorder helpers', () => {
     expect(next?.find((item) => item.id === 'd')?.parentId).toBe('s2')
   })
 
+  it('moves sections to the hovered final index when dragging downward', () => {
+    const items = [section('s1'), section('s2'), section('s3')]
+
+    const next = moveWatchlistItem(
+      items,
+      createWatchlistContainerSortableId('s1'),
+      createWatchlistContainerSortableId('s3')
+    )
+
+    expect(next?.map((item) => item.id)).toEqual(['s2', 's3', 's1'])
+  })
+
   it('resolves a section drag over child rows before the root section block', () => {
     const items = [
       listing('a'),
@@ -122,7 +153,7 @@ describe('watchlist reorder helpers', () => {
         createWatchlistContainerSortableId('s2'),
         createWatchlistListingSortableId('b')
       )
-    ).toEqual({ type: 'before', itemId: 's1' })
+    ).toEqual({ type: 'position', itemId: 's1' })
   })
 
   it('resolves a section drag over an unsectioned row as a root reorder', () => {
@@ -134,7 +165,7 @@ describe('watchlist reorder helpers', () => {
         createWatchlistContainerSortableId('s1'),
         createWatchlistListingSortableId('a')
       )
-    ).toEqual({ type: 'before', itemId: 'a' })
+    ).toEqual({ type: 'position', itemId: 'a' })
   })
 
   it('returns null when drop results in no change or invalid ids', () => {
@@ -170,7 +201,7 @@ describe('watchlist reorder helpers', () => {
     expect(resolveDraggedItem(listingSortableId)).toEqual({ type: 'listing', itemId: 'l1' })
     expect(resolveDraggedItem(sectionSortableId)).toEqual({ type: 'container', itemId: 's1' })
 
-    expect(resolveDropTarget(listingSortableId)).toEqual({ type: 'before', itemId: 'l1' })
+    expect(resolveDropTarget(listingSortableId)).toEqual({ type: 'position', itemId: 'l1' })
     expect(resolveDropTarget(sectionSortableId)).toEqual({
       type: 'container',
       containerId: 's1',

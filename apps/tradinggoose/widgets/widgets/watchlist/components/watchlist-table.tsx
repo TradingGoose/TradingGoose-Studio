@@ -580,7 +580,7 @@ export const WatchlistTable = ({
       ? `${getListingPrimary(listing)}/${listing.quote.trim()}`
       : getListingPrimary(listing)
     const assetClass = resolveWatchlistAssetClass(row.listing, resolved)
-    const isDropBefore = dropTarget?.type === 'before' && dropTarget.itemId === row.item.id
+    const isDropPosition = dropTarget?.type === 'position' && dropTarget.itemId === row.item.id
     const sortableId = createWatchlistListingSortableId(row.item.id)
     const isEditing = editingListingId === row.item.id
     const isSelected = areListingIdentitiesEqual(selectedListing, row.listing)
@@ -599,7 +599,7 @@ export const WatchlistTable = ({
           className={cn(
             'group/listing border-b bg-background transition-colors',
             isEditing && 'relative z-20',
-            isDropBefore ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
+            isDropPosition ? 'bg-primary/10' : isSelected ? 'bg-accent' : 'hover:bg-accent/20'
           )}
           onClick={() => {
             if (isEditing || !onSelectListing) return
