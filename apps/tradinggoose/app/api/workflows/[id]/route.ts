@@ -217,6 +217,14 @@ export async function DELETE(
     const workflowData = accessContext.workflow
 
     if (
+      !workflowData.workspaceId ||
+      (!accessContext.isWorkspaceOwner && accessContext.workspacePermission === null)
+    ) {
+      logger.warn(`[${requestId}] User ${userId} has no workspace access to workflow ${workflowId}`)
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    if (
       !accessContext.isOwner &&
       !accessContext.isWorkspaceOwner &&
       accessContext.workspacePermission !== 'admin'

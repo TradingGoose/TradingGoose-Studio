@@ -7,20 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workflow YAML Export API Route', () => {
   let loadWorkflowStateMock: ReturnType<typeof vi.fn>
   let makeRequestMock: ReturnType<typeof vi.fn>
+  let validateWorkflowPermissionsMock: ReturnType<typeof vi.fn>
 
   const workflowRow = {
     id: 'workflow-id',
-    userId: 'user-id',
-    workspaceId: 'workspace-id',
-    variables: {
-      'db-var': {
-        id: 'db-var',
-        workflowId: 'workflow-id',
-        name: 'fallbackVar',
-        type: 'plain',
-        value: 'fallback',
-      },
-    },
     isDeployed: false,
     deployedAt: null,
   }
@@ -33,43 +23,17 @@ describe('Workflow YAML Export API Route', () => {
     vi.clearAllMocks()
 
     loadWorkflowStateMock = vi.fn()
+    validateWorkflowPermissionsMock = vi.fn().mockResolvedValue({
+      error: null,
+      workflow: workflowRow,
+    })
     makeRequestMock = vi.fn().mockResolvedValue({
       success: true,
       data: { yaml: 'name: exported' },
     })
 
-    vi.doMock('drizzle-orm', () => ({
-      eq: vi.fn((field, value) => ({ field, value })),
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
-      workflow: {
-        id: 'id',
-      },
-    }))
-
-    vi.doMock('@tradinggoose/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([workflowRow]),
-          }),
-        }),
-      },
-    }))
-
-    vi.doMock('@/lib/auth', () => ({
-      getSession: vi.fn().mockResolvedValue({
-        user: { id: 'user-id' },
-      }),
-    }))
-
-    vi.doMock('@/lib/permissions/utils', () => ({
-      checkWorkspaceAccess: vi.fn().mockResolvedValue({
-        exists: true,
-        hasAccess: true,
-        canWrite: true,
-      }),
+    vi.doMock('@/lib/workflows/utils', () => ({
+      validateWorkflowPermissions: validateWorkflowPermissionsMock,
     }))
 
     vi.doMock('@/lib/copilot/agent/client', () => ({
@@ -130,6 +94,20 @@ describe('Workflow YAML Export API Route', () => {
     vi.clearAllMocks()
   })
 
+  it('denies export before reading live workflow state', async () => {
+    validateWorkflowPermissionsMock.mockResolvedValueOnce({
+      error: { message: 'Unauthorized: Access denied to read this workflow', status: 403 },
+      workflow: null,
+    })
+
+    const { GET } = await import('@/app/api/workflows/yaml/export/route')
+    const response = await GET(createRequest())
+
+    expect(response.status).toBe(403)
+    expect(loadWorkflowStateMock).not.toHaveBeenCalled()
+    expect(makeRequestMock).not.toHaveBeenCalled()
+  })
+
   it(
     'uses the current workflow state and includes variables in the export payload',
     { timeout: 10_000 },
@@ -167,6 +145,12 @@ describe('Workflow YAML Export API Route', () => {
       const response = await GET(createRequest())
 
       expect(response.status).toBe(200)
+      expect(validateWorkflowPermissionsMock).toHaveBeenCalledWith(
+        'workflow-id',
+        'request-id',
+        'read'
+      )
+      expect(loadWorkflowStateMock).toHaveBeenCalledWith('workflow-id')
       expect(makeRequestMock).toHaveBeenCalledWith(
         '/api/workflow/to-yaml',
         expect.objectContaining({
@@ -192,64 +176,4 @@ describe('Workflow YAML Export API Route', () => {
       )
     }
   )
-
-  it('exports the current workflow state', async () => {
-    loadWorkflowStateMock.mockResolvedValue({
-      blocks: {
-        'db-block': {
-          id: 'db-block',
-          type: 'agent',
-          name: 'Saved Agent',
-          position: { x: 10, y: 20 },
-          subBlocks: {
-            prompt: { id: 'prompt', type: 'long-input', value: 'saved value' },
-          },
-          outputs: {},
-          enabled: true,
-        },
-      },
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: {
-        'db-var': {
-          id: 'db-var',
-          workflowId: 'workflow-id',
-          name: 'fallbackVar',
-          type: 'plain',
-          value: 'fallback',
-        },
-      },
-      lastSaved: Date.now(),
-    })
-
-    const { GET } = await import('@/app/api/workflows/yaml/export/route')
-    const response = await GET(createRequest())
-
-    expect(response.status).toBe(200)
-    expect(loadWorkflowStateMock).toHaveBeenCalledWith('workflow-id')
-    expect(makeRequestMock).toHaveBeenCalledWith(
-      '/api/workflow/to-yaml',
-      expect.objectContaining({
-        body: expect.objectContaining({
-          workflowState: expect.objectContaining({
-            blocks: expect.objectContaining({
-              'db-block': expect.objectContaining({ name: 'Saved Agent' }),
-            }),
-            variables: {
-              'db-var': expect.objectContaining({
-                name: 'fallbackVar',
-                value: 'fallback',
-              }),
-            },
-          }),
-          subBlockValues: {
-            'db-block': {
-              prompt: 'saved value',
-            },
-          },
-        }),
-      })
-    )
-  }, 10000)
 })

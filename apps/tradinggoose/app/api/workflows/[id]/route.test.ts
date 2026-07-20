@@ -531,6 +531,38 @@ describe('Workflow By ID API Route', () => {
       expect(deleteWhereMock).toHaveBeenCalledOnce()
     })
 
+    it('should deny a removed workflow creator before deletion fencing', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        workspaceId: 'workspace-456',
+      }
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({ user: { id: 'user-123' } }),
+      }))
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: 'workspace-owner',
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+
+      const { DELETE } = await import('@/app/api/workflows/[id]/route')
+      const response = await DELETE(
+        new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+          method: 'DELETE',
+        }),
+        { params: Promise.resolve({ id: 'workflow-123' }) }
+      )
+
+      expect(response.status).toBe(403)
+      expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
+      expect(mockLockSavedEntityList).not.toHaveBeenCalled()
+      expect(mockRefreshWorkflowList).not.toHaveBeenCalled()
+    })
+
     it('should allow admin to delete workspace workflow', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
