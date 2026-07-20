@@ -46,7 +46,7 @@ type DashboardLayoutListMutation = {
 export function useDashboardLayoutList(
   workspaceId: string,
   ownerUserId: string,
-  initialLayouts: readonly { id: string; name: string; isActive: boolean }[]
+  initialLayouts: { id: string; name: string; isActive: boolean }[]
 ) {
   const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
   const liveLayouts = useMemo(() => members.map(toLayoutListEntry), [members])
