@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   fenced: vi.fn(),
-  lease: vi.fn(),
   refresh: vi.fn(),
 }))
 
@@ -12,7 +11,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  withYjsSessionDrainLease: mocks.lease,
   runYjsDrainFencedTransaction: mocks.fenced,
   refreshEntityListSession: mocks.refresh,
 }))
@@ -37,13 +35,12 @@ describe('deleteSavedEntity', () => {
   })
 
   it.each(['skill', 'watchlist'] as const)(
-    'does not lease %s outside the workspace',
+    'does not fence %s outside the workspace',
     async (entityKind) => {
       const entityId = `${entityKind}-1`
       mocks.select.mockReturnValue(selectRows([{ workspaceId: 'workspace-2' }]))
 
       await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(false)
-      expect(mocks.lease).not.toHaveBeenCalled()
       expect(mocks.fenced).not.toHaveBeenCalled()
     }
   )
@@ -52,14 +49,10 @@ describe('deleteSavedEntity', () => {
     ['skill', 'delete'],
     ['knowledge_base', 'update'],
     ['watchlist', 'delete'],
-  ] as const)('leases, locks, writes, and refreshes %s in order', async (entityKind, write) => {
+  ] as const)('fences, locks, writes, and refreshes %s in order', async (entityKind, write) => {
     const entityId = `${entityKind}-1`
     const events: string[] = []
     mocks.select.mockReturnValue(selectRows([{ workspaceId: 'workspace-1' }]))
-    mocks.lease.mockImplementation(async (_target, mutate) => {
-      events.push('lease')
-      return mutate({ assertHeld: vi.fn() })
-    })
     const query = {
       where: () => ({
         returning: async () => {
@@ -68,7 +61,7 @@ describe('deleteSavedEntity', () => {
         },
       }),
     }
-    mocks.fenced.mockImplementation(async (_leases, mutate) => {
+    mocks.fenced.mockImplementation(async (_target, mutate) => {
       events.push('fence')
       return mutate({
         execute: async () => events.push('lock'),
@@ -79,7 +72,7 @@ describe('deleteSavedEntity', () => {
     mocks.refresh.mockImplementation(async () => void events.push('refresh'))
 
     await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(true)
-    expect(mocks.lease).toHaveBeenCalledWith({ sessionIds: [entityId] }, expect.any(Function))
-    expect(events).toEqual(['lease', 'fence', 'lock', write, 'refresh'])
+    expect(mocks.fenced).toHaveBeenCalledWith({ sessionIds: [entityId] }, expect.any(Function))
+    expect(events).toEqual(['fence', 'lock', write, 'refresh'])
   })
 })

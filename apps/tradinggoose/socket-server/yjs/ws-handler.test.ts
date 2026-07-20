@@ -184,12 +184,14 @@ beforeEach(() => {
     async (
       sessionId: string,
       options: {
+        authorize?: () => Promise<unknown> | unknown
         initialize: (
           doc: Y.Doc
         ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
       },
       use: (doc: Y.Doc) => Promise<unknown> | unknown
     ) => {
+      await options.authorize?.()
       const entry = mockDocuments.get(sessionId) ?? { doc: new Y.Doc(), seeded: false }
       mockDocuments.set(sessionId, entry)
       if (!entry.seeded) {
@@ -231,6 +233,10 @@ beforeEach(() => {
     initializeSavedReviewTargetDocument: mockInitializeSavedReviewTargetDocument,
   }))
 
+  vi.doMock('@/lib/yjs/server/revocation-fence', () => ({
+    YjsSessionAdmissionError: MockYjsSessionAdmissionError,
+  }))
+
   vi.doMock('./entity-list-session', () => ({
     bindEntityListSession: mockBindEntityListSession,
     refreshActiveEntityListSession: mockRefreshActiveEntityListSession,
@@ -249,7 +255,6 @@ beforeEach(() => {
   }))
 
   vi.doMock('./upstream-utils', () => ({
-    YjsSessionAdmissionError: MockYjsSessionAdmissionError,
     acquireDocument: mockAcquireDocument,
     persistStagedDocuments: mockPersistStagedDocuments,
     setupWSConnection: mockSetupWSConnection,

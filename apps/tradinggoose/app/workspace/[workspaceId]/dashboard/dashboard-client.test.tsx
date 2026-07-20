@@ -41,6 +41,7 @@ let mockLayoutTabsIsBusy = false
 let mockLayoutTabsCanMutate = true
 let mockDashboardLayoutList: {
   layouts: LayoutTab[]
+  hasLiveSnapshot: boolean
   isLoading: boolean
   error: unknown
 } | null = null
@@ -136,6 +137,7 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
     useDashboardLayoutList: (workspaceId: string) =>
       mockDashboardLayoutList ?? {
         layouts: createLayouts(workspaceId === 'ws-b' ? 'layout-b' : 'layout-a'),
+        hasLiveSnapshot: true,
         isLoading: false,
         error: null,
       },
@@ -566,9 +568,10 @@ describe('DashboardClient', () => {
     consoleError.mockRestore()
   })
 
-  it('keeps a ready selected layout independent of entity-list failure', async () => {
+  it('keeps SSR tabs and a ready layout independent of initial entity-list failure', async () => {
     mockDashboardLayoutList = {
-      layouts: createLayouts('layout-a'),
+      layouts: [],
+      hasLiveSnapshot: false,
       isLoading: false,
       error: new Error('layout list unavailable'),
     }
@@ -577,12 +580,31 @@ describe('DashboardClient', () => {
       renderDashboard({ topology: createGroupLayout([50, 50]) })
     })
 
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-a'))
     expect(mockLayoutTabsCanMutate).toBe(false)
     const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
     if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close control')
     expect(closePanel.disabled).toBe(false)
     await act(async () => closePanel.click())
     expect(mockLayoutMutation).toHaveBeenCalledWith({ type: 'close', panelId: 'panel-left' })
+  })
+
+  it('replaces SSR tabs with a live snapshot without changing route selection', async () => {
+    const liveLayouts = [{ id: 'layout-live', name: 'Live layout', sortOrder: 0, isActive: true }]
+    mockDashboardLayoutList = {
+      layouts: liveLayouts,
+      hasLiveSnapshot: true,
+      isLoading: false,
+      error: null,
+    }
+
+    await act(async () => {
+      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
+    })
+
+    expect(mockLayoutTabsLayouts).toEqual([{ ...liveLayouts[0], isActive: false }])
+    expect(mockLayoutTabsCanMutate).toBe(true)
+    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
   })
 })
 

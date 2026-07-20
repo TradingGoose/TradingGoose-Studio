@@ -32,7 +32,6 @@ const drainHarness = vi.hoisted(() => ({
   events: [] as string[],
   delete: vi.fn(),
   fenced: vi.fn(),
-  lease: vi.fn(),
   lockList: vi.fn(),
 }))
 
@@ -117,7 +116,6 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   runYjsDrainFencedTransaction: drainHarness.fenced,
   SocketServerBridgeError: class SocketServerBridgeError extends Error {},
-  withYjsSessionDrainLease: drainHarness.lease,
 }))
 
 describe('Workspace by id PATCH route', () => {
@@ -136,27 +134,23 @@ describe('Workspace by id PATCH route', () => {
     drainHarness.events.length = 0
     drainHarness.delete.mockReturnValue({ where: vi.fn() })
     drainHarness.lockList.mockResolvedValue(undefined)
-    drainHarness.lease.mockImplementation(async (_target, mutate) => {
-      drainHarness.events.push('lease-begin')
-      const result = await mutate({ assertHeld: vi.fn() })
-      drainHarness.events.push('lease-commit')
+    drainHarness.fenced.mockImplementation(async (_target, mutate) => {
+      drainHarness.events.push('fence-begin')
+      const result = await mutate({ delete: drainHarness.delete })
+      drainHarness.events.push('fence-commit')
       return result
-    })
-    drainHarness.fenced.mockImplementation(async (_leases, mutate) => {
-      drainHarness.events.push('transaction')
-      return mutate({ delete: drainHarness.delete })
     })
   })
 
-  it('leases every workspace document before deleting canonical rows', async () => {
+  it('fences every workspace document while deleting canonical rows', async () => {
     const { DELETE } = await import('./route')
     const response = await DELETE(new NextRequest('http://localhost/api/workspaces/workspace-1'), {
       params: Promise.resolve({ id: 'workspace-1' }),
     })
 
     expect(response.status).toBe(200)
-    expect(drainHarness.lease.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
-    expect(drainHarness.events).toEqual(['lease-begin', 'transaction', 'lease-commit'])
+    expect(drainHarness.fenced.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
+    expect(drainHarness.events).toEqual(['fence-begin', 'fence-commit'])
     expect(drainHarness.lockList).toHaveBeenCalledTimes(2)
     expect(drainHarness.delete).toHaveBeenCalledTimes(4)
   })

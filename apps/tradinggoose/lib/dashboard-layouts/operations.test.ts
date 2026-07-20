@@ -110,8 +110,7 @@ const m = vi.hoisted(() => {
     db: { ...store, transaction },
     bridge: {
       refreshEntityListSession: vi.fn(() => Promise.resolve(true)),
-      withYjsSessionDrainLease: vi.fn(async (_target, mutate) => mutate({ assertHeld: vi.fn() })),
-      runYjsDrainFencedTransaction: vi.fn(async (_leases, mutate) => transaction(mutate)),
+      runYjsDrainFencedTransaction: vi.fn(async (_target, mutate) => transaction(mutate)),
     },
   }
 })
@@ -339,7 +338,7 @@ describe('dashboard layout operations', () => {
     expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
   })
 
-  it('leases the layout root before discovering and leasing child sessions', async () => {
+  it('fences the layout root before discovering and fencing child sessions', async () => {
     m.selectResults.push(
       [layoutRow({ isActive: false })],
       [{ id: 'widget-1' }],
@@ -348,8 +347,10 @@ describe('dashboard layout operations', () => {
 
     await deleteDashboardLayout(scope, 'layout-1')
 
-    expect(m.bridge.withYjsSessionDrainLease.mock.calls[0]?.[0].sessionIds).toEqual(['layout-1'])
-    const childSessionIds = m.bridge.withYjsSessionDrainLease.mock.calls[1]?.[0].sessionIds
+    expect(m.bridge.runYjsDrainFencedTransaction.mock.calls[0]?.[0].sessionIds).toEqual([
+      'layout-1',
+    ])
+    const childSessionIds = m.bridge.runYjsDrainFencedTransaction.mock.calls[1]?.[0].sessionIds
     expect(childSessionIds).toContain('dashboard-widget:layout-1:widget-1')
     expect(childSessionIds).toContain('dashboard-color-pair:layout-1:red')
     expect(childSessionIds).toHaveLength(6)
@@ -359,7 +360,7 @@ describe('dashboard layout operations', () => {
   it('rejects active layout deletion before session or database side effects', async () => {
     m.selectResults.push([layoutRow()])
     await expect(deleteDashboardLayout(scope, 'layout-1')).rejects.toMatchObject({ status: 400 })
-    expect(m.bridge.withYjsSessionDrainLease).not.toHaveBeenCalled()
+    expect(m.bridge.runYjsDrainFencedTransaction).not.toHaveBeenCalled()
     expect(m.mutations).toEqual([])
   })
 })

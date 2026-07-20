@@ -29,7 +29,6 @@ describe('Workspace permissions PATCH route', () => {
   const mockHasWorkspaceAdminAccess = vi.fn()
   const mockGetUsersWithPermissions = vi.fn()
   const mockAssertWorkspaceBillingOwnerRetainsAdminAccess = vi.fn()
-  const mockWithYjsSessionDrainLease = vi.fn()
   const mockRunYjsDrainFencedTransaction = vi.fn()
   const mockCreateSavedEntityErrorResponse = vi.fn()
 
@@ -93,7 +92,6 @@ describe('Workspace permissions PATCH route', () => {
     }))
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      withYjsSessionDrainLease: mockWithYjsSessionDrainLease,
       runYjsDrainFencedTransaction: mockRunYjsDrainFencedTransaction,
     }))
 
@@ -105,12 +103,8 @@ describe('Workspace permissions PATCH route', () => {
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockGetUsersWithPermissions.mockResolvedValue([])
     mockAssertWorkspaceBillingOwnerRetainsAdminAccess.mockImplementation(() => {})
-    mockWithYjsSessionDrainLease.mockImplementation(
-      async (_target: unknown, operation: (lease: unknown) => Promise<unknown>) =>
-        operation({ assertHeld: vi.fn() })
-    )
     mockRunYjsDrainFencedTransaction.mockImplementation(
-      async (_leases: unknown, operation: (tx: unknown) => Promise<unknown>) =>
+      async (_target: unknown, operation: (tx: unknown) => Promise<unknown>) =>
         operation({ delete: deleteMock, insert: insertMock })
     )
     mockCreateSavedEntityErrorResponse.mockReturnValue(null)
@@ -152,7 +146,7 @@ describe('Workspace permissions PATCH route', () => {
     expect(await response.json()).toEqual({
       error: 'Workspace billing owner must retain admin permissions',
     })
-    expect(mockWithYjsSessionDrainLease).not.toHaveBeenCalled()
+    expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
     expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).toHaveBeenCalled()
   })
 
@@ -177,7 +171,7 @@ describe('Workspace permissions PATCH route', () => {
     expect(await response.json()).toEqual({
       error: 'Invalid permissions update payload',
     })
-    expect(mockWithYjsSessionDrainLease).not.toHaveBeenCalled()
+    expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
     expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()
   })
 
@@ -206,7 +200,7 @@ describe('Workspace permissions PATCH route', () => {
     expect(await response.json()).toEqual({
       error: 'Workspace owner permissions are managed by workspace ownership',
     })
-    expect(mockWithYjsSessionDrainLease).not.toHaveBeenCalled()
+    expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
     expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()
   })
 
@@ -255,11 +249,10 @@ describe('Workspace permissions PATCH route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockWithYjsSessionDrainLease).toHaveBeenCalledWith(
+    expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalledWith(
       { workspaceIds: ['workspace-1'] },
       expect.any(Function)
     )
-    expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalled()
     expect(insertValuesMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -283,7 +276,7 @@ describe('Workspace permissions PATCH route', () => {
       ],
       [{ userId: 'user-2' }]
     )
-    mockWithYjsSessionDrainLease.mockRejectedValueOnce(new Error('drain unavailable'))
+    mockRunYjsDrainFencedTransaction.mockRejectedValueOnce(new Error('drain unavailable'))
     mockCreateSavedEntityErrorResponse.mockReturnValueOnce(
       new Response(JSON.stringify({ error: 'Realtime state is temporarily unavailable' }), {
         status: 503,
@@ -303,7 +296,7 @@ describe('Workspace permissions PATCH route', () => {
     )
 
     expect(response.status).toBe(503)
-    expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
+    expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalledOnce()
     expect(deleteMock).not.toHaveBeenCalled()
     expect(insertMock).not.toHaveBeenCalled()
   })

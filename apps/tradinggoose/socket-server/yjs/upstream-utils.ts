@@ -6,7 +6,6 @@
  * `discardDocument` and `cleanupAllDocuments`.
  */
 
-import { randomUUID } from 'node:crypto'
 import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
@@ -27,6 +26,12 @@ import {
   encodeYjsPersistError,
   YJS_MESSAGE_LIFECYCLE,
 } from '@/lib/yjs/lifecycle-protocol'
+import {
+  normalizeYjsRevocationTarget,
+  withYjsAdmissionTransaction,
+  type YjsRevocationTarget,
+  YjsSessionAdmissionError,
+} from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
@@ -36,18 +41,9 @@ const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
-const DRAIN_LEASE_TTL_MS = 5 * 60_000
 const DOCUMENT_RETENTION_MS = 5 * 60_000
 
 const docs = new Map<string, WSSharedDoc>()
-const drainAdmissions = new Map<string, string>()
-type DrainLease = {
-  targets: string[]
-  drain: Promise<void>
-  expiryTimer: ReturnType<typeof setTimeout> | null
-  heldLocally: boolean
-}
-const drainLeases = new Map<string, DrainLease>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, staged: Y.Doc) => Promise<void> | void
@@ -55,6 +51,10 @@ type DocumentInitialization = { state?: Uint8Array; workspaceId?: string | null 
 type DocumentInitializer = (
   doc: Y.Doc
 ) => Promise<DocumentInitialization | undefined> | DocumentInitialization | undefined
+type DocumentAuthorizer = () =>
+  | Promise<{ workspaceId?: string | null } | undefined>
+  | { workspaceId?: string | null }
+  | undefined
 export type DocumentReconciler = () => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
@@ -69,15 +69,6 @@ export class YjsDocumentDrainingError extends Error {
   constructor() {
     super('Yjs document is draining')
     this.name = 'YjsDocumentDrainingError'
-  }
-}
-
-export class YjsSessionAdmissionError extends Error {
-  readonly status = 409
-
-  constructor(sessionId: string) {
-    super(`Yjs session ${sessionId} is not accepting connections`)
-    this.name = 'YjsSessionAdmissionError'
   }
 }
 
@@ -460,28 +451,38 @@ export async function acquireDocument<T>(
   options: {
     gc?: boolean
     workspaceId?: string | null
+    authorize?: DocumentAuthorizer
     initialize: DocumentInitializer
   },
   use: (doc: Y.Doc) => Promise<T> | T
 ): Promise<T> {
-  assertYjsSessionAdmission(docId, options.workspaceId)
-  let doc = docs.get(docId)
-  if (!doc) {
-    doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
-    docs.set(docId, doc)
-  }
-  return runDocumentMutation(doc, async () => {
-    const shared = doc as WSSharedDoc
-    if (!shared.seeded) {
-      const resolved = await options.initialize(doc)
-      if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
-      assertYjsSessionAdmission(shared.name, shared.workspaceId)
-      if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
-      shared.seeded = true
-      shared.hasUnsavedChanges = false
-      shared.persistedSnapshot = Y.snapshot(shared)
+  const workspaceIds = options.workspaceId ? [options.workspaceId] : undefined
+  return withYjsAdmissionTransaction({ sessionIds: [docId], workspaceIds }, async (admit) => {
+    assertLocalDocumentAdmission(docId)
+    const authorized = await options.authorize?.()
+    if (authorized?.workspaceId) {
+      await admit({ workspaceIds: [authorized.workspaceId] })
     }
-    return use(doc)
+
+    let doc = docs.get(docId)
+    if (!doc) {
+      doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
+      docs.set(docId, doc)
+    }
+    if (doc.workspaceId) await admit({ workspaceIds: [doc.workspaceId] })
+    return runDocumentMutation(doc, async () => {
+      const shared = doc as WSSharedDoc
+      if (!shared.seeded) {
+        const resolved = await options.initialize(doc)
+        if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
+        if (shared.workspaceId) await admit({ workspaceIds: [shared.workspaceId] })
+        if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
+        shared.seeded = true
+        shared.hasUnsavedChanges = false
+        shared.persistedSnapshot = Y.snapshot(shared)
+      }
+      return use(doc)
+    })
   })
 }
 
@@ -577,16 +578,8 @@ export function peekDocument(docId: string): Y.Doc | null {
   return doc?.seeded ? doc : null
 }
 
-export function assertYjsSessionAdmission(docId: string, workspaceId?: string | null): void {
-  const resolvedWorkspaceId = workspaceId ?? docs.get(docId)?.workspaceId
-  const sessionTarget = `session:${docId}`
-  const workspaceTarget = resolvedWorkspaceId ? `workspace:${resolvedWorkspaceId}` : null
-  const blocked =
-    isDrainingAllDocuments ||
-    drainAdmissions.has(sessionTarget) ||
-    (workspaceTarget !== null && drainAdmissions.has(workspaceTarget)) ||
-    docs.get(docId)?.isDraining === true
-  if (!blocked) return
+function assertLocalDocumentAdmission(docId: string): void {
+  if (!isDrainingAllDocuments && docs.get(docId)?.isDraining !== true) return
   throw new YjsSessionAdmissionError(docId)
 }
 
@@ -727,116 +720,14 @@ export async function discardDocument(candidate: Y.Doc): Promise<void> {
   if (docs.get(doc.name) === doc) cleanupDocument(doc)
 }
 
-function refreshYjsSessionDrainLease(leaseId: string, lease: DrainLease): void {
-  if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
-  if (lease.heldLocally) {
-    lease.expiryTimer = null
-    return
-  }
-  lease.expiryTimer = setTimeout(() => {
-    if (drainLeases.get(leaseId) !== lease) return
-    releaseYjsSessionDrainLease(leaseId)
-  }, DRAIN_LEASE_TTL_MS)
-}
-
-function releaseYjsSessionDrainLease(leaseId: string): void {
-  const lease = drainLeases.get(leaseId)
-  if (!lease) return
-  drainLeases.delete(leaseId)
-  if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
-  for (const target of lease.targets) {
-    if (drainAdmissions.get(target) === leaseId) drainAdmissions.delete(target)
-  }
-}
-
-function normalizeDrainTargetIds(ids: readonly string[] = []): string[] {
-  return [...new Set(ids)].sort()
-}
-
-export async function beginYjsSessionDrain(
-  leaseId: string,
-  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] }
-): Promise<void> {
-  if (!leaseId.trim()) throw new Error('A non-empty Yjs drain lease ID is required')
-  const orderedSessionIds = normalizeDrainTargetIds(target.sessionIds)
-  const orderedWorkspaceIds = normalizeDrainTargetIds(target.workspaceIds)
-  if (
-    orderedSessionIds.length + orderedWorkspaceIds.length === 0 ||
-    [...orderedSessionIds, ...orderedWorkspaceIds].some((id) => !id.trim())
-  ) {
-    throw new Error('At least one non-empty Yjs drain target is required')
-  }
-  const targets = [
-    ...orderedSessionIds.map((id) => `session:${id}`),
-    ...orderedWorkspaceIds.map((id) => `workspace:${id}`),
-  ]
-  const firstTarget = targets[0]!
-  let lease = drainLeases.get(leaseId)
-  if (lease) {
-    if (JSON.stringify(lease.targets) !== JSON.stringify(targets)) {
-      throw new YjsSessionAdmissionError(firstTarget)
-    }
-  } else {
-    const sessionTargets = new Set(orderedSessionIds)
-    const workspaceTargets = new Set(orderedWorkspaceIds)
-    const targetDocuments = Array.from(docs.values()).filter(
-      (doc) =>
-        sessionTargets.has(doc.name) || (!!doc.workspaceId && workspaceTargets.has(doc.workspaceId))
-    )
-    if (
-      isDrainingAllDocuments ||
-      targets.some((drainTarget) => drainAdmissions.has(drainTarget)) ||
-      targetDocuments.some((doc) => doc.isDraining)
-    ) {
-      throw new YjsSessionAdmissionError(firstTarget)
-    }
-
-    for (const drainTarget of targets) drainAdmissions.set(drainTarget, leaseId)
-    const drain = Promise.all(targetDocuments.map(discardDocument)).then(() => undefined)
-    lease = { targets, drain, expiryTimer: null, heldLocally: false }
-    drainLeases.set(leaseId, lease)
-  }
-  refreshYjsSessionDrainLease(leaseId, lease)
-
-  try {
-    await lease.drain
-    if (drainLeases.get(leaseId) !== lease) {
-      throw new YjsSessionAdmissionError(firstTarget)
-    }
-    refreshYjsSessionDrainLease(leaseId, lease)
-  } catch (error) {
-    if (drainLeases.get(leaseId) === lease) abortYjsSessionDrain(leaseId)
-    throw error
-  }
-}
-
-export async function withYjsSessionDrain<T>(
-  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
-  mutate: () => Promise<T>
-): Promise<T> {
-  const leaseId = randomUUID()
-  await beginYjsSessionDrain(leaseId, target)
-  const lease = drainLeases.get(leaseId)
-  if (!lease) throw new YjsSessionAdmissionError(leaseId)
-  lease.heldLocally = true
-  refreshYjsSessionDrainLease(leaseId, lease)
-
-  try {
-    const result = await mutate()
-    commitYjsSessionDrain(leaseId)
-    return result
-  } catch (error) {
-    abortYjsSessionDrain(leaseId)
-    throw error
-  }
-}
-
-export function commitYjsSessionDrain(leaseId: string): void {
-  releaseYjsSessionDrainLease(leaseId)
-}
-
-export function abortYjsSessionDrain(leaseId: string): void {
-  releaseYjsSessionDrainLease(leaseId)
+export async function drainYjsSessionTargets(target: YjsRevocationTarget): Promise<void> {
+  const normalized = normalizeYjsRevocationTarget(target)
+  const sessionIds = new Set(normalized.sessionIds)
+  const workspaceIds = new Set(normalized.workspaceIds)
+  const targetDocuments = Array.from(docs.values()).filter(
+    (doc) => sessionIds.has(doc.name) || (!!doc.workspaceId && workspaceIds.has(doc.workspaceId))
+  )
+  await Promise.all(targetDocuments.map(discardDocument))
 }
 
 async function reconcileConnection(
@@ -859,11 +750,6 @@ export function cleanupAllDocuments(): void {
     for (const conn of Array.from(doc.conns.keys())) closeConn(doc, conn)
     cleanupDocument(doc)
   }
-  for (const lease of drainLeases.values()) {
-    if (lease.expiryTimer) clearTimeout(lease.expiryTimer)
-  }
-  drainLeases.clear()
-  drainAdmissions.clear()
   isDrainingAllDocuments = false
   terminalPersistenceError = null
 }

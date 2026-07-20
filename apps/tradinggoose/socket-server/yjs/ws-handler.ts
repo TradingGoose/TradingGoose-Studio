@@ -30,6 +30,7 @@ import {
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
+import { YjsSessionAdmissionError } from '@/lib/yjs/server/revocation-fence'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { bindEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
 import {
@@ -37,7 +38,6 @@ import {
   type DocumentValidator,
   persistStagedDocuments,
   setupWSConnection,
-  YjsSessionAdmissionError,
 } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
@@ -153,22 +153,29 @@ export function handleYjsUpgrade(
 
     void (async () => {
       if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
-      const { accessMode, userId, descriptor, validateDocument } =
-        await authenticateAndPrepareUpgrade(yjsSessionId, url)
+      const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
       if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
 
-      const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
-      logger.info('Yjs connection established', { docId: yjsSessionId, userId })
+      let prepared: PreparedYjsUpgrade | null = null
       await acquireDocument(
         yjsSessionId,
         {
-          workspaceId: descriptor.workspaceId,
+          workspaceId: authenticated.descriptor.workspaceId,
+          authorize: async () => {
+            prepared = await authorizeAndPrepareUpgrade(authenticated)
+            return { workspaceId: prepared.descriptor.workspaceId }
+          },
           initialize: () => {
-            if (isListTarget) return
-            return initializeSavedReviewTargetDocument(descriptor)
+            if (!prepared) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
+            if (isEntityListSessionId(prepared.descriptor.yjsSessionId)) return
+            return initializeSavedReviewTargetDocument(prepared.descriptor)
           },
         },
         async (doc) => {
+          if (!prepared) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
+          const { accessMode, userId, descriptor, validateDocument } = prepared
+          const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+          logger.info('Yjs connection established', { docId: yjsSessionId, userId })
           if (isListTarget) {
             await bindEntityListSession(
               doc,
@@ -209,15 +216,20 @@ function yjsConnectionRejectionCode(error: unknown): number {
     : YJS_CLOSE_CODE_RETRY_REQUIRED
 }
 
-async function authenticateAndPrepareUpgrade(
-  pathSessionId: string,
-  url: URL
-): Promise<{
+type AuthenticatedYjsUpgrade = {
   userId: string
   accessMode: ReviewAccessMode
   descriptor: ReviewTargetDescriptor
+}
+
+type PreparedYjsUpgrade = AuthenticatedYjsUpgrade & {
   validateDocument?: DocumentValidator
-}> {
+}
+
+async function authenticateYjsUpgrade(
+  pathSessionId: string,
+  url: URL
+): Promise<AuthenticatedYjsUpgrade> {
   const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -228,6 +240,13 @@ async function authenticateAndPrepareUpgrade(
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
   assertAccessModeAllowed(accessMode, descriptor)
 
+  return { userId, accessMode, descriptor }
+}
+
+async function authorizeAndPrepareUpgrade(
+  authenticated: AuthenticatedYjsUpgrade
+): Promise<PreparedYjsUpgrade> {
+  const { accessMode, userId, descriptor } = authenticated
   const access = await verifyReviewTargetAccess(
     userId,
     {

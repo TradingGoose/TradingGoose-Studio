@@ -21,7 +21,6 @@ describe('Workflow By ID API Route', () => {
   const mockLoadWorkflowState = vi.fn()
   const mockRefreshWorkflowListForWorkflow = vi.fn()
   const mockRefreshWorkflowList = vi.fn()
-  const mockWithYjsSessionDrainLease = vi.fn()
   const mockRunYjsDrainFencedTransaction = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
@@ -91,7 +90,6 @@ describe('Workflow By ID API Route', () => {
     mockLoadWorkflowState.mockReset()
     mockRefreshWorkflowListForWorkflow.mockReset()
     mockRefreshWorkflowList.mockReset()
-    mockWithYjsSessionDrainLease.mockReset()
     mockRunYjsDrainFencedTransaction.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
@@ -114,10 +112,7 @@ describe('Workflow By ID API Route', () => {
       },
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
-    mockWithYjsSessionDrainLease.mockImplementation(async (_target, mutate) =>
-      mutate({ assertHeld: vi.fn() })
-    )
-    mockRunYjsDrainFencedTransaction.mockImplementation(async (_leases, mutate) => {
+    mockRunYjsDrainFencedTransaction.mockImplementation(async (_target, mutate) => {
       const { db } = await import('@tradinggoose/db')
       return db.transaction(mutate)
     })
@@ -130,7 +125,6 @@ describe('Workflow By ID API Route', () => {
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       runYjsDrainFencedTransaction: mockRunYjsDrainFencedTransaction,
       SocketServerBridgeError: class SocketServerBridgeError extends Error {},
-      withYjsSessionDrainLease: mockWithYjsSessionDrainLease,
     }))
 
     vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
@@ -426,7 +420,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should lease the live document before deleting the workflow row', async () => {
+    it('should fence the live document while deleting the workflow row', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -434,10 +428,11 @@ describe('Workflow By ID API Route', () => {
         workspaceId: 'workspace-456',
       }
       const events: string[] = []
-      mockWithYjsSessionDrainLease.mockImplementation(async (_target, mutate) => {
-        events.push('lease-begin')
-        const result = await mutate({ assertHeld: vi.fn() })
-        events.push('lease-commit')
+      mockRunYjsDrainFencedTransaction.mockImplementation(async (_target, mutate) => {
+        events.push('fence-begin')
+        const { db } = await import('@tradinggoose/db')
+        const result = await db.transaction(mutate)
+        events.push('fence-commit')
         return result
       })
 
@@ -482,13 +477,13 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(events).toEqual(['lease-begin', 'db-delete', 'lease-commit'])
-      expect(mockWithYjsSessionDrainLease.mock.calls[0]?.[0]).toEqual({
+      expect(events).toEqual(['fence-begin', 'db-delete', 'fence-commit'])
+      expect(mockRunYjsDrainFencedTransaction.mock.calls[0]?.[0]).toEqual({
         sessionIds: ['workflow-123'],
       })
     })
 
-    it('should return 500 if workflow row deletion fails inside the drain lease', async () => {
+    it('should return 500 if workflow row deletion fails inside the fence', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -532,7 +527,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(500)
       const data = await response.json()
       expect(data.error).toBe('Internal server error')
-      expect(mockWithYjsSessionDrainLease).toHaveBeenCalledOnce()
+      expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalledOnce()
       expect(deleteWhereMock).toHaveBeenCalledOnce()
     })
 

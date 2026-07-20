@@ -10,7 +10,6 @@ import {
 import {
   refreshEntityListSession,
   runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import {
@@ -544,8 +543,8 @@ export async function persistDashboardWidgetAndColorPairDocuments(
 export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, layoutId: string) {
   const row = await readOwnedLayoutRow(scope, layoutId)
   if (row.isActive) throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-  await withYjsSessionDrainLease({ sessionIds: [layoutId] }, async (layoutLease) => {
-    const widgets = await db
+  await runYjsDrainFencedTransaction({ sessionIds: [layoutId] }, async (layoutTx) => {
+    const widgets = await layoutTx
       .select({ id: layoutWidgets.id })
       .from(layoutWidgets)
       .where(eq(layoutWidgets.layoutId, layoutId))
@@ -555,16 +554,14 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
         buildDashboardColorPairSessionId(layoutId, color)
       ),
     ]
-    await withYjsSessionDrainLease({ sessionIds: childSessionIds }, (childLease) =>
-      runYjsDrainFencedTransaction([layoutLease, childLease], async (tx) => {
-        await lockDashboardLayoutOwner(tx, scope)
-        const current = await readOwnedLayoutRow(scope, layoutId, tx)
-        if (current.isActive) {
-          throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
-        }
-        await tx.delete(layoutMaps).where(ownedWhere(scope, layoutId))
-      })
-    )
+    await runYjsDrainFencedTransaction({ sessionIds: childSessionIds }, async (tx) => {
+      await lockDashboardLayoutOwner(tx, scope)
+      const current = await readOwnedLayoutRow(scope, layoutId, tx)
+      if (current.isActive) {
+        throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
+      }
+      await tx.delete(layoutMaps).where(ownedWhere(scope, layoutId))
+    })
   })
   await refreshLayoutList(scope)
 }

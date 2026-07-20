@@ -36,26 +36,53 @@ beforeEach(() => {
 })
 
 describe('runYjsDrainFencedTransaction', () => {
-  it('bounds the transaction before mutation and checks every lease last', async () => {
+  it('drains normalized targets inside the shared transaction fence', async () => {
     const events: string[] = []
     mockDbTransaction.mockImplementation((run) =>
       run({
-        execute: vi.fn(async (statement) => {
-          expect(JSON.stringify(statement)).toMatch(
-            /statement_timeout.*60000.*idle_in_transaction_session_timeout.*60000/s
-          )
-          events.push('timeouts')
+        execute: vi.fn(async () => {
+          events.push('lock')
+          return []
         }),
       })
     )
+    mockFetch.mockImplementation(async () => {
+      events.push('drain')
+      return new Response(JSON.stringify({ success: true }), { status: 200 })
+    })
     const { runYjsDrainFencedTransaction } = await import('./snapshot-bridge')
 
     await runYjsDrainFencedTransaction(
-      [{ assertHeld: () => events.push('lease') }],
+      { sessionIds: ['watchlist-1'] },
       async () => void events.push('mutation')
     )
 
-    expect(events).toEqual(['timeouts', 'mutation', 'lease'])
+    expect(events.slice(-2)).toEqual(['drain', 'mutation'])
+    expect(mockFetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))).toEqual({
+      sessionIds: ['watchlist-1'],
+      workspaceIds: [],
+    })
+  })
+
+  it('normalizes an unavailable realtime drain to the saved-entity contract', async () => {
+    vi.useFakeTimers()
+    mockDbTransaction.mockImplementation((run) =>
+      run({ execute: vi.fn(async () => [] as unknown[]) })
+    )
+    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
+    const { runYjsDrainFencedTransaction } = await import('./snapshot-bridge')
+
+    const drained = expect(
+      runYjsDrainFencedTransaction({ sessionIds: ['watchlist-1'] }, vi.fn())
+    ).rejects.toMatchObject({
+      name: 'SavedEntityRealtimeRequiredError',
+      status: 503,
+    })
+    await vi.runAllTimersAsync()
+
+    await drained
+    expect(mockFetch).toHaveBeenCalledTimes(3)
   })
 })
 
@@ -153,153 +180,5 @@ describe('refreshEntityListSession', () => {
 
     await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBe(expected)
     expect(mockLogger.warn).not.toHaveBeenCalled()
-  })
-})
-
-describe('withYjsSessionDrainLease', () => {
-  async function expectFetchRetryAfter(
-    delayMs: number,
-    callsBeforeRetry: number,
-    callsAfterRetry: number
-  ) {
-    await vi.advanceTimersByTimeAsync(delayMs - 1)
-    expect(mockFetch).toHaveBeenCalledTimes(callsBeforeRetry)
-    await vi.advanceTimersByTimeAsync(1)
-    expect(mockFetch).toHaveBeenCalledTimes(callsAfterRetry)
-  }
-
-  it('preserves a rejected drain admission status for the API consumer', async () => {
-    mockFetch
-      .mockResolvedValueOnce(new Response('{"error":"deletion in progress"}', { status: 409 }))
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const mutate = vi.fn()
-    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
-
-    await expect(
-      withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, mutate)
-    ).rejects.toMatchObject({ name: 'SocketServerBridgeError', status: 409 })
-    expect(mutate).not.toHaveBeenCalled()
-  })
-
-  it('normalizes an unavailable realtime deletion fence to the saved-entity contract', async () => {
-    vi.useFakeTimers()
-    mockFetch
-      .mockRejectedValueOnce(new TypeError('fetch failed'))
-      .mockRejectedValueOnce(new TypeError('fetch failed'))
-      .mockRejectedValueOnce(new TypeError('fetch failed'))
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
-
-    const deletion = expect(
-      withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, vi.fn())
-    ).rejects.toMatchObject({
-      name: 'SavedEntityRealtimeRequiredError',
-      status: 503,
-    })
-    await vi.advanceTimersByTimeAsync(750)
-
-    await deletion
-  })
-
-  it('renews a protected mutation and aborts after renewal can no longer confirm its lease', async () => {
-    vi.useFakeTimers()
-    let finishMutation!: () => void
-    let beginCount = 0
-    mockFetch.mockImplementation(async (_url, init) => {
-      if (init?.method === 'DELETE') return new Response('{}', { status: 200 })
-      const { leaseId } = JSON.parse(String(init?.body))
-      beginCount += 1
-      return beginCount <= 2
-        ? new Response(JSON.stringify({ leaseId }), { status: 200 })
-        : new Response('offline', { status: 503 })
-    })
-    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
-    const deletion = withYjsSessionDrainLease({ sessionIds: ['slow-watchlist'] }, async (lease) => {
-      await new Promise<void>((resolve) => {
-        finishMutation = resolve
-      })
-      lease.assertHeld()
-    })
-
-    await vi.advanceTimersByTimeAsync(120_750)
-    expect(beginCount).toBe(5)
-    vi.setSystemTime(Date.now() + 59_251)
-    finishMutation()
-
-    await expect(deletion).rejects.toThrow('no longer confirmed')
-  })
-
-  it('retries lost begin and commit acknowledgements with the same lease', async () => {
-    vi.useFakeTimers()
-    mockFetch
-      .mockRejectedValueOnce(new TypeError('begin response lost'))
-      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
-      .mockImplementationOnce(async (_url, init) => {
-        const leaseId = JSON.parse(String(init?.body)).leaseId
-        return new Response(JSON.stringify({ leaseId }), { status: 200 })
-      })
-      .mockRejectedValueOnce(new TypeError('commit response lost'))
-      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const mutate = vi.fn(async () => {
-      expect(mockFetch).toHaveBeenCalledTimes(3)
-      return 'deleted'
-    })
-    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
-
-    const deletion = withYjsSessionDrainLease({ sessionIds: ['watchlist-1'] }, mutate)
-
-    await expectFetchRetryAfter(250, 1, 2)
-    await expectFetchRetryAfter(500, 2, 4)
-    await expectFetchRetryAfter(250, 4, 5)
-    await expectFetchRetryAfter(500, 5, 6)
-
-    await expect(deletion).resolves.toBe('deleted')
-
-    const beginBody = JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))
-    expect(beginBody).toEqual({
-      leaseId: expect.any(String),
-      sessionIds: ['watchlist-1'],
-    })
-    for (const [, init] of mockFetch.mock.calls.slice(0, 3)) {
-      expect(JSON.parse(String(init?.body))).toEqual(beginBody)
-    }
-    expect(mockFetch.mock.calls[3]?.[0]).toBe(
-      `http://socket.test/internal/yjs/session-drains/${beginBody.leaseId}/commit`
-    )
-    expect(mockFetch.mock.calls[4]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
-    expect(mockFetch.mock.calls[5]?.[0]).toBe(mockFetch.mock.calls[3]?.[0])
-    expect(mutate).toHaveBeenCalledOnce()
-  })
-
-  it('aborts the lease when the database mutation fails', async () => {
-    vi.useFakeTimers()
-    mockFetch
-      .mockImplementationOnce(async (_url, init) => {
-        const leaseId = JSON.parse(String(init?.body)).leaseId
-        return new Response(JSON.stringify({ leaseId }), { status: 200 })
-      })
-      .mockRejectedValueOnce(new TypeError('abort response lost'))
-      .mockResolvedValueOnce(new Response('timeout', { status: 408 }))
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    const { withYjsSessionDrainLease } = await import('./snapshot-bridge')
-
-    const deletion = withYjsSessionDrainLease({ workspaceIds: ['workspace-1'] }, async () => {
-      throw new Error('database offline')
-    })
-    const rejectedDeletion = expect(deletion).rejects.toThrow('database offline')
-
-    await vi.advanceTimersByTimeAsync(0)
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-    await expectFetchRetryAfter(250, 2, 3)
-    await expectFetchRetryAfter(500, 3, 4)
-
-    await rejectedDeletion
-
-    expect(mockFetch.mock.calls[2]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])
-    expect(mockFetch.mock.calls[3]?.[0]).toBe(mockFetch.mock.calls[1]?.[0])
-    expect(mockFetch.mock.calls[1]?.[1].method).toBe('DELETE')
-    expect(mockFetch.mock.calls[2]?.[1].method).toBe('DELETE')
-    expect(mockFetch.mock.calls[3]?.[1].method).toBe('DELETE')
   })
 })

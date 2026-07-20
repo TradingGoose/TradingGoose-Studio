@@ -28,7 +28,6 @@ import {
 import {
   refreshEntityListSession,
   runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const ENTITY_TABLES = {
@@ -125,45 +124,40 @@ export async function deleteSavedEntity(
 ): Promise<boolean> {
   if ((await resolveEntityWorkspaceId(entityKind, entityId)) !== workspaceId) return false
 
-  const deleted = await withYjsSessionDrainLease({ sessionIds: [entityId] }, (lease) =>
-    runYjsDrainFencedTransaction([lease], async (tx) => {
-      await lockSavedEntityList(tx, entityKind, workspaceId)
-      let deleted: boolean
-      if (entityKind === 'watchlist') {
-        const [row] = await tx
-          .delete(watchlistTable)
-          .where(rootWatchlistCondition(workspaceId, entityId))
-          .returning({ id: watchlistTable.id })
-        deleted = Boolean(row)
-      } else if (entityKind === 'knowledge_base') {
-        const now = new Date()
-        const [row] = await tx
-          .update(knowledgeBase)
-          .set({ deletedAt: now, updatedAt: now })
-          .where(
-            entityCondition(entityKind, [
-              eq(knowledgeBase.id, entityId),
-              eq(knowledgeBase.workspaceId, workspaceId),
-            ])
-          )
-          .returning({ id: knowledgeBase.id })
-        deleted = Boolean(row)
-      } else {
-        const { table } = ENTITY_TABLES[entityKind]
-        const [row] = await tx
-          .delete(table)
-          .where(
-            entityCondition(entityKind, [
-              eq(table.id, entityId),
-              eq(table.workspaceId, workspaceId),
-            ])
-          )
-          .returning({ id: table.id })
-        deleted = Boolean(row)
-      }
-      return deleted
-    })
-  )
+  const deleted = await runYjsDrainFencedTransaction({ sessionIds: [entityId] }, async (tx) => {
+    await lockSavedEntityList(tx, entityKind, workspaceId)
+    let deleted: boolean
+    if (entityKind === 'watchlist') {
+      const [row] = await tx
+        .delete(watchlistTable)
+        .where(rootWatchlistCondition(workspaceId, entityId))
+        .returning({ id: watchlistTable.id })
+      deleted = Boolean(row)
+    } else if (entityKind === 'knowledge_base') {
+      const now = new Date()
+      const [row] = await tx
+        .update(knowledgeBase)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          entityCondition(entityKind, [
+            eq(knowledgeBase.id, entityId),
+            eq(knowledgeBase.workspaceId, workspaceId),
+          ])
+        )
+        .returning({ id: knowledgeBase.id })
+      deleted = Boolean(row)
+    } else {
+      const { table } = ENTITY_TABLES[entityKind]
+      const [row] = await tx
+        .delete(table)
+        .where(
+          entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
+        )
+        .returning({ id: table.id })
+      deleted = Boolean(row)
+    }
+    return deleted
+  })
   if (deleted) await refreshEntityListSession(entityKind, workspaceId)
   return deleted
 }

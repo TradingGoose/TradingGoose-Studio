@@ -17,10 +17,7 @@ import {
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
-import {
-  runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WorkspaceByIdAPI')
@@ -181,27 +178,23 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    await withYjsSessionDrainLease({ workspaceIds: [workspaceId] }, (lease) =>
-      runYjsDrainFencedTransaction([lease], async (tx) => {
-        for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
-          await lockSavedEntityList(tx, entityKind, workspaceId)
-        }
+    await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, async (tx) => {
+      for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
+        await lockSavedEntityList(tx, entityKind, workspaceId)
+      }
 
-        // Delete live workflow definitions first. Durable execution logs and snapshots
-        // remain workspace-owned until the workspace row is deleted below.
-        await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
+      // Delete live workflow definitions first. Durable execution logs and snapshots
+      // remain workspace-owned until the workspace row is deleted below.
+      await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
 
-        await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
+      await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
 
-        await tx
-          .delete(permissions)
-          .where(
-            and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId))
-          )
+      await tx
+        .delete(permissions)
+        .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
 
-        await tx.delete(workspace).where(eq(workspace.id, workspaceId))
-      })
-    )
+      await tx.delete(workspace).where(eq(workspace.id, workspaceId))
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

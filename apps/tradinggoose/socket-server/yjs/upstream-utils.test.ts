@@ -27,14 +27,11 @@ import {
 } from '@/lib/yjs/lifecycle-protocol'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
-  abortYjsSessionDrain,
   acquireDocument,
-  assertYjsSessionAdmission,
-  beginYjsSessionDrain,
   cleanupAllDocuments,
-  commitYjsSessionDrain,
   discardDocument,
   drainAllDocuments,
+  drainYjsSessionTargets,
   flushDocumentPersistence,
   peekDocument,
   persistStagedDocuments,
@@ -42,13 +39,40 @@ import {
   runDocumentMutation,
   setDocumentReconciler,
   setupWSConnection,
-  withYjsSessionDrain,
 } from './upstream-utils'
 
 const accessMocks = vi.hoisted(() => ({ verifyReviewTargetAccess: vi.fn() }))
+const fenceMocks = vi.hoisted(() => ({
+  withAdmission: vi.fn(
+    async (
+      _target: unknown,
+      use: (admit: (target: unknown) => Promise<void>) => Promise<unknown>
+    ) => use(async () => undefined)
+  ),
+}))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: accessMocks.verifyReviewTargetAccess,
+}))
+
+vi.mock('@/lib/yjs/server/revocation-fence', () => ({
+  normalizeYjsRevocationTarget: (target: {
+    sessionIds?: readonly string[]
+    workspaceIds?: readonly string[]
+  }) => {
+    const sessionIds = [...new Set(target.sessionIds ?? [])].sort()
+    const workspaceIds = [...new Set(target.workspaceIds ?? [])].sort()
+    if (sessionIds.length + workspaceIds.length === 0) throw new Error('target required')
+    return { sessionIds, workspaceIds }
+  },
+  withYjsAdmissionTransaction: fenceMocks.withAdmission,
+  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
+    status = 409
+
+    constructor(target: string) {
+      super(`Yjs session ${target} is not accepting connections`)
+    }
+  },
 }))
 
 class TestSocket extends EventEmitter {
@@ -90,15 +114,6 @@ function deferred() {
     resolve = done
   })
   return { promise, resolve }
-}
-
-function expectAdmissionBlocked(sessionId: string, workspaceId?: string) {
-  try {
-    assertYjsSessionAdmission(sessionId, workspaceId)
-    throw new Error('Expected Yjs session admission to be rejected')
-  } catch (error) {
-    expect(error).toMatchObject({ status: 409 })
-  }
 }
 
 function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
@@ -146,6 +161,43 @@ beforeEach(() => {
 })
 
 describe('shared document lifecycle', () => {
+  it('authorizes and admits the canonical workspace inside the shared fence', async () => {
+    const events: string[] = []
+    fenceMocks.withAdmission.mockImplementationOnce(async (_target, use) => {
+      events.push('fence-enter')
+      const result = await use(async () => {
+        events.push('workspace-admitted')
+      })
+      events.push('fence-exit')
+      return result
+    })
+
+    await acquireDocument(
+      'authorized-session',
+      {
+        authorize: () => {
+          events.push('authorize')
+          return { workspaceId: 'canonical-workspace' }
+        },
+        initialize: () => {
+          events.push('initialize')
+          return { workspaceId: 'canonical-workspace' }
+        },
+      },
+      () => events.push('use')
+    )
+
+    expect(events).toEqual([
+      'fence-enter',
+      'authorize',
+      'workspace-admitted',
+      'initialize',
+      'workspace-admitted',
+      'use',
+      'fence-exit',
+    ])
+  })
+
   it('serializes first bootstrap and use before exposing a new lineage', async () => {
     const bootstrap = deferred()
     const initialize = vi.fn(async (doc: Y.Doc) => {
@@ -413,7 +465,6 @@ describe('realtime shutdown', () => {
     await expect(
       runDocumentMutation(peekDocument('watchlist-drain-0')!, () => undefined)
     ).rejects.toThrow('draining')
-    expectAdmissionBlocked('watchlist-drain-0')
     await expect(
       acquireDocument('new-during-drain', { initialize: () => undefined }, () => undefined)
     ).rejects.toThrow('not accepting connections')
@@ -669,82 +720,38 @@ describe('document mutation queue', () => {
 })
 
 describe('orderly document discard', () => {
-  it('flushes accepted updates before a drain lease is aborted or committed', async () => {
+  it('flushes accepted updates before an idempotent target drain completes', async () => {
     const socket = new TestSocket()
     const persistedValue = vi.fn()
     const persist = vi.fn(async (_docId: string, target: Y.Doc) => {
       persistedValue(target.getMap('fields').get('accepted'))
     })
-    const doc = await setupWatchlistSocket(socket, 'leased-watchlist', persist, 60_000)
+    const doc = await setupWatchlistSocket(socket, 'drained-watchlist', persist, 60_000)
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
     await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
     expect(persist).not.toHaveBeenCalled()
     const mutationGate = deferred()
     const mutation = runDocumentMutation(doc, () => mutationGate.promise)
 
-    const abortedLease = 'lease-abort'
-    const firstBegin = beginYjsSessionDrain(abortedLease, { workspaceIds: ['workspace-1'] })
-    let duplicateReady = false
-    const duplicateBegin = beginYjsSessionDrain(abortedLease, {
-      workspaceIds: ['workspace-1'],
-    }).then(() => {
-      duplicateReady = true
-    })
+    const firstDrain = drainYjsSessionTargets({ workspaceIds: ['workspace-1'] })
+    const duplicateDrain = drainYjsSessionTargets({ workspaceIds: ['workspace-1'] })
     await Promise.resolve()
-    expect(duplicateReady).toBe(false)
-    await expect(
-      beginYjsSessionDrain(abortedLease, { workspaceIds: ['workspace-2'] })
-    ).rejects.toThrow('not accepting connections')
     await expect(runDocumentMutation(doc, () => undefined)).rejects.toThrow('draining')
-    expect(peekDocument('leased-watchlist')).toBe(doc)
+    expect(peekDocument('drained-watchlist')).toBe(doc)
 
     mutationGate.resolve()
     await mutation
-    await Promise.all([firstBegin, duplicateBegin])
+    await Promise.all([firstDrain, duplicateDrain])
     expect(persistedValue).toHaveBeenCalledWith(true)
     expect(socket.close).toHaveBeenCalledOnce()
-    expect(peekDocument('leased-watchlist')).toBeNull()
-    expectAdmissionBlocked('leased-watchlist', 'workspace-1')
+    expect(peekDocument('drained-watchlist')).toBeNull()
     await expect(
       acquireDocument(
-        'leased-watchlist',
+        'drained-watchlist',
         { workspaceId: 'workspace-1', initialize: () => undefined },
         () => undefined
       )
-    ).rejects.toThrow('not accepting connections')
-
-    abortYjsSessionDrain(abortedLease)
-    abortYjsSessionDrain(abortedLease)
-    expect(() => assertYjsSessionAdmission('leased-watchlist', 'workspace-1')).not.toThrow()
-
-    const committedLease = 'lease-commit'
-    await beginYjsSessionDrain(committedLease, { sessionIds: ['deleted-watchlist'] })
-    commitYjsSessionDrain(committedLease)
-    commitYjsSessionDrain(committedLease)
-    abortYjsSessionDrain(committedLease)
-    expect(() => assertYjsSessionAdmission('deleted-watchlist')).not.toThrow()
-    await expect(
-      acquireDocument('deleted-watchlist', { initialize: () => undefined }, () => undefined)
     ).resolves.toBeUndefined()
-
-    vi.useFakeTimers()
-    const expiredLease = 'lease-expired'
-    await beginYjsSessionDrain(expiredLease, { sessionIds: ['orphaned-watchlist'] })
-    await vi.advanceTimersByTimeAsync(5 * 60_000 - 1)
-    await beginYjsSessionDrain(expiredLease, { sessionIds: ['orphaned-watchlist'] })
-    await vi.advanceTimersByTimeAsync(1)
-    expectAdmissionBlocked('orphaned-watchlist')
-    await vi.runOnlyPendingTimersAsync()
-    expect(() => assertYjsSessionAdmission('orphaned-watchlist')).not.toThrow()
-
-    await beginYjsSessionDrain('lease-cleanup', { sessionIds: ['cleanup-watchlist'] })
-    cleanupAllDocuments()
-    await vi.advanceTimersByTimeAsync(2.5 * 60_000)
-    await beginYjsSessionDrain('lease-cleanup', { sessionIds: ['cleanup-watchlist'] })
-    await vi.advanceTimersByTimeAsync(2.5 * 60_000)
-    expectAdmissionBlocked('cleanup-watchlist')
-    await vi.runOnlyPendingTimersAsync()
-    expect(() => assertYjsSessionAdmission('cleanup-watchlist')).not.toThrow()
   })
 
   it('drains every saved-entity kind in the targeted workspace only', async () => {
@@ -771,58 +778,20 @@ describe('orderly document discard', () => {
     await connect(skillSocket, 'skill', 'skill-workspace-1', 'workspace-1')
     await connect(otherWorkspaceSocket, 'watchlist', 'watchlist-workspace-2', 'workspace-2')
 
-    await beginYjsSessionDrain('workspace-1-drain', { workspaceIds: ['workspace-1'] })
+    await drainYjsSessionTargets({ workspaceIds: ['workspace-1'] })
 
     expect(watchlistSocket.close).toHaveBeenCalledOnce()
     expect(skillSocket.close).toHaveBeenCalledOnce()
     expect(peekDocument('watchlist-workspace-1')).toBeNull()
     expect(peekDocument('skill-workspace-1')).toBeNull()
-    expectAdmissionBlocked('new-workspace-1-document', 'workspace-1')
     expect(otherWorkspaceSocket.close).not.toHaveBeenCalled()
     expect(peekDocument('watchlist-workspace-2')).not.toBeNull()
 
-    abortYjsSessionDrain('workspace-1-drain')
     otherWorkspaceSocket.emit('close')
   })
 
   it('requires a drain target', async () => {
-    await expect(beginYjsSessionDrain('invalid-lease', {})).rejects.toThrow(
-      'At least one non-empty Yjs drain target is required'
-    )
-  })
-
-  it('does not report an expired drain lease as ready after its drain finishes', async () => {
-    vi.useFakeTimers()
-    const persistence = deferred()
-    const socket = new TestSocket()
-    const persist = vi.fn(() => persistence.promise)
-    const doc = await setupWatchlistSocket(socket, 'expired-lease-watchlist', persist, 60_000)
-    doc.getMap('fields').set('dirty', true)
-
-    const deleting = beginYjsSessionDrain('lease-expiring-during-drain', {
-      sessionIds: ['expired-lease-watchlist'],
-    })
-    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
-    await vi.advanceTimersByTimeAsync(5 * 60_000)
-    persistence.resolve()
-
-    await expect(deleting).rejects.toThrow('not accepting connections')
-    expect(() => assertYjsSessionAdmission('expired-lease-watchlist')).not.toThrow()
-  })
-
-  it('holds local drain admission for the complete protected mutation', async () => {
-    vi.useFakeTimers()
-    const mutation = deferred()
-    const deleting = withYjsSessionDrain(
-      { sessionIds: ['slow-dashboard-widget'] },
-      () => mutation.promise
-    )
-    await vi.advanceTimersByTimeAsync(5 * 60_000)
-
-    expectAdmissionBlocked('slow-dashboard-widget')
-    mutation.resolve()
-    await deleting
-    expect(() => assertYjsSessionAdmission('slow-dashboard-widget')).not.toThrow()
+    await expect(drainYjsSessionTargets({})).rejects.toThrow('target required')
   })
 
   it('reopens a current document after a retryable discard flush failure', async () => {
@@ -889,23 +858,20 @@ describe('workspace connection authorization', () => {
     socket.emit('close')
   })
 
-  it('drops a queued writer update when a workspace drain begins', async () => {
+  it('drops a queued writer update when its workspace is drained', async () => {
     const socket = await connect()
     const doc = peekDocument('skill-1')!
     const gate = deferred()
     const blocker = runDocumentMutation(doc, () => gate.promise)
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'forbidden', true)))
 
-    const draining = beginYjsSessionDrain('workspace-access-change', {
-      workspaceIds: ['workspace-1'],
-    })
+    const draining = drainYjsSessionTargets({ workspaceIds: ['workspace-1'] })
     gate.resolve()
     await blocker
     await draining
 
     expect(doc.getMap('fields').has('forbidden')).toBe(false)
     expect(socket.close).toHaveBeenCalled()
-    abortYjsSessionDrain('workspace-access-change')
     socket.emit('close')
   })
 })

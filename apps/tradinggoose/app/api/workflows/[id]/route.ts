@@ -24,10 +24,7 @@ import {
   readWorkflowById,
 } from '@/lib/workflows/utils'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
-import {
-  runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -230,14 +227,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    await withYjsSessionDrainLease({ sessionIds: [workflowId] }, (lease) =>
-      runYjsDrainFencedTransaction([lease], async (tx) => {
-        if (workflowData.workspaceId) {
-          await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
-        }
-        await tx.delete(workflow).where(eq(workflow.id, workflowId))
-      })
-    )
+    await runYjsDrainFencedTransaction({ sessionIds: [workflowId] }, async (tx) => {
+      if (workflowData.workspaceId) {
+        await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
+      }
+      await tx.delete(workflow).where(eq(workflow.id, workflowId))
+    })
 
     if (workflowData.workspaceId) {
       await refreshWorkflowList(workflowData.workspaceId)

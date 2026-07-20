@@ -1,6 +1,3 @@
-import { randomUUID } from 'crypto'
-import { db } from '@tradinggoose/db'
-import { sql } from 'drizzle-orm'
 import {
   buildEntityListDescriptor,
   buildYjsTransportEnvelope,
@@ -16,6 +13,11 @@ import { env, getInternalRealtimeUrl } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { SavedEntityIdentityMutation } from '@/lib/saved-entities/identity'
 import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import {
+  runYjsRevocationTransaction,
+  type YjsRevocationTarget,
+  type YjsRevocationTransaction,
+} from '@/lib/yjs/server/revocation-fence'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
   type DashboardLayoutProjectionContent,
@@ -24,10 +26,7 @@ import {
 } from '@/widgets/layout-document'
 
 const logger = createLogger('YjsSnapshotBridge')
-const DRAIN_LEASE_ATTEMPTS = 3
-const DRAIN_LEASE_TTL_MS = 5 * 60_000
-const DRAIN_LEASE_RENEWAL_MS = 60_000
-const DRAIN_LEASE_COMMIT_FENCE_MS = 60_000
+const DRAIN_ATTEMPTS = 3
 const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
 
 interface YjsSnapshotResponse {
@@ -41,12 +40,6 @@ type WorkflowPatch = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
 }
-
-export type YjsSessionDrainLease = {
-  assertHeld: () => void
-}
-
-type YjsDrainTransaction = Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>
 
 export class SocketServerBridgeError extends Error {
   status: number
@@ -340,103 +333,20 @@ export async function refreshEntityListSession(
   }
 }
 
-export async function withYjsSessionDrainLease<T>(
-  target: { sessionIds?: readonly string[]; workspaceIds?: readonly string[] },
-  mutate: (lease: YjsSessionDrainLease) => Promise<T>
-): Promise<T> {
-  const leaseId = randomUUID()
-  const leaseUrl = new URL(
-    `/internal/yjs/session-drains/${encodeURIComponent(leaseId)}`,
-    getInternalRealtimeUrl()
-  )
-  const abortLease = async () => {
-    try {
-      await fetchFromSocketServer(leaseUrl, { method: 'DELETE' }, 10000, DRAIN_LEASE_ATTEMPTS)
-    } catch (error) {
-      logger.warn('Failed to abort Yjs session drain lease', { error, leaseId })
-    }
-  }
-  let lastConfirmedAt = 0
-  const beginLease = async () => {
-    await postJsonToSocketServer(
-      '/internal/yjs/session-drains',
-      { leaseId, ...target },
-      DRAIN_LEASE_ATTEMPTS,
-      async (response) => {
-        const ready = (await response.json()) as { leaseId?: unknown }
-        if (ready.leaseId !== leaseId) {
-          throw new SocketServerBridgeError(502, 'Socket server returned malformed drain lease')
-        }
-      }
-    )
-    lastConfirmedAt = Date.now()
-  }
-  try {
-    await beginLease()
-  } catch (error) {
-    await abortLease()
-    if (error instanceof SocketServerBridgeError && error.status < 500) throw error
-    throw new SavedEntityRealtimeRequiredError()
-  }
-
-  let renewal: Promise<void> | null = null
-  const renewalTimer = setInterval(() => {
-    if (renewal) return
-    renewal = beginLease()
-      .catch((error) => logger.warn('Failed to renew Yjs session drain lease', { error, leaseId }))
-      .finally(() => {
-        renewal = null
-      })
-  }, DRAIN_LEASE_RENEWAL_MS)
-  const stopRenewal = async () => {
-    clearInterval(renewalTimer)
-    await renewal
-  }
-
-  let result: T
-  try {
-    result = await mutate({
-      assertHeld: () => {
-        if (
-          Date.now() - lastConfirmedAt >
-          DRAIN_LEASE_TTL_MS - DRAIN_LEASE_RENEWAL_MS - 2 * DRAIN_LEASE_COMMIT_FENCE_MS
-        ) {
-          throw new Error('Yjs session drain lease is no longer confirmed')
-        }
-      },
-    })
-  } catch (error) {
-    await stopRenewal()
-    await abortLease()
-    throw error
-  }
-  await stopRenewal()
-
-  try {
-    await postJsonToSocketServer(
-      `/internal/yjs/session-drains/${encodeURIComponent(leaseId)}/commit`,
-      {},
-      DRAIN_LEASE_ATTEMPTS
-    )
-  } catch (error) {
-    logger.warn('Yjs session drain committed without lease acknowledgement', { error, leaseId })
-  }
-  return result
-}
-
 export function runYjsDrainFencedTransaction<T>(
-  leases: readonly YjsSessionDrainLease[],
-  run: (tx: YjsDrainTransaction) => Promise<T>
+  target: YjsRevocationTarget,
+  mutate: (tx: YjsRevocationTransaction) => Promise<T>
 ): Promise<T> {
-  return db.transaction(async (tx) => {
-    const timeout = String(DRAIN_LEASE_COMMIT_FENCE_MS)
-    await tx.execute(sql`
-      select
-        set_config('statement_timeout', ${timeout}, true),
-        set_config('idle_in_transaction_session_timeout', ${timeout}, true)
-    `)
-    const result = await run(tx)
-    for (const lease of leases) lease.assertHeld()
-    return result
-  })
+  return runYjsRevocationTransaction(
+    target,
+    async (normalized) => {
+      try {
+        await postJsonToSocketServer('/internal/yjs/session-drains', normalized, DRAIN_ATTEMPTS)
+      } catch (error) {
+        if (error instanceof SocketServerBridgeError && error.status < 500) throw error
+        throw new SavedEntityRealtimeRequiredError()
+      }
+    },
+    mutate
+  )
 }

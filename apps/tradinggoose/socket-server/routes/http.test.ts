@@ -41,10 +41,8 @@ const mocks = vi.hoisted(() => ({
   seedEntity: vi.fn(),
   getEntityFields: vi.fn(),
   commitDashboardStructure: vi.fn(),
-  beginDrain: vi.fn(),
-  commitDrain: vi.fn(),
-  abortDrain: vi.fn(),
-  withDrain: vi.fn(),
+  drainTargets: vi.fn(),
+  runRevocation: vi.fn(),
 }))
 
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'internal-secret' } }))
@@ -65,6 +63,13 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
   initializeSavedReviewTargetDocument: mocks.initializeTarget,
 }))
 
+vi.mock('@/lib/yjs/server/revocation-fence', () => ({
+  runYjsRevocationTransaction: mocks.runRevocation,
+  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
+    status = 409
+  },
+}))
+
 vi.mock('@/socket-server/yjs/entity-list-session', () => ({
   refreshActiveEntityListSession: mocks.refreshActiveEntityList,
 }))
@@ -74,15 +79,9 @@ vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
 }))
 
 vi.mock('@/socket-server/yjs/upstream-utils', () => ({
-  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
-    status = 409
-  },
   acquireDocument: mocks.acquireDocument,
-  abortYjsSessionDrain: mocks.abortDrain,
-  beginYjsSessionDrain: mocks.beginDrain,
-  commitYjsSessionDrain: mocks.commitDrain,
+  drainYjsSessionTargets: mocks.drainTargets,
   persistStagedDocuments: mocks.persistStaged,
-  withYjsSessionDrain: mocks.withDrain,
 }))
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
@@ -261,9 +260,9 @@ describe('socket internal HTTP Yjs routes', () => {
       }
     )
     mocks.saveDashboard.mockResolvedValue({})
-    mocks.beginDrain.mockResolvedValue(undefined)
-    mocks.withDrain.mockImplementation(async (_target: unknown, mutation: () => Promise<unknown>) =>
-      mutation()
+    mocks.drainTargets.mockResolvedValue(undefined)
+    mocks.runRevocation.mockImplementation(
+      async (_target: unknown, _drain: unknown, mutation: () => Promise<unknown>) => mutation()
     )
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
@@ -486,10 +485,11 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: ['widget-1'],
     })
-    expect(mocks.withDrain).toHaveBeenCalledWith(
+    expect(mocks.runRevocation).toHaveBeenCalledWith(
       {
         sessionIds: ['dashboard-widget:layout-1:widget-1'],
       },
+      mocks.drainTargets,
       expect.any(Function)
     )
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
@@ -520,7 +520,7 @@ describe('socket internal HTTP Yjs routes', () => {
       ],
       removedIdentityIds: [],
     })
-    expect(mocks.withDrain).not.toHaveBeenCalled()
+    expect(mocks.runRevocation).not.toHaveBeenCalled()
     expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
       'layout-1',
       'dashboard-widget:layout-1:widget-1',
@@ -573,8 +573,9 @@ describe('socket internal HTTP Yjs routes', () => {
 
     expect(response.status).toBe(500)
     expect(readDashboardLayoutDocument(documents.get('layout-1')!)).toEqual(before)
-    expect(mocks.withDrain).toHaveBeenCalledWith(
+    expect(mocks.runRevocation).toHaveBeenCalledWith(
       { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
+      mocks.drainTargets,
       expect.any(Function)
     )
   })
@@ -785,30 +786,26 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('releases exact-session drain leases through commit and abort delegates', async () => {
-    const begun = await invoke('POST', '/internal/yjs/session-drains', {
-      leaseId: 'lease-1',
+  it('delegates idempotent target drains and leaves removed lease routes absent', async () => {
+    const drained = await invoke('POST', '/internal/yjs/session-drains', {
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
       workspaceIds: ['workspace-1'],
     })
-    expect(begun).toEqual({ status: 200, body: { leaseId: 'lease-1' } })
-    expect(mocks.beginDrain).toHaveBeenCalledWith('lease-1', {
+    expect(drained).toEqual({ status: 200, body: { success: true } })
+    expect(mocks.drainTargets).toHaveBeenCalledWith({
       sessionIds: ['layout-1', 'dashboard-widget:layout-1:widget-1'],
       workspaceIds: ['workspace-1'],
     })
 
     const invalid = await invoke('POST', '/internal/yjs/session-drains', {
-      leaseId: 'bad-1',
       sessionIds: 'bad',
     })
     expect(invalid.status).toBe(400)
 
     const committed = await invoke('POST', '/internal/yjs/session-drains/lease-1/commit')
-    expect(committed.status).toBe(200)
-    expect(mocks.commitDrain).toHaveBeenCalledWith('lease-1')
+    expect(committed.status).toBe(404)
 
     const aborted = await invoke('DELETE', '/internal/yjs/session-drains/lease-2')
-    expect(aborted.status).toBe(200)
-    expect(mocks.abortDrain).toHaveBeenCalledWith('lease-2')
+    expect(aborted.status).toBe(404)
   })
 })

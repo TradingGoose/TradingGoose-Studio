@@ -11,10 +11,7 @@ import {
   getUsersWithPermissions,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
-import {
-  runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { assertWorkspaceBillingOwnerRetainsAdminAccess } from '../../../../../lib/workspaces/billing-owner'
 
@@ -176,32 +173,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Workspace member not found' }, { status: 400 })
     }
 
-    await withYjsSessionDrainLease({ workspaceIds: [workspaceId] }, (lease) =>
-      runYjsDrainFencedTransaction([lease], async (tx) => {
-        for (const update of body.updates) {
-          const now = new Date()
-          await tx
-            .delete(permissions)
-            .where(
-              and(
-                eq(permissions.userId, update.userId),
-                eq(permissions.entityType, 'workspace'),
-                eq(permissions.entityId, workspaceId)
-              )
+    await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, async (tx) => {
+      for (const update of body.updates) {
+        const now = new Date()
+        await tx
+          .delete(permissions)
+          .where(
+            and(
+              eq(permissions.userId, update.userId),
+              eq(permissions.entityType, 'workspace'),
+              eq(permissions.entityId, workspaceId)
             )
+          )
 
-          await tx.insert(permissions).values({
-            id: crypto.randomUUID(),
-            userId: update.userId,
-            entityType: 'workspace' as const,
-            entityId: workspaceId,
-            permissionType: update.permissions,
-            createdAt: now,
-            updatedAt: now,
-          })
-        }
-      })
-    )
+        await tx.insert(permissions).values({
+          id: crypto.randomUUID(),
+          userId: update.userId,
+          entityType: 'workspace' as const,
+          entityId: workspaceId,
+          permissionType: update.permissions,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+    })
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
     const currentUserPermission = await getUserEntityPermissions(

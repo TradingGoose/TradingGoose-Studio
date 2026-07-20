@@ -207,6 +207,33 @@ describe('shared entity Yjs sessions', () => {
     await vi.waitFor(() => expect(renderCount).toBeGreaterThan(beforeUpdate))
   })
 
+  it('reports no live list snapshot until a retry succeeds', async () => {
+    vi.useFakeTimers()
+    const transientError = Object.assign(new Error('list unavailable'), { retryable: true })
+    providerMocks.bootstrap.mockRejectedValueOnce(transientError)
+    const liveDoc = new Y.Doc()
+    replaceEntityListSessionMembers(liveDoc, [{ id: 'layout-live', name: 'Live layout' }])
+    providerMocks.queuedDocs.push(liveDoc)
+    let currentList!: ReturnType<typeof useEntityList>
+    const ListHarness = () => {
+      currentList = useEntityList('dashboard_layout', 'workspace-1', 'user-1')
+      return null
+    }
+
+    await act(async () => root.render(<ListHarness />))
+    await act(async () => Promise.resolve())
+
+    expect(currentList.error).toBe('list unavailable')
+    expect(currentList.hasLiveSnapshot).toBe(false)
+    expect(currentList.members).toEqual([])
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+
+    expect(currentList.error).toBeNull()
+    expect(currentList.hasLiveSnapshot).toBe(true)
+    expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['layout-live'])
+  })
+
   it('retains list membership until a fresh Yjs history replaces it', async () => {
     vi.useFakeTimers()
     let currentList!: ReturnType<typeof useEntityList>
@@ -226,17 +253,20 @@ describe('shared entity Yjs sessions', () => {
     await act(async () => Promise.resolve())
     const staleEntity = providerMocks.results[1]
     expect(currentList.members).toHaveLength(2)
+    expect(currentList.hasLiveSnapshot).toBe(true)
 
     const replacement = new Y.Doc()
     replaceEntityListSessionMembers(replacement, [{ id: 'kept', name: 'Kept' }])
     providerMocks.queuedDocs.push(replacement)
     await act(async () => stale.emitLifecycle({ type: 'lineage-replaced' }))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept', 'removed'])
+    expect(currentList.hasLiveSnapshot).toBe(true)
     expect(current.doc).toBe(staleEntity.doc)
     expect(stale.dispose).toHaveBeenCalledOnce()
 
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
     expect(currentList.members.map(({ entityId }) => entityId)).toEqual(['kept'])
+    expect(currentList.hasLiveSnapshot).toBe(true)
     expect(current.doc).toBe(staleEntity.doc)
   })
 })

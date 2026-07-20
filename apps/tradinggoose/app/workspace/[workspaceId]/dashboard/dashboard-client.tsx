@@ -291,7 +291,7 @@ export function DashboardClient({
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
-  const layouts = dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts
+  const layouts = dashboardLayoutList.hasLiveSnapshot ? dashboardLayoutList.layouts : initialLayouts
   const scopedSelection =
     selection.workspaceId === workspaceId &&
     selection.ownerUserId === ownerUserId &&
@@ -320,7 +320,10 @@ export function DashboardClient({
     initialTopology: selectedInitialTopology,
   })
   const rawTree = layoutDocument.topology
-  const canMutateLayouts = !dashboardLayoutList.error
+  const canMutateLayouts =
+    dashboardLayoutList.hasLiveSnapshot &&
+    !dashboardLayoutList.isLoading &&
+    !dashboardLayoutList.error
   const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
   const canMutateLayoutTopology =
     !layoutDocument.error && layoutDocument.doc !== null && rawTree !== null

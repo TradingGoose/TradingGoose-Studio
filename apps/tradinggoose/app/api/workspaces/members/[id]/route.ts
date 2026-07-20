@@ -6,10 +6,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { assertWorkspaceBillingOwnerCanBeRemoved } from '@/lib/workspaces/billing-owner'
-import {
-  runYjsDrainFencedTransaction,
-  withYjsSessionDrainLease,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WorkspaceMemberAPI')
@@ -89,18 +86,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'User not found in workspace' }, { status: 404 })
     }
 
-    await withYjsSessionDrainLease({ workspaceIds: [workspaceId] }, (lease) =>
-      runYjsDrainFencedTransaction([lease], (tx) =>
-        tx
-          .delete(permissions)
-          .where(
-            and(
-              eq(permissions.userId, userId),
-              eq(permissions.entityType, 'workspace'),
-              eq(permissions.entityId, workspaceId)
-            )
+    await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, (tx) =>
+      tx
+        .delete(permissions)
+        .where(
+          and(
+            eq(permissions.userId, userId),
+            eq(permissions.entityType, 'workspace'),
+            eq(permissions.entityId, workspaceId)
           )
-      )
+        )
     )
 
     return NextResponse.json({ success: true })

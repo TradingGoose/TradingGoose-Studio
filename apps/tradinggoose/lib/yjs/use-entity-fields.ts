@@ -439,7 +439,8 @@ export function useEntityList(
   const memberSnapshot = useRef<{
     sessionKey: string | null
     members: EntityListMember[]
-  }>({ sessionKey: null, members: EMPTY_ENTITY_LIST_MEMBERS })
+    hasLiveSnapshot: boolean
+  }>({ sessionKey: null, members: EMPTY_ENTITY_LIST_MEMBERS, hasLiveSnapshot: false })
   const descriptor = useMemo(() => {
     if (!workspaceId) return null
     try {
@@ -480,13 +481,18 @@ export function useEntityList(
     EMPTY_ENTITY_LIST_MEMBERS
   )
   const isTerminalError = activeState?.error?.retryable === false
-  if (doc) memberSnapshot.current = { sessionKey, members }
+  if (doc) memberSnapshot.current = { sessionKey, members, hasLiveSnapshot: true }
   else if (!sessionKey || isTerminalError || memberSnapshot.current.sessionKey !== sessionKey) {
-    memberSnapshot.current = { sessionKey, members: EMPTY_ENTITY_LIST_MEMBERS }
+    memberSnapshot.current = {
+      sessionKey,
+      members: EMPTY_ENTITY_LIST_MEMBERS,
+      hasLiveSnapshot: false,
+    }
   }
 
   return {
     members: memberSnapshot.current.members,
+    hasLiveSnapshot: memberSnapshot.current.hasLiveSnapshot,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error?.message ?? null,
     isTerminalError,

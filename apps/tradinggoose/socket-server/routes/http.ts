@@ -54,19 +54,19 @@ import {
   initializeSavedReviewTargetDocument,
   ReviewTargetBootstrapError,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  runYjsRevocationTransaction,
+  YjsSessionAdmissionError,
+} from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import { refreshActiveEntityListSession } from '@/socket-server/yjs/entity-list-session'
 import {
-  abortYjsSessionDrain,
   acquireDocument,
-  beginYjsSessionDrain,
-  commitYjsSessionDrain,
+  drainYjsSessionTargets,
   persistStagedDocuments,
-  withYjsSessionDrain,
-  YjsSessionAdmissionError,
 } from '@/socket-server/yjs/upstream-utils'
 import {
   applyDashboardLayoutStructureMutation,
@@ -104,9 +104,7 @@ const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/([^/]+)\/edit$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_DRAIN_BEGIN_PATH = '/internal/yjs/session-drains'
-const INTERNAL_YJS_DRAIN_COMMIT_PATH = /^\/internal\/yjs\/session-drains\/([^/]+)\/commit$/
-const INTERNAL_YJS_DRAIN_ABORT_PATH = /^\/internal\/yjs\/session-drains\/([^/]+)$/
+const INTERNAL_YJS_DRAIN_PATH = '/internal/yjs/session-drains'
 const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
 
 type ApplyWorkflowStateRequest = {
@@ -610,7 +608,11 @@ async function commitDashboardStructurePlan(input: {
         )
     )
   if (removedSessionIds.length > 0) {
-    await withYjsSessionDrain({ sessionIds: removedSessionIds }, commit)
+    await runYjsRevocationTransaction(
+      { sessionIds: removedSessionIds },
+      drainYjsSessionTargets,
+      commit
+    )
   } else {
     await commit()
   }
@@ -867,7 +869,7 @@ async function handleInternalYjsSnapshotRequest(
   }
 }
 
-async function handleInternalYjsDrainBeginRequest(
+async function handleInternalYjsDrainRequest(
   req: IncomingMessage,
   res: ServerResponse,
   logger: Logger
@@ -875,12 +877,9 @@ async function handleInternalYjsDrainBeginRequest(
   try {
     const raw = await readJsonBody(req)
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      throw new InvalidInternalYjsRequestError('Invalid Yjs drain lease body')
+      throw new InvalidInternalYjsRequestError('Invalid Yjs drain target body')
     }
-    const { leaseId, sessionIds, workspaceIds } = raw as Record<string, unknown>
-    if (typeof leaseId !== 'string' || !leaseId.trim()) {
-      throw new InvalidInternalYjsRequestError('leaseId is required')
-    }
+    const { sessionIds, workspaceIds } = raw as Record<string, unknown>
     const targets = [sessionIds, workspaceIds]
     if (
       targets.some(
@@ -894,25 +893,15 @@ async function handleInternalYjsDrainBeginRequest(
         'sessionIds or workspaceIds must contain a non-empty string ID'
       )
     }
-    await beginYjsSessionDrain(leaseId, {
+    await drainYjsSessionTargets({
       sessionIds: sessionIds as string[] | undefined,
       workspaceIds: workspaceIds as string[] | undefined,
     })
-    sendJson(res, 200, { leaseId })
+    sendJson(res, 200, { success: true })
   } catch (error) {
-    logger.error('Failed to begin Yjs drain lease', { error })
-    sendYjsRequestError(res, error, 'Failed to begin Yjs drain lease')
+    logger.error('Failed to drain Yjs session targets', { error })
+    sendYjsRequestError(res, error, 'Failed to drain Yjs session targets')
   }
-}
-
-function handleInternalYjsDrainCommitRequest(res: ServerResponse, leaseId: string): void {
-  commitYjsSessionDrain(leaseId)
-  sendJson(res, 200, { success: true })
-}
-
-function handleInternalYjsDrainAbortRequest(res: ServerResponse, leaseId: string): void {
-  abortYjsSessionDrain(leaseId)
-  sendJson(res, 200, { success: true })
 }
 
 function matchInternalRoute(
@@ -987,30 +976,8 @@ async function handleInternalYjsRequest(
     return true
   }
 
-  if (req.method === 'POST' && parsedUrl.pathname === INTERNAL_YJS_DRAIN_BEGIN_PATH) {
-    await handleInternalYjsDrainBeginRequest(req, res, logger)
-    return true
-  }
-
-  const commitDrainLeaseId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_DRAIN_COMMIT_PATH,
-    'POST',
-    req.method
-  )
-  if (commitDrainLeaseId) {
-    handleInternalYjsDrainCommitRequest(res, commitDrainLeaseId)
-    return true
-  }
-
-  const abortDrainLeaseId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_DRAIN_ABORT_PATH,
-    'DELETE',
-    req.method
-  )
-  if (abortDrainLeaseId) {
-    handleInternalYjsDrainAbortRequest(res, abortDrainLeaseId)
+  if (req.method === 'POST' && parsedUrl.pathname === INTERNAL_YJS_DRAIN_PATH) {
+    await handleInternalYjsDrainRequest(req, res, logger)
     return true
   }
 
