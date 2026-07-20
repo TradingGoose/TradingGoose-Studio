@@ -408,7 +408,7 @@ deployment strategy; autoscaling and pod disruption budget settings apply only t
 | `fullnameOverride` | Override the fullname of the chart | `""` |
 | `extraVolumes` | Additional volumes for all pods | `[]` |
 | `extraVolumeMounts` | Additional volume mounts for all containers | `[]` |
-| `extraEnvVars` | Additional environment variables for all containers | `[]` |
+| `extraEnvVars` | Additional environment variables for the app and realtime containers | `[]` |
 | `podAnnotations` | Additional annotations for all pods | `{}` |
 | `podLabels` | Additional labels for all pods | `{}` |
 | `affinity` | Affinity settings for all pods | `{}` |
@@ -641,7 +641,7 @@ For production deployments, make sure to:
 **Required Secrets:**
 - `BETTER_AUTH_SECRET`: Authentication JWT signing (minimum 32 characters)
 - `ENCRYPTION_KEY`: Encrypts sensitive data like environment variables (minimum 32 characters)
-- `INTERNAL_API_SECRET`: Internal service authentication via a 32+ character literal or `extraEnvVars` `valueFrom.secretKeyRef`
+- `INTERNAL_API_SECRET`: Internal service authentication via a 32+ character literal or app/realtime `extraEnvVars` `valueFrom.secretKeyRef`
 
 **Optional Security (Recommended for Production):**
 - `CRON_SECRET`: Authenticates scheduled job requests to API endpoints (required only if `cronjobs.enabled=true`)

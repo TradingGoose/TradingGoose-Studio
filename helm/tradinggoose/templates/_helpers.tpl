@@ -202,7 +202,7 @@ Validate required secrets and reject default placeholder values
 {{- end }}
 {{- end }}
 {{- if and (or .Values.app.enabled .Values.realtime.enabled) (lt (len (.Values.app.env.INTERNAL_API_SECRET | default "")) 32) (not $hasInternalApiSecretRef) }}
-{{- fail "INTERNAL_API_SECRET requires a 32-character app.env value or extraEnvVars valueFrom.secretKeyRef" }}
+{{- fail "INTERNAL_API_SECRET requires a 32-character app.env value or app/realtime extraEnvVars valueFrom.secretKeyRef" }}
 {{- end }}
 {{- if and .Values.app.enabled .Values.app.env.API_ENCRYPTION_KEY (not (regexMatch "^[a-fA-F0-9]{64}$" .Values.app.env.API_ENCRYPTION_KEY)) }}
 {{- fail "app.env.API_ENCRYPTION_KEY must be exactly 64 hex characters. Generate it with: openssl rand -hex 32" }}

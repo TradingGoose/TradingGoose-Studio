@@ -97,7 +97,7 @@
             "INTERNAL_API_SECRET": {
               "type": "string",
               "pattern": "^$|^.{32,}$",
-              "description": "Internal service authentication secret; leave empty only when extraEnvVars supplies its secretKeyRef"
+              "description": "Internal service authentication secret; leave empty only when app/realtime extraEnvVars supplies its secretKeyRef"
             },
             "API_ENCRYPTION_KEY": {
               "type": "string",

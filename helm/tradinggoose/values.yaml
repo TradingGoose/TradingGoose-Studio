@@ -602,7 +602,7 @@ sharedStorage:
 extraVolumes: []
 extraVolumeMounts: []
 
-# Additional environment variables for custom integrations
+# Additional environment variables for the app and realtime containers
 extraEnvVars: []
 
 # Pod annotations for custom metadata
