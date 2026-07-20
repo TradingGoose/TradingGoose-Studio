@@ -51,7 +51,7 @@ spec:
             - name: INTERNAL_API_SECRET
               value: {{ .Values.app.env.INTERNAL_API_SECRET | quote }}
             {{- end }}
-            {{- range $key, $value := .Values.realtime.env }}
+            {{- range $key, $value := omit .Values.realtime.env "DATABASE_URL" "INTERNAL_API_SECRET" }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
