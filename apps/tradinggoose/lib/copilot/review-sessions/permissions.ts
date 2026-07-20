@@ -304,14 +304,15 @@ export async function verifyWorkflowAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
-  return buildAccessResult({
-    isOwner: accessContext.isOwner,
+  const result = buildAccessResult({
+    isOwner: false,
     userPermission: accessContext.isWorkspaceOwner
       ? 'admin'
       : (accessContext.workspacePermission ?? null),
     workspaceId: accessContext.workflow.workspaceId ?? null,
     accessMode,
   })
+  return { ...result, isOwner: accessContext.isOwner }
 }
 
 export async function verifyReviewTargetAccess(

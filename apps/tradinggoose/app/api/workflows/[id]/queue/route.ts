@@ -109,11 +109,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    if (
-      !accessContext.isOwner &&
-      !accessContext.isWorkspaceOwner &&
-      accessContext.workspacePermission === null
-    ) {
+    if (!hasWorkflowWriteAccess(accessContext)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -158,10 +154,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
-    if (!hasWorkflowWriteAccess(accessContext)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-
     const createdAt = new Date().toISOString()
     const pendingExecutionId =
       typeof body.executionId === 'string' && body.executionId.length > 0

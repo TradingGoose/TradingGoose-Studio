@@ -198,11 +198,9 @@ describe('File Upload Security Tests', () => {
     vi.doMock('@/lib/workflows/utils', () => ({
       readWorkflowAccessContext,
       hasWorkflowWriteAccess: (context: {
-        isOwner: boolean
         isWorkspaceOwner: boolean
         workspacePermission: string | null
       }) =>
-        context.isOwner ||
         context.isWorkspaceOwner ||
         context.workspacePermission === 'write' ||
         context.workspacePermission === 'admin',

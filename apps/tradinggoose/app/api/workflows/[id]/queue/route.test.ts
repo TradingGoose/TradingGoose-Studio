@@ -72,7 +72,8 @@ describe('POST /api/workflows/[id]/queue', () => {
         isDeployed: true,
       },
       isOwner: true,
-      workspacePermission: null,
+      isWorkspaceOwner: false,
+      workspacePermission: 'write',
     })
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-1',

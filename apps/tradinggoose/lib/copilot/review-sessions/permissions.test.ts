@@ -423,4 +423,24 @@ describe('review session permissions', () => {
       isOwner: false,
     })
   })
+
+  it('does not let workflow ownership bypass workspace read permission', async () => {
+    mockReadWorkflowAccessContext.mockResolvedValueOnce({
+      workflow: {
+        id: 'workflow-1',
+        userId: 'owner-1',
+        workspaceId: 'workspace-1',
+      } as NonNullable<Awaited<ReturnType<typeof readWorkflowAccessContext>>>['workflow'],
+      workspaceOwnerId: 'workspace-owner-1',
+      workspacePermission: 'read',
+      isOwner: true,
+      isWorkspaceOwner: false,
+    })
+
+    await expect(verifyWorkflowAccess('owner-1', 'workflow-1', 'write')).resolves.toMatchObject({
+      hasAccess: false,
+      userPermission: 'read',
+      isOwner: true,
+    })
+  })
 })

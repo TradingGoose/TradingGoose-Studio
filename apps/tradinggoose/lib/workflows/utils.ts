@@ -121,7 +121,6 @@ export interface WorkflowAccessContext {
 
 export function hasWorkflowWriteAccess(context: WorkflowAccessContext) {
   return (
-    context.isOwner ||
     context.isWorkspaceOwner ||
     context.workspacePermission === 'write' ||
     context.workspacePermission === 'admin'
@@ -572,9 +571,9 @@ export async function validateWorkflowPermissions(
     }
   }
 
-  const { workflow, workspacePermission, isOwner, isWorkspaceOwner } = accessContext
+  const { workflow, workspacePermission, isWorkspaceOwner } = accessContext
 
-  if (isOwner || isWorkspaceOwner) {
+  if (isWorkspaceOwner) {
     return {
       error: null,
       session,

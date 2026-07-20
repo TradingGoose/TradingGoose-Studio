@@ -18,7 +18,11 @@ import {
   refreshWorkflowListForWorkflow,
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
-import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
+import {
+  hasWorkflowWriteAccess,
+  readWorkflowAccessContext,
+  readWorkflowById,
+} from '@/lib/workflows/utils'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
   runYjsDeletionFencedTransaction,
@@ -107,29 +111,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       // Internal calls have full access
       hasAccess = true
     } else {
-      // Case 1: User owns the workflow
-      if (workflowData) {
-        accessContext = await readWorkflowAccessContext(workflowId, userId ?? undefined)
+      accessContext = await readWorkflowAccessContext(workflowId, userId ?? undefined)
 
-        if (!accessContext) {
-          logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
-          return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-        }
-
-        workflowData = accessContext.workflow
-
-        if (accessContext.isOwner) {
-          hasAccess = true
-        }
-
-        if (
-          !hasAccess &&
-          workflowData.workspaceId &&
-          (accessContext.isWorkspaceOwner || accessContext.workspacePermission)
-        ) {
-          hasAccess = true
-        }
+      if (!accessContext) {
+        logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
       }
+
+      workflowData = accessContext.workflow
+      hasAccess = Boolean(
+        workflowData.workspaceId &&
+          (accessContext.isWorkspaceOwner || accessContext.workspacePermission)
+      )
 
       if (!hasAccess) {
         logger.warn(`[${requestId}] User ${userId} denied access to workflow ${workflowId}`)
@@ -220,27 +213,13 @@ export async function DELETE(
     const userId = session.user.id
 
     const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
-
-    if (!workflowData) {
+    if (!accessContext) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for deletion`)
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const workflowData = accessContext.workflow
 
-    let canDelete = false
-
-    if (workflowData.userId === userId) {
-      canDelete = true
-    }
-
-    if (!canDelete && workflowData.workspaceId) {
-      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
-      if (context?.isWorkspaceOwner || context?.workspacePermission === 'admin') {
-        canDelete = true
-      }
-    }
-
-    if (!canDelete) {
+    if (!hasWorkflowWriteAccess(accessContext)) {
       logger.warn(
         `[${requestId}] User ${userId} denied permission to delete workflow ${workflowId}`
       )
@@ -299,34 +278,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Fetch the workflow to check ownership/access
     const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
-
-    if (!workflowData) {
+    if (!accessContext) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for update`)
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const workflowData = accessContext.workflow
 
-    // Check if user has permission to update this workflow
-    let canUpdate = false
-
-    // Case 1: User owns the workflow
-    if (workflowData.userId === userId) {
-      canUpdate = true
-    }
-
-    // Case 2: Workflow belongs to a workspace and user has write or admin permission
-    if (!canUpdate && workflowData.workspaceId) {
-      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
-      if (
-        context?.isWorkspaceOwner ||
-        context?.workspacePermission === 'write' ||
-        context?.workspacePermission === 'admin'
-      ) {
-        canUpdate = true
-      }
-    }
-
-    if (!canUpdate) {
+    if (!hasWorkflowWriteAccess(accessContext)) {
       logger.warn(
         `[${requestId}] User ${userId} denied permission to update workflow ${workflowId}`
       )

@@ -138,6 +138,13 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
+      hasWorkflowWriteAccess: (context: {
+        isWorkspaceOwner: boolean
+        workspacePermission: string | null
+      }) =>
+        context.isWorkspaceOwner ||
+        context.workspacePermission === 'write' ||
+        context.workspacePermission === 'admin',
       readWorkflowById: mockReadWorkflowById,
       readWorkflowAccessContext: mockReadWorkflowAccessContext,
     }))
@@ -210,7 +217,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Workflow not found')
     })
 
-    it('should allow access when user owns the workflow', async () => {
+    it('should allow a workflow creator with workspace read permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -235,21 +242,12 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
 
       mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
-
-      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockReadWorkflowAccessContext.mockResolvedValueOnce({
-        workflow: mockWorkflow,
-        workspaceOwnerId: null,
-        workspacePermission: null,
-        isOwner: true,
-        isWorkspaceOwner: false,
-      })
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -373,7 +371,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -397,7 +395,7 @@ describe('Workflow By ID API Route', () => {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -410,7 +408,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -433,7 +431,7 @@ describe('Workflow By ID API Route', () => {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
       const events: string[] = []
       mockWithYjsSessionDeletionLease.mockImplementation(async (_target, mutate) => {
@@ -453,7 +451,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -495,7 +493,7 @@ describe('Workflow By ID API Route', () => {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
       const deleteWhereMock = vi.fn().mockRejectedValue(new Error('db offline'))
 
@@ -509,7 +507,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -629,7 +627,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('PUT /api/workflows/[id]', () => {
-    it('should allow owner to update workflow', async () => {
+    it('should allow a workflow creator with workspace write permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -649,7 +647,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -719,7 +717,7 @@ describe('Workflow By ID API Route', () => {
         name: 'Test Workflow',
         description: 'Old description',
         folderId: null,
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       const updateData = { description: 'New description' }
@@ -741,7 +739,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -795,7 +793,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
