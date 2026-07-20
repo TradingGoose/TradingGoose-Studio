@@ -98,7 +98,7 @@ vi.mock('@tradinggoose/db', () => ({
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    transaction: vi.fn(),
+    transaction: vi.fn((use) => use({ execute: vi.fn().mockResolvedValue([{ acquired: true }]) })),
   },
 }))
 
