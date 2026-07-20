@@ -19,7 +19,6 @@ export type DashboardLayoutListEntry = {
   id: string
   name: string
   sortOrder: number
-  isActive: boolean
 }
 
 function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
@@ -28,14 +27,10 @@ function toLayoutListEntry(member: EntityListMember): DashboardLayoutListEntry {
   if (typeof member.sortOrder !== 'number' || !Number.isFinite(member.sortOrder)) {
     throw new Error(`dashboard_layout ${member.entityId} is missing sortOrder`)
   }
-  if (typeof member.isActive !== 'boolean') {
-    throw new Error(`dashboard_layout ${member.entityId} is missing isActive`)
-  }
   return {
     id: member.entityId,
     name,
     sortOrder: member.sortOrder,
-    isActive: member.isActive,
   }
 }
 
@@ -63,7 +58,7 @@ export function useDashboardLayoutDocument(input: {
   layoutId: string | null | undefined
   initialTopology?: DashboardLayoutTopologyNode | null
 }) {
-  const { doc, isLoading, error, isTerminalError } = useSavedEntityYjsSession(
+  const { doc, isLoading, error } = useSavedEntityYjsSession(
     'dashboard_layout',
     input.layoutId,
     input.workspaceId,
@@ -130,10 +125,8 @@ export function useDashboardLayoutDocument(input: {
   return {
     doc,
     topology,
-    isProviderReady: Boolean(doc),
     isLoading,
     error,
-    isTerminalError,
     resizeReconcileVersion,
     hasResizePersistenceError,
     mutateStructure,

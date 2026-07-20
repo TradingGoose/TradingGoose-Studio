@@ -88,7 +88,6 @@ describe('useDashboardLayoutDocument live fields', () => {
 
     expect(latest.topology).toEqual(topology)
     expect(latest.doc).toBeNull()
-    expect(latest.isProviderReady).toBe(false)
     expect(mockUseSavedEntityYjsSession).toHaveBeenCalledWith(
       'dashboard_layout',
       'layout-1',
@@ -101,7 +100,6 @@ describe('useDashboardLayoutDocument live fields', () => {
     })
 
     expect(latest.topology).toBeNull()
-    expect(latest.isProviderReady).toBe(false)
   })
 
   it('isolates departed layout queues and recovers from resize failures', async () => {

@@ -43,16 +43,8 @@ let mockDashboardLayoutList: {
   layouts: LayoutTab[]
   isLoading: boolean
   error: unknown
-  isTerminalError?: boolean
 } | null = null
-let mockLayoutDocumentState: {
-  doc: Y.Doc | null
-  topology: DashboardLayoutTopologyNode | null
-  isProviderReady: boolean
-  isLoading: boolean
-  error: unknown
-  isTerminalError?: boolean
-} | null = null
+let mockLayoutDocumentLayoutId: string | null = null
 let mockTopologyDocuments = new WeakMap<DashboardLayoutTopologyNode, Y.Doc>()
 let mockDocuments = new Set<Y.Doc>()
 let mockWidgetDocuments = new Map<string, Y.Doc>()
@@ -148,21 +140,17 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', asyn
         error: null,
       },
     useDashboardLayoutDocument: ({
+      layoutId,
       initialTopology,
     }: {
+      layoutId?: string | null
       initialTopology?: DashboardLayoutTopologyNode | null
     }) => {
-      if (mockLayoutDocumentState) {
-        return {
-          ...mockLayoutDocumentState,
-          mutateStructure: mockLayoutMutation,
-        }
-      }
+      mockLayoutDocumentLayoutId = layoutId ?? null
       const doc = initialTopology ? (mockTopologyDocuments.get(initialTopology) ?? null) : null
       return {
         doc,
         topology: initialTopology ?? null,
-        isProviderReady: Boolean(doc),
         isLoading: false,
         error: null,
         mutateStructure: mockLayoutMutation,
@@ -321,7 +309,7 @@ describe('DashboardClient', () => {
     mockLayoutTabsIsBusy = false
     mockLayoutTabsCanMutate = true
     mockDashboardLayoutList = null
-    mockLayoutDocumentState = null
+    mockLayoutDocumentLayoutId = null
     mockTopologyDocuments = new WeakMap()
     mockDocuments = new Set()
     mockWidgetDocuments = new Map()
@@ -542,7 +530,7 @@ describe('DashboardClient', () => {
     expect(mockLayoutTabsIsBusy).toBe(false)
   })
 
-  it('keeps activation busy only while the action is unresolved', async () => {
+  it('selects the target immediately and keeps it after activation settles', async () => {
     let resolveActivation!: () => void
     dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -552,18 +540,23 @@ describe('DashboardClient', () => {
     await act(async () => {
       renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
+
     await act(async () => {
       void mockSelectLayout?.('layout-b')
       await Promise.resolve()
     })
 
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsIsBusy).toBe(true)
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-b'))
+
     await act(async () => resolveActivation())
     expect(mockLayoutTabsIsBusy).toBe(false)
-    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-a'))
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-b'))
   })
 
-  it('clears activation busy state when the action rejects', async () => {
+  it('rolls back the scoped selection when activation rejects', async () => {
     dashboardClientMocks.activateDashboardLayoutAction.mockRejectedValueOnce(
       new Error('activation failed')
     )
@@ -575,42 +568,28 @@ describe('DashboardClient', () => {
     })
 
     expect(mockLayoutTabsIsBusy).toBe(false)
+    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
+    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-a'))
     consoleError.mockRestore()
   })
 
-  it('does not retain SSR or synthetic content after live layout resolution', async () => {
+  it('keeps a ready selected layout independent of entity-list failure', async () => {
     mockDashboardLayoutList = {
-      layouts: [],
+      layouts: createLayouts('layout-a'),
       isLoading: false,
-      error: null,
+      error: new Error('layout list unavailable'),
     }
 
     await act(async () => {
-      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
+      renderDashboard({ topology: createGroupLayout([50, 50]) })
     })
 
-    expect(mockLayoutTabsLayouts).toEqual([])
-    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
-    expect(
-      container
-        .querySelector('[data-testid="dashboard-layout-document-state"]')
-        ?.getAttribute('data-state')
-    ).toBe('empty')
-
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      isLoading: false,
-      error: null,
-    }
-
-    await act(async () => {
-      renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
-    })
-
-    expect(container.querySelector('[data-testid^="widget-surface-"]')).toBeNull()
-    expect(
-      container.querySelector('[data-testid="dashboard-layout-document-state"]')
-    ).not.toBeNull()
+    expect(mockLayoutTabsCanMutate).toBe(false)
+    const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
+    if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close control')
+    expect(closePanel.disabled).toBe(false)
+    await act(async () => closePanel.click())
+    expect(mockLayoutMutation).toHaveBeenCalledWith({ type: 'close', panelId: 'panel-left' })
   })
 })
 

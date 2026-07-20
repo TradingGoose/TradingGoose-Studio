@@ -61,6 +61,12 @@ interface DashboardClientProps {
   initialLayouts: LayoutTab[]
 }
 
+type DashboardLayoutSelection = {
+  workspaceId: string
+  ownerUserId: string
+  layoutId: string
+}
+
 interface DashboardNodeProps {
   node: DashboardLayoutTopologyNode
   workspaceId: string
@@ -264,10 +270,12 @@ export function DashboardClient({
   initialLayouts,
 }: DashboardClientProps) {
   const [isCreatingLayout, setIsCreatingLayout] = useState(false)
-  const [pendingActivation, setPendingActivation] = useState<{
-    workspaceId: string
-    layoutId: string
-  } | null>(null)
+  const [selection, setSelection] = useState<DashboardLayoutSelection>(() => ({
+    workspaceId,
+    ownerUserId,
+    layoutId,
+  }))
+  const [pendingActivation, setPendingActivation] = useState<DashboardLayoutSelection | null>(null)
   const isCreatingLayoutRef = useRef(false)
   const router = useRouter()
   const [docs, setDocs] = useState<DropdownItem[]>([])
@@ -282,37 +290,36 @@ export function DashboardClient({
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
   const layouts = dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts
-  const listActiveLayout = useMemo(
-    () => layouts.find((layout) => layout.isActive) ?? null,
-    [layouts]
+  const scopedSelection =
+    selection.workspaceId === workspaceId && selection.ownerUserId === ownerUserId
+      ? selection
+      : { workspaceId, ownerUserId, layoutId }
+  const selectedLayoutId = scopedSelection.layoutId
+  const selectedLayout = layouts.find((layout) => layout.id === selectedLayoutId) ?? null
+  const layoutTabs = useMemo(
+    () =>
+      layouts.map((layout) => ({
+        ...layout,
+        isActive: layout.id === selectedLayoutId,
+      })),
+    [layouts, selectedLayoutId]
   )
-  const activeLayoutId = listActiveLayout?.id ?? null
-  const activeInitialTopology = useMemo<DashboardLayoutTopologyNode | null>(
-    () => (activeLayoutId === layoutId ? initialTopology : null),
-    [activeLayoutId, initialTopology, layoutId]
-  )
+  const selectedInitialTopology = selectedLayoutId === layoutId ? initialTopology : null
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
     ownerUserId,
-    layoutId: activeLayoutId,
-    initialTopology: activeInitialTopology,
+    layoutId: selectedLayoutId,
+    initialTopology: selectedInitialTopology,
   })
   const rawTree = layoutDocument.topology
-  const hasLayoutFailure = Boolean(dashboardLayoutList.error || layoutDocument.error)
   const canMutateLayouts = !dashboardLayoutList.error
   const activePendingActivation =
-    pendingActivation?.workspaceId === workspaceId ? pendingActivation : null
+    pendingActivation?.workspaceId === workspaceId && pendingActivation.ownerUserId === ownerUserId
+      ? pendingActivation
+      : null
   const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
-  const isActiveDocumentReady =
-    !hasLayoutFailure &&
-    layoutDocument.isProviderReady &&
-    rawTree !== null &&
-    activeLayoutId !== null
-  const canMutateLayoutTopology = !activePendingActivation && isActiveDocumentReady
-
-  useEffect(() => {
-    setPendingActivation((current) => (current?.workspaceId === workspaceId ? current : null))
-  }, [workspaceId])
+  const canMutateLayoutTopology =
+    !layoutDocument.error && layoutDocument.doc !== null && rawTree !== null
 
   useEffect(() => {
     let isMounted = true
@@ -382,11 +389,11 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
-      dashboardLayoutId: activeLayoutId ?? undefined,
-      dashboardLayoutName: listActiveLayout?.name,
+      dashboardLayoutId: selectedLayoutId,
+      dashboardLayoutName: selectedLayout?.name,
       dashboardLayoutOwnerUserId: ownerUserId,
     }),
-    [activeLayoutId, listActiveLayout?.name, ownerUserId, workspaceId]
+    [ownerUserId, selectedLayout?.name, selectedLayoutId, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -507,22 +514,25 @@ export function DashboardClient({
       if (
         !canMutateLayouts ||
         !nextLayoutId ||
-        nextLayoutId === activeLayoutId ||
+        nextLayoutId === scopedSelection.layoutId ||
         activePendingActivation
       )
         return
-      const attempt = { workspaceId, layoutId: nextLayoutId }
+      const previousSelection = scopedSelection
+      const attempt = { ...scopedSelection, layoutId: nextLayoutId }
+      setSelection(attempt)
       setPendingActivation(attempt)
 
       try {
-        await activateDashboardLayoutAction(workspaceId, nextLayoutId)
+        await activateDashboardLayoutAction(scopedSelection.workspaceId, nextLayoutId)
       } catch (error) {
+        setSelection((current) => (current === attempt ? previousSelection : current))
         console.error('Failed to switch layout:', error)
       } finally {
         setPendingActivation((current) => (current === attempt ? null : current))
       }
     },
-    [activeLayoutId, activePendingActivation, canMutateLayouts, workspaceId]
+    [activePendingActivation, canMutateLayouts, scopedSelection]
   )
 
   const handleRenameLayout = useCallback(
@@ -687,7 +697,7 @@ export function DashboardClient({
 
   const headerCenterContent = (
     <LayoutTabs
-      layouts={layouts}
+      layouts={layoutTabs}
       isBusy={isCreatingLayout || activePendingActivation !== null}
       canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
@@ -698,12 +708,11 @@ export function DashboardClient({
     />
   )
 
-  const layoutDocumentState =
-    dashboardLayoutList.error || layoutDocument.error
-      ? 'error'
-      : dashboardLayoutList.isLoading || layoutDocument.isLoading
-        ? 'loading'
-        : 'empty'
+  const layoutDocumentState = layoutDocument.error
+    ? 'error'
+    : layoutDocument.isLoading
+      ? 'loading'
+      : 'empty'
   const layoutDocumentMessage =
     layoutDocumentState === 'error'
       ? t('layoutState.error')
@@ -725,10 +734,11 @@ export function DashboardClient({
         )}
         {rawTree && layoutDocument.doc ? (
           <DashboardNode
+            key={selectedLayoutId}
             node={rawTree}
             workspaceId={workspaceId}
             ownerUserId={ownerUserId}
-            layoutId={activeLayoutId as string}
+            layoutId={selectedLayoutId}
             persistGroup={canMutateLayoutTopology ? persistGroup : undefined}
             resizeReconcileVersion={layoutDocument.resizeReconcileVersion}
             widgetContext={widgetContext}
