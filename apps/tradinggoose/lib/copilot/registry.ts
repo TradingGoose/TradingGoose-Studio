@@ -447,12 +447,10 @@ export const ToolArgSchemas = {
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 
-  [CopilotTool.read_workflow_logs]: z.object({
-    entityId: RequiredId,
-    workspaceId: RequiredId.optional(),
+  [CopilotTool.read_workflow_logs]: EntityTargetArgs.extend({
     limit: NumberOptional,
     includeDetails: BooleanOptional,
-  }),
+  }).strict(),
 
   [CopilotTool.get_available_blocks]: GetAvailableBlocksInput,
 

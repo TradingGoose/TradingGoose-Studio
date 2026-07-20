@@ -659,12 +659,13 @@ describe('routeExecution', () => {
       limit: 5,
       includeDetails: false,
     }
+    const context = { userId: 'user-1', apiKeyType: 'personal' as const }
 
-    await expect(routeExecution('read_workflow_logs', payload)).resolves.toMatchObject({
+    await expect(routeExecution('read_workflow_logs', payload, context)).resolves.toMatchObject({
       entries: expect.any(Array),
     })
 
-    expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
+    expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, context)
   })
 
   it('injects hosted workspace context for workspace-scoped writes', async () => {

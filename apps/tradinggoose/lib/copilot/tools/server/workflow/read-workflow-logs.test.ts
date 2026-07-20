@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
   const select = vi.fn(() => chain)
   chain.from = vi.fn(() => chain)
+  chain.innerJoin = vi.fn(() => chain)
+  chain.leftJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() =>
@@ -35,8 +37,6 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-const toolMocks = vi.hoisted(() => ({ verifyWorkspaceContext: vi.fn() }))
-
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: mocks.select,
@@ -44,6 +44,7 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  permissions: { entityType: 'perm.type', entityId: 'perm.id', userId: 'perm.userId' },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     workflowId: 'workflowExecutionLogs.workflowId',
@@ -58,6 +59,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     executionData: 'workflowExecutionLogs.executionData',
     cost: 'workflowExecutionLogs.cost',
   },
+  workspace: { id: 'ws.id', ownerId: 'ws.ownerId', allowPersonalApiKeys: 'ws.personalKeys' },
 }))
 
 const sql = vi.hoisted(() => {
@@ -82,16 +84,15 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
-  verifyWorkspaceContext: toolMocks.verifyWorkspaceContext,
+  requireUserId: (context?: { userId?: string }) => {
+    if (!context?.userId) throw new Error('Authenticated user is required')
+    return context.userId
+  },
 }))
 
 describe('readWorkflowLogsServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    toolMocks.verifyWorkspaceContext.mockImplementation(async (context) => {
-      if (!context?.userId) throw new Error('Authenticated user is required')
-      return { userId: context.userId, workspaceId: context.workspaceId }
-    })
   })
 
   it('matches console logs by live workflow id or durable workflow summary id', async () => {
@@ -99,17 +100,16 @@ describe('readWorkflowLogsServerTool', () => {
     const result = await readWorkflowLogsServerTool.execute(
       {
         entityId: 'deleted-workflow-1',
-        workspaceId: 'workspace-1',
         includeDetails: false,
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', apiKeyType: 'personal' }
     )
 
-    expect(toolMocks.verifyWorkspaceContext).toHaveBeenCalledWith(
-      { userId: 'user-1', workspaceId: 'workspace-1' },
-      'read'
-    )
-    expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
+    expect(mocks.chain.innerJoin).toHaveBeenCalled()
+    expect(mocks.chain.leftJoin).toHaveBeenCalled()
+    expect(mocks.eq).toHaveBeenCalledWith('perm.userId', 'user-1')
+    expect(mocks.eq).toHaveBeenCalledWith('ws.ownerId', 'user-1')
+    expect(mocks.eq).toHaveBeenCalledWith('ws.personalKeys', true)
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workflowId', 'deleted-workflow-1')
     expect(mocks.or).toHaveBeenCalled()
     expect(result).toMatchObject({
@@ -124,7 +124,6 @@ describe('readWorkflowLogsServerTool', () => {
     await expect(
       readWorkflowLogsServerTool.execute({
         entityId: 'deleted-workflow-1',
-        workspaceId: 'workspace-1',
         includeDetails: false,
       })
     ).rejects.toThrow('Authenticated user is required')
