@@ -37,7 +37,7 @@ describe('authenticateYjsConnection', () => {
       )
     ).rejects.toMatchObject({
       name: 'YjsAuthError',
-      code: 401,
+      status: 401,
       message: 'Invalid or expired token',
     })
   })

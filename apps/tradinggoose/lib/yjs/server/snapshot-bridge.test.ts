@@ -95,6 +95,7 @@ const applyEntityState = async (fields: Record<string, unknown>) =>
     'watchlist-1',
     'watchlist',
     'workspace-1',
+    'user-1',
     fields
   )
 
@@ -117,6 +118,7 @@ describe('applyEntityStateInSocketServer', () => {
     expect(Object.fromEntries(new Headers(init.headers).entries())).toMatchObject({
       'content-type': 'application/json',
       'x-internal-secret': 'internal-secret',
+      'x-yjs-actor-user-id': 'user-1',
     })
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',

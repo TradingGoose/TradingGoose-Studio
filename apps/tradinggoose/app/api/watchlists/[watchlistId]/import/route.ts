@@ -78,9 +78,14 @@ export async function POST(
 
     await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
     const { name, ...content } = fields
-    await applyEntityStateInSocketServer(watchlistId, 'watchlist', parsed.workspaceId, content, {
-      identity: { name },
-    })
+    await applyEntityStateInSocketServer(
+      watchlistId,
+      'watchlist',
+      parsed.workspaceId,
+      userId,
+      content,
+      { identity: { name } }
+    )
     const watchlist = await getWatchlist({ workspaceId: parsed.workspaceId }, watchlistId)
 
     return NextResponse.json({ watchlist }, { status: 200 })

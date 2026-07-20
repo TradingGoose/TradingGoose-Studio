@@ -33,7 +33,6 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
 import {
-  assertValidParentTree,
   normalizeWatchlistDocumentContent,
   resolveWatchlistDocumentItemIds,
   WatchlistDocumentError,
@@ -66,32 +65,24 @@ const setMapValue = (map: Y.Map<unknown>, key: string, value: unknown) => {
   if (map.get(key) !== value) map.set(key, value)
 }
 
-const watchlistItemKey = (item: WatchlistDocumentInputItem & { id: string }) =>
-  item.type === 'section' ? item.id : watchlistListingMembershipKey(item.parentId, item.listing)
-
 function writeWatchlistItem(
   items: Y.Map<Y.Map<unknown>>,
   item: WatchlistDocumentInputItem & { id: string },
-  order: number,
-  previousListingKeys: Map<string, string>
+  order: number
 ): void {
-  const key = watchlistItemKey(item)
-  let entry = items.get(key)
+  let entry = items.get(item.id)
   if (!(entry instanceof Y.Map)) {
     entry = new Y.Map<unknown>()
-    items.set(key, entry)
+    items.set(item.id, entry)
   }
   setMapValue(entry, 'type', item.type)
   setMapValue(entry, 'parentId', item.parentId ?? null)
   setMapValue(entry, 'order', order)
   if (item.type === 'section') {
+    entry.delete('listing')
     setMapValue(entry, 'label', item.label)
   } else {
-    const id =
-      previousListingKeys.has(item.id) && previousListingKeys.get(item.id) !== key
-        ? crypto.randomUUID()
-        : item.id
-    setMapValue(entry, 'id', id)
+    entry.delete('label')
     const currentListing = entry.get('listing') as ListingIdentity | undefined
     if (!areListingIdentitiesEqual(currentListing, item.listing)) {
       entry.set('listing', item.listing)
@@ -129,19 +120,12 @@ export function replaceWatchlistItems(
   const orders = siblingOrders(items)
   doc.transact(() => {
     const map = getWatchlistItemsMap(doc)
-    const previousListingKeys = new Map<string, string>()
-    map.forEach((entry, key) => {
-      if (entry instanceof Y.Map && entry.get('type') === 'listing') {
-        const id = entry.get('id')
-        if (typeof id === 'string') previousListingKeys.set(id, key)
-      }
-    })
-    const keys = new Set(items.map(watchlistItemKey))
+    const keys = new Set(items.map((item) => item.id))
     map.forEach((_entry, key) => {
       if (!keys.has(key)) map.delete(key)
     })
     for (const item of items) {
-      writeWatchlistItem(map, item, orders.get(item) ?? 0, previousListingKeys)
+      writeWatchlistItem(map, item, orders.get(item) ?? 0)
     }
   }, origin)
 }
@@ -155,33 +139,43 @@ export function updateWatchlistItems(
 }
 
 export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
-  const entries: Array<WatchlistItem & { order: number }> = []
+  const parsedEntries: Array<WatchlistItem & { order: number }> = []
   const items = getFieldsMap(doc).get('items')
   if (items === undefined) return []
   if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
   const itemMap = items as Y.Map<Y.Map<unknown>>
-  const ids = new Set<string>()
   itemMap.forEach((entry, key) => {
     const parsed = entry instanceof Y.Map ? WatchlistYjsItemSchema.safeParse(entry.toJSON()) : null
     if (!parsed?.success) {
       throw new WatchlistDocumentError('Invalid watchlist item')
     }
     const item = parsed.data
-    const id = item.type === 'listing' ? item.id : key
-    const expectedKey = item.type === 'listing' ? watchlistItemKey(item) : id
-    if (key !== expectedKey || !isUuid(id) || ids.has(id)) {
+    if (!isUuid(key)) {
       throw new WatchlistDocumentError('Invalid watchlist item')
     }
-    ids.add(id)
-    if (item.type === 'listing') {
-      const { id: _id, ...fields } = item
-      entries.push({ id, ...fields })
-    } else {
-      entries.push({ id, ...item })
-    }
+    parsedEntries.push({ id: key, ...item })
   })
 
-  assertValidParentTree(entries)
+  parsedEntries.sort((left, right) => left.id.localeCompare(right.id))
+  const sectionIds = new Set(
+    parsedEntries.flatMap((entry) => (entry.type === 'section' ? [entry.id] : []))
+  )
+  const memberships = new Set<string>()
+  const entries: Array<WatchlistItem & { order: number }> = []
+  for (const entry of parsedEntries) {
+    if (entry.type === 'section') {
+      entries.push(entry)
+      continue
+    }
+    const projected = {
+      ...entry,
+      parentId: entry.parentId && sectionIds.has(entry.parentId) ? entry.parentId : null,
+    }
+    const membership = watchlistListingMembershipKey(projected.parentId, projected.listing)
+    if (memberships.has(membership)) continue
+    memberships.add(membership)
+    entries.push(projected)
+  }
 
   const byParent = new Map<string | null, Array<WatchlistItem & { order: number }>>()
   for (const item of entries) {

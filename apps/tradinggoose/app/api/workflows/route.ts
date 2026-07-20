@@ -197,6 +197,7 @@ export async function POST(req: NextRequest) {
     try {
       await applyWorkflowState(
         workflowId,
+        session.user.id,
         createWorkflowSnapshot(initialState.canonicalState),
         remappedVariables
       )

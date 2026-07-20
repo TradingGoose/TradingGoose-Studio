@@ -169,7 +169,9 @@ describe('workflow variable server tools', () => {
     })
     expect(result.variables).toEqual({})
     expect(ToolResultSchemas.edit_workflow_variable.parse(result)).toEqual(result)
-    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', { variables: {} })
+    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', 'user-1', {
+      variables: {},
+    })
     expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })
 

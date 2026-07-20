@@ -8,8 +8,12 @@ import type { Duplex } from 'stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebSocketServer } from 'ws'
 import * as Y from 'yjs'
-import { YJS_CLOSE_CODE_RETRY_REQUIRED } from '@/lib/copilot/review-sessions/types'
+import {
+  YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
+} from '@/lib/copilot/review-sessions/types'
 import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
+import type { DocumentAdmission } from './upstream-utils'
 
 const mockLogger = {
   debug: vi.fn(),
@@ -22,7 +26,6 @@ const mockAuthenticateYjsConnection = vi.fn()
 const mockInitializeSavedReviewTargetDocument = vi.fn()
 const mockReconcileEntityListSession = vi.fn()
 const mockBindEntityListSession = vi.fn(() => mockReconcileEntityListSession)
-const mockVerifyReviewTargetAccess = vi.fn()
 const mockAcquireDocument = vi.fn()
 const mockDocuments = new Map<string, { doc: Y.Doc; seeded: boolean }>()
 const mockSetupWSConnection = vi.fn()
@@ -36,7 +39,7 @@ const mockUpgradedSocketResume = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
-    public code: number,
+    public status: number,
     message: string
   ) {
     super(message)
@@ -115,7 +118,6 @@ async function loadModule() {
 async function runYjsUpgrade(input: {
   target: YjsTestTarget
   accessMode?: 'read' | 'write'
-  access?: { hasAccess: boolean; userPermission?: 'read' | 'write'; workspaceId?: string }
   bootstrap?: { workspaceId?: string | null; state: Uint8Array } | null
 }) {
   const accessMode = input.accessMode ?? 'write'
@@ -128,7 +130,6 @@ async function runYjsUpgrade(input: {
   const bootstrapUpdate = new Uint8Array([0, 0])
   mockAuthenticateYjsConnection.mockResolvedValue({
     userId: 'user-1',
-    userName: 'User One',
     envelope: {
       targetKind,
       sessionId: target.sessionId,
@@ -140,13 +141,6 @@ async function runYjsUpgrade(input: {
       draftSessionId: target.draftSessionId ?? null,
     },
   })
-  mockVerifyReviewTargetAccess.mockResolvedValue(
-    input.access ?? {
-      hasAccess: true,
-      userPermission: accessMode,
-      workspaceId: target.workspaceId ?? 'workspace-1',
-    }
-  )
   const bootstrap =
     input.bootstrap === undefined
       ? {
@@ -177,29 +171,29 @@ beforeEach(() => {
   mockInitializeSavedReviewTargetDocument.mockReset()
   mockReconcileEntityListSession.mockReset()
   mockBindEntityListSession.mockClear()
-  mockVerifyReviewTargetAccess.mockReset()
   for (const { doc } of mockDocuments.values()) doc.destroy()
   mockDocuments.clear()
   mockAcquireDocument.mockReset().mockImplementation(
     async (
       sessionId: string,
       options: {
-        authorize?: () => Promise<unknown> | unknown
+        admission?: DocumentAdmission
         initialize: (
-          doc: Y.Doc
+          doc: Y.Doc,
+          admission?: DocumentAdmission
         ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
       },
-      use: (doc: Y.Doc) => Promise<unknown> | unknown
+      use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<unknown> | unknown
     ) => {
-      await options.authorize?.()
+      const admission = options.admission
       const entry = mockDocuments.get(sessionId) ?? { doc: new Y.Doc(), seeded: false }
       mockDocuments.set(sessionId, entry)
       if (!entry.seeded) {
-        const initializedDocument = await options.initialize(entry.doc)
+        const initializedDocument = await options.initialize(entry.doc, admission)
         if (initializedDocument?.state) Y.applyUpdate(entry.doc, initializedDocument.state)
         entry.seeded = true
       }
-      return use(entry.doc)
+      return use(entry.doc, admission)
     }
   )
   mockSetupWSConnection.mockReset()
@@ -223,10 +217,6 @@ beforeEach(() => {
   vi.doMock('./auth', () => ({
     authenticateYjsConnection: mockAuthenticateYjsConnection,
     YjsAuthError: MockYjsAuthError,
-  }))
-
-  vi.doMock('@/lib/copilot/review-sessions/permissions', () => ({
-    verifyReviewTargetAccess: mockVerifyReviewTargetAccess,
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
@@ -277,12 +267,6 @@ describe('handleYjsUpgrade', () => {
         resolveAuthentication = resolve
       })
     )
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'write',
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
     let acceptsConnections = true
 
     const { handleYjsUpgrade } = await loadModule()
@@ -322,29 +306,12 @@ describe('handleYjsUpgrade', () => {
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
     expect(mockUpgradedSocketPause).toHaveBeenCalledOnce()
     expect(mockUpgradedSocketResume).not.toHaveBeenCalled()
     expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
       YJS_CLOSE_CODE_RETRY_REQUIRED,
       'Failed to attach Yjs session'
     )
-  })
-
-  it('rejects websocket upgrades for read-only access', async () => {
-    const sessionId = 'workflow-123'
-    await runYjsUpgrade({
-      target: { sessionId, entityKind: 'workflow' },
-      access: {
-        hasAccess: false,
-        userPermission: 'write',
-        workspaceId: 'workspace-1',
-      },
-    })
-
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
-    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4403, 'Failed to attach Yjs session')
   })
 
   it('allows dashboard widget write upgrades with canonical validation', async () => {
@@ -363,14 +330,16 @@ describe('handleYjsUpgrade', () => {
       accessMode: 'write',
     })
 
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(mockInitializeSavedReviewTargetDocument).toHaveBeenCalled()
     expect(mockReadPersistedDashboardWidgetBinding).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       'layout-1',
       'widget-1'
     )
+    expect(mockAcquireDocument.mock.calls[0]?.[1].admission).toMatchObject({
+      userId: 'user-1',
+      accessMode: 'write',
+    })
     expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
@@ -417,7 +386,6 @@ describe('handleYjsUpgrade', () => {
   ])('allows %s read-mode websocket upgrades', async (_label, target) => {
     const { request, wss } = await runYjsUpgrade({ target, accessMode: 'read' })
 
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
     expect(wss.handleUpgrade).toHaveBeenCalledOnce()
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
@@ -573,22 +541,21 @@ describe('handleYjsUpgrade', () => {
       },
     })
 
-    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
     expect(mockSetupWSConnection).not.toHaveBeenCalled()
     expect(mockUpgradedSocketClose).toHaveBeenCalledWith(4403, 'Failed to attach Yjs session')
   })
 
-  it('maps an active Yjs admission fence to a retryable close', async () => {
-    mockAcquireDocument.mockRejectedValueOnce(new MockYjsSessionAdmissionError('watchlist-fenced'))
+  it.each([
+    [YJS_CLOSE_CODE_AUTHORIZATION_REVOKED, new MockYjsAuthError(403, 'Forbidden')],
+    [YJS_CLOSE_CODE_RETRY_REQUIRED, new MockYjsSessionAdmissionError('watchlist-fenced')],
+  ])('maps an acquisition failure to close code %i', async (closeCode, error) => {
+    mockAcquireDocument.mockRejectedValueOnce(error)
 
     await runYjsUpgrade({
       target: { sessionId: 'watchlist-fenced', entityKind: 'watchlist' },
     })
 
-    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
-      YJS_CLOSE_CODE_RETRY_REQUIRED,
-      'Failed to attach Yjs session'
-    )
+    expect(mockUpgradedSocketClose).toHaveBeenCalledWith(closeCode, 'Failed to attach Yjs session')
   })
 
   it('rejects websocket upgrades for missing non-entity review sessions', async () => {

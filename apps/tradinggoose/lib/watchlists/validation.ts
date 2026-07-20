@@ -58,7 +58,6 @@ const canonicalYjsString = z
 export const WatchlistYjsItemSchema = z.discriminatedUnion('type', [
   z
     .object({
-      id: z.string().uuid(),
       type: z.literal('listing'),
       parentId: canonicalYjsString.nullable(),
       listing: ListingIdentitySchema,

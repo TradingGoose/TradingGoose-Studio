@@ -166,13 +166,14 @@ describe('applySavedEntityState', () => {
     mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
 
     await expect(
-      applySavedEntityState('watchlist', 'watchlist-1', 'workspace-1', inputFields)
+      applySavedEntityState('watchlist', 'watchlist-1', 'workspace-1', 'user-1', inputFields)
     ).resolves.toEqual(persistedFields)
 
     expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith(
       'watchlist-1',
       'watchlist',
       'workspace-1',
+      'user-1',
       inputFields,
       undefined
     )
@@ -262,17 +263,20 @@ describe('applySavedEntityState', () => {
     expect(events).toEqual(['db'])
   })
 
-  it('reconciles materialized watchlist IDs without overwriting a newer edit', async () => {
+  it('reconciles watchlist orphan repair and materialized IDs without overwriting newer edits', async () => {
     const { getEntityFields, seedEntitySession, updateWatchlistItems } = await import(
       '@/lib/yjs/entity-session'
     )
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const fields = watchlistFields('00000000-0000-4000-8000-000000000001')
+    const itemId = '00000000-0000-4000-8000-000000000001'
+    const fields = watchlistFields(itemId)
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
       payload: fields,
     })
+    const items = doc.getMap('fields').get('items') as Y.Map<Y.Map<unknown>>
+    items.get(itemId)!.set('parentId', '00000000-0000-4000-8000-000000000002')
     const persistedFields = {
       ...fields,
       items: [{ ...fields.items[0], id: '00000000-0000-4000-8000-000000000009' }],
@@ -463,7 +467,7 @@ describe('applySavedEntityState', () => {
       mockApplyEntityStateInSocketServer.mockRejectedValueOnce(failure)
 
       await expect(
-        applySavedEntityState('skill', 'skill-1', 'workspace-1', {
+        applySavedEntityState('skill', 'skill-1', 'workspace-1', 'user-1', {
           description: 'Copilot description',
           content: 'Use the Copilot input.',
         })

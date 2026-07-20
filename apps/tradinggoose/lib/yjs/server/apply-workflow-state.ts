@@ -8,6 +8,7 @@ import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflo
 
 export async function applyWorkflowState(
   workflowId: string,
+  actorUserId: string,
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>
 ): Promise<void> {
@@ -27,7 +28,7 @@ export async function applyWorkflowState(
   })
 
   try {
-    await applyWorkflowPatchInSocketServer(workflowId, {
+    await applyWorkflowPatchInSocketServer(workflowId, actorUserId, {
       workflowState: storedWorkflowState,
       ...(variables === undefined ? {} : { variables }),
     })

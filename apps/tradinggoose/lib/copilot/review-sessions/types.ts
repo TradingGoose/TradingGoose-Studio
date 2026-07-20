@@ -32,6 +32,7 @@ export type ReviewAccessMode = 'read' | 'write'
 export const YJS_CLOSE_CODE_AUTHORIZATION_REVOKED = 4403
 export const YJS_CLOSE_CODE_RETRY_REQUIRED = 4409
 export const YJS_CLOSE_CODE_DOCUMENT_REJECTED = 4410
+export const INTERNAL_YJS_ACTOR_HEADER = 'x-yjs-actor-user-id'
 
 export interface ReviewTargetDescriptor {
   workspaceId: string | null

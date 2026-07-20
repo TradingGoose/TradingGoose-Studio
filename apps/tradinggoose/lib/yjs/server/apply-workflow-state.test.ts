@@ -66,6 +66,7 @@ describe('applyWorkflowState', () => {
 
     await applyWorkflowState(
       'workflow-1',
+      'user-1',
       {
         blocks: {
           'input-block': {
@@ -87,6 +88,7 @@ describe('applyWorkflowState', () => {
 
     expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith(
       'workflow-1',
+      'user-1',
       expect.objectContaining({
         workflowState: expect.objectContaining({
           blocks: {
@@ -103,8 +105,8 @@ describe('applyWorkflowState', () => {
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
 
-    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toThrow(
-      'fetch failed'
-    )
+    await expect(
+      applyWorkflowState('workflow-1', 'user-1', emptyWorkflowState, {})
+    ).rejects.toThrow('fetch failed')
   })
 })

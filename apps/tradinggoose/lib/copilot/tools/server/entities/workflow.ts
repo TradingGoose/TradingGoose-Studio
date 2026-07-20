@@ -452,7 +452,9 @@ export const editWorkflowVariableServerTool: BaseServerTool<
     }
 
     assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
-    await applyWorkflowPatchInSocketServer(workflowId, { variables: nextVariables })
+    await applyWorkflowPatchInSocketServer(workflowId, requireUserId(context), {
+      variables: nextVariables,
+    })
     return {
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
@@ -528,7 +530,7 @@ export const createWorkflowServerTool: BaseServerTool<
     })
 
     try {
-      await applyWorkflowState(workflowId, workflowState, {})
+      await applyWorkflowState(workflowId, userId, workflowState, {})
     } catch (error) {
       await db.transaction(async (tx) => {
         await lockSavedEntityList(tx, ENTITY_KIND_WORKFLOW, workspaceId)

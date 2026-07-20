@@ -14,7 +14,10 @@ import {
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import {
+  INTERNAL_YJS_ACTOR_HEADER,
+  type ReviewEntityKind,
+} from '@/lib/copilot/review-sessions/types'
 import {
   buildCopilotServerToolErrorResponse,
   StructuredServerToolError,
@@ -23,10 +26,7 @@ import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  commitDashboardLayoutStructure,
-  DashboardLayoutOperationError,
-} from '@/lib/dashboard-layouts/operations'
+import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
 import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
@@ -52,12 +52,8 @@ import {
 import {
   assembleDashboardLayoutProjection,
   initializeSavedReviewTargetDocument,
-  ReviewTargetBootstrapError,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  runYjsRevocationTransaction,
-  YjsSessionAdmissionError,
-} from '@/lib/yjs/server/revocation-fence'
+import { runYjsRevocationTransaction } from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
@@ -136,15 +132,8 @@ function getYjsRequestErrorStatus(error: unknown): number {
   ) {
     return 400
   }
-  if (
-    error instanceof SavedEntityPersistenceError ||
-    error instanceof DashboardLayoutOperationError ||
-    error instanceof ReviewTargetBootstrapError ||
-    error instanceof YjsSessionAdmissionError
-  ) {
-    return error.status
-  }
-  return 500
+  const status = error instanceof Error && 'status' in error ? Number(error.status) : 500
+  return Number.isInteger(status) && status >= 400 && status < 600 ? status : 500
 }
 
 function isInternalRequestAuthorized(req: IncomingMessage): boolean {
@@ -160,6 +149,14 @@ function isInternalRequestAuthorized(req: IncomingMessage): boolean {
   }
 
   return typeof providedHeader === 'string' && providedHeader === expectedSecret
+}
+
+function requireInternalActorUserId(req: IncomingMessage): string {
+  const actorUserId = req.headers[INTERNAL_YJS_ACTOR_HEADER]
+  if (typeof actorUserId !== 'string' || !actorUserId.trim()) {
+    throw new InvalidInternalYjsRequestError('Acting user is required')
+  }
+  return actorUserId.trim()
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -368,8 +365,9 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   }
 }
 
-function withBootstrappedApplyDocument<T>(
+function withBootstrappedDocument<T>(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>,
+  actorUserId: string | null,
   use: (doc: Y.Doc) => Promise<T> | T
 ): Promise<T> {
   if (!descriptor.entityId) {
@@ -379,7 +377,11 @@ function withBootstrappedApplyDocument<T>(
     descriptor.yjsSessionId,
     {
       workspaceId: descriptor.workspaceId,
-      initialize: () => initializeSavedReviewTargetDocument(descriptor),
+      ...(actorUserId
+        ? { admission: { userId: actorUserId, accessMode: 'write' as const, descriptor } }
+        : {}),
+      initialize: (_doc, admission) =>
+        initializeSavedReviewTargetDocument(admission?.descriptor ?? descriptor),
     },
     use
   )
@@ -454,17 +456,10 @@ async function handleInternalYjsWorkflowApplyRequest(
   workflowId: string
 ): Promise<void> {
   try {
+    const actorUserId = requireInternalActorUserId(req)
     const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
-    const descriptor = {
-      workspaceId: null,
-      ownerUserId: null,
-      entityKind: 'workflow',
-      entityId: workflowId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: workflowId,
-    } as const
-    await withBootstrappedApplyDocument(descriptor, (doc) =>
+    const descriptor = buildSavedEntityDescriptor('workflow', workflowId, null)
+    await withBootstrappedDocument(descriptor, actorUserId, (doc) =>
       persistStagedDocuments(
         [{ doc, mutate: (target) => applyWorkflowApplyRequest(target, body) }],
         ([staged]) => saveWorkflowYjsDocToDb(workflowId, staged!)
@@ -484,6 +479,7 @@ async function handleInternalYjsEntityApplyRequest(
   entityId: string
 ): Promise<void> {
   try {
+    const actorUserId = requireInternalActorUserId(req)
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
     let normalizedFields: Record<string, unknown>
     try {
@@ -494,7 +490,7 @@ async function handleInternalYjsEntityApplyRequest(
       )
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, body.workspaceId)
-    const persistedFields = await withBootstrappedApplyDocument(descriptor, (doc) =>
+    const persistedFields = await withBootstrappedDocument(descriptor, actorUserId, (doc) =>
       applySavedEntityThroughStaging({
         doc,
         entityId,
@@ -551,7 +547,9 @@ async function readDashboardProjectionFromLiveOwners(input: {
     ownerUserId: input.ownerUserId,
     readOwnerDocument: (descriptor, read) => {
       const held = input.heldDocs?.get(descriptor.yjsSessionId)
-      return held ? Promise.resolve(read(held)) : withBootstrappedApplyDocument(descriptor, read)
+      return held
+        ? Promise.resolve(read(held))
+        : withBootstrappedDocument(descriptor, input.ownerUserId, read)
     },
   })
 }
@@ -567,13 +565,14 @@ async function commitDashboardStructurePlan(input: {
     input.plan.createdBindings.map(async (binding) => ({
       binding,
       document: binding.sourceIdentityId
-        ? await withBootstrappedApplyDocument(
+        ? await withBootstrappedDocument(
             buildDashboardWidgetDescriptor({
               layoutId: input.layoutId,
               identityId: binding.sourceIdentityId,
               workspaceId: input.workspaceId,
               ownerUserId: input.ownerUserId,
             }),
+            input.ownerUserId,
             (doc) => readDashboardWidgetDocument(doc, binding.widgetKey)
           )
         : createDefaultDashboardWidgetDocument(binding.widgetKey),
@@ -625,6 +624,7 @@ async function handleInternalDashboardEditRequest(
   entityId: string
 ): Promise<void> {
   try {
+    const actorUserId = requireInternalActorUserId(req)
     const raw = await readJsonBody(req)
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
       throw new InvalidInternalYjsRequestError('Invalid dashboard edit body')
@@ -646,7 +646,7 @@ async function handleInternalDashboardEditRequest(
     const descriptor = buildSavedEntityDescriptor('dashboard_layout', entityId, workspaceId, {
       ownerUserId,
     })
-    const committed = await withBootstrappedApplyDocument(descriptor, async (layoutDoc) => {
+    const committed = await withBootstrappedDocument(descriptor, actorUserId, async (layoutDoc) => {
       if (body.mutation === 'layout') {
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
@@ -710,7 +710,7 @@ async function handleInternalDashboardEditRequest(
           workspaceId,
           ownerUserId,
         })
-        return withBootstrappedApplyDocument(widgetDescriptor, async (widgetDoc) => {
+        return withBootstrappedDocument(widgetDescriptor, actorUserId, async (widgetDoc) => {
           const widget = readDashboardWidgetDocument(widgetDoc, widgetKey)
           const patch: WidgetConfigMutationPatch = { ...requestedPatch }
           if (patch.params !== undefined) {
@@ -815,7 +815,7 @@ async function handleInternalDashboardEditRequest(
           }
 
           return pairDescriptor
-            ? withBootstrappedApplyDocument(pairDescriptor, applyLockedEdit)
+            ? withBootstrappedDocument(pairDescriptor, actorUserId, applyLockedEdit)
             : applyLockedEdit(null)
         })
       }
@@ -856,7 +856,7 @@ async function handleInternalYjsSnapshotRequest(
   }
 
   try {
-    const snapshot = await withBootstrappedApplyDocument(descriptor, (doc) => ({
+    const snapshot = await withBootstrappedDocument(descriptor, null, (doc) => ({
       snapshotBase64: Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64'),
       descriptor,
       runtime: getReviewTargetRuntimeState(doc),

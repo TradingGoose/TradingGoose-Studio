@@ -4,7 +4,6 @@ import type { YjsTransportEnvelope } from '@/lib/copilot/review-sessions/types'
 
 export interface YjsAuthResult {
   userId: string
-  userName: string | null
   envelope: YjsTransportEnvelope
 }
 
@@ -48,14 +47,13 @@ export async function authenticateYjsConnection(url: URL): Promise<YjsAuthResult
 
   return {
     userId: session.user.id,
-    userName: session.user.name || session.user.email || null,
     envelope,
   }
 }
 
 export class YjsAuthError extends Error {
   constructor(
-    public code: number,
+    public readonly status: number,
     message: string
   ) {
     super(message)

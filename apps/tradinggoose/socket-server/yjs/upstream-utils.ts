@@ -33,6 +33,7 @@ import {
   YjsSessionAdmissionError,
 } from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { YjsAuthError } from './auth'
 
 const messageSync = 0
 const messageAwareness = 1
@@ -49,12 +50,14 @@ let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, staged: Y.Doc) => Promise<void> | void
 type DocumentInitialization = { state?: Uint8Array; workspaceId?: string | null }
 type DocumentInitializer = (
-  doc: Y.Doc
+  doc: Y.Doc,
+  admission?: DocumentAdmission
 ) => Promise<DocumentInitialization | undefined> | DocumentInitialization | undefined
-type DocumentAuthorizer = () =>
-  | Promise<{ workspaceId?: string | null } | undefined>
-  | { workspaceId?: string | null }
-  | undefined
+export type DocumentAdmission = {
+  userId: string
+  accessMode: ReviewAccessMode
+  descriptor: ReviewTargetDescriptor
+}
 export type DocumentReconciler = () => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
@@ -451,37 +454,61 @@ export async function acquireDocument<T>(
   options: {
     gc?: boolean
     workspaceId?: string | null
-    authorize?: DocumentAuthorizer
+    admission?: DocumentAdmission
     initialize: DocumentInitializer
   },
-  use: (doc: Y.Doc) => Promise<T> | T
+  use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<T> | T
 ): Promise<T> {
   const workspaceIds = options.workspaceId ? [options.workspaceId] : undefined
   return withYjsAdmissionTransaction({ sessionIds: [docId], workspaceIds }, async (admit) => {
     assertLocalDocumentAdmission(docId)
-    const authorized = await options.authorize?.()
-    if (authorized?.workspaceId) {
-      await admit({ workspaceIds: [authorized.workspaceId] })
+    const admission = options.admission ? { ...options.admission } : undefined
+    const authorize = async (expectedWorkspaceId?: string | null) => {
+      if (!admission) return null
+      const access = await verifyReviewTargetAccess(
+        admission.userId,
+        admission.descriptor,
+        admission.accessMode
+      )
+      if (
+        !access.hasAccess ||
+        (expectedWorkspaceId && access.workspaceId !== expectedWorkspaceId)
+      ) {
+        throw new YjsAuthError(403, 'Forbidden')
+      }
+      admission.descriptor = {
+        ...admission.descriptor,
+        workspaceId: access.workspaceId,
+      }
+      return access.workspaceId
     }
+    let admittedWorkspaceId = options.workspaceId
+    const admitWorkspace = async (workspaceId?: string | null) => {
+      if (!workspaceId || workspaceId === admittedWorkspaceId) return
+      await admit({ workspaceIds: [workspaceId] })
+      admittedWorkspaceId = workspaceId
+      await authorize(workspaceId)
+    }
+    await admitWorkspace(await authorize())
 
     let doc = docs.get(docId)
     if (!doc) {
       doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
       docs.set(docId, doc)
     }
-    if (doc.workspaceId) await admit({ workspaceIds: [doc.workspaceId] })
+    await admitWorkspace(doc.workspaceId)
     return runDocumentMutation(doc, async () => {
       const shared = doc as WSSharedDoc
       if (!shared.seeded) {
-        const resolved = await options.initialize(doc)
+        const resolved = await options.initialize(doc, admission)
         if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
-        if (shared.workspaceId) await admit({ workspaceIds: [shared.workspaceId] })
+        await admitWorkspace(shared.workspaceId)
         if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
         shared.seeded = true
         shared.hasUnsavedChanges = false
         shared.persistedSnapshot = Y.snapshot(shared)
       }
-      return use(doc)
+      return use(doc, admission)
     })
   })
 }

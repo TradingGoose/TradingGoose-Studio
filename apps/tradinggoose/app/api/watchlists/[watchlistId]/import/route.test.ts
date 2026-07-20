@@ -117,7 +117,7 @@ describe('Watchlist import API route', () => {
     expect(payload.watchlist.id).toBe('watchlist-1')
     expect(mockGetWatchlist).toHaveBeenCalledWith({ workspaceId: 'workspace-1' }, 'watchlist-1')
     expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledTimes(1)
-    const [entityId, entityKind, workspaceId, fields, options] =
+    const [entityId, entityKind, workspaceId, , fields, options] =
       mockApplyEntityStateInSocketServer.mock.calls[0]!
     expect([entityId, entityKind, workspaceId]).toEqual(['watchlist-1', 'watchlist', 'workspace-1'])
     expect(fields).toMatchObject({
@@ -229,6 +229,7 @@ describe('Watchlist import API route', () => {
       'watchlist-1',
       'watchlist',
       'workspace-1',
+      'user-1',
       expect.any(Object),
       { identity: { name: 'Imported Watchlist' } }
     )

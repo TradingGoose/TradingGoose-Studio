@@ -191,9 +191,11 @@ export async function resolveWorkflowMutationResultForExecution(
     return result
   }
 
+  const { userId } = await verifySavedEntityContext(context, 'workflow', result.entityId, 'write')
   assertAcceptedServerToolReviewBase(context, result.reviewBaseStateHash)
   await applyWorkflowState(
     result.entityId,
+    userId,
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>),
     result.variables
   )

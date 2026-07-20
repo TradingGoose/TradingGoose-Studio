@@ -185,8 +185,8 @@ describe('Workflow Duplicate API Route', () => {
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedWorkflowId = applyWorkflowStateMock.mock.calls[0][0]
-    const persistedState = applyWorkflowStateMock.mock.calls[0][1]
-    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
+    const persistedState = applyWorkflowStateMock.mock.calls[0][2]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][3]
 
     expect(insertedWorkflow.id).toBe(persistedWorkflowId)
     expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith(persistedWorkflowId)

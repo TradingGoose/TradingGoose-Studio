@@ -103,6 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       const updatedKnowledgeBase = await applyKnowledgeBaseMetadata(
         id,
+        session.user.id,
         {
           name: validatedData.name ?? currentKnowledgeBase.name,
           description: validatedData.description ?? currentKnowledgeBase.description ?? '',

@@ -59,6 +59,11 @@ vi.mock(import('@/lib/env'), async (importOriginal) => {
 })
 
 const INTERNAL_SECRET = '12345678901234567890123456789012'
+const INTERNAL_MUTATION_HEADERS = {
+  'content-type': 'application/json',
+  'x-internal-secret': INTERNAL_SECRET,
+  'x-yjs-actor-user-id': 'test-user-id',
+}
 
 vi.mock('@/lib/redis', () => ({
   getRedisClient: vi.fn(() => null),
@@ -90,6 +95,13 @@ vi.mock('@/lib/auth', () => ({
       verifyOneTimeToken: vi.fn(),
     },
   },
+}))
+
+vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
+  verifyReviewTargetAccess: vi.fn(async (_userId, descriptor) => ({
+    hasAccess: true,
+    workspaceId: descriptor.workspaceId ?? 'workspace-1',
+  })),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -335,10 +347,7 @@ describe('Socket Server Index Integration', () => {
       const applyWorkflowPatch = (body: unknown) =>
         sendHttpRequestWithOptions(PORT, '/internal/yjs/workflows/workflow-1/apply-state', {
           method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
+          headers: INTERNAL_MUTATION_HEADERS,
           body: JSON.stringify(body),
         })
 
@@ -405,10 +414,7 @@ describe('Socket Server Index Integration', () => {
         '/internal/yjs/entities/watchlist-1/apply-state',
         {
           method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
+          headers: INTERNAL_MUTATION_HEADERS,
           body: JSON.stringify({
             entityKind: 'watchlist',
             workspaceId: 'workspace-1',
@@ -458,10 +464,7 @@ describe('Socket Server Index Integration', () => {
         '/internal/yjs/workflows/workflow-failed/apply-state',
         {
           method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
+          headers: INTERNAL_MUTATION_HEADERS,
           body: JSON.stringify({
             workflowState: {
               blocks: {},
@@ -494,7 +497,7 @@ describe('Socket Server Index Integration', () => {
         '/internal/yjs/workflows/workflow-connected/apply-state',
         {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-internal-secret': INTERNAL_SECRET },
+          headers: INTERNAL_MUTATION_HEADERS,
           body: JSON.stringify({
             workflowState: {
               blocks: { replaced: { id: 'replaced' } },

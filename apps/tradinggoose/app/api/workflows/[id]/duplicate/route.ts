@@ -138,6 +138,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     try {
       await applyWorkflowState(
         newWorkflowId,
+        session.user.id,
         createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables
       )

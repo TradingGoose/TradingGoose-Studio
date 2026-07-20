@@ -3,10 +3,11 @@ import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import type {
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
-  ReviewTargetRuntimeState,
+import {
+  INTERNAL_YJS_ACTOR_HEADER,
+  type ReviewEntityKind,
+  type ReviewTargetDescriptor,
+  type ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
@@ -119,14 +120,17 @@ async function fetchFromSocketServer<T = Response>(
 async function postJsonToSocketServer<T = unknown>(
   path: string,
   body: unknown,
+  actorUserId: string | null,
   attempts = 1,
   decode: (response: Response) => Promise<T> = (response) => response.json() as Promise<T>
 ): Promise<T> {
+  const headers = new Headers({ 'Content-Type': 'application/json' })
+  if (actorUserId) headers.set(INTERNAL_YJS_ACTOR_HEADER, actorUserId)
   return fetchFromSocketServer(
     new URL(path, getInternalRealtimeUrl()),
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     },
     10000,
@@ -160,11 +164,13 @@ export async function getYjsSnapshot(
 
 export async function applyWorkflowPatchInSocketServer(
   workflowId: string,
+  actorUserId: string,
   patch: WorkflowPatch
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    patch
+    patch,
+    actorUserId
   )
 }
 
@@ -172,6 +178,7 @@ export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   workspaceId: string,
+  actorUserId: string,
   fields: Record<string, unknown>,
   options?: {
     expectedReviewBaseStateHash?: string
@@ -181,15 +188,19 @@ export async function applyEntityStateInSocketServer(
   try {
     const response = await postJsonToSocketServer<{
       fields?: unknown
-    }>(`/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`, {
-      entityKind,
-      workspaceId,
-      fields,
-      ...(options?.expectedReviewBaseStateHash
-        ? { expectedReviewBaseStateHash: options.expectedReviewBaseStateHash }
-        : {}),
-      ...(options?.identity ? { identity: options.identity } : {}),
-    })
+    }>(
+      `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
+      {
+        entityKind,
+        workspaceId,
+        fields,
+        ...(options?.expectedReviewBaseStateHash
+          ? { expectedReviewBaseStateHash: options.expectedReviewBaseStateHash }
+          : {}),
+        ...(options?.identity ? { identity: options.identity } : {}),
+      },
+      actorUserId
+    )
     if (!response.fields || typeof response.fields !== 'object' || Array.isArray(response.fields)) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
     }
@@ -230,12 +241,13 @@ function rethrowStructuredBridgeError(error: unknown): never {
 
 async function applyDashboardEditInSocketServer(
   entityId: string,
+  actorUserId: string,
   body: Record<string, unknown>
 ): Promise<DashboardLayoutProjectionContent> {
   try {
     const response = await postJsonToSocketServer<{
       content?: unknown
-    }>(`/internal/yjs/dashboard-layouts/${encodeURIComponent(entityId)}/edit`, body)
+    }>(`/internal/yjs/dashboard-layouts/${encodeURIComponent(entityId)}/edit`, body, actorUserId)
     if (!response.content) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed dashboard content')
     }
@@ -253,7 +265,7 @@ export function applyDashboardLayoutEditInSocketServer(input: {
   removedPanelIds: string[]
   expectedReviewBaseStateHash: string
 }): Promise<DashboardLayoutProjectionContent> {
-  return applyDashboardEditInSocketServer(input.entityId, {
+  return applyDashboardEditInSocketServer(input.entityId, input.ownerUserId, {
     mutation: 'layout',
     workspaceId: input.workspaceId,
     ownerUserId: input.ownerUserId,
@@ -275,7 +287,7 @@ export function applyDashboardWidgetEditInSocketServer(input: {
   }
   expectedReviewBaseStateHash: string
 }): Promise<DashboardLayoutProjectionContent> {
-  return applyDashboardEditInSocketServer(input.entityId, {
+  return applyDashboardEditInSocketServer(input.entityId, input.ownerUserId, {
     mutation: 'widget',
     workspaceId: input.workspaceId,
     ownerUserId: input.ownerUserId,
@@ -298,7 +310,8 @@ export function applyDashboardStructureMutationInSocketServer(input: {
       workspaceId: input.workspaceId,
       ownerUserId: input.ownerUserId,
       structure: input.mutation,
-    }
+    },
+    input.ownerUserId
   ).then(() => undefined)
 }
 
@@ -324,6 +337,7 @@ export async function refreshEntityListSession(
     }>(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
       {},
+      null,
       3
     )
     return response.applied === true
@@ -341,7 +355,12 @@ export function runYjsDrainFencedTransaction<T>(
     target,
     async (normalized) => {
       try {
-        await postJsonToSocketServer('/internal/yjs/session-drains', normalized, DRAIN_ATTEMPTS)
+        await postJsonToSocketServer(
+          '/internal/yjs/session-drains',
+          normalized,
+          null,
+          DRAIN_ATTEMPTS
+        )
       } catch (error) {
         if (error instanceof SocketServerBridgeError && error.status < 500) throw error
         throw new SavedEntityRealtimeRequiredError()

@@ -99,6 +99,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await applyWorkflowState(
       workflowId,
+      userId,
       createWorkflowSnapshot({
         direction: currentWorkflowState.direction,
         blocks: layoutResult.blocks,

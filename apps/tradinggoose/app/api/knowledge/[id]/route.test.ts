@@ -238,6 +238,7 @@ describe('Knowledge Base By ID API Route', () => {
       expect(mockCheckKnowledgeBaseWriteAccess).toHaveBeenCalledWith('kb-123', 'user-123')
       expect(mockApplyKnowledgeBaseMetadata).toHaveBeenCalledWith(
         'kb-123',
+        'user-123',
         {
           name: validUpdateData.name,
           description: validUpdateData.description,

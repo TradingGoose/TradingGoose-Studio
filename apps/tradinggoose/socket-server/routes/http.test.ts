@@ -23,6 +23,7 @@ import {
 } from '@/lib/yjs/dashboard-layout-session'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { ReviewTargetBootstrapError } from '@/lib/yjs/server/bootstrap-review-target'
+import type { DocumentAdmission } from '@/socket-server/yjs/upstream-utils'
 import {
   applyLayoutEditDocument,
   type DashboardLayoutProjectionContent,
@@ -149,11 +150,20 @@ function snapshotOf(doc: Y.Doc) {
   return { state: Y.encodeStateAsUpdate(doc) }
 }
 
-async function invoke(method: string, url: string, body?: unknown) {
+async function invoke(
+  method: string,
+  url: string,
+  body?: unknown,
+  actorUserId: string | null = 'user-1'
+) {
   const req = Readable.from(body === undefined ? [] : [JSON.stringify(body)]) as IncomingMessage
   req.method = method
   req.url = url
-  req.headers = { host: 'localhost', 'x-internal-secret': 'internal-secret' }
+  req.headers = {
+    host: 'localhost',
+    'x-internal-secret': 'internal-secret',
+    ...(actorUserId ? { 'x-yjs-actor-user-id': actorUserId } : {}),
+  }
   const res = {
     statusCode: 0,
     body: '',
@@ -277,11 +287,13 @@ describe('socket internal HTTP Yjs routes', () => {
       async (
         sessionId: string,
         options: {
+          admission?: DocumentAdmission
           initialize: (
-            doc: Y.Doc
+            doc: Y.Doc,
+            admission?: DocumentAdmission
           ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
         },
-        use: (doc: Y.Doc) => Promise<unknown> | unknown
+        use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<unknown> | unknown
       ) => {
         if (activeAcquisitions.has(sessionId)) {
           throw new Error(`Nested document acquisition: ${sessionId}`)
@@ -293,10 +305,10 @@ describe('socket internal HTTP Yjs routes', () => {
           if (!doc) {
             doc = new Y.Doc()
             documents.set(sessionId, doc)
-            const initializedDocument = await options.initialize(doc)
+            const initializedDocument = await options.initialize(doc, options.admission)
             if (initializedDocument?.state) Y.applyUpdate(doc, initializedDocument.state)
           }
-          return await use(doc)
+          return await use(doc, options.admission)
         } finally {
           activeAcquisitions.delete(sessionId)
           if (created) documents.delete(sessionId)
@@ -355,7 +367,7 @@ describe('socket internal HTTP Yjs routes', () => {
     })
   })
 
-  it('binds workflow snapshots and live applies through canonical document acquisition', async () => {
+  it('binds workflow snapshots and actor-aware applies through canonical acquisition', async () => {
     const descriptor = buildSavedEntityDescriptor('workflow', 'workflow-1', null)
     const source = new Y.Doc()
     const bootstrap = snapshotOf(source)
@@ -374,12 +386,20 @@ describe('socket internal HTTP Yjs routes', () => {
     await expect(
       invoke('POST', '/internal/yjs/workflows/workflow-1/apply-state', { variables: {} })
     ).resolves.toMatchObject({ status: 200 })
-    expect(mocks.initializeTarget).toHaveBeenCalledWith(descriptor)
-    expect(mocks.acquireDocument).toHaveBeenCalledWith(
-      'workflow-1',
-      expect.objectContaining({ initialize: expect.any(Function), workspaceId: null }),
-      expect.any(Function)
+    expect(mocks.acquireDocument.mock.calls[0]?.[1]).toMatchObject({
+      admission: { userId: 'user-1', accessMode: 'write', descriptor },
+      workspaceId: null,
+    })
+
+    mocks.acquireDocument.mockClear()
+    const missingActor = await invoke(
+      'POST',
+      '/internal/yjs/workflows/workflow-1/apply-state',
+      { variables: {} },
+      null
     )
+    expect(missingActor).toMatchObject({ status: 400, body: { error: 'Acting user is required' } })
+    expect(mocks.acquireDocument).not.toHaveBeenCalled()
   })
 
   it('checks accepted entity review hashes inside the queued mutation', async () => {
@@ -652,6 +672,9 @@ describe('socket internal HTTP Yjs routes', () => {
       }
     )
     expect(response.body.content.colorPairs.pairs[0].listing.listing_id).toBe('NVDA')
+    for (const [, options] of mocks.acquireDocument.mock.calls) {
+      expect(options.admission).toMatchObject({ userId: 'user-1', accessMode: 'write' })
+    }
   })
 
   it('commits mixed widget and color-pair edits atomically before updating either live owner', async () => {

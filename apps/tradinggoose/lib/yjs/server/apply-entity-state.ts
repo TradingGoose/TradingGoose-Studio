@@ -212,6 +212,7 @@ export async function applySavedEntityState(
   entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
   entityId: string,
   workspaceId: string,
+  actorUserId: string,
   fields: Record<string, unknown>,
   options?: {
     expectedReviewBaseStateHash?: string
@@ -224,6 +225,7 @@ export async function applySavedEntityState(
       entityId,
       entityKind,
       workspaceId,
+      actorUserId,
       normalizedFields,
       options
     )

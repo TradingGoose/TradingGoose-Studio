@@ -169,8 +169,8 @@ describe('Workflow API Route', () => {
     expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const persistedState = applyWorkflowStateMock.mock.calls[0][1]
-    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
+    const persistedState = applyWorkflowStateMock.mock.calls[0][2]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][3]
 
     const insertedVariableValues = Object.values(persistedVariables as Record<string, any>)
     expect(insertedVariableValues).toHaveLength(1)
@@ -183,6 +183,7 @@ describe('Workflow API Route', () => {
     })
     expect(applyWorkflowStateMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
+      'user-1',
       expect.objectContaining({
         blocks: initialWorkflowState.blocks,
         edges: initialWorkflowState.edges,
@@ -232,10 +233,11 @@ describe('Workflow API Route', () => {
     expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][3]
     expect(persistedVariables).toEqual({})
     expect(applyWorkflowStateMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
+      'user-1',
       expect.objectContaining({
         blocks: {},
         edges: [],

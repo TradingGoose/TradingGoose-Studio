@@ -89,7 +89,8 @@ function setupWatchlistSocket(
   socket: TestSocket,
   docId: string,
   persist: TestPersistence,
-  debounceMs = 0
+  debounceMs = 0,
+  validateDocument?: (doc: Y.Doc) => void
 ): Promise<Y.Doc> {
   return acquireDocument(
     docId,
@@ -102,6 +103,7 @@ function setupWatchlistSocket(
         descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
         onDocumentUpdate: persist,
         onDocumentUpdateDebounceMs: debounceMs,
+        validateDocument,
       })
       return doc
     }
@@ -161,41 +163,49 @@ beforeEach(() => {
 })
 
 describe('shared document lifecycle', () => {
-  it('authorizes and admits the canonical workspace inside the shared fence', async () => {
-    const events: string[] = []
-    fenceMocks.withAdmission.mockImplementationOnce(async (_target, use) => {
-      events.push('fence-enter')
-      const result = await use(async () => {
-        events.push('workspace-admitted')
-      })
-      events.push('fence-exit')
-      return result
-    })
+  const admission = (sessionId: string) => ({
+    userId: 'user-1',
+    accessMode: 'write' as const,
+    descriptor: buildSavedEntityDescriptor('watchlist', sessionId, null),
+  })
 
-    await acquireDocument(
-      'authorized-session',
-      {
-        authorize: () => {
-          events.push('authorize')
-          return { workspaceId: 'canonical-workspace' }
-        },
-        initialize: () => {
-          events.push('initialize')
-          return { workspaceId: 'canonical-workspace' }
-        },
-      },
-      () => events.push('use')
+  it('reauthorizes the canonical workspace inside its shared fence', async () => {
+    let workspaceAdmitted = false
+    fenceMocks.withAdmission.mockImplementationOnce(async (_target, use) =>
+      use(async () => void (workspaceAdmitted = true))
     )
+    accessMocks.verifyReviewTargetAccess.mockImplementation(async () => {
+      if (accessMocks.verifyReviewTargetAccess.mock.calls.length === 2) {
+        expect(workspaceAdmitted).toBe(true)
+      }
+      return { hasAccess: true, workspaceId: 'canonical-workspace' }
+    })
+    const initialize = vi.fn()
+    const use = vi.fn((_doc, actor) => actor?.descriptor.workspaceId)
 
-    expect(events).toEqual([
-      'fence-enter',
-      'authorize',
-      'workspace-admitted',
-      'initialize',
-      'workspace-admitted',
-      'use',
-      'fence-exit',
-    ])
+    await expect(
+      acquireDocument(
+        'authorized-session',
+        { admission: admission('authorized-session'), initialize },
+        use
+      )
+    ).resolves.toBe('canonical-workspace')
+    expect(accessMocks.verifyReviewTargetAccess).toHaveBeenCalledTimes(2)
+    expect(initialize).toHaveBeenCalledOnce()
+  })
+
+  it('stops a revoked actor before initialization or use', async () => {
+    accessMocks.verifyReviewTargetAccess
+      .mockResolvedValueOnce({ hasAccess: true, workspaceId: 'canonical-workspace' })
+      .mockResolvedValueOnce({ hasAccess: false, workspaceId: 'canonical-workspace' })
+    const initialize = vi.fn()
+    const use = vi.fn()
+
+    await expect(
+      acquireDocument('denied-session', { admission: admission('denied-session'), initialize }, use)
+    ).rejects.toMatchObject({ name: 'YjsAuthError', status: 403 })
+    expect(initialize).not.toHaveBeenCalled()
+    expect(use).not.toHaveBeenCalled()
   })
 
   it('serializes first bootstrap and use before exposing a new lineage', async () => {
@@ -609,9 +619,9 @@ describe('document mutation queue', () => {
     })
   })
 
-  it('rejects a concurrent watchlist update beyond the symbol limit before merging it', async () => {
+  it('enforces watchlist symbol limits', async () => {
     const identity = { listing_type: 'default' as const, listing_id: '', base_id: '', quote_id: '' }
-    const listing = (index: number) => ({
+    const cappedListing = (index: number) => ({
       id: `listing-${index}`,
       type: 'listing' as const,
       parentId: null,
@@ -624,13 +634,27 @@ describe('document mutation queue', () => {
       seed: (doc) =>
         seedEntitySession(doc, {
           entityKind: 'watchlist',
-          payload: { settings, items: Array.from({ length: 999 }, (_, index) => listing(index)) },
+          payload: {
+            settings,
+            items: Array.from({ length: 999 }, (_, index) => cappedListing(index)),
+          },
         }),
       prepareLive: (doc) =>
-        updateWatchlistItems(doc, (items) => [...items, listing(999)], YJS_ORIGINS.SYSTEM),
-      mutate: (doc) => updateWatchlistItems(doc, (items) => [...items, listing(1000)]),
+        updateWatchlistItems(doc, (items) => [...items, cappedListing(999)], YJS_ORIGINS.SYSTEM),
+      mutate: (doc) => updateWatchlistItems(doc, (items) => [...items, cappedListing(1000)]),
       read: (doc) => getEntityFields(doc, 'watchlist'),
     })
+  })
+
+  it('keeps the connection open when its document validator accepts an update', async () => {
+    const socket = new TestSocket()
+    const validate = vi.fn()
+    const doc = await setupWatchlistSocket(socket, 'validated-update', vi.fn(), 0, validate)
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
+    await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
+    expect(validate).toHaveBeenCalled()
+    expect(socket.close).not.toHaveBeenCalled()
+    socket.emit('close')
   })
 
   it('serializes WebSocket writes behind an import and recovers after import failure', async () => {

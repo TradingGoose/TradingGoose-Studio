@@ -111,8 +111,7 @@ describe('watchlist entity sessions', () => {
       },
     ],
     ['padded parentId', (doc) => rawEntry(doc).set('parentId', ' section-1 ')],
-    ['dangling parentId', (doc) => rawEntry(doc).set('parentId', 'section-1')],
-    ['non-uuid listing id', (doc) => rawEntry(doc).set('id', 'listing-1')],
+    ['legacy nested listing id', (doc) => rawEntry(doc).set('id', 'listing-1')],
     ['non-map value', (doc) => (rawItems(doc) as Y.Map<unknown>).set('broken', 'not-a-map')],
   ]
 
@@ -195,46 +194,33 @@ describe('watchlist entity sessions', () => {
     }
   })
 
-  it('preserves concurrent move and listing-edit memberships', () => {
+  it('retains a concurrently moved listing at root when its destination section is deleted', () => {
     const source = new Y.Doc()
     const left = new Y.Doc()
     const right = new Y.Doc()
-    const submittedFirstSection = '__root__'
-    let firstSection = submittedFirstSection
-    const secondSection = '00000000-0000-4000-8000-000000000002'
-    const itemId = '00000000-0000-4000-8000-000000000003'
-    const rootItemId = '00000000-0000-4000-8000-000000000004'
+    const sectionId = '00000000-0000-4000-8000-000000000001'
+    const itemId = '00000000-0000-4000-8000-000000000002'
     try {
       seedEntitySession(source, {
         entityKind: 'watchlist',
         payload: {
           settings: { showLogo: true, showTicker: true, showDescription: true },
           items: [
-            { id: submittedFirstSection, type: 'section', parentId: null, label: 'First' },
-            { id: secondSection, type: 'section', parentId: null, label: 'Second' },
-            { ...listing(itemId, 'AAPL'), parentId: submittedFirstSection },
-            listing(rootItemId, 'AAPL'),
+            { id: sectionId, type: 'section', parentId: null, label: 'Temporary' },
+            listing(itemId, 'AAPL'),
           ],
         },
       })
-      firstSection = readWatchlistItems(source).find((item) => item.type === 'section')!.id
-      expect(firstSection).not.toBe(submittedFirstSection)
       const state = Y.encodeStateAsUpdate(source)
       Y.applyUpdate(left, state)
       Y.applyUpdate(right, state)
       const leftBase = Y.encodeStateVector(left)
       const rightBase = Y.encodeStateVector(right)
 
-      updateWatchlistItems(left, (items) =>
-        items.map((item) =>
-          item.id === itemId && item.type === 'listing'
-            ? { ...item, parentId: secondSection }
-            : item
-        )
-      )
+      updateWatchlistItems(left, (items) => items.filter((item) => item.id !== sectionId))
       updateWatchlistItems(right, (items) =>
         items.map((item) =>
-          item.id === itemId ? { ...listing(itemId, 'GOOG'), parentId: firstSection } : item
+          item.id === itemId && item.type === 'listing' ? { ...item, parentId: sectionId } : item
         )
       )
       const leftUpdate = Y.encodeStateAsUpdate(left, leftBase)
@@ -243,15 +229,7 @@ describe('watchlist entity sessions', () => {
       Y.applyUpdate(right, leftUpdate)
 
       for (const doc of [left, right]) {
-        expect(
-          readWatchlistItems(doc)
-            .filter((item) => item.type === 'listing')
-            .map((item) => [item.parentId, item.listing.listing_id])
-        ).toEqual([
-          [firstSection, 'GOOG'],
-          [secondSection, 'AAPL'],
-          [null, 'AAPL'],
-        ])
+        expect(readWatchlistItems(doc)).toEqual([listing(itemId, 'AAPL')])
       }
     } finally {
       source.destroy()

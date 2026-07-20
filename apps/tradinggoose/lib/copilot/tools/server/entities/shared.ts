@@ -403,7 +403,7 @@ export async function executeUpdateEntityDocumentMutation(
 ) {
   const fields = parseEntityMutationDocument(kind, args)
   const entityId = requireEntityId(args, toolName)
-  const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
+  const { userId, workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
   const requiresReview = shouldStageServerToolMutationForReview(context)
 
   if (requiresReview) {
@@ -425,6 +425,7 @@ export async function executeUpdateEntityDocumentMutation(
     kind,
     entityId,
     workspaceId,
+    userId,
     fields,
     context?.acceptedReviewBaseStateHash
       ? { expectedReviewBaseStateHash: context.acceptedReviewBaseStateHash }

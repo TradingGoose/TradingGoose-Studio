@@ -356,6 +356,7 @@ export async function copyKnowledgeBaseToWorkspace(
 
 export async function applyKnowledgeBaseMetadata(
   knowledgeBaseId: string,
+  actorUserId: string,
   fields: {
     name: string
     description: string
@@ -372,6 +373,7 @@ export async function applyKnowledgeBaseMetadata(
     ENTITY_KIND_KNOWLEDGE_BASE,
     knowledgeBaseId,
     existing.workspaceId,
+    actorUserId,
     {
       description: fields.description,
       chunkingConfig: fields.chunkingConfig,
