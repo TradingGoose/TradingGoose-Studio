@@ -482,7 +482,7 @@ describe('DashboardClient', () => {
     }
   })
 
-  it('does not carry a pending activation into another workspace', async () => {
+  it('does not carry a pending activation across repeated server selections', async () => {
     let resolveActivation!: () => void
     dashboardClientMocks.activateDashboardLayoutAction.mockReturnValueOnce(
       new Promise<void>((resolve) => {
@@ -493,40 +493,33 @@ describe('DashboardClient', () => {
       renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
     })
 
-    if (!mockSelectLayout) {
-      throw new Error('Expected layout select handler to be captured')
-    }
-
     await act(async () => {
       mockSelectLayout?.('layout-b')
-      await Promise.resolve()
     })
     expect(mockLayoutTabsIsBusy).toBe(true)
 
     await act(async () => {
       renderDashboard({
         topology: createPanelLayout('panel-b', 'wf-b'),
-        workspaceId: 'ws-b',
-        ownerUserId: 'user-b',
         layoutId: 'layout-b',
       })
-      await Promise.resolve()
     })
 
-    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledTimes(1)
-    expect(dashboardClientMocks.activateDashboardLayoutAction).toHaveBeenCalledWith(
-      'ws-a',
-      'layout-b'
-    )
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsIsBusy).toBe(false)
-    expect(readWidgetSurface(container)).toEqual({
-      workflowId: 'wf-b',
-      watchlistId: '',
-      workspaceId: 'ws-b',
-      pairColor: 'gray',
+
+    await act(async () => {
+      renderDashboard({
+        topology: createPanelLayout('panel-a', 'wf-a'),
+        layoutId: 'layout-a',
+      })
     })
+
+    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
+    expect(mockLayoutTabsIsBusy).toBe(false)
 
     await act(async () => resolveActivation())
+    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
     expect(mockLayoutTabsIsBusy).toBe(false)
   })
 

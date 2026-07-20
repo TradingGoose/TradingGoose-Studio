@@ -65,6 +65,7 @@ type DashboardLayoutSelection = {
   workspaceId: string
   ownerUserId: string
   layoutId: string
+  sourceLayoutId: string
 }
 
 interface DashboardNodeProps {
@@ -274,6 +275,7 @@ export function DashboardClient({
     workspaceId,
     ownerUserId,
     layoutId,
+    sourceLayoutId: layoutId,
   }))
   const [pendingActivation, setPendingActivation] = useState<DashboardLayoutSelection | null>(null)
   const isCreatingLayoutRef = useRef(false)
@@ -291,9 +293,15 @@ export function DashboardClient({
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId)
   const layouts = dashboardLayoutList.isLoading ? initialLayouts : dashboardLayoutList.layouts
   const scopedSelection =
-    selection.workspaceId === workspaceId && selection.ownerUserId === ownerUserId
+    selection.workspaceId === workspaceId &&
+    selection.ownerUserId === ownerUserId &&
+    selection.sourceLayoutId === layoutId
       ? selection
-      : { workspaceId, ownerUserId, layoutId }
+      : { workspaceId, ownerUserId, layoutId, sourceLayoutId: layoutId }
+  if (scopedSelection !== selection) {
+    setSelection(scopedSelection)
+    setPendingActivation(null)
+  }
   const selectedLayoutId = scopedSelection.layoutId
   const selectedLayout = layouts.find((layout) => layout.id === selectedLayoutId) ?? null
   const layoutTabs = useMemo(
@@ -313,10 +321,6 @@ export function DashboardClient({
   })
   const rawTree = layoutDocument.topology
   const canMutateLayouts = !dashboardLayoutList.error
-  const activePendingActivation =
-    pendingActivation?.workspaceId === workspaceId && pendingActivation.ownerUserId === ownerUserId
-      ? pendingActivation
-      : null
   const canClosePanel = rawTree !== null && countDashboardTopologyPanels(rawTree) > 1
   const canMutateLayoutTopology =
     !layoutDocument.error && layoutDocument.doc !== null && rawTree !== null
@@ -515,7 +519,7 @@ export function DashboardClient({
         !canMutateLayouts ||
         !nextLayoutId ||
         nextLayoutId === scopedSelection.layoutId ||
-        activePendingActivation
+        pendingActivation
       )
         return
       const previousSelection = scopedSelection
@@ -532,7 +536,7 @@ export function DashboardClient({
         setPendingActivation((current) => (current === attempt ? null : current))
       }
     },
-    [activePendingActivation, canMutateLayouts, scopedSelection]
+    [canMutateLayouts, pendingActivation, scopedSelection]
   )
 
   const handleRenameLayout = useCallback(
@@ -698,7 +702,7 @@ export function DashboardClient({
   const headerCenterContent = (
     <LayoutTabs
       layouts={layoutTabs}
-      isBusy={isCreatingLayout || activePendingActivation !== null}
+      isBusy={isCreatingLayout || pendingActivation !== null}
       canMutate={canMutateLayouts}
       onSelect={handleSelectLayout}
       onReorder={handleReorderLayouts}
