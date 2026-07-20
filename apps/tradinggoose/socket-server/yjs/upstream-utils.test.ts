@@ -271,16 +271,52 @@ describe('shared document lifecycle', () => {
     socket.emit('close')
   })
 
-  it('flushes an edit newer than a staged persistence before disconnect', async () => {
+  it('flushes an edit newer than active persistence on disconnect', async () => {
     const socket = new TestSocket()
-    const persist = vi.fn()
-    const doc = await setupWatchlistSocket(socket, 'watchlist-generation', persist, 60_000)
-    await persistStagedDocuments([{ doc }], async () => {
-      doc.getMap('fields').set('pending', true)
+    const started = deferred()
+    const release = deferred()
+    let firstNormalization!: Uint8Array
+    const persist = vi.fn(async (_docId: string, staged: Y.Doc) => {
+      expect(staged).not.toBe(doc)
+      const fields = staged.getMap('fields')
+      const beforeNormalization = Y.encodeStateVector(staged)
+      if (persist.mock.calls.length === 1) {
+        started.resolve()
+        await release.promise
+      }
+      fields.set('canonical', fields.get('value'))
+      if (persist.mock.calls.length === 1) {
+        firstNormalization = Y.encodeStateAsUpdate(staged, beforeNormalization)
+      }
+      expect(fields.toJSON()).toEqual({
+        value: fields.get('value'),
+        canonical: fields.get('value'),
+      })
     })
-    await discardDocument(doc)
+    const doc = await setupWatchlistSocket(socket, 'watchlist-generation', persist, 60_000)
+    const fields = doc.getMap('fields')
+    const updateA = createFieldsUpdate(doc, 'value', 'A')
+    socket.emit('message', createSyncUpdateMessage(updateA))
+    await vi.waitFor(() => expect(fields.get('value')).toBe('A'))
+    const firstPersistence = flushDocumentPersistence(doc)
+    await started.promise
 
-    expect(persist).toHaveBeenCalledOnce()
+    const updateB = createFieldsUpdate(doc, 'value', 'B')
+    socket.emit('message', createSyncUpdateMessage(updateB))
+    await vi.waitFor(() => expect(fields.get('value')).toBe('B'))
+    release.resolve()
+    await firstPersistence
+
+    const checkpoint = readCheckpoint(socket.send.mock.calls.at(-1)![0])
+    expect(Y.snapshotContainsUpdate(checkpoint.snapshot, updateA)).toBe(true)
+    expect(Y.snapshotContainsUpdate(checkpoint.snapshot, firstNormalization)).toBe(true)
+    expect(Y.snapshotContainsUpdate(checkpoint.snapshot, updateB)).toBe(false)
+    expect(fields.toJSON()).toEqual({ value: 'B' })
+
+    socket.emit('close')
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
+
+    expect(fields.toJSON()).toEqual({ value: 'B', canonical: 'B' })
   })
 
   it('retries a failed shared-document reconciliation on the next heartbeat', async () => {
@@ -352,7 +388,7 @@ describe('realtime shutdown', () => {
     persistence.resolve()
     await draining
 
-    expect(persisted).toHaveBeenCalledWith('watchlist-queued-drain', doc)
+    expect(persisted).toHaveBeenCalledOnce()
     expect(socket.close).toHaveBeenCalledTimes(1)
     expect(peekDocument('watchlist-queued-drain')).toBeNull()
   })

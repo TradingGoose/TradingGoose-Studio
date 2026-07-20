@@ -50,7 +50,7 @@ type DrainLease = {
 const drainLeases = new Map<string, DrainLease>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
-type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+type DocumentPersistenceHandler = (docId: string, staged: Y.Doc) => Promise<void> | void
 type DocumentInitialization = { state?: Uint8Array; workspaceId?: string | null }
 type DocumentInitializer = (
   doc: Y.Doc
@@ -255,12 +255,17 @@ function enqueueDocumentPersistence(
   const run = doc.persistenceQueue.then(async () => {
     if (!doc.hasUnsavedChanges) return
     const requestedGeneration = doc.changeGeneration
-    const persistedSnapshot = Y.snapshot(doc)
+    const staged = new Y.Doc()
     doc.isPersisting = true
     try {
-      await persist(doc.name, doc)
-      publishPersistedSnapshot(doc, persistedSnapshot)
+      Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc), YJS_ORIGINS.SYSTEM)
+      const stagedStateVector = Y.encodeStateVector(staged)
+      await persist(doc.name, staged)
       const hasNewerChanges = doc.changeGeneration !== requestedGeneration
+      if (!hasNewerChanges) {
+        Y.applyUpdate(doc, Y.encodeStateAsUpdate(staged, stagedStateVector), YJS_ORIGINS.SYSTEM)
+      }
+      publishPersistedSnapshot(doc, Y.snapshot(staged))
       doc.hasUnsavedChanges = hasNewerChanges
     } catch (error) {
       if ((error as { retryable?: unknown } | null)?.retryable !== false) {
@@ -276,6 +281,7 @@ function enqueueDocumentPersistence(
       throw error
     } finally {
       doc.isPersisting = false
+      staged.destroy()
     }
   })
 

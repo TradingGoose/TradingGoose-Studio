@@ -101,16 +101,16 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
     return undefined
   }
   const entityId = descriptor.entityId
-  return async (_docId: string, doc: Y.Doc) => {
+  return async (_docId: string, staged: Y.Doc) => {
     if (descriptor.entityKind === 'workflow') {
-      await saveWorkflowYjsDocToDb(entityId, doc)
+      await saveWorkflowYjsDocToDb(entityId, staged)
       return
     }
     if (!descriptor.workspaceId) {
       throw new SavedEntityPersistenceError(409, 'Yjs persistence workspace is required')
     }
     if (descriptor.entityKind === 'watchlist') {
-      await saveSavedEntityYjsDocToDb('watchlist', entityId, descriptor.workspaceId, doc)
+      await saveSavedEntityYjsDocToDb('watchlist', entityId, descriptor.workspaceId, staged)
       await refreshActiveEntityListSession('watchlist', descriptor.workspaceId).catch(
         () => undefined
       )
@@ -122,7 +122,7 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
     const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
     const part = descriptor.entityKind === 'dashboard_widget' ? 'widget' : 'colorPair'
     await saveDashboardYjsDocsToDb(scope, {
-      [part]: { sessionId: descriptor.yjsSessionId, doc },
+      [part]: { sessionId: descriptor.yjsSessionId, doc: staged },
     })
   }
 }
