@@ -8,6 +8,23 @@ import {
 } from '@/lib/listing/identity'
 
 describe('listing identity helpers', () => {
+  const defaultListing = {
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+    listing_type: 'default' as const,
+  }
+  const pairListing = {
+    listing_id: '',
+    base_id: 'BTC',
+    quote_id: 'USD',
+    listing_type: 'crypto' as const,
+  }
+  const schemas = [
+    ['strict', ListingIdentitySchema],
+    ['passthrough', ListingIdentityPassthroughSchema],
+  ] as const
+
   it('normalizes listing identities and builds canonical keys from one source', () => {
     const listing = toListingValueObject({
       listing_id: ' AAPL ',
@@ -34,73 +51,34 @@ describe('listing identity helpers', () => {
     )
   })
 
-  it('enforces strict listing identity documents', () => {
+  it.each(schemas)('normalizes and validates %s listing identities', (_, schema) => {
     expect(
-      ListingIdentitySchema.parse({
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      })
-    ).toEqual({
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
+      schema.parse({ ...defaultListing, listing_id: ' AAPL ', base_id: ' ', quote_id: '\t' })
+    ).toEqual(defaultListing)
+    expect(
+      schema.parse({ ...pairListing, listing_id: ' ', base_id: ' BTC ', quote_id: ' USD ' })
+    ).toEqual(pairListing)
 
-    expect(() =>
-      ListingIdentitySchema.parse({
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-        name: 'Apple',
-      })
-    ).toThrow()
-    expect(() =>
-      ListingIdentitySchema.parse({
-        listing_id: '',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      })
-    ).toThrow('Default listing identities require listing_id')
-    expect(() =>
-      ListingIdentitySchema.parse({
-        listing_id: 'BTCUSD',
-        base_id: 'BTC',
-        quote_id: 'USD',
-        listing_type: 'crypto',
-      })
-    ).toThrow('Pair listing identities require base_id/quote_id')
+    for (const [listing, message] of [
+      [{ ...defaultListing, listing_id: '   ' }, 'Default listing identities require listing_id'],
+      [{ ...pairListing, base_id: '   ' }, 'Pair listing identities require base_id/quote_id'],
+      [{ ...pairListing, quote_id: '   ' }, 'Pair listing identities require base_id/quote_id'],
+      [
+        { ...pairListing, listing_id: ' BTCUSD ' },
+        'Pair listing identities require base_id/quote_id',
+      ],
+    ] as const) {
+      expect(() => schema.parse(listing)).toThrow(message)
+    }
   })
 
   it('allows display metadata only through the passthrough listing schema', () => {
-    expect(
-      ListingIdentityPassthroughSchema.parse({
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-        name: 'Apple',
-      })
-    ).toEqual({
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-      name: 'Apple',
-    })
+    const resolved = { ...defaultListing, listing_id: ' AAPL ', name: ' Apple ' }
 
-    expect(() =>
-      ListingIdentityPassthroughSchema.parse({
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: '',
-        listing_type: 'crypto',
-        base: 'BTC',
-      })
-    ).toThrow('Pair listing identities require base_id/quote_id')
+    expect(() => ListingIdentitySchema.parse(resolved)).toThrow()
+    expect(ListingIdentityPassthroughSchema.parse(resolved)).toEqual({
+      ...defaultListing,
+      name: ' Apple ',
+    })
   })
 })

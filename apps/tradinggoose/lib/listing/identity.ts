@@ -32,10 +32,7 @@ export const LISTING_IDENTITY_JSON_SCHEMA = {
   additionalProperties: false,
 }
 
-function refineListingIdentityShape(
-  value: ListingIdentity,
-  ctx: z.RefinementCtx
-): void {
+function refineListingIdentityShape(value: ListingIdentity, ctx: z.RefinementCtx): void {
   if (value.listing_type === 'default') {
     if (!value.listing_id || value.base_id || value.quote_id) {
       ctx.addIssue({
@@ -55,9 +52,9 @@ function refineListingIdentityShape(
 }
 
 const ListingIdentitySchemaShape = {
-  listing_id: z.string(),
-  base_id: z.string(),
-  quote_id: z.string(),
+  listing_id: z.string().trim(),
+  base_id: z.string().trim(),
+  quote_id: z.string().trim(),
   listing_type: z.enum(LISTING_TYPES),
 } satisfies z.ZodRawShape
 
