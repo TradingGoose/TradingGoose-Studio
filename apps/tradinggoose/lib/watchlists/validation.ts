@@ -327,9 +327,9 @@ function assertNoDuplicateListings(
   }
 }
 
-export function assertValidParentTree(
-  items: Array<{ id?: string; type: string; parentId?: string | null }>
-) {
+export function canonicalizeWatchlistHierarchy<T extends WatchlistDocumentInputItem>(
+  items: T[]
+): T[] {
   const sectionIds = new Set<string>()
 
   for (const item of items) {
@@ -348,6 +348,20 @@ export function assertValidParentTree(
       throw new WatchlistDocumentError('Watchlist item parentId must reference a section')
     }
   }
+
+  const childrenBySection = new Map<string, T[]>()
+  for (const item of items) {
+    if (item.type !== 'listing' || !item.parentId) continue
+    const siblings = childrenBySection.get(item.parentId) ?? []
+    siblings.push(item)
+    childrenBySection.set(item.parentId, siblings)
+  }
+
+  return items.flatMap((item) => {
+    if (item.type === 'listing' && item.parentId) return []
+    if (item.type !== 'section' || !item.id) return [item]
+    return [item, ...(childrenBySection.get(item.id) ?? [])]
+  })
 }
 
 function assertWatchlistDocumentSymbolLimit(items: ReadonlyArray<{ type: string }>): void {
@@ -391,9 +405,8 @@ function normalizeInputItems(value: unknown): WatchlistDocumentInputItem[] {
 
   assertNoDuplicateSubmittedIds(normalized)
   assertNoDuplicateListings(normalized)
-  assertValidParentTree(normalized)
   assertWatchlistDocumentSymbolLimit(normalized)
-  return normalized
+  return canonicalizeWatchlistHierarchy(normalized)
 }
 
 export function normalizeWatchlistDocumentFields(value: unknown): WatchlistDocumentInputFields {
@@ -431,8 +444,7 @@ export function normalizePersistedWatchlistDocumentFields(value: unknown): Watch
 
   assertNoDuplicateSubmittedIds(items)
   assertNoDuplicateListings(items)
-  assertValidParentTree(items)
   assertWatchlistDocumentSymbolLimit(items)
 
-  return { name, settings, items }
+  return { name, settings, items: canonicalizeWatchlistHierarchy(items) }
 }

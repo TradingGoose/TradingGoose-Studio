@@ -33,6 +33,7 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputItem, WatchlistItem } from '@/lib/watchlists/types'
 import {
+  canonicalizeWatchlistHierarchy,
   normalizeWatchlistDocumentContent,
   resolveWatchlistDocumentItemIds,
   WatchlistDocumentError,
@@ -194,26 +195,11 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
     entries.push(projected)
   }
 
-  const byParent = new Map<string | null, Array<WatchlistItem & { order: number }>>()
-  for (const item of entries) {
-    const parentId = item.parentId ?? null
-    byParent.set(parentId, [...(byParent.get(parentId) ?? []), item])
-  }
-  const sortItems = (items: Array<WatchlistItem & { order: number }>) =>
-    items.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
-
-  const output: WatchlistItem[] = []
-  for (const item of sortItems(byParent.get(null) ?? [])) {
-    const { order: _order, ...value } = item
-    output.push(value)
-    if (value.type === 'section') {
-      for (const child of sortItems(byParent.get(value.id) ?? [])) {
-        const { order: _childOrder, ...childValue } = child
-        output.push(childValue)
-      }
-    }
-  }
-  return output
+  return canonicalizeWatchlistHierarchy(
+    entries
+      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+      .map(({ order: _order, ...item }) => item)
+  )
 }
 
 export interface EntityListMember {

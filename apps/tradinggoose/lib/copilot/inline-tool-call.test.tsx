@@ -440,11 +440,11 @@ describe('InlineToolCall', () => {
       const document = {
         settings: { showLogo: true, showTicker: true, showDescription: false },
         items: [
-          { id: 'section-1', type: 'section', parentId: null, label: 'Semiconductors' },
+          { id: 'section-1', type: 'section', parentId: null, label: 'Other' },
           {
             id: 'listing-1',
             type: 'listing',
-            parentId: 'section-1',
+            parentId: 'section-2',
             listing: {
               listing_type: 'default',
               listing_id: 'NVDA',
@@ -452,6 +452,7 @@ describe('InlineToolCall', () => {
               quote_id: '',
             },
           },
+          { id: 'section-2', type: 'section', parentId: null, label: 'Semiconductors' },
         ],
       }
 
@@ -484,8 +485,7 @@ describe('InlineToolCall', () => {
       expect(container.textContent.includes('新文档')).toBe(!hasBefore)
       expect(container.textContent).toContain('徽标')
       expect(container.textContent).toContain('代码')
-      expect(container.textContent).toContain('Semiconductors')
-      expect(container.textContent).toContain('NVDA')
+      expect(container.textContent).toMatch(/Other.*Semiconductors.*NVDA/)
       expect(container.textContent).not.toContain('Logo')
       expect(container.textContent).not.toContain('Ticker')
       expect(container.textContent).not.toContain('listing_id')
