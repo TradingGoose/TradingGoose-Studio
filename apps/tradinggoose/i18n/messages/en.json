@@ -454,12 +454,6 @@
         "headerAriaLabel": "Widget header",
         "widgetLabel": "Widget"
       },
-      "layout": {
-        "headerAriaLabel": "Widget header",
-        "sizeLabel": "Widget Size",
-        "widthLabel": "width",
-        "heightLabel": "height"
-      },
       "indicatorDropdown": {
         "placeholder": "Select indicators",
         "tooltip": "Select indicators",
@@ -985,6 +979,12 @@
     "dashboard": {
       "title": "Dashboard",
       "searchPlaceholder": "Search workspace content...",
+      "layoutPreview": {
+        "headerAriaLabel": "Dashboard panel",
+        "sizeLabel": "Widget Size",
+        "widthLabel": "width",
+        "heightLabel": "height"
+      },
       "sections": {
         "workspaces": "Workspaces",
         "knowledgeBases": "Knowledge Bases",
@@ -21259,6 +21259,14 @@
           "stopGeneration": "Stop generation",
           "sources": "Sources:",
           "copy": "Copy"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Current} proposed {Proposed} other {Current}}",
+          "newDocument": "New document",
+          "dashboardLayoutTitle": "{state, select, applied {Applied Dashboard Layout Changes} proposed {Proposed Dashboard Layout Changes} other {Proposed Dashboard Layout Changes}}",
+          "watchlistTitle": "{state, select, applied {Applied Watchlist Changes} proposed {Proposed Watchlist Changes} other {Proposed Watchlist Changes}}",
+          "emptyWatchlist": "Empty watchlist",
+          "watchlistSetting": "{setting, select, showLogo {Logo} showTicker {Ticker} showDescription {Description} other {Setting}}"
         },
         "contextUsage": {
           "title": "Context used in this chat: {percentage}%",

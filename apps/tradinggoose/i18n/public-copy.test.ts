@@ -48,6 +48,10 @@ describe('public copy', () => {
     )
     expect(getClientMessages('zh', 'admin')).toHaveProperty('admin.home.badge', '管理员')
     expect(getClientMessages('en', 'admin')).toHaveProperty('registration.open.primary')
+    expect(getClientMessages('es')).toHaveProperty(
+      'workspace.dashboard.layoutPreview.headerAriaLabel',
+      'Panel de control'
+    )
   })
 
   it('keeps zh auth copy translated', () => {

@@ -28,6 +28,7 @@ export function getClientMessages(
   return {
     ...messages,
     workspace: {
+      dashboard: { layoutPreview: workspace.dashboard.layoutPreview },
       nav: workspace.nav,
       userMenu: workspace.userMenu,
       settingsModal: workspace.settingsModal,

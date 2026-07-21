@@ -37,7 +37,7 @@ export function LayoutPreview() {
   const [document, setDocument] = useState(createDefaultDashboardLayoutProjection)
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
-  const layoutCopy = copy.landing.preview.layout
+  const layoutCopy = copy.workspace.dashboard.layoutPreview
 
   const persistGroupSizes = useCallback((groupId: string, sizes: number[]) => {
     setDocument((current) =>

@@ -81,6 +81,7 @@ describe('LayoutPreview', () => {
       )
     })
 
+    expect(latestCanvasProps().copy).toEqual(getPublicCopy('en').workspace.dashboard.layoutPreview)
     const initialPanelId = resolvedPanels(latestCanvasProps().layout)[0]!.id
     act(() => latestCanvasProps().splitPanelVertical?.(initialPanelId))
 

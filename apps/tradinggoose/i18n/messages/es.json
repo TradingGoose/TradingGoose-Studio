@@ -454,12 +454,6 @@
         "headerAriaLabel": "Encabezado del widget",
         "widgetLabel": "Widget"
       },
-      "layout": {
-        "headerAriaLabel": "Encabezado del widget",
-        "sizeLabel": "Tamaño del widget",
-        "widthLabel": "ancho",
-        "heightLabel": "alto"
-      },
       "indicatorDropdown": {
         "placeholder": "Seleccionar indicadores",
         "tooltip": "Seleccionar indicadores",
@@ -985,6 +979,12 @@
     "dashboard": {
       "title": "Panel de control",
       "searchPlaceholder": "Buscar contenido del espacio de trabajo...",
+      "layoutPreview": {
+        "headerAriaLabel": "Panel de control",
+        "sizeLabel": "Tamaño del widget",
+        "widthLabel": "ancho",
+        "heightLabel": "alto"
+      },
       "sections": {
         "workspaces": "Espacios de trabajo",
         "knowledgeBases": "Bases de conocimiento",
@@ -21259,6 +21259,14 @@
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
           "copy": "Copiar"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
+          "newDocument": "Documento nuevo",
+          "dashboardLayoutTitle": "{state, select, applied {Cambios aplicados al diseño del panel} proposed {Cambios propuestos al diseño del panel} other {Cambios propuestos al diseño del panel}}",
+          "watchlistTitle": "{state, select, applied {Cambios aplicados a la lista de seguimiento} proposed {Cambios propuestos a la lista de seguimiento} other {Cambios propuestos a la lista de seguimiento}}",
+          "emptyWatchlist": "Lista de seguimiento vacía",
+          "watchlistSetting": "{setting, select, showLogo {Logotipo} showTicker {Símbolo} showDescription {Descripción} other {Configuración}}"
         },
         "contextUsage": {
           "title": "Contexto usado en este chat: {percentage}%",

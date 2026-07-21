@@ -449,12 +449,6 @@
         "headerAriaLabel": "组件头部",
         "widgetLabel": "组件"
       },
-      "layout": {
-        "headerAriaLabel": "组件头部",
-        "sizeLabel": "小组件尺寸",
-        "widthLabel": "宽度",
-        "heightLabel": "高度"
-      },
       "indicatorDropdown": {
         "placeholder": "选择指标",
         "tooltip": "选择指标",
@@ -972,6 +966,12 @@
     "dashboard": {
       "title": "仪表盘",
       "searchPlaceholder": "搜索工作区内容...",
+      "layoutPreview": {
+        "headerAriaLabel": "仪表盘面板",
+        "sizeLabel": "小组件尺寸",
+        "widthLabel": "宽度",
+        "heightLabel": "高度"
+      },
       "sections": {
         "workspaces": "工作区",
         "knowledgeBases": "知识库",
@@ -21246,6 +21246,14 @@
           "stopGeneration": "停止生成",
           "sources": "来源：",
           "copy": "复制"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {当前} proposed {拟议} other {当前}}",
+          "newDocument": "新文档",
+          "dashboardLayoutTitle": "{state, select, applied {已应用仪表盘布局更改} proposed {拟议的仪表盘布局更改} other {拟议的仪表盘布局更改}}",
+          "watchlistTitle": "{state, select, applied {已应用自选列表更改} proposed {拟议的自选列表更改} other {拟议的自选列表更改}}",
+          "emptyWatchlist": "空自选列表",
+          "watchlistSetting": "{setting, select, showLogo {徽标} showTicker {代码} showDescription {描述} other {设置}}"
         },
         "contextUsage": {
           "title": "此聊天已使用上下文：{percentage}%",

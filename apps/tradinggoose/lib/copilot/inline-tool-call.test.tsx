@@ -3,9 +3,13 @@
  */
 
 import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { AppLocale } from '@/i18n/routing'
+import type { CopilotToolCall } from '@/stores/copilot/types'
 import { InlineToolCall } from './inline-tool-call'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -63,6 +67,13 @@ vi.mock(
 describe('InlineToolCall', () => {
   let container: HTMLDivElement
   let root: Root
+
+  const renderLocalized = (toolCall: CopilotToolCall, locale: AppLocale) =>
+    root.render(
+      <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+        <InlineToolCall toolCall={toolCall} />
+      </NextIntlClientProvider>
+    )
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -363,142 +374,123 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Reject changes')
   })
 
-  it('renders dashboard layout edits with the shared visual layout preview', async () => {
-    const currentLayout = {
-      layout: {
-        id: 'root',
-        type: 'group',
-        direction: 'horizontal',
-        sizes: [50, 50],
-        children: [
-          {
-            id: 'panel-a',
-            type: 'panel',
-            identityId: 'widget-a',
-            widgetKey: 'data_chart',
-          },
-          {
-            id: 'panel-b',
-            type: 'panel',
-            identityId: 'widget-b',
-            widgetKey: 'copilot',
-          },
-        ],
-      },
-      widgets: {
-        'widget-a': {
-          pairColor: 'gray',
-          params: null,
+  it.each([
+    ['edit_layout', ClientToolCallState.review, true, 'Cambios propuestos al diseño del panel'],
+    ['create_layout', ClientToolCallState.success, false, 'Cambios aplicados al diseño del panel'],
+  ] as const)(
+    'localizes %s with the shared visual preview',
+    async (toolName, state, hasBefore, title) => {
+      const layoutDocument = (widgetKey: string) => ({
+        layout: {
+          id: 'panel-a',
+          type: 'panel',
+          identityId: 'widget-a',
+          widgetKey,
         },
-        'widget-b': {
-          pairColor: 'gray',
-          params: null,
+        widgets: {
+          'widget-a': { pairColor: 'gray', params: null },
         },
-      },
-      colorPairs: { pairs: [] },
-    }
-    const proposedLayout = {
-      ...currentLayout,
-      layout: {
-        ...currentLayout.layout,
-        children: [
-          currentLayout.layout.children[0],
-          {
-            id: 'panel-b',
-            type: 'panel',
-            identityId: 'widget-b-next',
-            widgetKey: 'watchlist',
-          },
-        ],
-      },
-      widgets: {
-        ...currentLayout.widgets,
-        'widget-b': undefined,
-        'widget-b-next': {
-          pairColor: 'gray',
-          params: null,
-        },
-      },
-    }
+        colorPairs: { pairs: [] },
+      })
+      const currentLayout = layoutDocument('data_chart')
+      const proposedLayout = layoutDocument('watchlist')
 
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
+      await act(async () => {
+        renderLocalized(
+          {
             id: 'tool-dashboard-layout-review',
-            name: 'edit_layout',
-            state: ClientToolCallState.review,
+            name: toolName,
+            state,
             result: {
               entityKind: 'dashboard_layout',
               entityName: 'Layout 1',
               preview: {
                 documentDiff: {
-                  before: JSON.stringify(currentLayout),
+                  before: hasBefore ? JSON.stringify(currentLayout) : '',
                   after: JSON.stringify(proposedLayout),
                 },
               },
             },
-          }}
-        />
-      )
-    })
-
-    expect(
-      container.querySelector('[data-testid="dashboard-layout-review-preview"]')
-    ).not.toBeNull()
-    expect(container.textContent).toContain('Proposed Dashboard Layout Changes')
-    expect(container.textContent).toContain('Layout 1')
-    expect(container.textContent).toContain('data_chart')
-    expect(container.textContent).toContain('watchlist')
-    expect(container.textContent).not.toContain('"layout"')
-  })
-
-  it('renders watchlist edits with resolved-style listing rows', async () => {
-    const document = {
-      settings: { showLogo: true, showTicker: true, showDescription: false },
-      items: [
-        { id: 'section-1', type: 'section', parentId: null, label: 'Semiconductors' },
-        {
-          id: 'listing-1',
-          type: 'listing',
-          parentId: 'section-1',
-          listing: {
-            listing_type: 'default',
-            listing_id: 'NVDA',
-            base_id: '',
-            quote_id: '',
           },
-        },
-      ],
-    }
+          'es'
+        )
+      })
 
-    await act(async () => {
-      root.render(
-        <InlineToolCall
-          toolCall={{
+      expect(
+        container.querySelector('[data-testid="dashboard-layout-review-preview"]')
+      ).not.toBeNull()
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain('Actual')
+      expect(container.textContent).toContain('Propuesto')
+      expect(container.querySelector('[aria-label="Panel de control"]')).not.toBeNull()
+      expect(container.textContent).toContain('Layout 1')
+      expect(container.textContent.includes('data_chart')).toBe(hasBefore)
+      expect(container.textContent).toContain('watchlist')
+      expect(container.textContent).not.toContain('"layout"')
+      expect(container.textContent.includes('Documento nuevo')).toBe(!hasBefore)
+    }
+  )
+
+  it.each([
+    ['edit_watchlist', ClientToolCallState.review, true, '拟议的自选列表更改'],
+    ['create_watchlist', ClientToolCallState.success, false, '已应用自选列表更改'],
+  ] as const)(
+    'localizes %s with resolved-style listing rows',
+    async (toolName, state, hasBefore, title) => {
+      const document = {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          { id: 'section-1', type: 'section', parentId: null, label: 'Semiconductors' },
+          {
+            id: 'listing-1',
+            type: 'listing',
+            parentId: 'section-1',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'NVDA',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+        ],
+      }
+
+      await act(async () => {
+        renderLocalized(
+          {
             id: 'tool-watchlist-review',
-            name: 'edit_watchlist',
-            state: ClientToolCallState.review,
+            name: toolName,
+            state,
             result: {
               entityKind: 'watchlist',
               entityName: 'Momentum',
               preview: {
                 documentDiff: {
-                  before: JSON.stringify({ ...document, items: [] }),
+                  before: hasBefore ? JSON.stringify({ ...document, items: [] }) : '',
                   after: JSON.stringify(document),
                 },
               },
             },
-          }}
-        />
-      )
-    })
+          },
+          'zh'
+        )
+      })
 
-    expect(container.querySelector('[data-testid="watchlist-review-preview"]')).not.toBeNull()
-    expect(container.textContent).toContain('Semiconductors')
-    expect(container.textContent).toContain('NVDA')
-    expect(container.textContent).not.toContain('listing_id')
-  })
+      expect(container.querySelector('[data-testid="watchlist-review-preview"]')).not.toBeNull()
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain('当前')
+      expect(container.textContent).toContain('拟议')
+      expect(container.textContent.includes('空自选列表')).toBe(hasBefore)
+      expect(container.textContent.includes('新文档')).toBe(!hasBefore)
+      expect(container.textContent).toContain('徽标')
+      expect(container.textContent).toContain('代码')
+      expect(container.textContent).toContain('Semiconductors')
+      expect(container.textContent).toContain('NVDA')
+      expect(container.textContent).not.toContain('Logo')
+      expect(container.textContent).not.toContain('Ticker')
+      expect(container.textContent).not.toContain('listing_id')
+    }
+  )
 
   it.each([
     [ClientToolCallState.review, 'Proposed Widget Changes'],
