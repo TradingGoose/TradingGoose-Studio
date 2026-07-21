@@ -7,7 +7,6 @@ import {
   persistDashboardWidgetAndColorPairDocuments,
   provisionDashboardLayoutForWorkspaceUserInTx,
   readActiveDashboardLayoutProjection,
-  readPersistedDashboardLayoutProjection,
   readPersistedDashboardWidgetBinding,
   reorderDashboardLayouts,
 } from '@/lib/dashboard-layouts/operations'
@@ -114,7 +113,9 @@ const m = vi.hoisted(() => {
     db: { ...store, transaction },
     bridge: {
       refreshEntityListSession: vi.fn(() => Promise.resolve(true)),
-      runYjsDrainFencedTransaction: vi.fn(async (_target, mutate) => transaction(mutate)),
+      runYjsDrainFencedTransaction: vi.fn(async (_target, mutate, tx) =>
+        tx ? mutate(tx) : transaction(mutate)
+      ),
     },
   }
 })
@@ -160,20 +161,6 @@ describe('dashboard layout operations', () => {
     m.returningResults.length = 0
     m.mutations.length = 0
     m.conflictUpdates.length = 0
-  })
-
-  it('assembles an effective projection from the three canonical tables', async () => {
-    m.selectResults.push(
-      [layoutRow()],
-      [{ id: 'widget-1', layoutId: 'layout-1', pairColor: 'red', params: { view: {} } }],
-      [{ layoutId: 'layout-1', color: 'red', context: { watchlistId: 'watchlist-1' } }]
-    )
-
-    await expect(readPersistedDashboardLayoutProjection(scope, 'layout-1')).resolves.toEqual({
-      layout: topology(),
-      widgets: { 'widget-1': { pairColor: 'red', params: { view: {} } } },
-      colorPairs: { pairs: [{ color: 'red', watchlistId: 'watchlist-1' }] },
-    })
   })
 
   it('reads active topology without loading child rows', async () => {
@@ -247,25 +234,29 @@ describe('dashboard layout operations', () => {
     expect(m.mutations).toEqual([])
   })
 
-  it('commits topology and widget row lifecycle in one transaction', async () => {
-    m.selectResults.push([layoutRow()])
-    m.returningResults.push([], [{ id: 'layout-1' }])
-    await commitDashboardLayoutStructure(scope, 'layout-1', {
-      layout: topology('widget-2', 'watchlist'),
-      createdWidgets: [
-        {
-          binding: { identityId: 'widget-2', widgetKey: 'watchlist' },
-          document: { pairColor: 'gray', params: null },
-        },
-      ],
-      removedIdentityIds: ['widget-1'],
-    })
+  it('commits topology and widget row lifecycle through the supplied transaction owner', async () => {
+    m.returningResults.push([{ id: 'layout-1' }], [])
+    await commitDashboardLayoutStructure(
+      scope,
+      'layout-1',
+      {
+        layout: topology('widget-2', 'watchlist'),
+        createdWidgets: [
+          {
+            binding: { identityId: 'widget-2', widgetKey: 'watchlist' },
+            document: { pairColor: 'gray', params: null },
+          },
+        ],
+        removedIdentityIds: ['widget-1'],
+      },
+      m.store as unknown as Parameters<typeof commitDashboardLayoutStructure>[3]
+    )
 
-    expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.transaction).not.toHaveBeenCalled()
     expect(m.store.execute).toHaveBeenCalledOnce()
     expect(m.mutations).toEqual([
-      expect.objectContaining({ kind: 'insert', table: 'layout_widgets' }),
       expect.objectContaining({ kind: 'update', table: 'layout_maps' }),
+      expect.objectContaining({ kind: 'insert', table: 'layout_widgets' }),
       expect.objectContaining({ kind: 'delete', table: 'layout_widgets' }),
     ])
   })
@@ -355,13 +346,16 @@ describe('dashboard layout operations', () => {
 
     await deleteDashboardLayout(scope, 'layout-1')
 
+    expect(m.bridge.runYjsDrainFencedTransaction).toHaveBeenCalledTimes(2)
     expect(m.bridge.runYjsDrainFencedTransaction.mock.calls[0]?.[0].sessionIds).toEqual([
       'layout-1',
     ])
+    expect(m.transaction).toHaveBeenCalledOnce()
     const childSessionIds = m.bridge.runYjsDrainFencedTransaction.mock.calls[1]?.[0].sessionIds
     expect(childSessionIds).toContain('dashboard-widget:layout-1:widget-1')
     expect(childSessionIds).toContain('dashboard-color-pair:layout-1:red')
     expect(childSessionIds).toHaveLength(6)
+    expect(m.bridge.runYjsDrainFencedTransaction.mock.calls[1]?.[2]).toBe(m.store)
     expect(m.mutations.at(-1)).toMatchObject({ kind: 'delete', table: 'layout_maps' })
   })
 

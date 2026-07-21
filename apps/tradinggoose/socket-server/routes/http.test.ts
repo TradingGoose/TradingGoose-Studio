@@ -273,7 +273,8 @@ describe('socket internal HTTP Yjs routes', () => {
     mocks.saveDashboard.mockResolvedValue({})
     mocks.drainTargets.mockResolvedValue(undefined)
     mocks.runRevocation.mockImplementation(
-      async (_target: unknown, _drain: unknown, mutation: () => Promise<unknown>) => mutation()
+      async (_target: unknown, _drain: unknown, mutation: (tx: unknown) => Promise<unknown>) =>
+        mutation(admissionReadStore)
     )
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
@@ -519,7 +520,8 @@ describe('socket internal HTTP Yjs routes', () => {
       mocks.drainTargets,
       expect.any(Function)
     )
-    expect(mocks.saveDashboard).not.toHaveBeenCalled()
+    expect(mocks.commitDashboardStructure.mock.calls[0]?.[3]).toBe(admissionReadStore)
+    expect(mocks.refreshActiveEntityList).toHaveBeenCalledOnce()
     expect(response.body).toEqual({ success: true })
     expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
   })

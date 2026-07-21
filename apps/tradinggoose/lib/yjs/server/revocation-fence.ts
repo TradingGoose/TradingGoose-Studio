@@ -76,19 +76,24 @@ async function tryAcquireSharedLock(tx: YjsRevocationLockStore, key: string): Pr
 export async function runYjsRevocationTransaction<T>(
   target: YjsRevocationTarget,
   drain: (target: NormalizedYjsRevocationTarget) => Promise<void>,
-  mutate: (tx: YjsRevocationTransaction) => Promise<T>
+  mutate: (tx: YjsRevocationTransaction) => Promise<T>,
+  tx?: YjsRevocationTransaction
 ): Promise<T> {
   const normalized = normalizeYjsRevocationTarget(target)
-  return db.transaction(async (tx) => {
+  const revoke = async (store: YjsRevocationTransaction) => {
+    await acquireExclusiveLocks(store, revocationKeys(normalized))
+    await drain(normalized)
+    return mutate(store)
+  }
+  if (tx) return revoke(tx)
+  return db.transaction(async (store) => {
     const timeout = String(YJS_REVOCATION_COMMIT_FENCE_MS)
-    await tx.execute(sql`
+    await store.execute(sql`
       select
         set_config('statement_timeout', ${timeout}, true),
         set_config('idle_in_transaction_session_timeout', ${timeout}, true)
     `)
-    await acquireExclusiveLocks(tx, revocationKeys(normalized))
-    await drain(normalized)
-    return mutate(tx)
+    return revoke(store)
   })
 }
 

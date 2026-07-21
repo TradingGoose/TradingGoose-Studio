@@ -38,14 +38,12 @@ beforeEach(() => {
 describe('runYjsDrainFencedTransaction', () => {
   it('drains normalized targets inside the shared transaction fence', async () => {
     const events: string[] = []
-    mockDbTransaction.mockImplementation((run) =>
-      run({
-        execute: vi.fn(async () => {
-          events.push('lock')
-          return []
-        }),
-      })
-    )
+    const tx = {
+      execute: vi.fn(async () => {
+        events.push('lock')
+        return []
+      }),
+    }
     mockFetch.mockImplementation(async () => {
       events.push('drain')
       return new Response(JSON.stringify({ success: true }), { status: 200 })
@@ -54,9 +52,11 @@ describe('runYjsDrainFencedTransaction', () => {
 
     await runYjsDrainFencedTransaction(
       { sessionIds: ['watchlist-1'] },
-      async () => void events.push('mutation')
+      async () => void events.push('mutation'),
+      tx as unknown as Parameters<typeof runYjsDrainFencedTransaction>[2]
     )
 
+    expect(mockDbTransaction).not.toHaveBeenCalled()
     expect(events.slice(-2)).toEqual(['drain', 'mutation'])
     expect(mockFetch).toHaveBeenCalledOnce()
     expect(JSON.parse(String(mockFetch.mock.calls[0]?.[1].body))).toEqual({

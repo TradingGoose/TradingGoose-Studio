@@ -53,7 +53,10 @@ import {
   assembleDashboardLayoutProjection,
   initializeSavedReviewTargetDocument,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import { runYjsRevocationTransaction } from '@/lib/yjs/server/revocation-fence'
+import {
+  runYjsRevocationTransaction,
+  type YjsRevocationTransaction,
+} from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
@@ -587,15 +590,15 @@ async function commitDashboardStructurePlan(input: {
         ownerUserId: input.ownerUserId,
       }).yjsSessionId
   )
-  const commit = () =>
-    persistStagedDocuments(
-      [
-        {
-          doc: input.layoutDoc,
-          mutate: (staged) => setDashboardLayoutTopology(staged, input.plan.layout),
-        },
-      ],
-      ([staged]) =>
+  await persistStagedDocuments(
+    [
+      {
+        doc: input.layoutDoc,
+        mutate: (staged) => setDashboardLayoutTopology(staged, input.plan.layout),
+      },
+    ],
+    async ([staged]) => {
+      const commit = (tx?: YjsRevocationTransaction) =>
         commitDashboardLayoutStructure(
           { workspaceId: input.workspaceId, ownerUserId: input.ownerUserId },
           input.layoutId,
@@ -603,18 +606,22 @@ async function commitDashboardStructurePlan(input: {
             layout: readDashboardLayoutDocument(staged!).layout,
             createdWidgets,
             removedIdentityIds: input.plan.removedIdentityIds,
-          }
+          },
+          tx
         )
-    )
-  if (removedSessionIds.length > 0) {
-    await runYjsRevocationTransaction(
-      { sessionIds: removedSessionIds },
-      drainYjsSessionTargets,
-      commit
-    )
-  } else {
-    await commit()
-  }
+      if (removedSessionIds.length === 0) return commit()
+      return runYjsRevocationTransaction(
+        { sessionIds: removedSessionIds },
+        drainYjsSessionTargets,
+        (tx) => commit(tx)
+      )
+    }
+  )
+  await refreshActiveEntityListSession(
+    'dashboard_layout',
+    input.workspaceId,
+    input.ownerUserId
+  ).catch(() => undefined)
 }
 
 async function handleInternalDashboardEditRequest(

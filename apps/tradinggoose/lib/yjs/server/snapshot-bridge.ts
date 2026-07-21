@@ -349,7 +349,8 @@ export async function refreshEntityListSession(
 
 export function runYjsDrainFencedTransaction<T>(
   target: YjsRevocationTarget,
-  mutate: (tx: YjsRevocationTransaction) => Promise<T>
+  mutate: (tx: YjsRevocationTransaction) => Promise<T>,
+  tx?: YjsRevocationTransaction
 ): Promise<T> {
   return runYjsRevocationTransaction(
     target,
@@ -366,6 +367,7 @@ export function runYjsDrainFencedTransaction<T>(
         throw new SavedEntityRealtimeRequiredError()
       }
     },
-    mutate
+    mutate,
+    tx
   )
 }
