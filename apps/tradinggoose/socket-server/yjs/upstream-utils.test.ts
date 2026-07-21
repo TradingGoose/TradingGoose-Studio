@@ -42,14 +42,14 @@ import {
 } from './upstream-utils'
 
 const accessMocks = vi.hoisted(() => ({ verifyReviewTargetAccess: vi.fn() }))
-const fenceMocks = vi.hoisted(() => ({
-  withAdmission: vi.fn(
-    async (
-      _target: unknown,
-      use: (admit: (target: unknown) => Promise<void>) => Promise<unknown>
-    ) => use(async () => undefined)
-  ),
-}))
+const fenceMocks = vi.hoisted(() => {
+  const readStore = { select: vi.fn() }
+  const defaultAdmission = async (
+    _target: unknown,
+    use: (admit: (target: unknown) => Promise<void>, store: typeof readStore) => Promise<unknown>
+  ) => use(async () => undefined, readStore)
+  return { readStore, defaultAdmission, withAdmission: vi.fn(defaultAdmission) }
+})
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: accessMocks.verifyReviewTargetAccess,
@@ -89,8 +89,7 @@ function setupWatchlistSocket(
   socket: TestSocket,
   docId: string,
   persist: TestPersistence,
-  debounceMs = 0,
-  validateDocument?: (doc: Y.Doc) => void
+  debounceMs = 0
 ): Promise<Y.Doc> {
   return acquireDocument(
     docId,
@@ -103,7 +102,6 @@ function setupWatchlistSocket(
         descriptor: buildSavedEntityDescriptor('watchlist', docId, 'workspace-1'),
         onDocumentUpdate: persist,
         onDocumentUpdateDebounceMs: debounceMs,
-        validateDocument,
       })
       return doc
     }
@@ -159,7 +157,9 @@ afterEach(() => {
 })
 
 beforeEach(() => {
-  accessMocks.verifyReviewTargetAccess.mockResolvedValue({ hasAccess: true })
+  accessMocks.verifyReviewTargetAccess.mockReset().mockResolvedValue({ hasAccess: true })
+  fenceMocks.readStore.select.mockReset()
+  fenceMocks.withAdmission.mockReset().mockImplementation(fenceMocks.defaultAdmission)
 })
 
 describe('shared document lifecycle', () => {
@@ -169,29 +169,81 @@ describe('shared document lifecycle', () => {
     descriptor: buildSavedEntityDescriptor('watchlist', sessionId, null),
   })
 
-  it('reauthorizes the canonical workspace inside its shared fence', async () => {
-    let workspaceAdmitted = false
-    fenceMocks.withAdmission.mockImplementationOnce(async (_target, use) =>
-      use(async () => void (workspaceAdmitted = true))
-    )
-    accessMocks.verifyReviewTargetAccess.mockImplementation(async () => {
-      if (accessMocks.verifyReviewTargetAccess.mock.calls.length === 2) {
-        expect(workspaceAdmitted).toBe(true)
+  it('serves reconnect bursts from their reserved admission connections', async () => {
+    const capacity = 30
+    const allOuterConnections = deferred()
+    const deadlocked = deferred()
+    const transactionStores = new Set<unknown>()
+    const workspaceAdmissions = new Set<unknown>()
+    const authorizationCounts = new Map<unknown, number>()
+    let activeOuterConnections = 0
+    let directReads = 0
+    let callerReads = 0
+    let queuedSecondaryReads = 0
+
+    const read = async (store: unknown) => {
+      if (transactionStores.has(store)) {
+        directReads += 1
+        return
       }
-      return { hasAccess: true, workspaceId: 'canonical-workspace' }
+      if (activeOuterConnections < capacity) {
+        callerReads += 1
+        return
+      }
+      queuedSecondaryReads += 1
+      if (queuedSecondaryReads === capacity) deadlocked.resolve()
+      await new Promise<never>(() => undefined)
+    }
+
+    fenceMocks.withAdmission.mockImplementation(async (_target, use) => {
+      const store = { select: vi.fn() }
+      transactionStores.add(store)
+      activeOuterConnections += 1
+      if (activeOuterConnections === capacity) allOuterConnections.resolve()
+      await allOuterConnections.promise
+      try {
+        return await use(async () => void workspaceAdmissions.add(store), store)
+      } finally {
+        activeOuterConnections -= 1
+      }
     })
-    const initialize = vi.fn()
-    const use = vi.fn((_doc, actor) => actor?.descriptor.workspaceId)
+    accessMocks.verifyReviewTargetAccess.mockImplementation(
+      async (_userId, _descriptor, _accessMode, store) => {
+        const count = authorizationCounts.get(store) ?? 0
+        if (count === 1) expect(workspaceAdmissions.has(store)).toBe(true)
+        authorizationCounts.set(store, count + 1)
+        await read(store)
+        return { hasAccess: true, workspaceId: 'workspace-1' }
+      }
+    )
+
+    const reconnects = Array.from({ length: capacity }, (_, index) => {
+      const sessionId = `reconnect-${index}`
+      return acquireDocument(
+        sessionId,
+        {
+          admission: admission(sessionId),
+          initialize: async (doc, _actor, store) => {
+            await read(store)
+            setDocumentReconciler(doc, read)
+            return { workspaceId: 'workspace-1' }
+          },
+        },
+        () => read(undefined)
+      )
+    })
 
     await expect(
-      acquireDocument(
-        'authorized-session',
-        { admission: admission('authorized-session'), initialize },
-        use
-      )
-    ).resolves.toBe('canonical-workspace')
-    expect(accessMocks.verifyReviewTargetAccess).toHaveBeenCalledTimes(2)
-    expect(initialize).toHaveBeenCalledOnce()
+      Promise.race([
+        Promise.all(reconnects).then(() => 'completed' as const),
+        deadlocked.promise.then(() => 'deadlocked' as const),
+      ])
+    ).resolves.toBe('completed')
+    expect(activeOuterConnections).toBe(0)
+    expect(queuedSecondaryReads).toBe(0)
+    expect(directReads).toBe(capacity * 4)
+    expect(callerReads).toBe(capacity)
+    expect([...authorizationCounts.values()]).toEqual(Array(capacity).fill(2))
   })
 
   it('stops a revoked actor before initialization or use', async () => {
@@ -208,27 +260,30 @@ describe('shared document lifecycle', () => {
     expect(use).not.toHaveBeenCalled()
   })
 
-  it('serializes first bootstrap and use before exposing a new lineage', async () => {
-    const bootstrap = deferred()
-    const initialize = vi.fn(async (doc: Y.Doc) => {
-      const value = 'before'
-      await bootstrap.promise
-      doc.getMap('fields').set('value', value)
-      return undefined
-    })
-    const first = acquireDocument('serialized-bootstrap', { initialize }, (doc) =>
-      doc.getMap('fields').get('value')
-    )
-
-    expect(peekDocument('serialized-bootstrap')).toBeNull()
-    const second = acquireDocument('serialized-bootstrap', { initialize }, (doc) => {
-      doc.getMap('fields').set('value', 'after')
+  it('reserves caller work before commit and a racing drain', async () => {
+    const caller = deferred()
+    const callerStarted = deferred()
+    const initialize = vi.fn((doc: Y.Doc) => void doc.getMap('fields').set('value', 'before'))
+    const first = acquireDocument('serialized-bootstrap', { initialize }, async (doc) => {
+      callerStarted.resolve()
+      await caller.promise
       return doc.getMap('fields').get('value')
     })
-    bootstrap.resolve()
+    await callerStarted.promise
 
+    const doc = peekDocument('serialized-bootstrap')!
+    const second = acquireDocument('serialized-bootstrap', { initialize }, () => undefined)
+    const secondRejected = expect(second).rejects.toMatchObject({ status: 409 })
+    let drainSettled = false
+    const drain = discardDocument(doc).then(() => void (drainSettled = true))
+    await Promise.resolve()
+
+    expect(fenceMocks.withAdmission).toHaveBeenCalledOnce()
+    expect(drainSettled).toBe(false)
+    caller.resolve()
     await expect(first).resolves.toBe('before')
-    await expect(second).resolves.toBe('after')
+    await secondRejected
+    await drain
     expect(initialize).toHaveBeenCalledOnce()
     expect(peekDocument('serialized-bootstrap')).toBeNull()
   })
@@ -544,7 +599,10 @@ describe('document mutation queue', () => {
         input.sessionId,
         {
           workspaceId: input.descriptor.workspaceId,
-          initialize: () => ({ state: Y.encodeStateAsUpdate(source) }),
+          initialize: () => ({
+            state: Y.encodeStateAsUpdate(source),
+            validateDocument: input.read,
+          }),
         },
         (doc) => {
           setupWSConnection(sender as unknown as WebSocket, {} as IncomingMessage, {
@@ -553,14 +611,12 @@ describe('document mutation queue', () => {
             accessMode: 'write',
             descriptor: input.descriptor,
             onDocumentUpdate: persist,
-            validateDocument: input.read,
           })
           setupWSConnection(peer as unknown as WebSocket, {} as IncomingMessage, {
             doc,
             userId: 'user-1',
             accessMode: 'write',
             descriptor: input.descriptor,
-            validateDocument: input.read,
           })
           return doc
         }
@@ -644,17 +700,6 @@ describe('document mutation queue', () => {
       mutate: (doc) => updateWatchlistItems(doc, (items) => [...items, cappedListing(1000)]),
       read: (doc) => getEntityFields(doc, 'watchlist'),
     })
-  })
-
-  it('keeps the connection open when its document validator accepts an update', async () => {
-    const socket = new TestSocket()
-    const validate = vi.fn()
-    const doc = await setupWatchlistSocket(socket, 'validated-update', vi.fn(), 0, validate)
-    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'accepted', true)))
-    await vi.waitFor(() => expect(doc.getMap('fields').get('accepted')).toBe(true))
-    expect(validate).toHaveBeenCalled()
-    expect(socket.close).not.toHaveBeenCalled()
-    socket.emit('close')
   })
 
   it('serializes WebSocket writes behind an import and recovers after import failure', async () => {

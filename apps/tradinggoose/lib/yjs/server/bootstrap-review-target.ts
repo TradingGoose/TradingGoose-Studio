@@ -36,6 +36,7 @@ import {
 } from '@/lib/yjs/entity-session'
 import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import {
+  type EntityListReadStore,
   readEntityListMembersFromDb,
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
@@ -239,8 +240,9 @@ export async function readBootstrappedDashboardLayoutProjection(
 }
 
 export async function createSavedReviewTargetBootstrapUpdate(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
+  descriptor: ReviewTargetDescriptor,
+  readStore?: EntityListReadStore
+): Promise<ResolvedReviewTarget & { state: Uint8Array; validateDocument?: (doc: Y.Doc) => void }> {
   if (!descriptor.entityId) {
     throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
   }
@@ -248,8 +250,9 @@ export async function createSavedReviewTargetBootstrapUpdate(
   const doc = new Y.Doc()
   try {
     let resolvedWorkspaceId: string | null = descriptor.workspaceId
+    let validateDocument: ((doc: Y.Doc) => void) | undefined
     if (descriptor.entityKind === 'workflow') {
-      const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
+      const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId, readStore)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
@@ -279,9 +282,12 @@ export async function createSavedReviewTargetBootstrapUpdate(
       const binding = await readPersistedDashboardWidgetBinding(
         { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
         target.layoutId,
-        target.identityId
+        target.identityId,
+        readStore
       )
       seedDashboardWidgetSession(doc, binding.document, YJS_ORIGINS.SYSTEM)
+      validateDocument = (candidate) =>
+        void readDashboardWidgetDocument(candidate, binding.widgetKey)
     } else if (descriptor.entityKind === 'dashboard_color_pair') {
       const target = parseDashboardColorPairSessionId(descriptor.yjsSessionId)
       if (!target || target.color !== descriptor.entityId) {
@@ -295,15 +301,22 @@ export async function createSavedReviewTargetBootstrapUpdate(
         await readPersistedDashboardColorPairDocument(
           { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
           target.layoutId,
-          target.color
+          target.color,
+          readStore
         ),
         YJS_ORIGINS.SYSTEM
       )
+      validateDocument = (candidate) => void readDashboardColorPairDocument(candidate)
     } else {
       const entityKind = descriptor.entityKind as SavedEntityKind
       const workspaceId =
         descriptor.workspaceId ??
-        (await resolveEntityWorkspaceId(entityKind, descriptor.entityId, descriptor.ownerUserId))
+        (await resolveEntityWorkspaceId(
+          entityKind,
+          descriptor.entityId,
+          descriptor.ownerUserId,
+          readStore
+        ))
       if (!workspaceId) {
         throw new ReviewTargetBootstrapError(404, 'Saved entity workspace is missing')
       }
@@ -313,7 +326,8 @@ export async function createSavedReviewTargetBootstrapUpdate(
         entityKind,
         descriptor.entityId,
         workspaceId,
-        descriptor.ownerUserId
+        descriptor.ownerUserId,
+        readStore
       )
       if (entityKind === 'dashboard_layout') {
         seedDashboardLayoutSession(
@@ -323,6 +337,9 @@ export async function createSavedReviewTargetBootstrapUpdate(
         )
       } else {
         seedEntitySession(doc, { entityKind, payload })
+        if (entityKind === 'watchlist') {
+          validateDocument = (candidate) => void getEntityFields(candidate, 'watchlist')
+        }
       }
     }
 
@@ -341,6 +358,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
       descriptor: { ...descriptor, workspaceId: resolvedWorkspaceId },
       runtime: getReviewTargetRuntimeState(doc),
       state,
+      ...(validateDocument ? { validateDocument } : {}),
     }
   } catch (error) {
     if (error instanceof DashboardLayoutOperationError) {
@@ -355,14 +373,18 @@ export async function createSavedReviewTargetBootstrapUpdate(
   }
 }
 
-export async function initializeSavedReviewTargetDocument(descriptor: ReviewTargetDescriptor) {
-  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
+export async function initializeSavedReviewTargetDocument(
+  descriptor: ReviewTargetDescriptor,
+  readStore?: EntityListReadStore
+) {
+  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor, readStore)
   if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
     throw new ReviewTargetBootstrapError(410, 'Review target expired')
   }
   return {
     state: bootstrapped.state,
     workspaceId: bootstrapped.descriptor.workspaceId,
+    validateDocument: bootstrapped.validateDocument,
   }
 }
 
@@ -370,8 +392,9 @@ export async function reseedEntityListSessionFromDb(
   doc: Y.Doc,
   entityKind: ReviewEntityKind,
   workspaceId: string,
-  ownerUserId?: string | null
+  ownerUserId?: string | null,
+  readStore?: EntityListReadStore
 ): Promise<void> {
-  const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId, readStore)
   replaceEntityListSessionMembers(doc, members)
 }

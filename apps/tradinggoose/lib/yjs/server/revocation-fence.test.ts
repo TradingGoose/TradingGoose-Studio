@@ -57,17 +57,18 @@ describe('Yjs revocation fence', () => {
 
   it('holds shared session and discovered workspace targets during admission', async () => {
     const statements: string[] = []
-    mockTransaction.mockImplementation((run) =>
-      run({
-        execute: vi.fn(async (statement) => {
-          statements.push(JSON.stringify(statement))
-          return [{ acquired: true }]
-        }),
-      })
-    )
+    const tx = {
+      execute: vi.fn(async (statement) => {
+        statements.push(JSON.stringify(statement))
+        return [{ acquired: true }]
+      }),
+      select: vi.fn(),
+    }
+    mockTransaction.mockImplementation((run) => run(tx))
     const { withYjsAdmissionTransaction } = await import('./revocation-fence')
 
-    await withYjsAdmissionTransaction({ sessionIds: ['watchlist-1'] }, async (admit) => {
+    await withYjsAdmissionTransaction({ sessionIds: ['watchlist-1'] }, async (admit, store) => {
+      expect(store).toBe(tx)
       await admit({ workspaceIds: ['workspace-1'] })
       await admit({ workspaceIds: ['workspace-1'] })
     })

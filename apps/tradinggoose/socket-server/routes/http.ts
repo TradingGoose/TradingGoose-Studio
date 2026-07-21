@@ -380,8 +380,8 @@ function withBootstrappedDocument<T>(
       ...(actorUserId
         ? { admission: { userId: actorUserId, accessMode: 'write' as const, descriptor } }
         : {}),
-      initialize: (_doc, admission) =>
-        initializeSavedReviewTargetDocument(admission?.descriptor ?? descriptor),
+      initialize: (_doc, admission, readStore) =>
+        initializeSavedReviewTargetDocument(admission?.descriptor ?? descriptor, readStore),
     },
     use
   )

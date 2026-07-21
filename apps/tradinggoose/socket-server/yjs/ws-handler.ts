@@ -5,7 +5,6 @@ import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
-  parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import {
   type ReviewAccessMode,
@@ -15,14 +14,8 @@ import {
   YJS_CLOSE_CODE_DOCUMENT_REJECTED,
   YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
-import { readPersistedDashboardWidgetBinding } from '@/lib/dashboard-layouts/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import {
-  readDashboardColorPairDocument,
-  readDashboardWidgetDocument,
-} from '@/lib/yjs/dashboard-layout-session'
-import { getEntityFields } from '@/lib/yjs/entity-session'
 import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 import {
   saveDashboardYjsDocsToDb,
@@ -35,7 +28,6 @@ import { bindEntityListSession, refreshActiveEntityListSession } from './entity-
 import {
   acquireDocument,
   type DocumentAdmission,
-  type DocumentValidator,
   persistStagedDocuments,
   setupWSConnection,
 } from './upstream-utils'
@@ -161,26 +153,24 @@ export function handleYjsUpgrade(
         {
           workspaceId: authenticated.descriptor.workspaceId,
           admission: authenticated,
-          initialize: (_doc, admission) => {
+          initialize: (_doc, admission, readStore) => {
             if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
-            if (isEntityListSessionId(admission.descriptor.yjsSessionId)) return
-            return initializeSavedReviewTargetDocument(admission.descriptor)
+            if (isEntityListSessionId(admission.descriptor.yjsSessionId)) {
+              bindEntityListSession(
+                _doc,
+                admission.descriptor.entityKind as ReviewEntityKind,
+                admission.descriptor.workspaceId as string,
+                admission.descriptor.ownerUserId ?? null
+              )
+              return
+            }
+            return initializeSavedReviewTargetDocument(admission.descriptor, readStore)
           },
         },
         async (doc, admission) => {
           if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
           const { accessMode, userId, descriptor } = admission
-          const validateDocument = await prepareDocumentValidator(descriptor)
-          const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
           logger.info('Yjs connection established', { docId: yjsSessionId, userId })
-          if (isListTarget) {
-            await bindEntityListSession(
-              doc,
-              descriptor.entityKind as ReviewEntityKind,
-              descriptor.workspaceId as string,
-              descriptor.ownerUserId ?? null
-            )()
-          }
           setupWSConnection(ws, request, {
             doc,
             userId,
@@ -189,7 +179,6 @@ export function handleYjsUpgrade(
             persist: manualPersistenceHandler(accessMode, descriptor),
             onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
             onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
-            validateDocument,
           })
           ws.resume()
         }
@@ -223,30 +212,6 @@ async function authenticateYjsUpgrade(pathSessionId: string, url: URL): Promise<
   assertAccessModeAllowed(accessMode, descriptor)
 
   return { userId, accessMode, descriptor }
-}
-
-async function prepareDocumentValidator(
-  descriptor: ReviewTargetDescriptor
-): Promise<DocumentValidator | undefined> {
-  if (isEntityListSessionId(descriptor.yjsSessionId)) return undefined
-  if (descriptor.entityKind === 'watchlist') return (doc) => void getEntityFields(doc, 'watchlist')
-  if (descriptor.entityKind === 'dashboard_color_pair') {
-    return readDashboardColorPairDocument
-  }
-  if (descriptor.entityKind !== 'dashboard_widget') return undefined
-  if (!descriptor.workspaceId || !descriptor.ownerUserId || !descriptor.entityId) {
-    throw new YjsAuthError(409, 'Dashboard widget owner scope is required')
-  }
-  const target = parseDashboardWidgetSessionId(descriptor.yjsSessionId)
-  if (!target || target.identityId !== descriptor.entityId) {
-    throw new YjsAuthError(409, 'Invalid dashboard widget session')
-  }
-  const { widgetKey } = await readPersistedDashboardWidgetBinding(
-    { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
-    target.layoutId,
-    target.identityId
-  )
-  return (doc) => readDashboardWidgetDocument(doc, widgetKey)
 }
 
 function parseAccessMode(url: URL): ReviewAccessMode {

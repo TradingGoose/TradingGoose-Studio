@@ -32,6 +32,7 @@ const logger = createLogger('WorkflowDBHelpers')
 type PersistableWorkflowState = WorkflowState & {
   variables?: Record<string, any>
 }
+type WorkflowReadStore = Pick<typeof db, 'select'>
 
 const resolveLockedFromBlockData = (data: unknown): boolean => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -171,10 +172,11 @@ export async function requireWorkflowRealtimeState(
 }
 
 export async function loadWorkflowBootstrapStateFromDb(
-  workflowId: string
+  workflowId: string,
+  readStore: WorkflowReadStore = db
 ): Promise<(PersistedWorkflowState & { workspaceId: string | null }) | null> {
   const [workflowRow, normalizedState] = await Promise.all([
-    db
+    readStore
       .select({
         workspaceId: workflow.workspaceId,
         variables: workflow.variables,
@@ -183,7 +185,7 @@ export async function loadWorkflowBootstrapStateFromDb(
       .from(workflow)
       .where(eq(workflow.id, workflowId))
       .limit(1),
-    loadWorkflowFromNormalizedTables(workflowId),
+    loadWorkflowFromNormalizedTables(workflowId, readStore),
   ])
   const row = workflowRow[0]
   if (!row) {
@@ -606,12 +608,13 @@ export async function loadDeployedWorkflowState(
  * Load workflow state from normalized tables
  */
 export async function loadWorkflowFromNormalizedTables(
-  workflowId: string
+  workflowId: string,
+  readStore: WorkflowReadStore = db
 ): Promise<NormalizedWorkflowData> {
   const [blocks, edges, subflows] = await Promise.all([
-    db.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
-    db.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
-    db.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
+    readStore.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
+    readStore.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
+    readStore.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
   ])
 
   const blocksMap: Record<string, BlockState> = {}

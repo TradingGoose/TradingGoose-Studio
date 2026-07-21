@@ -12,7 +12,6 @@ import {
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
   YJS_CLOSE_CODE_RETRY_REQUIRED,
 } from '@/lib/copilot/review-sessions/types'
-import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 import type { DocumentAdmission } from './upstream-utils'
 
 const mockLogger = {
@@ -24,13 +23,12 @@ const mockLogger = {
 
 const mockAuthenticateYjsConnection = vi.fn()
 const mockInitializeSavedReviewTargetDocument = vi.fn()
-const mockReconcileEntityListSession = vi.fn()
-const mockBindEntityListSession = vi.fn(() => mockReconcileEntityListSession)
+const mockBindEntityListSession = vi.fn()
 const mockAcquireDocument = vi.fn()
+const mockAdmissionReadStore = { select: vi.fn() }
 const mockDocuments = new Map<string, { doc: Y.Doc; seeded: boolean }>()
 const mockSetupWSConnection = vi.fn()
 const mockPersistStagedDocuments = vi.fn()
-const mockReadPersistedDashboardWidgetBinding = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshActiveEntityListSession = vi.fn()
 const mockUpgradedSocketClose = vi.fn()
@@ -169,7 +167,6 @@ beforeEach(() => {
 
   mockAuthenticateYjsConnection.mockReset()
   mockInitializeSavedReviewTargetDocument.mockReset()
-  mockReconcileEntityListSession.mockReset()
   mockBindEntityListSession.mockClear()
   for (const { doc } of mockDocuments.values()) doc.destroy()
   mockDocuments.clear()
@@ -180,7 +177,8 @@ beforeEach(() => {
         admission?: DocumentAdmission
         initialize: (
           doc: Y.Doc,
-          admission?: DocumentAdmission
+          admission: DocumentAdmission | undefined,
+          readStore: typeof mockAdmissionReadStore
         ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
       },
       use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<unknown> | unknown
@@ -189,7 +187,11 @@ beforeEach(() => {
       const entry = mockDocuments.get(sessionId) ?? { doc: new Y.Doc(), seeded: false }
       mockDocuments.set(sessionId, entry)
       if (!entry.seeded) {
-        const initializedDocument = await options.initialize(entry.doc, admission)
+        const initializedDocument = await options.initialize(
+          entry.doc,
+          admission,
+          mockAdmissionReadStore
+        )
         if (initializedDocument?.state) Y.applyUpdate(entry.doc, initializedDocument.state)
         entry.seeded = true
       }
@@ -203,7 +205,6 @@ beforeEach(() => {
       async (targets: Array<{ doc: Y.Doc }>, persist: (staged: Y.Doc[]) => Promise<unknown>) =>
         persist(targets.map(({ doc }) => doc))
     )
-  mockReadPersistedDashboardWidgetBinding.mockReset()
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
   mockUpgradedSocketClose.mockReset()
@@ -230,10 +231,6 @@ beforeEach(() => {
   vi.doMock('./entity-list-session', () => ({
     bindEntityListSession: mockBindEntityListSession,
     refreshActiveEntityListSession: mockRefreshActiveEntityListSession,
-  }))
-
-  vi.doMock('@/lib/dashboard-layouts/operations', () => ({
-    readPersistedDashboardWidgetBinding: mockReadPersistedDashboardWidgetBinding,
   }))
 
   vi.doMock('@/lib/workflows/db-helpers', () => ({
@@ -314,13 +311,9 @@ describe('handleYjsUpgrade', () => {
     )
   })
 
-  it('allows dashboard widget write upgrades with canonical validation', async () => {
+  it('allows dashboard widget write upgrades through canonical bootstrap', async () => {
     const sessionId = 'dashboard-widget:layout-1:widget-1'
-    mockReadPersistedDashboardWidgetBinding.mockResolvedValue({
-      widgetKey: 'data_chart',
-      document: { pairColor: 'gray', params: null },
-    })
-    const { request, socket, wss } = await runYjsUpgrade({
+    const { request } = await runYjsUpgrade({
       target: {
         sessionId,
         entityKind: 'dashboard_widget',
@@ -330,17 +323,10 @@ describe('handleYjsUpgrade', () => {
       accessMode: 'write',
     })
 
-    expect(mockInitializeSavedReviewTargetDocument).toHaveBeenCalled()
-    expect(mockReadPersistedDashboardWidgetBinding).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-      'layout-1',
-      'widget-1'
+    expect(mockInitializeSavedReviewTargetDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ entityKind: 'dashboard_widget', entityId: 'widget-1' }),
+      mockAdmissionReadStore
     )
-    expect(mockAcquireDocument.mock.calls[0]?.[1].admission).toMatchObject({
-      userId: 'user-1',
-      accessMode: 'write',
-    })
-    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
       request,
@@ -348,7 +334,6 @@ describe('handleYjsUpgrade', () => {
         doc: expect.any(Y.Doc),
         accessMode: 'write',
         onDocumentUpdate: expect.any(Function),
-        validateDocument: expect.any(Function),
       })
     )
     expect(mockUpgradedSocketPause.mock.invocationCallOrder[0]).toBeLessThan(
@@ -357,20 +342,6 @@ describe('handleYjsUpgrade', () => {
     expect(mockSetupWSConnection.mock.invocationCallOrder[0]).toBeLessThan(
       mockUpgradedSocketResume.mock.invocationCallOrder[0]!
     )
-    expect(socket.write).not.toHaveBeenCalled()
-    expect(socket.destroy).not.toHaveBeenCalled()
-
-    const validateDocument = mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument
-    const invalidWidget = new Y.Doc()
-    try {
-      seedDashboardWidgetSession(invalidWidget, {
-        pairColor: 'gray',
-        params: { watchlistId: 'watchlist-1' },
-      })
-      expect(() => validateDocument(invalidWidget)).toThrow(/does not support this field/i)
-    } finally {
-      invalidWidget.destroy()
-    }
   })
 
   it.each([
@@ -398,25 +369,12 @@ describe('handleYjsUpgrade', () => {
     )
   })
 
-  it('reconciles an entity list through its live document before attaching a reader', async () => {
+  it('binds an entity-list reconciler during document initialization', async () => {
     const sessionId = 'list:watchlist:workspace-1'
     const listDoc = new Y.Doc()
     mockDocuments.set(sessionId, { doc: listDoc, seeded: false })
-    mockReconcileEntityListSession.mockRejectedValueOnce(new Error('database offline'))
     try {
-      const failed = await runYjsUpgrade({
-        target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
-        accessMode: 'read',
-      })
-      expect(failed.wss.handleUpgrade).toHaveBeenCalledOnce()
-      expect(mockSetupWSConnection).not.toHaveBeenCalled()
-      expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
-        YJS_CLOSE_CODE_RETRY_REQUIRED,
-        'Failed to attach Yjs session'
-      )
-
-      mockUpgradedSocketClose.mockClear()
-      const { request, wss } = await runYjsUpgrade({
+      await runYjsUpgrade({
         target: { sessionId, entityKind: 'watchlist', entityId: null, targetKind: 'entity_list' },
         accessMode: 'read',
       })
@@ -428,45 +386,9 @@ describe('handleYjsUpgrade', () => {
         null
       )
       expect(mockInitializeSavedReviewTargetDocument).not.toHaveBeenCalled()
-      expect(wss.handleUpgrade).toHaveBeenCalledWith(
-        request,
-        expect.anything(),
-        expect.anything(),
-        expect.any(Function)
-      )
-      expect(mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument).toBeUndefined()
-      expect(mockReconcileEntityListSession).toHaveBeenCalledTimes(2)
     } finally {
       listDoc.destroy()
     }
-  })
-
-  it('binds strict color-pair validation during authenticated setup', async () => {
-    const sessionId = 'dashboard-color-pair:layout-1:red'
-    const { request } = await runYjsUpgrade({
-      target: {
-        sessionId,
-        entityKind: 'dashboard_color_pair',
-        entityId: 'red',
-        ownerUserId: 'user-1',
-      },
-      accessMode: 'write',
-    })
-
-    expect(mockReadPersistedDashboardWidgetBinding).not.toHaveBeenCalled()
-    const validateDocument = mockSetupWSConnection.mock.calls[0]?.[2]?.validateDocument
-    const invalidPair = new Y.Doc()
-    try {
-      invalidPair.getMap('colorPair').set('unsupported', true)
-      expect(() => validateDocument(invalidPair)).toThrow(/canonical shared fields/i)
-    } finally {
-      invalidPair.destroy()
-    }
-    expect(mockSetupWSConnection).toHaveBeenCalledWith(
-      expect.anything(),
-      request,
-      expect.objectContaining({ validateDocument: expect.any(Function) })
-    )
   })
 
   it('persists writable watchlist updates through the saved-document lifecycle', async () => {
@@ -478,7 +400,6 @@ describe('handleYjsUpgrade', () => {
       expect.objectContaining({
         doc: expect.any(Y.Doc),
         onDocumentUpdate: expect.any(Function),
-        validateDocument: expect.any(Function),
       })
     )
     const doc = new Y.Doc()

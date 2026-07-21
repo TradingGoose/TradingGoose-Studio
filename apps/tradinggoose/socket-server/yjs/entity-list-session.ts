@@ -2,6 +2,7 @@ import type * as Y from 'yjs'
 import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { reseedEntityListSessionFromDb } from '@/lib/yjs/server/bootstrap-review-target'
+import type { EntityListReadStore } from '@/lib/yjs/server/entity-loaders'
 import { peekDocument, reconcileDocument, setDocumentReconciler } from './upstream-utils'
 
 export function bindEntityListSession(
@@ -9,10 +10,10 @@ export function bindEntityListSession(
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
-): () => Promise<void> {
-  const reconcile = () => reseedEntityListSessionFromDb(doc, entityKind, workspaceId, ownerUserId)
+): void {
+  const reconcile = (readStore?: EntityListReadStore) =>
+    reseedEntityListSessionFromDb(doc, entityKind, workspaceId, ownerUserId, readStore)
   setDocumentReconciler(doc, reconcile)
-  return reconcile
 }
 
 export async function refreshActiveEntityListSession(

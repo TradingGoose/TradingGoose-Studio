@@ -119,6 +119,8 @@ export interface WorkflowAccessContext {
   isWorkspaceOwner: boolean
 }
 
+type WorkflowAccessReadStore = Pick<typeof db, 'select'>
+
 export function hasWorkflowWriteAccess(context: WorkflowAccessContext) {
   return (
     context.isWorkspaceOwner ||
@@ -129,9 +131,10 @@ export function hasWorkflowWriteAccess(context: WorkflowAccessContext) {
 
 export async function readWorkflowAccessContext(
   workflowId: string,
-  userId?: string
+  userId?: string,
+  readStore: WorkflowAccessReadStore = db
 ): Promise<WorkflowAccessContext | null> {
-  const rows = await db
+  const rows = await readStore
     .select({
       ...WORKFLOW_BASE_SELECTION,
       workspaceOwnerId: workspace.ownerId,

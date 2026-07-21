@@ -18,7 +18,6 @@ export type YjsRevocationTransaction = Pick<
   typeof db,
   'delete' | 'execute' | 'insert' | 'select' | 'update'
 >
-
 type YjsRevocationLockStore = Pick<typeof db, 'execute'>
 
 export class YjsSessionAdmissionError extends Error {
@@ -95,7 +94,10 @@ export async function runYjsRevocationTransaction<T>(
 
 export function withYjsAdmissionTransaction<T>(
   target: YjsRevocationTarget,
-  use: (admitAdditionalTargets: (target: YjsRevocationTarget) => Promise<void>) => Promise<T>
+  use: (
+    admitAdditionalTargets: (target: YjsRevocationTarget) => Promise<void>,
+    readStore: Pick<YjsRevocationTransaction, 'select'>
+  ) => Promise<T>
 ): Promise<T> {
   const initial = normalizeYjsRevocationTarget(target)
   return db.transaction(async (tx) => {
@@ -108,6 +110,6 @@ export function withYjsAdmissionTransaction<T>(
       }
     }
     await admitAdditionalTargets(initial)
-    return use(admitAdditionalTargets)
+    return use(admitAdditionalTargets, tx)
   })
 }

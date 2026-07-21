@@ -22,6 +22,7 @@ import {
 type WatchlistContainerRow = typeof watchlistTable.$inferSelect
 type WatchlistItemRow = typeof watchlistItem.$inferSelect
 export type WatchlistDocumentTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type WatchlistDocumentReadStore = Pick<WatchlistDocumentTx, 'select'>
 type WatchlistContainerInputItem = Extract<WatchlistDocumentInputItem, { type: 'section' }>
 type WatchlistSiblingRow =
   | { type: 'section'; row: WatchlistContainerRow }
@@ -73,7 +74,7 @@ const normalizeRootRow = (row: WatchlistContainerRow): WatchlistRootRow => {
 }
 
 export const fetchRootWatchlistRow = async (
-  tx: WatchlistDocumentTx,
+  tx: WatchlistDocumentReadStore,
   workspaceId: string,
   watchlistId: string
 ): Promise<WatchlistRootRow> => {
@@ -87,7 +88,7 @@ export const fetchRootWatchlistRow = async (
 }
 
 export const listRootWatchlistRowsInTx = async (
-  tx: Pick<WatchlistDocumentTx, 'select'>,
+  tx: WatchlistDocumentReadStore,
   workspaceId: string
 ): Promise<WatchlistRootRow[]> => {
   const rows = await tx
@@ -99,7 +100,7 @@ export const listRootWatchlistRowsInTx = async (
   return rows.map(normalizeRootRow)
 }
 
-const loadWatchlistRows = async (tx: WatchlistDocumentTx, root: WatchlistRootRow) => {
+const loadWatchlistRows = async (tx: WatchlistDocumentReadStore, root: WatchlistRootRow) => {
   const [containers, items] = await Promise.all([
     tx
       .select()
@@ -185,7 +186,7 @@ export const composeWatchlistDocumentFromRows = (
 }
 
 export const mapWatchlistDocumentFieldsInTx = async (
-  tx: WatchlistDocumentTx,
+  tx: WatchlistDocumentReadStore,
   root: WatchlistRootRow
 ): Promise<WatchlistDocumentFields> => {
   const { containers, items } = await loadWatchlistRows(tx, root)
@@ -399,10 +400,9 @@ export async function materializeWatchlistDocumentInTx(
 
 export async function loadWatchlistDocumentFields(
   workspaceId: string,
-  watchlistId: string
+  watchlistId: string,
+  readStore: WatchlistDocumentReadStore = db
 ): Promise<WatchlistDocumentFields> {
-  return db.transaction(async (tx) => {
-    const root = await fetchRootWatchlistRow(tx, workspaceId, watchlistId)
-    return mapWatchlistDocumentFieldsInTx(tx, root)
-  })
+  const root = await fetchRootWatchlistRow(readStore, workspaceId, watchlistId)
+  return mapWatchlistDocumentFieldsInTx(readStore, root)
 }

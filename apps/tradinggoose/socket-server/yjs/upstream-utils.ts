@@ -30,6 +30,7 @@ import {
   normalizeYjsRevocationTarget,
   withYjsAdmissionTransaction,
   type YjsRevocationTarget,
+  type YjsRevocationTransaction,
   YjsSessionAdmissionError,
 } from '@/lib/yjs/server/revocation-fence'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -48,17 +49,23 @@ const docs = new Map<string, WSSharedDoc>()
 let isDrainingAllDocuments = false
 let terminalPersistenceError: Error | null = null
 type DocumentPersistenceHandler = (docId: string, staged: Y.Doc) => Promise<void> | void
-type DocumentInitialization = { state?: Uint8Array; workspaceId?: string | null }
+type DocumentReadStore = Pick<YjsRevocationTransaction, 'select'>
+type DocumentInitialization = {
+  state?: Uint8Array
+  workspaceId?: string | null
+  validateDocument?: DocumentValidator
+}
 type DocumentInitializer = (
   doc: Y.Doc,
-  admission?: DocumentAdmission
+  admission: DocumentAdmission | undefined,
+  readStore: DocumentReadStore
 ) => Promise<DocumentInitialization | undefined> | DocumentInitialization | undefined
 export type DocumentAdmission = {
   userId: string
   accessMode: ReviewAccessMode
   descriptor: ReviewTargetDescriptor
 }
-export type DocumentReconciler = () => Promise<void> | void
+export type DocumentReconciler = (readStore?: DocumentReadStore) => Promise<void> | void
 export type DocumentValidator = (doc: Y.Doc) => void
 type ConnectionState = {
   awarenessIds: Set<number>
@@ -460,56 +467,62 @@ export async function acquireDocument<T>(
   use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<T> | T
 ): Promise<T> {
   const workspaceIds = options.workspaceId ? [options.workspaceId] : undefined
-  return withYjsAdmissionTransaction({ sessionIds: [docId], workspaceIds }, async (admit) => {
+  assertLocalDocumentAdmission(docId)
+  let doc = docs.get(docId)
+  if (!doc) {
+    doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
+    docs.set(docId, doc)
+  }
+  return runDocumentMutation(doc, async () => {
     assertLocalDocumentAdmission(docId)
     const admission = options.admission ? { ...options.admission } : undefined
-    const authorize = async (expectedWorkspaceId?: string | null) => {
-      if (!admission) return null
-      const access = await verifyReviewTargetAccess(
-        admission.userId,
-        admission.descriptor,
-        admission.accessMode
-      )
-      if (
-        !access.hasAccess ||
-        (expectedWorkspaceId && access.workspaceId !== expectedWorkspaceId)
-      ) {
-        throw new YjsAuthError(403, 'Forbidden')
+    await withYjsAdmissionTransaction(
+      { sessionIds: [docId], workspaceIds },
+      async (admit, readStore) => {
+        assertLocalDocumentAdmission(docId)
+        const authorize = async (expectedWorkspaceId?: string | null) => {
+          if (!admission) return null
+          const access = await verifyReviewTargetAccess(
+            admission.userId,
+            admission.descriptor,
+            admission.accessMode,
+            readStore
+          )
+          if (
+            !access.hasAccess ||
+            (expectedWorkspaceId && access.workspaceId !== expectedWorkspaceId)
+          ) {
+            throw new YjsAuthError(403, 'Forbidden')
+          }
+          admission.descriptor = {
+            ...admission.descriptor,
+            workspaceId: access.workspaceId,
+          }
+          return access.workspaceId
+        }
+        let admittedWorkspaceId = options.workspaceId
+        const admitWorkspace = async (workspaceId?: string | null) => {
+          if (!workspaceId || workspaceId === admittedWorkspaceId) return
+          await admit({ workspaceIds: [workspaceId] })
+          admittedWorkspaceId = workspaceId
+          await authorize(workspaceId)
+        }
+        await admitWorkspace(await authorize())
+        await admitWorkspace(doc.workspaceId)
+        if (!doc.seeded) {
+          const resolved = await options.initialize(doc, admission, readStore)
+          if (resolved?.workspaceId !== undefined) doc.workspaceId = resolved.workspaceId
+          await admitWorkspace(doc.workspaceId)
+          if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
+          doc.validateDocument = resolved?.validateDocument
+          doc.seeded = true
+          doc.hasUnsavedChanges = false
+          doc.persistedSnapshot = Y.snapshot(doc)
+        }
+        if (doc.onDocumentReconcile) await doc.onDocumentReconcile(readStore)
       }
-      admission.descriptor = {
-        ...admission.descriptor,
-        workspaceId: access.workspaceId,
-      }
-      return access.workspaceId
-    }
-    let admittedWorkspaceId = options.workspaceId
-    const admitWorkspace = async (workspaceId?: string | null) => {
-      if (!workspaceId || workspaceId === admittedWorkspaceId) return
-      await admit({ workspaceIds: [workspaceId] })
-      admittedWorkspaceId = workspaceId
-      await authorize(workspaceId)
-    }
-    await admitWorkspace(await authorize())
-
-    let doc = docs.get(docId)
-    if (!doc) {
-      doc = new WSSharedDoc(docId, options.gc ?? true, options.workspaceId ?? null, false)
-      docs.set(docId, doc)
-    }
-    await admitWorkspace(doc.workspaceId)
-    return runDocumentMutation(doc, async () => {
-      const shared = doc as WSSharedDoc
-      if (!shared.seeded) {
-        const resolved = await options.initialize(doc, admission)
-        if (resolved?.workspaceId !== undefined) shared.workspaceId = resolved.workspaceId
-        await admitWorkspace(shared.workspaceId)
-        if (resolved?.state) Y.applyUpdate(doc, resolved.state, YJS_ORIGINS.SYSTEM)
-        shared.seeded = true
-        shared.hasUnsavedChanges = false
-        shared.persistedSnapshot = Y.snapshot(shared)
-      }
-      return use(doc, admission)
-    })
+    )
+    return use(doc, admission)
   })
 }
 
@@ -621,7 +634,6 @@ export function setupWSConnection(
     persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
-    validateDocument?: DocumentValidator
   }
 ): void {
   const {
@@ -632,7 +644,6 @@ export function setupWSConnection(
     persist,
     onDocumentUpdate,
     onDocumentUpdateDebounceMs,
-    validateDocument,
   } = opts
 
   conn.binaryType = 'arraybuffer'
@@ -653,7 +664,6 @@ export function setupWSConnection(
     doc.onDocumentUpdate = onDocumentUpdate
     doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
-  if (validateDocument && !doc.validateDocument) doc.validateDocument = validateDocument
   doc.conns.set(conn, { awarenessIds: new Set(), userId, accessMode, descriptor, persist })
 
   conn.on('message', (data: ArrayBuffer) => {

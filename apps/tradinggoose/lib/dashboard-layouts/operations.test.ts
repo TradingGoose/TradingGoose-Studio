@@ -48,8 +48,8 @@ const m = vi.hoisted(() => {
   const conflictUpdates: unknown[] = []
 
   const select = vi.fn(() => ({
-    from: vi.fn((table: Table) => ({
-      where: vi.fn((predicate: unknown) => {
+    from: vi.fn((_table: Table) => {
+      const where = vi.fn((predicate: unknown) => {
         const result = selectResults.shift() ?? []
         return {
           limit: vi.fn(() => Promise.resolve(result)),
@@ -57,8 +57,12 @@ const m = vi.hoisted(() => {
           then: (resolve: (value: unknown[]) => unknown, reject?: (error: unknown) => unknown) =>
             Promise.resolve(result).then(resolve, reject),
         }
-      }),
-    })),
+      })
+      return {
+        where,
+        leftJoin: vi.fn(() => ({ where })),
+      }
+    }),
   }))
   const insert = vi.fn((table: Table) => ({
     values: vi.fn((values: unknown) => {
@@ -294,13 +298,17 @@ describe('dashboard layout operations', () => {
     ).rejects.toThrow(/widget binding not found/i)
     expect(m.mutations).toEqual([])
 
-    m.selectResults.push(
-      [layoutRow()],
-      [{ id: 'widget-1', layoutId: 'layout-1', ...invalidWidget }]
-    )
+    const transactionCalls = m.transaction.mock.calls.length
+    m.selectResults.push([
+      {
+        layout: layoutRow(),
+        widget: { id: 'widget-1', layoutId: 'layout-1', ...invalidWidget },
+      },
+    ])
     await expect(
       readPersistedDashboardWidgetBinding(scope, 'layout-1', 'widget-1')
     ).rejects.toThrow(/does not support this field/i)
+    expect(m.transaction).toHaveBeenCalledTimes(transactionCalls)
   })
 
   it('upserts or deletes only the selected color-pair row', async () => {

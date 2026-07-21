@@ -18,6 +18,7 @@ import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { resolveEntityWorkspaceId } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('ReviewSessionPermissions')
+type ReviewAccessReadStore = Pick<typeof db, 'select'>
 
 export interface ReviewAccessResult {
   hasAccess: boolean
@@ -104,9 +105,10 @@ function buildAccessResult(opts: {
 async function verifyWorkspaceAccess(
   userId: string,
   workspaceId: string,
-  accessMode: ReviewAccessMode
+  accessMode: ReviewAccessMode,
+  readStore: ReviewAccessReadStore
 ): Promise<ReviewAccessResult> {
-  const [workspaceRow] = await db
+  const [workspaceRow] = await readStore
     .select({ ownerId: workspace.ownerId })
     .from(workspace)
     .where(eq(workspace.id, workspaceId))
@@ -117,7 +119,7 @@ async function verifyWorkspaceAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
-  const permissionRows = await db
+  const permissionRows = await readStore
     .select({ permissionType: permissions.permissionType })
     .from(permissions)
     .where(
@@ -138,13 +140,14 @@ async function verifyWorkspaceAccess(
 
 async function verifyDraftReviewSessionAccess(
   userId: string,
-  reviewTarget: ReviewTargetAccessInput
+  reviewTarget: ReviewTargetAccessInput,
+  readStore: ReviewAccessReadStore
 ): Promise<Pick<ReviewAccessResult, 'hasAccess' | 'workspaceId'>> {
   if (!reviewTarget.reviewSessionId) {
     return { hasAccess: false, workspaceId: null }
   }
 
-  const [reviewSession] = await db
+  const [reviewSession] = await readStore
     .select({
       workspaceId: copilotReviewSessions.workspaceId,
       entityKind: copilotReviewSessions.entityKind,
@@ -223,7 +226,8 @@ async function verifyDraftReviewSessionAccess(
 async function verifySavedEntityTargetAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
-  accessMode: ReviewAccessMode
+  accessMode: ReviewAccessMode,
+  readStore: ReviewAccessReadStore
 ): Promise<ReviewAccessResult> {
   if (!reviewTarget.entityId) {
     logger.warn('Saved entity review target missing entity id', { userId, reviewTarget })
@@ -255,7 +259,7 @@ async function verifySavedEntityTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    const [layout] = await db
+    const [layout] = await readStore
       .select({ workspaceId: layoutMaps.workspaceId, userId: layoutMaps.userId })
       .from(layoutMaps)
       .where(eq(layoutMaps.id, layoutId))
@@ -269,12 +273,14 @@ async function verifySavedEntityTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkspaceAccess(userId, layout.workspaceId, 'read')
+    return verifyWorkspaceAccess(userId, layout.workspaceId, 'read', readStore)
   }
 
   const workspaceId = await resolveEntityWorkspaceId(
     reviewTarget.entityKind as SavedEntityKind,
-    reviewTarget.entityId
+    reviewTarget.entityId,
+    undefined,
+    readStore
   )
   if (!workspaceId) {
     logger.warn('Saved entity review target not found', { userId, reviewTarget })
@@ -290,15 +296,16 @@ async function verifySavedEntityTargetAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
-  return verifyWorkspaceAccess(userId, workspaceId, accessMode)
+  return verifyWorkspaceAccess(userId, workspaceId, accessMode, readStore)
 }
 
 export async function verifyWorkflowAccess(
   userId: string,
   workflowId: string,
-  accessMode: ReviewAccessMode
+  accessMode: ReviewAccessMode,
+  readStore: ReviewAccessReadStore = db
 ): Promise<ReviewAccessResult> {
-  const accessContext = await readWorkflowAccessContext(workflowId, userId)
+  const accessContext = await readWorkflowAccessContext(workflowId, userId, readStore)
   if (!accessContext) {
     logger.warn('Attempt to access non-existent workflow', { userId, workflowId })
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
@@ -318,7 +325,8 @@ export async function verifyWorkflowAccess(
 export async function verifyReviewTargetAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
-  accessMode: ReviewAccessMode
+  accessMode: ReviewAccessMode,
+  readStore: ReviewAccessReadStore = db
 ): Promise<ReviewAccessResult> {
   if (reviewTarget.yjsSessionId && isEntityListSessionId(reviewTarget.yjsSessionId)) {
     if (!reviewTarget.workspaceId) {
@@ -334,7 +342,8 @@ export async function verifyReviewTargetAccess(
     return verifyWorkspaceAccess(
       userId,
       reviewTarget.workspaceId,
-      reviewTarget.entityKind === 'dashboard_layout' ? 'read' : accessMode
+      reviewTarget.entityKind === 'dashboard_layout' ? 'read' : accessMode,
+      readStore
     )
   }
 
@@ -344,7 +353,7 @@ export async function verifyReviewTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    const access = await verifyWorkflowAccess(userId, reviewTarget.entityId, accessMode)
+    const access = await verifyWorkflowAccess(userId, reviewTarget.entityId, accessMode, readStore)
     if (reviewTarget.workspaceId && reviewTarget.workspaceId !== access.workspaceId) {
       logger.warn('Workflow workspace mismatch', {
         userId,
@@ -357,12 +366,13 @@ export async function verifyReviewTargetAccess(
   }
 
   if (!reviewTarget.reviewSessionId) {
-    return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode)
+    return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode, readStore)
   }
 
   const reviewSessionAccess = await verifyDraftReviewSessionAccess(
     userId,
-    reviewTarget as ReviewTargetAccessInput
+    reviewTarget as ReviewTargetAccessInput,
+    readStore
   )
   if (!reviewSessionAccess.hasAccess || !reviewSessionAccess.workspaceId) {
     return {
@@ -373,7 +383,7 @@ export async function verifyReviewTargetAccess(
     }
   }
 
-  return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode)
+  return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode, readStore)
 }
 
 function hasAccessToReviewSession(

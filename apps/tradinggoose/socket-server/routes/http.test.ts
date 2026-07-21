@@ -98,6 +98,7 @@ vi.mock('@/lib/yjs/entity-session', () => ({
 const logger = { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() }
 let documents = new Map<string, Y.Doc>()
 let activeAcquisitions = new Set<string>()
+const admissionReadStore = { select: vi.fn() }
 
 function createLayoutDoc(
   layout: Parameters<typeof seedDashboardLayoutSession>[1]['layout'] = {
@@ -290,7 +291,8 @@ describe('socket internal HTTP Yjs routes', () => {
           admission?: DocumentAdmission
           initialize: (
             doc: Y.Doc,
-            admission?: DocumentAdmission
+            admission: DocumentAdmission | undefined,
+            readStore: typeof admissionReadStore
           ) => Promise<{ state?: Uint8Array } | undefined> | { state?: Uint8Array } | undefined
         },
         use: (doc: Y.Doc, admission?: DocumentAdmission) => Promise<unknown> | unknown
@@ -305,7 +307,11 @@ describe('socket internal HTTP Yjs routes', () => {
           if (!doc) {
             doc = new Y.Doc()
             documents.set(sessionId, doc)
-            const initializedDocument = await options.initialize(doc, options.admission)
+            const initializedDocument = await options.initialize(
+              doc,
+              options.admission,
+              admissionReadStore
+            )
             if (initializedDocument?.state) Y.applyUpdate(doc, initializedDocument.state)
           }
           return await use(doc, options.admission)
@@ -380,6 +386,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const snapshot = await invoke('GET', `/internal/yjs/sessions/workflow-1/snapshot?${query}`)
     expect(snapshot.body.descriptor).toEqual(descriptor)
     expect(mocks.acquireDocument).toHaveBeenCalledOnce()
+    expect(mocks.initializeTarget).toHaveBeenCalledWith(descriptor, admissionReadStore)
 
     mocks.acquireDocument.mockClear()
     mocks.initializeTarget.mockClear()

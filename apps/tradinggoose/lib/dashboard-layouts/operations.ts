@@ -210,15 +210,19 @@ async function readOwnedLayoutRow(
   return row
 }
 
-export async function listDashboardLayouts(scope: DashboardLayoutOwnerScope) {
-  return (await readDashboardLayoutRows(scope)).map(toLayoutTab)
+export async function listDashboardLayouts(
+  scope: DashboardLayoutOwnerScope,
+  store: DashboardLayoutReadStore = db
+) {
+  return (await readDashboardLayoutRows(scope, store)).map(toLayoutTab)
 }
 
 export async function readPersistedDashboardLayoutDocument(
   scope: DashboardLayoutOwnerScope,
-  layoutId: string
+  layoutId: string,
+  store: DashboardLayoutReadStore = db
 ): Promise<DashboardLayoutDocument> {
-  const row = await readOwnedLayoutRow(scope, layoutId)
+  const row = await readOwnedLayoutRow(scope, layoutId, store)
   return { layout: normalizePersistedTopology(row) }
 }
 
@@ -250,43 +254,44 @@ export async function readPersistedDashboardLayoutProjection(
 export async function readPersistedDashboardWidgetBinding(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  identityId: string
+  identityId: string,
+  store: DashboardLayoutReadStore = db
 ): Promise<{
   widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey']
   document: DashboardWidgetDocument
 }> {
-  return db.transaction(
-    async (tx) => {
-      const layout = await readOwnedLayoutRow(scope, layoutId, tx)
-      const widgetKey = requireDashboardWidgetKey(layout, identityId)
-      const [row] = await tx
-        .select()
-        .from(layoutWidgets)
-        .where(and(eq(layoutWidgets.layoutId, layoutId), eq(layoutWidgets.id, identityId)))
-        .limit(1)
-      if (!row) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
-      return {
-        widgetKey,
-        document: normalizeDashboardWidgetDocument(widgetKey, {
-          pairColor: row.pairColor,
-          params: row.params,
-        }),
-      }
-    },
-    { isolationLevel: 'repeatable read', accessMode: 'read only' }
-  )
+  const [result] = await store
+    .select({ layout: layoutMaps, widget: layoutWidgets })
+    .from(layoutMaps)
+    .leftJoin(
+      layoutWidgets,
+      and(eq(layoutWidgets.layoutId, layoutMaps.id), eq(layoutWidgets.id, identityId))
+    )
+    .where(ownedWhere(scope, layoutId))
+    .limit(1)
+  if (!result) throw new DashboardLayoutOperationError(404, 'Layout not found')
+  const widgetKey = requireDashboardWidgetKey(result.layout, identityId)
+  if (!result.widget) throw new DashboardLayoutOperationError(404, 'Dashboard widget not found')
+  return {
+    widgetKey,
+    document: normalizeDashboardWidgetDocument(widgetKey, {
+      pairColor: result.widget.pairColor,
+      params: result.widget.params,
+    }),
+  }
 }
 
 export async function readPersistedDashboardColorPairDocument(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
-  color: string
+  color: string,
+  store: DashboardLayoutReadStore = db
 ): Promise<PairColorContext> {
-  await readOwnedLayoutRow(scope, layoutId)
+  await readOwnedLayoutRow(scope, layoutId, store)
   if (!isPairColor(color) || color === 'gray') {
     throw new DashboardLayoutOperationError(400, `Invalid dashboard pair color ${color}`)
   }
-  const [row] = await db
+  const [row] = await store
     .select()
     .from(layoutPairs)
     .where(and(eq(layoutPairs.layoutId, layoutId), eq(layoutPairs.color, color)))

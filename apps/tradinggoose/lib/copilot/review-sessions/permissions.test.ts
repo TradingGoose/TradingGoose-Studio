@@ -133,7 +133,7 @@ describe('review session permissions', () => {
       'read'
     )
 
-    expect(mockResolveEntityWorkspaceId).toHaveBeenCalledWith('skill', 'skill-1')
+    expect(mockResolveEntityWorkspaceId).toHaveBeenCalledWith('skill', 'skill-1', undefined, db)
     expect(result).toEqual({
       hasAccess: true,
       userPermission: 'read',

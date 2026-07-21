@@ -32,7 +32,6 @@ const dashboardContent = {
     widgetKey: null,
   },
 }
-
 describe('reseedEntityListSessionFromDb', () => {
   beforeEach(() => {
     loadWorkflowBootstrapStateFromDb.mockReset()
@@ -88,6 +87,19 @@ describe('reseedEntityListSessionFromDb', () => {
     await expect(createSavedReviewTargetBootstrapUpdate(descriptor)).rejects.toMatchObject({
       status: 409,
     })
+    readSavedEntityFieldsFromDb.mockResolvedValueOnce({
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [],
+    })
+    const watchlist = await createSavedReviewTargetBootstrapUpdate(
+      buildSavedEntityDescriptor('watchlist', 'watchlist-1', 'workspace-1')
+    )
+    const invalid = new Y.Doc()
+    try {
+      expect(() => watchlist.validateDocument?.(invalid)).toThrow()
+    } finally {
+      invalid.destroy()
+    }
   })
 
   it('resolves workflow workspace ownership from its bootstrap row', async () => {

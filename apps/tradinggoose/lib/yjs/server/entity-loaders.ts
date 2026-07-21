@@ -79,10 +79,11 @@ class SavedEntityLoadError extends Error {
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string,
-  ownerUserId?: string | null
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<string | null> {
   if (entityKind === 'watchlist') {
-    const [row] = await db
+    const [row] = await store
       .select({ workspaceId: watchlistTable.workspaceId })
       .from(watchlistTable)
       .where(
@@ -100,7 +101,7 @@ export async function resolveEntityWorkspaceId(
     if (!ownerUserId) {
       throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
     }
-    const [row] = await db
+    const [row] = await store
       .select({ workspaceId: layoutMaps.workspaceId })
       .from(layoutMaps)
       .where(and(eq(layoutMaps.id, entityId), eq(layoutMaps.userId, ownerUserId)))
@@ -109,7 +110,7 @@ export async function resolveEntityWorkspaceId(
   }
 
   const { table } = ENTITY_TABLES[entityKind]
-  const [row] = await db
+  const [row] = await store
     .select({ workspaceId: table.workspaceId })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.id, entityId)]))
@@ -221,7 +222,7 @@ export async function readEntityListMembersFromDb(
       throw new SavedEntityLoadError('Dashboard layout list ownerUserId is required')
     }
 
-    return listDashboardLayouts({ workspaceId, ownerUserId })
+    return listDashboardLayouts({ workspaceId, ownerUserId }, store)
   }
 
   if (entityKind === 'mcp_server') {
@@ -308,10 +309,11 @@ export async function readSavedEntityFieldsFromDb(
   entityKind: SavedEntityKind,
   entityId: string,
   workspaceId: string,
-  ownerUserId?: string | null
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<Record<string, unknown>> {
   if (entityKind === 'watchlist') {
-    const watchlist = await loadWatchlistDocumentFields(workspaceId, entityId)
+    const watchlist = await loadWatchlistDocumentFields(workspaceId, entityId, store)
     return {
       settings: watchlist.settings,
       items: watchlist.items,
@@ -322,11 +324,11 @@ export async function readSavedEntityFieldsFromDb(
     if (!ownerUserId) {
       throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
     }
-    return readPersistedDashboardLayoutDocument({ workspaceId, ownerUserId }, entityId)
+    return readPersistedDashboardLayoutDocument({ workspaceId, ownerUserId }, entityId, store)
   }
 
   const { table } = ENTITY_TABLES[entityKind]
-  const [row] = await db
+  const [row] = await store
     .select()
     .from(table)
     .where(
