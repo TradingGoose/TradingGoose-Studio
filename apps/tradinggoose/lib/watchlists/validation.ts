@@ -60,6 +60,7 @@ export const WatchlistYjsItemSchema = z.discriminatedUnion('type', [
     .object({
       type: z.literal('listing'),
       parentId: canonicalYjsString.nullable(),
+      removedFromParentId: canonicalYjsString.optional(),
       listing: ListingIdentitySchema,
       order: z.number().finite(),
     })

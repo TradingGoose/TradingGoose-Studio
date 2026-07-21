@@ -78,6 +78,7 @@ function writeWatchlistItem(
   setMapValue(entry, 'type', item.type)
   setMapValue(entry, 'parentId', item.parentId ?? null)
   setMapValue(entry, 'order', order)
+  entry.delete('removedFromParentId')
   if (item.type === 'section') {
     entry.delete('listing')
     setMapValue(entry, 'label', item.label)
@@ -121,8 +122,22 @@ export function replaceWatchlistItems(
   doc.transact(() => {
     const map = getWatchlistItemsMap(doc)
     const keys = new Set(items.map((item) => item.id))
-    map.forEach((_entry, key) => {
-      if (!keys.has(key)) map.delete(key)
+    const removedSectionIds = new Set(
+      [...map].flatMap(([key, entry]) =>
+        !keys.has(key) && entry.get('type') === 'section' ? [key] : []
+      )
+    )
+    map.forEach((entry, key) => {
+      if (keys.has(key)) return
+      const parentId = entry.get('parentId')
+      if (
+        typeof parentId === 'string' &&
+        (removedSectionIds.has(parentId) || entry.get('removedFromParentId') === parentId)
+      ) {
+        setMapValue(entry, 'removedFromParentId', parentId)
+        return
+      }
+      map.delete(key)
     })
     for (const item of items) {
       writeWatchlistItem(map, item, orders.get(item) ?? 0)
@@ -139,7 +154,7 @@ export function updateWatchlistItems(
 }
 
 export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
-  const parsedEntries: Array<WatchlistItem & { order: number }> = []
+  const parsedEntries: Array<WatchlistItem & { order: number; removedFromParentId?: string }> = []
   const items = getFieldsMap(doc).get('items')
   if (items === undefined) return []
   if (!(items instanceof Y.Map)) throw new Error('Watchlist items must be a Y.Map')
@@ -167,9 +182,11 @@ export function readWatchlistItems(doc: Y.Doc): WatchlistItem[] {
       entries.push(entry)
       continue
     }
+    const { removedFromParentId, ...listing } = entry
+    if (removedFromParentId === listing.parentId) continue
     const projected = {
-      ...entry,
-      parentId: entry.parentId && sectionIds.has(entry.parentId) ? entry.parentId : null,
+      ...listing,
+      parentId: listing.parentId && sectionIds.has(listing.parentId) ? listing.parentId : null,
     }
     const membership = watchlistListingMembershipKey(projected.parentId, projected.listing)
     if (memberships.has(membership)) continue
