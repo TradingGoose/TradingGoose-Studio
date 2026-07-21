@@ -72,15 +72,6 @@ function objectField(value: unknown): Record<string, unknown> {
     : {}
 }
 
-function isUniqueConstraintViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === '23505'
-  )
-}
-
 function normalizeSavedEntityFields(
   entityKind: SavedEntityKind,
   fields: Record<string, unknown>
@@ -190,9 +181,6 @@ export async function persistSavedEntityStateInTx(
       } catch (error) {
         if (error instanceof WatchlistDocumentError) {
           throw new SavedEntityPersistenceError(error.status, error.message)
-        }
-        if (isUniqueConstraintViolation(error)) {
-          throw new SavedEntityPersistenceError(409, 'Watchlist contains a duplicate listing')
         }
         throw error
       }

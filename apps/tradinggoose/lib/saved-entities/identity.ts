@@ -41,11 +41,26 @@ export class SavedEntityIdentityError extends Error {
   }
 }
 
-const isUniqueConstraintViolation = (error: unknown) =>
-  typeof error === 'object' &&
-  error !== null &&
-  'code' in error &&
-  (error as { code?: unknown }).code === '23505'
+const SAVED_ENTITY_NAME_CONSTRAINTS: Partial<Record<ReviewEntityKind, string>> = {
+  skill: 'skill_workspace_name_unique',
+  custom_tool: 'custom_tools_workspace_title_unique',
+  watchlist: 'watchlist_table_workspace_user_name_unique',
+}
+
+function isSavedEntityNameConflict(error: unknown, entityKind: ReviewEntityKind): boolean {
+  const expectedConstraint = SAVED_ENTITY_NAME_CONSTRAINTS[entityKind]
+  const seen = new Set<object>()
+  let current = error
+
+  while (expectedConstraint && typeof current === 'object' && current && !seen.has(current)) {
+    seen.add(current)
+    const record = current as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (record.code === '23505' && record.constraint_name === expectedConstraint) return true
+    current = record.cause
+  }
+
+  return false
+}
 
 export function normalizeSavedEntityIdentity(entityKind: ReviewEntityKind, value: string): string {
   const name = entityKind === 'custom_tool' ? value.trim().replace(/\s+/g, ' ') : value.trim()
@@ -199,8 +214,12 @@ export async function renameSavedEntityIdentityInTx(
       )
     }
   } catch (error) {
-    if (isUniqueConstraintViolation(error)) {
-      throw new SavedEntityIdentityError(409, `An entity named "${name}" already exists`)
+    if (isSavedEntityNameConflict(error, entityKind)) {
+      throw new SavedEntityIdentityError(
+        409,
+        `An entity named "${name}" already exists`,
+        'saved_entity_name_conflict'
+      )
     }
     throw error
   }

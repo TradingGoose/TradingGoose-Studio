@@ -514,13 +514,17 @@ export async function executeRenameEntityMutation(
     })
     return { ...result, updatedAt: persisted.updatedAt.toISOString() }
   } catch (error) {
-    if (error instanceof SavedEntityIdentityError && error.code === 'stale_server_tool_review') {
+    if (
+      error instanceof SavedEntityIdentityError &&
+      error.status === 409 &&
+      (error.code === 'stale_server_tool_review' || error.code === 'saved_entity_name_conflict')
+    ) {
       throw new StructuredServerToolError({
-        status: 409,
+        status: error.status,
         body: {
           code: error.code,
           error: error.message,
-          hint: 'Ask Copilot to read the current target and prepare the rename again.',
+          hint: 'Read the current target, choose an available name, and retry the rename.',
           retryable: true,
         },
       })

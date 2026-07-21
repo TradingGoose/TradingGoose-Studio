@@ -7,6 +7,7 @@ import {
   WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
+import { SavedEntityIdentityError } from '@/lib/saved-entities/identity'
 import {
   buildDocumentEnvelope,
   buildReviewDocumentDiff,
@@ -207,12 +208,12 @@ describe('entity document mutation helpers', () => {
 
   it('renames only the identity field and reviews only identity state', async () => {
     mockReadEntityListMembersFromDb.mockResolvedValue([{ id: 'skill-1', name: 'Existing Skill' }])
-    const staged = await executeRenameEntityMutation(
-      'skill',
-      'rename_skill',
-      { entityId: 'skill-1', name: 'Renamed Skill' },
-      { userId: 'user-1', accessLevel: 'limited' }
-    )
+    const args = { entityId: 'skill-1', name: 'Renamed Skill' }
+    const context = { userId: 'user-1', accessLevel: 'full' as const }
+    const staged = await executeRenameEntityMutation('skill', 'rename_skill', args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
 
     expect('preview' in staged ? staged.preview.documentDiff : null).toEqual({
       before: '{\n  "name": "Existing Skill"\n}',
@@ -220,12 +221,7 @@ describe('entity document mutation helpers', () => {
     })
     expect(mockRenameSavedEntityIdentity).not.toHaveBeenCalled()
 
-    const committed = await executeRenameEntityMutation(
-      'skill',
-      'rename_skill',
-      { entityId: 'skill-1', name: 'Renamed Skill' },
-      { userId: 'user-1', accessLevel: 'full' }
-    )
+    const committed = await executeRenameEntityMutation('skill', 'rename_skill', args, context)
     expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
       entityKind: 'skill',
       entityId: 'skill-1',
@@ -236,30 +232,20 @@ describe('entity document mutation helpers', () => {
     expect(committed).toMatchObject({ updatedAt: '2026-07-11T12:00:00.000Z' })
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
     expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
-  })
 
-  it('uses the canonical custom-tool identity for review and persistence', async () => {
-    mockReadEntityListMembersFromDb.mockResolvedValueOnce([{ id: 'tool-1', name: 'Existing Tool' }])
-
-    const result = await executeRenameEntityMutation(
-      'custom_tool',
-      'rename_custom_tool',
-      { entityId: 'tool-1', name: '  My   Tool  ' },
-      { userId: 'user-1', accessLevel: 'full' }
+    mockRenameSavedEntityIdentity.mockRejectedValueOnce(
+      new SavedEntityIdentityError(
+        409,
+        'An entity named "Renamed Skill" already exists',
+        'saved_entity_name_conflict'
+      )
     )
-
-    expect(result).toMatchObject({
-      entityKind: 'custom_tool',
-      entityId: 'tool-1',
-      entityName: 'My Tool',
-    })
-    expect(result).not.toHaveProperty('entityDocument')
-    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith({
-      entityKind: 'custom_tool',
-      entityId: 'tool-1',
-      workspaceId: 'workspace-1',
-      ownerUserId: null,
-      name: 'My Tool',
+    await expect(
+      executeRenameEntityMutation('skill', 'rename_skill', args, context)
+    ).rejects.toMatchObject({
+      name: 'StructuredServerToolError',
+      status: 409,
+      code: 'saved_entity_name_conflict',
     })
   })
 

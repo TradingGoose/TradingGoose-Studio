@@ -122,6 +122,8 @@ vi.mock('@/lib/dashboard-layouts/operations', () => ({
 }))
 
 describe('renameSavedEntityIdentity', () => {
+  const entity = { entityId: 'entity-1', workspaceId: 'workspace-1' }
+
   beforeEach(() => {
     vi.clearAllMocks()
     m.state.rows = [{ id: 'entity-1', updatedAt: m.persistedAt }]
@@ -145,9 +147,8 @@ describe('renameSavedEntityIdentity', () => {
         deletedAt?: string
       }
       const result = await renameSavedEntityIdentity({
+        ...entity,
         entityKind,
-        entityId: 'entity-1',
-        workspaceId: 'workspace-1',
         name: inputName,
       })
       expect(result).toEqual({ name: expectedName, updatedAt: m.persistedAt })
@@ -171,9 +172,8 @@ describe('renameSavedEntityIdentity', () => {
 
   it('scopes watchlist identity to a workspace root folder', async () => {
     await renameSavedEntityIdentity({
+      ...entity,
       entityKind: 'watchlist',
-      entityId: 'entity-1',
-      workspaceId: 'workspace-1',
       name: 'Watchlist',
     })
 
@@ -191,9 +191,8 @@ describe('renameSavedEntityIdentity', () => {
 
   it('scopes layout identity to the authenticated owner', async () => {
     await renameSavedEntityIdentity({
+      ...entity,
       entityKind: 'dashboard_layout',
-      entityId: 'entity-1',
-      workspaceId: 'workspace-1',
       ownerUserId: 'user-1',
       name: 'Layout',
     })
@@ -219,9 +218,8 @@ describe('renameSavedEntityIdentity', () => {
   it('rejects missing layout ownership before writing', async () => {
     await expect(
       renameSavedEntityIdentity({
+        ...entity,
         entityKind: 'dashboard_layout',
-        entityId: 'entity-1',
-        workspaceId: 'workspace-1',
         name: 'Layout',
       })
     ).rejects.toMatchObject({ status: 400 })
@@ -229,36 +227,44 @@ describe('renameSavedEntityIdentity', () => {
     expect(m.update).not.toHaveBeenCalled()
   })
 
-  it('maps missing rows and identity conflicts at the identity boundary', async () => {
+  it('maps missing rows at the identity boundary', async () => {
     m.state.rows = []
     await expect(
       renameSavedEntityIdentity({
+        ...entity,
         entityKind: 'skill',
         entityId: 'missing',
-        workspaceId: 'workspace-1',
         name: 'Skill',
       })
     ).rejects.toMatchObject({ status: 404 })
-
-    m.state.rows = [{ id: 'entity-1', updatedAt: m.persistedAt }]
-    m.state.error = Object.assign(new Error('duplicate key'), { code: '23505' })
-    await expect(
-      renameSavedEntityIdentity({
-        entityKind: 'skill',
-        entityId: 'entity-1',
-        workspaceId: 'workspace-1',
-        name: 'Skill',
-      })
-    ).rejects.toMatchObject({ status: 409 })
   })
+
+  it.each([
+    ['skill', 'skill_workspace_name_unique'],
+    ['custom_tool', 'custom_tools_workspace_title_unique'],
+    ['watchlist', 'watchlist_table_workspace_user_name_unique'],
+  ] as const)(
+    'maps a wrapped %s name constraint at the identity boundary',
+    async (entityKind, constraintName) => {
+      m.state.error = Object.assign(new Error('Failed query'), {
+        cause: Object.assign(new Error('duplicate key'), {
+          code: '23505',
+          constraint_name: constraintName,
+        }),
+      })
+
+      await expect(
+        renameSavedEntityIdentity({ ...entity, entityKind, name: 'Skill' })
+      ).rejects.toMatchObject({ status: 409, code: 'saved_entity_name_conflict' })
+    }
+  )
 
   it('makes an accepted rename conditional on its reviewed identity', async () => {
     m.state.rows = []
     await expect(
       renameSavedEntityIdentity({
+        ...entity,
         entityKind: 'skill',
-        entityId: 'entity-1',
-        workspaceId: 'workspace-1',
         name: 'Renamed Skill',
         expectedCurrentName: 'Reviewed Skill',
       })
