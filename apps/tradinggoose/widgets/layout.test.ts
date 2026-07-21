@@ -168,39 +168,35 @@ describe('dashboard layout tree operations', () => {
 
   it('updates group sizes without replacing unchanged layout nodes', () => {
     const current = layout()
+    const resize = (sizes: number[], groupId = 'root') =>
+      applyDashboardLayoutStructureMutation(current, { type: 'resize', groupId, sizes }).layout
 
-    expect(
-      applyDashboardLayoutStructureMutation(current, {
-        type: 'resize',
-        groupId: 'root',
-        sizes: [40, 60],
-      }).layout
-    ).toBe(current)
-    expect(
-      applyDashboardLayoutStructureMutation(current, {
-        type: 'resize',
-        groupId: 'root',
-        sizes: [0, 100],
-      }).layout
-    ).toMatchObject({
-      id: 'root',
-      sizes: [0, 100],
-    })
-    expect(() =>
-      applyDashboardLayoutStructureMutation(current, {
-        type: 'resize',
-        groupId: 'root',
-        sizes: [0, 0],
-      })
-    ).toThrow(/positive size/i)
-    expect(() =>
-      applyDashboardLayoutStructureMutation(current, {
-        type: 'resize',
-        groupId: 'missing-group',
-        sizes: [50, 50],
-      })
-    ).toThrow(/Unknown group/)
+    expect(resize([40, 60])).toBe(current)
+    expect(resize([0, 100])).toMatchObject({ id: 'root', sizes: [0, 100] })
+    expect(resize([49.995, 50])).toMatchObject({ sizes: [49.995, 50] })
+    for (const sizes of [
+      [0, 0],
+      [80, 80],
+    ]) {
+      expect(() => resize(sizes)).toThrow(/total approximately 100/i)
+    }
+    expect(() => resize([50, 50], 'missing-group')).toThrow(/Unknown group/)
   })
+
+  it.each([[[1, 1]], [[80, 80]]])(
+    'rejects edit_layout sizes that do not total 100: %j',
+    (sizes) => {
+      const current = layout()
+      const children = current.children.map(({ id, type }) => ({ id, type }))
+
+      expect(() =>
+        applyLayoutEditDocument(
+          { layout: current },
+          JSON.stringify({ layout: { ...current, sizes, children } })
+        )
+      ).toThrow(/entityDocument\.layout\.sizes.*total approximately 100/i)
+    }
+  )
 
   it('splits a panel and creates an independent child widget document', () => {
     const result = splitDashboardTopologyPanel(layout(), 'panel-a', 'vertical')

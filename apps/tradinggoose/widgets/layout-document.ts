@@ -98,7 +98,10 @@ export const DashboardLayoutPanelNodeSchema = z
 
 const DashboardGroupSizesSchema = z
   .array(z.number().finite().nonnegative())
-  .refine((sizes) => sizes.some((size) => size > 0), 'sizes must contain a positive size')
+  .refine(
+    (sizes) => Math.abs(sizes.reduce((total, size) => total + size, 0) - 100) < 0.01,
+    'sizes must total approximately 100'
+  )
 
 export const DashboardLayoutStructureMutationSchema = z.discriminatedUnion('type', [
   z
@@ -663,14 +666,7 @@ export function applyLayoutEditDocument(
   }
   if (!isRecord(parsed)) failDashboardLayout('entityDocument', 'entityDocument must be an object')
   const structure = DashboardLayoutStructureDocumentSchema.safeParse(parsed)
-  if (!structure.success) {
-    throw new DashboardLayoutValidationError(
-      structure.error.issues.map((issue) => ({
-        path: `entityDocument.${issue.path.join('.')}`,
-        message: issue.message,
-      }))
-    )
-  }
+  if (!structure.success) throw zodValidationError(structure.error, 'entityDocument')
   const currentPanels = new Map<string, DashboardPanelTopologyNode>()
   const collect = (node: DashboardLayoutTopologyNode) => {
     if (node.type === 'panel') currentPanels.set(node.id, node)
