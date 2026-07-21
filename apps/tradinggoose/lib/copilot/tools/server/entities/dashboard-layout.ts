@@ -99,11 +99,6 @@ export const createLayoutServerTool: EntityServerTool<{
         }
       : { name }
     const created = await createDashboardLayout({ workspaceId, ownerUserId }, createOptions)
-    const content = await readBootstrappedDashboardLayoutProjection(
-      created.id,
-      workspaceId,
-      ownerUserId
-    )
 
     return {
       success: true,
@@ -112,7 +107,7 @@ export const createLayoutServerTool: EntityServerTool<{
         entityName: created.name,
         workspaceId,
         ownerUserId,
-        content,
+        content: created.content,
       }),
     }
   },

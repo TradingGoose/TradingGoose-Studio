@@ -213,14 +213,17 @@ describe('dashboard layout operations', () => {
     m.selectResults.push([])
     m.returningResults.push([layoutRow()])
 
-    await createDashboardLayout(scope)
+    const created = await createDashboardLayout(scope)
 
     const root = m.mutations.find((mutation) => mutation.table === 'layout_maps')
     const children = m.mutations.find((mutation) => mutation.table === 'layout_widgets')
     expect(root?.kind).toBe('insert')
+    expect(root?.values).toMatchObject({ layout: created.content.layout })
     expect(children?.kind).toBe('insert')
-    expect(Array.isArray(children?.values)).toBe(true)
-    expect((children?.values as unknown[]).length).toBeGreaterThan(0)
+    expect((children?.values as Array<{ id: string }>).map(({ id }) => id)).toEqual(
+      Object.keys(created.content.widgets)
+    )
+    expect(created.content.colorPairs).toEqual({ pairs: [] })
   })
 
   it('keeps provisioning idempotent when the owner already has a layout', async () => {

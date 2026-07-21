@@ -15,6 +15,7 @@ import type { LinkedPairColor } from '@/widgets/layout'
 import {
   createDefaultDashboardLayoutProjection,
   type DashboardLayoutDocument,
+  type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
   type DashboardWidgetBindingCreation,
   type DashboardWidgetDocument,
@@ -225,14 +226,14 @@ export async function readDashboardLayoutMetadata(
 export async function createDashboardLayout(
   scope: DashboardLayoutOwnerScope,
   options?: { name?: string; beforeInsert?: (layouts: readonly DashboardLayoutTab[]) => void }
-): Promise<DashboardLayoutProjection> {
+): Promise<DashboardLayoutProjection & { content: DashboardLayoutProjectionContent }> {
   const created = await withDashboardLayoutOwnerLock(scope, async (tx) => {
     const rows = await readDashboardLayoutRows(scope, tx)
     options?.beforeInsert?.(sortLayoutRows(rows).map(toLayoutTab))
     return insertDashboardLayoutRow(tx, scope, rows, options)
   })
   await refreshLayoutList(scope)
-  return projectLayoutRow(created)
+  return { ...projectLayoutRow(created.row), content: created.content }
 }
 
 export async function readActiveDashboardLayoutProjection(scope: DashboardLayoutOwnerScope) {
@@ -333,7 +334,7 @@ async function insertDashboardLayoutRow(
   scope: DashboardLayoutOwnerScope,
   rows: LayoutRow[],
   options?: { name?: string }
-): Promise<LayoutRow> {
+): Promise<{ row: LayoutRow; content: DashboardLayoutProjectionContent }> {
   const highestSortOrder = rows.reduce((max, row) => Math.max(max, readLayoutSortOrder(row)), -1)
   const projection = createDefaultDashboardLayoutProjection()
   const layoutId = randomUUID()
@@ -357,7 +358,7 @@ async function insertDashboardLayoutRow(
     params: widget.params,
   }))
   if (widgetValues.length > 0) await tx.insert(layoutWidgets).values(widgetValues)
-  return row
+  return { row, content: projection }
 }
 
 function projectLayoutRow(row: LayoutRow): DashboardLayoutProjection {

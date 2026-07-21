@@ -46,7 +46,11 @@ describe('dashboard layout server tools', () => {
       { id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true },
     ])
     mocks.read.mockResolvedValue(fx.createDashboardLayoutTestContent())
-    mocks.create.mockResolvedValue({ id: 'layout-created', name: 'New Desk' })
+    mocks.create.mockResolvedValue({
+      id: 'layout-created',
+      name: 'New Desk',
+      content: fx.createDashboardLayoutTestContent(),
+    })
     mocks.projection.mockImplementation((fields: any) => ({
       documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
       entityDocument: JSON.stringify(fields),
@@ -135,15 +139,12 @@ describe('dashboard layout server tools', () => {
     })
   })
 
-  it('returns the complete read_layout projection after creating a layout', async () => {
+  it('returns the committed projection when realtime bootstrap is unavailable after create', async () => {
     const staged = await createLayoutServerTool.execute(
       { workspaceId: 'workspace-1', name: 'New Desk' },
       { ...context, accessLevel: 'limited' }
     )
-    mocks.create.mockImplementationOnce(async (_scope: any, options: any) => {
-      options.beforeInsert?.([{ id: 'layout-1', name: 'Layout 1', sortOrder: 0, isActive: true }])
-      return { id: 'layout-created', name: 'New Desk' }
-    })
+    mocks.read.mockRejectedValue(new Error('realtime unavailable'))
     const result = await createLayoutServerTool.execute(
       { workspaceId: 'workspace-1', name: 'New Desk' },
       { ...context, accessLevel: 'full', acceptedReviewBaseStateHash: staged.reviewBaseStateHash }
@@ -153,7 +154,7 @@ describe('dashboard layout server tools', () => {
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       { name: 'New Desk', beforeInsert: expect.any(Function) }
     )
-    expect(mocks.read).toHaveBeenCalledWith('layout-created', 'workspace-1', 'user-1')
+    expect(mocks.read).not.toHaveBeenCalled()
     expect(result).toMatchObject({
       success: true,
       entityKind: 'dashboard_layout',
