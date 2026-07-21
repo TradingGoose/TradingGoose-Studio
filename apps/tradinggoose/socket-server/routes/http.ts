@@ -79,8 +79,8 @@ import {
 import { isPairColor } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
-  isWidgetConfigValidationError,
   type WidgetConfigMutationPatch,
+  WidgetConfigValidationError,
 } from '@/widgets/widget-mutations'
 
 interface Logger {
@@ -171,7 +171,7 @@ function sendYjsRequestError(res: ServerResponse, error: unknown, fallback: stri
   if (
     error instanceof StructuredServerToolError ||
     error instanceof DashboardLayoutValidationError ||
-    isWidgetConfigValidationError(error)
+    error instanceof WidgetConfigValidationError
   ) {
     const response = buildCopilotServerToolErrorResponse(undefined, error)
     sendJson(res, response.status, response.body)

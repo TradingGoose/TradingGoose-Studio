@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { isDashboardLayoutValidationError } from '@/widgets/layout-document'
-import { isWidgetConfigValidationError } from '@/widgets/widget-mutations'
+import { DashboardLayoutValidationError } from '@/widgets/layout-document'
+import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 interface CopilotServerToolErrorPayload {
   error: string
@@ -177,7 +177,7 @@ export function buildCopilotServerToolErrorResponse(
     return buildInvalidToolPayloadError(toolName, error)
   }
 
-  if (isDashboardLayoutValidationError(error)) {
+  if (error instanceof DashboardLayoutValidationError) {
     return {
       status: 422,
       body: {
@@ -190,7 +190,7 @@ export function buildCopilotServerToolErrorResponse(
     }
   }
 
-  if (isWidgetConfigValidationError(error)) {
+  if (error instanceof WidgetConfigValidationError) {
     return {
       status: 422,
       body: {

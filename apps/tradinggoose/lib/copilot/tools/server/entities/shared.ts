@@ -29,6 +29,7 @@ import {
   renameSavedEntityIdentity,
   SavedEntityIdentityError,
 } from '@/lib/saved-entities/identity'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
@@ -222,7 +223,27 @@ function parseEntityMutationDocument(
     )
   }
 
-  return parseEntityDocument(kind, entityDocument)
+  try {
+    return parseEntityDocument(kind, entityDocument)
+  } catch (error) {
+    if (
+      kind !== 'watchlist' ||
+      !(error instanceof WatchlistDocumentError) ||
+      (error.status !== 400 && error.status !== 409)
+    ) {
+      throw error
+    }
+    throw new StructuredServerToolError({
+      status: error.status,
+      body: {
+        code: 'invalid_watchlist_document',
+        error: error.message,
+        hint: 'For edits, start from read_watchlist, then send a complete tg-watchlist-document-v1. Use canonical listing identities from search_listing, keep item ids unique, keep each listing identity unique within its parent, and set listing parentId only to a section id.',
+        retryable: true,
+        issues: [{ path: 'entityDocument', message: error.message }],
+      },
+    })
+  }
 }
 
 export function buildDocumentEnvelope(

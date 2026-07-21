@@ -367,19 +367,51 @@ const length = input.int(14, 'Length', 1, 50, 1)
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })
 
-  it('rejects partial watchlist edit documents before persisting state', async () => {
-    await expect(
-      executeUpdateEntityDocumentMutation(
-        'watchlist',
-        'edit_watchlist',
-        {
-          entityId: 'watchlist-1',
-          documentFormat: WATCHLIST_DOCUMENT_FORMAT,
-          entityDocument: JSON.stringify({}),
-        },
-        { userId: 'user-1', accessLevel: 'full' }
-      )
-    ).rejects.toThrow(/settings/i)
+  it('returns repairable watchlist document errors before persisting state', async () => {
+    const listing = {
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default' as const,
+    }
+    for (const { items, status, message } of [
+      {
+        items: [{ type: 'listing', parentId: 'missing-section', listing }],
+        status: 400,
+        message: 'Watchlist item parentId must reference a section',
+      },
+      {
+        items: [
+          { type: 'listing', parentId: null, listing },
+          { type: 'listing', parentId: null, listing },
+        ],
+        status: 409,
+        message: 'Listing already exists in watchlist',
+      },
+    ]) {
+      await expect(
+        executeUpdateEntityDocumentMutation(
+          'watchlist',
+          'edit_watchlist',
+          {
+            entityId: 'watchlist-1',
+            documentFormat: WATCHLIST_DOCUMENT_FORMAT,
+            entityDocument: JSON.stringify({
+              settings: { showLogo: true, showTicker: true, showDescription: false },
+              items,
+            }),
+          },
+          { userId: 'user-1', accessLevel: 'full' }
+        )
+      ).rejects.toMatchObject({
+        status,
+        code: 'invalid_watchlist_document',
+        message,
+        retryable: true,
+        issues: [{ path: 'entityDocument', message }],
+        hint: expect.stringMatching(/read_watchlist.*search_listing/),
+      })
+    }
 
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })

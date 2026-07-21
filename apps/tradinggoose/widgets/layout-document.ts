@@ -230,12 +230,6 @@ export class DashboardLayoutValidationError extends Error {
   }
 }
 
-export function isDashboardLayoutValidationError(
-  error: unknown
-): error is DashboardLayoutValidationError {
-  return error instanceof DashboardLayoutValidationError
-}
-
 export function createDashboardLayoutValidationError(
   path: string,
   message: string

@@ -39,12 +39,6 @@ export class WidgetConfigValidationError extends Error {
   }
 }
 
-export function isWidgetConfigValidationError(
-  error: unknown
-): error is WidgetConfigValidationError {
-  return error instanceof WidgetConfigValidationError
-}
-
 export function createWidgetConfigValidationError(
   path: string,
   message: string
@@ -60,7 +54,7 @@ function withWidgetConfigErrors<T>(path: string, run: () => T): T {
   try {
     return run()
   } catch (error) {
-    if (isWidgetConfigValidationError(error)) throw error
+    if (error instanceof WidgetConfigValidationError) throw error
     if (isWidgetContractValidationError(error)) throw new WidgetConfigValidationError(error.issues)
     failWidgetConfig(path, error instanceof Error ? error.message : 'Invalid widget configuration')
   }
