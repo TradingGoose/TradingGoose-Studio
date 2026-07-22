@@ -135,7 +135,10 @@ describe('edit_layout server tool', () => {
     expect(chartPanel).toMatchObject({ widgetKey: 'watchlist' })
     expect(chartPanel.identityId).not.toBe('chart-widget')
     expect(document.widgets).not.toHaveProperty('chart-widget')
-    expect(document.widgets[chartPanel.identityId]).toEqual({ pairColor: 'gray', params: null })
+    expect(document.widgets[chartPanel.identityId]).toEqual({ pairColor: 'red', params: null })
+    expect(document.colorPairs).toEqual({
+      pairs: [expect.objectContaining({ color: 'red' })],
+    })
   })
 
   it('requires removedPanelIds for omitted existing panels', async () => {

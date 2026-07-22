@@ -7,13 +7,13 @@ import {
   type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
   DashboardLayoutValidationError,
+  materializeDashboardWidgetBinding,
   normalizeDashboardLayoutProjection,
   normalizeDashboardLayoutTopology,
   replaceDashboardPanelWidget,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
 } from '@/widgets/layout-document'
-import { getDefaultWidgetInstance, WIDGET_KEYS } from '@/widgets/widget-contracts'
 
 describe('dashboard layout tree operations', () => {
   const layout = (): Extract<DashboardLayoutTopologyNode, { type: 'group' }> => ({
@@ -210,7 +210,7 @@ describe('dashboard layout tree operations', () => {
     expect(splitNode.direction).toBe('vertical')
     expect(splitNode.children).toHaveLength(2)
     const clone = result.createdBindings[0]
-    expect(clone?.sourceIdentityId).toBe('widget-a')
+    expect(clone?.source).toEqual({ identityId: 'widget-a', widgetKey: 'watchlist' })
     expect(clone?.identityId).not.toBe('widget-a')
   })
 
@@ -223,7 +223,7 @@ describe('dashboard layout tree operations', () => {
 
     expect(cloneIdentityId).toBeTruthy()
     expect(cloneIdentityId).not.toBe(source.identityId)
-    expect(clone).toMatchObject({ widgetKey: null, sourceIdentityId: source.identityId })
+    expect(clone?.source).toEqual({ identityId: source.identityId, widgetKey: null })
     expect(
       normalizeDashboardLayoutProjection({
         ...current,
@@ -257,23 +257,9 @@ describe('dashboard layout tree operations', () => {
     expect(() => closeDashboardTopologyPanel(next, next.id)).toThrow(/Cannot close panel/)
   })
 
-  it.each(WIDGET_KEYS)('plans %s replacement as a layout-owned child lifecycle change', (key) => {
+  it('preserves pair color while replacing a widget binding and clearing its local params', () => {
     const current = content()
-    const sourceKey = key === 'watchlist' ? 'heatmap' : 'watchlist'
-    const sourceWidget = getDefaultWidgetInstance(sourceKey)
-    if (current.layout.type !== 'group') throw new Error('Expected root group')
-    const sourcePanel = current.layout.children[0]
-    if (sourcePanel?.type !== 'panel') throw new Error('Expected source panel')
-    current.layout = {
-      ...current.layout,
-      children: [{ ...sourcePanel, widgetKey: sourceKey }, current.layout.children[1]!],
-    }
-    current.widgets['widget-a'] = {
-      pairColor: sourceWidget.pairColor ?? 'gray',
-      params: sourceWidget.params ?? null,
-    }
-
-    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', key)
+    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', 'heatmap')
     const panel = result.layout.type === 'group' ? result.layout.children[0] : null
     const binding = result.createdBindings[0]
     const identityId = binding?.identityId
@@ -281,10 +267,14 @@ describe('dashboard layout tree operations', () => {
     expect(panel).toMatchObject({
       id: 'panel-a',
       identityId,
-      widgetKey: key,
+      widgetKey: 'heatmap',
     })
     expect(identityId).not.toBe('widget-a')
-    expect(binding?.widgetKey).toBe(key)
+    expect(binding?.source).toEqual({ identityId: 'widget-a', widgetKey: 'watchlist' })
+    expect(materializeDashboardWidgetBinding(binding!, current.widgets['widget-a'])).toEqual({
+      pairColor: 'blue',
+      params: null,
+    })
     expect(result.removedIdentityIds).toEqual(['widget-a'])
   })
 

@@ -246,7 +246,7 @@ describe('dashboard layout operations', () => {
         layout: topology('widget-2', 'watchlist'),
         createdWidgets: [
           {
-            binding: { identityId: 'widget-2', widgetKey: 'watchlist' },
+            binding: { identityId: 'widget-2', widgetKey: 'watchlist', source: null },
             document: { pairColor: 'gray', params: null },
           },
         ],

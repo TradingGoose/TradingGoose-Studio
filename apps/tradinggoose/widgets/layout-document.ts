@@ -60,7 +60,7 @@ export type DashboardLayoutProjectionContent = DashboardLayoutDocument & {
 export type DashboardWidgetBindingCreation = {
   identityId: string
   widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey']
-  sourceIdentityId?: string
+  source: Pick<DashboardPanelTopologyNode, 'identityId' | 'widgetKey'> | null
 }
 
 export type DashboardLayoutEditPlan = {
@@ -333,12 +333,47 @@ export function createDefaultDashboardLayoutProjection(): DashboardLayoutProject
   }
 }
 
-export function createDefaultDashboardWidgetDocument(
+function createDefaultDashboardWidgetDocument(
   widgetKey: DashboardPanelTopologyNode['widgetKey']
 ): DashboardWidgetDocument {
   if (!widgetKey) return { pairColor: 'gray', params: null }
   const widget = getDefaultWidgetInstance(widgetKey)
   return { pairColor: widget.pairColor ?? 'gray', params: widget.params ?? null }
+}
+
+export function materializeDashboardWidgetBinding(
+  binding: DashboardWidgetBindingCreation,
+  sourceDocument?: DashboardWidgetDocument
+): DashboardWidgetDocument {
+  if (!binding.source) return createDefaultDashboardWidgetDocument(binding.widgetKey)
+  if (!sourceDocument) {
+    failDashboardLayout(
+      `widgets.${binding.source.identityId}`,
+      `Dashboard widget ${binding.source.identityId} is missing`
+    )
+  }
+  const source = normalizeDashboardWidgetDocument(binding.source.widgetKey, sourceDocument)
+  return binding.source.widgetKey === binding.widgetKey
+    ? source
+    : normalizeDashboardWidgetDocument(binding.widgetKey, {
+        pairColor: source.pairColor,
+        params: null,
+      })
+}
+
+export function applyDashboardLayoutEditPlan(
+  current: DashboardLayoutProjectionContent,
+  plan: DashboardLayoutEditPlan
+): DashboardLayoutProjectionContent {
+  const widgets = { ...current.widgets }
+  for (const binding of plan.createdBindings) {
+    widgets[binding.identityId] = materializeDashboardWidgetBinding(
+      binding,
+      binding.source ? current.widgets[binding.source.identityId] : undefined
+    )
+  }
+  for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
+  return normalizeDashboardLayoutProjection({ ...current, layout: plan.layout, widgets })
 }
 
 export function normalizeDashboardLayoutDocument(value: unknown): DashboardLayoutDocument {
@@ -492,7 +527,13 @@ function planPanelWidgetBinding(
   const identityId = createLayoutNodeId()
   return {
     panel: { ...panel, identityId, widgetKey },
-    createdBindings: [{ identityId, widgetKey }],
+    createdBindings: [
+      {
+        identityId,
+        widgetKey,
+        source: current ? { identityId: current.identityId, widgetKey: current.widgetKey } : null,
+      },
+    ],
     removedIdentityIds: current ? [current.identityId] : [],
   }
 }
@@ -563,7 +604,7 @@ export function splitDashboardTopologyPanel(
     createdBindings.push({
       identityId,
       widgetKey: current.widgetKey,
-      sourceIdentityId: current.identityId,
+      source: { identityId: current.identityId, widgetKey: current.widgetKey },
     })
     return {
       id: createLayoutNodeId(),

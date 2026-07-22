@@ -70,10 +70,10 @@ import {
 import {
   applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
-  createDefaultDashboardWidgetDocument,
   type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
   DashboardLayoutValidationError,
+  materializeDashboardWidgetBinding,
   normalizeDashboardLayoutStructureMutation,
 } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
@@ -565,21 +565,24 @@ async function commitDashboardStructurePlan(input: {
   plan: DashboardLayoutEditPlan
 }): Promise<void> {
   const createdWidgets = await Promise.all(
-    input.plan.createdBindings.map(async (binding) => ({
-      binding,
-      document: binding.sourceIdentityId
+    input.plan.createdBindings.map(async (binding) => {
+      const sourceDocument = binding.source
         ? await withBootstrappedDocument(
             buildDashboardWidgetDescriptor({
               layoutId: input.layoutId,
-              identityId: binding.sourceIdentityId,
+              identityId: binding.source.identityId,
               workspaceId: input.workspaceId,
               ownerUserId: input.ownerUserId,
             }),
             input.ownerUserId,
-            (doc) => readDashboardWidgetDocument(doc, binding.widgetKey)
+            (doc) => readDashboardWidgetDocument(doc, binding.source!.widgetKey)
           )
-        : createDefaultDashboardWidgetDocument(binding.widgetKey),
-    }))
+        : undefined
+      return {
+        binding,
+        document: materializeDashboardWidgetBinding(binding, sourceDocument),
+      }
+    })
   )
   const removedSessionIds = input.plan.removedIdentityIds.map(
     (identityId) =>

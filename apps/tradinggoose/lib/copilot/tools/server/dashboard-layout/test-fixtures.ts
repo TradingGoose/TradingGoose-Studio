@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 import {
+  applyDashboardLayoutEditPlan,
   applyLayoutEditDocument,
-  createDefaultDashboardWidgetDocument,
   type DashboardLayoutProjectionContent,
   findDashboardTopologyPanel,
   normalizeDashboardLayoutProjection,
@@ -76,16 +76,7 @@ export function createDashboardToolMocks() {
         input.entityDocument,
         input.removedPanelIds
       )
-      const widgets = { ...current.widgets }
-      for (const binding of plan.createdBindings) {
-        widgets[binding.identityId] = createDefaultDashboardWidgetDocument(binding.widgetKey)
-      }
-      for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-      currentContent = normalizeDashboardLayoutProjection({
-        ...current,
-        layout: plan.layout,
-        widgets,
-      })
+      currentContent = applyDashboardLayoutEditPlan(current, plan)
       return currentContent
     }),
     applyWidgetEdit: vi.fn(async (input: any) => {

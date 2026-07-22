@@ -492,8 +492,8 @@ describe('socket internal HTTP Yjs routes', () => {
 
   it('commits widget identity replacement through one structural transaction', async () => {
     setDashboardDocuments({
-      widget: createWidgetDoc('gray', { view: { interval: '1h' } }),
-      blue: createPairDoc({ watchlistId: 'preserved-watchlist' }),
+      widget: createWidgetDoc('red', { view: { interval: '1h' } }),
+      red: createPairDoc({ watchlistId: 'preserved-watchlist' }),
     })
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
@@ -508,8 +508,7 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(commit).toMatchObject({
       createdWidgets: [
         {
-          binding: { widgetKey: 'watchlist' },
-          document: { pairColor: 'gray', params: null },
+          document: { pairColor: 'red', params: null },
         },
       ],
       removedIdentityIds: ['widget-1'],
@@ -524,7 +523,10 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.commitDashboardStructure.mock.calls[0]?.[3]).toBe(admissionReadStore)
     expect(mocks.refreshActiveEntityList).toHaveBeenCalledOnce()
     expect(response.body).toEqual({ success: true })
-    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
+      'layout-1',
+      'dashboard-widget:layout-1:widget-1',
+    ])
   })
 
   it('copies the live source widget when splitting a panel', async () => {
@@ -544,7 +546,6 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.commitDashboardStructure.mock.calls[0]?.[2]).toMatchObject({
       createdWidgets: [
         {
-          binding: { sourceIdentityId: 'widget-1', widgetKey: 'data_chart' },
           document: { pairColor: 'red', params: { view: { interval: '4h' } } },
         },
       ],

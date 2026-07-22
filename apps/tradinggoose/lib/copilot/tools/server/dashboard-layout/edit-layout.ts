@@ -15,11 +15,9 @@ import { buildDashboardLayoutReviewBase } from '@/lib/dashboard-layouts/review-b
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardLayoutEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
+  applyDashboardLayoutEditPlan,
   applyLayoutEditDocument,
-  createDefaultDashboardWidgetDocument,
   DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
-  type DashboardLayoutProjectionContent,
-  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 
 type EditLayoutArgs = {
@@ -55,16 +53,7 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
       args.entityDocument,
       args.removedPanelIds ?? []
     )
-    const widgets = { ...current.widgets }
-    for (const binding of plan.createdBindings) {
-      widgets[binding.identityId] = createDefaultDashboardWidgetDocument(binding.widgetKey)
-    }
-    for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-    const next: DashboardLayoutProjectionContent = normalizeDashboardLayoutProjection({
-      ...current,
-      layout: plan.layout,
-      widgets,
-    })
+    const next = applyDashboardLayoutEditPlan(current, plan)
     const reviewBase = buildDashboardLayoutReviewBase(current, plan)
     const result = {
       success: true,

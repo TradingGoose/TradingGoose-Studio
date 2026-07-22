@@ -5,32 +5,14 @@ import { useLocale, useMessages } from 'next-intl'
 import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
 import type { LocaleCode } from '@/i18n/utils'
 import {
+  applyDashboardLayoutEditPlan,
   applyDashboardLayoutStructureMutation,
   closeDashboardTopologyPanel,
   countDashboardTopologyPanels,
   createDefaultDashboardLayoutProjection,
-  createDefaultDashboardWidgetDocument,
-  type DashboardLayoutEditPlan,
-  type DashboardLayoutProjectionContent,
-  normalizeDashboardLayoutProjection,
   resolveDashboardLayout,
   splitDashboardTopologyPanel,
 } from '@/widgets/layout-document'
-
-function applyPreviewEditPlan(
-  current: DashboardLayoutProjectionContent,
-  plan: DashboardLayoutEditPlan
-): DashboardLayoutProjectionContent {
-  const widgets = { ...current.widgets }
-  for (const binding of plan.createdBindings) {
-    widgets[binding.identityId] = binding.sourceIdentityId
-      ? (current.widgets[binding.sourceIdentityId] ??
-        createDefaultDashboardWidgetDocument(binding.widgetKey))
-      : createDefaultDashboardWidgetDocument(binding.widgetKey)
-  }
-  for (const identityId of plan.removedIdentityIds) delete widgets[identityId]
-  return normalizeDashboardLayoutProjection({ ...current, layout: plan.layout, widgets })
-}
 
 export function LayoutPreview() {
   const [mounted, setMounted] = useState(false)
@@ -41,7 +23,7 @@ export function LayoutPreview() {
 
   const persistGroupSizes = useCallback((groupId: string, sizes: number[]) => {
     setDocument((current) =>
-      applyPreviewEditPlan(
+      applyDashboardLayoutEditPlan(
         current,
         applyDashboardLayoutStructureMutation(current.layout, { type: 'resize', groupId, sizes })
       )
@@ -51,20 +33,20 @@ export function LayoutPreview() {
   const splitPanelVertical = useCallback((panelId: string) => {
     setDocument((current) => {
       const plan = splitDashboardTopologyPanel(current.layout, panelId, 'vertical')
-      return applyPreviewEditPlan(current, plan)
+      return applyDashboardLayoutEditPlan(current, plan)
     })
   }, [])
 
   const splitPanelHorizontal = useCallback((panelId: string) => {
     setDocument((current) => {
       const plan = splitDashboardTopologyPanel(current.layout, panelId, 'horizontal')
-      return applyPreviewEditPlan(current, plan)
+      return applyDashboardLayoutEditPlan(current, plan)
     })
   }, [])
 
   const closePanel = useCallback((panelId: string) => {
     setDocument((current) =>
-      applyPreviewEditPlan(current, closeDashboardTopologyPanel(current.layout, panelId))
+      applyDashboardLayoutEditPlan(current, closeDashboardTopologyPanel(current.layout, panelId))
     )
   }, [])
 
