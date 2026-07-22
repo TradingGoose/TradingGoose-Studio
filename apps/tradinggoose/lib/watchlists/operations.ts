@@ -6,6 +6,7 @@ import {
   listRootWatchlistRowsInTx,
   mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
+  type WatchlistRootRow,
 } from '@/lib/watchlists/document'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
@@ -53,26 +54,16 @@ function isDuplicateWatchlistNameViolation(error: unknown): boolean {
   return false
 }
 
-function buildWatchlistRecordFromDocument(
-  metadata: {
-    id: string
-    workspaceId: string
-    createdAt: Date | string
-    updatedAt: Date | string
-  },
+const buildWatchlistRecord = (
+  root: WatchlistRootRow,
   fields: WatchlistDocumentFields
-): WatchlistRecord {
-  const toIso = (value: Date | string) => (value instanceof Date ? value.toISOString() : value)
-  return {
-    id: metadata.id,
-    workspaceId: metadata.workspaceId,
-    name: fields.name,
-    settings: fields.settings,
-    items: fields.items,
-    createdAt: toIso(metadata.createdAt),
-    updatedAt: toIso(metadata.updatedAt),
-  }
-}
+): WatchlistRecord => ({
+  id: root.id,
+  workspaceId: root.workspaceId,
+  ...fields,
+  createdAt: root.createdAt.toISOString(),
+  updatedAt: root.updatedAt.toISOString(),
+})
 
 export async function createWatchlist(
   scope: WatchlistScope,
@@ -154,7 +145,22 @@ export async function getWatchlist(
     return await db.transaction(async (tx) => {
       const root = await fetchRootWatchlistRow(tx, scope.workspaceId, watchlistId)
       const fields = await mapWatchlistDocumentFieldsInTx(tx, root)
-      return buildWatchlistRecordFromDocument(root, fields)
+      return buildWatchlistRecord(root, fields)
+    })
+  } catch (error) {
+    mapDocumentError(error)
+  }
+}
+
+export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRecord[]> {
+  try {
+    return await db.transaction(async (tx) => {
+      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
+      const watchlists: WatchlistRecord[] = []
+      for (const root of roots) {
+        watchlists.push(buildWatchlistRecord(root, await mapWatchlistDocumentFieldsInTx(tx, root)))
+      }
+      return watchlists
     })
   } catch (error) {
     mapDocumentError(error)

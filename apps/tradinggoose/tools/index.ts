@@ -9,7 +9,6 @@ import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { normalizePersistedWatchlistDocumentFields } from '@/lib/watchlists/validation'
 import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
 import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
@@ -162,38 +161,15 @@ async function executeWatchlistTool(
   const workspaceId = params._context?.workspaceId?.trim()
   if (!workspaceId) throw new Error(`${toolId} requires workspace execution context`)
 
-  const { readSavedEntityListFieldsForExecution } = await import(
-    '@/lib/yjs/server/bootstrap-review-target'
-  )
-  const entries = await readSavedEntityListFieldsForExecution(
-    'watchlist',
-    workspaceId,
-    params._context?.isDeployedContext !== false
-  )
-  const watchlists = entries.map((entry: any) => {
-    const fields = normalizePersistedWatchlistDocumentFields({
-      name: entry.entityName,
-      ...entry.fields,
-    })
-    return {
-      id: entry.entityId,
-      workspaceId,
-      name: fields.name,
-      settings: fields.settings,
-      items: fields.items,
-      createdAt: entry.createdAt ?? '',
-      updatedAt: entry.updatedAt ?? '',
-    }
-  })
-
   if (toolId === WATCHLIST_TOOL_IDS.readLists) {
-    return { success: true, output: { watchlists } }
+    const { listWatchlists } = await import('@/lib/watchlists/operations')
+    return { success: true, output: { watchlists: await listWatchlists({ workspaceId }) } }
   }
 
   const watchlistId = typeof params.watchlistId === 'string' ? params.watchlistId.trim() : ''
   if (!watchlistId) throw new Error('watchlistId is required')
-  const watchlist = watchlists.find((entry) => entry.id === watchlistId)
-  if (!watchlist) throw new Error('Watchlist not found')
+  const { getWatchlist } = await import('@/lib/watchlists/operations')
+  const watchlist = await getWatchlist({ workspaceId }, watchlistId)
   const listings = watchlist.items.filter((item) => item.type === 'listing')
   const sections = watchlist.items.filter((item) => item.type === 'section')
   return {

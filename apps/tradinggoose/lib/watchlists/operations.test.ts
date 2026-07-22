@@ -11,13 +11,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  customTools: {},
-  knowledgeBase: {},
-  layoutMaps: {},
-  mcpServers: {},
-  pineIndicators: {},
-  skill: {},
-  workflow: {},
   watchlistItem: {
     id: 'watchlist_item.id',
     workspaceId: 'watchlist_item.workspace_id',
@@ -46,7 +39,9 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
+  inArray: vi.fn((left: unknown, right: unknown) => ({ kind: 'inArray', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  or: vi.fn((...conditions: unknown[]) => ({ kind: 'or', conditions })),
 }))
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
@@ -57,12 +52,16 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: mockRefreshEntityList,
 }))
 
+import { eq, inArray } from 'drizzle-orm'
 import {
   composeWatchlistDocumentFromRows,
-  listRootWatchlistRowsInTx,
   materializeWatchlistDocumentInTx,
 } from '@/lib/watchlists/document'
-import { createWatchlistFromDocument } from '@/lib/watchlists/operations'
+import {
+  createWatchlistFromDocument,
+  getWatchlist,
+  listWatchlists,
+} from '@/lib/watchlists/operations'
 import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
 
 const rootRow = {
@@ -88,14 +87,16 @@ const SPY = {
 }
 const NVDA = { ...SPY, listing_id: 'NVDA' }
 
-function queryChain(result: unknown[]) {
+function queryChain(readResult: () => unknown[], executeSelect: () => void) {
   const chain: any = {}
   chain.from = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() => chain)
-  chain.then = (resolve: (value: unknown[]) => unknown, reject?: (error: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve, reject)
+  chain.then = (resolve: (value: unknown[]) => unknown, reject?: (error: unknown) => unknown) => {
+    executeSelect()
+    return Promise.resolve(readResult()).then(resolve, reject)
+  }
   return chain
 }
 
@@ -103,14 +104,20 @@ function materializerTx(input: {
   roots?: unknown[]
   containers?: unknown[]
   items?: unknown[]
+  reads?: unknown[][]
   updateResults: unknown[][]
 }) {
-  const selectResults = [input.roots ?? [rootRow], input.containers ?? [], input.items ?? []]
+  const selectResults = input.reads ?? [
+    input.roots ?? [rootRow],
+    input.containers ?? [],
+    input.items ?? [],
+  ]
+  const executeSelect = vi.fn()
   const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
   const updateResults = [...input.updateResults]
   const tx: any = {
     execute: vi.fn(async () => undefined),
-    select: vi.fn(() => queryChain(selectResults.shift() ?? [])),
+    select: vi.fn(() => queryChain(() => selectResults.shift() ?? [], executeSelect)),
     update: vi.fn((table: any) => ({
       set: vi.fn((values: Record<string, unknown>) => ({
         where: vi.fn(() => ({
@@ -134,7 +141,7 @@ function materializerTx(input: {
       where: vi.fn(async () => table),
     })),
   }
-  return { tx, inserts }
+  return { tx, inserts, executeSelect }
 }
 
 const content = {
@@ -205,6 +212,9 @@ describe('watchlist operations', () => {
 
     await expect(materialize(store.tx, content)).resolves.toEqual(content)
     expect(store.inserts).toEqual([])
+    expect(store.executeSelect).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(eq).mock.calls).toContainEqual(['watchlist_table.parent_id', rootRow.id])
+    expect(vi.mocked(inArray)).toHaveBeenCalledWith('watchlist_table.parent_id', expect.anything())
   })
 
   it('rejects target-owned IDs submitted as a different item type', async () => {
@@ -296,14 +306,22 @@ describe('watchlist operations', () => {
     expect(sequence).toEqual(['lock', 'review'])
   })
 
-  it('discovers watchlist entity identities with one root query', async () => {
-    const store = materializerTx({ roots: [rootRow], updateResults: [] })
+  it('uses three queries for one watchlist and one plus two per listed watchlist', async () => {
+    const single = materializerTx({ updateResults: [] })
+    mockDbTransaction.mockImplementationOnce((callback) => callback(single.tx))
+    await getWatchlist({ workspaceId: rootRow.workspaceId }, rootRow.id)
+    expect(single.executeSelect).toHaveBeenCalledTimes(3)
 
-    await expect(listRootWatchlistRowsInTx(store.tx, 'workspace-1')).resolves.toEqual([rootRow])
-    expect(store.tx.select).toHaveBeenCalledTimes(1)
+    const list = materializerTx({
+      reads: [[rootRow, { ...rootRow, id: 'watchlist-2' }], [], [], [], []],
+      updateResults: [],
+    })
+    mockDbTransaction.mockImplementationOnce((callback) => callback(list.tx))
+    await expect(listWatchlists({ workspaceId: rootRow.workspaceId })).resolves.toHaveLength(2)
+    expect(list.executeSelect).toHaveBeenCalledTimes(5)
   })
 
-  it('accepts canonical parentId ownership and rejects old containerId ownership', () => {
+  it('enforces canonical parent ownership and persisted hierarchy', () => {
     expect(normalizeWatchlistDocumentFields({ name: 'Growth', ...content })).toEqual({
       name: 'Growth',
       ...content,
@@ -316,9 +334,6 @@ describe('watchlist operations', () => {
         items: [{ type: 'listing', containerId: null, listing: NVDA }],
       })
     ).toThrow('Invalid watchlist item')
-  })
-
-  it('rejects persisted nested sections and listings outside the watchlist hierarchy', () => {
     expect(() =>
       composeWatchlistDocumentFromRows(
         [{ ...sectionRow, id: crypto.randomUUID(), parentId: sectionRow.id }, sectionRow],

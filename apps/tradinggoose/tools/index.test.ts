@@ -45,7 +45,10 @@ vi.mock('@/lib/auth/internal', () => ({
 
 const yjsMocks = vi.hoisted(() => ({
   readSavedEntityFieldsForExecution: vi.fn(),
-  readSavedEntityListFieldsForExecution: vi.fn(),
+}))
+const watchlistMocks = vi.hoisted(() => ({
+  getWatchlist: vi.fn(),
+  listWatchlists: vi.fn(),
 }))
 
 const permissionMocks = vi.hoisted(() => ({
@@ -53,6 +56,7 @@ const permissionMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => yjsMocks)
+vi.mock('@/lib/watchlists/operations', () => watchlistMocks)
 vi.mock(import('@/lib/permissions/utils'), async (importOriginal) => ({
   ...(await importOriginal()),
   checkWorkspaceAccess: permissionMocks.checkWorkspaceAccess,
@@ -60,7 +64,8 @@ vi.mock(import('@/lib/permissions/utils'), async (importOriginal) => ({
 
 beforeEach(() => {
   permissionMocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: true, canWrite: true })
-  yjsMocks.readSavedEntityListFieldsForExecution.mockClear()
+  watchlistMocks.getWatchlist.mockReset()
+  watchlistMocks.listWatchlists.mockReset()
 })
 
 // Helper function to create mock ExecutionContext
@@ -125,35 +130,34 @@ describe('Tools Registry', () => {
     }
   })
 
-  it('reads the requested watchlist instead of the first available list', async () => {
-    yjsMocks.readSavedEntityListFieldsForExecution.mockResolvedValueOnce([
-      {
-        entityId: 'watchlist-a',
-        fields: {
-          name: 'First',
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [],
-        },
-      },
-      {
-        entityId: 'watchlist-b',
-        fields: {
-          name: 'Second',
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          items: [],
-        },
-      },
-    ])
+  it('routes watchlist list and item reads to their canonical owners', async () => {
+    const watchlist = {
+      id: 'watchlist-b',
+      workspaceId: 'workspace-456',
+      name: 'Second',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [],
+      createdAt: '',
+      updatedAt: '',
+    }
+    watchlistMocks.getWatchlist.mockResolvedValueOnce(watchlist)
+    watchlistMocks.listWatchlists.mockResolvedValueOnce([watchlist])
 
-    await expect(
-      executeTool('watchlist_read_list_items', {
-        watchlistId: 'watchlist-b',
-        _context: { userId: 'user-123', workspaceId: 'workspace-456' },
-      })
-    ).resolves.toMatchObject({
-      success: true,
-      output: { watchlist: { id: 'watchlist-b', name: 'Second' } },
+    await executeTool('watchlist_read_list_items', {
+      watchlistId: 'watchlist-b',
+      _context: { userId: 'user-123', workspaceId: 'workspace-456' },
     })
+    expect(watchlistMocks.getWatchlist).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-456' },
+      'watchlist-b'
+    )
+    expect(watchlistMocks.listWatchlists).not.toHaveBeenCalled()
+
+    await executeTool('watchlist_read_lists', {
+      _context: { userId: 'user-123', workspaceId: 'workspace-456' },
+    })
+    expect(watchlistMocks.listWatchlists).toHaveBeenCalledWith({ workspaceId: 'workspace-456' })
+    expect(watchlistMocks.getWatchlist).toHaveBeenCalledOnce()
   })
 
   it('rejects direct watchlist reads when the authenticated user lacks workspace access', async () => {
@@ -170,7 +174,7 @@ describe('Tools Registry', () => {
       success: false,
       error: 'watchlist_read_lists requires read access to the workspace',
     })
-    expect(yjsMocks.readSavedEntityListFieldsForExecution).not.toHaveBeenCalled()
+    expect(watchlistMocks.listWatchlists).not.toHaveBeenCalled()
   })
 })
 
@@ -264,7 +268,6 @@ describe('executeTool Function', () => {
     yjsMocks.readSavedEntityFieldsForExecution.mockRejectedValue(
       new Error('Saved entity was not found')
     )
-    yjsMocks.readSavedEntityListFieldsForExecution.mockResolvedValue([])
 
     // Mock fetch
     global.fetch = Object.assign(

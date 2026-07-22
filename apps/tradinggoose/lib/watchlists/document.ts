@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import type {
@@ -40,23 +40,17 @@ const isDuplicateListingViolation = (error: unknown) =>
   error instanceof Error &&
   error.message.includes('watchlist_item_watchlist_listing_identity_unique')
 
-export const workspaceContainerCondition = (workspaceId: string) =>
+const workspaceContainerCondition = (workspaceId: string) =>
   and(eq(watchlistTable.workspaceId, workspaceId), isNull(watchlistTable.userId))
 
+const documentContainerCondition = (workspaceId: string, watchlistId: string) =>
+  and(workspaceContainerCondition(workspaceId), eq(watchlistTable.parentId, watchlistId))
+
 const workspaceRootWatchlistCondition = (workspaceId: string) =>
-  and(
-    eq(watchlistTable.workspaceId, workspaceId),
-    isNull(watchlistTable.userId),
-    isNull(watchlistTable.parentId)
-  )
+  and(workspaceContainerCondition(workspaceId), isNull(watchlistTable.parentId))
 
 export const rootWatchlistCondition = (workspaceId: string, watchlistId: string) =>
-  and(
-    eq(watchlistTable.id, watchlistId),
-    eq(watchlistTable.workspaceId, workspaceId),
-    isNull(watchlistTable.userId),
-    isNull(watchlistTable.parentId)
-  )
+  and(eq(watchlistTable.id, watchlistId), workspaceRootWatchlistCondition(workspaceId))
 
 const documentItemCondition = (workspaceId: string, watchlistId: string) =>
   and(
@@ -101,11 +95,24 @@ export const listRootWatchlistRowsInTx = async (
 }
 
 const loadWatchlistRows = async (tx: WatchlistDocumentReadStore, root: WatchlistRootRow) => {
+  const directSectionIds = tx
+    .select({ id: watchlistTable.id })
+    .from(watchlistTable)
+    .where(documentContainerCondition(root.workspaceId, root.id))
+
   const [containers, items] = await Promise.all([
     tx
       .select()
       .from(watchlistTable)
-      .where(workspaceContainerCondition(root.workspaceId))
+      .where(
+        and(
+          workspaceContainerCondition(root.workspaceId),
+          or(
+            eq(watchlistTable.parentId, root.id),
+            inArray(watchlistTable.parentId, directSectionIds)
+          )
+        )
+      )
       .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
     tx
       .select()
@@ -229,13 +236,7 @@ async function persistContainer(
   const [updated] = await tx
     .update(watchlistTable)
     .set(values)
-    .where(
-      and(
-        eq(watchlistTable.id, item.id),
-        workspaceContainerCondition(workspaceId),
-        eq(watchlistTable.parentId, parentId)
-      )
-    )
+    .where(and(eq(watchlistTable.id, item.id), documentContainerCondition(workspaceId, parentId)))
     .returning()
   if (updated) return updated.id
 
@@ -376,11 +377,7 @@ export async function materializeWatchlistDocumentInTx(
       await tx
         .delete(watchlistTable)
         .where(
-          and(
-            workspaceContainerCondition(workspaceId),
-            eq(watchlistTable.parentId, root.id),
-            eq(watchlistTable.id, section.id)
-          )
+          and(documentContainerCondition(workspaceId, root.id), eq(watchlistTable.id, section.id))
         )
     }
 
