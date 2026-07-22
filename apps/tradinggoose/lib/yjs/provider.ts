@@ -302,10 +302,7 @@ export async function bootstrapYjsProvider(
   let reconnecting = false
   let reconnectAttempt = 0
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  const persistRequests = new Map<
-    string,
-    { resolve: () => void; reject: (error: Error) => void; updates: Uint8Array[] }
-  >()
+  const persistRequests = new Map<string, (error?: Error, snapshot?: Y.Snapshot) => void>()
   let resolveLifecycle!: (event: YjsProviderLifecycleEvent) => void
   const lifecycle = new Promise<YjsProviderLifecycleEvent>((resolve) => {
     resolveLifecycle = resolve
@@ -346,9 +343,7 @@ export async function bootstrapYjsProvider(
     if (!active) return
     const message = decodeYjsLifecycleMessage(decoder)
     if (message.type === 'persist-error') {
-      const request = persistRequests.get(message.requestId)
-      persistRequests.delete(message.requestId)
-      request?.reject(new Error(message.error))
+      persistRequests.get(message.requestId)?.(new Error(message.error))
       return
     }
     if (message.type !== 'checkpoint') return
@@ -365,20 +360,11 @@ export async function bootstrapYjsProvider(
       resolveLineage()
     }
     acceptPersistedSnapshot(message.snapshot)
-    if (message.requestId) {
-      const request = persistRequests.get(message.requestId)
-      persistRequests.delete(message.requestId)
-      if (request?.updates.every((update) => Y.snapshotContainsUpdate(message.snapshot, update))) {
-        request.resolve()
-      } else {
-        request?.reject(new Error('Persistence checkpoint omitted requested Yjs updates'))
-      }
-    }
+    if (message.requestId) persistRequests.get(message.requestId)?.(undefined, message.snapshot)
   }
 
   function rejectPersistRequests(error: Error): void {
-    for (const request of persistRequests.values()) request.reject(error)
-    persistRequests.clear()
+    for (const settle of persistRequests.values()) settle(error)
   }
 
   function deactivate(): void {
@@ -482,12 +468,24 @@ export async function bootstrapYjsProvider(
     }
     const requestId = crypto.randomUUID()
     return new Promise((resolve, reject) => {
-      persistRequests.set(requestId, { resolve, reject, updates: [...localUpdates] })
+      const updates = [...localUpdates]
+      const settle = (error?: Error, snapshot?: Y.Snapshot) => {
+        if (!persistRequests.delete(requestId)) return
+        clearTimeout(timeout)
+        if (error) reject(error)
+        else if (
+          snapshot &&
+          updates.every((update) => Y.snapshotContainsUpdate(snapshot, update))
+        ) {
+          resolve()
+        } else reject(new Error('Persistence checkpoint omitted requested Yjs updates'))
+      }
+      const timeout = setTimeout(() => settle(new Error('Yjs persistence timed out')), 60_000)
+      persistRequests.set(requestId, settle)
       try {
         provider.ws!.send(encodeYjsPersistRequest(requestId, identityName))
       } catch (error) {
-        persistRequests.delete(requestId)
-        reject(error instanceof Error ? error : new Error('Failed to request Yjs persistence'))
+        settle(error instanceof Error ? error : new Error('Failed to request Yjs persistence'))
       }
     })
   }

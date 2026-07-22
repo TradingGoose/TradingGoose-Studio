@@ -16,6 +16,7 @@ import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 const events: string[] = []
 const mockApplyEntityStateInSocketServer = vi.fn()
 const mockDbTransaction = vi.fn()
+const mockDbExecute = vi.fn()
 const mockDbUpdate = vi.fn()
 const mockPersistDashboardWidgetAndColorPairDocuments = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
@@ -69,6 +70,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions) => ({ and: conditions })),
   eq: vi.fn((field, value) => ({ field, value })),
+  sql: vi.fn((strings, ...values) => ({ strings: [...strings], values })),
 }))
 
 vi.mock('@/lib/copilot/entity-documents', () => ({
@@ -101,6 +103,16 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
+
+const {
+  applySavedEntityState,
+  saveDashboardYjsDocsToDb,
+  saveSavedEntityYjsDocToDb,
+  toSavedEntityTransportError,
+} = await import('./apply-entity-state')
+const { getEntityFields, getFieldsMap, seedEntitySession, updateWatchlistItems } = await import(
+  '@/lib/yjs/entity-session'
+)
 
 function buildDoc(fields: Record<string, unknown>) {
   const doc = new Y.Doc()
@@ -144,7 +156,9 @@ describe('applySavedEntityState', () => {
         ...(commit.colorPair ? { colorPair: commit.colorPair.content } : {}),
       })
     )
-    mockDbTransaction.mockImplementation(async (callback) => callback({ update: mockDbUpdate }))
+    mockDbTransaction.mockImplementation(async (callback) =>
+      callback({ execute: mockDbExecute, update: mockDbUpdate })
+    )
     mockRenameSavedEntityIdentityInTx.mockResolvedValue({
       name: 'Renamed',
       updatedAt: new Date('2026-07-13T12:00:00.000Z'),
@@ -160,7 +174,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('applies watchlist changes through the socket-owned saved-entity Yjs session', async () => {
-    const { applySavedEntityState } = await import('./apply-entity-state')
     const inputFields = watchlistFields()
     const persistedFields = watchlistFields('listing-1')
     mockApplyEntityStateInSocketServer.mockResolvedValueOnce(persistedFields)
@@ -183,8 +196,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('serializes a watchlist Yjs rename with its materialization', async () => {
-    const { seedEntitySession } = await import('@/lib/yjs/entity-session')
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
@@ -193,6 +204,7 @@ describe('applySavedEntityState', () => {
     mockLockSavedEntityList.mockImplementationOnce(async (_tx, entityKind, workspaceId) => {
       events.push(`lock:${entityKind}:${workspaceId}`)
     })
+    mockDbExecute.mockImplementationOnce(async () => events.push('timeout'))
     mockRenameSavedEntityIdentityInTx.mockImplementationOnce(async () => {
       events.push('rename')
       return { name: 'Renamed', updatedAt: new Date('2026-07-13T12:00:00.000Z') }
@@ -211,7 +223,7 @@ describe('applySavedEntityState', () => {
     }
 
     expect(mockRenameSavedEntityIdentityInTx).toHaveBeenCalledWith(
-      { update: mockDbUpdate },
+      expect.objectContaining({ update: mockDbUpdate }),
       {
         entityKind: 'watchlist',
         entityId: 'watchlist-1',
@@ -219,14 +231,11 @@ describe('applySavedEntityState', () => {
         name: 'Renamed',
       }
     )
-    expect(events).toEqual(['lock:watchlist:workspace-1', 'rename', 'materialize'])
+    expect(JSON.stringify(mockDbExecute.mock.calls[0]![0])).toMatch(/transaction_timeout.*30s/)
+    expect(events).toEqual(['timeout', 'lock:watchlist:workspace-1', 'rename', 'materialize'])
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
-    const { getEntityFields, getFieldsMap, seedEntitySession } = await import(
-      '@/lib/yjs/entity-session'
-    )
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     mockNormalizeEntityFields.mockReturnValueOnce({
       color: '#ff0000',
       pineCode: 'indicator("Canonical")',
@@ -264,10 +273,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('reconciles watchlist orphan repair and materialized IDs without overwriting newer edits', async () => {
-    const { getEntityFields, seedEntitySession, updateWatchlistItems } = await import(
-      '@/lib/yjs/entity-session'
-    )
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const itemId = '00000000-0000-4000-8000-000000000001'
     const fields = watchlistFields(itemId)
     const doc = new Y.Doc()
@@ -288,7 +293,7 @@ describe('applySavedEntityState', () => {
       ).resolves.toEqual(persistedFields)
       expect(getEntityFields(doc, 'watchlist')).toEqual(persistedFields)
       expect(mockMaterializeWatchlistDocumentInTx).toHaveBeenCalledWith(
-        { update: mockDbUpdate },
+        expect.objectContaining({ update: mockDbUpdate }),
         'workspace-1',
         'watchlist-1',
         fields
@@ -321,15 +326,12 @@ describe('applySavedEntityState', () => {
   })
 
   it('keeps dashboard layouts out of the generic saved-entity saver contract', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-
     expectTypeOf<'dashboard_layout'>().not.toMatchTypeOf<
       Parameters<typeof saveSavedEntityYjsDocToDb>[0]
     >()
   })
 
   it('persists only canonical widget child documents', async () => {
-    const { saveDashboardYjsDocsToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedDashboardWidgetSession(doc, { pairColor: 'blue', params: { view: {} } })
 
@@ -367,7 +369,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('persists widget and color-pair Yjs owners through one storage commit', async () => {
-    const { saveDashboardYjsDocsToDb } = await import('./apply-entity-state')
     const widgetDoc = new Y.Doc()
     const pairDoc = new Y.Doc()
     seedDashboardWidgetSession(widgetDoc, { pairColor: 'red', params: { view: {} } })
@@ -401,8 +402,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('maps watchlist document persistence errors to saved-entity persistence errors', async () => {
-    const { seedEntitySession } = await import('@/lib/yjs/entity-session')
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const doc = new Y.Doc()
     seedEntitySession(doc, {
       entityKind: 'watchlist',
@@ -425,7 +424,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('uses authenticated scope instead of client-editable document metadata', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const doc = buildDoc({ description: '', content: '' })
     doc.getMap('metadata').set('workspaceId', 'attacker-workspace')
 
@@ -444,7 +442,6 @@ describe('applySavedEntityState', () => {
   })
 
   it('throws when document materialization cannot find the saved entity row', async () => {
-    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
     const doc = buildDoc({ description: '', content: '' })
     mockUpdateReturning.mockResolvedValueOnce([])
 
@@ -463,7 +460,6 @@ describe('applySavedEntityState', () => {
   ])(
     'maps socket transport failures to the saved-entity contract',
     async (failure, status, retryable) => {
-      const { applySavedEntityState } = await import('./apply-entity-state')
       mockApplyEntityStateInSocketServer.mockRejectedValueOnce(failure)
 
       await expect(
@@ -479,7 +475,6 @@ describe('applySavedEntityState', () => {
   )
 
   it('preserves structured bridge status, code, and retryability', async () => {
-    const { toSavedEntityTransportError } = await import('./apply-entity-state')
     expect(
       toSavedEntityTransportError(
         new StructuredServerToolError({

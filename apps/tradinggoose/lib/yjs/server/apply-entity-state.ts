@@ -6,7 +6,7 @@ import {
   pineIndicators,
   skill,
 } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { isEqual } from 'lodash'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
@@ -244,6 +244,7 @@ export async function saveSavedEntityYjsDocToDb(
   const canonicalFields = getEntityFields(doc, entityKind)
   try {
     const persistedFields = await db.transaction(async (tx) => {
+      await tx.execute(sql`set local transaction_timeout = '30s'`)
       await lockSavedEntityList(tx, entityKind, workspaceId)
       if (options?.identity) {
         await renameSavedEntityIdentityInTx(tx, {

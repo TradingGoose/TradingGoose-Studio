@@ -321,6 +321,12 @@ describe('bootstrapYjsProvider', () => {
     )
     await expect(failed).rejects.toThrow('database unavailable')
 
+    vi.useFakeTimers()
+    const timedOut = replacement.persist()
+    const timedOutResult = expect(timedOut).rejects.toThrow('Yjs persistence timed out')
+    await vi.advanceTimersByTimeAsync(60_000)
+    await timedOutResult
+
     replacementFields.delete('checkpointed')
     replacementProvider.receive(
       encodeYjsDurableCheckpoint('lineage-4', Y.snapshot(replacement.doc))
