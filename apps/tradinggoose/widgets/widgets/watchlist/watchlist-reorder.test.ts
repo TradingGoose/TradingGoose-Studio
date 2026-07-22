@@ -170,28 +170,17 @@ describe('watchlist reorder helpers', () => {
 
   it('returns null when drop results in no change or invalid ids', () => {
     const items = [listing('a'), listing('b'), section('s1')]
+    const listingA = createWatchlistListingSortableId('a')
+    const missingListing = createWatchlistListingSortableId('missing')
+    const sectionS1 = createWatchlistContainerSortableId('s1')
+    const missingSection = createWatchlistContainerSortableId('missing')
+    const listingAsSection = createWatchlistContainerSortableId('b')
 
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistListingSortableId('a'),
-        createWatchlistListingSortableId('a')
-      )
-    ).toBeNull()
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistListingSortableId('missing'),
-        createWatchlistListingSortableId('a')
-      )
-    ).toBeNull()
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistContainerSortableId('s1'),
-        createWatchlistContainerSortableId('s1')
-      )
-    ).toBeNull()
+    expect(moveWatchlistItem(items, listingA, listingA)).toBeNull()
+    expect(moveWatchlistItem(items, missingListing, listingA)).toBeNull()
+    expect(moveWatchlistItem(items, sectionS1, sectionS1)).toBeNull()
+    expect(moveWatchlistItem(items, listingA, missingSection)).toBeNull()
+    expect(moveWatchlistItem(items, listingA, listingAsSection)).toBeNull()
   })
 
   it('maps sortable ids to dragged items and raw drop targets', () => {

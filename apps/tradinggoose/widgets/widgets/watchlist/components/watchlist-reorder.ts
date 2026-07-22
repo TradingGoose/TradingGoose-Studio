@@ -65,7 +65,8 @@ const resolveTargetParentId = (
   }
   if (target.type === 'root') return null
   if (target.type === 'container') {
-    return target.containerId
+    const targetItem = findItem(items, target.containerId)
+    return targetItem?.type === 'section' ? targetItem.id : undefined
   }
 
   const targetItem = findItem(items, target.itemId)
