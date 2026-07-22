@@ -192,19 +192,6 @@ export const composeWatchlistDocumentFromRows = (
   return output
 }
 
-export const mapWatchlistDocumentFieldsInTx = async (
-  tx: WatchlistDocumentReadStore,
-  root: WatchlistRootRow
-): Promise<WatchlistDocumentFields> => {
-  const { containers, items } = await loadWatchlistRows(tx, root)
-  const documentItems = composeWatchlistDocumentFromRows(containers, items, root.id)
-  return normalizePersistedWatchlistDocumentFields({
-    name: root.name,
-    settings: root.settings,
-    items: documentItems,
-  })
-}
-
 function readContainerKind(row: WatchlistContainerRow): void {
   const settings = row.settings
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
@@ -401,5 +388,10 @@ export async function loadWatchlistDocumentFields(
   readStore: WatchlistDocumentReadStore = db
 ): Promise<WatchlistDocumentFields> {
   const root = await fetchRootWatchlistRow(readStore, workspaceId, watchlistId)
-  return mapWatchlistDocumentFieldsInTx(readStore, root)
+  const { containers, items } = await loadWatchlistRows(readStore, root)
+  return normalizePersistedWatchlistDocumentFields({
+    name: root.name,
+    settings: root.settings,
+    items: composeWatchlistDocumentFromRows(containers, items, root.id),
+  })
 }

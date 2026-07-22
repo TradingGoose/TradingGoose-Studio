@@ -160,16 +160,20 @@ async function executeWatchlistTool(
 ): Promise<ToolResponse> {
   const workspaceId = params._context?.workspaceId?.trim()
   if (!workspaceId) throw new Error(`${toolId} requires workspace execution context`)
+  const isDeployedContext = params._context?.isDeployedContext !== false
 
   if (toolId === WATCHLIST_TOOL_IDS.readLists) {
     const { listWatchlists } = await import('@/lib/watchlists/operations')
-    return { success: true, output: { watchlists: await listWatchlists({ workspaceId }) } }
+    return {
+      success: true,
+      output: { watchlists: await listWatchlists({ workspaceId }, isDeployedContext) },
+    }
   }
 
   const watchlistId = typeof params.watchlistId === 'string' ? params.watchlistId.trim() : ''
   if (!watchlistId) throw new Error('watchlistId is required')
   const { getWatchlist } = await import('@/lib/watchlists/operations')
-  const watchlist = await getWatchlist({ workspaceId }, watchlistId)
+  const watchlist = await getWatchlist({ workspaceId }, watchlistId, isDeployedContext)
   const listings = watchlist.items.filter((item) => item.type === 'listing')
   const sections = watchlist.items.filter((item) => item.type === 'section')
   return {

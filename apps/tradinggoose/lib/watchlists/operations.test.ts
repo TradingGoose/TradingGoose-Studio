@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbTransaction = vi.hoisted(() => vi.fn())
+const mockDbSelect = vi.hoisted(() => vi.fn())
 const mockRefreshEntityList = vi.hoisted(() => vi.fn())
+const mockReadSavedEntityFieldsForExecution = vi.hoisted(() => vi.fn())
 const mockLockSavedEntityList = vi.hoisted(() =>
   vi.fn((tx: { execute: () => Promise<unknown> }) => tx.execute())
 )
 
 vi.mock('@tradinggoose/db', () => ({
-  db: { transaction: mockDbTransaction },
+  db: { select: mockDbSelect, transaction: mockDbTransaction },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -46,6 +48,10 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   lockSavedEntityList: mockLockSavedEntityList,
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readSavedEntityFieldsForExecution: mockReadSavedEntityFieldsForExecution,
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
@@ -101,17 +107,11 @@ function queryChain(readResult: () => unknown[], executeSelect: () => void) {
 }
 
 function materializerTx(input: {
-  roots?: unknown[]
   containers?: unknown[]
   items?: unknown[]
-  reads?: unknown[][]
   updateResults: unknown[][]
 }) {
-  const selectResults = input.reads ?? [
-    input.roots ?? [rootRow],
-    input.containers ?? [],
-    input.items ?? [],
-  ]
+  const selectResults = [[rootRow], input.containers ?? [], input.items ?? []]
   const executeSelect = vi.fn()
   const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
   const updateResults = [...input.updateResults]
@@ -306,19 +306,16 @@ describe('watchlist operations', () => {
     expect(sequence).toEqual(['lock', 'review'])
   })
 
-  it('uses three queries for one watchlist and one plus two per listed watchlist', async () => {
-    const single = materializerTx({ updateResults: [] })
-    mockDbTransaction.mockImplementationOnce((callback) => callback(single.tx))
-    await getWatchlist({ workspaceId: rootRow.workspaceId }, rootRow.id)
-    expect(single.executeSelect).toHaveBeenCalledTimes(3)
+  it('reads live record content through the execution reader', async () => {
+    mockDbSelect.mockImplementation(() => queryChain(() => [rootRow], vi.fn()))
+    mockReadSavedEntityFieldsForExecution.mockResolvedValue(content)
 
-    const list = materializerTx({
-      reads: [[rootRow, { ...rootRow, id: 'watchlist-2' }], [], [], [], []],
-      updateResults: [],
-    })
-    mockDbTransaction.mockImplementationOnce((callback) => callback(list.tx))
-    await expect(listWatchlists({ workspaceId: rootRow.workspaceId })).resolves.toHaveLength(2)
-    expect(list.executeSelect).toHaveBeenCalledTimes(5)
+    const scope = { workspaceId: rootRow.workspaceId }
+    await Promise.all([getWatchlist(scope, rootRow.id, false), listWatchlists(scope, false)])
+    expect(mockReadSavedEntityFieldsForExecution.mock.calls).toEqual([
+      ['watchlist', rootRow.id, rootRow.workspaceId, false],
+      ['watchlist', rootRow.id, rootRow.workspaceId, false],
+    ])
   })
 
   it('enforces canonical parent ownership and persisted hierarchy', () => {

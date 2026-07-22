@@ -4,15 +4,16 @@ import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
   fetchRootWatchlistRow,
   listRootWatchlistRowsInTx,
-  mapWatchlistDocumentFieldsInTx,
   materializeWatchlistDocumentInTx,
   type WatchlistRootRow,
 } from '@/lib/watchlists/document'
 import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
+  normalizePersistedWatchlistDocumentFields,
   normalizeWatchlistDocumentFields,
   WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
+import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -54,16 +55,20 @@ function isDuplicateWatchlistNameViolation(error: unknown): boolean {
   return false
 }
 
-const buildWatchlistRecord = (
+async function readWatchlistRecordForExecution(
   root: WatchlistRootRow,
-  fields: WatchlistDocumentFields
-): WatchlistRecord => ({
-  id: root.id,
-  workspaceId: root.workspaceId,
-  ...fields,
-  createdAt: root.createdAt.toISOString(),
-  updatedAt: root.updatedAt.toISOString(),
-})
+  isDeployed: boolean
+): Promise<WatchlistRecord> {
+  const { id, workspaceId } = root
+  const fields = await readSavedEntityFieldsForExecution('watchlist', id, workspaceId, isDeployed)
+  return {
+    id,
+    workspaceId,
+    ...normalizePersistedWatchlistDocumentFields({ ...fields, name: root.name }),
+    createdAt: root.createdAt.toISOString(),
+    updatedAt: root.updatedAt.toISOString(),
+  }
+}
 
 export async function createWatchlist(
   scope: WatchlistScope,
@@ -139,29 +144,26 @@ export async function createWatchlistFromDocument(
 
 export async function getWatchlist(
   scope: WatchlistScope,
-  watchlistId: string
+  watchlistId: string,
+  isDeployedContext = true
 ): Promise<WatchlistRecord> {
   try {
-    return await db.transaction(async (tx) => {
-      const root = await fetchRootWatchlistRow(tx, scope.workspaceId, watchlistId)
-      const fields = await mapWatchlistDocumentFieldsInTx(tx, root)
-      return buildWatchlistRecord(root, fields)
-    })
+    const root = await fetchRootWatchlistRow(db, scope.workspaceId, watchlistId)
+    return await readWatchlistRecordForExecution(root, isDeployedContext)
   } catch (error) {
     mapDocumentError(error)
   }
 }
 
-export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRecord[]> {
+export async function listWatchlists(
+  scope: WatchlistScope,
+  isDeployedContext = true
+): Promise<WatchlistRecord[]> {
   try {
-    return await db.transaction(async (tx) => {
-      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
-      const watchlists: WatchlistRecord[] = []
-      for (const root of roots) {
-        watchlists.push(buildWatchlistRecord(root, await mapWatchlistDocumentFieldsInTx(tx, root)))
-      }
-      return watchlists
-    })
+    const roots = await listRootWatchlistRowsInTx(db, scope.workspaceId)
+    return await Promise.all(
+      roots.map((root) => readWatchlistRecordForExecution(root, isDeployedContext))
+    )
   } catch (error) {
     mapDocumentError(error)
   }

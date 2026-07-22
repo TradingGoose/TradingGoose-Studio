@@ -130,7 +130,7 @@ describe('Tools Registry', () => {
     }
   })
 
-  it('routes watchlist list and item reads to their canonical owners', async () => {
+  it('forwards live watchlist execution mode', async () => {
     const watchlist = {
       id: 'watchlist-b',
       workspaceId: 'workspace-456',
@@ -142,22 +142,27 @@ describe('Tools Registry', () => {
     }
     watchlistMocks.getWatchlist.mockResolvedValueOnce(watchlist)
     watchlistMocks.listWatchlists.mockResolvedValueOnce([watchlist])
+    const context = {
+      userId: 'user-123',
+      workspaceId: 'workspace-456',
+      isDeployedContext: false,
+    }
 
     await executeTool('watchlist_read_list_items', {
       watchlistId: 'watchlist-b',
-      _context: { userId: 'user-123', workspaceId: 'workspace-456' },
+      _context: context,
     })
     expect(watchlistMocks.getWatchlist).toHaveBeenCalledWith(
       { workspaceId: 'workspace-456' },
-      'watchlist-b'
+      'watchlist-b',
+      false
     )
-    expect(watchlistMocks.listWatchlists).not.toHaveBeenCalled()
 
-    await executeTool('watchlist_read_lists', {
-      _context: { userId: 'user-123', workspaceId: 'workspace-456' },
-    })
-    expect(watchlistMocks.listWatchlists).toHaveBeenCalledWith({ workspaceId: 'workspace-456' })
-    expect(watchlistMocks.getWatchlist).toHaveBeenCalledOnce()
+    await executeTool('watchlist_read_lists', { _context: context })
+    expect(watchlistMocks.listWatchlists).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-456' },
+      false
+    )
   })
 
   it('rejects direct watchlist reads when the authenticated user lacks workspace access', async () => {
