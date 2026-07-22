@@ -263,7 +263,7 @@ function enqueueDocumentPersistence(
       const stagedStateVector = Y.encodeStateVector(staged)
       await persist(doc.name, staged)
       const hasNewerChanges = doc.changeGeneration !== requestedGeneration
-      if (!hasNewerChanges) {
+      if (!hasNewerChanges && doc.pendingMutations === 0) {
         Y.applyUpdate(doc, Y.encodeStateAsUpdate(staged, stagedStateVector), YJS_ORIGINS.SYSTEM)
       }
       publishPersistedSnapshot(doc, Y.snapshot(staged))
@@ -540,13 +540,10 @@ export async function persistStagedDocuments<T>(
   })
   try {
     targets.forEach(({ mutate }, index) => mutate?.(staging[index]!))
+    const mutations = staging.map((doc, index) => Y.encodeStateAsUpdate(doc, liveStates[index]))
     const result = await persist(staging)
     targets.forEach(({ doc }, index) => {
-      Y.applyUpdate(
-        doc,
-        Y.encodeStateAsUpdate(staging[index]!, liveStates[index]),
-        YJS_ORIGINS.SYSTEM
-      )
+      Y.applyUpdate(doc, mutations[index]!, YJS_ORIGINS.SYSTEM)
       if (!(doc instanceof WSSharedDoc)) return
       publishPersistedSnapshot(doc, Y.snapshot(staging[index]!), requestId)
       if (doc.changeGeneration === generations[index]) doc.hasUnsavedChanges = false

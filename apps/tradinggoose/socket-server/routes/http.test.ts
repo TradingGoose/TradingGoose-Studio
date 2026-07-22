@@ -260,10 +260,11 @@ describe('socket internal HTTP Yjs routes', () => {
         })
         try {
           targets.forEach(({ mutate }, index) => mutate?.(staging[index]!))
-          const result = await persist(staging)
-          targets.forEach(({ doc }, index) =>
-            Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging[index]!, liveStates[index]))
+          const mutations = staging.map((doc, index) =>
+            Y.encodeStateAsUpdate(doc, liveStates[index])
           )
+          const result = await persist(staging)
+          targets.forEach(({ doc }, index) => Y.applyUpdate(doc, mutations[index]!))
           return result
         } finally {
           staging.forEach((doc) => doc.destroy())

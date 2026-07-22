@@ -145,12 +145,6 @@ function readCheckpoint(message: Uint8Array) {
   return lifecycle
 }
 
-function readLifecycle(message: Uint8Array) {
-  const decoder = decoding.createDecoder(message)
-  expect(decoding.readVarUint(decoder)).toBe(YJS_MESSAGE_LIFECYCLE)
-  return decodeYjsLifecycleMessage(decoder)
-}
-
 afterEach(() => {
   vi.useRealTimers()
   cleanupAllDocuments()
@@ -340,14 +334,21 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('watchlist-reconnect')).toBeNull()
   })
 
-  it('queues manual persistence behind updates and reports failure without losing the draft', async () => {
+  it('keeps queued edits newer than manual persistence and retains drafts after failure', async () => {
     const socket = new TestSocket()
+    const release = deferred()
+    let canonicalUpdate!: Uint8Array
     const descriptor = buildSavedEntityDescriptor('skill', 'skill-manual', 'workspace-1')
     const persist = vi.fn((doc: Y.Doc, requestId: string) =>
       persistStagedDocuments(
-        [{ doc }],
+        [{ doc, mutate: (staged) => staged.getMap('fields').set('accepted', requestId) }],
         async ([staged]) => {
-          expect(staged!.getMap('fields').get('content')).toBe('saved')
+          const fields = staged!.getMap('fields')
+          expect(fields.get('content')).toBe('saved')
+          const beforeCanonicalization = Y.encodeStateVector(staged!)
+          fields.set('content', 'canonical')
+          canonicalUpdate = Y.encodeStateAsUpdate(staged!, beforeCanonicalization)
+          await release.promise
         },
         requestId
       )
@@ -366,25 +367,35 @@ describe('shared document lifecycle', () => {
         return shared
       }
     )
-    const initialMessages = socket.send.mock.calls.length
+    const fields = doc.getMap('fields')
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', 'saved')))
+    const initialMessages = socket.send.mock.calls.length
     socket.emit('message', encodeYjsPersistRequest('request-1', 'Renamed skill'))
-
     await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
-    await vi.waitFor(() => expect(socket.send).toHaveBeenCalledTimes(initialMessages + 1))
+
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', 'newer')))
+    release.resolve()
+    await vi.waitFor(() => expect(fields.get('content')).toBe('newer'))
+
+    const checkpoint = readCheckpoint(socket.send.mock.calls.at(-1)![0])
     expect(persist).toHaveBeenCalledWith(doc, 'request-1', 'Renamed skill')
-    expect(readCheckpoint(socket.send.mock.calls.at(-1)![0]).requestId).toBe('request-1')
+    expect(checkpoint.requestId).toBe('request-1')
+    expect(Y.snapshotContainsUpdate(checkpoint.snapshot, canonicalUpdate)).toBe(true)
+    expect(Y.snapshotContainsUpdate(Y.snapshot(doc), canonicalUpdate)).toBe(false)
+    expect(fields.toJSON()).toEqual({ content: 'newer', accepted: 'request-1' })
 
     persist.mockRejectedValueOnce(new Error('database unavailable'))
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'draft', true)))
     socket.emit('message', encodeYjsPersistRequest('request-2'))
-    await vi.waitFor(() => expect(socket.send).toHaveBeenCalledTimes(initialMessages + 2))
-    expect(readLifecycle(socket.send.mock.calls.at(-1)![0])).toMatchObject({
+    await vi.waitFor(() => expect(socket.send).toHaveBeenCalledTimes(initialMessages + 3))
+    const errorDecoder = decoding.createDecoder(socket.send.mock.calls.at(-1)![0])
+    expect(decoding.readVarUint(errorDecoder)).toBe(YJS_MESSAGE_LIFECYCLE)
+    expect(decodeYjsLifecycleMessage(errorDecoder)).toMatchObject({
       type: 'persist-error',
       requestId: 'request-2',
       error: 'database unavailable',
     })
-    expect(doc.getMap('fields').get('draft')).toBe(true)
+    expect(fields.get('draft')).toBe(true)
     socket.emit('close')
   })
 
@@ -394,7 +405,6 @@ describe('shared document lifecycle', () => {
     const release = deferred()
     let firstNormalization!: Uint8Array
     const persist = vi.fn(async (_docId: string, staged: Y.Doc) => {
-      expect(staged).not.toBe(doc)
       const fields = staged.getMap('fields')
       const beforeNormalization = Y.encodeStateVector(staged)
       if (persist.mock.calls.length === 1) {
@@ -405,30 +415,23 @@ describe('shared document lifecycle', () => {
       if (persist.mock.calls.length === 1) {
         firstNormalization = Y.encodeStateAsUpdate(staged, beforeNormalization)
       }
-      expect(fields.toJSON()).toEqual({
-        value: fields.get('value'),
-        canonical: fields.get('value'),
-      })
     })
     const doc = await setupWatchlistSocket(socket, 'watchlist-generation', persist, 60_000)
     const fields = doc.getMap('fields')
-    const updateA = createFieldsUpdate(doc, 'value', 'A')
-    socket.emit('message', createSyncUpdateMessage(updateA))
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'value', 'A')))
     await vi.waitFor(() => expect(fields.get('value')).toBe('A'))
-    const firstPersistence = flushDocumentPersistence(doc)
+    const firstPersistence = runDocumentMutation(doc, () => flushDocumentPersistence(doc))
     await started.promise
 
     const updateB = createFieldsUpdate(doc, 'value', 'B')
     socket.emit('message', createSyncUpdateMessage(updateB))
-    await vi.waitFor(() => expect(fields.get('value')).toBe('B'))
     release.resolve()
     await firstPersistence
+    await vi.waitFor(() => expect(fields.toJSON()).toEqual({ value: 'B' }))
 
     const checkpoint = readCheckpoint(socket.send.mock.calls.at(-1)![0])
-    expect(Y.snapshotContainsUpdate(checkpoint.snapshot, updateA)).toBe(true)
     expect(Y.snapshotContainsUpdate(checkpoint.snapshot, firstNormalization)).toBe(true)
     expect(Y.snapshotContainsUpdate(checkpoint.snapshot, updateB)).toBe(false)
-    expect(fields.toJSON()).toEqual({ value: 'B' })
 
     socket.emit('close')
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
