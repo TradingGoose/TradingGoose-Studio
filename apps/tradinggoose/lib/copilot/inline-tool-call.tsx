@@ -270,23 +270,21 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
   const entityLabel =
     result?.entityKind === 'workflow' && toolCall.name === 'edit_workflow_variable'
       ? 'Workflow Variable'
-      : result?.entityKind === 'dashboard_layout' && toolCall.name === 'edit_widget'
-        ? 'Widget'
-        : result?.entityKind === 'custom_tool'
-          ? 'Custom Tool'
-          : result?.entityKind === 'mcp_server'
-            ? 'MCP Server'
-            : result?.entityKind === 'knowledge_base'
-              ? 'Knowledge Base'
-              : result?.entityKind === 'indicator'
-                ? 'Indicator'
-                : result?.entityKind === 'skill'
-                  ? 'Skill'
-                  : result?.entityKind === 'watchlist'
-                    ? 'Watchlist'
-                    : result?.entityKind === 'dashboard_layout'
-                      ? 'Dashboard Layout'
-                      : 'Entity'
+      : result?.entityKind === 'custom_tool'
+        ? 'Custom Tool'
+        : result?.entityKind === 'mcp_server'
+          ? 'MCP Server'
+          : result?.entityKind === 'knowledge_base'
+            ? 'Knowledge Base'
+            : result?.entityKind === 'indicator'
+              ? 'Indicator'
+              : result?.entityKind === 'skill'
+                ? 'Skill'
+                : result?.entityKind === 'watchlist'
+                  ? 'Watchlist'
+                  : result?.entityKind === 'dashboard_layout'
+                    ? 'Dashboard Layout'
+                    : 'Entity'
   return {
     title:
       toolCall.state === ClientToolCallState.success
@@ -884,11 +882,13 @@ export function InlineToolCall({
         <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-              {entityReviewPayload.title}
+              {toolCall.name === 'edit_widget'
+                ? tReview('widgetTitle', { state: reviewState })
+                : entityReviewPayload.title}
             </div>
             <DiffViewer
-              oldFile={{ name: 'Current', content: entityReviewPayload.documentDiff.before }}
-              newFile={{ name: 'Proposed', content: entityReviewPayload.documentDiff.after }}
+              oldFile={{ name: currentLabel, content: entityReviewPayload.documentDiff.before }}
+              newFile={{ name: proposedLabel, content: entityReviewPayload.documentDiff.after }}
               viewMode='unified'
               showIcon={false}
               size='sm'

@@ -21264,6 +21264,7 @@
           "sideLabel": "{side, select, current {Current} proposed {Proposed} other {Current}}",
           "newDocument": "New document",
           "dashboardLayoutTitle": "{state, select, applied {Applied Dashboard Layout Changes} proposed {Proposed Dashboard Layout Changes} other {Proposed Dashboard Layout Changes}}",
+          "widgetTitle": "{state, select, applied {Applied Widget Changes} proposed {Proposed Widget Changes} other {Proposed Widget Changes}}",
           "watchlistTitle": "{state, select, applied {Applied Watchlist Changes} proposed {Proposed Watchlist Changes} other {Proposed Watchlist Changes}}",
           "emptyWatchlist": "Empty watchlist",
           "watchlistSetting": "{setting, select, showLogo {Logo} showTicker {Ticker} showDescription {Description} other {Setting}}"

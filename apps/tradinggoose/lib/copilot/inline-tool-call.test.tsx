@@ -493,62 +493,62 @@ describe('InlineToolCall', () => {
   )
 
   it.each([
-    [ClientToolCallState.review, 'Proposed Widget Changes'],
-    [ClientToolCallState.success, 'Applied Widget Changes'],
-  ])(
-    'renders dashboard widget changes through the generic JSON diff for %s state',
-    async (state, title) => {
+    ['es', ClientToolCallState.review, 'Cambios propuestos al widget', 'Actual', 'Propuesto'],
+    ['zh', ClientToolCallState.success, '已应用组件更改', '当前', '拟议'],
+  ] as const)(
+    'localizes dashboard widget changes through the generic JSON diff for %s',
+    async (locale, state, title, currentLabel, proposedLabel) => {
       await act(async () => {
-        root.render(
-          <InlineToolCall
-            toolCall={{
-              id: `tool-dashboard-widget-${state}`,
-              name: 'edit_widget',
-              state,
-              result: {
-                entityKind: 'dashboard_layout',
-                preview: {
-                  documentDiff: {
-                    before: JSON.stringify(
-                      {
-                        panelId: 'panel-a',
-                        widgetKey: 'editor_workflow',
-                        widgetDocument: {
-                          pairColor: 'red',
-                          params: null,
-                        },
-                        colorPair: { workflowId: 'workflow-1' },
+        renderLocalized(
+          {
+            id: `tool-dashboard-widget-${state}`,
+            name: 'edit_widget',
+            state,
+            result: {
+              entityKind: 'dashboard_layout',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify(
+                    {
+                      panelId: 'panel-a',
+                      widgetKey: 'editor_workflow',
+                      widgetDocument: {
+                        pairColor: 'red',
+                        params: null,
                       },
-                      null,
-                      2
-                    ),
-                    after: JSON.stringify(
-                      {
-                        panelId: 'panel-a',
-                        widgetKey: 'watchlist',
-                        widgetDocument: {
-                          pairColor: 'red',
-                          params: { provider: 'alpaca' },
-                        },
-                        colorPair: { watchlistId: 'watchlist-1' },
+                      colorPair: { workflowId: 'workflow-1' },
+                    },
+                    null,
+                    2
+                  ),
+                  after: JSON.stringify(
+                    {
+                      panelId: 'panel-a',
+                      widgetKey: 'watchlist',
+                      widgetDocument: {
+                        pairColor: 'red',
+                        params: { provider: 'alpaca' },
                       },
-                      null,
-                      2
-                    ),
-                  },
+                      colorPair: { watchlistId: 'watchlist-1' },
+                    },
+                    null,
+                    2
+                  ),
                 },
               },
-            }}
-          />
+            },
+          },
+          locale
         )
       })
 
       expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain(currentLabel)
+      expect(container.textContent).toContain(proposedLabel)
       expect(container.textContent).toContain('panel-a')
       expect(container.textContent).toContain('editor_workflow')
       expect(container.textContent).toContain('watchlist')
       expect(container.textContent).toContain('watchlist-1')
-      expect(container.textContent).not.toContain('Dashboard Widget')
     }
   )
 })

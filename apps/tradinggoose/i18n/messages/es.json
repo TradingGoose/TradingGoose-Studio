@@ -21264,6 +21264,7 @@
           "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
           "newDocument": "Documento nuevo",
           "dashboardLayoutTitle": "{state, select, applied {Cambios aplicados al diseño del panel} proposed {Cambios propuestos al diseño del panel} other {Cambios propuestos al diseño del panel}}",
+          "widgetTitle": "{state, select, applied {Cambios aplicados al widget} proposed {Cambios propuestos al widget} other {Cambios propuestos al widget}}",
           "watchlistTitle": "{state, select, applied {Cambios aplicados a la lista de seguimiento} proposed {Cambios propuestos a la lista de seguimiento} other {Cambios propuestos a la lista de seguimiento}}",
           "emptyWatchlist": "Lista de seguimiento vacía",
           "watchlistSetting": "{setting, select, showLogo {Logotipo} showTicker {Símbolo} showDescription {Descripción} other {Configuración}}"

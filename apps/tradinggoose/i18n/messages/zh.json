@@ -21251,6 +21251,7 @@
           "sideLabel": "{side, select, current {当前} proposed {拟议} other {当前}}",
           "newDocument": "新文档",
           "dashboardLayoutTitle": "{state, select, applied {已应用仪表盘布局更改} proposed {拟议的仪表盘布局更改} other {拟议的仪表盘布局更改}}",
+          "widgetTitle": "{state, select, applied {已应用组件更改} proposed {拟议的组件更改} other {拟议的组件更改}}",
           "watchlistTitle": "{state, select, applied {已应用自选列表更改} proposed {拟议的自选列表更改} other {拟议的自选列表更改}}",
           "emptyWatchlist": "空自选列表",
           "watchlistSetting": "{setting, select, showLogo {徽标} showTicker {代码} showDescription {描述} other {设置}}"
