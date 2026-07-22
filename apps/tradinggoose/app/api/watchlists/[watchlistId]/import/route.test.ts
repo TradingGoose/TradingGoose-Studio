@@ -1,14 +1,22 @@
 /**
  * @vitest-environment node
  */
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
-let routePost: typeof import('@/app/api/watchlists/[watchlistId]/import/route').POST
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
 const mockApplyEntityStateInSocketServer = vi.fn()
+class MockWatchlistOperationError extends Error {
+  constructor(
+    message: string,
+    public status = 400
+  ) {
+    super(message)
+    this.name = 'WatchlistOperationError'
+  }
+}
 class MockSocketServerBridgeError extends Error {
   constructor(
     public status: number,
@@ -21,37 +29,30 @@ class MockSocketServerBridgeError extends Error {
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
   }),
 }))
 
-vi.mock('@/lib/auth', () => ({
+vi.doMock('@/lib/auth', () => ({
   getSession: mockGetSession,
 }))
 
-vi.mock('@/lib/permissions/utils', () => ({
+vi.doMock('@/lib/permissions/utils', () => ({
   getUserEntityPermissions: mockGetUserEntityPermissions,
 }))
 
-vi.mock('@/lib/watchlists/operations', async () => {
-  const actual = await vi.importActual<any>('@/lib/watchlists/operations')
-  return {
-    ...actual,
-    getWatchlist: mockGetWatchlist,
-  }
-})
+vi.doMock('@/lib/watchlists/operations', () => ({
+  getWatchlist: mockGetWatchlist,
+  WatchlistOperationError: MockWatchlistOperationError,
+}))
 
-vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: (...args: unknown[]) =>
     mockApplyEntityStateInSocketServer(...args),
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
-beforeAll(async () => {
-  routePost = (await import('@/app/api/watchlists/[watchlistId]/import/route')).POST
-})
+const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
 
 const importedFile = {
   version: '1',
@@ -112,7 +113,7 @@ describe('Watchlist import API route', () => {
       file: importedFile,
     })
 
-    const response = await routePost(request, {
+    const response = await POST(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -155,7 +156,7 @@ describe('Watchlist import API route', () => {
       },
     })
 
-    const response = await routePost(request, {
+    const response = await POST(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -199,7 +200,7 @@ describe('Watchlist import API route', () => {
       },
     })
 
-    const response = await routePost(request, {
+    const response = await POST(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -218,7 +219,7 @@ describe('Watchlist import API route', () => {
       file: importedFile,
     })
 
-    const response = await routePost(request, {
+    const response = await POST(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -241,7 +242,7 @@ describe('Watchlist import API route', () => {
       new MockSocketServerBridgeError(502, 'Socket server unavailable')
     )
 
-    const response = await routePost(
+    const response = await POST(
       createMockRequest('POST', {
         workspaceId: 'workspace-1',
         file: importedFile,
