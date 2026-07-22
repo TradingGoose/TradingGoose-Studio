@@ -27,8 +27,6 @@ import {
   editMcpServerServerTool,
   editSkillServerTool,
   editWatchlistServerTool,
-  editWorkflowBlockServerTool,
-  editWorkflowServerTool,
   editWorkflowVariableServerTool,
   listCustomToolsServerTool,
   listIndicatorsServerTool,
@@ -75,6 +73,8 @@ import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/us
 import { getAvailableWidgetsServerTool } from '@/lib/copilot/tools/server/widgets/get-available-widgets'
 import { getWidgetsMetadataServerTool } from '@/lib/copilot/tools/server/widgets/get-widgets-metadata'
 import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
+import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/read-block-outputs'
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
 import { readWorkflowLogsServerTool } from '@/lib/copilot/tools/server/workflow/read-workflow-logs'

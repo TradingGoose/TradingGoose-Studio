@@ -1,4 +1,3 @@
-import * as Y from 'yjs'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
@@ -10,13 +9,7 @@ import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  createWorkflowSnapshot,
-  getVariablesSnapshot,
-  readWorkflowSnapshot,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
+import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 function buildWorkflowDocumentPreviewDiff(
   currentWorkflowState: WorkflowSnapshot | undefined,
@@ -100,46 +93,15 @@ function buildWorkflowDocumentPreviewDiff(
   }
 }
 
-export async function loadBaseWorkflowState(
-  workflowId: string,
-  context?: ServerToolExecutionContext
-): Promise<WorkflowSnapshot & { variables: Record<string, any> }> {
-  const { workspaceId } = await verifySavedEntityContext(context, 'workflow', workflowId, 'write')
-
-  const snapshot = await readBootstrappedReviewTargetSnapshot({
-    workspaceId,
-    ownerUserId: null,
-    entityKind: 'workflow',
-    entityId: workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
-    yjsSessionId: workflowId,
-  })
-
-  if (!snapshot.snapshotBase64) {
-    throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return {
-      ...createWorkflowSnapshot(readWorkflowSnapshot(doc)),
-      variables: getVariablesSnapshot(doc),
-    }
-  } finally {
-    doc.destroy()
-  }
-}
-
 export function buildWorkflowMutationResult(params: {
   workflowId: string
+  entityName: string
   baseWorkflowState: WorkflowSnapshot & { variables: Record<string, any> }
   nextWorkflowState: WorkflowSnapshot
   renderEntityDocument: (workflowState: WorkflowSnapshot) => string
   documentFormat: string
 }) {
-  const { workflowId, baseWorkflowState, nextWorkflowState } = params
+  const { workflowId, entityName, baseWorkflowState, nextWorkflowState } = params
   const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
     nextWorkflowState,
     baseWorkflowState
@@ -167,6 +129,7 @@ export function buildWorkflowMutationResult(params: {
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
+    entityName,
     entityDocument,
     documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,

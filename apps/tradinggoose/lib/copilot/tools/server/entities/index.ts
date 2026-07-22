@@ -41,8 +41,6 @@ export {
 } from './watchlist'
 export {
   createWorkflowServerTool,
-  editWorkflowBlockServerTool,
-  editWorkflowServerTool,
   editWorkflowVariableServerTool,
   listWorkflowsServerTool,
   readWorkflowServerTool,

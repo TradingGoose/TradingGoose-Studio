@@ -4,6 +4,7 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
 import {
@@ -14,7 +15,6 @@ import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import {
   buildWorkflowMutationResult,
-  loadBaseWorkflowState,
   resolveWorkflowMutationResultForExecution,
 } from './workflow-mutation-utils'
 
@@ -92,7 +92,15 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
       subBlockCount: Object.keys(nextSubBlocks).length,
     })
 
-    const baseWorkflowState = await loadBaseWorkflowState(workflowId, context)
+    const { entityName, workflowState, variables } = await loadWorkflowSnapshotForCopilot(
+      workflowId,
+      context,
+      'write'
+    )
+    const baseWorkflowState = {
+      ...createWorkflowSnapshot(workflowState),
+      variables,
+    }
     const currentBlock = baseWorkflowState.blocks[blockId]
 
     if (!currentBlock) {
@@ -186,6 +194,7 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
     try {
       const result = buildWorkflowMutationResult({
         workflowId,
+        entityName,
         baseWorkflowState,
         nextWorkflowState,
         renderEntityDocument: serializeWorkflowToTgMermaid,

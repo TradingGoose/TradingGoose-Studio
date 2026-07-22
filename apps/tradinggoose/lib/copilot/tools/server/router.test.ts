@@ -173,8 +173,6 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
   editMcpServerServerTool: entityTool('edit_mcp_server'),
   editSkillServerTool: entityTool('edit_skill'),
   editWatchlistServerTool: entityTool('edit_watchlist'),
-  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
-  editWorkflowServerTool: entityTool('edit_workflow', editWorkflowExecute),
   editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
   listCustomToolsServerTool: entityTool('list_custom_tools'),
   listIndicatorsServerTool: entityTool('list_indicators'),
@@ -200,6 +198,9 @@ vi.mock('@/lib/copilot/tools/server/entities', () => ({
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },
+}))
+vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow-block', () => ({
+  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
   readWorkflowLogsServerTool: {
@@ -646,6 +647,7 @@ describe('routeExecution', () => {
     await expect(routeExecution('edit_workflow', payload)).resolves.toMatchObject({
       entityKind: 'workflow',
       entityId: 'workflow-123',
+      entityName: 'Workflow 1',
       entityDocument: expect.any(String),
       documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })

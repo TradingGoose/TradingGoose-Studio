@@ -17,8 +17,6 @@ import {
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
-import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
@@ -556,5 +554,3 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     return executeRenameEntityMutation(ENTITY_KIND_WORKFLOW, 'rename_workflow', args, context)
   },
 }
-
-export { editWorkflowServerTool, editWorkflowBlockServerTool }
