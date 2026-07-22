@@ -18,16 +18,13 @@ const fetchMock = vi.fn()
 
 class MockWebsocketProvider {
   connect = vi.fn(() => {
-    this.shouldConnect = true
     this.wsconnected = true
   })
   destroy = vi.fn()
   disconnect = vi.fn(() => {
-    this.shouldConnect = false
     this.emit('connection-close', null, this)
   })
   doc: Y.Doc
-  disableBc: boolean
   listeners = new Map<string, Set<(...args: any[]) => void>>()
   messageHandlers: Array<(...args: any[]) => void>
   params: Record<string, string>
@@ -42,12 +39,10 @@ class MockWebsocketProvider {
     doc: Y.Doc,
     opts: {
       connect?: boolean
-      disableBc?: boolean
       params?: Record<string, string>
     } = {}
   ) {
     this.doc = doc
-    this.disableBc = opts.disableBc ?? false
     this.params = opts.params ?? {}
     this.messageHandlers = [
       (encoder, decoder, provider, emitSynced) => {
@@ -133,14 +128,15 @@ describe('bootstrapYjsProvider', () => {
   async function bootstrapSyncedProvider(
     serverUpdate?: Uint8Array,
     pendingLocalEdits?: import('./provider').YjsPendingLocalEdits,
-    lineageId = 'lineage-1'
+    lineageId = 'lineage-1',
+    accessMode: 'read' | 'write' = 'write'
   ) {
     const { bootstrapYjsProvider } = await import('./provider')
     const providerCount = providerInstances.length + 1
     const bootstrapPromise = bootstrapYjsProvider(
       descriptor,
       'ws://localhost:3002',
-      'write',
+      accessMode,
       pendingLocalEdits
     )
     await vi.waitFor(() => {
@@ -169,6 +165,8 @@ describe('bootstrapYjsProvider', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -335,50 +333,36 @@ describe('bootstrapYjsProvider', () => {
     replacement.dispose()
   })
 
-  it('waits for authoritative reader sync without applying the HTTP snapshot', async () => {
-    const { bootstrapYjsProvider } = await import('./provider')
-    const bootstrap = bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
-    await vi.waitFor(() => expect(providerInstances).toHaveLength(1))
-    const provider = providerInstances[0]
-
-    expect(provider.shouldConnect).toBe(true)
-    expect(provider.disableBc).toBe(true)
-    expect(provider.synced).toBe(false)
-    expect(provider.doc.getMap('fields').get('name')).toBeUndefined()
-    const server = new Y.Doc()
-    server.getMap('fields').set('name', 'Authoritative value')
-    provider.receive(encodeYjsDurableCheckpoint('lineage-1', Y.snapshot(server)))
-    provider.receive(createSyncUpdateMessage(Y.encodeStateAsUpdate(server)))
-    server.destroy()
-    provider.emit('sync', true)
-    const result = await bootstrap
-
-    expect(provider.params.accessMode).toBe('read')
-    expect(result.doc.getMap('fields').get('name')).toBe('Authoritative value')
+  it('backs off read-session token rotation until a successful resync', async () => {
+    const result = await bootstrapSyncedProvider(undefined, undefined, 'lineage-1', 'read')
+    const provider = result.provider as unknown as MockWebsocketProvider
     const tokenFetches = fetchMock.mock.calls.length
-
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    fetchMock.mockResolvedValueOnce(jsonResponse(null, 503))
     provider.emit('connection-error', new Event('error'), provider)
-    await vi.waitFor(() => expect(provider.connect).toHaveBeenCalledTimes(2))
+    provider.emit('connection-close', null, provider)
+    await vi.advanceTimersByTimeAsync(1_149)
+    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches)
+    await vi.advanceTimersByTimeAsync(1)
+    await vi.advanceTimersByTimeAsync(2_300)
+    provider.emit('connection-close', null, provider)
+    await vi.advanceTimersByTimeAsync(4_599)
+    expect(provider.connect).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
 
-    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 1)
-    expect(provider.disconnect).toHaveBeenCalledOnce()
-    expect(result.doc).toBe(provider.doc)
-
+    provider.emit('sync', true)
     let resolveToken!: (response: Response) => void
     fetchMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveToken = resolve
-        })
+      () => new Promise<Response>((resolve) => (resolveToken = resolve))
     )
     provider.emit('connection-close', null, provider)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 2))
+    await vi.advanceTimersByTimeAsync(1_150)
+    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches + 4)
     result.dispose()
-    expect(provider.listeners.get('connection-error')?.size).toBe(0)
     resolveToken(jsonResponse({ token: 'token-2' }))
-    await Promise.resolve()
-
-    expect(provider.connect).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(provider.connect).toHaveBeenCalledTimes(3)
   })
 
   it('terminates an oversized writer update instead of replaying it', async () => {

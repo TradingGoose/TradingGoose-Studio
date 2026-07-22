@@ -43,7 +43,9 @@ function terminalProviderError(message: string): YjsProviderError {
 }
 
 const SYNC_TIMEOUT_MS = 10_000
-const RECONNECT_RETRY_MS = 1_000
+const RECONNECT_BASE_DELAY_MS = 1_000
+const RECONNECT_MAX_DELAY_MS = 30_000
+const RECONNECT_JITTER_RATIO = 0.3
 
 function connectionCloseError(event: unknown): YjsProviderError | null {
   const code = Number((event as { code?: unknown } | null)?.code)
@@ -298,6 +300,7 @@ export async function bootstrapYjsProvider(
   let disposed = false
   let ready = false
   let reconnecting = false
+  let reconnectAttempt = 0
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   const persistRequests = new Map<
     string,
@@ -385,6 +388,7 @@ export async function bootstrapYjsProvider(
     reconnectTimer = null
     provider.off('connection-close', handleConnectionLoss)
     provider.off('connection-error', handleConnectionError)
+    provider.off('sync', handleSync)
     rejectPersistRequests(new Error('Yjs session closed before persistence completed'))
     doc.off('beforeTransaction', handleBeforeTransaction)
     doc.off('update', handleDocumentUpdate)
@@ -408,8 +412,14 @@ export async function bootstrapYjsProvider(
     resolveLifecycle(event)
   }
 
-  function scheduleReconnect(delayMs = 0): void {
+  function scheduleReconnect(): void {
     if (!active || reconnecting || reconnectTimer) return
+    const backoffMs = Math.min(
+      RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempt,
+      RECONNECT_MAX_DELAY_MS
+    )
+    const delayMs = backoffMs * (1 + Math.random() * RECONNECT_JITTER_RATIO)
+    reconnectAttempt += 1
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
       void reconnect()
@@ -438,7 +448,11 @@ export async function bootstrapYjsProvider(
     } finally {
       reconnecting = false
     }
-    if (retry) scheduleReconnect(RECONNECT_RETRY_MS)
+    if (retry) scheduleReconnect()
+  }
+
+  function handleSync(isSynced: boolean): void {
+    if (isSynced) reconnectAttempt = 0
   }
 
   function handleConnectionLoss(event?: unknown): void {
@@ -480,6 +494,7 @@ export async function bootstrapYjsProvider(
 
   provider.on('connection-close', handleConnectionLoss)
   provider.on('connection-error', handleConnectionError)
+  provider.on('sync', handleSync)
   doc.on('beforeTransaction', handleBeforeTransaction)
   doc.on('update', handleDocumentUpdate)
   doc.on('destroy', deactivate)
