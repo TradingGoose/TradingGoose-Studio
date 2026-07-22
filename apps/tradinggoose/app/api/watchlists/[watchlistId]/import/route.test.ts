@@ -1,9 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
+let routePost: typeof import('@/app/api/watchlists/[watchlistId]/import/route').POST
 const mockGetSession = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockGetWatchlist = vi.fn()
@@ -47,6 +48,10 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
     mockApplyEntityStateInSocketServer(...args),
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
+
+beforeAll(async () => {
+  routePost = (await import('@/app/api/watchlists/[watchlistId]/import/route')).POST
+})
 
 const importedFile = {
   version: '1',
@@ -102,13 +107,12 @@ describe('Watchlist import API route', () => {
   })
 
   it('defers imported row identity ownership to the atomic socket mutation', async () => {
-    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       file: importedFile,
     })
 
-    const response = await POST(request, {
+    const response = await routePost(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -131,7 +135,6 @@ describe('Watchlist import API route', () => {
   })
 
   it('returns 400 when the watchlist document is invalid', async () => {
-    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       file: {
@@ -152,7 +155,7 @@ describe('Watchlist import API route', () => {
       },
     })
 
-    const response = await POST(request, {
+    const response = await routePost(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -163,7 +166,6 @@ describe('Watchlist import API route', () => {
   })
 
   it('returns a validation error for duplicate imported listing identities', async () => {
-    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       file: {
@@ -197,7 +199,7 @@ describe('Watchlist import API route', () => {
       },
     })
 
-    const response = await POST(request, {
+    const response = await routePost(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -208,7 +210,6 @@ describe('Watchlist import API route', () => {
   })
 
   it('returns socket-owned import validation errors', async () => {
-    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     mockApplyEntityStateInSocketServer.mockRejectedValueOnce(
       new MockSocketServerBridgeError(409, 'Watchlist contains a duplicate listing')
     )
@@ -217,7 +218,7 @@ describe('Watchlist import API route', () => {
       file: importedFile,
     })
 
-    const response = await POST(request, {
+    const response = await routePost(request, {
       params: Promise.resolve({ watchlistId: 'watchlist-1' }),
     })
     const payload = await response.json()
@@ -236,12 +237,11 @@ describe('Watchlist import API route', () => {
   })
 
   it('returns a retryable response when realtime persistence is unavailable', async () => {
-    const { POST } = await import('@/app/api/watchlists/[watchlistId]/import/route')
     mockApplyEntityStateInSocketServer.mockRejectedValueOnce(
       new MockSocketServerBridgeError(502, 'Socket server unavailable')
     )
 
-    const response = await POST(
+    const response = await routePost(
       createMockRequest('POST', {
         workspaceId: 'workspace-1',
         file: importedFile,
