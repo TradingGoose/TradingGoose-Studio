@@ -47,7 +47,10 @@ import {
   WATCHLIST_EXPORT_SOURCE,
 } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { resolveWatchlistDocumentItemIds } from '@/lib/watchlists/validation'
+import {
+  resolveWatchlistDocumentItemIds,
+  watchlistListingMembershipKey,
+} from '@/lib/watchlists/validation'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
@@ -569,7 +572,16 @@ export const WatchlistHeaderRightControls = ({
       const content = await file.text()
       const imported = parseImportedWatchlistFile(JSON.parse(content) as unknown)
       const importedItems = resolveWatchlistDocumentItemIds(imported.items, new Set<string>())
-      selectedDocument.updateItems((items) => [...items, ...importedItems])
+      selectedDocument.updateItems((items) => {
+        const memberships = new Set<string>()
+        return [...items, ...importedItems].filter((item) => {
+          if (item.type === 'section') return true
+          const key = watchlistListingMembershipKey(item.parentId, item.listing)
+          if (memberships.has(key)) return false
+          memberships.add(key)
+          return true
+        })
+      })
     } catch {
       // Invalid files or save errors leave the existing watchlist unchanged.
     } finally {

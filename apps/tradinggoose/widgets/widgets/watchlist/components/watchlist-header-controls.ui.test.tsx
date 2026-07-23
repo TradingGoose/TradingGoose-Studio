@@ -304,18 +304,26 @@ describe('watchlist header controls', () => {
     ])
   })
 
-  it('adds imported items without replacing the selected watchlist document', async () => {
-    const existingItem = {
-      id: '00000000-0000-4000-8000-000000000001',
+  it('skips duplicate root listings while appending the rest of an import', async () => {
+    const listingItem = (id: string, listingId: string, parentId: string | null = null) => ({
+      id,
       type: 'listing' as const,
-      parentId: null,
+      parentId,
       listing: {
-        listing_id: 'MSFT',
+        listing_id: listingId,
         base_id: '',
         quote_id: '',
         listing_type: 'default' as const,
       },
-    }
+    })
+    const sourceSectionId = '00000000-0000-4000-8000-000000000002'
+    const existingItem = listingItem('00000000-0000-4000-8000-000000000001', 'AAPL')
+    const importedItems = [
+      { id: sourceSectionId, type: 'section' as const, parentId: null, label: 'Imported' },
+      listingItem('00000000-0000-4000-8000-000000000003', 'AAPL', sourceSectionId),
+      listingItem('00000000-0000-4000-8000-000000000004', 'AAPL'),
+      listingItem('00000000-0000-4000-8000-000000000005', 'MSFT'),
+    ]
     currentWatchlist = {
       ...rootWatchlist,
       name: 'Destination',
@@ -323,9 +331,6 @@ describe('watchlist header controls', () => {
       items: [existingItem],
     }
     currentWatchlists = [currentWatchlist]
-    vi.spyOn(globalThis.crypto, 'randomUUID')
-      .mockReturnValueOnce('00000000-0000-4000-8000-000000000010')
-      .mockReturnValueOnce('00000000-0000-4000-8000-000000000011')
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
@@ -356,25 +361,7 @@ describe('watchlist header controls', () => {
                 {
                   name: 'Imported Replacement',
                   settings: { showLogo: true, showTicker: false, showDescription: true },
-                  items: [
-                    {
-                      id: '00000000-0000-4000-8000-000000000002',
-                      type: 'section',
-                      parentId: null,
-                      label: 'Imported',
-                    },
-                    {
-                      id: '00000000-0000-4000-8000-000000000003',
-                      type: 'listing',
-                      parentId: '00000000-0000-4000-8000-000000000002',
-                      listing: {
-                        listing_id: 'AAPL',
-                        base_id: '',
-                        quote_id: '',
-                        listing_type: 'default',
-                      },
-                    },
-                  ],
+                  items: importedItems,
                 },
               ],
             }),
@@ -386,26 +373,23 @@ describe('watchlist header controls', () => {
     })
     await vi.waitFor(() => expect(mockSetWatchlistItems).toHaveBeenCalledOnce())
 
-    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
-      existingItem,
-      {
-        id: '00000000-0000-4000-8000-000000000010',
-        type: 'section',
-        parentId: null,
-        label: 'Imported',
-      },
-      {
-        id: '00000000-0000-4000-8000-000000000011',
-        type: 'listing',
-        parentId: '00000000-0000-4000-8000-000000000010',
-        listing: {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-    ])
+    const [persistedAapl, importedSection, importedSectionAapl, importedMsft] =
+      mockSetWatchlistItems.mock.calls[0]![0]
+    expect(persistedAapl).toBe(existingItem)
+    expect(importedSection).toMatchObject({ type: 'section', label: 'Imported' })
+    expect(importedSection.id).not.toBe(sourceSectionId)
+    expect(importedSectionAapl).toMatchObject({
+      type: 'listing',
+      parentId: importedSection.id,
+      listing: { listing_id: 'AAPL' },
+    })
+    expect(importedSectionAapl.id).not.toBe(importedItems[1]?.id)
+    expect(importedMsft).toMatchObject({
+      type: 'listing',
+      parentId: null,
+      listing: { listing_id: 'MSFT' },
+    })
+    expect(importedMsft.id).not.toBe(importedItems[3]?.id)
     expect(currentWatchlist).toMatchObject({
       name: 'Destination',
       settings: { showLogo: false, showTicker: true, showDescription: false },
