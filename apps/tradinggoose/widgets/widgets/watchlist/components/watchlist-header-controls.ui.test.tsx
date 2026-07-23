@@ -304,6 +304,115 @@ describe('watchlist header controls', () => {
     ])
   })
 
+  it('adds imported items without replacing the selected watchlist document', async () => {
+    const existingItem = {
+      id: '00000000-0000-4000-8000-000000000001',
+      type: 'listing' as const,
+      parentId: null,
+      listing: {
+        listing_id: 'MSFT',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default' as const,
+      },
+    }
+    currentWatchlist = {
+      ...rootWatchlist,
+      name: 'Destination',
+      settings: { showLogo: false, showTicker: true, showDescription: false },
+      items: [existingItem],
+    }
+    currentWatchlists = [currentWatchlist]
+    vi.spyOn(globalThis.crypto, 'randomUUID')
+      .mockReturnValueOnce('00000000-0000-4000-8000-000000000010')
+      .mockReturnValueOnce('00000000-0000-4000-8000-000000000011')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-import'
+          widget={createWidget({ key: 'watchlist', params: {} })}
+          canEditWidgetParams
+        />
+      )
+    })
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [
+        {
+          text: async () =>
+            JSON.stringify({
+              version: '1',
+              fileType: 'tradingGooseExport',
+              exportedAt: '2026-04-06T12:00:00.000Z',
+              exportedFrom: 'watchlistWidget',
+              resourceTypes: ['watchlists'],
+              watchlists: [
+                {
+                  name: 'Imported Replacement',
+                  settings: { showLogo: true, showTicker: false, showDescription: true },
+                  items: [
+                    {
+                      id: '00000000-0000-4000-8000-000000000002',
+                      type: 'section',
+                      parentId: null,
+                      label: 'Imported',
+                    },
+                    {
+                      id: '00000000-0000-4000-8000-000000000003',
+                      type: 'listing',
+                      parentId: '00000000-0000-4000-8000-000000000002',
+                      listing: {
+                        listing_id: 'AAPL',
+                        base_id: '',
+                        quote_id: '',
+                        listing_type: 'default',
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+        },
+      ],
+    })
+    await act(async () => {
+      input.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
+    })
+    await vi.waitFor(() => expect(mockSetWatchlistItems).toHaveBeenCalledOnce())
+
+    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
+      existingItem,
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        type: 'section',
+        parentId: null,
+        label: 'Imported',
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000011',
+        type: 'listing',
+        parentId: '00000000-0000-4000-8000-000000000010',
+        listing: {
+          listing_id: 'AAPL',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      },
+    ])
+    expect(currentWatchlist).toMatchObject({
+      name: 'Destination',
+      settings: { showLogo: false, showTicker: true, showDescription: false },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('allows widget-param updates while keeping watchlist mutations disabled', async () => {
     mockPermissions.canEdit = false
     await act(async () => {

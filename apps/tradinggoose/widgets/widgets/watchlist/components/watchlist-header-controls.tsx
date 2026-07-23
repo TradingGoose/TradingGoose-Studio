@@ -41,8 +41,13 @@ import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { exportWatchlistAsJson, WATCHLIST_EXPORT_SOURCE } from '@/lib/watchlists/import-export'
+import {
+  exportWatchlistAsJson,
+  parseImportedWatchlistFile,
+  WATCHLIST_EXPORT_SOURCE,
+} from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
+import { resolveWatchlistDocumentItemIds } from '@/lib/watchlists/validation'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
@@ -562,19 +567,9 @@ export const WatchlistHeaderRightControls = ({
     try {
       setPendingAction('import')
       const content = await file.text()
-      const parsed = JSON.parse(content) as unknown
-      const response = await fetch(
-        `/api/watchlists/${encodeURIComponent(selectedWatchlist.id)}/import`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId, file: parsed }),
-        }
-      )
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error || 'Failed to import watchlist')
-      }
+      const imported = parseImportedWatchlistFile(JSON.parse(content) as unknown)
+      const importedItems = resolveWatchlistDocumentItemIds(imported.items, new Set<string>())
+      selectedDocument.updateItems((items) => [...items, ...importedItems])
     } catch {
       // Invalid files or save errors leave the existing watchlist unchanged.
     } finally {

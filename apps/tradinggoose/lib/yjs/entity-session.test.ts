@@ -151,6 +151,32 @@ describe('watchlist entity sessions', () => {
     expect(() => getEntityFields(doc, 'watchlist')).toThrow()
   })
 
+  it.each([
+    [
+      'duplicate membership',
+      (items: WatchlistItem[]) => [
+        ...items,
+        listing('00000000-0000-4000-8000-000000000002', 'AAPL'),
+      ],
+    ],
+    [
+      'combined symbol limit',
+      (items: WatchlistItem[]) => [
+        ...items,
+        ...Array.from({ length: 1000 }, (_, index) =>
+          listing(crypto.randomUUID(), `SYMBOL-${index}`)
+        ),
+      ],
+    ],
+  ])('leaves the document unchanged after a rejected %s update', (_label, update) => {
+    const doc = createDocument()
+    const initial = [listing('00000000-0000-4000-8000-000000000001', 'AAPL')]
+    seedWatchlist(doc, initial)
+
+    expect(() => updateWatchlistItems(doc, update)).toThrow()
+    expect(readWatchlistItems(doc)).toEqual(initial)
+  })
+
   it('merges concurrent additions and edits to distinct listing memberships', () => {
     const results = mergeConcurrentChanges(
       [
