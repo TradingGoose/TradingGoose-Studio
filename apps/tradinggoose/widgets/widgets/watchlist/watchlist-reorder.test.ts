@@ -30,16 +30,17 @@ const section = (id: string, label = id): WatchlistItem => ({
 })
 
 describe('watchlist reorder helpers', () => {
-  it('moves a listing before another listing', () => {
-    const items = [listing('a'), listing('b'), section('s1'), listing('c')]
+  it('moves a nested listing before the first root listing', () => {
+    const items = [listing('root-a'), listing('root-b'), section('s1'), listing('nested', 's1')]
 
     const next = moveWatchlistItem(
       items,
-      createWatchlistListingSortableId('c'),
-      createWatchlistListingSortableId('b')
+      createWatchlistListingSortableId('nested'),
+      createWatchlistListingSortableId('root-a')
     )
 
-    expect(next?.map((item) => item.id)).toEqual(['a', 'c', 'b', 's1'])
+    expect(next?.map((item) => item.id)).toEqual(['nested', 'root-a', 'root-b', 's1'])
+    expect(next?.map((item) => item.parentId)).toEqual([null, null, null, null])
   })
 
   it('moves listings to the hovered final index when dragging downward', () => {

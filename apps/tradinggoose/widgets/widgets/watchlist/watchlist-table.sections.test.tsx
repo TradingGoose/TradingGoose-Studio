@@ -15,7 +15,7 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
+import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
 import {
   createWatchlistContainerSortableId,
   createWatchlistListingSortableId,
@@ -30,6 +30,11 @@ const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
 const mockResetListingSelectorInstance = vi.fn()
 const mockStockSelectorRender = vi.fn()
+
+type SortableDragEvent = {
+  active: { id: string; rect: { current: { translated: { top: number } } } }
+  over: { id: string; rect: { top: number } }
+}
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
   getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
@@ -183,6 +188,17 @@ const btcListing = {
   listing_type: 'default' as const,
 }
 
+const listing = (
+  id: string,
+  parentId: string | null = null,
+  listingId = id
+): WatchlistListingItem => ({
+  id,
+  type: 'listing',
+  parentId,
+  listing: { ...btcListing, listing_id: listingId },
+})
+
 const watchlist: WatchlistRecord = {
   id: 'watchlist-1',
   workspaceId: 'workspace-1',
@@ -194,12 +210,7 @@ const watchlist: WatchlistRecord = {
       parentId: null,
       label: 'Section 1',
     },
-    {
-      id: 'listing-1',
-      type: 'listing' as const,
-      parentId: 'section-1',
-      listing: btcListing,
-    },
+    listing('listing-1', 'section-1', 'BTC'),
   ],
   settings: { showLogo: true, showTicker: true, showDescription: true },
   createdAt: '2026-03-13T00:00:00.000Z',
@@ -287,32 +298,43 @@ describe('WatchlistTable section interactions', () => {
     expect(mockDragActivation).not.toHaveBeenCalled()
   })
 
-  it('moves a section listing to the list root when it reaches the top boundary', async () => {
-    const onMoveItem = vi.fn().mockResolvedValue(undefined)
+  it.each([
+    [watchlist, createWatchlistContainerSortableId('section-1'), WATCHLIST_ROOT_SORTABLE_ID, null],
+    [
+      {
+        ...watchlist,
+        items: [listing('root-a'), listing('root-b'), ...watchlist.items],
+      },
+      createWatchlistListingSortableId('root-a'),
+      createWatchlistListingSortableId('root-a'),
+      'root-a',
+    ],
+  ])(
+    'resolves a nested listing at the top edge without losing its exact target',
+    async (record, overId, expectedId, highlightedListing) => {
+      const onMoveItem = vi.fn().mockResolvedValue(undefined)
 
-    await renderTable({ onMoveItem })
+      await renderTable({ watchlist: record, onMoveItem })
 
-    const sortableProps = mockSortableRender.mock.lastCall?.[0] as {
-      value: string[]
-      onMove: (event: {
-        active: { id: string; rect: { current: { translated: { top: number } } } }
-        over: { id: string; rect: { top: number } }
-      }) => void
+      const sortableProps = mockSortableRender.mock.lastCall?.[0] as {
+        onDragOver: (event: SortableDragEvent) => void
+        onMove: (event: SortableDragEvent) => void
+      }
+      const nestedId = createWatchlistListingSortableId('listing-1')
+      const event = {
+        active: { id: nestedId, rect: { current: { translated: { top: 100 } } } },
+        over: { id: overId, rect: { top: 100 } },
+      }
+
+      act(() => sortableProps.onDragOver(event))
+      if (highlightedListing) {
+        expect(findRowByText(container, highlightedListing)?.className).toContain('bg-primary/10')
+      }
+
+      act(() => sortableProps.onMove(event))
+      expect(onMoveItem).toHaveBeenCalledWith(nestedId, expectedId)
     }
-    const sectionSortableId = createWatchlistContainerSortableId('section-1')
-    const listingSortableId = createWatchlistListingSortableId('listing-1')
-
-    expect(sortableProps.value).toEqual([sectionSortableId, listingSortableId])
-
-    act(() => {
-      sortableProps.onMove({
-        active: { id: listingSortableId, rect: { current: { translated: { top: 100 } } } },
-        over: { id: sectionSortableId, rect: { top: 100 } },
-      })
-    })
-
-    expect(onMoveItem).toHaveBeenCalledWith(listingSortableId, WATCHLIST_ROOT_SORTABLE_ID)
-  })
+  )
 
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {
     await renderTable({
@@ -320,17 +342,7 @@ describe('WatchlistTable section interactions', () => {
         ...watchlist,
         items: [
           { id: 'section-1', type: 'section', parentId: null, label: 'Section 1' },
-          {
-            id: 'root-listing',
-            type: 'listing',
-            parentId: null,
-            listing: {
-              listing_id: 'ROOT',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          },
+          listing('root-listing', null, 'ROOT'),
         ],
       },
     })
@@ -649,19 +661,7 @@ describe('WatchlistTable section interactions', () => {
 
     const updatedWatchlist: WatchlistRecord = {
       ...watchlist,
-      items: [
-        watchlist.items[0],
-        {
-          ...watchlist.items[1],
-          type: 'listing',
-          listing: {
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
-        },
-      ],
+      items: [watchlist.items[0], listing('listing-1', 'section-1', 'AAPL')],
     }
 
     await renderTable({ watchlist: updatedWatchlist })

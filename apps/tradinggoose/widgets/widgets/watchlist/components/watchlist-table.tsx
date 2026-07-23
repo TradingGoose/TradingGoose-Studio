@@ -415,14 +415,12 @@ export const WatchlistTable = ({
     active: DragOverEvent['active'],
     over: NonNullable<DragOverEvent['over']>
   ) => {
-    const draggedItem = resolveDraggedItem(String(active.id))
-    const listing =
-      draggedItem?.type === 'listing'
-        ? watchlist.items.find((item) => item.type === 'listing' && item.id === draggedItem.itemId)
-        : null
+    const activeItem = resolveDraggedItem(String(active.id))
+    const overItem = resolveDraggedItem(String(over.id))
     const activeTop = active.rect.current.translated?.top
 
-    return listing?.parentId &&
+    return activeItem?.type === 'listing' &&
+      overItem?.type === 'container' &&
       over.id === sortableIds[0] &&
       activeTop != null &&
       activeTop <= over.rect.top
