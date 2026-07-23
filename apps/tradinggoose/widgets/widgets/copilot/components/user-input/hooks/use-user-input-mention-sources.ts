@@ -8,6 +8,7 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import {
   getLocalizedBlockNameWithCopy,
   getLocalizedDefaultBlockNameWithCopy,
@@ -143,7 +144,8 @@ export function useUserInputMentionSources({
 
   const ensureWorkspaceEntityLoaded = useCallback(
     async (entityKind: LazyWorkspaceEntityMentionKind) => {
-      if (workspaceEntityState[entityKind] !== undefined || !workspaceLifecycle.active) return
+      const state = workspaceEntityState[entityKind]
+      if (!workspaceLifecycle.active || state === 'loading' || (state?.length ?? 0) > 0) return
 
       try {
         setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: 'loading' }))
@@ -287,27 +289,20 @@ export function useUserInputMentionSources({
     }
   }, [workflowId, workflowInspectorCopy, workflowStoreBlocks])
 
+  const ensureSubmenuLoadedRef = useLatestRef(async (submenu: MentionSubmenu) => {
+    if (submenu === 'chats') return ensurePastChatsLoaded()
+
+    if (submenu === 'dashboard_layout') return
+
+    if (isCopilotWorkspaceEntityMentionOption(submenu)) return ensureWorkspaceEntityLoaded(submenu)
+    if (submenu === 'knowledge') return ensureKnowledgeLoaded()
+    if (submenu === 'blocks') return ensureBlocksLoaded()
+    if (submenu === 'workflow_blocks') return ensureWorkflowBlocksLoaded()
+    return ensureLogsLoaded()
+  })
   const ensureSubmenuLoaded = useCallback(
-    async (submenu: MentionSubmenu) => {
-      if (submenu === 'chats') return ensurePastChatsLoaded()
-
-      if (submenu === 'dashboard_layout') return
-
-      if (isCopilotWorkspaceEntityMentionOption(submenu))
-        return ensureWorkspaceEntityLoaded(submenu)
-      if (submenu === 'knowledge') return ensureKnowledgeLoaded()
-      if (submenu === 'blocks') return ensureBlocksLoaded()
-      if (submenu === 'workflow_blocks') return ensureWorkflowBlocksLoaded()
-      return ensureLogsLoaded()
-    },
-    [
-      ensureBlocksLoaded,
-      ensureKnowledgeLoaded,
-      ensureLogsLoaded,
-      ensurePastChatsLoaded,
-      ensureWorkflowBlocksLoaded,
-      ensureWorkspaceEntityLoaded,
-    ]
+    (submenu: MentionSubmenu) => ensureSubmenuLoadedRef.current(submenu),
+    [ensureSubmenuLoadedRef, workspaceLifecycle]
   )
 
   useEffect(() => {

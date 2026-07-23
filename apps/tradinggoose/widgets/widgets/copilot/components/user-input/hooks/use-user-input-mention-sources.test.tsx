@@ -40,14 +40,15 @@ const Harness = ({ workspaceId }: { workspaceId: string }) => {
   return null
 }
 
-it('ignores results and completion from obsolete workspace generations', async () => {
+it('keeps workspace generations isolated while retrying empty snapshots on later demand', async () => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   const root = createRoot(document.body.appendChild(document.createElement('div')))
-  const [oldA, oldB, currentA] = [deferred(), deferred(), deferred()]
+  const [oldA, oldB, emptyA, retryA] = [deferred(), deferred(), deferred(), deferred()]
   m.bootstrapYjsProvider
     .mockReturnValueOnce(oldA.promise)
     .mockReturnValueOnce(oldB.promise)
-    .mockReturnValueOnce(currentA.promise)
+    .mockReturnValueOnce(emptyA.promise)
+    .mockReturnValueOnce(retryA.promise)
 
   for (const workspaceId of ['workspace-a', 'workspace-b', 'workspace-a']) {
     await act(async () => root.render(<Harness workspaceId={workspaceId} />))
@@ -64,11 +65,21 @@ it('ignores results and completion from obsolete workspace generations', async (
   expect(current.mentionLoading.watchlist).toBe(true)
   expect(m.logger.error).not.toHaveBeenCalled()
 
+  const emptyResult = providerResult([])
+  const stableEnsureSubmenuLoaded = current.ensureSubmenuLoaded
+  await act(async () => emptyA.resolve(emptyResult))
+
+  expect(current.mentionSources.workspaceEntities.watchlist).toEqual([])
+  expect(current.mentionLoading.watchlist).toBe(false)
+  expect(current.ensureSubmenuLoaded).toBe(stableEnsureSubmenuLoaded)
+  expect(m.bootstrapYjsProvider).toHaveBeenCalledTimes(3)
+
+  act(() => void current.ensureSubmenuLoaded('watchlist'))
   const activeResult = providerResult([
     { entityId: 'watchlist-old', entityName: 'Old', updatedAt: '2026-04-01T00:00:00.000Z' },
     { entityId: 'watchlist-new', entityName: 'New', updatedAt: '2026-04-02T00:00:00.000Z' },
   ])
-  await act(async () => currentA.resolve(activeResult))
+  await act(async () => retryA.resolve(activeResult))
 
   expect(current.mentionSources.workspaceEntities.watchlist).toEqual([
     { entityKind: 'watchlist', id: 'watchlist-new', name: 'New' },
@@ -79,6 +90,7 @@ it('ignores results and completion from obsolete workspace generations', async (
     'workspace-a',
     'workspace-b',
     'workspace-a',
+    'workspace-a',
   ])
   expect(m.bootstrapYjsProvider).toHaveBeenNthCalledWith(
     1,
@@ -87,7 +99,10 @@ it('ignores results and completion from obsolete workspace generations', async (
     'read'
   )
   expect(staleResult.dispose).toHaveBeenCalledOnce()
+  expect(emptyResult.dispose).toHaveBeenCalledOnce()
   expect(activeResult.dispose).toHaveBeenCalledOnce()
+  await act(async () => current.ensureSubmenuLoaded('watchlist'))
+  expect(m.bootstrapYjsProvider).toHaveBeenCalledTimes(4)
   act(() => root.unmount())
   document.body.replaceChildren()
 })
