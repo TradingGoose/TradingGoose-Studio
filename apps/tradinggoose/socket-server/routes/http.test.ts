@@ -240,15 +240,20 @@ function widgetReviewHash(
   )
 }
 
+const invokeDashboardEdit = (body: Record<string, unknown>) =>
+  invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    workspaceId: 'workspace-1',
+    ownerUserId: 'user-1',
+    ...body,
+  })
+
 const invokeWidgetEdit = (
   patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch'],
   expectedReviewBaseStateHash: string,
   panelId = 'panel-1'
 ) =>
-  invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+  invokeDashboardEdit({
     mutation: 'widget',
-    workspaceId: 'workspace-1',
-    ownerUserId: 'user-1',
     expectedReviewBaseStateHash,
     panelId,
     patch,
@@ -264,10 +269,10 @@ describe('socket internal HTTP Yjs routes', () => {
     mocks.saveDashboard.mockResolvedValue({})
     mocks.inspectRealtimeMutation.mockResolvedValue('apply')
     mocks.drainTargets.mockResolvedValue(undefined)
-    mocks.runRevocation.mockImplementation(
-      async (_target: unknown, _drain: unknown, mutation: (tx: unknown) => Promise<unknown>) =>
-        mutation(admissionReadStore)
-    )
+    mocks.runRevocation.mockImplementation(async (target, drain, mutation) => {
+      await drain(target)
+      return mutation(admissionReadStore)
+    })
     mocks.commitDashboardStructure.mockImplementation(
       async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
         layout: commit.layout,
@@ -452,10 +457,8 @@ describe('socket internal HTTP Yjs routes', () => {
     setDashboardDocuments()
     mocks.inspectRealtimeMutation.mockResolvedValueOnce('replay')
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const response = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'split', panelId: 'already-replaced', direction: 'horizontal' },
     })
 
@@ -477,10 +480,8 @@ describe('socket internal HTTP Yjs routes', () => {
       buildDashboardLayoutReviewBase(currentLayout, plan)
     )
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const response = await invokeDashboardEdit({
       mutation: 'layout',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       expectedReviewBaseStateHash,
       entityDocument,
       removedPanelIds: [],
@@ -496,29 +497,20 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
-  it('commits widget identity replacement through one structural transaction', async () => {
+  it('fences a removed widget source without pre-reading or reacquiring it', async () => {
     setDashboardDocuments({
       widget: createWidgetDoc('red', { view: { interval: '1h' } }),
-      red: createPairDoc({ watchlistId: 'preserved-watchlist' }),
     })
     mocks.refreshActiveEntityList.mockReturnValueOnce(new Promise(() => {}))
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const response = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'replace', panelId: 'panel-1', widgetKey: 'watchlist' },
     })
 
     const commit = mocks.commitDashboardStructure.mock.calls[0]?.[2]
-    expect(commit).toMatchObject({
-      createdWidgets: [
-        {
-          document: { pairColor: 'red', params: null },
-        },
-      ],
-      removedIdentityIds: ['widget-1'],
-    })
+    expect(commit.removedIdentityIds).toEqual(['widget-1'])
+    expect(commit.retainedSourceDocuments).toEqual(new Map())
     expect(mocks.runRevocation).toHaveBeenCalledWith(
       {
         sessionIds: ['dashboard-widget:layout-1:widget-1'],
@@ -530,33 +522,24 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.commitDashboardStructure.mock.calls[0]?.[3]).toBe(admissionReadStore)
     expect(mocks.refreshActiveEntityList).toHaveBeenCalledOnce()
     expect(response.body).toEqual({ success: true })
-    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
-      'layout-1',
-      'dashboard-widget:layout-1:widget-1',
-    ])
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
   })
 
   it('copies the live source widget when splitting a panel', async () => {
     setDashboardDocuments({
       widget: createWidgetDoc('red', { view: { interval: '4h' } }),
-      red: createPairDoc({ watchlistId: 'shared-watchlist' }),
     })
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const response = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'split', panelId: 'panel-1', direction: 'horizontal' },
     })
 
     expect(response.status).toBe(200)
-    expect(mocks.commitDashboardStructure.mock.calls[0]?.[2]).toMatchObject({
-      createdWidgets: [
-        {
-          document: { pairColor: 'red', params: { view: { interval: '4h' } } },
-        },
-      ],
-      removedIdentityIds: [],
+    const commit = mocks.commitDashboardStructure.mock.calls[0]?.[2]
+    expect(commit.retainedSourceDocuments.get('widget-1')).toEqual({
+      pairColor: 'red',
+      params: { view: { interval: '4h' } },
     })
     expect(mocks.runRevocation).not.toHaveBeenCalled()
     expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual([
@@ -568,20 +551,16 @@ describe('socket internal HTTP Yjs routes', () => {
   it('applies a completed resize to the live topology after a split', async () => {
     setDashboardDocuments({ widget: createWidgetDoc() })
 
-    const split = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const split = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'split', panelId: 'panel-1', direction: 'horizontal' },
     })
     expect(split.status).toBe(200)
     const groupId = readDashboardLayoutDocument(documents.get('layout-1')!).layout.id
     mocks.acquireDocument.mockClear()
 
-    const resize = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const resize = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'resize', groupId, sizes: [35, 65] },
     })
 
@@ -589,7 +568,7 @@ describe('socket internal HTTP Yjs routes', () => {
     const commit = mocks.commitDashboardStructure.mock.calls[1]?.[2]
     expect(commit).toMatchObject({
       layout: { id: groupId, sizes: [35, 65] },
-      createdWidgets: [],
+      createdBindings: [],
       removedIdentityIds: [],
     })
     expect(commit.layout.children).toHaveLength(2)
@@ -602,10 +581,8 @@ describe('socket internal HTTP Yjs routes', () => {
     const before = readDashboardLayoutDocument(documents.get('layout-1')!)
     mocks.commitDashboardStructure.mockRejectedValueOnce(new Error('database offline'))
 
-    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+    const response = await invokeDashboardEdit({
       mutation: 'structure',
-      workspaceId: 'workspace-1',
-      ownerUserId: 'user-1',
       structure: { type: 'replace', panelId: 'panel-1', widgetKey: 'watchlist' },
     })
 

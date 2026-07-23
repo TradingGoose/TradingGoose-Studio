@@ -10,6 +10,7 @@ import {
   readPersistedDashboardWidgetBinding,
   reorderDashboardLayouts,
 } from '@/lib/dashboard-layouts/operations'
+import { runYjsRevocationTransaction } from '@/lib/yjs/server/revocation-fence'
 
 const m = vi.hoisted(() => {
   type Table = { _name: string; [field: string]: unknown }
@@ -241,30 +242,44 @@ describe('dashboard layout operations', () => {
     expect(m.mutations).toEqual([])
   })
 
-  it('commits topology and widget row lifecycle through the supplied transaction owner', async () => {
+  it('materializes a replacement from source state persisted during drain', async () => {
+    let source = { pairColor: 'red', params: null }
     m.returningResults.push([{ id: 'layout-1' }], [])
-    await commitDashboardLayoutStructure(
-      scope,
-      'layout-1',
-      {
-        layout: topology('widget-2', 'watchlist'),
-        createdWidgets: [
-          {
-            binding: { identityId: 'widget-2', widgetKey: 'watchlist', source: null },
-            document: { pairColor: 'gray', params: null },
-          },
-        ],
-        removedIdentityIds: ['widget-1'],
+    await runYjsRevocationTransaction(
+      { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
+      async () => {
+        source = { ...source, pairColor: 'blue' }
+        m.selectResults.push([{ layout: layoutRow(), widget: source }])
       },
-      m.store as unknown as Parameters<typeof commitDashboardLayoutStructure>[3]
+      (tx) =>
+        commitDashboardLayoutStructure(
+          scope,
+          'layout-1',
+          {
+            layout: topology('widget-2', 'watchlist'),
+            createdBindings: [
+              {
+                identityId: 'widget-2',
+                widgetKey: 'watchlist',
+                source: { identityId: 'widget-1', widgetKey: 'data_chart' },
+              },
+            ],
+            removedIdentityIds: ['widget-1'],
+            retainedSourceDocuments: new Map(),
+          },
+          tx
+        )
     )
 
-    expect(m.transaction).not.toHaveBeenCalled()
-    expect(m.store.execute).toHaveBeenCalledOnce()
+    expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.store.select).toHaveBeenCalledOnce()
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'update', table: 'layout_maps' }),
       expect.objectContaining({ kind: 'insert', table: 'layout_widgets' }),
       expect.objectContaining({ kind: 'delete', table: 'layout_widgets' }),
+    ])
+    expect(m.mutations[1]?.values).toEqual([
+      expect.objectContaining({ pairColor: 'blue', params: null }),
     ])
   })
 

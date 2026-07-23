@@ -80,7 +80,7 @@ import {
   type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
   DashboardLayoutValidationError,
-  materializeDashboardWidgetBinding,
+  type DashboardWidgetDocument,
   normalizeDashboardLayoutStructureMutation,
 } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
@@ -590,34 +590,28 @@ async function commitDashboardStructurePlan(input: {
   plan: DashboardLayoutEditPlan
   mutation: RealtimeMutation
 }): Promise<void> {
-  const createdWidgets = await Promise.all(
-    input.plan.createdBindings.map(async (binding) => {
-      const sourceDocument = binding.source
-        ? await withBootstrappedDocument(
-            buildDashboardWidgetDescriptor({
-              layoutId: input.layoutId,
-              identityId: binding.source.identityId,
-              workspaceId: input.workspaceId,
-              ownerUserId: input.ownerUserId,
-            }),
-            input.ownerUserId,
-            (doc) => readDashboardWidgetDocument(doc, binding.source!.widgetKey)
-          )
-        : undefined
-      return {
-        binding,
-        document: materializeDashboardWidgetBinding(binding, sourceDocument),
-      }
+  const widgetDescriptor = (identityId: string) =>
+    buildDashboardWidgetDescriptor({
+      layoutId: input.layoutId,
+      identityId,
+      workspaceId: input.workspaceId,
+      ownerUserId: input.ownerUserId,
     })
-  )
+  const removedIdentityIds = new Set(input.plan.removedIdentityIds)
+  const retainedSourceDocuments = new Map<string, DashboardWidgetDocument>()
+  for (const { source } of input.plan.createdBindings) {
+    if (!source || removedIdentityIds.has(source.identityId)) continue
+    retainedSourceDocuments.set(
+      source.identityId,
+      await withBootstrappedDocument(
+        widgetDescriptor(source.identityId),
+        input.ownerUserId,
+        (doc) => readDashboardWidgetDocument(doc, source.widgetKey)
+      )
+    )
+  }
   const removedSessionIds = input.plan.removedIdentityIds.map(
-    (identityId) =>
-      buildDashboardWidgetDescriptor({
-        layoutId: input.layoutId,
-        identityId,
-        workspaceId: input.workspaceId,
-        ownerUserId: input.ownerUserId,
-      }).yjsSessionId
+    (identityId) => widgetDescriptor(identityId).yjsSessionId
   )
   await persistStagedDocuments(
     [
@@ -632,9 +626,9 @@ async function commitDashboardStructurePlan(input: {
           { workspaceId: input.workspaceId, ownerUserId: input.ownerUserId },
           input.layoutId,
           {
+            ...input.plan,
             layout: readDashboardLayoutDocument(staged!).layout,
-            createdWidgets,
-            removedIdentityIds: input.plan.removedIdentityIds,
+            retainedSourceDocuments,
           },
           tx,
           input.mutation

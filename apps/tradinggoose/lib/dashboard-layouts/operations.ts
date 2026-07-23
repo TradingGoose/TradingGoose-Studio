@@ -19,10 +19,11 @@ import type { LinkedPairColor } from '@/widgets/layout'
 import {
   createDefaultDashboardLayoutProjection,
   type DashboardLayoutDocument,
+  type DashboardLayoutEditPlan,
   type DashboardLayoutProjectionContent,
   type DashboardLayoutTopologyNode,
-  type DashboardWidgetBindingCreation,
   type DashboardWidgetDocument,
+  materializeDashboardWidgetBinding,
   normalizeDashboardColorPairDocument,
   normalizeDashboardLayoutTopology,
   normalizeDashboardWidgetDocument,
@@ -47,13 +48,8 @@ export type DashboardLayoutProjection = DashboardLayoutTab & {
   topology: DashboardLayoutTopologyNode
 }
 
-export type DashboardLayoutStructuralCommit = {
-  layout: DashboardLayoutTopologyNode
-  createdWidgets: Array<{
-    binding: DashboardWidgetBindingCreation
-    document: DashboardWidgetDocument
-  }>
-  removedIdentityIds: string[]
+type DashboardLayoutStructuralCommit = DashboardLayoutEditPlan & {
+  retainedSourceDocuments: ReadonlyMap<string, DashboardWidgetDocument>
 }
 
 type LayoutRow = typeof layoutMaps.$inferSelect
@@ -379,16 +375,29 @@ export async function commitDashboardLayoutStructure(
   mutation?: RealtimeMutation
 ): Promise<void> {
   const layout = normalizeDashboardLayoutTopology(commit.layout)
-  const createdWidgets = commit.createdWidgets.map(({ binding, document }) => ({
-    id: binding.identityId,
-    layoutId,
-    ...normalizeDashboardWidgetDocument(binding.widgetKey, document),
-  }))
   const removedIdentityIds = [...new Set(commit.removedIdentityIds)]
+  if (removedIdentityIds.length > 0 && !tx) {
+    throw new DashboardLayoutOperationError(500, 'Widget removal requires a revocation transaction')
+  }
 
   await withDashboardLayoutOwnerLock(
     scope,
     async (store) => {
+      const createdWidgets = []
+      for (const binding of commit.createdBindings) {
+        const sourceId = binding.source?.identityId
+        const sourceDocument =
+          sourceId && removedIdentityIds.includes(sourceId)
+            ? (await readPersistedDashboardWidgetBinding(scope, layoutId, sourceId, store)).document
+            : sourceId
+              ? commit.retainedSourceDocuments.get(sourceId)
+              : undefined
+        createdWidgets.push({
+          id: binding.identityId,
+          layoutId,
+          ...materializeDashboardWidgetBinding(binding, sourceDocument),
+        })
+      }
       const updated = await store
         .update(layoutMaps)
         .set({ layout, updatedAt: new Date() })
