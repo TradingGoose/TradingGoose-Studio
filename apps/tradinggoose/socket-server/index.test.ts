@@ -63,6 +63,8 @@ const INTERNAL_MUTATION_HEADERS = {
   'content-type': 'application/json',
   'x-internal-secret': INTERNAL_SECRET,
   'x-yjs-actor-user-id': 'test-user-id',
+  'x-yjs-request-id': '00000000-0000-4000-8000-000000000001',
+  'x-yjs-deadline': String(Date.now() + 65_000),
 }
 
 vi.mock('@/lib/redis', () => ({
@@ -106,7 +108,13 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),

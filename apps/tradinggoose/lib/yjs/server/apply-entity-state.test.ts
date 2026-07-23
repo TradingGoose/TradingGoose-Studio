@@ -19,6 +19,7 @@ const mockDbTransaction = vi.fn()
 const mockDbExecute = vi.fn()
 const mockDbUpdate = vi.fn()
 const mockPersistDashboardWidgetAndColorPairDocuments = vi.fn()
+const mockClaimRealtimeMutation = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
 const mockLockSavedEntityList = vi.fn()
 class MockDashboardLayoutOperationError extends Error {
@@ -103,6 +104,9 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
+vi.mock('@/lib/yjs/server/mutation-idempotency', () => ({
+  prepareRealtimeMutationTransaction: mockClaimRealtimeMutation,
+}))
 
 const {
   applySavedEntityState,
@@ -147,6 +151,7 @@ describe('applySavedEntityState', () => {
     events.length = 0
     mockNormalizeEntityFields.mockImplementation((_entityKind, fields) => fields)
     mockLockSavedEntityList.mockResolvedValue(undefined)
+    mockClaimRealtimeMutation.mockResolvedValue(undefined)
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })
@@ -204,7 +209,7 @@ describe('applySavedEntityState', () => {
     mockLockSavedEntityList.mockImplementationOnce(async (_tx, entityKind, workspaceId) => {
       events.push(`lock:${entityKind}:${workspaceId}`)
     })
-    mockDbExecute.mockImplementationOnce(async () => events.push('timeout'))
+    mockClaimRealtimeMutation.mockImplementationOnce(async () => events.push('timeout', 'claim'))
     mockRenameSavedEntityIdentityInTx.mockImplementationOnce(async () => {
       events.push('rename')
       return { name: 'Renamed', updatedAt: new Date('2026-07-13T12:00:00.000Z') }
@@ -217,6 +222,11 @@ describe('applySavedEntityState', () => {
     try {
       await saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc, {
         identity: { name: 'Renamed' },
+        mutation: {
+          requestId: 'request-1',
+          deadlineAt: Date.now() + 40_000,
+          fingerprint: 'fingerprint-1',
+        },
       })
     } finally {
       doc.destroy()
@@ -231,8 +241,18 @@ describe('applySavedEntityState', () => {
         name: 'Renamed',
       }
     )
-    expect(JSON.stringify(mockDbExecute.mock.calls[0]![0])).toMatch(/transaction_timeout.*30s/)
-    expect(events).toEqual(['timeout', 'lock:watchlist:workspace-1', 'rename', 'materialize'])
+    expect(mockClaimRealtimeMutation).toHaveBeenCalledWith(
+      expect.objectContaining({ update: mockDbUpdate }),
+      expect.objectContaining({ requestId: 'request-1' }),
+      30_000
+    )
+    expect(events).toEqual([
+      'timeout',
+      'claim',
+      'lock:watchlist:workspace-1',
+      'rename',
+      'materialize',
+    ])
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
@@ -338,7 +358,10 @@ describe('applySavedEntityState', () => {
     try {
       await saveDashboardYjsDocsToDb(
         { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-        { widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc } }
+        {
+          layoutId: 'layout-1',
+          widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc },
+        }
       )
       const widget = getDashboardWidgetMap(doc)
       for (const params of [undefined, {}]) {
@@ -346,7 +369,10 @@ describe('applySavedEntityState', () => {
         else widget.set('params', params)
         const error = await saveDashboardYjsDocsToDb(
           { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-          { widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc } }
+          {
+            layoutId: 'layout-1',
+            widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc },
+          }
         ).catch((reason) => reason)
         expect(error).toBeInstanceOf(SavedEntityPersistenceError)
         expect(error).toMatchObject({ status: 400, retryable: false })
@@ -364,7 +390,8 @@ describe('applySavedEntityState', () => {
           identityId: 'widget-1',
           content: { pairColor: 'blue', params: { view: {} } },
         },
-      }
+      },
+      undefined
     )
   })
 
@@ -378,6 +405,7 @@ describe('applySavedEntityState', () => {
       await saveDashboardYjsDocsToDb(
         { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
         {
+          layoutId: 'layout-1',
           widget: { sessionId: 'dashboard-widget:layout-1:widget-1', doc: widgetDoc },
           colorPair: { sessionId: 'dashboard-color-pair:layout-1:red', doc: pairDoc },
         }
@@ -397,7 +425,8 @@ describe('applySavedEntityState', () => {
           content: { pairColor: 'red', params: { view: {} } },
         },
         colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
-      }
+      },
+      undefined
     )
   })
 

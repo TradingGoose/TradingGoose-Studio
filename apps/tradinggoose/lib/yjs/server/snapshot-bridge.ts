@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import {
   buildEntityListDescriptor,
   buildYjsTransportEnvelope,
@@ -5,6 +6,8 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import {
   INTERNAL_YJS_ACTOR_HEADER,
+  INTERNAL_YJS_DEADLINE_HEADER,
+  INTERNAL_YJS_REQUEST_ID_HEADER,
   type ReviewEntityKind,
   type ReviewTargetDescriptor,
   type ReviewTargetRuntimeState,
@@ -29,6 +32,9 @@ import {
 const logger = createLogger('YjsSnapshotBridge')
 const DRAIN_ATTEMPTS = 3
 const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
+const SAVED_ENTITY_RESPONSE_DEADLINE_MS = 40_000
+const DASHBOARD_RESPONSE_DEADLINE_MS = 70_000
+const REPLAY_RESERVE_MS = 5_000
 
 interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -75,19 +81,30 @@ function getInternalSecret(): string {
 async function fetchFromSocketServer<T = Response>(
   url: URL,
   init: RequestInit,
-  timeoutMs = 5000,
+  timeoutMs?: number,
   attempts = 1,
   decode?: (response: Response) => Promise<T>
 ): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('x-internal-secret', getInternalSecret())
+  const commitDeadline = Number(headers.get(INTERNAL_YJS_DEADLINE_HEADER)) || null
+  const responseDeadline = commitDeadline ? commitDeadline + REPLAY_RESERVE_MS : null
 
-  for (let attempt = 1; attempt <= attempts; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     try {
+      const attemptDeadline =
+        commitDeadline && Date.now() < commitDeadline ? commitDeadline : responseDeadline
+      const requestTimeout =
+        attemptDeadline === null
+          ? timeoutMs
+          : Math.min(timeoutMs ?? Number.POSITIVE_INFINITY, attemptDeadline - Date.now())
       const response = await fetch(url.toString(), {
         ...init,
         headers,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal:
+          requestTimeout === undefined
+            ? undefined
+            : AbortSignal.timeout(Math.max(1, requestTimeout)),
       })
 
       if (!response.ok) {
@@ -97,35 +114,41 @@ async function fetchFromSocketServer<T = Response>(
 
       return decode ? await decode(response) : (response as T)
     } catch (error) {
+      const backoffMs = SOCKET_SERVER_RETRY_BACKOFF_BASE_MS * 2 ** (attempt - 1)
       const canRetry =
-        attempt < attempts &&
+        (responseDeadline === null
+          ? attempt < attempts
+          : Date.now() + backoffMs < responseDeadline) &&
         !(
           error instanceof SocketServerBridgeError &&
           error.status < 500 &&
           error.status !== 408 &&
+          error.status !== 425 &&
           error.status !== 429
         )
       if (!canRetry) {
         throw error
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, SOCKET_SERVER_RETRY_BACKOFF_BASE_MS * 2 ** (attempt - 1))
-      )
+      await new Promise((resolve) => setTimeout(resolve, backoffMs))
     }
   }
-
-  throw new Error('Socket server bridge failed')
 }
 
 async function postJsonToSocketServer<T = unknown>(
   path: string,
   body: unknown,
   actorUserId: string | null,
-  attempts = 1,
-  decode: (response: Response) => Promise<T> = (response) => response.json() as Promise<T>
+  options?: { timeoutMs?: number; attempts?: number; responseDeadlineMs?: number }
 ): Promise<T> {
   const headers = new Headers({ 'Content-Type': 'application/json' })
   if (actorUserId) headers.set(INTERNAL_YJS_ACTOR_HEADER, actorUserId)
+  if (options?.responseDeadlineMs !== undefined) {
+    headers.set(INTERNAL_YJS_REQUEST_ID_HEADER, randomUUID())
+    headers.set(
+      INTERNAL_YJS_DEADLINE_HEADER,
+      String(Date.now() + options.responseDeadlineMs - REPLAY_RESERVE_MS)
+    )
+  }
   return fetchFromSocketServer(
     new URL(path, getInternalRealtimeUrl()),
     {
@@ -133,9 +156,9 @@ async function postJsonToSocketServer<T = unknown>(
       headers,
       body: JSON.stringify(body),
     },
-    10000,
-    attempts,
-    decode
+    options?.timeoutMs ?? options?.responseDeadlineMs ?? 10_000,
+    options?.attempts,
+    (response) => response.json() as Promise<T>
   )
 }
 
@@ -199,7 +222,10 @@ export async function applyEntityStateInSocketServer(
           : {}),
         ...(options?.identity ? { identity: options.identity } : {}),
       },
-      actorUserId
+      actorUserId,
+      {
+        responseDeadlineMs: SAVED_ENTITY_RESPONSE_DEADLINE_MS,
+      }
     )
     if (!response.fields || typeof response.fields !== 'object' || Array.isArray(response.fields)) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed entity fields')
@@ -247,7 +273,9 @@ async function applyDashboardEditInSocketServer(
   try {
     const response = await postJsonToSocketServer<{
       content?: unknown
-    }>(`/internal/yjs/dashboard-layouts/${encodeURIComponent(entityId)}/edit`, body, actorUserId)
+    }>(`/internal/yjs/dashboard-layouts/${encodeURIComponent(entityId)}/edit`, body, actorUserId, {
+      responseDeadlineMs: DASHBOARD_RESPONSE_DEADLINE_MS,
+    })
     if (!response.content) {
       throw new SocketServerBridgeError(502, 'Socket server returned malformed dashboard content')
     }
@@ -311,7 +339,10 @@ export function applyDashboardStructureMutationInSocketServer(input: {
       ownerUserId: input.ownerUserId,
       structure: input.mutation,
     },
-    input.ownerUserId
+    input.ownerUserId,
+    {
+      responseDeadlineMs: DASHBOARD_RESPONSE_DEADLINE_MS,
+    }
   ).then(() => undefined)
 }
 
@@ -338,7 +369,7 @@ export async function refreshEntityListSession(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
       {},
       null,
-      3
+      { timeoutMs: 10_000, attempts: 3 }
     )
     return response.applied === true
   } catch (error) {
@@ -356,18 +387,16 @@ export function runYjsDrainFencedTransaction<T>(
     target,
     async (normalized) => {
       try {
-        await postJsonToSocketServer(
-          '/internal/yjs/session-drains',
-          normalized,
-          null,
-          DRAIN_ATTEMPTS
-        )
+        await postJsonToSocketServer('/internal/yjs/session-drains', normalized, null, {
+          timeoutMs: 10_000,
+          attempts: DRAIN_ATTEMPTS,
+        })
       } catch (error) {
         if (error instanceof SocketServerBridgeError && error.status < 500) throw error
         throw new SavedEntityRealtimeRequiredError()
       }
     },
     mutate,
-    tx
+    tx ? { tx } : undefined
   )
 }

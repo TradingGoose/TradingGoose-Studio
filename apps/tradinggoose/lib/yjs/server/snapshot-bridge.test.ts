@@ -101,25 +101,45 @@ const applyEntityState = async (fields: Record<string, unknown>) =>
 
 describe('applyEntityStateInSocketServer', () => {
   it('posts watchlist entity fields and returns the canonical persisted fields', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(new AbortController().signal)
     const persistedFields = {
       settings: { showLogo: true, showTicker: true, showDescription: false },
       items: [],
     }
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ success: true, fields: persistedFields }), { status: 200 })
-    )
+    mockFetch
+      .mockImplementationOnce(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 35_000))
+        throw new DOMException('Timed out', 'TimeoutError')
+      })
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, fields: persistedFields }), { status: 200 })
+      )
 
-    await expect(applyEntityState(persistedFields)).resolves.toEqual(persistedFields)
+    const request = expect(applyEntityState(persistedFields)).resolves.toEqual(persistedFields)
+    await vi.advanceTimersByTimeAsync(35_000)
+    await vi.advanceTimersByTimeAsync(250)
+    await request
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const [url, init] = mockFetch.mock.calls[0]
+    expect(timeout).toHaveBeenNthCalledWith(1, 35_000)
+    timeout.mockRestore()
+    const [url, init] = mockFetch.mock.calls[1]
     expect(url).toBe('http://socket.test/internal/yjs/entities/watchlist-1/apply-state')
-    expect(init.method).toBe('POST')
-    expect(Object.fromEntries(new Headers(init.headers).entries())).toMatchObject({
+    expect(init).toMatchObject({ method: 'POST', signal: expect.any(AbortSignal) })
+    const firstHeaders = new Headers(mockFetch.mock.calls[0]![1].headers)
+    const headers = Object.fromEntries(new Headers(init.headers).entries())
+    expect(headers).toMatchObject({
       'content-type': 'application/json',
       'x-internal-secret': 'internal-secret',
       'x-yjs-actor-user-id': 'user-1',
+      'x-yjs-deadline': '1035000',
+      'x-yjs-request-id': expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      ),
     })
+    expect(firstHeaders.get('x-yjs-request-id')).toBe(headers['x-yjs-request-id'])
+    expect(firstHeaders.get('x-yjs-deadline')).toBe(headers['x-yjs-deadline'])
     expect(JSON.parse(String(init.body))).toEqual({
       entityKind: 'watchlist',
       workspaceId: 'workspace-1',

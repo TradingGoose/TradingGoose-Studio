@@ -16,6 +16,8 @@ import {
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import {
   INTERNAL_YJS_ACTOR_HEADER,
+  INTERNAL_YJS_DEADLINE_HEADER,
+  INTERNAL_YJS_REQUEST_ID_HEADER,
   type ReviewEntityKind,
 } from '@/lib/copilot/review-sessions/types'
 import {
@@ -53,6 +55,11 @@ import {
   assembleDashboardLayoutProjection,
   initializeSavedReviewTargetDocument,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  createRealtimeMutation,
+  inspectRealtimeMutation,
+  type RealtimeMutation,
+} from '@/lib/yjs/server/mutation-idempotency'
 import {
   runYjsRevocationTransaction,
   type YjsRevocationTransaction,
@@ -160,6 +167,21 @@ function requireInternalActorUserId(req: IncomingMessage): string {
     throw new InvalidInternalYjsRequestError('Acting user is required')
   }
   return actorUserId.trim()
+}
+
+function requireRealtimeMutation(
+  req: IncomingMessage,
+  actorUserId: string,
+  body: unknown
+): RealtimeMutation {
+  return createRealtimeMutation({
+    requestId: req.headers[INTERNAL_YJS_REQUEST_ID_HEADER],
+    deadline: req.headers[INTERNAL_YJS_DEADLINE_HEADER],
+    method: req.method ?? '',
+    pathname: new URL(req.url ?? '/', 'http://internal').pathname,
+    actorUserId,
+    body,
+  })
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -404,6 +426,7 @@ async function applySavedEntityThroughStaging(input: {
   entityId: string
   entityKind: SavedEntityKind
   workspaceId: string
+  mutation: RealtimeMutation
   identity?: SavedEntityIdentityMutation
   validate?: (current: Y.Doc) => void
   mutate: (staged: Y.Doc) => void
@@ -412,15 +435,12 @@ async function applySavedEntityThroughStaging(input: {
   const persisted = await persistStagedDocuments(
     [{ doc: input.doc, mutate: input.mutate }],
     ([staged]) =>
-      saveSavedEntityYjsDocToDb(
-        input.entityKind,
-        input.entityId,
-        input.workspaceId,
-        staged!,
-        input.identity ? { identity: input.identity } : undefined
-      )
+      saveSavedEntityYjsDocToDb(input.entityKind, input.entityId, input.workspaceId, staged!, {
+        ...(input.identity ? { identity: input.identity } : {}),
+        mutation: input.mutation,
+      })
   )
-  await refreshActiveEntityListSession(input.entityKind, input.workspaceId).catch(() => undefined)
+  void refreshActiveEntityListSession(input.entityKind, input.workspaceId).catch(() => undefined)
   return persisted
 }
 
@@ -483,7 +503,9 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const actorUserId = requireInternalActorUserId(req)
-    const body = parseApplyEntityStateRequest(await readJsonBody(req))
+    const rawBody = await readJsonBody(req)
+    const body = parseApplyEntityStateRequest(rawBody)
+    const mutation = requireRealtimeMutation(req, actorUserId, rawBody)
     let normalizedFields: Record<string, unknown>
     try {
       normalizedFields = normalizeEntityFields(body.entityKind, body.fields)
@@ -493,12 +515,16 @@ async function handleInternalYjsEntityApplyRequest(
       )
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, body.workspaceId)
-    const persistedFields = await withBootstrappedDocument(descriptor, actorUserId, (doc) =>
-      applySavedEntityThroughStaging({
+    const fields = await withBootstrappedDocument(descriptor, actorUserId, async (doc) => {
+      if ((await inspectRealtimeMutation(mutation)) === 'replay') {
+        return getEntityFields(doc, body.entityKind)
+      }
+      return applySavedEntityThroughStaging({
         doc,
         entityId,
         entityKind: body.entityKind,
         workspaceId: body.workspaceId,
+        mutation,
         identity: body.identity,
         validate: body.expectedReviewBaseStateHash
           ? (current) =>
@@ -527,9 +553,8 @@ async function handleInternalYjsEntityApplyRequest(
           )
         },
       })
-    )
-
-    sendJson(res, 200, { success: true, fields: persistedFields })
+    })
+    sendJson(res, 200, { success: true, fields })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
     sendYjsRequestError(res, error, 'Failed to apply entity state')
@@ -563,6 +588,7 @@ async function commitDashboardStructurePlan(input: {
   workspaceId: string
   ownerUserId: string
   plan: DashboardLayoutEditPlan
+  mutation: RealtimeMutation
 }): Promise<void> {
   const createdWidgets = await Promise.all(
     input.plan.createdBindings.map(async (binding) => {
@@ -610,17 +636,19 @@ async function commitDashboardStructurePlan(input: {
             createdWidgets,
             removedIdentityIds: input.plan.removedIdentityIds,
           },
-          tx
+          tx,
+          input.mutation
         )
       if (removedSessionIds.length === 0) return commit()
       return runYjsRevocationTransaction(
         { sessionIds: removedSessionIds },
         drainYjsSessionTargets,
-        (tx) => commit(tx)
+        (tx) => commit(tx),
+        { deadlineAt: input.mutation.deadlineAt }
       )
     }
   )
-  await refreshActiveEntityListSession(
+  void refreshActiveEntityListSession(
     'dashboard_layout',
     input.workspaceId,
     input.ownerUserId
@@ -640,6 +668,7 @@ async function handleInternalDashboardEditRequest(
       throw new InvalidInternalYjsRequestError('Invalid dashboard edit body')
     }
     const body = raw as Record<string, unknown>
+    const mutation = requireRealtimeMutation(req, actorUserId, raw)
     const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
     const ownerUserId = typeof body.ownerUserId === 'string' ? body.ownerUserId.trim() : ''
     const expectedReviewBaseStateHash =
@@ -657,6 +686,16 @@ async function handleInternalDashboardEditRequest(
       ownerUserId,
     })
     const committed = await withBootstrappedDocument(descriptor, actorUserId, async (layoutDoc) => {
+      if ((await inspectRealtimeMutation(mutation)) === 'replay') {
+        return body.mutation === 'structure'
+          ? undefined
+          : readDashboardProjectionFromLiveOwners({
+              layoutDoc,
+              layoutId: entityId,
+              workspaceId,
+              ownerUserId,
+            })
+      }
       if (body.mutation === 'layout') {
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
@@ -676,6 +715,7 @@ async function handleInternalDashboardEditRequest(
           workspaceId,
           ownerUserId,
           plan,
+          mutation,
         })
         return readDashboardProjectionFromLiveOwners({
           layoutDoc,
@@ -694,6 +734,7 @@ async function handleInternalDashboardEditRequest(
           workspaceId,
           ownerUserId,
           plan,
+          mutation,
         })
         return
       }
@@ -804,19 +845,21 @@ async function handleInternalDashboardEditRequest(
                   ),
               })
             }
-            if (targets.length > 0) {
-              await persistStagedDocuments(targets, (staged) =>
-                saveDashboardYjsDocsToDb(
-                  scope,
-                  Object.fromEntries(
+            await persistStagedDocuments(targets, (staged) =>
+              saveDashboardYjsDocsToDb(
+                scope,
+                {
+                  layoutId: entityId,
+                  ...Object.fromEntries(
                     targets.map((target, index) => [
                       target.part,
                       { sessionId: target.sessionId, doc: staged[index]! },
                     ])
-                  ) as Parameters<typeof saveDashboardYjsDocsToDb>[1]
-                )
+                  ),
+                },
+                mutation
               )
-            }
+            )
             return {
               ...current,
               widgets: { ...current.widgets, [identityId]: planned.widgetDocument },

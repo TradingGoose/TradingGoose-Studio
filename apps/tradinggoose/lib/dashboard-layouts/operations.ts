@@ -7,6 +7,10 @@ import {
   buildDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import {
+  prepareRealtimeMutationTransaction,
+  type RealtimeMutation,
+} from '@/lib/yjs/server/mutation-idempotency'
+import {
   refreshEntityListSession,
   runYjsDrainFencedTransaction,
 } from '@/lib/yjs/server/snapshot-bridge'
@@ -311,9 +315,11 @@ export async function reorderDashboardLayouts(
 export async function withDashboardLayoutOwnerLock<T>(
   scope: DashboardLayoutOwnerScope,
   callback: (tx: DashboardLayoutWriteStore) => Promise<T>,
-  tx?: DashboardLayoutWriteStore
+  tx?: DashboardLayoutWriteStore,
+  mutation?: RealtimeMutation
 ): Promise<T> {
   const mutate = async (store: DashboardLayoutWriteStore) => {
+    if (mutation) await prepareRealtimeMutationTransaction(store, mutation, 60_000)
     await lockDashboardLayoutOwner(store, scope)
     return callback(store)
   }
@@ -369,7 +375,8 @@ export async function commitDashboardLayoutStructure(
   scope: DashboardLayoutOwnerScope,
   layoutId: string,
   commit: DashboardLayoutStructuralCommit,
-  tx?: DashboardLayoutWriteStore
+  tx?: DashboardLayoutWriteStore,
+  mutation?: RealtimeMutation
 ): Promise<void> {
   const layout = normalizeDashboardLayoutTopology(commit.layout)
   const createdWidgets = commit.createdWidgets.map(({ binding, document }) => ({
@@ -397,7 +404,8 @@ export async function commitDashboardLayoutStructure(
           )
       }
     },
-    tx
+    tx,
+    mutation
   )
 }
 
@@ -428,12 +436,14 @@ export async function persistDashboardWidgetAndColorPairDocuments(
   commit: {
     widget?: { identityId: string; content: DashboardWidgetDocument }
     colorPair?: { color: string; content: PairColorContext }
-  }
+  },
+  mutation?: RealtimeMutation
 ): Promise<{ widget?: DashboardWidgetDocument; colorPair?: PairColorContext }> {
-  if (!commit.widget && !commit.colorPair) {
+  if (!commit.widget && !commit.colorPair && !mutation) {
     throw new DashboardLayoutOperationError(400, 'Dashboard document commit is empty')
   }
   return db.transaction(async (tx) => {
+    await prepareRealtimeMutationTransaction(tx, mutation, 30_000)
     const layout = await readOwnedLayoutRow(scope, layoutId, tx)
     const result: { widget?: DashboardWidgetDocument; colorPair?: PairColorContext } = {}
     if (commit.widget) {

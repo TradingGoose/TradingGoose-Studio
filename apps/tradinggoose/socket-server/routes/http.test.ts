@@ -43,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   getEntityFields: vi.fn(),
   commitDashboardStructure: vi.fn(),
   drainTargets: vi.fn(),
+  inspectRealtimeMutation: vi.fn(),
   runRevocation: vi.fn(),
 }))
 
@@ -70,6 +71,11 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
 vi.mock('@/lib/yjs/server/revocation-fence', async (importOriginal) => ({
   ...(await importOriginal()),
   runYjsRevocationTransaction: mocks.runRevocation,
+}))
+
+vi.mock('@/lib/yjs/server/mutation-idempotency', async (importOriginal) => ({
+  ...(await importOriginal()),
+  inspectRealtimeMutation: mocks.inspectRealtimeMutation,
 }))
 
 vi.mock('@/socket-server/yjs/entity-list-session', () => ({
@@ -170,6 +176,8 @@ async function invoke(
     host: 'localhost',
     'x-internal-secret': 'internal-secret',
     ...(actorUserId ? { 'x-yjs-actor-user-id': actorUserId } : {}),
+    'x-yjs-request-id': '00000000-0000-4000-8000-000000000001',
+    'x-yjs-deadline': String(Date.now() + 65_000),
   }
   const res = {
     statusCode: 0,
@@ -254,6 +262,7 @@ describe('socket internal HTTP Yjs routes', () => {
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
     mocks.saveDashboard.mockResolvedValue({})
+    mocks.inspectRealtimeMutation.mockResolvedValue('apply')
     mocks.drainTargets.mockResolvedValue(undefined)
     mocks.runRevocation.mockImplementation(
       async (_target: unknown, _drain: unknown, mutation: (tx: unknown) => Promise<unknown>) =>
@@ -439,6 +448,21 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(documents.has('layout-1')).toBe(false)
   })
 
+  it('replays a committed structure mutation before planning it again', async () => {
+    setDashboardDocuments()
+    mocks.inspectRealtimeMutation.mockResolvedValueOnce('replay')
+
+    const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
+      mutation: 'structure',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      structure: { type: 'split', panelId: 'already-replaced', direction: 'horizontal' },
+    })
+
+    expect(response).toEqual({ status: 200, body: { success: true } })
+    expect(mocks.commitDashboardStructure).not.toHaveBeenCalled()
+  })
+
   it('lets a topology review commit after an independent widget changes', async () => {
     setDashboardDocuments({
       widget: createWidgetDoc('gray', { view: { interval: '1h' } }),
@@ -477,6 +501,7 @@ describe('socket internal HTTP Yjs routes', () => {
       widget: createWidgetDoc('red', { view: { interval: '1h' } }),
       red: createPairDoc({ watchlistId: 'preserved-watchlist' }),
     })
+    mocks.refreshActiveEntityList.mockReturnValueOnce(new Promise(() => {}))
 
     const response = await invoke('POST', '/internal/yjs/dashboard-layouts/layout-1/edit', {
       mutation: 'structure',
@@ -485,7 +510,6 @@ describe('socket internal HTTP Yjs routes', () => {
       structure: { type: 'replace', panelId: 'panel-1', widgetKey: 'watchlist' },
     })
 
-    expect(response.status).toBe(200)
     const commit = mocks.commitDashboardStructure.mock.calls[0]?.[2]
     expect(commit).toMatchObject({
       createdWidgets: [
@@ -500,7 +524,8 @@ describe('socket internal HTTP Yjs routes', () => {
         sessionIds: ['dashboard-widget:layout-1:widget-1'],
       },
       mocks.drainTargets,
-      expect.any(Function)
+      expect.any(Function),
+      { deadlineAt: expect.any(Number) }
     )
     expect(mocks.commitDashboardStructure.mock.calls[0]?.[3]).toBe(admissionReadStore)
     expect(mocks.refreshActiveEntityList).toHaveBeenCalledOnce()
@@ -589,7 +614,8 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.runRevocation).toHaveBeenCalledWith(
       { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
       mocks.drainTargets,
-      expect.any(Function)
+      expect.any(Function),
+      { deadlineAt: expect.any(Number) }
     )
   })
 
@@ -607,11 +633,13 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       {
+        layoutId: 'layout-1',
         widget: {
           sessionId: 'dashboard-widget:layout-1:widget-1',
           doc: expect.any(Y.Doc),
         },
-      }
+      },
+      expect.objectContaining({ requestId: expect.any(String), fingerprint: expect.any(String) })
     )
     expect(response.body.content.widgets['widget-1'].params.view).toMatchObject({
       interval: '1h',
@@ -658,11 +686,13 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.saveDashboard).toHaveBeenCalledWith(
       { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
       {
+        layoutId: 'layout-1',
         colorPair: {
           sessionId: 'dashboard-color-pair:layout-1:red',
           doc: expect.any(Y.Doc),
         },
-      }
+      },
+      expect.objectContaining({ requestId: expect.any(String), fingerprint: expect.any(String) })
     )
     expect(response.body.content.colorPairs.pairs[0].listing.listing_id).toBe('NVDA')
     for (const [, options] of mocks.acquireDocument.mock.calls) {

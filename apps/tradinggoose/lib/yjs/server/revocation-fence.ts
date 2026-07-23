@@ -1,5 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { sql } from 'drizzle-orm'
+import { getRealtimeMutationTransactionTimeout } from './mutation-idempotency'
 
 const YJS_REVOCATION_LOCK_NAMESPACE = 1_904_202_619
 const YJS_REVOCATION_COMMIT_FENCE_MS = 60_000
@@ -77,7 +78,7 @@ export async function runYjsRevocationTransaction<T>(
   target: YjsRevocationTarget,
   drain: (target: NormalizedYjsRevocationTarget) => Promise<void>,
   mutate: (tx: YjsRevocationTransaction) => Promise<T>,
-  tx?: YjsRevocationTransaction
+  options?: { tx?: YjsRevocationTransaction; deadlineAt?: number }
 ): Promise<T> {
   const normalized = normalizeYjsRevocationTarget(target)
   const revoke = async (store: YjsRevocationTransaction) => {
@@ -85,13 +86,18 @@ export async function runYjsRevocationTransaction<T>(
     await drain(normalized)
     return mutate(store)
   }
-  if (tx) return revoke(tx)
+  if (options?.tx) return revoke(options.tx)
   return db.transaction(async (store) => {
-    const timeout = String(YJS_REVOCATION_COMMIT_FENCE_MS)
+    const timeout = String(
+      options?.deadlineAt
+        ? getRealtimeMutationTransactionTimeout(options.deadlineAt, YJS_REVOCATION_COMMIT_FENCE_MS)
+        : YJS_REVOCATION_COMMIT_FENCE_MS
+    )
     await store.execute(sql`
       select
         set_config('statement_timeout', ${timeout}, true),
-        set_config('idle_in_transaction_session_timeout', ${timeout}, true)
+        set_config('idle_in_transaction_session_timeout', ${timeout}, true),
+        set_config('transaction_timeout', ${timeout}, true)
     `)
     return revoke(store)
   })

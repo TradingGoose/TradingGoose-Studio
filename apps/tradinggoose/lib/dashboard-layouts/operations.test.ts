@@ -117,11 +117,15 @@ const m = vi.hoisted(() => {
         tx ? mutate(tx) : transaction(mutate)
       ),
     },
+    claimRealtimeMutation: vi.fn(),
   }
 })
 
 vi.mock('@tradinggoose/db', () => ({ db: m.db }))
 vi.mock('@tradinggoose/db/schema', () => m.tables)
+vi.mock('@/lib/yjs/server/mutation-idempotency', () => ({
+  prepareRealtimeMutationTransaction: m.claimRealtimeMutation,
+}))
 vi.mock('drizzle-orm', () => ({
   and: (...conditions: unknown[]) => ({ operator: 'and', conditions }),
   asc: (field: unknown) => ({ operator: 'asc', field }),
@@ -338,6 +342,18 @@ describe('dashboard layout operations', () => {
 
     expect(m.transaction).toHaveBeenCalledOnce()
     expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
+    m.mutations.length = 0
+    const mutation = {
+      requestId: 'request-1',
+      deadlineAt: Date.now() + 40_000,
+      fingerprint: 'fingerprint-1',
+    }
+    m.selectResults.push([layoutRow()])
+    await expect(
+      persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {}, mutation)
+    ).resolves.toEqual({})
+    expect(m.claimRealtimeMutation).toHaveBeenCalledWith(m.store, mutation, 30_000)
+    expect(m.mutations).toEqual([])
   })
 
   it('fences the layout root before discovering and fencing child sessions', async () => {

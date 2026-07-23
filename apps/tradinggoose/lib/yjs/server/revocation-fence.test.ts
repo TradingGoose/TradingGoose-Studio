@@ -49,6 +49,7 @@ describe('Yjs revocation fence', () => {
     expect(statements[0]).toMatch(
       /statement_timeout.*60000.*idle_in_transaction_session_timeout.*60000/s
     )
+    expect(statements[0]).toMatch(/transaction_timeout.*60000/)
     expect(statements[1]).toContain('session:session-a')
     expect(statements[2]).toContain('session:session-b')
     expect(statements[3]).toContain('workspace:workspace-a')

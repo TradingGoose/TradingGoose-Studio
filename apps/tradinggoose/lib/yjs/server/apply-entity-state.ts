@@ -6,7 +6,7 @@ import {
   pineIndicators,
   skill,
 } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { isEqual } from 'lodash'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
@@ -42,6 +42,10 @@ import {
   SavedEntityRealtimeRequiredError,
 } from '@/lib/yjs/entity-state'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import {
+  prepareRealtimeMutationTransaction,
+  type RealtimeMutation,
+} from '@/lib/yjs/server/mutation-idempotency'
 import {
   applyEntityStateInSocketServer,
   SocketServerBridgeError,
@@ -228,7 +232,10 @@ export async function saveSavedEntityYjsDocToDb(
   entityId: string,
   workspaceId: string,
   doc: Y.Doc,
-  options?: { identity?: SavedEntityIdentityMutation }
+  options?: {
+    identity?: SavedEntityIdentityMutation
+    mutation?: RealtimeMutation
+  }
 ): Promise<Record<string, unknown>> {
   let entityFields: Record<string, unknown>
   try {
@@ -244,7 +251,7 @@ export async function saveSavedEntityYjsDocToDb(
   const canonicalFields = getEntityFields(doc, entityKind)
   try {
     const persistedFields = await db.transaction(async (tx) => {
-      await tx.execute(sql`set local transaction_timeout = '30s'`)
+      await prepareRealtimeMutationTransaction(tx, options?.mutation, 30_000)
       await lockSavedEntityList(tx, entityKind, workspaceId)
       if (options?.identity) {
         await renameSavedEntityIdentityInTx(tx, {
@@ -272,42 +279,49 @@ export async function saveSavedEntityYjsDocToDb(
 export async function saveDashboardYjsDocsToDb(
   scope: DashboardLayoutOwnerScope,
   parts: {
+    layoutId: string
     widget?: { sessionId: string; doc: Y.Doc }
     colorPair?: { sessionId: string; doc: Y.Doc }
-  }
+  },
+  mutation?: RealtimeMutation
 ): Promise<{ widget?: Record<string, unknown>; colorPair?: Record<string, unknown> }> {
   const widget = parts.widget ? parseDashboardWidgetSessionId(parts.widget.sessionId) : null
   const colorPair = parts.colorPair
     ? parseDashboardColorPairSessionId(parts.colorPair.sessionId)
     : null
-  const layoutId = widget?.layoutId ?? colorPair?.layoutId
   if (
-    !layoutId ||
+    !parts.layoutId ||
     (parts.widget && !widget) ||
     (parts.colorPair && !colorPair) ||
-    (widget && colorPair && widget.layoutId !== colorPair.layoutId)
+    (widget && widget.layoutId !== parts.layoutId) ||
+    (colorPair && colorPair.layoutId !== parts.layoutId)
   ) {
     throw new SavedEntityPersistenceError(400, 'Invalid dashboard child sessions')
   }
   try {
-    return await persistDashboardWidgetAndColorPairDocuments(scope, layoutId, {
-      ...(widget
-        ? {
-            widget: {
-              identityId: widget.identityId,
-              content: readDashboardWidgetStorageDocument(parts.widget!.doc),
-            },
-          }
-        : {}),
-      ...(colorPair
-        ? {
-            colorPair: {
-              color: colorPair.color,
-              content: readDashboardColorPairDocument(parts.colorPair!.doc),
-            },
-          }
-        : {}),
-    })
+    return await persistDashboardWidgetAndColorPairDocuments(
+      scope,
+      parts.layoutId,
+      {
+        ...(widget
+          ? {
+              widget: {
+                identityId: widget.identityId,
+                content: readDashboardWidgetStorageDocument(parts.widget!.doc),
+              },
+            }
+          : {}),
+        ...(colorPair
+          ? {
+              colorPair: {
+                color: colorPair.color,
+                content: readDashboardColorPairDocument(parts.colorPair!.doc),
+              },
+            }
+          : {}),
+      },
+      mutation
+    )
   } catch (error) {
     if (error instanceof DashboardLayoutValidationError) {
       throw new SavedEntityPersistenceError(400, error.message)

@@ -5,6 +5,8 @@ import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import {
   type ReviewAccessMode,
@@ -113,7 +115,15 @@ function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: Review
     }
     const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
     const part = descriptor.entityKind === 'dashboard_widget' ? 'widget' : 'colorPair'
+    const child =
+      descriptor.entityKind === 'dashboard_widget'
+        ? parseDashboardWidgetSessionId(descriptor.yjsSessionId)
+        : parseDashboardColorPairSessionId(descriptor.yjsSessionId)
+    if (!child) {
+      throw new SavedEntityPersistenceError(409, 'Dashboard persistence target is invalid')
+    }
     await saveDashboardYjsDocsToDb(scope, {
+      layoutId: child.layoutId,
       [part]: { sessionId: descriptor.yjsSessionId, doc: staged },
     })
   }
