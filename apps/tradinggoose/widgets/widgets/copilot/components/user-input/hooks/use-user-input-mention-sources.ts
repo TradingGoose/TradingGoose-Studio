@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
@@ -44,20 +44,9 @@ const LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_MENTION_O
   (entityKind): entityKind is LazyWorkspaceEntityMentionKind => entityKind !== 'dashboard_layout'
 )
 
-const createEmptyWorkspaceEntities = (): Record<
-  LazyWorkspaceEntityMentionKind,
-  WorkspaceEntityItem[]
-> => {
-  const entities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
-  for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) entities[entityKind] = []
-  return entities
-}
-
-const createEmptyWorkspaceEntityLoading = (): Record<LazyWorkspaceEntityMentionKind, boolean> => {
-  const loading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
-  for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) loading[entityKind] = false
-  return loading
-}
+type WorkspaceEntityMentionLoadState = Partial<
+  Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[] | 'loading'>
+>
 
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
@@ -67,11 +56,11 @@ export function useUserInputMentionSources({
 }: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
   const normalizedOwnerUserId = ownerUserId ?? null
+  const workspaceLifecycle = useMemo(() => ({ active: true }), [workspaceId])
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
   const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
-  const [workspaceEntities, setWorkspaceEntities] = useState(createEmptyWorkspaceEntities)
-  const [workspaceEntityLoading, setWorkspaceEntityLoading] = useState(
-    createEmptyWorkspaceEntityLoading
+  const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
+    {}
   )
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([])
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false)
@@ -122,14 +111,9 @@ export function useUserInputMentionSources({
 
     try {
       setIsLoadingPastChats(true)
-      const params = new URLSearchParams()
-
-      if (workspaceId) {
-        params.set('workspaceId', workspaceId)
-      }
-
-      const query = params.toString()
-      const response = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
+      const response = await fetch(
+        `/api/copilot/chat?workspaceId=${encodeURIComponent(workspaceId)}`
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to load chats: ${response.status}`)
@@ -159,21 +143,20 @@ export function useUserInputMentionSources({
 
   const ensureWorkspaceEntityLoaded = useCallback(
     async (entityKind: LazyWorkspaceEntityMentionKind) => {
-      if (workspaceEntityLoading[entityKind] || workspaceEntities[entityKind].length > 0) {
-        return
-      }
+      if (workspaceEntityState[entityKind] !== undefined || !workspaceLifecycle.active) return
 
       try {
-        setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: true }))
+        setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: 'loading' }))
         const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId)
-        setWorkspaceEntities((prev) => ({ ...prev, [entityKind]: mapped }))
+        if (!workspaceLifecycle.active) return
+        setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: mapped }))
       } catch (error) {
+        if (!workspaceLifecycle.active) return
         logger.error(`Failed to load ${entityKind} mention sources`, error)
-      } finally {
-        setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: false }))
+        setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: undefined }))
       }
     },
-    [workspaceEntities, workspaceEntityLoading, workspaceId]
+    [workspaceEntityState, workspaceId, workspaceLifecycle]
   )
 
   const ensureKnowledgeLoaded = useCallback(async () => {
@@ -211,27 +194,19 @@ export function useUserInputMentionSources({
       setIsLoadingBlocks(true)
       const { getAllBlocks } = await import('@/blocks')
       const allBlocks = getAllBlocks()
-      const regularBlocks = allBlocks
-        .filter((block: any) => !block.hideFromToolbar && block.category === 'blocks')
-        .map((block: any) => ({
-          id: block.type,
-          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
-          iconComponent: block.icon,
-          bgColor: sanitizeSolidIconColor(block.bgColor),
-        }))
-        .sort(compareLocalizedBlockMentionNames)
-
-      const toolBlocks = allBlocks
-        .filter((block: any) => !block.hideFromToolbar && block.category === 'tools')
-        .map((block: any) => ({
-          id: block.type,
-          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
-          iconComponent: block.icon,
-          bgColor: sanitizeSolidIconColor(block.bgColor),
-        }))
-        .sort(compareLocalizedBlockMentionNames)
-
-      setBlocksList([...regularBlocks, ...toolBlocks])
+      setBlocksList(
+        (['blocks', 'tools'] as const).flatMap((category) =>
+          allBlocks
+            .filter((block: any) => !block.hideFromToolbar && block.category === category)
+            .map((block: any) => ({
+              id: block.type,
+              name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
+              iconComponent: block.icon,
+              bgColor: sanitizeSolidIconColor(block.bgColor),
+            }))
+            .sort(compareLocalizedBlockMentionNames)
+        )
+      )
     } catch {
     } finally {
       setIsLoadingBlocks(false)
@@ -314,34 +289,16 @@ export function useUserInputMentionSources({
 
   const ensureSubmenuLoaded = useCallback(
     async (submenu: MentionSubmenu) => {
-      if (submenu === 'chats') {
-        await ensurePastChatsLoaded()
-        return
-      }
+      if (submenu === 'chats') return ensurePastChatsLoaded()
 
       if (submenu === 'dashboard_layout') return
 
-      if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-        await ensureWorkspaceEntityLoaded(submenu)
-        return
-      }
-
-      if (submenu === 'knowledge') {
-        await ensureKnowledgeLoaded()
-        return
-      }
-
-      if (submenu === 'blocks') {
-        await ensureBlocksLoaded()
-        return
-      }
-
-      if (submenu === 'workflow_blocks') {
-        await ensureWorkflowBlocksLoaded()
-        return
-      }
-
-      await ensureLogsLoaded()
+      if (isCopilotWorkspaceEntityMentionOption(submenu))
+        return ensureWorkspaceEntityLoaded(submenu)
+      if (submenu === 'knowledge') return ensureKnowledgeLoaded()
+      if (submenu === 'blocks') return ensureBlocksLoaded()
+      if (submenu === 'workflow_blocks') return ensureWorkflowBlocksLoaded()
+      return ensureLogsLoaded()
     },
     [
       ensureBlocksLoaded,
@@ -368,21 +325,33 @@ export function useUserInputMentionSources({
   }, [ensureWorkflowBlocksLoaded])
 
   useEffect(() => {
-    if (workflowId && workspaceEntities.workflow.length === 0) {
+    if (workflowId && workspaceEntityState.workflow === undefined) {
       void ensureWorkspaceEntityLoaded('workflow')
     }
-  }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntities.workflow.length])
+  }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntityState.workflow])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    workspaceLifecycle.active = true
     setPastChats([])
     setIsLoadingPastChats(false)
-    setWorkspaceEntities(createEmptyWorkspaceEntities())
-    setWorkspaceEntityLoading(createEmptyWorkspaceEntityLoading())
+    setWorkspaceEntityState({})
     setKnowledgeBases([])
     setIsLoadingKnowledge(false)
     setLogsList([])
     setIsLoadingLogs(false)
-  }, [workspaceId])
+
+    return () => {
+      workspaceLifecycle.active = false
+    }
+  }, [workspaceLifecycle])
+
+  const workspaceEntities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
+  const workspaceEntityLoading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
+  for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) {
+    const state = workspaceEntityState[entityKind]
+    workspaceEntities[entityKind] = Array.isArray(state) ? state : []
+    workspaceEntityLoading[entityKind] = state === 'loading'
+  }
 
   const mentionSources: MentionSources = {
     pastChats,
