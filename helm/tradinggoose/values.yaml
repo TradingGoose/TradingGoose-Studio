@@ -659,6 +659,15 @@ cronjobs:
       concurrencyPolicy: Forbid
       successfulJobsHistoryLimit: 3
       failedJobsHistoryLimit: 1
+
+    idempotencyCleanup:
+      enabled: true
+      name: idempotency-cleanup
+      schedule: "0 3 * * *"
+      path: "/api/webhooks/cleanup/idempotency"
+      concurrencyPolicy: Forbid
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
       
 
   # Global CronJob settings
