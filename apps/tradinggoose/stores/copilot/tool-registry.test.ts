@@ -250,7 +250,7 @@ describe('tool-registry', () => {
     expect(isGatedTool('edit_custom_tool')).toBe(true)
     expect(isGatedTool('edit_mcp_server')).toBe(true)
     expect(isGatedTool('search_listing')).toBe(false)
-    expect(isGatedTool('edit_watchlist')).toBe(true)
+    expect(isGatedTool('edit_watchlist')).toBe(false)
     expect(isGatedTool('list_knowledge_bases')).toBe(false)
     expect(isGatedTool('read_knowledge_base')).toBe(false)
     expect(isGatedTool('create_knowledge_base')).toBe(true)
