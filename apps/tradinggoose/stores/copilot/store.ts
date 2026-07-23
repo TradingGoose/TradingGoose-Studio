@@ -1166,11 +1166,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             })
           }
 
-          // Post copilot_stats record (input/output tokens can be null for now)
-          try {
-            // Removed: stats sending now occurs only on accept/reject with minimal payload
-          } catch {}
-
           // Fetch context usage after response completes
           if (!context.awaitingTools) {
             logger.info('[Context Usage] Stream completed, fetching usage')
@@ -1222,7 +1217,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           get().abortMessage()
         }
         resetStreamingQueue()
-        // Clear any diff on cleanup
       },
 
       reset: () => {
