@@ -334,7 +334,7 @@ describe('shared document lifecycle', () => {
     expect(peekDocument('watchlist-reconnect')).toBeNull()
   })
 
-  it('keeps queued edits newer than manual persistence and retains drafts after failure', async () => {
+  it('applies current canonicalization, keeps queued edits, and retains drafts after failure', async () => {
     const socket = new TestSocket()
     const release = deferred()
     let canonicalUpdate!: Uint8Array
@@ -344,11 +344,12 @@ describe('shared document lifecycle', () => {
         [{ doc, mutate: (staged) => staged.getMap('fields').set('accepted', requestId) }],
         async ([staged]) => {
           const fields = staged!.getMap('fields')
-          expect(fields.get('content')).toBe('saved')
           const beforeCanonicalization = Y.encodeStateVector(staged!)
-          fields.set('content', 'canonical')
+          const content = String(fields.get('content'))
+          if (requestId !== 'request-0') expect(content).toBe('saved')
+          fields.set('content', requestId === 'request-0' ? content.trim() : 'canonical')
           canonicalUpdate = Y.encodeStateAsUpdate(staged!, beforeCanonicalization)
-          await release.promise
+          if (requestId !== 'request-0') await release.promise
         },
         requestId
       )
@@ -368,10 +369,18 @@ describe('shared document lifecycle', () => {
       }
     )
     const fields = doc.getMap('fields')
+    socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', '  raw  ')))
+    await vi.waitFor(() => expect(fields.get('content')).toBe('  raw  '))
+    socket.emit('message', encodeYjsPersistRequest('request-0'))
+    await vi.waitFor(() =>
+      expect(fields.toJSON()).toEqual({ content: 'raw', accepted: 'request-0' })
+    )
+
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', 'saved')))
+    await vi.waitFor(() => expect(fields.get('content')).toBe('saved'))
     const initialMessages = socket.send.mock.calls.length
     socket.emit('message', encodeYjsPersistRequest('request-1', 'Renamed skill'))
-    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2))
 
     socket.emit('message', createSyncUpdateMessage(createFieldsUpdate(doc, 'content', 'newer')))
     release.resolve()

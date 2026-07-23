@@ -46,7 +46,10 @@ const mocks = vi.hoisted(() => ({
   runRevocation: vi.fn(),
 }))
 
-vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: 'internal-secret' } }))
+vi.mock('@/lib/env', async (importOriginal) => ({
+  ...(await importOriginal()),
+  env: { INTERNAL_API_SECRET: 'internal-secret' },
+}))
 vi.mock('@/lib/workflows/db-helpers', () => ({ saveWorkflowYjsDocToDb: vi.fn() }))
 vi.mock('@/lib/yjs/workflow-session', () => ({ replaceWorkflowDocumentState: vi.fn() }))
 vi.mock('@/lib/yjs/workflow-variables', () => ({ replaceWorkflowVariables: vi.fn() }))
@@ -64,11 +67,9 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
   initializeSavedReviewTargetDocument: mocks.initializeTarget,
 }))
 
-vi.mock('@/lib/yjs/server/revocation-fence', () => ({
+vi.mock('@/lib/yjs/server/revocation-fence', async (importOriginal) => ({
+  ...(await importOriginal()),
   runYjsRevocationTransaction: mocks.runRevocation,
-  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
-    status = 409
-  },
 }))
 
 vi.mock('@/socket-server/yjs/entity-list-session', () => ({
@@ -79,11 +80,16 @@ vi.mock('@/lib/copilot/review-sessions/runtime', () => ({
   getReviewTargetRuntimeState: mocks.getRuntime,
 }))
 
-vi.mock('@/socket-server/yjs/upstream-utils', () => ({
-  acquireDocument: mocks.acquireDocument,
-  drainYjsSessionTargets: mocks.drainTargets,
-  persistStagedDocuments: mocks.persistStaged,
-}))
+vi.mock('@/socket-server/yjs/upstream-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/socket-server/yjs/upstream-utils')>()
+  mocks.persistStaged.mockImplementation(actual.persistStagedDocuments)
+  return {
+    ...actual,
+    acquireDocument: mocks.acquireDocument,
+    drainYjsSessionTargets: mocks.drainTargets,
+    persistStagedDocuments: mocks.persistStaged,
+  }
+})
 
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
   DashboardLayoutOperationError: class DashboardLayoutOperationError extends Error {},
@@ -247,30 +253,6 @@ describe('socket internal HTTP Yjs routes', () => {
     activeAcquisitions = new Set()
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
-    mocks.persistStaged.mockImplementation(
-      async (
-        targets: Array<{ doc: Y.Doc; mutate?: (staged: Y.Doc) => void }>,
-        persist: (staged: Y.Doc[]) => Promise<unknown>
-      ) => {
-        const liveStates = targets.map(({ doc }) => Y.encodeStateVector(doc))
-        const staging = targets.map(({ doc }) => {
-          const staged = new Y.Doc()
-          Y.applyUpdate(staged, Y.encodeStateAsUpdate(doc))
-          return staged
-        })
-        try {
-          targets.forEach(({ mutate }, index) => mutate?.(staging[index]!))
-          const mutations = staging.map((doc, index) =>
-            Y.encodeStateAsUpdate(doc, liveStates[index])
-          )
-          const result = await persist(staging)
-          targets.forEach(({ doc }, index) => Y.applyUpdate(doc, mutations[index]!))
-          return result
-        } finally {
-          staging.forEach((doc) => doc.destroy())
-        }
-      }
-    )
     mocks.saveDashboard.mockResolvedValue({})
     mocks.drainTargets.mockResolvedValue(undefined)
     mocks.runRevocation.mockImplementation(

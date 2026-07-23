@@ -543,10 +543,14 @@ export async function persistStagedDocuments<T>(
     const mutations = staging.map((doc, index) => Y.encodeStateAsUpdate(doc, liveStates[index]))
     const result = await persist(staging)
     targets.forEach(({ doc }, index) => {
+      const isCurrent =
+        !(doc instanceof WSSharedDoc) ||
+        (doc.changeGeneration === generations[index] && doc.pendingMutations <= 1)
+      if (isCurrent) mutations[index] = Y.encodeStateAsUpdate(staging[index]!, liveStates[index])
       Y.applyUpdate(doc, mutations[index]!, YJS_ORIGINS.SYSTEM)
       if (!(doc instanceof WSSharedDoc)) return
       publishPersistedSnapshot(doc, Y.snapshot(staging[index]!), requestId)
-      if (doc.changeGeneration === generations[index]) doc.hasUnsavedChanges = false
+      if (isCurrent) doc.hasUnsavedChanges = false
     })
     return result
   } finally {
