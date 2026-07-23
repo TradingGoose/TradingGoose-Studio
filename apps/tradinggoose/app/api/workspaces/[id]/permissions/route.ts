@@ -27,15 +27,9 @@ const updatePermissionsSchema = z.object({
         permissions: z.enum(permissionTypeValues),
       })
     )
+    .min(1)
     .refine((updates) => new Set(updates.map(({ userId }) => userId)).size === updates.length),
 })
-
-interface UpdatePermissionsRequest {
-  updates: Array<{
-    userId: string
-    permissions: PermissionType
-  }>
-}
 
 /**
  * GET /api/workspaces/[id]/permissions
@@ -120,7 +114,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Invalid permissions update payload' }, { status: 400 })
     }
 
-    const body: UpdatePermissionsRequest = bodyParse.data
+    const body = bodyParse.data
 
     const selfUpdate = body.updates.find((update) => update.userId === session.user.id)
     if (selfUpdate && selfUpdate.permissions !== 'admin') {

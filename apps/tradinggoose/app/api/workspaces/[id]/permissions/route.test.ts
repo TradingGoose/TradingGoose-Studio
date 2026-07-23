@@ -148,9 +148,10 @@ describe('Workspace permissions PATCH route', () => {
     expect(updateMock).not.toHaveBeenCalled()
   })
 
-  it('rejects malformed and duplicate permission updates before fencing', async () => {
+  it('rejects empty, malformed, and duplicate permission updates before fencing', async () => {
     for (const body of [
       {},
+      { updates: [] },
       {
         updates: [
           { userId: 'user-2', permissions: 'admin' },
