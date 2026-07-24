@@ -145,54 +145,58 @@ export function handleYjsUpgrade(
   }
 
   const yjsSessionId = decodeURIComponent(match[1])
-  socket.pause()
-  wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-    const rejectConnection = (error: unknown) => {
-      logger.error('Failed to attach Yjs connection', { docId: yjsSessionId, error })
-      ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
-    }
+  const rejectConnection = (ws: WebSocket, error: unknown) => {
+    logger.error('Failed to attach Yjs connection', { docId: yjsSessionId, error })
+    ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
+  }
 
-    void (async () => {
-      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
-      const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
-      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+  void (async () => {
+    if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+    const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
 
-      await acquireDocument(
-        yjsSessionId,
-        {
-          workspaceId: authenticated.descriptor.workspaceId,
-          admission: authenticated,
-          initialize: (_doc, admission, readStore) => {
-            if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
-            if (isEntityListSessionId(admission.descriptor.yjsSessionId)) {
-              bindEntityListSession(
-                _doc,
-                admission.descriptor.entityKind as ReviewEntityKind,
-                admission.descriptor.workspaceId as string,
-                admission.descriptor.ownerUserId ?? null
-              )
-              return
-            }
-            return initializeSavedReviewTargetDocument(admission.descriptor, readStore)
-          },
-        },
-        async (doc, admission) => {
+    await acquireDocument(
+      yjsSessionId,
+      {
+        workspaceId: authenticated.descriptor.workspaceId,
+        admission: authenticated,
+        initialize: (_doc, admission, readStore) => {
           if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
-          const { accessMode, userId, descriptor } = admission
-          logger.info('Yjs connection established', { docId: yjsSessionId, userId })
-          setupWSConnection(ws, request, {
-            doc,
-            userId,
-            accessMode,
-            descriptor,
-            persist: manualPersistenceHandler(accessMode, descriptor),
-            onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
-            onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
-          })
-          socket.resume()
-        }
-      )
-    })().catch(rejectConnection)
+          if (isEntityListSessionId(admission.descriptor.yjsSessionId)) {
+            bindEntityListSession(
+              _doc,
+              admission.descriptor.entityKind as ReviewEntityKind,
+              admission.descriptor.workspaceId as string,
+              admission.descriptor.ownerUserId ?? null
+            )
+            return
+          }
+          return initializeSavedReviewTargetDocument(admission.descriptor, readStore)
+        },
+      },
+      (doc, admission) => {
+        if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
+        if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+        const { accessMode, userId, descriptor } = admission
+        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+          try {
+            setupWSConnection(ws, request, {
+              doc,
+              userId,
+              accessMode,
+              descriptor,
+              persist: manualPersistenceHandler(accessMode, descriptor),
+              onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
+              onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+            })
+            logger.info('Yjs connection established', { docId: yjsSessionId, userId })
+          } catch (error) {
+            rejectConnection(ws, error)
+          }
+        })
+      }
+    )
+  })().catch((error) => {
+    wss.handleUpgrade(request, socket, head, (ws: WebSocket) => rejectConnection(ws, error))
   })
 }
 
