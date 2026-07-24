@@ -469,7 +469,14 @@ export const WatchlistHeaderRightControls = ({
 
   const handleConfirmRemoveList = async () => {
     const watchlistId = listToDelete?.id
-    if (!canMutateWatchlist || !workspaceId || !watchlistId || pendingAction) return
+    if (
+      !canMutateWatchlist ||
+      !workspaceId ||
+      !watchlistId ||
+      pendingAction ||
+      listOptions.length <= 1
+    )
+      return
 
     try {
       setPendingAction('delete-list')
@@ -816,23 +823,25 @@ export const WatchlistHeaderRightControls = ({
                             {copy.header.renameList}: {option.name}
                           </span>
                         </button>
-                        <button
-                          type='button'
-                          disabled={isMutating}
-                          className={listRowActionButtonClassName}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setListDropdownOpen(false)
-                            setListToDelete(option)
-                          }}
-                        >
-                          <Trash2 className={widgetHeaderMenuIconClassName} aria-hidden='true' />
-                          <span className='sr-only'>
-                            {copy.header.deleteList}: {option.name}
-                          </span>
-                        </button>
+                        {listOptions.length > 1 && (
+                          <button
+                            type='button'
+                            disabled={isMutating}
+                            className={listRowActionButtonClassName}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.preventDefault()
+                              event.stopPropagation()
+                              setListDropdownOpen(false)
+                              setListToDelete(option)
+                            }}
+                          >
+                            <Trash2 className={widgetHeaderMenuIconClassName} aria-hidden='true' />
+                            <span className='sr-only'>
+                              {copy.header.deleteList}: {option.name}
+                            </span>
+                          </button>
+                        )}
                       </div>
                     ) : null}
                   </DropdownMenuItem>

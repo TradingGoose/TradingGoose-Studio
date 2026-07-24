@@ -129,6 +129,7 @@ export function SkillList({ context, params, onWidgetLinkedParamsPatch }: Widget
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
+              canDelete={listSkills.length > 1}
               isDeleting={deletingIds.has(skill.id)}
             />
           ))}

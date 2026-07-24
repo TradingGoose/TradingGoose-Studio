@@ -26,6 +26,7 @@ interface CustomToolListItemProps {
   onDelete: (customToolId: string) => Promise<void>
   onRename: (customToolId: string, title: string) => Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isDeleting?: boolean
 }
 
@@ -38,6 +39,7 @@ export function CustomToolListItem({
   onDelete,
   onRename,
   canEdit,
+  canDelete = true,
   isDeleting = false,
 }: CustomToolListItemProps) {
   const locale = useLocale() as LocaleCode
@@ -108,7 +110,7 @@ export function CustomToolListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting) return
+    if (isDeleting || !canDelete) return
     try {
       await onDelete(tool.id)
       setShowDeleteDialog(false)
@@ -207,16 +209,18 @@ export function CustomToolListItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameCustomTool}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteCustomTool}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteCustomTool}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

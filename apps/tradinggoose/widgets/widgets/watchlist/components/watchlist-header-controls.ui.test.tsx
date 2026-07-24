@@ -456,8 +456,14 @@ describe('watchlist header controls', () => {
     expect(mockPatchWidgetLinkedParams).not.toHaveBeenCalled()
   })
 
-  it('clears the active widget link when its document is still loading', async () => {
+  it('re-points the active widget link after deleting the selected list while its document is still loading', async () => {
     isSelectedWatchlistDocumentReady = false
+    const secondWatchlist: WatchlistRecord = {
+      ...rootWatchlist,
+      id: 'watchlist-2',
+      name: 'Secondary',
+    }
+    currentWatchlists = [rootWatchlist, secondWatchlist]
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -501,6 +507,6 @@ describe('watchlist header controls', () => {
     })
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: null })
+    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: 'watchlist-2' })
   })
 })

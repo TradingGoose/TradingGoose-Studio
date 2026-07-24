@@ -168,6 +168,7 @@ export function IndicatorList({
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
+              canDelete={members.length > 1}
               isCopying={copyingIds.has(indicator.entityId)}
               isDeleting={deletingIds.has(indicator.entityId)}
             />
