@@ -55,24 +55,9 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
   verifyReviewTargetAccess: accessMocks.verifyReviewTargetAccess,
 }))
 
-vi.mock('@/lib/yjs/server/revocation-fence', () => ({
-  normalizeYjsRevocationTarget: (target: {
-    sessionIds?: readonly string[]
-    workspaceIds?: readonly string[]
-  }) => {
-    const sessionIds = [...new Set(target.sessionIds ?? [])].sort()
-    const workspaceIds = [...new Set(target.workspaceIds ?? [])].sort()
-    if (sessionIds.length + workspaceIds.length === 0) throw new Error('target required')
-    return { sessionIds, workspaceIds }
-  },
+vi.mock('@/lib/yjs/server/revocation-fence', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/yjs/server/revocation-fence')>()),
   withYjsAdmissionTransaction: fenceMocks.withAdmission,
-  YjsSessionAdmissionError: class YjsSessionAdmissionError extends Error {
-    status = 409
-
-    constructor(target: string) {
-      super(`Yjs session ${target} is not accepting connections`)
-    }
-  },
 }))
 
 class TestSocket extends EventEmitter {
@@ -267,7 +252,7 @@ describe('shared document lifecycle', () => {
 
     const doc = peekDocument('serialized-bootstrap')!
     const second = acquireDocument('serialized-bootstrap', { initialize }, () => undefined)
-    const secondRejected = expect(second).rejects.toMatchObject({ status: 409 })
+    const secondRejected = expect(second).rejects.toMatchObject({ status: 425 })
     let drainSettled = false
     const drain = discardDocument(doc).then(() => void (drainSettled = true))
     await Promise.resolve()
@@ -872,7 +857,7 @@ describe('orderly document discard', () => {
   })
 
   it('requires a drain target', async () => {
-    await expect(drainYjsSessionTargets({})).rejects.toThrow('target required')
+    await expect(drainYjsSessionTargets({})).rejects.toThrow('non-empty Yjs revocation target')
   })
 
   it('reopens a current document after a retryable discard flush failure', async () => {

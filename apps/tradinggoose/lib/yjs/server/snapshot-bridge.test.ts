@@ -172,35 +172,46 @@ describe('applyEntityStateInSocketServer', () => {
   })
 })
 
-describe('refreshEntityListSession', () => {
-  it('keeps a committed mutation independent from non-destructive list fanout failure', async () => {
+describe('applyWorkflowPatchInSocketServer', () => {
+  it('retries only transient admission conflicts without an attempt budget', async () => {
     vi.useFakeTimers()
-    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Drain active' }), { status: 425 })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }))
 
+    const { applyWorkflowPatchInSocketServer } = await import('./snapshot-bridge')
+    const applied = applyWorkflowPatchInSocketServer('workflow-1', 'user-1', { variables: {} })
+    await vi.runAllTimersAsync()
+
+    await expect(applied).resolves.toBeUndefined()
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+
+    mockFetch.mockClear()
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
+    await expect(
+      applyWorkflowPatchInSocketServer('workflow-1', 'user-1', { variables: {} })
+    ).rejects.toThrow('fetch failed')
+    expect(mockFetch).toHaveBeenCalledOnce()
+  })
+})
+
+describe('refreshEntityListSession', () => {
+  it.each([
+    ['applied', new Response(JSON.stringify({ success: true, applied: true })), true, 1],
+    ['without a live document', new Response(JSON.stringify({ success: true })), false, 1],
+    ['after a terminal conflict', new Response('{}', { status: 409 }), false, 1],
+    ['after a transport failure', new TypeError('fetch failed'), false, 3],
+  ])('reports entity-list fanout %s', async (_, outcome, expected, attempts) => {
+    vi.useFakeTimers()
+    if (outcome instanceof Response) mockFetch.mockResolvedValue(outcome)
+    else mockFetch.mockRejectedValue(outcome)
     const { refreshEntityListSession } = await import('./snapshot-bridge')
     const refresh = refreshEntityListSession('skill', 'workspace-1')
     await vi.runAllTimersAsync()
 
-    await expect(refresh).resolves.toBe(false)
-
-    expect(mockFetch).toHaveBeenCalledTimes(3)
-    const [refreshUrl] = mockFetch.mock.calls[0]
-    expect(refreshUrl).toContain('/internal/yjs/sessions/list%3Askill%3Aworkspace-1/members')
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Failed to refresh entity-list projection',
-      expect.objectContaining({ entityKind: 'skill', workspaceId: 'workspace-1' })
-    )
-    expect(mockLogger.error).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    ['applied', { success: true, applied: true }, true],
-    ['without a live document', { success: true, applied: false }, false],
-  ])('reports entity-list fanout %s', async (_, body, expected) => {
-    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(body), { status: 200 }))
-    const { refreshEntityListSession } = await import('./snapshot-bridge')
-
-    await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBe(expected)
-    expect(mockLogger.warn).not.toHaveBeenCalled()
+    await expect(refresh).resolves.toBe(expected)
+    expect(mockFetch).toHaveBeenCalledTimes(attempts)
   })
 })

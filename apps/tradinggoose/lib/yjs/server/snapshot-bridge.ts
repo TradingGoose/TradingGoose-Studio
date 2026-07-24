@@ -32,6 +32,7 @@ import {
 const logger = createLogger('YjsSnapshotBridge')
 const DRAIN_ATTEMPTS = 3
 const SOCKET_SERVER_RETRY_BACKOFF_BASE_MS = 250
+const TRANSIENT_CONFLICT_ATTEMPTS = 3
 const SAVED_ENTITY_RESPONSE_DEADLINE_MS = 40_000
 const DASHBOARD_RESPONSE_DEADLINE_MS = 70_000
 const REPLAY_RESERVE_MS = 5_000
@@ -115,9 +116,13 @@ async function fetchFromSocketServer<T = Response>(
       return decode ? await decode(response) : (response as T)
     } catch (error) {
       const backoffMs = SOCKET_SERVER_RETRY_BACKOFF_BASE_MS * 2 ** (attempt - 1)
+      const attemptLimit =
+        error instanceof SocketServerBridgeError && error.status === 425
+          ? Math.max(attempts, TRANSIENT_CONFLICT_ATTEMPTS)
+          : attempts
       const canRetry =
         (responseDeadline === null
-          ? attempt < attempts
+          ? attempt < attemptLimit
           : Date.now() + backoffMs < responseDeadline) &&
         !(
           error instanceof SocketServerBridgeError &&

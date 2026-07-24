@@ -22,7 +22,7 @@ export type YjsRevocationTransaction = Pick<
 type YjsRevocationLockStore = Pick<typeof db, 'execute'>
 
 export class YjsSessionAdmissionError extends Error {
-  readonly status = 409
+  readonly status = 425
 
   constructor(target: string) {
     super(`Yjs session ${target} is not accepting connections`)

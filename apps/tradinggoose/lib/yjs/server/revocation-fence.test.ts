@@ -83,12 +83,10 @@ describe('Yjs revocation fence', () => {
     mockTransaction.mockImplementation((run) =>
       run({ execute: vi.fn(async () => [{ acquired: false }]) })
     )
-    const { withYjsAdmissionTransaction, YjsSessionAdmissionError } = await import(
-      './revocation-fence'
-    )
+    const { withYjsAdmissionTransaction } = await import('./revocation-fence')
 
     await expect(
       withYjsAdmissionTransaction({ sessionIds: ['watchlist-1'] }, async () => undefined)
-    ).rejects.toBeInstanceOf(YjsSessionAdmissionError)
+    ).rejects.toMatchObject({ name: 'YjsSessionAdmissionError', status: 425 })
   })
 })
