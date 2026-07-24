@@ -1,18 +1,24 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { Download, FileUp, FolderPlus, ListPlus, Plus } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useMessages } from 'next-intl'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
   widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
 
 type WatchlistListActionsButtonProps = {
-  open: boolean
-  onOpenChange: (nextOpen: boolean) => void
   disabled?: boolean
   createListDisabled?: boolean
   createSectionDisabled?: boolean
@@ -24,16 +30,7 @@ type WatchlistListActionsButtonProps = {
   onExport: () => void
 }
 
-type VisibleAction = {
-  key: string
-  icon: ReactNode
-  label: string
-  onClick: () => void
-}
-
 export const WatchlistListActionsButton = ({
-  open,
-  onOpenChange,
   disabled = false,
   createListDisabled = false,
   createSectionDisabled = false,
@@ -44,91 +41,80 @@ export const WatchlistListActionsButton = ({
   onImport,
   onExport,
 }: WatchlistListActionsButtonProps) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.watchlist.header
-  const closeAndRun = (action: () => void) => {
-    onOpenChange(false)
-    action()
-  }
 
-  const visibleActions: VisibleAction[] = []
-
-  if (!createListDisabled) {
-    visibleActions.push({
+  const actions = [
+    {
       key: 'create-list',
-      icon: <FolderPlus className='h-3.5 w-3.5' />,
+      icon: FolderPlus,
       label: copy.createList,
-      onClick: () => closeAndRun(onCreateList),
-    })
-  }
-
-  if (!createSectionDisabled) {
-    visibleActions.push({
+      disabled: createListDisabled,
+      handler: onCreateList,
+    },
+    {
       key: 'create-section',
-      icon: <ListPlus className='h-3.5 w-3.5' />,
+      icon: ListPlus,
       label: copy.createSection,
-      onClick: () => closeAndRun(onCreateSection),
-    })
-  }
-
-  if (!importDisabled) {
-    visibleActions.push({
+      disabled: createSectionDisabled,
+      handler: onCreateSection,
+    },
+    {
       key: 'import',
-      icon: <FileUp className='h-3.5 w-3.5' />,
+      icon: FileUp,
       label: copy.import,
-      onClick: () => closeAndRun(onImport),
-    })
-  }
-
-  if (!exportDisabled) {
-    visibleActions.push({
+      disabled: importDisabled,
+      handler: onImport,
+    },
+    {
       key: 'export',
-      icon: <Download className='h-3.5 w-3.5' />,
+      icon: Download,
       label: copy.export,
-      onClick: () => closeAndRun(onExport),
-    })
-  }
+      disabled: exportDisabled,
+      handler: onExport,
+    },
+  ]
 
-  const triggerDisabled = disabled || visibleActions.length === 0
+  const allDisabled = disabled || actions.every((action) => action.disabled)
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
-            <PopoverTrigger asChild>
+            <DropdownMenuTrigger asChild>
               <button
                 type='button'
                 className={widgetHeaderIconButtonClassName()}
-                disabled={triggerDisabled}
+                disabled={allDisabled}
               >
                 <Plus className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.listActionsAriaLabel}</span>
               </button>
-            </PopoverTrigger>
+            </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{copy.listActionsTooltip}</TooltipContent>
       </Tooltip>
-      {visibleActions.length > 0 ? (
-        <PopoverContent
-          align='end'
-          className='w-56 p-1'
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          {visibleActions.map((action) => (
-            <button
-              key={action.key}
-              type='button'
-              className={widgetHeaderMenuItemClassName}
-              onClick={action.onClick}
-            >
-              {action.icon}
-              <span>{action.label}</span>
-            </button>
-          ))}
-        </PopoverContent>
-      ) : null}
-    </Popover>
+      <DropdownMenuContent
+        align='end'
+        sideOffset={6}
+        className={cn(widgetHeaderMenuContentClassName, 'w-56 p-1')}
+      >
+        {actions.map(({ key, icon: Icon, label, disabled: actionDisabled, handler }) => (
+          <DropdownMenuItem
+            key={key}
+            className={widgetHeaderMenuItemClassName}
+            disabled={actionDisabled}
+            onSelect={() => {
+              if (actionDisabled) return
+              handler()
+            }}
+          >
+            <Icon className={widgetHeaderMenuIconClassName} aria-hidden='true' />
+            <span className={widgetHeaderMenuTextClassName}>{label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

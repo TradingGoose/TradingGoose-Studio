@@ -178,6 +178,7 @@ vi.mock('@/components/widget-header-control', () => ({
     ['control', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',
   widgetHeaderMenuContentClassName: 'menu-content',
+  widgetHeaderMenuIconClassName: 'menu-icon',
   widgetHeaderMenuItemClassName: 'menu-item',
   widgetHeaderMenuTextClassName: 'menu-text',
 }))
@@ -479,9 +480,9 @@ describe('watchlist header controls', () => {
     })
 
     const deleteButton = await vi.waitFor(() => {
-      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-        (candidate) => /delete list/i.test(candidate.textContent ?? '')
-      )
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+        .filter((candidate) => !candidate.querySelector('button'))
+        .find((candidate) => /delete list/i.test(candidate.textContent ?? ''))
       expect(button).toBeTruthy()
       return button!
     })

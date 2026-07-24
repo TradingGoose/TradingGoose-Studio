@@ -2,7 +2,6 @@
 
 import {
   type ChangeEvent,
-  Fragment,
   type KeyboardEvent,
   useCallback,
   useEffect,
@@ -35,6 +34,8 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
+  widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
@@ -370,7 +371,6 @@ export const WatchlistHeaderRightControls = ({
   const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
   const canMutateWatchlist = !isPermissionsLoading && canEdit
   const [listDropdownOpen, setListDropdownOpen] = useState(false)
-  const [listActionsOpen, setListActionsOpen] = useState(false)
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [renamingListValue, setRenamingListValue] = useState('')
   const [listToDelete, setListToDelete] = useState<WatchlistListOption | null>(null)
@@ -407,6 +407,8 @@ export const WatchlistHeaderRightControls = ({
   const canMutateSelectedWatchlist = canMutateWatchlist && selectedDocument.canMutateDocument
   const canManageContainers = canMutateSelectedWatchlist && hasSelectedWatchlist
   const isMutating = Boolean(pendingAction)
+  const listRowActionButtonClassName =
+    'flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
   const handleSelectList = (watchlistId: string | null) => {
     if (!canEditWidgetParams) return
@@ -430,7 +432,7 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const startRenameList = (option: WatchlistListOption) => {
-    if (!canMutateSelectedWatchlist || option.id !== selectedWatchlist?.id || isMutating) return
+    if (!canMutateWatchlist || isMutating) return
     setEditingListId(option.id)
     setRenamingListValue(option.name)
   }
@@ -492,19 +494,17 @@ export const WatchlistHeaderRightControls = ({
   }
 
   const commitListRename = async () => {
-    if (
-      !canMutateSelectedWatchlist ||
-      !workspaceId ||
-      !editingListId ||
-      !selectedWatchlist ||
-      editingListId !== selectedWatchlist.id
-    ) {
+    const optionBeingRenamed = editingListId
+      ? (listOptions.find((option) => option.id === editingListId) ?? null)
+      : null
+
+    if (!canMutateWatchlist || !workspaceId || !editingListId || !optionBeingRenamed) {
       cancelListRename()
       return
     }
 
     const nextName = renamingListValue.trim()
-    if (!nextName || nextName === selectedWatchlist.name) {
+    if (!nextName || nextName === optionBeingRenamed.name) {
       cancelListRename()
       return
     }
@@ -513,7 +513,7 @@ export const WatchlistHeaderRightControls = ({
       setPendingAction('rename-list')
       await renameSavedEntityAction({
         entityKind: 'watchlist',
-        entityId: selectedWatchlist.id,
+        entityId: editingListId,
         workspaceId,
         name: nextName,
       })
@@ -528,14 +528,21 @@ export const WatchlistHeaderRightControls = ({
   const handleListRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault()
+      event.stopPropagation()
       void commitListRename()
       return
     }
 
     if (event.key === 'Escape') {
       event.preventDefault()
+      event.stopPropagation()
       cancelListRename()
+      return
     }
+
+    // Keep the dropdown's typeahead and arrow-key navigation from stealing
+    // keystrokes while the inline rename input is focused.
+    event.stopPropagation()
   }
 
   useEffect(() => {
@@ -546,9 +553,9 @@ export const WatchlistHeaderRightControls = ({
 
   useEffect(() => {
     if (!editingListId) return
-    if (selectedWatchlist?.id === editingListId) return
+    if (listOptions.some((option) => option.id === editingListId)) return
     cancelListRename()
-  }, [editingListId, selectedWatchlist?.id])
+  }, [editingListId, listOptions])
 
   const handleImportClick = () => {
     if (canMutateSelectedWatchlist) fileInputRef.current?.click()
@@ -716,99 +723,125 @@ export const WatchlistHeaderRightControls = ({
               sideOffset={6}
               className={cn(
                 widgetHeaderMenuContentClassName,
-                'max-h-[20rem] w-[240px] overflow-y-auto p-2 shadow-lg'
+                'max-h-[20rem] w-[240px] overflow-y-auto shadow-lg'
               )}
               onWheel={(event) => event.stopPropagation()}
             >
               {listOptions.map((option) => {
                 const isSelected = option.id === selectedOptionId
                 const optionColor = resolveWatchlistListColor(option)
+                const isEditingOption = editingListId === option.id
+
+                const optionBadge = (
+                  <span
+                    className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
+                    style={{ backgroundColor: `${optionColor}20` }}
+                    aria-hidden='true'
+                  >
+                    <List className='h-4 w-4' aria-hidden='true' style={{ color: optionColor }} />
+                  </span>
+                )
+
+                if (isEditingOption) {
+                  return (
+                    <div
+                      key={option.id}
+                      className={cn(widgetHeaderMenuItemClassName, 'cursor-text')}
+                    >
+                      {optionBadge}
+                      <input
+                        ref={renameListInputRef}
+                        value={renamingListValue}
+                        onChange={(event) => setRenamingListValue(event.target.value)}
+                        onBlur={() => {
+                          void commitListRename()
+                        }}
+                        onKeyDown={handleListRenameKeyDown}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        className='min-w-0 flex-1 border-0 bg-transparent p-0 font-medium font-sans text-foreground text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
+                        maxLength={100}
+                        disabled={!canMutateWatchlist || pendingAction === 'rename-list'}
+                        autoComplete='off'
+                        autoCorrect='off'
+                        autoCapitalize='off'
+                        spellCheck='false'
+                        aria-label={copy.header.renameList}
+                      />
+                    </div>
+                  )
+                }
 
                 return (
-                  <Fragment key={option.id}>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        selectListOption(option)
-                      }}
-                      className={cn(
-                        'flex h-8 items-center gap-2 font-medium font-sans text-sm',
-                        isSelected ? 'bg-secondary/60' : 'hover:bg-secondary/30'
-                      )}
-                    >
-                      <span
-                        className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
-                        style={{ backgroundColor: `${optionColor}20` }}
-                        aria-hidden='true'
-                      >
-                        <List
-                          className='h-4 w-4'
-                          aria-hidden='true'
-                          style={{ color: optionColor }}
-                        />
-                      </span>
+                  <DropdownMenuItem
+                    key={option.id}
+                    data-active={isSelected ? '' : undefined}
+                    onSelect={() => {
+                      selectListOption(option)
+                    }}
+                    className={cn(
+                      widgetHeaderMenuItemClassName,
+                      'justify-between',
+                      isSelected
+                        ? 'bg-secondary/60 text-foreground hover:bg-secondary/60'
+                        : undefined
+                    )}
+                  >
+                    <div className='flex min-w-0 flex-1 items-center gap-2'>
+                      {optionBadge}
                       <span
                         className={cn(
-                          'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
                           widgetHeaderMenuTextClassName,
+                          'min-w-0 flex-1 select-none truncate',
                           isSelected ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
                         {option.name}
                       </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      aria-label={`${copy.header.deleteList}: ${option.name}`}
-                      disabled={!canMutateWatchlist || isMutating}
-                      onSelect={() => {
-                        setListToDelete(option)
-                      }}
-                    >
-                      <Trash2 className='h-3.5 w-3.5' aria-hidden='true' />
-                      {copy.header.deleteList}
-                      <span className='sr-only'> {option.name}</span>
-                    </DropdownMenuItem>
-                  </Fragment>
+                    </div>
+                    {canMutateWatchlist ? (
+                      <div className='pointer-events-none flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100'>
+                        <button
+                          type='button'
+                          disabled={isMutating}
+                          className={listRowActionButtonClassName}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            startRenameList(option)
+                          }}
+                        >
+                          <Pencil className={widgetHeaderMenuIconClassName} aria-hidden='true' />
+                          <span className='sr-only'>
+                            {copy.header.renameList}: {option.name}
+                          </span>
+                        </button>
+                        <button
+                          type='button'
+                          disabled={isMutating}
+                          className={listRowActionButtonClassName}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setListDropdownOpen(false)
+                            setListToDelete(option)
+                          }}
+                        >
+                          <Trash2 className={widgetHeaderMenuIconClassName} aria-hidden='true' />
+                          <span className='sr-only'>
+                            {copy.header.deleteList}: {option.name}
+                          </span>
+                        </button>
+                      </div>
+                    ) : null}
+                  </DropdownMenuItem>
                 )
               })}
-              {editingListId ? (
-                <div className='px-2 py-1'>
-                  <input
-                    ref={renameListInputRef}
-                    value={renamingListValue}
-                    onChange={(event) => setRenamingListValue(event.target.value)}
-                    onBlur={() => {
-                      void commitListRename()
-                    }}
-                    onKeyDown={handleListRenameKeyDown}
-                    className='w-full border-0 bg-transparent p-0 font-medium font-sans text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
-                    maxLength={100}
-                    disabled={!canMutateSelectedWatchlist || pendingAction === 'rename-list'}
-                    autoComplete='off'
-                    autoCorrect='off'
-                    autoCapitalize='off'
-                    spellCheck='false'
-                    aria-label={copy.header.renameList}
-                  />
-                </div>
-              ) : null}
-              {selectedOption ? (
-                <DropdownMenuItem
-                  disabled={!canMutateSelectedWatchlist || isMutating}
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    startRenameList(selectedOption)
-                  }}
-                >
-                  <Pencil className='h-3.5 w-3.5' aria-hidden='true' />
-                  {copy.header.renameList}
-                </DropdownMenuItem>
-              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
         <WatchlistListActionsButton
-          open={listActionsOpen}
-          onOpenChange={setListActionsOpen}
           disabled={!workspaceId}
           createListDisabled={!canMutateWatchlist || !workspaceId || isMutating}
           createSectionDisabled={!workspaceId || !canManageContainers || isMutating}
