@@ -187,7 +187,7 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.resizeReconcileVersion).toBe(1)
 
     await act(() => latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [45, 55] }))
-    expect(latest.hasResizePersistenceError).toBe(false)
+    expect(latest.resizeReconcileVersion).toBe(0)
   })
 
   it('keeps list mutations projected until a matching or newer Yjs revision arrives', async () => {

@@ -995,8 +995,7 @@
       "layoutState": {
         "loading": "Cargando el diseño del panel...",
         "empty": "No hay ningún diseño de panel disponible.",
-        "error": "No se pudo cargar el diseño del panel.",
-        "resizePersistenceError": "No se guardó el cambio de tamaño. Se restauró el diseño anterior."
+        "error": "No se pudo cargar el diseño del panel."
       },
       "pages": {
         "records": "Registros",

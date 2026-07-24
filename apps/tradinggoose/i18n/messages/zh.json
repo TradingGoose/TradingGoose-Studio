@@ -982,8 +982,7 @@
       "layoutState": {
         "loading": "正在加载仪表盘布局...",
         "empty": "没有可用的仪表盘布局。",
-        "error": "无法加载仪表盘布局。",
-        "resizePersistenceError": "调整大小未保存，已恢复之前的布局。"
+        "error": "无法加载仪表盘布局。"
       },
       "pages": {
         "records": "记录",

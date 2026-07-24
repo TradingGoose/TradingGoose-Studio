@@ -995,8 +995,7 @@
       "layoutState": {
         "loading": "Loading dashboard layout...",
         "empty": "No dashboard layout is available.",
-        "error": "The dashboard layout could not be loaded.",
-        "resizePersistenceError": "The resize was not saved. The previous layout was restored."
+        "error": "The dashboard layout could not be loaded."
       },
       "pages": {
         "records": "Records",

@@ -619,14 +619,6 @@ export function DashboardClient({
     <>
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
       <div className='relative h-full min-h-0 w-full min-w-0 overflow-hidden'>
-        {layoutDocument.hasResizePersistenceError && (
-          <div
-            className='absolute top-3 right-3 z-10 rounded-md bg-destructive px-3 py-2 text-destructive-foreground text-sm shadow-sm'
-            role='alert'
-          >
-            {t('layoutState.resizePersistenceError')}
-          </div>
-        )}
         {selectedLayoutId && rawTree && layoutDocument.doc ? (
           <DashboardNode
             key={selectedLayoutId}

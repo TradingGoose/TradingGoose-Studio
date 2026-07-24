@@ -155,7 +155,6 @@ export function useDashboardLayoutDocument(input: {
     [input.workspaceId, input.layoutId]
   )
   const [resizeReconcileVersion, setResizeReconcileVersion] = useState(0)
-  const hasResizePersistenceError = resizeReconcileVersion > 0
 
   const mutateStructure = useCallback(
     (mutation: DashboardLayoutStructureMutation) => {
@@ -203,7 +202,6 @@ export function useDashboardLayoutDocument(input: {
     isLoading,
     error,
     resizeReconcileVersion,
-    hasResizePersistenceError,
     mutateStructure,
   }
 }
