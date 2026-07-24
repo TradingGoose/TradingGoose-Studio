@@ -118,6 +118,8 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   refreshEntityListSession: m.refreshEntityListSession,
 }))
 vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  listDashboardLayouts: vi.fn(() => Promise.resolve([{ updatedAt: m.persistedAt.toISOString() }])),
+  nextDashboardLayoutRevision: vi.fn(() => new Date(m.persistedAt.getTime() + 1)),
   withDashboardLayoutOwnerLock: m.withDashboardLayoutOwnerLock,
 }))
 

@@ -469,12 +469,12 @@ async function handleInternalYjsEntityListMembersRequest(
       throw new InvalidInternalYjsRequestError('Session ID mismatch')
     }
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    const liveDoc = await refreshActiveEntityListSession(
+    await refreshActiveEntityListSession(
       descriptor.entityKind as ReviewEntityKind,
       descriptor.workspaceId as string,
       descriptor.ownerUserId ?? null
     )
-    sendJson(res, 200, { success: true, applied: liveDoc !== null })
+    sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying entity-list members', { error, sessionId })
     sendYjsRequestError(res, error, 'Failed to apply entity-list members')

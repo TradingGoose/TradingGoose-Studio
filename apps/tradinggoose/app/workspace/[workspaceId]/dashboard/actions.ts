@@ -5,11 +5,20 @@ import {
   activateDashboardLayout,
   createDashboardLayout,
   deleteDashboardLayout,
+  listDashboardLayouts,
   reorderDashboardLayouts,
 } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
+import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
 import { applyDashboardStructureMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import type { DashboardLayoutStructureMutation } from '@/widgets/layout-document'
+
+export type DashboardLayoutListMutation =
+  | { type: 'create' }
+  | { type: 'activate'; layoutId: string }
+  | { type: 'rename'; layoutId: string; name: string }
+  | { type: 'delete'; layoutId: string }
+  | { type: 'reorder'; layoutOrder: string[] }
 
 async function requireDashboardLayoutScope(workspaceId: string) {
   const session = await getSession()
@@ -26,25 +35,24 @@ async function requireDashboardLayoutScope(workspaceId: string) {
   return { workspaceId, ownerUserId: userId }
 }
 
-export async function createDashboardLayoutAction(workspaceId: string) {
+export async function mutateDashboardLayoutListAction(
+  workspaceId: string,
+  mutation: DashboardLayoutListMutation
+) {
   const scope = await requireDashboardLayoutScope(workspaceId)
-  const layout = await createDashboardLayout(scope)
-  return { layoutId: layout.id }
-}
-
-export async function deleteDashboardLayoutAction(workspaceId: string, layoutId: string) {
-  const scope = await requireDashboardLayoutScope(workspaceId)
-  await deleteDashboardLayout(scope, layoutId)
-}
-
-export async function activateDashboardLayoutAction(workspaceId: string, layoutId: string) {
-  const scope = await requireDashboardLayoutScope(workspaceId)
-  return activateDashboardLayout(scope, layoutId)
-}
-
-export async function reorderDashboardLayoutsAction(workspaceId: string, layoutOrder: string[]) {
-  const scope = await requireDashboardLayoutScope(workspaceId)
-  await reorderDashboardLayouts(scope, layoutOrder)
+  if (mutation.type === 'create') await createDashboardLayout(scope)
+  else if (mutation.type === 'activate') await activateDashboardLayout(scope, mutation.layoutId)
+  else if (mutation.type === 'delete') await deleteDashboardLayout(scope, mutation.layoutId)
+  else if (mutation.type === 'reorder') await reorderDashboardLayouts(scope, mutation.layoutOrder)
+  else
+    await renameSavedEntityIdentity({
+      entityKind: 'dashboard_layout',
+      entityId: mutation.layoutId,
+      workspaceId,
+      ownerUserId: scope.ownerUserId,
+      name: mutation.name,
+    })
+  return listDashboardLayouts(scope)
 }
 
 export async function mutateDashboardLayoutStructureAction(

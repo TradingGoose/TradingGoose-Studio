@@ -198,20 +198,14 @@ describe('applyWorkflowPatchInSocketServer', () => {
 })
 
 describe('refreshEntityListSession', () => {
-  it.each([
-    ['applied', new Response(JSON.stringify({ success: true, applied: true })), true, 1],
-    ['without a live document', new Response(JSON.stringify({ success: true })), false, 1],
-    ['after a terminal conflict', new Response('{}', { status: 409 }), false, 1],
-    ['after a transport failure', new TypeError('fetch failed'), false, 3],
-  ])('reports entity-list fanout %s', async (_, outcome, expected, attempts) => {
+  it('keeps entity-list fanout best-effort', async () => {
     vi.useFakeTimers()
-    if (outcome instanceof Response) mockFetch.mockResolvedValue(outcome)
-    else mockFetch.mockRejectedValue(outcome)
+    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
     const { refreshEntityListSession } = await import('./snapshot-bridge')
     const refresh = refreshEntityListSession('skill', 'workspace-1')
     await vi.runAllTimersAsync()
 
-    await expect(refresh).resolves.toBe(expected)
-    expect(mockFetch).toHaveBeenCalledTimes(attempts)
+    await expect(refresh).resolves.toBeUndefined()
+    expect(mockFetch).toHaveBeenCalledTimes(3)
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
+import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -10,11 +10,9 @@ import type { EntityListMember } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import {
-  activateDashboardLayoutAction,
-  createDashboardLayoutAction,
-  deleteDashboardLayoutAction,
+  type DashboardLayoutListMutation,
+  mutateDashboardLayoutListAction,
   mutateDashboardLayoutStructureAction,
-  reorderDashboardLayoutsAction,
 } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
   type DashboardLayoutStructureMutation,
@@ -24,7 +22,11 @@ import {
 
 function toLayoutListEntry(member: EntityListMember) {
   const name = member.entityName?.trim()
+  const updatedAt = member.updatedAt?.trim()
   if (!name) throw new Error(`dashboard_layout ${member.entityId} is missing entityName`)
+  if (!updatedAt || !Number.isFinite(Date.parse(updatedAt))) {
+    throw new Error(`dashboard_layout ${member.entityId} is missing updatedAt`)
+  }
   if (typeof member.sortOrder !== 'number' || !Number.isFinite(member.sortOrder)) {
     throw new Error(`dashboard_layout ${member.entityId} is missing sortOrder`)
   }
@@ -34,83 +36,78 @@ function toLayoutListEntry(member: EntityListMember) {
   return {
     id: member.entityId,
     name,
+    sortOrder: member.sortOrder,
     isActive: member.isActive,
+    updatedAt,
   }
 }
 
-type DashboardLayoutListMutation = {
+type DashboardLayoutListAttempt = {
   scopeKey: string
-  layoutOrder: string[] | null
+  layouts: DashboardLayoutTab[]
+  revision?: number
 }
 
 export function useDashboardLayoutList(
   workspaceId: string,
   ownerUserId: string,
-  initialLayouts: { id: string; name: string; isActive: boolean }[]
+  initialLayouts: DashboardLayoutTab[]
 ) {
   const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
   const liveLayouts = useMemo(() => members.map(toLayoutListEntry), [members])
   const layouts = session.hasLiveSnapshot ? liveLayouts : initialLayouts
   const scopeKey = `${workspaceId}:${ownerUserId}`
-  const [mutation, setMutation] = useState<DashboardLayoutListMutation | null>(null)
-  const mutationRef = useRef<DashboardLayoutListMutation | null>(null)
-  const currentMutation = mutation?.scopeKey === scopeKey ? mutation : null
-  const displayedLayouts = useMemo(() => {
-    if (!currentMutation?.layoutOrder) return layouts
-    const layoutsById = new Map(layouts.map((layout) => [layout.id, layout]))
-    const seen = new Set<string>()
-    const order = currentMutation.layoutOrder.filter((id) => {
-      if (!layoutsById.has(id) || seen.has(id)) return false
-      seen.add(id)
-      return true
-    })
-    for (const layout of layouts) if (!seen.has(layout.id)) order.push(layout.id)
-    return order.map((id) => layoutsById.get(id)!)
-  }, [currentMutation, layouts])
+  const [mutation, setMutation] = useState<DashboardLayoutListAttempt | null>(null)
+  const mutationRef = useRef<DashboardLayoutListAttempt | null>(null)
+  if (mutationRef.current?.scopeKey !== scopeKey) mutationRef.current = null
+  const currentMutation =
+    mutation?.scopeKey === scopeKey && mutationRef.current?.scopeKey === scopeKey ? mutation : null
 
   const submit = async (
-    action: () => Promise<unknown>,
-    layoutOrder?: string[]
-  ): Promise<boolean> => {
-    if (mutationRef.current?.scopeKey === scopeKey) return false
-    const attempt: DashboardLayoutListMutation = {
-      scopeKey,
-      layoutOrder: layoutOrder ?? null,
-    }
+    listMutation: DashboardLayoutListMutation,
+    pendingLayouts: DashboardLayoutTab[] = layouts
+  ) => {
+    if (mutationRef.current?.scopeKey === scopeKey) return
+    const attempt: DashboardLayoutListAttempt = { scopeKey, layouts: pendingLayouts }
     mutationRef.current = attempt
     setMutation(attempt)
     try {
-      await action()
-      return true
+      const committedLayouts = await mutateDashboardLayoutListAction(workspaceId, listMutation)
+      if (mutationRef.current !== attempt) return
+      attempt.layouts = committedLayouts
+      attempt.revision = Math.max(...committedLayouts.map((layout) => Date.parse(layout.updatedAt)))
+      setMutation({ ...attempt })
     } catch (error) {
       console.error('Failed to update dashboard layouts:', error)
-      return false
-    } finally {
-      if (mutationRef.current === attempt) mutationRef.current = null
-      setMutation((current) => (current === attempt ? null : current))
+      if (mutationRef.current !== attempt) return
+      mutationRef.current = null
+      setMutation(null)
     }
   }
 
+  useEffect(() => {
+    const current = mutationRef.current
+    const liveRevision = Math.max(0, ...liveLayouts.map((layout) => Date.parse(layout.updatedAt)))
+    if (current?.revision && session.hasLiveSnapshot && liveRevision >= current.revision) {
+      mutationRef.current = null
+      setMutation(null)
+    }
+  }, [currentMutation, liveLayouts, scopeKey, session.hasLiveSnapshot])
+
   return {
-    layouts: displayedLayouts,
+    layouts: currentMutation?.layouts ?? layouts,
     canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
     isBusy: currentMutation !== null,
-    createLayout: () => submit(() => createDashboardLayoutAction(workspaceId)),
-    activateLayout: (layoutId: string) =>
-      submit(() => activateDashboardLayoutAction(workspaceId, layoutId)),
-    renameLayout: (layoutId: string, name: string) =>
-      submit(() =>
-        renameSavedEntityAction({
-          entityKind: 'dashboard_layout',
-          entityId: layoutId,
-          workspaceId,
-          name,
-        })
-      ),
-    deleteLayout: (layoutId: string) =>
-      submit(() => deleteDashboardLayoutAction(workspaceId, layoutId)),
-    reorderLayouts: (layoutOrder: string[]) =>
-      submit(() => reorderDashboardLayoutsAction(workspaceId, layoutOrder), [...layoutOrder]),
+    createLayout: () => submit({ type: 'create' }),
+    activateLayout: (layoutId: string) => submit({ type: 'activate', layoutId }),
+    renameLayout: (layoutId: string, name: string) => submit({ type: 'rename', layoutId, name }),
+    deleteLayout: (layoutId: string) => submit({ type: 'delete', layoutId }),
+    reorderLayouts: (layoutOrder: string[]) => {
+      const pending = [...layouts].sort(
+        (left, right) => layoutOrder.indexOf(left.id) - layoutOrder.indexOf(right.id)
+      )
+      return submit({ type: 'reorder', layoutOrder }, pending)
+    },
   }
 }
 

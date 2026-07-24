@@ -12,6 +12,7 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import {
   seedDashboardColorPairSession,
   seedDashboardLayoutSession,
@@ -28,16 +29,12 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const dashboardClientMocks = vi.hoisted(() => ({
-  activateLayout: vi.fn(() => Promise.resolve()),
-  createLayout: vi.fn(),
-  deleteLayout: vi.fn(),
-  renameLayout: vi.fn(),
-  reorderLayouts: vi.fn(),
+  mutateList: vi.fn(),
 }))
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockDashboardLayoutList: {
-  layouts: LayoutTab[]
+  layouts: DashboardLayoutTab[]
   hasLiveSnapshot: boolean
   isLoading: boolean
   error: unknown
@@ -93,6 +90,7 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
           entityName: layout.name,
           sortOrder,
           isActive: layout.isActive,
+          updatedAt: layout.updatedAt,
         })),
       }
     }
@@ -123,13 +121,7 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
-  activateDashboardLayoutAction: dashboardClientMocks.activateLayout,
-  createDashboardLayoutAction: dashboardClientMocks.createLayout,
-  deleteDashboardLayoutAction: dashboardClientMocks.deleteLayout,
-  reorderDashboardLayoutsAction: dashboardClientMocks.reorderLayouts,
-}))
-vi.mock('@/lib/saved-entities/actions', () => ({
-  renameSavedEntityAction: dashboardClientMocks.renameLayout,
+  mutateDashboardLayoutListAction: dashboardClientMocks.mutateList,
 }))
 
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
@@ -477,26 +469,19 @@ describe('DashboardClient', () => {
     }
   })
 
-  it('requests activation and waits for the live layout list selection', async () => {
-    let resolveActivation!: () => void
-    dashboardClientMocks.activateLayout.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveActivation = resolve
-      })
-    )
+  it('projects a committed activation before the live layout list arrives', async () => {
+    dashboardClientMocks.mutateList.mockResolvedValueOnce(createLayouts('layout-b', 1))
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
     await act(async () => {
-      void mockSelectLayout?.('layout-b')
-      await Promise.resolve()
+      await mockSelectLayout?.('layout-b')
     })
 
-    expect(dashboardClientMocks.activateLayout).toHaveBeenCalledWith('ws-a', 'layout-b')
-    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
-    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-a'))
-
-    await act(async () => resolveActivation())
-    expect(mockLayoutDocumentLayoutId).toBe('layout-a')
+    expect(dashboardClientMocks.mutateList).toHaveBeenCalledWith('ws-a', {
+      type: 'activate',
+      layoutId: 'layout-b',
+    })
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
   })
 
   it('follows the live active layout when another client activates and deletes the previous one', async () => {
@@ -530,7 +515,7 @@ describe('DashboardClient', () => {
     await renderDashboard({ topology: layoutA })
 
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-    expect(mockLayoutTabsLayouts).toEqual([{ id: 'layout-b', name: 'Layout B', isActive: true }])
+    expect(mockLayoutTabsLayouts).toEqual([{ ...createLayouts('layout-b')[1]!, sortOrder: 0 }])
     expect(container.querySelector('[data-testid="dashboard-layout-document-state"]')).toBeNull()
   })
 
@@ -622,17 +607,23 @@ function resetDashboardStores() {
   })
 }
 
-function createLayouts(layoutId: string): LayoutTab[] {
+const revision = (value: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, value)).toISOString()
+
+function createLayouts(layoutId: string, updatedRevision = 0): DashboardLayoutTab[] {
   return [
     {
       id: 'layout-a',
       name: 'Layout A',
+      sortOrder: 0,
       isActive: layoutId === 'layout-a',
+      updatedAt: revision(updatedRevision),
     },
     {
       id: 'layout-b',
       name: 'Layout B',
+      sortOrder: 1,
       isActive: layoutId === 'layout-b',
+      updatedAt: revision(updatedRevision),
     },
   ]
 }

@@ -12,7 +12,11 @@ import {
 import { and, eq, isNull } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { withDashboardLayoutOwnerLock } from '@/lib/dashboard-layouts/operations'
+import {
+  listDashboardLayouts,
+  nextDashboardLayoutRevision,
+  withDashboardLayoutOwnerLock,
+} from '@/lib/dashboard-layouts/operations'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -70,7 +74,8 @@ export function normalizeSavedEntityIdentity(entityKind: ReviewEntityKind, value
 
 export async function renameSavedEntityIdentityInTx(
   writer: SavedEntityIdentityWriter,
-  input: SavedEntityIdentityInput
+  input: SavedEntityIdentityInput,
+  updatedAt = new Date()
 ): Promise<{ name: string; updatedAt: Date }> {
   const { entityKind, entityId, workspaceId } = input
   const ownerUserId = input.ownerUserId?.trim() || null
@@ -81,7 +86,6 @@ export async function renameSavedEntityIdentityInTx(
       : normalizeSavedEntityIdentity(entityKind, input.expectedCurrentName)
   const expectedNameWhere = (column: AnyPgColumn) =>
     expectedCurrentName === undefined ? undefined : eq(column, expectedCurrentName)
-  const updatedAt = new Date()
   let rows: Array<{ id: string; updatedAt: Date }> = []
 
   try {
@@ -236,9 +240,13 @@ export async function renameSavedEntityIdentity(
     if (!ownerUserId) {
       throw new SavedEntityIdentityError(400, 'Dashboard layout ownerUserId is required')
     }
-    identity = await withDashboardLayoutOwnerLock(
-      { workspaceId: input.workspaceId, ownerUserId },
-      (tx) => renameSavedEntityIdentityInTx(tx, input)
+    const scope = { workspaceId: input.workspaceId, ownerUserId }
+    identity = await withDashboardLayoutOwnerLock(scope, async (tx) =>
+      renameSavedEntityIdentityInTx(
+        tx,
+        input,
+        nextDashboardLayoutRevision(await listDashboardLayouts(scope, tx))
+      )
     )
   } else {
     const entityKind = input.entityKind

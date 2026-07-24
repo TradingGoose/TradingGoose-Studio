@@ -362,24 +362,20 @@ export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
-): Promise<boolean> {
+): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
   const params = new URLSearchParams(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   )
   try {
-    const response = await postJsonToSocketServer<{
-      applied?: unknown
-    }>(
+    await postJsonToSocketServer(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
       {},
       null,
       { timeoutMs: 10_000, attempts: 3 }
     )
-    return response.applied === true
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
-    return false
   }
 }
 

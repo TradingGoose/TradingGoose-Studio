@@ -24,8 +24,9 @@ import type { ImperativePanelGroupHandle } from 'react-resizable-panels'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
+import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
+import { LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import {
   useDashboardLayoutDocument,
   useDashboardLayoutList,
@@ -51,7 +52,7 @@ interface DashboardClientProps {
   workspaceId: string
   ownerUserId: string
   layoutId: string
-  initialLayouts: LayoutTab[]
+  initialLayouts: DashboardLayoutTab[]
 }
 
 interface DashboardNodeProps {

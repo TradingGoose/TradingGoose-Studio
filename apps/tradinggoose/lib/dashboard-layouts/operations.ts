@@ -41,7 +41,7 @@ export type DashboardLayoutTab = {
   sortOrder: number
   isActive: boolean
   createdAt?: string
-  updatedAt?: string
+  updatedAt: string
 }
 
 export type DashboardLayoutProjection = DashboardLayoutTab & {
@@ -92,8 +92,17 @@ function toLayoutTab(row: LayoutRow): DashboardLayoutTab {
     sortOrder: readLayoutSortOrder(row),
     isActive: row.isActive,
     createdAt: row.createdAt?.toISOString(),
-    updatedAt: row.updatedAt?.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+export function nextDashboardLayoutRevision(
+  layouts: readonly { updatedAt: Date | string }[]
+): Date {
+  const timestamps = layouts.map(({ updatedAt }) =>
+    typeof updatedAt === 'string' ? Date.parse(updatedAt) : updatedAt.getTime()
+  )
+  return new Date(Math.max(Date.now(), ...timestamps.map((timestamp) => timestamp + 1)))
 }
 
 function sortLayoutRows(rows: LayoutRow[]): LayoutRow[] {
@@ -126,8 +135,8 @@ function requireDashboardWidgetKey(row: LayoutRow, identityId: string) {
   throw new DashboardLayoutOperationError(404, 'Dashboard widget binding not found')
 }
 
-async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<boolean> {
-  return refreshEntityListSession('dashboard_layout', scope.workspaceId, scope.ownerUserId)
+async function refreshLayoutList(scope: DashboardLayoutOwnerScope): Promise<void> {
+  await refreshEntityListSession('dashboard_layout', scope.workspaceId, scope.ownerUserId)
 }
 
 async function readDashboardLayoutRows(
@@ -274,11 +283,12 @@ export async function activateDashboardLayout(
     if (!rows.some((row) => row.id === layoutId)) {
       throw new DashboardLayoutOperationError(404, 'Layout not found')
     }
+    const updatedAt = nextDashboardLayoutRevision(rows)
     await Promise.all(
       rows.map((row) =>
         tx
           .update(layoutMaps)
-          .set({ isActive: row.id === layoutId, updatedAt: new Date() })
+          .set({ isActive: row.id === layoutId, updatedAt })
           .where(ownedWhere(scope, row.id))
       )
     )
@@ -296,12 +306,10 @@ export async function reorderDashboardLayouts(
     if (layoutOrder.length !== rows.length || layoutOrder.some((id) => !remainingIds.delete(id))) {
       throw new DashboardLayoutOperationError(400, 'layoutOrder must contain every layout once')
     }
+    const updatedAt = nextDashboardLayoutRevision(rows)
     await Promise.all(
       layoutOrder.map((id, index) =>
-        tx
-          .update(layoutMaps)
-          .set({ sortOrder: index, updatedAt: new Date() })
-          .where(ownedWhere(scope, id))
+        tx.update(layoutMaps).set({ sortOrder: index, updatedAt }).where(ownedWhere(scope, id))
       )
     )
   })
@@ -353,6 +361,7 @@ async function insertDashboardLayoutRow(
       sortOrder: highestSortOrder + 1,
       layout: projection.layout,
       isActive: rows.length === 0,
+      updatedAt: nextDashboardLayoutRevision(rows),
     })
     .returning()
   if (!row) throw new DashboardLayoutOperationError(500, 'Layout insert did not return a row')
@@ -386,6 +395,7 @@ export async function commitDashboardLayoutStructure(
   return withDashboardLayoutOwnerLock(
     scope,
     async (store) => {
+      const rows = await readDashboardLayoutRows(scope, store)
       const createdRows = []
       const createdWidgets: Record<string, DashboardWidgetDocument> = {}
       for (const binding of commit.createdBindings) {
@@ -406,7 +416,7 @@ export async function commitDashboardLayoutStructure(
       }
       const updated = await store
         .update(layoutMaps)
-        .set({ layout, updatedAt: new Date() })
+        .set({ layout, updatedAt: nextDashboardLayoutRevision(rows) })
         .where(ownedWhere(scope, layoutId))
         .returning({ id: layoutMaps.id })
       if (updated.length === 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
@@ -509,10 +519,16 @@ export async function deleteDashboardLayout(scope: DashboardLayoutOwnerScope, la
       { sessionIds: childSessionIds },
       async (tx) => {
         await lockDashboardLayoutOwner(tx, scope)
-        const current = await readOwnedLayoutRow(scope, layoutId, tx)
+        const rows = await readDashboardLayoutRows(scope, tx)
+        const current = rows.find((layout) => layout.id === layoutId)
+        if (!current) throw new DashboardLayoutOperationError(404, 'Layout not found')
         if (current.isActive) {
           throw new DashboardLayoutOperationError(400, 'Cannot delete active layout')
         }
+        await tx
+          .update(layoutMaps)
+          .set({ updatedAt: nextDashboardLayoutRevision(rows) })
+          .where(ownedWhere(scope))
         await tx.delete(layoutMaps).where(ownedWhere(scope, layoutId))
       },
       layoutTx

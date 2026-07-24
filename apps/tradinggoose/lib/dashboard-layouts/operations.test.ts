@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  activateDashboardLayout,
   commitDashboardLayoutStructure,
   createDashboardLayout,
   deleteDashboardLayout,
@@ -113,7 +112,7 @@ const m = vi.hoisted(() => {
     transaction,
     db: { ...store, transaction },
     bridge: {
-      refreshEntityListSession: vi.fn(() => Promise.resolve(true)),
+      refreshEntityListSession: vi.fn(() => Promise.resolve()),
       runYjsDrainFencedTransaction: vi.fn(async (_target, mutate, tx) =>
         tx ? mutate(tx) : transaction(mutate)
       ),
@@ -175,22 +174,15 @@ describe('dashboard layout operations', () => {
     expect(m.db.select).toHaveBeenCalledTimes(1)
   })
 
-  it('refreshes the active-layout list after updating it', async () => {
-    m.selectResults.push([layoutRow(), layoutRow({ id: 'layout-2', isActive: false })])
-    m.bridge.refreshEntityListSession.mockResolvedValueOnce(false)
-
-    await expect(activateDashboardLayout(scope, 'layout-2')).resolves.toBeUndefined()
+  it('persists only complete layout orders', async () => {
+    const rows = [layoutRow(), layoutRow({ id: 'layout-2', sortOrder: 1, isActive: false })]
+    m.selectResults.push(rows)
+    await reorderDashboardLayouts(scope, ['layout-2', 'layout-1'])
     expect(m.bridge.refreshEntityListSession).toHaveBeenCalledWith(
       'dashboard_layout',
       scope.workspaceId,
       scope.ownerUserId
     )
-  })
-
-  it('persists only complete layout orders', async () => {
-    const rows = [layoutRow(), layoutRow({ id: 'layout-2', sortOrder: 1, isActive: false })]
-    m.selectResults.push(rows)
-    await reorderDashboardLayouts(scope, ['layout-2', 'layout-1'])
     expect(m.mutations.map(({ values }) => (values as { sortOrder: number }).sortOrder)).toEqual([
       0, 1,
     ])
@@ -249,7 +241,7 @@ describe('dashboard layout operations', () => {
       { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
       async () => {
         source = { ...source, pairColor: 'blue' }
-        m.selectResults.push([{ layout: layoutRow(), widget: source }])
+        m.selectResults.push([layoutRow()], [{ layout: layoutRow(), widget: source }])
       },
       (tx) =>
         commitDashboardLayoutStructure(
@@ -272,7 +264,7 @@ describe('dashboard layout operations', () => {
     )
 
     expect(m.transaction).toHaveBeenCalledOnce()
-    expect(m.store.select).toHaveBeenCalledOnce()
+    expect(m.store.select).toHaveBeenCalledTimes(2)
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'update', table: 'layout_maps' }),
       expect.objectContaining({ kind: 'insert', table: 'layout_widgets' }),
@@ -354,7 +346,7 @@ describe('dashboard layout operations', () => {
     m.selectResults.push(
       [layoutRow({ isActive: false })],
       [{ id: 'widget-1' }],
-      [layoutRow({ isActive: false })]
+      [layoutRow({ isActive: false }), layoutRow({ id: 'layout-2', sortOrder: 1, isActive: true })]
     )
 
     await deleteDashboardLayout(scope, 'layout-1')

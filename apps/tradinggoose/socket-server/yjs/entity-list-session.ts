@@ -20,11 +20,10 @@ export async function refreshActiveEntityListSession(
   entityKind: ReviewEntityKind,
   workspaceId: string,
   ownerUserId?: string | null
-): Promise<Y.Doc | null> {
+): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId, { ownerUserId })
   const doc = peekDocument(descriptor.yjsSessionId)
-  if (!doc) return null
+  if (!doc) return
   bindEntityListSession(doc, entityKind, workspaceId, ownerUserId)
   await reconcileDocument(doc, true)
-  return doc
 }
