@@ -25,7 +25,6 @@ import {
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
   type DashboardLayoutProjectionContent,
-  type DashboardLayoutStructureMutation,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 
@@ -334,7 +333,7 @@ export function applyDashboardStructureMutationInSocketServer(input: {
   entityId: string
   workspaceId: string
   ownerUserId: string
-  mutation: DashboardLayoutStructureMutation
+  mutation: unknown
 }): Promise<void> {
   return postJsonToSocketServer(
     `/internal/yjs/dashboard-layouts/${encodeURIComponent(input.entityId)}/edit`,

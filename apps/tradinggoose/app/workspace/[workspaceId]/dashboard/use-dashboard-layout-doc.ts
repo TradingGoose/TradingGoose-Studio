@@ -12,7 +12,6 @@ import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import {
   type DashboardLayoutListMutation,
   mutateDashboardLayoutListAction,
-  mutateDashboardLayoutStructureAction,
 } from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
   type DashboardLayoutStructureMutation,
@@ -162,7 +161,17 @@ export function useDashboardLayoutDocument(input: {
     (mutation: DashboardLayoutStructureMutation) => {
       const commit = async () => {
         if (!input.workspaceId || !input.layoutId) return
-        await mutateDashboardLayoutStructureAction(input.workspaceId, input.layoutId, mutation)
+        const response = await fetch(
+          `/api/workspaces/${encodeURIComponent(input.workspaceId)}/dashboard-layouts/${encodeURIComponent(input.layoutId)}/structure`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(mutation),
+          }
+        )
+        if (!response.ok) {
+          throw new Error(`Failed to update dashboard layout (${response.status})`)
+        }
       }
       const next = mutationState.queue.then(commit, commit)
       mutationState.queue = next.catch(() => undefined)
