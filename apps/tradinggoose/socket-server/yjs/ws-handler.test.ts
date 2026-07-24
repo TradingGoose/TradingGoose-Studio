@@ -32,8 +32,8 @@ const mockPersistStagedDocuments = vi.fn()
 const mockSaveSavedEntityYjsDocToDb = vi.fn()
 const mockRefreshActiveEntityListSession = vi.fn()
 const mockUpgradedSocketClose = vi.fn()
-const mockUpgradedSocketPause = vi.fn()
-const mockUpgradedSocketResume = vi.fn()
+const mockRawSocketPause = vi.fn()
+const mockRawSocketResume = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -90,6 +90,8 @@ function createSocket() {
   return {
     write: vi.fn(),
     destroy: vi.fn(),
+    pause: mockRawSocketPause,
+    resume: mockRawSocketResume,
   } as unknown as Duplex
 }
 
@@ -101,8 +103,6 @@ function createWebSocketServer() {
   wss.handleUpgrade = vi.fn((request, socket, head, callback) => {
     callback({
       close: mockUpgradedSocketClose,
-      pause: mockUpgradedSocketPause,
-      resume: mockUpgradedSocketResume,
     } as any)
   })
 
@@ -208,8 +208,8 @@ beforeEach(() => {
   mockSaveSavedEntityYjsDocToDb.mockReset()
   mockRefreshActiveEntityListSession.mockReset().mockResolvedValue(undefined)
   mockUpgradedSocketClose.mockReset()
-  mockUpgradedSocketPause.mockReset()
-  mockUpgradedSocketResume.mockReset()
+  mockRawSocketPause.mockReset()
+  mockRawSocketResume.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -303,8 +303,8 @@ describe('handleYjsUpgrade', () => {
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(mockUpgradedSocketPause).toHaveBeenCalledOnce()
-    expect(mockUpgradedSocketResume).not.toHaveBeenCalled()
+    expect(mockRawSocketPause).toHaveBeenCalledOnce()
+    expect(mockRawSocketResume).not.toHaveBeenCalled()
     expect(mockUpgradedSocketClose).toHaveBeenCalledWith(
       YJS_CLOSE_CODE_RETRY_REQUIRED,
       'Failed to attach Yjs session'
@@ -336,11 +336,11 @@ describe('handleYjsUpgrade', () => {
         onDocumentUpdate: expect.any(Function),
       })
     )
-    expect(mockUpgradedSocketPause.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mockRawSocketPause.mock.invocationCallOrder[0]).toBeLessThan(
       mockAuthenticateYjsConnection.mock.invocationCallOrder[0]!
     )
     expect(mockSetupWSConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockUpgradedSocketResume.mock.invocationCallOrder[0]!
+      mockRawSocketResume.mock.invocationCallOrder[0]!
     )
   })
 

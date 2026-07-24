@@ -137,8 +137,7 @@ export function handleYjsUpgrade(
   canAcceptConnection: () => boolean = () => true
 ): void {
   const url = new URL(request.url || '', `http://${request.headers.host}`)
-  const pathname = url.pathname
-  const match = pathname.match(/^\/yjs\/([^/]+)$/)
+  const match = url.pathname.match(/^\/yjs\/([^/]+)$/)
 
   if (!match || !match[1]) {
     rejectUpgrade(socket, 400, 'Invalid Yjs path')
@@ -146,8 +145,8 @@ export function handleYjsUpgrade(
   }
 
   const yjsSessionId = decodeURIComponent(match[1])
+  socket.pause()
   wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-    ws.pause()
     const rejectConnection = (error: unknown) => {
       logger.error('Failed to attach Yjs connection', { docId: yjsSessionId, error })
       ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
@@ -190,7 +189,7 @@ export function handleYjsUpgrade(
             onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
             onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
           })
-          ws.resume()
+          socket.resume()
         }
       )
     })().catch(rejectConnection)
