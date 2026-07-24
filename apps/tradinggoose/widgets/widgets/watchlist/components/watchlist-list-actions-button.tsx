@@ -1,11 +1,10 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Download, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { Download, FileUp, FolderPlus, ListPlus, Plus } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,
@@ -15,16 +14,14 @@ type WatchlistListActionsButtonProps = {
   open: boolean
   onOpenChange: (nextOpen: boolean) => void
   disabled?: boolean
-  createWatchlistDisabled?: boolean
+  createListDisabled?: boolean
   createSectionDisabled?: boolean
   importDisabled?: boolean
   exportDisabled?: boolean
-  deleteWatchlistDisabled?: boolean
-  onCreateWatchlist: () => void
+  onCreateList: () => void
   onCreateSection: () => void
   onImport: () => void
   onExport: () => void
-  onDeleteWatchlist: () => void
 }
 
 type VisibleAction = {
@@ -38,16 +35,14 @@ export const WatchlistListActionsButton = ({
   open,
   onOpenChange,
   disabled = false,
-  createWatchlistDisabled = false,
+  createListDisabled = false,
   createSectionDisabled = false,
   importDisabled = false,
   exportDisabled = false,
-  deleteWatchlistDisabled = false,
-  onCreateWatchlist,
+  onCreateList,
   onCreateSection,
   onImport,
   onExport,
-  onDeleteWatchlist,
 }: WatchlistListActionsButtonProps) => {
   const locale = useLocale()
   const copy = useMessages().workspace.widgets.watchlist.header
@@ -58,12 +53,12 @@ export const WatchlistListActionsButton = ({
 
   const visibleActions: VisibleAction[] = []
 
-  if (!createWatchlistDisabled) {
+  if (!createListDisabled) {
     visibleActions.push({
-      key: 'create-watchlist',
-      icon: <Plus className='h-3.5 w-3.5' />,
-      label: copy.createWatchlist,
-      onClick: () => closeAndRun(onCreateWatchlist),
+      key: 'create-list',
+      icon: <FolderPlus className='h-3.5 w-3.5' />,
+      label: copy.createList,
+      onClick: () => closeAndRun(onCreateList),
     })
   }
 
@@ -94,15 +89,6 @@ export const WatchlistListActionsButton = ({
     })
   }
 
-  if (!deleteWatchlistDisabled) {
-    visibleActions.push({
-      key: 'delete-watchlist',
-      icon: <Trash2 className='h-3.5 w-3.5' />,
-      label: copy.deleteWatchlist,
-      onClick: () => closeAndRun(onDeleteWatchlist),
-    })
-  }
-
   const triggerDisabled = disabled || visibleActions.length === 0
 
   return (
@@ -112,11 +98,11 @@ export const WatchlistListActionsButton = ({
           <span className='inline-flex'>
             <PopoverTrigger asChild>
               <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              disabled={triggerDisabled}
-            >
-              <Plus className='h-3.5 w-3.5' />
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                disabled={triggerDisabled}
+              >
+                <Plus className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.listActionsAriaLabel}</span>
               </button>
             </PopoverTrigger>

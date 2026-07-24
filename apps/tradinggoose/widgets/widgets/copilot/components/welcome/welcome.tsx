@@ -1,8 +1,8 @@
 'use client'
 
 import { Blocks, LibraryBig, Workflow } from 'lucide-react'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 interface CopilotWelcomeProps {
   onQuestionClick?: (question: string) => void
@@ -17,9 +17,7 @@ export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: Cop
   }
 
   const subtitle =
-    accessLevel === 'full'
-      ? copilotCopy.welcome.subtitleFull
-      : copilotCopy.welcome.subtitleLimited
+    accessLevel === 'full' ? copilotCopy.welcome.subtitleFull : copilotCopy.welcome.subtitleLimited
 
   const capabilities =
     accessLevel === 'full'
@@ -91,8 +89,7 @@ export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: Cop
         {/* Tips */}
         <div className='mt-6 text-center text-[11px] text-muted-foreground'>
           <p>
-            {copilotCopy.welcome.tipPrefix}{' '}
-            <span className='font-medium text-foreground'>@</span>{' '}
+            {copilotCopy.welcome.tipPrefix} <span className='font-medium text-foreground'>@</span>{' '}
             {copilotCopy.welcome.tipSuffix}
           </p>
           <p className='mt-1.5'>{copilotCopy.welcome.shiftEnter}</p>

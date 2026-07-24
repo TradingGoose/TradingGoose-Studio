@@ -1,24 +1,18 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
-import { getEntityFields } from '@/lib/yjs/entity-session'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
+import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session'
 import { bootstrapYjsProvider } from '@/lib/yjs/provider'
-import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
-import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'
 
@@ -31,9 +25,7 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 export function IndicatorList({
   context,
   params,
-  onWidgetParamsChange,
-  panelId,
-  pairColor = 'gray',
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
@@ -43,83 +35,18 @@ export function IndicatorList({
   const { members, isLoading, error } = useEntityList('indicator', workspaceId)
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
 
-  useIndicatorSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'list_indicator',
-    onIndicatorSelect: (indicatorId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === indicatorId) return
-      setPairContext(resolvedPairColor, { indicatorId })
-    },
-  })
-
-  const listIndicators = useMemo<IndicatorDefinition[]>(
-    () =>
-      workspaceId
-        ? members.map((member) => ({
-            id: member.entityId,
-            workspaceId,
-            userId: null,
-            name: member.entityName,
-            color: member.color,
-            pineCode: '',
-          }))
-        : [],
-    [members, workspaceId]
-  )
-
-  const requestedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? null)
-    : getIndicatorIdFromParams(params)
+  const requestedIndicatorId = getIndicatorIdFromParams(params)
   const selectedIndicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
-    entityIds: listIndicators.map((indicator) => indicator.id),
-    useDefaultEntity: !isLinkedToColorPair,
+    entityIds: members.map((member) => member.entityId),
+    useDefaultEntity: false,
   })
-
-  usePersistResolvedEntityId({
-    entityId: selectedIndicatorId,
-    entityIdKey: 'indicatorId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
-    params,
-  })
-
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.indicatorId !== indicatorId) {
-          setPairContext(resolvedPairColor, { indicatorId })
-        }
-        return
-      }
-
-      if (onWidgetParamsChange) {
-        const currentParams =
-          params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-        onWidgetParamsChange({
-          ...currentParams,
-          indicatorId,
-        })
-      }
+      onWidgetLinkedParamsPatch?.({ indicatorId })
     },
-    [
-      isLinkedToColorPair,
-      pairContext?.indicatorId,
-      resolvedPairColor,
-      setPairContext,
-      onWidgetParamsChange,
-      params,
-      panelId,
-    ]
+    [onWidgetLinkedParamsPatch]
   )
 
   const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)
@@ -148,22 +75,27 @@ export function IndicatorList({
   const handleRename = useCallback(
     async (indicatorId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
-      await saveSavedEntityField('indicator', indicatorId, workspaceId, 'name', name)
+      await renameSavedEntityAction({
+        entityKind: 'indicator',
+        entityId: indicatorId,
+        workspaceId,
+        name,
+      })
     },
     [permissions.canEdit, workspaceId]
   )
 
   const handleCopy = useCallback(
-    async (indicator: IndicatorDefinition) => {
+    async (indicator: EntityListMember) => {
       if (!workspaceId || !permissions.canEdit) return
-      if (!indicator.id) return
+      if (!indicator.entityId) return
 
-      setCopyingIds((prev) => new Set(prev).add(indicator.id))
+      setCopyingIds((prev) => new Set(prev).add(indicator.entityId))
 
       try {
-        const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
+        const copiedName = `${indicator.entityName || copy.listItem.untitledIndicator} (Copy)`
         const sourceSession = await bootstrapYjsProvider(
-          buildSavedEntityDescriptor('indicator', indicator.id, workspaceId),
+          buildSavedEntityDescriptor('indicator', indicator.entityId, workspaceId),
           undefined,
           'read'
         )
@@ -171,9 +103,7 @@ export function IndicatorList({
         try {
           pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
         } finally {
-          sourceSession.provider.disconnect()
-          sourceSession.provider.destroy()
-          sourceSession.doc.destroy()
+          sourceSession.dispose()
         }
 
         const createdIndicators = await createMutation.mutateAsync({
@@ -196,7 +126,7 @@ export function IndicatorList({
       } finally {
         setCopyingIds((prev) => {
           const next = new Set(prev)
-          next.delete(indicator.id)
+          next.delete(indicator.entityId)
           return next
         })
       }
@@ -224,22 +154,22 @@ export function IndicatorList({
 
   return (
     <div className='h-full w-full overflow-hidden p-2'>
-      {listIndicators.length === 0 ? (
+      {members.length === 0 ? (
         <IndicatorListMessage message={copy.body.noIndicatorsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
-          {listIndicators.map((indicator: IndicatorDefinition) => (
+          {members.map((indicator) => (
             <IndicatorListItem
-              key={indicator.id}
+              key={indicator.entityId}
               indicator={indicator}
-              isSelected={indicator.id === selectedIndicatorId}
+              isSelected={indicator.entityId === selectedIndicatorId}
               onSelect={handleSelect}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
-              isCopying={copyingIds.has(indicator.id)}
-              isDeleting={deletingIds.has(indicator.id)}
+              isCopying={copyingIds.has(indicator.entityId)}
+              isDeleting={deletingIds.has(indicator.entityId)}
             />
           ))}
         </div>

@@ -290,6 +290,44 @@ describe('useWorkflowMutations', () => {
     })
   })
 
+  it('keeps reader variable mutations behind the session transaction gate', async () => {
+    const doc = new Y.Doc()
+    const before = Y.encodeStateAsUpdate(doc)
+    const transactWorkflow = vi.fn()
+    const session = { doc, transactWorkflow }
+
+    vi.resetModules()
+    vi.doMock('@/lib/yjs/workflow-session-host', () => ({
+      useOptionalWorkflowSession: () => session,
+      useWorkflowSession: () => session,
+    }))
+
+    const { useWorkflowMutations } = await import('./use-workflow-doc')
+    let mutations: any = null
+    function Harness() {
+      mutations = useWorkflowMutations()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    expect([
+      mutations?.addVariable({ workflowId: 'workflow-1', name: 'new', type: 'plain', value: '' }),
+      mutations?.updateVariable('variable-1', { name: 'changed' }),
+      mutations?.deleteVariable('variable-1'),
+      mutations?.duplicateVariable('variable-1'),
+    ]).toEqual(['', false, false, null])
+    mutations?.replaceWorkflowState({ blocks: {}, edges: [], loops: {}, parallels: {} })
+
+    expect(transactWorkflow).toHaveBeenCalledTimes(5)
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before)
+  })
+
   it('allows typed block names unless another block already uses the normalized name', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
@@ -600,7 +638,11 @@ describe('useWorkflowTextField', () => {
       })
       undoManager.clear()
 
-      const session = { doc }
+      const session = {
+        doc,
+        transactWorkflow: (fn: (workflowDoc: Y.Doc) => void, origin?: string) =>
+          doc.transact(() => fn(doc), origin ?? YJS_ORIGINS.USER),
+      }
       vi.resetModules()
       vi.doMock('@/lib/yjs/workflow-session-host', () => ({
         useOptionalWorkflowSession: () => session,

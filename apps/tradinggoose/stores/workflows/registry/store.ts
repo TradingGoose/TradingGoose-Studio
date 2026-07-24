@@ -4,7 +4,6 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { API_ENDPOINTS } from '@/stores/constants'
-import { usePairColorStore } from '@/stores/dashboard/pair-store'
 import type {
   ChannelHydrationState,
   DeploymentStatus,
@@ -13,7 +12,6 @@ import type {
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
-import { isPairColor, type PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 
 const logger = createLogger('WorkflowRegistry')
 
@@ -94,76 +92,6 @@ const deriveIsMetadataLoading = (
 
 const getRealHydrationChannels = (hydrationByChannel: Record<string, ChannelHydrationState>) =>
   Object.keys(hydrationByChannel).filter((channelKey) => channelKey !== WORKSPACE_BOOTSTRAP_CHANNEL)
-
-const getPairColorFromChannelId = (channelId?: string): PairColor | null => {
-  if (!channelId) return null
-  const prefix = 'pair-'
-  if (!channelId.startsWith(prefix)) return null
-  const color = channelId.slice(prefix.length) as (typeof PAIR_COLORS)[number]
-  return isPairColor(color) ? color : null
-}
-
-const syncPairContextForChannel = (channelId: string | undefined, workflowId: string | null) => {
-  const pairColor = getPairColorFromChannelId(channelId)
-  if (!pairColor) return
-  const { setContext } = usePairColorStore.getState()
-  setContext(pairColor, { workflowId: workflowId ?? undefined })
-}
-
-const syncRegistryFromPairContexts = (
-  contexts: ReturnType<typeof usePairColorStore.getState>['contexts']
-) => {
-  const updates: Record<string, string> = {}
-  const removals = new Set<string>()
-
-  Object.entries(contexts).forEach(([color, ctx]) => {
-    if (color === 'gray') return
-    const channelId = `pair-${color}`
-    if (ctx?.workflowId) {
-      updates[channelId] = ctx.workflowId
-    } else {
-      removals.add(channelId)
-    }
-  })
-
-  useWorkflowRegistry.setState((state) => {
-    const nextActiveWorkflowIds = { ...state.activeWorkflowIds }
-    const nextLoadedWorkflowIds = { ...state.loadedWorkflowIds }
-    const nextHydrationByChannel = { ...state.hydrationByChannel }
-
-    removals.forEach((chan) => {
-      delete nextActiveWorkflowIds[chan]
-      delete nextLoadedWorkflowIds[chan]
-      nextHydrationByChannel[chan] = createIdleHydrationState()
-    })
-
-    Object.entries(updates).forEach(([chan, wfId]) => {
-      const previousActive = state.activeWorkflowIds[chan]
-      const previousHydration = state.hydrationByChannel[chan]
-      const workspaceId =
-        state.workflows[wfId]?.workspaceId ?? previousHydration?.workspaceId ?? null
-      nextActiveWorkflowIds[chan] = wfId
-
-      // Only reset the loaded flag when the workflow changed; keep it when linking the same one
-      if (previousActive === wfId && state.loadedWorkflowIds[chan]) {
-        nextLoadedWorkflowIds[chan] = state.loadedWorkflowIds[chan]
-        nextHydrationByChannel[chan] =
-          previousHydration ?? createReadyHydrationState(workspaceId, wfId)
-      } else {
-        nextLoadedWorkflowIds[chan] = false
-        nextHydrationByChannel[chan] = createMetadataReadyHydrationState(workspaceId, wfId)
-      }
-    })
-
-    return {
-      ...state,
-      activeWorkflowIds: nextActiveWorkflowIds,
-      loadedWorkflowIds: nextLoadedWorkflowIds,
-      hydrationByChannel: nextHydrationByChannel,
-      isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
-    }
-  })
-}
 
 const getActiveWorkflowIdFromState = (
   state: WorkflowRegistry,
@@ -825,8 +753,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
         })
 
-        syncPairContextForChannel(channelKey, workflowId)
-
         window.dispatchEvent(
           new CustomEvent('active-workflow-changed', {
             detail: { workflowId, channelId: channelKey },
@@ -1189,7 +1115,3 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
     { name: 'workflow-registry' }
   )
 )
-
-// Keep registry channel map in sync with pair color contexts so linked widgets retain their workflow IDs.
-syncRegistryFromPairContexts(usePairColorStore.getState().contexts)
-usePairColorStore.subscribe((state) => syncRegistryFromPairContexts(state.contexts))

@@ -222,19 +222,6 @@ export function useCreateCustomTool() {
   })
 }
 
-/**
- * Update custom tool mutation
- */
-interface UpdateCustomToolParams {
-  workspaceId: string
-  toolId: string
-  updates: {
-    title?: string
-    schema?: CustomToolSchema
-    code?: string
-  }
-}
-
 interface ImportCustomToolsParams {
   workspaceId: string
   file: CustomToolsImportFile
@@ -265,57 +252,6 @@ export function useImportCustomTools() {
       return data
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
-    },
-  })
-}
-
-export function useUpdateCustomTool() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, toolId, updates }: UpdateCustomToolParams) => {
-      logger.info(`Updating custom tool: ${toolId} in workspace ${workspaceId}`)
-
-      const currentTools = queryClient.getQueryData<CustomToolDefinition[]>(
-        customToolsKeys.list(workspaceId)
-      )
-      const currentTool = currentTools?.find((t) => t.id === toolId)
-
-      if (!currentTool) {
-        throw new Error('Tool not found')
-      }
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tools: [
-            {
-              id: toolId,
-              title: updates.title ?? currentTool.title,
-              schema: updates.schema ?? currentTool.schema,
-              code: updates.code ?? currentTool.code,
-            },
-          ],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update tool')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing tools data')
-      }
-
-      logger.info(`Updated custom tool: ${toolId}`)
-      return data.data
-    },
-    onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
     },
   })

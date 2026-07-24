@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SkillDefinition } from '@/lib/skills/types'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 
 interface SkillListItemProps {
@@ -45,6 +46,7 @@ export function SkillListItem({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const nameLabel = skill.name || copy.untitledSkill
+  const iconColor = getEntityIconColor(skill.id)
 
   useEffect(() => {
     setEditValue(skill.name)
@@ -177,10 +179,11 @@ export function SkillListItem({
           draggable={false}
         >
           <span
-            className='flex h-5 w-5 items-center justify-center rounded-xs bg-emerald-500/15 p-0.5'
+            className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+            style={{ backgroundColor: `${iconColor}20` }}
             aria-hidden='true'
           >
-            <ToolCase className='h-full text-emerald-600' aria-hidden='true' />
+            <ToolCase className='h-full' style={{ color: iconColor }} aria-hidden='true' />
           </span>
           {interactiveChildren}
         </button>

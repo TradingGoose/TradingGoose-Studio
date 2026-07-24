@@ -21,10 +21,22 @@ describe('Workflow By ID API Route', () => {
   const mockLoadWorkflowState = vi.fn()
   const mockRefreshWorkflowListForWorkflow = vi.fn()
   const mockRefreshWorkflowList = vi.fn()
-  const mockDeleteYjsSession = vi.fn()
+  const mockRunYjsDrainFencedTransaction = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
   const mockDbUpdateSet = vi.fn()
+  const mockDbUpdate = vi.fn()
+  const mockRenameSavedEntityIdentity = vi.fn()
+  const mockLockSavedEntityList = vi.fn()
+
+  class MockSavedEntityIdentityError extends Error {
+    constructor(
+      public status: number,
+      message: string
+    ) {
+      super(message)
+    }
+  }
 
   beforeEach(() => {
     vi.resetModules()
@@ -52,9 +64,8 @@ describe('Workflow By ID API Route', () => {
             where: vi.fn().mockResolvedValue([]),
           }),
         }),
-        update: vi.fn().mockReturnValue({
-          set: mockDbUpdateSet,
-        }),
+        update: mockDbUpdate,
+        transaction: vi.fn(async (callback) => callback({ update: mockDbUpdate })),
       },
     }))
 
@@ -69,19 +80,28 @@ describe('Workflow By ID API Route', () => {
       hydrateListingUI: vi.fn().mockImplementation(async (blocks) => blocks),
     }))
 
+    vi.doMock('@/lib/saved-entities/identity', () => ({
+      renameSavedEntityIdentityInTx: mockRenameSavedEntityIdentity,
+      SavedEntityIdentityError: MockSavedEntityIdentityError,
+    }))
+
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
     mockRefreshWorkflowListForWorkflow.mockReset()
     mockRefreshWorkflowList.mockReset()
-    mockDeleteYjsSession.mockReset()
+    mockRunYjsDrainFencedTransaction.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
+    mockDbUpdate.mockReset()
+    mockRenameSavedEntityIdentity.mockReset()
+    mockLockSavedEntityList.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
     mockRefreshWorkflowListForWorkflow.mockResolvedValue(undefined)
     mockDbUpdateWhere.mockReturnValue({ returning: mockDbUpdateReturning })
     mockDbUpdateSet.mockReturnValue({ where: mockDbUpdateWhere })
+    mockDbUpdate.mockReturnValue({ set: mockDbUpdateSet })
     mockDbUpdateReturning.mockResolvedValue([
       {
         id: 'workflow-123',
@@ -92,13 +112,33 @@ describe('Workflow By ID API Route', () => {
       },
     ])
     mockRefreshWorkflowList.mockResolvedValue(undefined)
-    mockDeleteYjsSession.mockResolvedValue(undefined)
+    mockRunYjsDrainFencedTransaction.mockImplementation(async (_target, mutate) => {
+      const { db } = await import('@tradinggoose/db')
+      return db.transaction(mutate)
+    })
+    mockRenameSavedEntityIdentity.mockResolvedValue({
+      name: 'Updated Workflow',
+      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+    })
+    mockLockSavedEntityList.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      deleteYjsSessionInSocketServer: mockDeleteYjsSession,
+      runYjsDrainFencedTransaction: mockRunYjsDrainFencedTransaction,
+      SocketServerBridgeError: class SocketServerBridgeError extends Error {},
+    }))
+
+    vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
+      lockSavedEntityList: mockLockSavedEntityList,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
+      hasWorkflowWriteAccess: (context: {
+        isWorkspaceOwner: boolean
+        workspacePermission: string | null
+      }) =>
+        context.isWorkspaceOwner ||
+        context.workspacePermission === 'write' ||
+        context.workspacePermission === 'admin',
       readWorkflowById: mockReadWorkflowById,
       readWorkflowAccessContext: mockReadWorkflowAccessContext,
     }))
@@ -110,10 +150,21 @@ describe('Workflow By ID API Route', () => {
 
   function expectWorkflowRenameApplied() {
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-    expect(mockDbUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Updated Workflow' })
+    expect(mockRenameSavedEntityIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({ update: mockDbUpdate }),
+      {
+        entityKind: 'workflow',
+        entityId: 'workflow-123',
+        workspaceId: 'workspace-456',
+        name: 'Updated Workflow',
+      }
     )
     expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
+    expect(mockLockSavedEntityList).toHaveBeenCalledWith(
+      expect.anything(),
+      'workflow',
+      'workspace-456'
+    )
   }
 
   describe('GET /api/workflows/[id]', () => {
@@ -160,12 +211,12 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Workflow not found')
     })
 
-    it('should allow access when user owns the workflow', async () => {
+    it('should allow a workflow creator with workspace read permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       const mockWorkflowState = {
@@ -185,21 +236,12 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
 
       mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
-
-      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockReadWorkflowAccessContext.mockResolvedValueOnce({
-        workflow: mockWorkflow,
-        workspaceOwnerId: null,
-        workspacePermission: null,
-        isOwner: true,
-        isWorkspaceOwner: false,
-      })
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -303,7 +345,7 @@ describe('Workflow By ID API Route', () => {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       const mockWorkflowState = {
@@ -323,7 +365,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -347,7 +389,7 @@ describe('Workflow By ID API Route', () => {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -360,7 +402,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -378,17 +420,20 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should delete the workflow row before non-blocking Yjs cleanup', async () => {
+    it('should fence the live document while deleting the workflow row', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
       const events: string[] = []
-      mockDeleteYjsSession.mockImplementation(async () => {
-        events.push('yjs-delete')
-        throw new Error('socket offline')
+      mockRunYjsDrainFencedTransaction.mockImplementation(async (_target, mutate) => {
+        events.push('fence-begin')
+        const { db } = await import('@tradinggoose/db')
+        const result = await db.transaction(mutate)
+        events.push('fence-commit')
+        return result
       })
 
       vi.doMock('@/lib/auth', () => ({
@@ -401,18 +446,22 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'read',
         isOwner: true,
         isWorkspaceOwner: false,
       })
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation(async () => {
-              events.push('db-delete')
-              return [{ id: 'workflow-123' }]
-            }),
-          }),
+          transaction: vi.fn(async (mutate) =>
+            mutate({
+              delete: vi.fn().mockReturnValue({
+                where: vi.fn().mockImplementation(async () => {
+                  events.push('db-delete')
+                  return [{ id: 'workflow-123' }]
+                }),
+              }),
+            })
+          ),
         },
         workflow: {},
       }))
@@ -428,15 +477,18 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(events).toEqual(['db-delete', 'yjs-delete'])
+      expect(events).toEqual(['fence-begin', 'db-delete', 'fence-commit'])
+      expect(mockRunYjsDrainFencedTransaction.mock.calls[0]?.[0]).toEqual({
+        sessionIds: ['workflow-123'],
+      })
     })
 
-    it('should return 500 if workflow row deletion fails before session cleanup', async () => {
+    it('should return 500 if workflow row deletion fails inside the fence', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
       const deleteWhereMock = vi.fn().mockRejectedValue(new Error('db offline'))
 
@@ -450,16 +502,16 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
 
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: deleteWhereMock,
-          }),
+          transaction: vi.fn(async (mutate) =>
+            mutate({ delete: vi.fn().mockReturnValue({ where: deleteWhereMock }) })
+          ),
         },
         workflow: {},
       }))
@@ -475,8 +527,40 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(500)
       const data = await response.json()
       expect(data.error).toBe('Internal server error')
-      expect(mockDeleteYjsSession).not.toHaveBeenCalled()
+      expect(mockRunYjsDrainFencedTransaction).toHaveBeenCalledOnce()
       expect(deleteWhereMock).toHaveBeenCalledOnce()
+    })
+
+    it('should deny a removed workflow creator before deletion fencing', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        workspaceId: 'workspace-456',
+      }
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({ user: { id: 'user-123' } }),
+      }))
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: 'workspace-owner',
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+
+      const { DELETE } = await import('@/app/api/workflows/[id]/route')
+      const response = await DELETE(
+        new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+          method: 'DELETE',
+        }),
+        { params: Promise.resolve({ id: 'workflow-123' }) }
+      )
+
+      expect(response.status).toBe(403)
+      expect(mockRunYjsDrainFencedTransaction).not.toHaveBeenCalled()
+      expect(mockLockSavedEntityList).not.toHaveBeenCalled()
+      expect(mockRefreshWorkflowList).not.toHaveBeenCalled()
     })
 
     it('should allow admin to delete workspace workflow', async () => {
@@ -502,11 +586,11 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
+      const deleteWhere = vi.fn().mockResolvedValue([{ id: 'workflow-123' }])
+      const deleteWorkflow = vi.fn().mockReturnValue({ where: deleteWhere })
       vi.doMock('@tradinggoose/db', () => ({
         db: {
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([{ id: 'workflow-123' }]),
-          }),
+          transaction: vi.fn(async (callback) => callback({ delete: deleteWorkflow })),
         },
         workflow: {},
       }))
@@ -523,9 +607,16 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.success).toBe(true)
       expect(mockRefreshWorkflowList).toHaveBeenCalledWith('workspace-456')
+      expect(deleteWorkflow).toHaveBeenCalledOnce()
+      expect(deleteWhere).toHaveBeenCalledOnce()
+      expect(mockLockSavedEntityList).toHaveBeenCalledWith(
+        expect.anything(),
+        'workflow',
+        'workspace-456'
+      )
     })
 
-    it('should deny deletion for non-admin users', async () => {
+    it('should deny a non-creator with workspace write permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'other-user',
@@ -543,7 +634,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: false,
         isWorkspaceOwner: false,
       })
@@ -563,12 +654,12 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('PUT /api/workflows/[id]', () => {
-    it('should allow owner to update workflow', async () => {
+    it('should allow a workflow creator with workspace write permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
         name: 'Test Workflow',
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       const updateData = { name: 'Updated Workflow' }
@@ -583,7 +674,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -600,7 +691,9 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
+      expect(data.workflow.updatedAt).toBe('2026-03-17T11:00:00.000Z')
       expectWorkflowRenameApplied()
+      expect(mockDbUpdateSet).not.toHaveBeenCalled()
     })
 
     it('should allow users with write permission to update workflow', async () => {
@@ -641,6 +734,7 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
       expectWorkflowRenameApplied()
+      expect(mockDbUpdateSet).not.toHaveBeenCalled()
     })
 
     it('updates workflow metadata without loading workflow state', async () => {
@@ -650,7 +744,7 @@ describe('Workflow By ID API Route', () => {
         name: 'Test Workflow',
         description: 'Old description',
         folderId: null,
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
 
       const updateData = { description: 'New description' }
@@ -672,7 +766,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -701,7 +795,7 @@ describe('Workflow By ID API Route', () => {
         name: 'Test Workflow',
         description: 'Old description',
         folderId: null,
-        workspaceId: null,
+        workspaceId: 'workspace-456',
       }
       const updateData = {
         name: 'Updated Workflow',
@@ -726,7 +820,7 @@ describe('Workflow By ID API Route', () => {
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
-        workspacePermission: null,
+        workspacePermission: 'write',
         isOwner: true,
         isWorkspaceOwner: false,
       })
@@ -746,8 +840,14 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.description).toBe('New description')
       expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
-      expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'New description',
+          folderId: 'folder-1',
+        })
+      )
+      expect(mockDbUpdateSet.mock.calls.at(-1)?.[0]).not.toHaveProperty('name')
+      expectWorkflowRenameApplied()
     })
 
     it('should deny update for users with only read permission', async () => {

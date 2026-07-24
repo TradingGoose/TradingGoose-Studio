@@ -19,8 +19,8 @@ import {
   Grid2x2,
   Key,
   KeyRound,
-  ListFilter,
   ListChecks,
+  ListFilter,
   Loader2,
   MinusCircle,
   Rocket,
@@ -83,6 +83,7 @@ function createEntityMutationMetadata(
       [ClientToolCallState.generating]: { text: `${gerund} ${label} document`, icon: Loader2 },
       [ClientToolCallState.pending]: { text: `${gerund} ${label} document`, icon: Loader2 },
       [ClientToolCallState.executing]: { text: `${gerund} ${label} document`, icon: Loader2 },
+      [ClientToolCallState.review]: { text: `Review ${label} changes`, icon },
       [ClientToolCallState.success]: { text: `${past} ${label} document`, icon },
       [ClientToolCallState.error]: {
         text: `Failed to ${action} ${label} document`,
@@ -226,6 +227,17 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.rejected]: { text: 'Skipped documentation search', icon: MinusCircle },
     },
   },
+  search_listing: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Searching listings', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Listing search complete', icon: BarChart3 },
+      [ClientToolCallState.error]: { text: 'Failed to search listings', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted listing search', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped listing search', icon: MinusCircle },
+    },
+  },
   [CopilotTool.read_environment_variables]: {
     displayNames: {
       [ClientToolCallState.generating]: {
@@ -303,7 +315,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Queried knowledge base', icon: Database },
       [ClientToolCallState.error]: { text: 'Failed to query knowledge base', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted querying knowledge base', icon: XCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped querying knowledge base', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped querying knowledge base',
+        icon: MinusCircle,
+      },
     },
   },
   [CopilotTool.list_workflows]: createEntityListMetadata('workflows', ListChecks),
@@ -315,7 +330,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Analyzed your workflow', icon: Workflow },
       [ClientToolCallState.error]: { text: 'Failed to analyze your workflow', icon: XCircle },
       [ClientToolCallState.aborted]: { text: 'Aborted analyzing your workflow', icon: XCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped analyzing your workflow', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped analyzing your workflow',
+        icon: MinusCircle,
+      },
     },
   },
   [CopilotTool.edit_workflow_variable]: {
@@ -379,7 +397,10 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.success]: { text: 'Edited your workflow block', icon: Grid2x2 },
       [ClientToolCallState.error]: { text: 'Failed to edit workflow block', icon: XCircle },
       [ClientToolCallState.review]: { text: 'Review your workflow block changes', icon: Grid2x2 },
-      [ClientToolCallState.rejected]: { text: 'Rejected workflow block changes', icon: MinusCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Rejected workflow block changes',
+        icon: MinusCircle,
+      },
       [ClientToolCallState.aborted]: { text: 'Aborted editing workflow block', icon: XCircle },
     },
     interrupt: {
@@ -536,6 +557,19 @@ export const SERVER_TOOL_METADATA = {
   create_mcp_server: createEntityMutationMetadata('MCP server', 'create', Server),
   edit_mcp_server: createEntityMutationMetadata('MCP server', 'edit', Server),
   rename_mcp_server: createEntityMutationMetadata('MCP server', 'rename', Server),
+  list_watchlist: createEntityListMetadata('watchlists', ListChecks),
+  read_watchlist: createEntityReadMetadata('watchlist'),
+  create_watchlist: createEntityMutationMetadata('watchlist', 'create', ListChecks),
+  edit_watchlist: createEntityMutationMetadata('watchlist', 'edit', ListChecks),
+  rename_watchlist: createEntityMutationMetadata('watchlist', 'rename', ListChecks),
+  list_layout: createEntityListMetadata('dashboard layouts', Grid2x2),
+  create_layout: createEntityMutationMetadata('dashboard layout', 'create', Grid2x2),
+  read_layout: createEntityReadMetadata('dashboard layout'),
+  edit_layout: createEntityMutationMetadata('dashboard layout', 'edit', Grid2x2),
+  rename_layout: createEntityMutationMetadata('dashboard layout', 'rename', Grid2x2),
+  edit_widget: createEntityMutationMetadata('dashboard widget', 'edit', Blocks),
+  get_available_widgets: createEntityListMetadata('dashboard widgets', Blocks),
+  get_widgets_metadata: createEntityReadMetadata('dashboard widget metadata'),
   list_gdrive_files: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },

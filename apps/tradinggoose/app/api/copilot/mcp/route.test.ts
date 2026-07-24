@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 
 const {
   mockAuthenticateApiKeyFromHeader,
@@ -84,6 +85,7 @@ describe('Copilot MCP route', () => {
       success: true,
       userId: 'user-1',
       keyId: 'key-1',
+      keyType: 'personal',
     })
     mockCheckApiEndpointRateLimit.mockResolvedValue({
       allowed: true,
@@ -107,7 +109,7 @@ describe('Copilot MCP route', () => {
       name: 'My Workspace',
       permissions: 'admin',
     })
-    mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow'])
+    mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow', 'search_listing'])
     mockGetCopilotRuntimeToolManifest.mockResolvedValue({
       version: 'v1',
       tools: [
@@ -128,7 +130,7 @@ describe('Copilot MCP route', () => {
         },
       ],
     })
-    mockRouteExecution.mockResolvedValue({ workflows: [] })
+    mockRouteExecution.mockResolvedValue({ results: [] })
   })
 
   it('rejects requests without bearer auth', async () => {
@@ -165,6 +167,8 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).toContain('trusted personal coding agents')
     expect(body.result.instructions).toContain('Mutating tools execute directly')
     expect(body.result.instructions).toContain('authenticated MCP key')
+    expect(body.result.instructions).toContain('MCP server documents redact header/env values')
+    expect(body.result.instructions).toContain('[redacted]')
     expect(body.result.instructions).not.toContain('No accessible workspaces')
   })
 
@@ -273,7 +277,7 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
-  it('dispatches tool calls through the server tool router', async () => {
+  it('returns listing search results as MCP structured content', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
@@ -282,21 +286,65 @@ describe('Copilot MCP route', () => {
         id: 3,
         method: 'tools/call',
         params: {
-          name: 'list_workflows',
-          arguments: { workspaceId: 'workspace-1' },
+          name: 'search_listing',
+          arguments: { query: 'Apple' },
         },
       })
     )
     const body = await response.json()
 
     expect(mockRouteExecution).toHaveBeenCalledWith(
-      'list_workflows',
-      { workspaceId: 'workspace-1' },
-      { userId: 'user-1', accessLevel: 'full' }
+      'search_listing',
+      { query: 'Apple' },
+      { userId: 'user-1', apiKeyType: 'personal', accessLevel: 'full' }
     )
-    expect(body.result.structuredContent).toEqual({ workflows: [] })
-    expect(body.result.content[0].text).toBe(JSON.stringify({ workflows: [] }, null, 2))
+    expect(body.result.structuredContent).toEqual({ results: [] })
+    expect(body.result.content[0].text).toBe(JSON.stringify({ results: [] }, null, 2))
   })
+
+  it.each([
+    ['create_layout', { workspaceId: 'workspace-1', name: 'Trading Desk' }, true],
+    ['read_layout', { entityId: 'layout-1' }, false],
+    ['edit_layout', { entityId: 'layout-1', entityDocument: '{"layout":{}}' }, true],
+    ['edit_widget', { entityId: 'layout-1', panelId: 'panel-1', params: null }, true],
+  ] as const)(
+    'returns the complete %s layout document unchanged through MCP',
+    async (toolName, args, isMutation) => {
+      const { POST } = await import('./route')
+      const result = {
+        ...(isMutation ? { success: true } : {}),
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        entityName: 'Trading Desk',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        documentFormat: 'tg-dashboard-layout-document-v3',
+        entityDocument: JSON.stringify({
+          layout: { id: 'panel-1', type: 'panel' },
+          widgets: { 'widget-1': { pairColor: 'gray', params: null } },
+          colorPairs: { pairs: [] },
+        }),
+      }
+      mockGetMcpServerToolIds.mockReturnValueOnce([toolName])
+      mockRouteExecution.mockResolvedValueOnce(result)
+
+      const response = await POST(
+        createMcpRequest({
+          jsonrpc: '2.0',
+          id: 4,
+          method: 'tools/call',
+          params: {
+            name: toolName,
+            arguments: args,
+          },
+        })
+      )
+      const body = await response.json()
+
+      expect(body.result.structuredContent).toEqual(result)
+      expect(body.result.content[0].text).toBe(JSON.stringify(result, null, 2))
+    }
+  )
 
   it('dispatches external MCP mutation tools with full personal-agent access', async () => {
     const { POST } = await import('./route')
@@ -319,31 +367,31 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).toHaveBeenCalledWith(
       'edit_workflow',
       { workflowId: 'workflow-1', mermaid: 'graph TD' },
-      { userId: 'user-1', accessLevel: 'full' }
+      { userId: 'user-1', apiKeyType: 'personal', accessLevel: 'full' }
     )
     expect(body.result.structuredContent).toEqual({ success: true })
   })
 
-  it('returns a sanitized tool result when a tool execution fails', async () => {
+  it('returns structured authorization denials as MCP tool errors', async () => {
     const { POST } = await import('./route')
-    mockGetMcpServerToolIds.mockReturnValue(['list_workflows'])
-    mockRouteExecution.mockRejectedValueOnce(new Error('connection refused at db.internal:5432'))
+    const denial = { code: 'access_denied', error: 'Access denied', retryable: false }
+    mockGetMcpServerToolIds.mockReturnValue(['list_watchlist'])
+    mockRouteExecution.mockRejectedValueOnce(
+      new StructuredServerToolError({ status: 403, body: denial })
+    )
 
     const response = await POST(
       createMcpRequest({
         jsonrpc: '2.0',
         id: 6,
         method: 'tools/call',
-        params: { name: 'list_workflows', arguments: {} },
+        params: { name: 'list_watchlist', arguments: { workspaceId: 'workspace-1' } },
       })
     )
     const body = await response.json()
 
-    expect(body.error).toBeUndefined()
     expect(body.result.isError).toBe(true)
-    expect(body.result.structuredContent.code).toBe('server_tool_execution_failed')
-    expect(body.result.structuredContent.error).toBe('Server tool execution failed')
-    expect(body.result.content[0].text).not.toContain('db.internal')
+    expect(body.result.structuredContent).toEqual(denial)
   })
 
   it('sanitizes errors thrown by non-tool methods instead of leaking a raw response', async () => {

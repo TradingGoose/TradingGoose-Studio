@@ -1,31 +1,35 @@
 import { ENTITY_KIND_SKILL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { createSkills } from '@/lib/skills/operations'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
 
 async function createSkillEntity(
+  name: string,
   fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const rows = await createSkills({
     userId,
     workspaceId,
+    beforeInsert,
     skills: [
       {
-        name: String(fields.name ?? ''),
+        name,
         description: String(fields.description ?? ''),
         content: String(fields.content ?? ''),
       },
@@ -38,7 +42,8 @@ async function createSkillEntity(
 
   return {
     entityId: row.id,
-    fields: savedEntityRowToFields(ENTITY_KIND_SKILL, row),
+    entityName: row.name,
+    fields: savedEntityRowToContent(ENTITY_KIND_SKILL, row),
   }
 }
 
@@ -69,8 +74,8 @@ export const readSkillServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(ENTITY_KIND_SKILL, entityId, workspaceId)
-    return buildDocumentEnvelope(ENTITY_KIND_SKILL, entityId, fields)
+    const document = await readSavedEntityDocument(ENTITY_KIND_SKILL, entityId, workspaceId)
+    return buildDocumentEnvelope(ENTITY_KIND_SKILL, entityId, document.entityName, document.fields)
   },
 }
 
@@ -88,9 +93,9 @@ export const editSkillServerTool: EntityServerTool = {
   },
 }
 
-export const renameSkillServerTool: EntityServerTool = {
+export const renameSkillServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_skill',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(ENTITY_KIND_SKILL, 'rename_skill', args, context)
+    return executeRenameEntityMutation(ENTITY_KIND_SKILL, 'rename_skill', args, context)
   },
 }

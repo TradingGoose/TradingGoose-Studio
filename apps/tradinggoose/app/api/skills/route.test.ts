@@ -7,9 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockCreateSkills = vi.fn()
-const mockSaveSkill = vi.fn()
 const mockListSkills = vi.fn()
-const mockDeleteSkill = vi.fn()
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: mockCheckHybridAuth,
@@ -21,25 +19,15 @@ vi.mock('@/lib/permissions/utils', () => ({
 
 vi.mock('@/lib/skills/operations', () => ({
   createSkills: mockCreateSkills,
-  saveSkill: mockSaveSkill,
   listSkills: mockListSkills,
-  deleteSkill: mockDeleteSkill,
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([{ id: 'skill-1' }]),
-        }),
-      }),
-    }),
-  },
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  deleteSavedEntity: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  skill: {},
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  toSavedEntityTransportError: vi.fn(() => null),
 }))
 
 describe('Skills API Routes', () => {
@@ -48,9 +36,7 @@ describe('Skills API Routes', () => {
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
     mockCreateSkills.mockResolvedValue([])
-    mockSaveSkill.mockResolvedValue([])
     mockListSkills.mockResolvedValue([])
-    mockDeleteSkill.mockResolvedValue(true)
   })
 
   afterEach(() => {

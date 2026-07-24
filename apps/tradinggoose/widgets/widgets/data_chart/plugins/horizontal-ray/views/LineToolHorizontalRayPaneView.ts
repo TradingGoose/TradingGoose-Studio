@@ -1,18 +1,8 @@
 // /src/views/LineToolHorizontalRayPaneView.ts
 
-import {
-	IChartApiBase,
-	ISeriesApi,
-	SeriesType,
-} from 'lightweight-charts';
-
-import {
-	BaseLineTool,
-} from '../../core';
-
-import { LineToolHorizontalLinePaneView } from '../../shared/lines/views/LineToolHorizontalLinePaneView';
-import { LineToolHorizontalRay } from '../model/LineToolHorizontalRay';
-
+import type { IChartApiBase, ISeriesApi, SeriesType } from 'lightweight-charts'
+import { LineToolHorizontalLinePaneView } from '../../shared/lines/views/LineToolHorizontalLinePaneView'
+import type { LineToolHorizontalRay } from '../model/LineToolHorizontalRay'
 
 /**
  * Pane View for the Horizontal Ray tool.
@@ -24,24 +14,25 @@ import { LineToolHorizontalRay } from '../model/LineToolHorizontalRay';
  * It checks the `options.line.extend` property (which the Horizontal Ray model sets to `{ left: false, right: true }`)
  * and calculates the start/end points of the segment accordingly. Therefore, no custom drawing logic is needed here.
  */
-export class LineToolHorizontalRayPaneView<HorzScaleItem> extends LineToolHorizontalLinePaneView<HorzScaleItem> {
+export class LineToolHorizontalRayPaneView<
+  HorzScaleItem,
+> extends LineToolHorizontalLinePaneView<HorzScaleItem> {
+  /**
+   * Initializes the Horizontal Ray View.
+   *
+   * @param source - The specific Horizontal Ray model instance.
+   * @param chart - The Chart API.
+   * @param series - The Series API.
+   */
+  public constructor(
+    source: LineToolHorizontalRay<HorzScaleItem>, // Use the specific model class for strong typing
+    chart: IChartApiBase<HorzScaleItem>,
+    series: ISeriesApi<SeriesType, HorzScaleItem>
+  ) {
+    // Call the parent constructor (LineToolHorizontalLinePaneView)
+    // The parent is designed to handle the core BaseLineTool<HorzScaleItem> type.
+    super(source, chart, series)
+  }
 
-	/**
-	 * Initializes the Horizontal Ray View.
-	 *
-	 * @param source - The specific Horizontal Ray model instance.
-	 * @param chart - The Chart API.
-	 * @param series - The Series API.
-	 */
-	public constructor(
-		source: LineToolHorizontalRay<HorzScaleItem>, // Use the specific model class for strong typing
-		chart: IChartApiBase<HorzScaleItem>,
-		series: ISeriesApi<SeriesType, HorzScaleItem>,
-	) {
-		// Call the parent constructor (LineToolHorizontalLinePaneView)
-		// The parent is designed to handle the core BaseLineTool<HorzScaleItem> type.
-		super(source, chart, series);
-	}
-
-	// NOTE: No methods are overridden as the inherited logic is fully reusable.
+  // NOTE: No methods are overridden as the inherited logic is fully reusable.
 }

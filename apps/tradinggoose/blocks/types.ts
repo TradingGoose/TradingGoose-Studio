@@ -155,6 +155,8 @@ export interface SubBlockOptionGroup {
   icon?: React.ComponentType<{ className?: string }>
 }
 
+export type DropdownEntityListKind = 'workflow' | 'watchlist'
+
 export interface SubBlockConfig {
   id: string
   title?: string
@@ -169,6 +171,8 @@ export interface SubBlockConfig {
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?: SubBlockOption[] | (() => SubBlockOption[])
+  entityListKind?: DropdownEntityListKind
+  excludeCurrentEntity?: boolean
   // Async options loader for dropdown/combobox-like inputs
   fetchOptions?: (
     blockId: string,

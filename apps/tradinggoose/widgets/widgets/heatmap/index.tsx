@@ -1,16 +1,14 @@
 'use client'
 
 import { ChartNoAxesCombined } from 'lucide-react'
+import { heatmapWidgetContract } from '@/widgets/widgets/heatmap/contract'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 import { renderHeatmapHeader } from '@/widgets/widgets/heatmap/components/header'
 
 export const heatmapWidget: DashboardWidgetDefinition = {
-  key: 'heatmap',
-  title: 'Heatmap',
+  contract: heatmapWidgetContract,
   icon: ChartNoAxesCombined,
-  category: 'trading',
-  description: 'Watchlist or portfolio market move treemap.',
   component: (props) => <HeatmapWidgetBody {...props} />,
   renderHeader: renderHeatmapHeader,
 }

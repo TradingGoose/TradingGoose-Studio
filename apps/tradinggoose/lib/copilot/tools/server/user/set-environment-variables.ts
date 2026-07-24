@@ -11,7 +11,7 @@ import {
   throwIfServerToolAborted,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { encryptSecret } from '@/lib/utils-server'
 
 const EnvVarSchema = z.discriminatedUnion('scope', [
@@ -148,13 +148,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
         parsedPayload.scope === 'workspace' ? scopedContext.workspaceId : undefined
       const targetId = workspaceId ?? userId
       if (parsedPayload.scope === 'workspace') {
-        if (!workspaceId) {
-          throw new Error('workspaceId is required')
-        }
-        const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-        if (!workspaceAccess.exists || !workspaceAccess.hasAccess || !workspaceAccess.canWrite) {
-          throw new Error('Access denied: You do not have permission to edit this workspace')
-        }
+        await verifyWorkspaceContext(scopedContext, 'write')
       }
 
       const variableNames = Object.keys(parsedPayload.variables).sort()

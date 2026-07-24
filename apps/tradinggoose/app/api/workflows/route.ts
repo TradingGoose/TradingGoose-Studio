@@ -9,10 +9,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -38,9 +38,7 @@ function getInitialWorkflowState(
   canonicalState: WorkflowState
   variables: Record<string, unknown>
 } {
-  const source = isPlainObject(initialWorkflowState)
-    ? initialWorkflowState
-    : buildDefaultWorkflowArtifacts().workflowState
+  const source = isPlainObject(initialWorkflowState) ? initialWorkflowState : {}
   const sourceRecord = source as Record<string, unknown>
 
   const blocks = isPlainObject(sourceRecord.blocks) ? sourceRecord.blocks : {}
@@ -177,30 +175,37 @@ export async function POST(req: NextRequest) {
       // Silently fail
     }
 
-    await db.insert(workflow).values({
-      id: workflowId,
-      userId: session.user.id,
-      workspaceId,
-      folderId: folderId || null,
-      name,
-      description,
-      color: resolvedColor,
-      lastSynced: now,
-      createdAt: now,
-      updatedAt: now,
-      isDeployed: false,
-      collaborators: [],
-      runCount: 0,
+    await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'workflow', workspaceId)
+      await tx.insert(workflow).values({
+        id: workflowId,
+        userId: session.user.id,
+        workspaceId,
+        folderId: folderId || null,
+        name,
+        description,
+        color: resolvedColor,
+        lastSynced: now,
+        createdAt: now,
+        updatedAt: now,
+        isDeployed: false,
+        collaborators: [],
+        runCount: 0,
+      })
     })
 
     try {
       await applyWorkflowState(
         workflowId,
+        session.user.id,
         createWorkflowSnapshot(initialState.canonicalState),
         remappedVariables
       )
     } catch (error) {
-      await db.delete(workflow).where(eq(workflow.id, workflowId))
+      await db.transaction(async (tx) => {
+        await lockSavedEntityList(tx, 'workflow', workspaceId)
+        await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      })
       throw error
     }
     await refreshWorkflowListForWorkflow(workflowId)

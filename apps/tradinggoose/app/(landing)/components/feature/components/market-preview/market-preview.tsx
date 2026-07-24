@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import * as Y from 'yjs'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
@@ -12,25 +13,25 @@ import {
   evolveMockMarketBar,
   generateMockMarketSeries,
 } from '@/lib/market/mock-series'
-import type { WidgetInstance } from '@/widgets/layout'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 import {
-  emitDataChartParamsChange,
-  useDataChartParamsPersistence,
-} from '@/widgets/utils/chart-params'
+  LocalWidgetConfigRuntimeProvider,
+  useWidgetLocalParams,
+} from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from '@/widgets/widgets/data_chart/components/chart-controls'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
+import type { DataChartWidgetParams, IndicatorRef } from '@/widgets/widgets/data_chart/contract'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
 import { useChartLegend } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { useIndicatorControls } from '@/widgets/widgets/data_chart/hooks/use-indicator-controls'
 import { useIndicatorLegend } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
 import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import type {
   DataChartDataContext,
-  DataChartWidgetParams,
-  IndicatorRef,
   IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import { DEFAULT_MANUAL_DRAW_TOOLS } from '@/widgets/widgets/data_chart/utils/draw-tools'
@@ -54,9 +55,7 @@ const MARKET_LISTING_LABEL = 'TradingGoose Data Chart'
 const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
-const LANDING_MARKET_WIDGET: NonNullable<WidgetInstance> = {
-  key: 'data_chart',
-}
+const LANDING_MARKET_WIDGET_KEY = 'data_chart' as const
 const LANDING_MARKET_LISTING: ListingOption = {
   listing_id: 'tradinggoose-data-chart',
   base_id: '',
@@ -186,7 +185,7 @@ function MarketHeaderChartControls({
         params={params}
         candleType={params.view?.candleType}
         panelId={LANDING_MARKET_PANEL_ID}
-        widgetKey={LANDING_MARKET_WIDGET.key}
+        widgetKey={LANDING_MARKET_WIDGET_KEY}
       />
       <LandingIndicatorDropdown
         value={selectedIndicatorIds}
@@ -198,6 +197,24 @@ function MarketHeaderChartControls({
 }
 
 export function MarketPreview() {
+  const doc = React.useMemo(() => {
+    const next = new Y.Doc()
+    seedDashboardWidgetSession(next, {
+      pairColor: 'gray',
+      params: buildInitialMarketParams() as Record<string, unknown>,
+    })
+    return next
+  }, [])
+  React.useEffect(() => () => doc.destroy(), [doc])
+
+  return (
+    <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey={LANDING_MARKET_WIDGET_KEY}>
+      <MarketPreviewContent />
+    </LocalWidgetConfigRuntimeProvider>
+  )
+}
+
+function MarketPreviewContent() {
   const initialBucketOpenTime = React.useMemo(() => getLiveBucketOpenTime(Date.now()), [])
   const mockBars = React.useMemo(
     () => buildSeedMarketBars(initialBucketOpenTime),
@@ -208,8 +225,8 @@ export function MarketPreview() {
   const isBackfillingRef = React.useRef(false)
   const pendingBackfillRangeRef = React.useRef<{ from: number; to: number } | null>(null)
   const [browserTimezone, setBrowserTimezone] = React.useState('UTC')
-  const [marketParams, setMarketParams] =
-    React.useState<DataChartWidgetParams>(buildInitialMarketParams)
+  const localParams = useWidgetLocalParams()
+  const marketParams = (localParams ?? {}) as DataChartWidgetParams
   const [indicatorStates, setIndicatorStates] = React.useState<
     Record<string, IndicatorExecutionState>
   >({})
@@ -221,19 +238,7 @@ export function MarketPreview() {
   const legendContainerRef = React.useRef<HTMLDivElement | null>(null)
   const [legendOffset, setLegendOffset] = React.useState(0)
 
-  const handleWidgetParamsChange = React.useCallback(
-    (nextParams: Record<string, unknown> | null) => {
-      if (nextParams) setMarketParams(nextParams as DataChartWidgetParams)
-    },
-    []
-  )
-
-  useDataChartParamsPersistence({
-    onWidgetParamsChange: handleWidgetParamsChange,
-    panelId: LANDING_MARKET_PANEL_ID,
-    widget: LANDING_MARKET_WIDGET,
-    params: marketParams as Record<string, unknown>,
-  })
+  const patchWidgetParams = useDataChartParamsPatch()
 
   const {
     chartRef,
@@ -582,7 +587,7 @@ export function MarketPreview() {
   } = useIndicatorControls({
     view: marketParams.view,
     panelId: LANDING_MARKET_PANEL_ID,
-    widgetKey: LANDING_MARKET_WIDGET.key,
+    widgetKey: LANDING_MARKET_WIDGET_KEY,
     pineIndicatorIds: selectedIndicatorIds,
     indicatorMetaById,
     indicatorRefsById,
@@ -615,7 +620,7 @@ export function MarketPreview() {
   } = useManualDrawToolsController({
     view: marketParams.view,
     panelId: LANDING_MARKET_PANEL_ID,
-    widgetKey: LANDING_MARKET_WIDGET.key,
+    widgetKey: LANDING_MARKET_WIDGET_KEY,
     chartResetKey: LANDING_MARKET_CHART_RESET_KEY,
     chartRef,
     chartContainerRef,
@@ -653,17 +658,13 @@ export function MarketPreview() {
 
   const handleIndicatorSelectionChange = React.useCallback(
     (nextIds: string[]) => {
-      emitDataChartParamsChange({
-        params: {
-          view: {
-            pineIndicators: buildIndicatorRefs(nextIds, selectedIndicatorRefs),
-          },
+      patchWidgetParams({
+        view: {
+          pineIndicators: buildIndicatorRefs(nextIds, selectedIndicatorRefs),
         },
-        panelId: LANDING_MARKET_PANEL_ID,
-        widgetKey: LANDING_MARKET_WIDGET.key,
       })
     },
-    [selectedIndicatorRefs]
+    [patchWidgetParams, selectedIndicatorRefs]
   )
 
   const renderedIndicators = React.useMemo(

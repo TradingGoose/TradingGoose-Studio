@@ -51,7 +51,6 @@ export type MonacoEditorProps = {
   value: string
   onChange?: (value: string) => void
   language?: string
-  path?: string
   placeholder?: string
   className?: string
   height?: string | number

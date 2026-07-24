@@ -11,13 +11,11 @@ import {
 } from '@/components/ui/sidebar-dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
-import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-
-const FALLBACK_COLOR = '#3972F6'
 
 type IndicatorFilterId = 'default' | 'custom'
 
@@ -29,13 +27,7 @@ type IndicatorOption = {
 }
 
 const resolveIndicatorColor = (indicator?: IndicatorOption | null): string => {
-  if (!indicator) return FALLBACK_COLOR
-
-  const directColor = indicator.color?.trim() ?? ''
-
-  if (directColor) return directColor
-
-  return FALLBACK_COLOR
+  return getEntityIconColor(indicator?.id, indicator?.color)
 }
 
 interface IndicatorDropdownProps {
@@ -93,11 +85,11 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-            id: indicator.id,
-            name: indicator.name,
-            source: 'default' as const,
-            color: getStableVibrantColor(indicator.id),
-          }))
+          id: indicator.id,
+          name: indicator.name,
+          source: 'default' as const,
+          color: getEntityIconColor(indicator.id),
+        }))
         : [],
     [includeDefaults]
   )
@@ -201,14 +193,14 @@ export function IndicatorDropdown({
     <div
       className='h-5 w-5 rounded-xs p-0.5'
       style={{
-        backgroundColor: `${selectedIndicatorColor ?? FALLBACK_COLOR}20`,
+        backgroundColor: `${selectedIndicatorColor ?? getEntityIconColor(null)}20`,
       }}
       aria-hidden='true'
     >
       <Activity
         className='h-4 w-4'
         aria-hidden='true'
-        style={{ color: selectedIndicatorColor ?? FALLBACK_COLOR }}
+        style={{ color: selectedIndicatorColor ?? getEntityIconColor(null) }}
       />
     </div>
   )
@@ -270,14 +262,14 @@ export function IndicatorDropdown({
             <div
               className='h-5 w-5 rounded-xs p-0.5'
               style={{
-                backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
+                backgroundColor: `${resolveIndicatorColor(option)}20`,
               }}
               aria-hidden='true'
             >
               <Activity
                 className='h-4 w-4 text-muted-foreground'
                 aria-hidden='true'
-                style={{ color: option.color ?? FALLBACK_COLOR }}
+                style={{ color: resolveIndicatorColor(option) }}
               />
             </div>
           ),
@@ -347,7 +339,7 @@ export function IndicatorDropdown({
             </TooltipTrigger>
             <TooltipContent side='top'>{tooltipText}</TooltipContent>
           </Tooltip>
-          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 flex'>
+          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-1.5 flex'>
             {isLoading ? (
               <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
             ) : (

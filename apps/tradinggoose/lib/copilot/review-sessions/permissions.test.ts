@@ -34,6 +34,11 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workspace.id',
     ownerId: 'workspace.owner_id',
   },
+  layoutMaps: {
+    id: 'layout_maps.id',
+    workspaceId: 'layout_maps.workspace_id',
+    userId: 'layout_maps.user_id',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -59,6 +64,7 @@ vi.mock('@/lib/yjs/server/entity-loaders', () => ({
 }))
 
 import { db } from '@tradinggoose/db'
+import { buildDashboardWidgetDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   loadReviewSessionForUser,
   loadReviewSessionForUserByConversationId,
@@ -101,9 +107,21 @@ describe('review session permissions', () => {
 
   it('derives saved entity workspace from the canonical entity', async () => {
     mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
-    mockDb.select.mockReturnValueOnce(
-      createMockChain([{ ownerId: 'owner-1', permissionType: 'read' }])
-    )
+    mockDb.select.mockImplementationOnce(() => {
+      throw new Error('database unavailable')
+    })
+    await expect(
+      verifyReviewTargetAccess(
+        'collaborator-1',
+        { entityKind: 'skill', entityId: 'skill-1', workspaceId: 'workspace-1' },
+        'read'
+      )
+    ).rejects.toThrow('database unavailable')
+
+    mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
 
     const result = await verifyReviewTargetAccess(
       'collaborator-1',
@@ -115,7 +133,83 @@ describe('review session permissions', () => {
       'read'
     )
 
-    expect(mockResolveEntityWorkspaceId).toHaveBeenCalledWith('skill', 'skill-1')
+    expect(mockResolveEntityWorkspaceId).toHaveBeenCalledWith('skill', 'skill-1', undefined, db)
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('uses the highest workspace permission when review access rows are duplicated', async () => {
+    mockResolveEntityWorkspaceId.mockResolvedValueOnce('workspace-1')
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(
+        createMockChain([{ permissionType: 'read' }, { permissionType: 'write' }])
+      )
+
+    const result = await verifyReviewTargetAccess(
+      'collaborator-1',
+      {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        workspaceId: 'workspace-1',
+      },
+      'write'
+    )
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'write',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('allows dashboard layout write-mode targets with workspace read access', async () => {
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ workspaceId: 'workspace-1', userId: 'user-1' }]))
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
+
+    const result = await verifyReviewTargetAccess(
+      'user-1',
+      {
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      },
+      'write'
+    )
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
+  })
+
+  it('authorizes a widget child through only its owning layout scope', async () => {
+    mockDb.select
+      .mockReturnValueOnce(createMockChain([{ workspaceId: 'workspace-1', userId: 'user-1' }]))
+      .mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+      .mockReturnValueOnce(createMockChain([{ permissionType: 'read' }]))
+
+    const result = await verifyReviewTargetAccess(
+      'user-1',
+      buildDashboardWidgetDescriptor({
+        layoutId: 'layout-1',
+        identityId: 'widget-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      }),
+      'write'
+    )
+
     expect(result).toEqual({
       hasAccess: true,
       userPermission: 'read',
@@ -304,6 +398,10 @@ describe('review session permissions', () => {
   })
 
   it('treats canonical workspace owners as workflow admins without permission rows', async () => {
+    mockReadWorkflowAccessContext.mockRejectedValueOnce(new Error('database unavailable'))
+    await expect(verifyWorkflowAccess('owner-1', 'workflow-1', 'write')).rejects.toThrow(
+      'database unavailable'
+    )
     mockReadWorkflowAccessContext.mockResolvedValueOnce({
       workflow: {
         id: 'workflow-1',
@@ -323,6 +421,26 @@ describe('review session permissions', () => {
       userPermission: 'admin',
       workspaceId: 'workspace-1',
       isOwner: false,
+    })
+  })
+
+  it('does not let workflow ownership bypass workspace read permission', async () => {
+    mockReadWorkflowAccessContext.mockResolvedValueOnce({
+      workflow: {
+        id: 'workflow-1',
+        userId: 'owner-1',
+        workspaceId: 'workspace-1',
+      } as NonNullable<Awaited<ReturnType<typeof readWorkflowAccessContext>>>['workflow'],
+      workspaceOwnerId: 'workspace-owner-1',
+      workspacePermission: 'read',
+      isOwner: true,
+      isWorkspaceOwner: false,
+    })
+
+    await expect(verifyWorkflowAccess('owner-1', 'workflow-1', 'write')).resolves.toMatchObject({
+      hasAccess: false,
+      userPermission: 'read',
+      isOwner: true,
     })
   })
 })

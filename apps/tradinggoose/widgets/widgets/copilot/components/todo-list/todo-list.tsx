@@ -2,8 +2,8 @@
 
 import { memo, useEffect, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, ListTodo, Loader2 } from 'lucide-react'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { cn } from '@/lib/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 export interface TodoItem {
   id: string

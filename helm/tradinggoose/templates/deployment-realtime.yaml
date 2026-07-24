@@ -8,7 +8,9 @@ metadata:
   labels:
     {{- include "tradinggoose.realtime.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.realtime.replicaCount }}
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "tradinggoose.realtime.selectorLabels" . | nindent 6 }}
@@ -24,6 +26,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.realtime.terminationGracePeriodSeconds }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -44,7 +47,11 @@ spec:
           env:
             - name: DATABASE_URL
               value: {{ include "tradinggoose.databaseUrl" . | quote }}
-            {{- range $key, $value := .Values.realtime.env }}
+            {{- if .Values.app.env.INTERNAL_API_SECRET }}
+            - name: INTERNAL_API_SECRET
+              value: {{ .Values.app.env.INTERNAL_API_SECRET | quote }}
+            {{- end }}
+            {{- range $key, $value := omit .Values.realtime.env "DATABASE_URL" "INTERNAL_API_SECRET" }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}

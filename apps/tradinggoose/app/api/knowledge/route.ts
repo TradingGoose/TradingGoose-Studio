@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth'
 import { createKnowledgeBase, getKnowledgeBases } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseAPI')
 
@@ -51,9 +51,8 @@ export async function GET(req: NextRequest) {
       data: await getKnowledgeBases(session.user.id, workspaceId),
     })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching knowledge bases`, error)
     return NextResponse.json({ error: 'Failed to fetch knowledge bases' }, { status: 500 })
   }
@@ -102,9 +101,8 @@ export async function POST(req: NextRequest) {
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error creating knowledge base`, error)
     return NextResponse.json({ error: 'Failed to create knowledge base' }, { status: 500 })
   }

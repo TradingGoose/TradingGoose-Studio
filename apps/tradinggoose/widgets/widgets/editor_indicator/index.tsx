@@ -3,20 +3,16 @@
 import { SquareFunction } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
-  IndicatorEditorExportButton,
-  IndicatorEditorSaveButton,
+  IndicatorEditorActionButtons,
   IndicatorEditorSelector,
-  IndicatorEditorVerifyButton,
 } from '@/widgets/widgets/editor_indicator/components/indicator-editor-header'
+import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
 import { EditorIndicatorWidgetBody } from '@/widgets/widgets/editor_indicator/editor-indicator-body'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 
 export const editorIndicatorWidget: DashboardWidgetDefinition = {
-  key: 'editor_indicator',
-  title: 'Indicator Editor',
+  contract: indicatorEditorWidgetContract,
   icon: SquareFunction,
-  category: 'editor',
-  description: 'Edit PineTS indicators in one workspace.',
   component: (props) => <EditorIndicatorWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =
@@ -27,36 +23,15 @@ export const editorIndicatorWidget: DashboardWidgetDefinition = {
 
     return {
       center: (
-        <IndicatorEditorSelector
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          indicatorId={indicatorId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
-        />
+        <IndicatorEditorSelector workspaceId={context?.workspaceId} indicatorId={indicatorId} />
       ),
       right: (
         <div className='flex items-center gap-1'>
-          <IndicatorEditorVerifyButton
+          <IndicatorEditorActionButtons
             workspaceId={context?.workspaceId}
             indicatorId={indicatorId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-          <IndicatorEditorExportButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-          <IndicatorEditorSaveButton
-            workspaceId={context?.workspaceId}
-            indicatorId={indicatorId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
           />
         </div>
       ),

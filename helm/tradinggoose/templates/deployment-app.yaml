@@ -69,7 +69,11 @@ spec:
               value: {{ include "tradinggoose.databaseUrl" . | quote }}
             - name: OLLAMA_URL
               value: {{ include "tradinggoose.ollamaUrl" . | quote }}
-            {{- range $key, $value := omit .Values.app.env "DATABASE_URL" "OLLAMA_URL" }}
+            {{- if .Values.app.env.INTERNAL_API_SECRET }}
+            - name: INTERNAL_API_SECRET
+              value: {{ .Values.app.env.INTERNAL_API_SECRET | quote }}
+            {{- end }}
+            {{- range $key, $value := omit .Values.app.env "DATABASE_URL" "OLLAMA_URL" "INTERNAL_API_SECRET" }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}

@@ -2,34 +2,68 @@ import { db } from '@tradinggoose/db'
 import {
   customTools,
   knowledgeBase,
+  layoutMaps,
   mcpServers,
   pineIndicators,
   skill,
+  watchlistTable,
   workflow,
 } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import {
+  listDashboardLayouts,
+  readPersistedDashboardLayoutDocument,
+} from '@/lib/dashboard-layouts/operations'
+import {
+  listRootWatchlistRowsInTx,
+  loadWatchlistDocumentFields,
+  rootWatchlistCondition,
+} from '@/lib/watchlists/document'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
-  savedEntityRowToFields,
+  savedEntityRowToContent,
 } from '@/lib/yjs/entity-state'
+import {
+  refreshEntityListSession,
+  runYjsDrainFencedTransaction,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const ENTITY_TABLES = {
-  skill: { table: skill, name: skill.name },
-  custom_tool: { table: customTools, name: customTools.title },
-  indicator: { table: pineIndicators, name: pineIndicators.name },
+  skill: { table: skill, name: skill.name, softDelete: false },
+  custom_tool: { table: customTools, name: customTools.title, softDelete: false },
+  indicator: { table: pineIndicators, name: pineIndicators.name, softDelete: false },
   knowledge_base: { table: knowledgeBase, name: knowledgeBase.name, softDelete: true },
   mcp_server: { table: mcpServers, name: mcpServers.name, softDelete: true },
 } as const
 
-function entityConfig(entityKind: SavedEntityKind) {
-  return ENTITY_TABLES[entityKind] as any
+const SAVED_ENTITY_LIST_LOCK_NAMESPACE = 1_904_202_618
+
+export type RowBackedSavedEntityKind = Exclude<SavedEntityKind, 'watchlist' | 'dashboard_layout'>
+export type SavedEntityListLockKind = RowBackedSavedEntityKind | 'workflow' | 'watchlist'
+export const SAVED_ENTITY_LIST_LOCK_KINDS: SavedEntityListLockKind[] = [
+  ...(Object.keys(ENTITY_TABLES) as RowBackedSavedEntityKind[]),
+  'workflow',
+  'watchlist',
+]
+export type EntityListReadStore = Pick<typeof db, 'select'>
+export type EntityListBeforeInsert = (store: EntityListReadStore) => Promise<void> | void
+type EntityListLockWriter = Pick<typeof db, 'execute'>
+
+export async function lockSavedEntityList(
+  tx: EntityListLockWriter,
+  entityKind: SavedEntityListLockKind,
+  workspaceId: string
+): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${SAVED_ENTITY_LIST_LOCK_NAMESPACE}, hashtext(${`${entityKind}:${workspaceId}`}))`
+  )
 }
 
-function entityCondition(entityKind: SavedEntityKind, clauses: SQL[]): SQL | undefined {
-  const { table, softDelete } = entityConfig(entityKind)
-  const conditions = softDelete ? [...clauses, isNull(table.deletedAt)] : clauses
+function entityCondition(entityKind: RowBackedSavedEntityKind, clauses: SQL[]): SQL | undefined {
+  const config = ENTITY_TABLES[entityKind]
+  const conditions = config.softDelete ? [...clauses, isNull(config.table.deletedAt)] : clauses
   return conditions.length === 1 ? conditions[0] : and(...conditions)
 }
 
@@ -44,10 +78,39 @@ class SavedEntityLoadError extends Error {
 
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
-  entityId: string
+  entityId: string,
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<string | null> {
-  const { table } = entityConfig(entityKind)
-  const [row] = await db
+  if (entityKind === 'watchlist') {
+    const [row] = await store
+      .select({ workspaceId: watchlistTable.workspaceId })
+      .from(watchlistTable)
+      .where(
+        and(
+          eq(watchlistTable.id, entityId),
+          isNull(watchlistTable.userId),
+          isNull(watchlistTable.parentId)
+        )
+      )
+      .limit(1)
+    return row?.workspaceId ?? null
+  }
+
+  if (entityKind === 'dashboard_layout') {
+    if (!ownerUserId) {
+      throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
+    }
+    const [row] = await store
+      .select({ workspaceId: layoutMaps.workspaceId })
+      .from(layoutMaps)
+      .where(and(eq(layoutMaps.id, entityId), eq(layoutMaps.userId, ownerUserId)))
+      .limit(1)
+    return row?.workspaceId ?? null
+  }
+
+  const { table } = ENTITY_TABLES[entityKind]
+  const [row] = await store
     .select({ workspaceId: table.workspaceId })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.id, entityId)]))
@@ -55,9 +118,56 @@ export async function resolveEntityWorkspaceId(
   return row?.workspaceId ?? null
 }
 
+export async function deleteSavedEntity(
+  entityKind: Exclude<SavedEntityKind, 'dashboard_layout'>,
+  entityId: string,
+  workspaceId: string
+): Promise<boolean> {
+  if ((await resolveEntityWorkspaceId(entityKind, entityId)) !== workspaceId) return false
+
+  const deleted = await runYjsDrainFencedTransaction({ sessionIds: [entityId] }, async (tx) => {
+    await lockSavedEntityList(tx, entityKind, workspaceId)
+    let deleted: boolean
+    if (entityKind === 'watchlist') {
+      const [row] = await tx
+        .delete(watchlistTable)
+        .where(rootWatchlistCondition(workspaceId, entityId))
+        .returning({ id: watchlistTable.id })
+      deleted = Boolean(row)
+    } else if (entityKind === 'knowledge_base') {
+      const now = new Date()
+      const [row] = await tx
+        .update(knowledgeBase)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          entityCondition(entityKind, [
+            eq(knowledgeBase.id, entityId),
+            eq(knowledgeBase.workspaceId, workspaceId),
+          ])
+        )
+        .returning({ id: knowledgeBase.id })
+      deleted = Boolean(row)
+    } else {
+      const { table } = ENTITY_TABLES[entityKind]
+      const [row] = await tx
+        .delete(table)
+        .where(
+          entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
+        )
+        .returning({ id: table.id })
+      deleted = Boolean(row)
+    }
+    return deleted
+  })
+  if (deleted) await refreshEntityListSession(entityKind, workspaceId)
+  return deleted
+}
+
 export async function readEntityListMembersFromDb(
   entityKind: ReviewEntityKind,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<
   Array<{
     id: string
@@ -69,10 +179,12 @@ export async function readEntityListMembersFromDb(
     createdAt?: string
     updatedAt?: string
     connectionStatus?: string
+    isActive?: boolean
+    sortOrder?: number
   }>
 > {
   if (entityKind === 'workflow') {
-    const rows = await db
+    const rows = await store
       .select({
         id: workflow.id,
         name: workflow.name,
@@ -95,8 +207,26 @@ export async function readEntityListMembersFromDb(
     }))
   }
 
+  if (entityKind === 'watchlist') {
+    const roots = await listRootWatchlistRowsInTx(store, workspaceId)
+    return roots.map((row) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.createdAt?.toISOString(),
+      updatedAt: row.updatedAt?.toISOString(),
+    }))
+  }
+
+  if (entityKind === 'dashboard_layout') {
+    if (!ownerUserId) {
+      throw new SavedEntityLoadError('Dashboard layout list ownerUserId is required')
+    }
+
+    return listDashboardLayouts({ workspaceId, ownerUserId }, store)
+  }
+
   if (entityKind === 'mcp_server') {
-    const rows = await db
+    const rows = await store
       .select({
         id: mcpServers.id,
         name: mcpServers.name,
@@ -118,7 +248,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'skill') {
-    const rows = await db
+    const rows = await store
       .select({ id: skill.id, name: skill.name, description: skill.description })
       .from(skill)
       .where(entityCondition(entityKind, [eq(skill.workspaceId, workspaceId)]))
@@ -132,7 +262,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'custom_tool') {
-    const rows = await db
+    const rows = await store
       .select({ id: customTools.id, name: customTools.title, schema: customTools.schema })
       .from(customTools)
       .where(entityCondition(entityKind, [eq(customTools.workspaceId, workspaceId)]))
@@ -152,7 +282,7 @@ export async function readEntityListMembersFromDb(
   }
 
   if (entityKind === 'indicator') {
-    const rows = await db
+    const rows = await store
       .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })
       .from(pineIndicators)
       .where(entityCondition(entityKind, [eq(pineIndicators.workspaceId, workspaceId)]))
@@ -165,8 +295,8 @@ export async function readEntityListMembersFromDb(
     }))
   }
 
-  const { table, name } = entityConfig(entityKind)
-  const rows: Array<{ id: string; name: string | null }> = await db
+  const { table, name } = ENTITY_TABLES[entityKind]
+  const rows: Array<{ id: string; name: string | null }> = await store
     .select({ id: table.id, name })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.workspaceId, workspaceId)]))
@@ -178,10 +308,27 @@ export async function readEntityListMembersFromDb(
 export async function readSavedEntityFieldsFromDb(
   entityKind: SavedEntityKind,
   entityId: string,
-  workspaceId: string
+  workspaceId: string,
+  ownerUserId?: string | null,
+  store: EntityListReadStore = db
 ): Promise<Record<string, unknown>> {
-  const { table } = entityConfig(entityKind)
-  const [row] = await db
+  if (entityKind === 'watchlist') {
+    const watchlist = await loadWatchlistDocumentFields(workspaceId, entityId, store)
+    return {
+      settings: watchlist.settings,
+      items: watchlist.items,
+    }
+  }
+
+  if (entityKind === 'dashboard_layout') {
+    if (!ownerUserId) {
+      throw new SavedEntityLoadError('Dashboard layout ownerUserId is required')
+    }
+    return readPersistedDashboardLayoutDocument({ workspaceId, ownerUserId }, entityId, store)
+  }
+
+  const { table } = ENTITY_TABLES[entityKind]
+  const [row] = await store
     .select()
     .from(table)
     .where(
@@ -193,5 +340,5 @@ export async function readSavedEntityFieldsFromDb(
     throw new SavedEntityLoadError(`Saved ${entityKind} ${entityId} was not found`)
   }
 
-  return savedEntityRowToFields(entityKind, row as SavedEntityRow)
+  return savedEntityRowToContent(entityKind, row as SavedEntityRow)
 }

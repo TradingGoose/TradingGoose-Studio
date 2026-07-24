@@ -12,6 +12,22 @@ import {
 } from '@/widgets/events'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
 
+const mockPatchWidgetParams = vi.fn()
+const mockPatchWidgetLinkedParams = vi.fn()
+const entityListState = vi.hoisted(() => ({ ids: ['indicator-1'] }))
+
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: entityListState.ids.map((entityId) => ({ entityId })),
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -19,7 +35,18 @@ vi.mock('@/components/ui/tooltip', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/pine-indicator-dropdown', () => ({
-  IndicatorDropdown: () => <div>indicator-dropdown</div>,
+  IndicatorDropdown: ({ onChange }: { onChange: (ids: string[]) => void }) => (
+    <button type='button' onClick={() => onChange(['indicator-next'])}>
+      indicator-dropdown
+    </button>
+  ),
+}))
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+    patchWidgetLinkedParams: (...args: unknown[]) => mockPatchWidgetLinkedParams(...args),
+  }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -32,6 +59,7 @@ describe('Indicator Editor header controls', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    entityListState.ids = ['indicator-1']
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -64,6 +92,33 @@ describe('Indicator Editor header controls', () => {
     expect(buttons[1]?.textContent).toContain('Export indicator')
     expect(buttons[2]?.textContent).toContain('Save indicator')
   })
+
+  it.each(['gray', 'red'] as const)(
+    'routes %s selections through the linked-parameter callback',
+    async (pairColor) => {
+      const header = editorIndicatorWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_indicator',
+          params: { indicatorId: 'indicator-1' },
+          pairColor,
+        } as any,
+      } as any)
+
+      await act(async () => {
+        root.render(header?.center as ReactNode)
+      })
+      await act(async () => {
+        container.querySelector('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({
+        indicatorId: 'indicator-next',
+      })
+      expect(mockPatchWidgetParams).not.toHaveBeenCalled()
+    }
+  )
 
   it('disables export when no indicator is selected', async () => {
     const header = editorIndicatorWidget.renderHeader?.({
@@ -114,19 +169,42 @@ describe('Indicator Editor header controls', () => {
 
     expect(actionSpy).toHaveBeenNthCalledWith(1, {
       action: 'verify',
+      entityId: 'indicator-1',
       panelId: 'panel-1',
       widgetKey: 'editor_indicator',
     })
     expect(actionSpy).toHaveBeenNthCalledWith(2, {
       action: 'export',
+      entityId: 'indicator-1',
       panelId: 'panel-1',
       widgetKey: 'editor_indicator',
     })
     expect(actionSpy).toHaveBeenNthCalledWith(3, {
       action: 'save',
+      entityId: 'indicator-1',
       panelId: 'panel-1',
       widgetKey: 'editor_indicator',
     })
     window.removeEventListener(INDICATOR_EDITOR_ACTION_EVENT, handler)
+  })
+
+  it('disables actions when the selected indicator leaves the shared list', async () => {
+    const renderActions = () =>
+      editorIndicatorWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_indicator',
+          params: { indicatorId: 'indicator-1' },
+          pairColor: 'gray',
+        } as any,
+      } as any)?.right as ReactNode
+
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[1]).not.toBeDisabled()
+
+    entityListState.ids = []
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[1]).toBeDisabled()
   })
 })

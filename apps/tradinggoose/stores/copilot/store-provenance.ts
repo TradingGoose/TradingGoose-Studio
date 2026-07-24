@@ -1,6 +1,7 @@
 'use client'
 
-import { ENTITY_KIND_WORKFLOW, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { DASHBOARD_LAYOUT_TOOL_NAMES } from '@/lib/copilot/registry'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
@@ -15,6 +16,7 @@ type ContextTurnProvenance = {
   workspaceId?: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
+  ownerUserId?: string
   explicit: boolean
 }
 
@@ -26,12 +28,30 @@ function applyContextTurnProvenance(
   if (context.workspaceId && (explicit || !provenance.workspaceId)) {
     provenance.workspaceId = context.workspaceId
   }
-  if (context.contextEntityKind && context.contextEntityId && !provenance.contextEntityId) {
+  if (
+    context.contextEntityKind &&
+    context.contextEntityKind !== 'dashboard_layout' &&
+    context.contextEntityId &&
+    !provenance.contextEntityId
+  ) {
     provenance.contextEntityKind = context.contextEntityKind
     provenance.contextEntityId = context.contextEntityId
   }
 
   return Boolean(context.workspaceId || context.contextEntityId)
+}
+
+function readDashboardLayoutContext(
+  context: ContextTurnProvenance
+): CopilotToolExecutionProvenance['dashboardLayoutContext'] | null {
+  if (context.contextEntityKind !== 'dashboard_layout') return null
+  if (!context.contextEntityId || !context.workspaceId || !context.ownerUserId) return null
+
+  return {
+    entityId: context.contextEntityId,
+    workspaceId: context.workspaceId,
+    ownerUserId: context.ownerUserId,
+  }
 }
 
 function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance | null {
@@ -42,12 +62,9 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
 
   return {
     workspaceId: normalizeOptionalString(entityContext.workspaceId),
-    contextEntityKind:
-      entityContext.entityKind === ENTITY_KIND_WORKFLOW ? ENTITY_KIND_WORKFLOW : undefined,
-    contextEntityId:
-      entityContext.entityKind === ENTITY_KIND_WORKFLOW
-        ? normalizeOptionalString(entityContext.entityId)
-        : undefined,
+    contextEntityKind: entityContext.entityKind,
+    contextEntityId: normalizeOptionalString(entityContext.entityId),
+    ownerUserId: normalizeOptionalString(entityContext.ownerUserId),
     explicit: !entityContext.current,
   }
 }
@@ -56,14 +73,15 @@ export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
   workspaceId: string | null | undefined,
   liveWorkflowId: string | null | undefined,
-  reviewTarget: CopilotLiveContext['reviewTarget']
+  reviewTarget: CopilotLiveContext['reviewTarget'],
+  _authenticatedUserId?: string | null
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedLiveWorkflowId = normalizeOptionalString(liveWorkflowId)
   const provenance: CopilotToolExecutionProvenance = {
     ...(normalizedLiveWorkflowId
       ? {
-          contextEntityKind: ENTITY_KIND_WORKFLOW,
+          contextEntityKind: 'workflow' as const,
           contextEntityId: normalizedLiveWorkflowId,
         }
       : {}),
@@ -74,11 +92,15 @@ export function buildTurnProvenanceFromContexts(
   for (const context of contexts ?? []) {
     const entityContext = getContextTurnProvenance(context)
     if (entityContext) {
+      const dashboardLayoutContext = readDashboardLayoutContext(entityContext)
+      if (dashboardLayoutContext && !provenance.dashboardLayoutContext) {
+        provenance.dashboardLayoutContext = dashboardLayoutContext
+      }
       hasContext = applyContextTurnProvenance(provenance, entityContext) || hasContext
     }
   }
 
-  if (reviewTarget && reviewTarget.entityKind !== ENTITY_KIND_WORKFLOW) {
+  if (reviewTarget && reviewTarget.entityKind !== 'workflow') {
     const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
     if (!reviewWorkspaceId) {
       return hasContext ? provenance : undefined
@@ -95,13 +117,25 @@ export function withPinnedToolExecutionProvenance(
   toolCall: CopilotToolCall,
   baseProvenance?: CopilotToolExecutionProvenance
 ): CopilotToolCall {
-  const mergedProvenance = {
-    ...(baseProvenance ?? {}),
-    ...(toolCall.provenance ?? {}),
-  }
-
   if (!toolCall.provenance && !baseProvenance) {
     return toolCall
+  }
+
+  const dashboardLayoutContext =
+    toolCall.provenance?.dashboardLayoutContext ?? baseProvenance?.dashboardLayoutContext
+  const { dashboardLayoutContext: _baseDashboardLayoutContext, ...baseProvenanceRest } =
+    baseProvenance ?? {}
+  const { dashboardLayoutContext: _toolDashboardLayoutContext, ...toolProvenanceRest } =
+    toolCall.provenance ?? {}
+  const mergedProvenance = {
+    ...baseProvenanceRest,
+    ...toolProvenanceRest,
+  }
+
+  if (dashboardLayoutContext && DASHBOARD_LAYOUT_TOOL_NAMES.has(toolCall.name)) {
+    mergedProvenance.contextEntityKind = 'dashboard_layout'
+    mergedProvenance.contextEntityId = dashboardLayoutContext.entityId
+    mergedProvenance.workspaceId = dashboardLayoutContext.workspaceId
   }
 
   return {

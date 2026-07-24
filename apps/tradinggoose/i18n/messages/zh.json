@@ -449,12 +449,6 @@
         "headerAriaLabel": "组件头部",
         "widgetLabel": "组件"
       },
-      "layout": {
-        "headerAriaLabel": "组件头部",
-        "sizeLabel": "小组件尺寸",
-        "widthLabel": "宽度",
-        "heightLabel": "高度"
-      },
       "indicatorDropdown": {
         "placeholder": "选择指标",
         "tooltip": "选择指标",
@@ -972,6 +966,12 @@
     "dashboard": {
       "title": "仪表盘",
       "searchPlaceholder": "搜索工作区内容...",
+      "layoutPreview": {
+        "headerAriaLabel": "仪表盘面板",
+        "sizeLabel": "小组件尺寸",
+        "widthLabel": "宽度",
+        "heightLabel": "高度"
+      },
       "sections": {
         "workspaces": "工作区",
         "knowledgeBases": "知识库",
@@ -979,6 +979,12 @@
         "docs": "文档"
       },
       "emptySearch": "没有匹配的内容",
+      "layoutState": {
+        "loading": "正在加载仪表盘布局...",
+        "empty": "没有可用的仪表盘布局。",
+        "error": "无法加载仪表盘布局。",
+        "resizePersistenceError": "调整大小未保存，已恢复之前的布局。"
+      },
       "pages": {
         "records": "记录",
         "monitor": "监控",
@@ -2167,7 +2173,7 @@
       "titles": {
         "empty": "空白面板",
         "data_chart": "市场数据",
-        "workflow_list": "工作流",
+        "list_workflow": "工作流",
         "editor_workflow": "工作流编辑器",
         "workflow_chat": "工作流聊天",
         "workflow_console": "工作流控制台",
@@ -2603,13 +2609,11 @@
         }
       },
       "empty": {
-        "noWidgetSelected": "未选择微件",
-        "emptyWidget": "空微件",
-        "noWidgetDescription": "从组件库中选择一个微件以开始使用此面板。",
-        "emptyWidgetDescription": "此微件当前为空，请选择其他微件以继续。",
-        "chooseWidget": "选择微件",
+        "noWidgetSelected": "未选择组件",
+        "noWidgetDescription": "从组件库中选择一个组件以开始使用此面板。",
+        "chooseWidget": "选择组件",
         "surfaceTitle": "空白面板",
-        "surfaceDescription": "当面板未分配微件时显示的占位状态。"
+        "surfaceDescription": "当面板未分配组件时显示的占位状态。"
       },
       "workflowDropdown": {
         "selectWorkspaceFirst": "请先选择一个工作空间。",
@@ -2909,10 +2913,12 @@
         "currentTool": "当前工具",
         "currentIndicator": "当前指标",
         "currentMcpServer": "当前 MCP 服务器",
+        "currentWatchlist": "当前 watchlist",
         "workflows": "工作流",
         "customTools": "自定义工具",
         "indicators": "指标",
         "mcpServers": "MCP 服务器",
+        "watchlists": "Watchlists",
         "allWorkflows": "所有工作流",
         "operation": "操作",
         "id": "ID",
@@ -3495,7 +3501,7 @@
           "zep": "AI 智能体的长期记忆",
           "zoom": "创建和管理 Zoom 会议及录制",
           "portfolio_detail": "从所选券商账户获取完整的投资组合详情。",
-          "watchlist": "读取自选列表并添加或移除标的项目。"
+          "watchlist": "读取工作区自选列表、标的和分区。"
         },
         "blockLongDescriptions": {
           "response": "将响应集成到工作流中。可以构建或编辑结构化响应，并将其放入最终的工作流响应中。",
@@ -20545,31 +20551,26 @@
           "listActionsTooltip": "列表操作",
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "分区",
-          "selectMarketProvider": "选择 watchlist",
-          "createWatchlist": "创建 watchlist",
+          "createList": "创建列表",
+          "renameList": "重命名列表",
+          "deleteList": "删除列表",
+          "deleteListDialogTitle": "删除列表？",
+          "deleteListDialogDescription": "删除此列表会移除其中的分区和标的。",
+          "cancel": "取消",
+          "delete": "删除",
           "createSection": "创建分区",
           "import": "导入",
           "export": "导出",
-          "deleteWatchlist": "删除 watchlist",
           "refresh": "刷新数据"
         },
         "listSelector": {
-          "selectionUnavailable": "Watchlist 选择不可用",
-          "selectLabel": "选择 watchlist",
-          "searchPlaceholder": "搜索 watchlists...",
-          "noWatchlistsFound": "未找到 watchlists。",
-          "renameAriaLabel": "重命名 {name}",
-          "deleteAriaLabel": "删除 {name}",
-          "deleteDialogTitle": "删除 watchlist？",
-          "deleteDialogDescription": "此操作将永久删除“{name}”。",
-          "deleteDialogDescriptionFallback": "此操作将永久删除此 watchlist。",
-          "cancel": "取消",
-          "delete": "删除"
+          "noWatchlistsFound": "未找到 watchlists。"
         },
         "body": {
           "selectWorkspace": "选择一个工作区以使用 watchlists。",
           "failedToLoadWatchlists": "无法加载 watchlists。",
-          "createWatchlistToGetStarted": "创建一个 watchlist 开始使用。",
+          "createWatchlistToGetStarted": "创建一个 watchlist 以开始使用。",
+          "watchlistNotFound": "未找到 watchlist。",
           "noItemsInThisWatchlist": "此 watchlist 中没有项目。",
           "symbol": "符号",
           "asset": "资产",
@@ -21245,6 +21246,15 @@
           "stopGeneration": "停止生成",
           "sources": "来源：",
           "copy": "复制"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {当前} proposed {拟议} other {当前}}",
+          "newDocument": "新文档",
+          "dashboardLayoutTitle": "{state, select, applied {已应用仪表盘布局更改} proposed {拟议的仪表盘布局更改} other {拟议的仪表盘布局更改}}",
+          "widgetTitle": "{state, select, applied {已应用组件更改} proposed {拟议的组件更改} other {拟议的组件更改}}",
+          "watchlistTitle": "{state, select, applied {已应用自选列表更改} proposed {拟议的自选列表更改} other {拟议的自选列表更改}}",
+          "emptyWatchlist": "空自选列表",
+          "watchlistSetting": "{setting, select, showLogo {徽标} showTicker {代码} showDescription {描述} other {设置}}"
         },
         "contextUsage": {
           "title": "此聊天已使用上下文：{percentage}%",

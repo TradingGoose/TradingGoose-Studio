@@ -1,29 +1,26 @@
 // /src/model/LineToolVerticalLine.ts
 
+import type {
+  Coordinate,
+  IChartApiBase,
+  IHorzScaleBehavior,
+  ISeriesApi,
+  SeriesType,
+} from 'lightweight-charts'
 import {
-	IChartApiBase,
-	ISeriesApi,
-	IHorzScaleBehavior,
-	SeriesType,
-	Coordinate,
-} from 'lightweight-charts';
-
-import {
-	BaseLineTool,
-	LineToolPoint,
-	LineToolOptionsInternal,
-	LineToolType,
-	DeepPartial,
-	LineToolsCorePlugin,
-	PriceAxisLabelStackingManager,
-	HitTestResult,
-	CompositeRenderer
-} from '../../core';
-import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
-import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
-
-import { LineToolVerticalLinePaneView } from '../views/LineToolVerticalLinePaneView';
-
+  BaseLineTool,
+  type CompositeRenderer,
+  type DeepPartial,
+  type HitTestResult,
+  type LineToolOptionsInternal,
+  type LineToolPoint,
+  type LineToolsCorePlugin,
+  type LineToolType,
+  type PriceAxisLabelStackingManager,
+} from '../../core'
+import { TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine'
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options'
+import { LineToolVerticalLinePaneView } from '../views/LineToolVerticalLinePaneView'
 
 /**
  * Defines the specific configuration overrides that create the behavior of a Vertical Line.
@@ -36,18 +33,17 @@ import { LineToolVerticalLinePaneView } from '../views/LineToolVerticalLinePaneV
  *    - **Time Label:** Critical (it marks a specific time), so we ensure it is visible (`showTimeAxisLabels: true`).
  */
 const VerticalLineSpecificOverrides = {
-	// Line options fixed to draw a full-height vertical line segment
-	line: {
-		extend: { left: true, right: true }, // No extension on this segment (full height is handled by view)
-	},
-	// Price Axis Label is irrelevant and should be hidden
-	showPriceAxisLabels: false,
-	priceAxisLabelAlwaysVisible: false,
-	// Time Axis Label is the primary identification for this tool
-	showTimeAxisLabels: true,
-	timeAxisLabelAlwaysVisible: true,
-};
-
+  // Line options fixed to draw a full-height vertical line segment
+  line: {
+    extend: { left: true, right: true }, // No extension on this segment (full height is handled by view)
+  },
+  // Price Axis Label is irrelevant and should be hidden
+  showPriceAxisLabels: false,
+  priceAxisLabelAlwaysVisible: false,
+  // Time Axis Label is the primary identification for this tool
+  showTimeAxisLabels: true,
+  timeAxisLabelAlwaysVisible: true,
+}
 
 /**
  * Concrete implementation of the Vertical Line drawing tool.
@@ -62,145 +58,144 @@ const VerticalLineSpecificOverrides = {
  * of the Trend Line family.
  */
 export class LineToolVerticalLine<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
-	/**
-	 * The unique identifier for this tool type ('VerticalLine').
-	 *
-	 * @override
-	 */
-	public override readonly toolType: LineToolType = 'VerticalLine';
+  /**
+   * The unique identifier for this tool type ('VerticalLine').
+   *
+   * @override
+   */
+  public override readonly toolType: LineToolType = 'VerticalLine'
 
-	/**
-	 * Defines the number of anchor points required to draw this tool.
-	 *
-	 * A Vertical Line is defined by exactly **1 point** (the position on the time scale).
-	 *
-	 * @override
-	 */
-	public override readonly pointsCount: number = 1; // Defining feature: 1 point
+  /**
+   * Defines the number of anchor points required to draw this tool.
+   *
+   * A Vertical Line is defined by exactly **1 point** (the position on the time scale).
+   *
+   * @override
+   */
+  public override readonly pointsCount: number = 1 // Defining feature: 1 point
 
-	/**
-	 * Initializes the Vertical Line tool.
-	 *
-	 * **Tutorial Note on Construction:**
-	 * 1. **Base Defaults:** We use `TrendLineOptionDefaults` to establish common styling (color, width).
-	 * 2. **Overrides:** We apply `VerticalLineSpecificOverrides` to configure the axis labels correctly.
-	 * 3. **View:** We assign `LineToolVerticalLinePaneView`. This view is responsible for taking the
-	 *    single point and manufacturing a vertical segment that spans from Y=0 to Y=PaneHeight.
-	 *
-	 * @param coreApi - The Core Plugin API.
-	 * @param chart - The Lightweight Charts Chart API.
-	 * @param series - The Series API this tool is attached to.
-	 * @param horzScaleBehavior - The horizontal scale behavior.
-	 * @param options - Configuration overrides.
-	 * @param points - Initial points.
-	 * @param priceAxisLabelStackingManager - The manager for label collision.
-	 */
-	public constructor(
-		coreApi: LineToolsCorePlugin<HorzScaleItem>,
-		chart: IChartApiBase<HorzScaleItem>,
-		series: ISeriesApi<SeriesType, HorzScaleItem>,
-		horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-		options: DeepPartial<LineToolOptionsInternal<'VerticalLine'>> = {},
-		points: LineToolPoint[] = [],
-		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
-	) {
-		const finalOptions = buildLineToolOptions<'VerticalLine', 'TrendLine'>(
-			TrendLineOptionDefaults,
-			options,
-			VerticalLineSpecificOverrides
-		);
+  /**
+   * Initializes the Vertical Line tool.
+   *
+   * **Tutorial Note on Construction:**
+   * 1. **Base Defaults:** We use `TrendLineOptionDefaults` to establish common styling (color, width).
+   * 2. **Overrides:** We apply `VerticalLineSpecificOverrides` to configure the axis labels correctly.
+   * 3. **View:** We assign `LineToolVerticalLinePaneView`. This view is responsible for taking the
+   *    single point and manufacturing a vertical segment that spans from Y=0 to Y=PaneHeight.
+   *
+   * @param coreApi - The Core Plugin API.
+   * @param chart - The Lightweight Charts Chart API.
+   * @param series - The Series API this tool is attached to.
+   * @param horzScaleBehavior - The horizontal scale behavior.
+   * @param options - Configuration overrides.
+   * @param points - Initial points.
+   * @param priceAxisLabelStackingManager - The manager for label collision.
+   */
+  public constructor(
+    coreApi: LineToolsCorePlugin<HorzScaleItem>,
+    chart: IChartApiBase<HorzScaleItem>,
+    series: ISeriesApi<SeriesType, HorzScaleItem>,
+    horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
+    options: DeepPartial<LineToolOptionsInternal<'VerticalLine'>> = {},
+    points: LineToolPoint[] = [],
+    priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
+  ) {
+    const finalOptions = buildLineToolOptions<'VerticalLine', 'TrendLine'>(
+      TrendLineOptionDefaults,
+      options,
+      VerticalLineSpecificOverrides
+    )
 
-		// 4. Call the parent (BaseLineTool) constructor.
-		super(
-			coreApi,
-			chart,
-			series,
-			horzScaleBehavior,
-			finalOptions,
-			points,
-			'VerticalLine',
-			1, // 1-point tool
-			priceAxisLabelStackingManager
-		);
+    // 4. Call the parent (BaseLineTool) constructor.
+    super(
+      coreApi,
+      chart,
+      series,
+      horzScaleBehavior,
+      finalOptions,
+      points,
+      'VerticalLine',
+      1, // 1-point tool
+      priceAxisLabelStackingManager
+    )
 
-		// 5. Set the specific PaneView for this tool.
-		this._setPaneViews([new LineToolVerticalLinePaneView(this, this._chart, this._series)]);
+    // 5. Set the specific PaneView for this tool.
+    this._setPaneViews([new LineToolVerticalLinePaneView(this, this._chart, this._series)])
+  }
 
-	}
+  /**
+   * Performs the hit test for the Vertical Line.
+   *
+   * **Architecture Note:**
+   * Because the line extends infinitely vertically, a simple point-to-point distance check on the
+   * Model's anchor point is insufficient (the user might click at the very top of the screen while
+   * the anchor is in the middle).
+   *
+   * We delegate this to the `LineToolVerticalLinePaneView`, which knows the exact pixel height
+   * of the pane and draws the full vertical segment used for hit detection.
+   *
+   * @param x - X coordinate in pixels.
+   * @param y - Y coordinate in pixels.
+   * @returns A hit result if the mouse is over the vertical line or the anchor.
+   * @override
+   */
+  public override _internalHitTest(x: Coordinate, y: Coordinate): HitTestResult<any> | null {
+    // Guard: Ensure pane view exists (prevents post-destroy calls)
+    if (!this._paneViews || this._paneViews.length === 0 || !this._paneViews[0]) {
+      return null
+    }
 
-	/**
-	 * Performs the hit test for the Vertical Line.
-	 *
-	 * **Architecture Note:**
-	 * Because the line extends infinitely vertically, a simple point-to-point distance check on the
-	 * Model's anchor point is insufficient (the user might click at the very top of the screen while
-	 * the anchor is in the middle).
-	 *
-	 * We delegate this to the `LineToolVerticalLinePaneView`, which knows the exact pixel height
-	 * of the pane and draws the full vertical segment used for hit detection.
-	 *
-	 * @param x - X coordinate in pixels.
-	 * @param y - Y coordinate in pixels.
-	 * @returns A hit result if the mouse is over the vertical line or the anchor.
-	 * @override
-	 */
-	public override _internalHitTest(x: Coordinate, y: Coordinate): HitTestResult<any> | null {
-		// Guard: Ensure pane view exists (prevents post-destroy calls)
-		if (!this._paneViews || this._paneViews.length === 0 || !this._paneViews[0]) {
-			return null;
-		}
+    // 1. Get the primary Pane View
+    const paneView = this._paneViews[0] as LineToolVerticalLinePaneView<HorzScaleItem>
 
-		// 1. Get the primary Pane View
-		const paneView = this._paneViews[0] as LineToolVerticalLinePaneView<HorzScaleItem>;
+    // 2. Get the Composite Renderer (calling renderer() also ensures it's updated)
+    const compositeRenderer = paneView.renderer() as CompositeRenderer<HorzScaleItem>
 
-		// 2. Get the Composite Renderer (calling renderer() also ensures it's updated)
-		const compositeRenderer = paneView.renderer() as CompositeRenderer<HorzScaleItem>;
+    // 3. Delegate the hit test
+    if (!compositeRenderer || !compositeRenderer.hitTest) {
+      return null
+    }
 
-		// 3. Delegate the hit test
-		if (!compositeRenderer || !compositeRenderer.hitTest) {
-			return null;
-		}
+    return compositeRenderer.hitTest(x, y)
+  }
 
-		return compositeRenderer.hitTest(x, y);
-	}
+  /**
+   * Updates the coordinates of the single anchor point.
+   *
+   * **Tutorial Note on Constraints:**
+   * A Vertical Line is strictly bound to the **Time Axis**.
+   * When the user drags the tool, we update the `timestamp` (X).
+   *
+   * While the `price` (Y) component technically doesn't affect the *line's* position,
+   * we still update it so the anchor handle follows the user's mouse vertically,
+   * providing better visual feedback during the drag.
+   *
+   * @param index - The index of the point (always 0).
+   * @param point - The new logical coordinates.
+   * @override
+   */
+  public override setPoint(index: number, point: LineToolPoint): void {
+    if (index === 0) {
+      // VerticalLine is fixed on the Time (X) axis.
+      // Only update the timestamp component; ignore the price component (Y).
+      this._points[0].timestamp = point.timestamp
 
-	/**
-	 * Updates the coordinates of the single anchor point.
-	 *
-	 * **Tutorial Note on Constraints:**
-	 * A Vertical Line is strictly bound to the **Time Axis**.
-	 * When the user drags the tool, we update the `timestamp` (X).
-	 *
-	 * While the `price` (Y) component technically doesn't affect the *line's* position,
-	 * we still update it so the anchor handle follows the user's mouse vertically,
-	 * providing better visual feedback during the drag.
-	 *
-	 * @param index - The index of the point (always 0).
-	 * @param point - The new logical coordinates.
-	 * @override
-	 */
-	public override setPoint(index: number, point: LineToolPoint): void {
-		if (index === 0) {
-			// VerticalLine is fixed on the Time (X) axis.
-			// Only update the timestamp component; ignore the price component (Y).
-			this._points[0].timestamp = point.timestamp;
-			
-			// Optional: Allow P0's price to be updated for anchor hit-testing/visualization, but it has no impact on the line itself.
-			this._points[0].price = point.price; 
-			
-			this._triggerChartUpdate();
-		}
-	}
+      // Optional: Allow P0's price to be updated for anchor hit-testing/visualization, but it has no impact on the line itself.
+      this._points[0].price = point.price
 
-	/**
-	 * Explicitly defines the highest valid index for an interactive anchor point.
-	 *
-	 * Since `pointsCount` is 1, the only valid index is 0.
-	 *
-	 * @override
-	 * @returns `0`
-	 */
-	public override maxAnchorIndex(): number {
-		return 0;
-	}
+      this._triggerChartUpdate()
+    }
+  }
+
+  /**
+   * Explicitly defines the highest valid index for an interactive anchor point.
+   *
+   * Since `pointsCount` is 1, the only valid index is 0.
+   *
+   * @override
+   * @returns `0`
+   */
+  public override maxAnchorIndex(): number {
+    return 0
+  }
 }

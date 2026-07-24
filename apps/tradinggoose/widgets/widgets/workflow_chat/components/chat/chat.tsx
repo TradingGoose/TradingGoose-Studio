@@ -65,6 +65,8 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   // Get workflow execution functionality
   const { isWorkflowSessionReady, handleRunWorkflow } = useWorkflowExecution()
   const isChatUnavailable = !currentWorkflowId || isExecuting || !isWorkflowSessionReady
+  const isChatUnavailableRef = useRef(isChatUnavailable)
+  isChatUnavailableRef.current = isChatUnavailable
 
   // Get filtered messages for current workflow
   const workflowMessages = useMemo(() => {
@@ -189,7 +191,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
-    if ((!chatMessage.trim() && chatFiles.length === 0) || isChatUnavailable) return
+    if ((!chatMessage.trim() && chatFiles.length === 0) || isChatUnavailableRef.current) return
 
     // Store the message being sent for reference
     const sentMessage = chatMessage.trim()
@@ -269,6 +271,8 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         })
       )
 
+      if (isChatUnavailableRef.current) return
+
       // Add user message with attachments (include all files, even non-images without dataUrl)
       addMessage({
         content:
@@ -347,7 +351,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     chatFiles,
     copy,
     currentWorkflowId,
-    isChatUnavailable,
     promptHistory,
     getConversationId,
     addMessage,

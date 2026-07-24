@@ -28,8 +28,11 @@ vi.mock('@/hooks/queries/indicators', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/indicator-selection', () => ({
-  emitIndicatorSelectionChange: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({

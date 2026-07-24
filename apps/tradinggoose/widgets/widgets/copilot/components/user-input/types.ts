@@ -79,19 +79,15 @@ export interface MentionRange {
 export interface PastChatItem {
   reviewSessionId: string
   title: string | null
-  workflowId: string | null
-  updatedAt?: string
 }
 
 export interface WorkspaceEntityItem {
   entityKind: CopilotWorkspaceEntityKind
   id: string
   name: string
+  ownerUserId?: string
   color?: string
   description?: string
-  transport?: string
-  enabled?: boolean
-  connectionStatus?: string
 }
 
 export interface KnowledgeBaseItem {

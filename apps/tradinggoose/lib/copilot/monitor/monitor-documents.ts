@@ -1,16 +1,8 @@
 import { z } from 'zod'
+import { ListingIdentityPassthroughSchema } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 
 export const MONITOR_DOCUMENT_FORMAT = 'tg-monitor-document-v1' as const
-
-const MonitorListingSchema = z
-  .object({
-    listing_type: z.enum(['default', 'crypto', 'currency']),
-    listing_id: z.string(),
-    base_id: z.string(),
-    quote_id: z.string(),
-  })
-  .passthrough()
 
 const IndicatorMonitorDocumentSchema = z.object({
   source: z.literal(INDICATOR_MONITOR_PROVIDER),
@@ -19,7 +11,7 @@ const IndicatorMonitorDocumentSchema = z.object({
   providerId: z.string(),
   interval: z.string(),
   indicatorId: z.string(),
-  listing: MonitorListingSchema,
+  listing: ListingIdentityPassthroughSchema,
   isActive: z.boolean(),
   providerParams: z.record(z.unknown()).optional(),
   auth: z

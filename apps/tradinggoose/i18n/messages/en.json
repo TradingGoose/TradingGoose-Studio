@@ -454,12 +454,6 @@
         "headerAriaLabel": "Widget header",
         "widgetLabel": "Widget"
       },
-      "layout": {
-        "headerAriaLabel": "Widget header",
-        "sizeLabel": "Widget Size",
-        "widthLabel": "width",
-        "heightLabel": "height"
-      },
       "indicatorDropdown": {
         "placeholder": "Select indicators",
         "tooltip": "Select indicators",
@@ -985,6 +979,12 @@
     "dashboard": {
       "title": "Dashboard",
       "searchPlaceholder": "Search workspace content...",
+      "layoutPreview": {
+        "headerAriaLabel": "Dashboard panel",
+        "sizeLabel": "Widget Size",
+        "widthLabel": "width",
+        "heightLabel": "height"
+      },
       "sections": {
         "workspaces": "Workspaces",
         "knowledgeBases": "Knowledge Bases",
@@ -992,6 +992,12 @@
         "docs": "Docs"
       },
       "emptySearch": "No matching content",
+      "layoutState": {
+        "loading": "Loading dashboard layout...",
+        "empty": "No dashboard layout is available.",
+        "error": "The dashboard layout could not be loaded.",
+        "resizePersistenceError": "The resize was not saved. The previous layout was restored."
+      },
       "pages": {
         "records": "Records",
         "monitor": "Monitor",
@@ -2180,7 +2186,7 @@
       "titles": {
         "empty": "Empty Surface",
         "data_chart": "Market Data",
-        "workflow_list": "Workflows",
+        "list_workflow": "Workflows",
         "editor_workflow": "Workflow Editor",
         "workflow_chat": "Workflow Chat",
         "workflow_console": "Workflow Console",
@@ -2617,9 +2623,7 @@
       },
       "empty": {
         "noWidgetSelected": "No widget selected",
-        "emptyWidget": "Empty Widget",
         "noWidgetDescription": "Pick a widget from the gallery to start using this panel.",
-        "emptyWidgetDescription": "This widget is currently empty, choose another widget to continue.",
         "chooseWidget": "Choose Widget",
         "surfaceTitle": "Empty Surface",
         "surfaceDescription": "Placeholder state shown when the panel does not have a widget assigned."
@@ -2922,10 +2926,12 @@
         "currentTool": "Current Tool",
         "currentIndicator": "Current Indicator",
         "currentMcpServer": "Current MCP Server",
+        "currentWatchlist": "Current Watchlist",
         "workflows": "Workflows",
         "customTools": "Custom Tools",
         "indicators": "Indicators",
         "mcpServers": "MCP Servers",
+        "watchlists": "Watchlists",
         "allWorkflows": "All workflows",
         "operation": "Operation",
         "id": "ID",
@@ -3508,7 +3514,7 @@
           "zep": "Long-term memory for AI agents",
           "zoom": "Create and manage Zoom meetings and recordings",
           "portfolio_detail": "Fetch full portfolio detail from a selected broker account.",
-          "watchlist": "Read watchlists and add or remove listing items."
+          "watchlist": "Read workspace watchlists, listings, and sections."
         },
         "blockLongDescriptions": {
           "response": "Integrate Response into the workflow. Can send build or edit structured responses into a final workflow response.",
@@ -20558,31 +20564,26 @@
           "listActionsTooltip": "List actions",
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Section",
-          "selectMarketProvider": "Select watchlist",
-          "createWatchlist": "Create Watchlist",
+          "createList": "Create List",
+          "renameList": "Rename List",
+          "deleteList": "Delete List",
+          "deleteListDialogTitle": "Delete list?",
+          "deleteListDialogDescription": "Deleting this list removes its sections and listings.",
+          "cancel": "Cancel",
+          "delete": "Delete",
           "createSection": "Create Section",
           "import": "Import",
           "export": "Export",
-          "deleteWatchlist": "Delete watchlist",
           "refresh": "Refresh data"
         },
         "listSelector": {
-          "selectionUnavailable": "Watchlist selection unavailable",
-          "selectLabel": "Select watchlist",
-          "searchPlaceholder": "Search watchlists...",
-          "noWatchlistsFound": "No watchlists found.",
-          "renameAriaLabel": "Rename {name}",
-          "deleteAriaLabel": "Delete {name}",
-          "deleteDialogTitle": "Delete watchlist?",
-          "deleteDialogDescription": "This action will permanently delete \"{name}\".",
-          "deleteDialogDescriptionFallback": "This action will permanently delete this watchlist.",
-          "cancel": "Cancel",
-          "delete": "Delete"
+          "noWatchlistsFound": "No watchlists found."
         },
         "body": {
           "selectWorkspace": "Select a workspace to use watchlists.",
           "failedToLoadWatchlists": "Failed to load watchlists.",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
+          "watchlistNotFound": "Watchlist not found.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",
@@ -21258,6 +21259,15 @@
           "stopGeneration": "Stop generation",
           "sources": "Sources:",
           "copy": "Copy"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Current} proposed {Proposed} other {Current}}",
+          "newDocument": "New document",
+          "dashboardLayoutTitle": "{state, select, applied {Applied Dashboard Layout Changes} proposed {Proposed Dashboard Layout Changes} other {Proposed Dashboard Layout Changes}}",
+          "widgetTitle": "{state, select, applied {Applied Widget Changes} proposed {Proposed Widget Changes} other {Proposed Widget Changes}}",
+          "watchlistTitle": "{state, select, applied {Applied Watchlist Changes} proposed {Proposed Watchlist Changes} other {Proposed Watchlist Changes}}",
+          "emptyWatchlist": "Empty watchlist",
+          "watchlistSetting": "{setting, select, showLogo {Logo} showTicker {Ticker} showDescription {Description} other {Setting}}"
         },
         "contextUsage": {
           "title": "Context used in this chat: {percentage}%",

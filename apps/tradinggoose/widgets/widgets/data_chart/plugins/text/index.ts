@@ -6,11 +6,11 @@
  * with the core line tools plugin.
  */
 
-import { ILineToolsPlugin } from '../core';
-import { LineToolText } from './model/LineToolText';
+import type { ILineToolsPlugin } from '../core'
+import { LineToolText } from './model/LineToolText'
 
 // Define the name under which this specific tool will be registered
-const TEXT_LINE_NAME = 'Text';
+const TEXT_LINE_NAME = 'Text'
 
 /**
  * Registers the Text tool with the provided Core Plugin instance.
@@ -18,18 +18,18 @@ const TEXT_LINE_NAME = 'Text';
  * @param corePlugin - The instance of the Core Line Tools Plugin.
  * @returns void
  */
-export function registerTextPlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
-	
-	// Register the Text Tool
-	// We pass the specific name and the class constructor.
-	corePlugin.registerLineTool(TEXT_LINE_NAME, LineToolText);
-
+export function registerTextPlugin<HorzScaleItem>(
+  corePlugin: ILineToolsPlugin & {
+    registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void
+  }
+): void {
+  // Register the Text Tool
+  // We pass the specific name and the class constructor.
+  corePlugin.registerLineTool(TEXT_LINE_NAME, LineToolText)
 }
 
 // Export the class itself for direct use/type referencing if necessary
-export {
-	LineToolText
-};
+export { LineToolText }
 
 // Export the registration function as the primary way to use the plugin
-export default registerTextPlugin;
+export default registerTextPlugin

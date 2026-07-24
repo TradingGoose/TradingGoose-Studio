@@ -1,21 +1,14 @@
-import { db } from '@tradinggoose/db'
-import { customTools } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { createCustomTools, listCustomTools, saveCustomTool } from '@/lib/custom-tools/operations'
-import { CustomToolWriteRequestSchema } from '@/lib/custom-tools/schema'
+import { createCustomTools, listCustomTools } from '@/lib/custom-tools/operations'
+import { CustomToolCreateRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import {
-  deleteYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -66,15 +59,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listCustomTools({ workspaceId }) }, { status: 200 })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching custom tools:`, error)
     return NextResponse.json({ error: 'Failed to fetch custom tools' }, { status: 500 })
   }
 }
 
-// POST - Create or update custom tools
+// POST - Create custom tools
 export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
 
@@ -89,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // Validate the request body
-      const { tools, workspaceId } = CustomToolWriteRequestSchema.parse(body)
+      const { tools, workspaceId } = CustomToolCreateRequestSchema.parse(body)
 
       const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
       if (!permission) {
@@ -106,39 +98,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
       }
 
-      const toolsToCreate = tools.filter((tool) => !tool.id)
-      const toolsToSave = tools.filter((tool) => tool.id)
-      if (toolsToCreate.length > 0 && toolsToSave.length > 0) {
-        return NextResponse.json(
-          { error: 'Create and save custom tools in separate requests' },
-          { status: 400 }
-        )
-      }
-      if (toolsToSave.length > 1) {
-        return NextResponse.json(
-          { error: 'Save one existing custom tool per request' },
-          { status: 400 }
-        )
-      }
-
-      const resultTools =
-        toolsToSave.length === 1
-          ? await saveCustomTool({
-              tool: {
-                id: toolsToSave[0].id!,
-                title: toolsToSave[0].title,
-                schema: toolsToSave[0].schema,
-                code: toolsToSave[0].code,
-              },
-              workspaceId,
-              requestId,
-            })
-          : await createCustomTools({
-              tools: toolsToCreate,
-              workspaceId,
-              userId: authResult.userId,
-              requestId,
-            })
+      const resultTools = await createCustomTools({
+        tools,
+        workspaceId,
+        userId: authResult.userId,
+        requestId,
+      })
 
       return NextResponse.json({ success: true, data: resultTools })
     } catch (validationError) {
@@ -159,27 +124,19 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      if (validationError instanceof SavedEntityPersistenceError) {
-        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
-      }
       if (validationError instanceof Error && validationError.message.includes('already exists')) {
         return NextResponse.json({ error: validationError.message }, { status: 409 })
-      }
-      if (validationError instanceof Error && validationError.message.includes('was not found')) {
-        return NextResponse.json({ error: validationError.message }, { status: 404 })
       }
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error updating custom tools`, error)
     return NextResponse.json({ error: 'Failed to update custom tools' }, { status: 500 })
   }
 }
 
-// DELETE - Delete a custom tool by ID
 export async function DELETE(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
@@ -217,27 +174,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const [existingTool] = await db
-      .select({ id: customTools.id })
-      .from(customTools)
-      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-      .limit(1)
-
-    if (!existingTool) {
+    const deleted = await deleteSavedEntity('custom_tool', toolId, workspaceId)
+    if (!deleted) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
-    await db
-      .delete(customTools)
-      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-
-    await refreshEntityListSession('custom_tool', workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(toolId)])
-
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting custom tool:`, error)
     return NextResponse.json({ error: 'Failed to delete custom tool' }, { status: 500 })
   }

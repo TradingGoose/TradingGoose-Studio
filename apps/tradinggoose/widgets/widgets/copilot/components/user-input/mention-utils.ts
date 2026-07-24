@@ -1,10 +1,14 @@
 'use client'
 
-import { buildCopilotContextIdentityKey } from '@/lib/copilot/chat-contexts'
+import {
+  buildCopilotContextIdentityKey,
+  buildCopilotContextMentionRanges,
+  isCopilotMentionBoundary,
+} from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
-  COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../workspace-entities'
 import { MENTION_OPTIONS } from './constants'
@@ -40,63 +44,12 @@ const normalize = (value: string) =>
 const includesNormalized = (value: string, query: string) =>
   normalize(value).includes(normalize(query))
 
-export const isMentionBoundary = (char: string | undefined) =>
-  !char || /\s/u.test(char) || (/[\p{P}\p{S}]/u.test(char) && !/[-_@]/u.test(char))
+export const isMentionBoundary = isCopilotMentionBoundary
 
 export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
-  if (!text || contexts.length === 0) {
-    return []
-  }
-
-  const contextsByLabel = new Map<string, Array<{ contextKey: string; label: string }>>()
-
-  for (const context of contexts) {
-    const label = context.label?.trim()
-    if (!label) {
-      continue
-    }
-
-    const entries = contextsByLabel.get(label) ?? []
-    entries.push({ contextKey: buildCopilotContextIdentityKey(context), label })
-    contextsByLabel.set(label, entries)
-  }
-
-  const ranges: MentionRange[] = []
-
-  for (const [label, entries] of contextsByLabel) {
-    const token = `@${label}`
-    let fromIndex = 0
-    let entryIndex = 0
-
-    while (fromIndex <= text.length) {
-      const index = text.indexOf(token, fromIndex)
-
-      if (index === -1) {
-        break
-      }
-
-      const beforeChar = index === 0 ? '' : text[index - 1]
-      const afterChar = text[index + token.length] ?? ''
-      const hasLeadingBoundary = isMentionBoundary(beforeChar)
-      const hasTrailingBoundary = isMentionBoundary(afterChar)
-
-      if (hasLeadingBoundary && hasTrailingBoundary) {
-        const entry = entries[Math.min(entryIndex, entries.length - 1)]
-        ranges.push({
-          start: index,
-          end: index + token.length,
-          label,
-          contextKey: entry.contextKey,
-        })
-        entryIndex = Math.min(entryIndex + 1, entries.length - 1)
-      }
-
-      fromIndex = index + token.length
-    }
-  }
-
-  ranges.sort((left, right) => left.start - right.start)
-  return ranges
+  return buildCopilotContextMentionRanges(text, contexts).map(
+    ({ start, end, label, contextKey }) => ({ start, end, label, contextKey })
+  )
 }
 
 export function upsertMentionContextByTextOrder(
@@ -138,11 +91,7 @@ export function filterWorkspaceEntities(
 ) {
   return items.filter((item) =>
     includesNormalized(
-      [
-        getWorkspaceEntityMentionLabel(copy, item),
-        item.description || '',
-        item.transport || '',
-      ].join(' '),
+      [getWorkspaceEntityMentionLabel(copy, item), item.description || ''].join(' '),
       query
     )
   )
@@ -214,7 +163,7 @@ export function buildAggregatedMentionItems(
       id: value.id,
       value,
     })),
-    ...COPILOT_WORKSPACE_ENTITY_CONFIGS.flatMap((config) =>
+    ...COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.flatMap((config) =>
       filterWorkspaceEntities(sources.workspaceEntities[config.entityKind], query, mentionCopy).map(
         (value) => ({
           type: config.entityKind,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import {
-  buildCopilotServerToolErrorResponse,
-  StructuredServerToolError,
-} from '@/lib/copilot/server-tool-errors'
+import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import { createDashboardLayoutValidationError } from '@/widgets/layout-document'
+import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 describe('copilot server tool errors', () => {
   it('returns container repair guidance for invalid canonical container edge handles', () => {
@@ -94,10 +94,10 @@ describe('copilot server tool errors', () => {
     expect(response.body.hint).toContain('minimal Mermaid graph')
   })
 
-  it('falls back to a generic 500 payload for unknown tool failures', () => {
+  it('falls back to a generic 500 payload for non-structured failures', () => {
     const response = buildCopilotServerToolErrorResponse(
-      'make_api_request',
-      new Error('socket hang up at db.internal:5432')
+      'edit_watchlist',
+      new WatchlistDocumentError('Persisted watchlist is corrupt')
     )
     const variableResponse = buildCopilotServerToolErrorResponse(
       'edit_workflow_variable',
@@ -112,7 +112,7 @@ describe('copilot server tool errors', () => {
         retryable: false,
       },
     })
-    expect(response.body.error).not.toContain('db.internal')
+    expect(response.body.error).not.toContain('corrupt')
     expect(variableResponse.status).toBe(422)
     expect(variableResponse.body.error).toContain('removedVariableIds')
   })
@@ -155,28 +155,31 @@ describe('copilot server tool errors', () => {
     )
   })
 
-  it('passes through structured server tool errors without collapsing them to 500', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'search_documentation',
-      new StructuredServerToolError({
-        status: 503,
-        body: {
-          code: 'search_documentation_unavailable',
-          error: 'Documentation search is unavailable because no embedding provider is configured.',
-          hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
-          retryable: false,
-        },
-      })
-    )
+  it.each([
+    [
+      'dashboard layout',
+      'edit_layout',
+      createDashboardLayoutValidationError(
+        'entityDocument.layout',
+        'edit_layout entityDocument requires layout'
+      ),
+      'invalid_dashboard_layout_edit',
+      'tg-dashboard-layout-structure-v3',
+    ],
+    [
+      'widget config',
+      'edit_widget',
+      createWidgetConfigValidationError('colorPair.watchlistId', 'Unknown watchlist id'),
+      'invalid_widget_config',
+      'get_widgets_metadata',
+    ],
+  ])('returns a structured 422 payload for %s failures', (_, toolName, error, code, hint) => {
+    const response = buildCopilotServerToolErrorResponse(toolName, error)
 
     expect(response).toEqual({
-      status: 503,
-      body: {
-        code: 'search_documentation_unavailable',
-        error: 'Documentation search is unavailable because no embedding provider is configured.',
-        hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
-        retryable: false,
-      },
+      status: 422,
+      body: expect.objectContaining({ code, retryable: true, issues: error.issues }),
     })
+    expect(response.body.hint).toContain(hint)
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Rocket } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
@@ -23,6 +23,7 @@ interface DeploymentControlsProps {
   refetchDeployedState: () => Promise<void>
   refetchDeploymentStatus: () => Promise<boolean>
   userPermissions: WorkspaceUserPermissions
+  canEdit: boolean
   variant?: ControlVariant
 }
 
@@ -36,6 +37,7 @@ export function DeploymentControls({
   refetchDeployedState,
   refetchDeploymentStatus,
   userPermissions,
+  canEdit,
   variant = 'workspace',
 }: DeploymentControlsProps) {
   const copy = useDeploymentCopy()
@@ -43,16 +45,7 @@ export function DeploymentControls({
   const workflowNeedsRedeployment = needsRedeployment
   const isPreviousVersionActive = isDeployed && workflowNeedsRedeployment
 
-  const [isDeploying, _setIsDeploying] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-
-  const lastWorkflowIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (activeWorkflowId !== lastWorkflowIdRef.current) {
-      lastWorkflowIdRef.current = activeWorkflowId
-    }
-  }, [activeWorkflowId])
 
   const refetchWithErrorHandling = async () => {
     if (!activeWorkflowId) return
@@ -62,8 +55,12 @@ export function DeploymentControls({
     } catch {}
   }
 
-  const canDeploy = userPermissions.canAdmin
-  const isDisabled = isDeploying || !canDeploy
+  const canDeploy = canEdit && userPermissions.canAdmin
+  const isDisabled = !canDeploy
+
+  useEffect(() => {
+    if (!canDeploy) setIsModalOpen(false)
+  }, [canDeploy])
 
   const handleDeployClick = useCallback(() => {
     if (canDeploy) {
@@ -74,9 +71,6 @@ export function DeploymentControls({
   const getTooltipText = () => {
     if (!canDeploy) {
       return copy.adminPermissionsRequiredToDeployWorkflows
-    }
-    if (isDeploying) {
-      return copy.deploying
     }
     if (isDeployed && workflowNeedsRedeployment) {
       return copy.workflowChangesDetected
@@ -111,11 +105,7 @@ export function DeploymentControls({
                   'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
             >
-              {isDeploying ? (
-                <Loader2 className='h-5 w-5 animate-spin' />
-              ) : (
-                <Rocket className='h-5 w-5' />
-              )}
+              <Rocket className='h-5 w-5' />
               <span className='sr-only'>{copy.deployApi}</span>
             </Button>
 
@@ -134,7 +124,7 @@ export function DeploymentControls({
       </Tooltip>
 
       <DeployModal
-        open={isModalOpen}
+        open={isModalOpen && canDeploy}
         onOpenChange={setIsModalOpen}
         workflowId={activeWorkflowId}
         isDeployed={isDeployed}

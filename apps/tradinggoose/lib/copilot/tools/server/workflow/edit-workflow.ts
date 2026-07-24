@@ -3,6 +3,7 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
 import { createLogger } from '@/lib/logs/console/logger'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
@@ -19,7 +20,6 @@ import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import {
   buildWorkflowMutationResult,
-  loadBaseWorkflowState,
   resolveWorkflowMutationResultForExecution,
 } from './workflow-mutation-utils'
 
@@ -282,7 +282,15 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       documentLength: entityDocument.length,
     })
 
-    const baseWorkflowState = await loadBaseWorkflowState(workflowId, context)
+    const { entityName, workflowState, variables } = await loadWorkflowSnapshotForCopilot(
+      workflowId,
+      context,
+      'write'
+    )
+    const baseWorkflowState = {
+      ...createWorkflowSnapshot(workflowState),
+      variables,
+    }
     const nextWorkflowState = applyGraphMermaidToWorkflow(
       baseWorkflowState,
       entityDocument,
@@ -290,6 +298,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     )
     const result = buildWorkflowMutationResult({
       workflowId,
+      entityName,
       baseWorkflowState,
       nextWorkflowState,
       renderEntityDocument: serializeWorkflowToGraphMermaid,

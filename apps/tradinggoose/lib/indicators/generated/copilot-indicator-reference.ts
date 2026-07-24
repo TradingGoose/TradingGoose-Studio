@@ -127,7 +127,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
     detail:
       'TradingGoose saves indicators as JSON documents using `tg-indicator-document-v1`. The canonical field set is derived from the live indicator document schema.',
     support: 'curated',
-    relatedIds: ['document.format', 'document.name', 'document.pineCode'],
+    relatedIds: ['document.format', 'document.color', 'document.pineCode'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -135,7 +135,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
       },
     ],
     queryText:
-      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.name document.pinecode',
+      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.color document.pinecode',
   },
   {
     id: 'section:runtime',
@@ -299,10 +299,10 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'Document Format',
     summary: 'Canonical indicator document format id and top-level field set.',
     detail:
-      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with `name`, `color`, and `pineCode`.',
+      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with the live field set `color, pineCode`.',
     support: 'curated',
-    signature: 'tg-indicator-document-v1 = { name, color, pineCode }',
-    relatedIds: ['document.name', 'document.pineCode'],
+    signature: 'tg-indicator-document-v1 = { color, pineCode }',
+    relatedIds: ['document.color', 'document.pineCode'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -310,16 +310,16 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with `name`, `color`, and `pinecode`. tg-indicator-document-v1 = { name, color, pinecode } document.name document.pinecode',
+      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with the live field set `color, pinecode`. tg-indicator-document-v1 = { color, pinecode } document.color document.pinecode',
   },
   {
-    id: 'document.name',
+    id: 'document.color',
     sectionId: 'section:document',
     type: 'document_field',
-    title: 'Document Field: name',
-    summary: 'Human-readable indicator name in the canonical document.',
+    title: 'Document Field: color',
+    summary: 'Saved indicator document field `color`.',
     detail:
-      'The `name` field is part of the live indicator document schema and is what TradingGoose renames when Copilot updates an indicator title.',
+      '`color` is part of the live indicator document schema used by TradingGoose indicator editing tools.',
     support: 'curated',
     sourceReferences: [
       {
@@ -328,7 +328,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'document.name section:document document field: name human-readable indicator name in the canonical document. the `name` field is part of the live indicator document schema and is what tradinggoose renames when copilot updates an indicator title.',
+      'document.color section:document document field: color saved indicator document field `color`. `color` is part of the live indicator document schema used by tradinggoose indicator editing tools.',
   },
   {
     id: 'document.pineCode',
@@ -408,7 +408,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'Input Metadata Inference',
     summary: 'How TradingGoose derives editable input metadata from indicator code.',
     detail:
-      'TradingGoose scans `input.*(...)` calls, derives input titles, defaults, numeric constraints, and enum options, then uses that map as the stable input override contract.',
+      'TradingGoose scans `input.*(...)` calls, derives the declared input title and common metadata fields, and uses that runtime map as the stable input override contract.',
     support: 'curated',
     relatedIds: ['section:inputs'],
     sourceReferences: [
@@ -418,7 +418,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'runtime.input_meta_inference section:runtime input metadata inference how tradinggoose derives editable input metadata from indicator code. tradinggoose scans `input.*(...)` calls, derives input titles, defaults, numeric constraints, and enum options, then uses that map as the stable input override contract. section:inputs runtime.input_meta_inference',
+      'runtime.input_meta_inference section:runtime input metadata inference how tradinggoose derives editable input metadata from indicator code. tradinggoose scans `input.*(...)` calls, derives the declared input title and common metadata fields, and uses that runtime map as the stable input override contract. section:inputs',
   },
   {
     id: 'context.series',
@@ -905,7 +905,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'input.enum',
     summary: 'Supported `input.enum` helper.',
     detail:
-      'TradingGoose supports `input.enum`, derives literal option lists, and keeps the saved title as the stable runtime override key.',
+      'TradingGoose supports `input.enum` and keeps the saved title as the stable runtime override key. Helper-specific option lists may still need explicit review in the saved document.',
     support: 'supported',
     signature: 'input.enum(defval, title, options?)',
     relatedIds: ['runtime.input_meta_inference'],
@@ -926,7 +926,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.enum section:inputs input.enum supported `input.enum` helper. tradinggoose supports `input.enum`, derives literal option lists, and keeps the saved title as the stable runtime override key. input.enum(defval, title, options?) runtime.input_meta_inference',
+      'input.enum section:inputs input.enum supported `input.enum` helper. tradinggoose supports `input.enum` and keeps the saved title as the stable runtime override key. helper-specific option lists may still need explicit review in the saved document. input.enum(defval, title, options?) runtime.input_meta_inference',
   },
   {
     id: 'input.color',

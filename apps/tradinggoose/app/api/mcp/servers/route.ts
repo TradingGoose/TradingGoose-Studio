@@ -2,16 +2,12 @@ import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
-import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import {
-  deleteYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { toSavedEntityTransportError } from '@/lib/yjs/server/apply-entity-state'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -98,17 +94,29 @@ export const POST = withMcpAuth('write')(
       const created = await mcpService.createWorkspaceServer({
         userId,
         workspaceId,
-        fields: body,
+        name: body.name,
+        fields: {
+          description: body.description,
+          transport: body.transport,
+          url: body.url,
+          headers: body.headers,
+          command: body.command,
+          args: body.args,
+          env: body.env,
+          timeout: body.timeout,
+          retries: body.retries,
+          enabled: body.enabled,
+        },
       })
 
-      logger.info(`[${requestId}] Successfully registered MCP server: ${created.fields.name}`)
+      logger.info(`[${requestId}] Successfully registered MCP server: ${created.entityName}`)
 
       // Track MCP server registration
       try {
         const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
         trackPlatformEvent('platform.mcp.server_added', {
           'mcp.server_id': created.entityId,
-          'mcp.server_name': String(created.fields.name ?? ''),
+          'mcp.server_name': created.entityName,
           'mcp.transport': String(created.fields.transport ?? ''),
           'workspace.id': workspaceId,
         })
@@ -131,11 +139,8 @@ export const POST = withMcpAuth('write')(
   }
 )
 
-/**
- * DELETE - Delete an MCP server from the workspace (requires write permission)
- */
 export const DELETE = withMcpAuth('write')(
-  async (request: NextRequest, { userId, workspaceId, requestId }) => {
+  async (request: NextRequest, { workspaceId, requestId }) => {
     try {
       const { searchParams } = new URL(request.url)
       const serverId = searchParams.get('serverId')
@@ -150,12 +155,8 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const access = await verifyReviewTargetAccess(
-        userId,
-        buildSavedEntityDescriptor('mcp_server', serverId, workspaceId),
-        'write'
-      )
-      if (!access.hasAccess || access.workspaceId !== workspaceId) {
+      const deleted = await deleteSavedEntity('mcp_server', serverId, workspaceId)
+      if (!deleted) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -163,24 +164,14 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await db
-        .delete(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
-          )
-        )
-
-      await refreshEntityListSession('mcp_server', workspaceId)
-      await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])
-
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({
         message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
+      const transportError = toSavedEntityTransportError(error)
+      if (transportError)
+        return createMcpErrorResponse(transportError, transportError.message, transportError.status)
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),

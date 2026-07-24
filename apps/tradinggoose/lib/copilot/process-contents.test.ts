@@ -3,6 +3,17 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
+import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+
+const WORKSPACE_CONTEXT_ENTITY_KINDS = [
+  'workflow',
+  'skill',
+  'indicator',
+  'custom_tool',
+  'mcp_server',
+  'watchlist',
+  'dashboard_layout',
+] as const
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
@@ -10,7 +21,6 @@ const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
 const mockReadBootstrappedSavedEntityFields = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
-const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
@@ -100,10 +110,6 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
   readWorkflowSnapshot: mockReadWorkflowSnapshot,
 }))
 
-vi.mock('@/lib/workflows/json-sanitizer', () => ({
-  sanitizeForCopilot: mockSanitizeForCopilot,
-}))
-
 describe('processContextsServer', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -113,7 +119,6 @@ describe('processContextsServer', () => {
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockReadBootstrappedSavedEntityFields.mockReset()
     mockReadWorkflowSnapshot.mockReset()
-    mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -178,103 +183,54 @@ describe('processContextsServer', () => {
     expect(result).toEqual([])
   })
 
-  it('hydrates current entity contexts from Yjs', async () => {
-    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
-      name: 'Canonical Skill',
-      description: 'Canonical description',
-      content: 'Canonical content',
-    })
+  it.each(WORKSPACE_CONTEXT_ENTITY_KINDS)(
+    'emits attached and current %s contexts as entity references',
+    async (entityKind) => {
+      const entityId = `${entityKind}-1`
+      const label = `Attached ${entityKind}`
+      const { processContextsServer } = await import('@/lib/copilot/process-contents')
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_skill',
-          label: 'Current Skill',
-          workspaceId: 'workspace-1',
-          skillId: 'skill-1',
-        },
-      ],
-      'user-1'
-    )
+      const contexts = [false, true].map((current) =>
+        buildCopilotWorkspaceEntityContext({
+          entityKind,
+          entityId,
+          workspaceId: 'workspace-metadata',
+          ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
+          label,
+          current,
+        })
+      )
+      const result = await processContextsServer(contexts, 'user-1')
 
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
-      'user-1',
-      {
-        entityKind: 'skill',
-        entityId: 'skill-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        workspaceId: 'workspace-1',
-        yjsSessionId: 'skill-1',
-      },
-      'read'
-    )
-    expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
-      'skill',
-      'skill-1',
-      'workspace-1'
-    )
-    expect(result).toEqual([
-      {
-        type: 'current_skill',
-        tag: '@Current Skill',
-        content: JSON.stringify(
-          {
-            id: 'skill-1',
-            workspaceId: 'workspace-1',
-            name: 'Canonical Skill',
-            description: 'Canonical description',
-            content: 'Canonical content',
-          },
-          null,
-          2
-        ),
-      },
-    ])
-  })
+      expect(result).toEqual(
+        contexts.map((context) => ({
+          type: context.kind,
+          tag: `@${entityId}`,
+          content: JSON.stringify({ entityId }, null, 2),
+        }))
+      )
+      for (const context of result) {
+        expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
+      }
 
-  it('skips workspace entity contexts without read access', async () => {
-    mockVerifyReviewTargetAccess.mockResolvedValueOnce({
-      hasAccess: false,
-      userPermission: null,
-      workspaceId: null,
-      isOwner: false,
-    })
+      expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
+    }
+  )
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_skill',
-          label: 'Current Skill',
-          workspaceId: 'workspace-1',
-          skillId: 'skill-1',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalled()
-    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
-    expect(result).toEqual([])
-  })
-
-  it('hydrates workflow contexts from Yjs after verifying workflow read access', async () => {
+  it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
     const snapshotBase64 = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
     doc.destroy()
     mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue({
       snapshotBase64,
       descriptor: {},
-      runtime: { docState: 'active', replaySafe: false, reseededFromCanonical: false },
+      runtime: { docState: 'active' },
     })
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
-        trigger: {
-          id: 'trigger',
-          type: 'trigger',
-        },
+        'block-1': { id: 'block-1', type: 'function', name: 'Inspect' },
       },
       edges: [],
       loops: {},
@@ -285,76 +241,30 @@ describe('processContextsServer', () => {
     const result = await processContextsServer(
       [
         {
-          kind: 'workflow',
+          kind: 'workflow_block',
           workflowId: 'workflow-1',
-          workspaceId: 'workspace-1',
-          label: 'Attached Workflow',
+          blockId: 'block-1',
+          label: 'Attached Block',
         },
       ],
       'user-1'
     )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
-    expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: 'workflow-1',
-    })
-    expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
-      blocks: {
-        trigger: {
-          id: 'trigger',
-          type: 'trigger',
-        },
-      },
-      edges: [],
-      loops: {},
-      parallels: {},
-    })
+    expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledTimes(1)
     expect(result).toEqual([
       {
-        type: 'workflow',
-        tag: '@Attached Workflow',
-        content: JSON.stringify(
-          {
-            blocks: {
-              trigger: {
-                id: 'trigger',
-                type: 'trigger',
-              },
-            },
-            edges: [],
-            loops: {},
-            parallels: {},
-          },
-          null,
-          2
-        ),
+        type: 'workflow_block',
+        tag: '@Attached Block in Workflow',
+        content: JSON.stringify({
+          workflowId: 'workflow-1',
+          block: { id: 'block-1', type: 'function', name: 'Inspect' },
+        }),
       },
     ])
   })
 
-  it.each([
-    {
-      context: {
-        kind: 'workflow',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-        label: 'Attached Workflow',
-      } as const,
-    },
-    {
-      context: {
-        kind: 'workflow_block',
-        workflowId: 'workflow-1',
-        blockId: 'block-1',
-        label: 'Attached Block',
-      } as const,
-    },
-  ])('skips workflow-derived contexts without workflow read access', async ({ context }) => {
+  it('skips workflow block contexts without workflow read access', async () => {
     mockVerifyWorkflowAccess.mockResolvedValueOnce({
       hasAccess: false,
       userPermission: null,
@@ -363,7 +273,17 @@ describe('processContextsServer', () => {
     })
 
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer([context], 'user-1')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'workflow_block',
+          workflowId: 'workflow-1',
+          blockId: 'block-1',
+          label: 'Attached Block',
+        },
+      ],
+      'user-1'
+    )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()

@@ -21,7 +21,8 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
 }))
 
-vi.mock('@/lib/workflows/utils', () => ({
+vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/workflows/utils')>()),
   readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 
@@ -71,7 +72,8 @@ describe('POST /api/workflows/[id]/queue', () => {
         isDeployed: true,
       },
       isOwner: true,
-      workspacePermission: null,
+      isWorkspaceOwner: false,
+      workspacePermission: 'write',
     })
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-1',

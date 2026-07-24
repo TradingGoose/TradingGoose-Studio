@@ -1,5 +1,4 @@
-import crypto from 'crypto'
-import { db, permissions, permissionTypeEnum, workspace } from '@tradinggoose/db'
+import { permissions, permissionTypeEnum, workspace } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -11,6 +10,8 @@ import {
   getUsersWithPermissions,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { assertWorkspaceBillingOwnerRetainsAdminAccess } from '../../../../../lib/workspaces/billing-owner'
 
 const logger = createLogger('WorkspacesPermissionsAPI')
@@ -19,20 +20,16 @@ type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 const permissionTypeValues = permissionTypeEnum.enumValues as [PermissionType, ...PermissionType[]]
 
 const updatePermissionsSchema = z.object({
-  updates: z.array(
-    z.object({
-      userId: z.string().min(1),
-      permissions: z.enum(permissionTypeValues),
-    })
-  ),
+  updates: z
+    .array(
+      z.object({
+        userId: z.string().min(1),
+        permissions: z.enum(permissionTypeValues),
+      })
+    )
+    .min(1)
+    .refine((updates) => new Set(updates.map(({ userId }) => userId)).size === updates.length),
 })
-
-interface UpdatePermissionsRequest {
-  updates: Array<{
-    userId: string
-    permissions: PermissionType
-  }>
-}
 
 /**
  * GET /api/workspaces/[id]/permissions
@@ -117,7 +114,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Invalid permissions update payload' }, { status: 400 })
     }
 
-    const body: UpdatePermissionsRequest = bodyParse.data
+    const body = bodyParse.data
 
     const selfUpdate = body.updates.find((update) => update.userId === session.user.id)
     if (selfUpdate && selfUpdate.permissions !== 'admin') {
@@ -127,63 +124,85 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       )
     }
 
-    const workspaceRow = await db
-      .select({
-        ownerId: workspace.ownerId,
-        billingOwnerType: workspace.billingOwnerType,
-        billingOwnerUserId: workspace.billingOwnerUserId,
-      })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1)
+    const fencedResponse = await runYjsDrainFencedTransaction(
+      { workspaceIds: [workspaceId] },
+      async (tx) => {
+        const [workspaceRow] = await tx
+          .select({
+            ownerId: workspace.ownerId,
+            billingOwnerType: workspace.billingOwnerType,
+            billingOwnerUserId: workspace.billingOwnerUserId,
+          })
+          .from(workspace)
+          .where(eq(workspace.id, workspaceId))
+          .limit(1)
 
-    if (workspaceRow.length === 0) {
-      return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
-    }
-
-    if (body.updates.some((update) => update.userId === workspaceRow[0].ownerId)) {
-      return NextResponse.json(
-        { error: 'Workspace owner permissions are managed by workspace ownership' },
-        { status: 400 }
-      )
-    }
-
-    try {
-      assertWorkspaceBillingOwnerRetainsAdminAccess({
-        billingOwnerType: workspaceRow[0].billingOwnerType,
-        billingOwnerUserId: workspaceRow[0].billingOwnerUserId,
-        updates: body.updates,
-      })
-    } catch (error) {
-      if (error instanceof Error) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
-      }
-      throw error
-    }
-
-    await db.transaction(async (tx) => {
-      for (const update of body.updates) {
-        await tx
-          .delete(permissions)
-          .where(
-            and(
-              eq(permissions.userId, update.userId),
-              eq(permissions.entityType, 'workspace'),
-              eq(permissions.entityId, workspaceId)
-            )
+        if (!workspaceRow) {
+          return NextResponse.json(
+            { error: 'Workspace not found or access denied' },
+            { status: 404 }
           )
+        }
 
-        await tx.insert(permissions).values({
-          id: crypto.randomUUID(),
-          userId: update.userId,
-          entityType: 'workspace' as const,
-          entityId: workspaceId,
-          permissionType: update.permissions,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
+        const memberRows = await tx
+          .select({ userId: permissions.userId, permissionType: permissions.permissionType })
+          .from(permissions)
+          .where(
+            and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId))
+          )
+        const actorIsAdmin =
+          workspaceRow.ownerId === session.user.id ||
+          memberRows.some((row) => row.userId === session.user.id && row.permissionType === 'admin')
+        if (!actorIsAdmin) {
+          return NextResponse.json(
+            { error: 'Admin access required to update permissions' },
+            { status: 403 }
+          )
+        }
+
+        if (body.updates.some((update) => update.userId === workspaceRow.ownerId)) {
+          return NextResponse.json(
+            { error: 'Workspace owner permissions are managed by workspace ownership' },
+            { status: 400 }
+          )
+        }
+
+        try {
+          assertWorkspaceBillingOwnerRetainsAdminAccess({
+            billingOwnerType: workspaceRow.billingOwnerType,
+            billingOwnerUserId: workspaceRow.billingOwnerUserId,
+            updates: body.updates,
+          })
+        } catch (error) {
+          if (error instanceof Error) {
+            return NextResponse.json({ error: error.message }, { status: 400 })
+          }
+          throw error
+        }
+
+        const memberIds = new Set(memberRows.map((row) => row.userId))
+        const missingMember = body.updates.find((update) => !memberIds.has(update.userId))
+        if (missingMember) {
+          return NextResponse.json({ error: 'Workspace member not found' }, { status: 400 })
+        }
+
+        for (const update of body.updates) {
+          const now = new Date()
+          await tx
+            .update(permissions)
+            .set({ permissionType: update.permissions, updatedAt: now })
+            .where(
+              and(
+                eq(permissions.userId, update.userId),
+                eq(permissions.entityType, 'workspace'),
+                eq(permissions.entityId, workspaceId)
+              )
+            )
+        }
+        return null
       }
-    })
+    )
+    if (fencedResponse) return fencedResponse
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
     const currentUserPermission = await getUserEntityPermissions(
@@ -203,6 +222,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       currentUserPermission,
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error('Error updating workspace permissions:', error)
     return NextResponse.json({ error: 'Failed to update workspace permissions' }, { status: 500 })
   }

@@ -39,7 +39,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 1
   
   # Resource allocation for realtime WebSocket service in development
   resources:

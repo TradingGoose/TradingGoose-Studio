@@ -1,15 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import {
-  applyKnowledgeBaseMetadata,
-  deleteKnowledgeBase,
-  getKnowledgeBaseById,
-} from '@/lib/knowledge/service'
+import { applyKnowledgeBaseMetadata, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseByIdAPI')
 
@@ -106,6 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       const updatedKnowledgeBase = await applyKnowledgeBaseMetadata(
         id,
+        session.user.id,
         {
           name: validatedData.name ?? currentKnowledgeBase.name,
           description: validatedData.description ?? currentKnowledgeBase.description ?? '',
@@ -134,9 +132,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     logger.error(`[${requestId}] Error updating knowledge base`, error)
-    if (error instanceof SavedEntityPersistenceError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Failed to update knowledge base' }, { status: 500 })
   }
 }
@@ -165,7 +162,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await deleteKnowledgeBase(id, requestId)
+    await deleteSavedEntity('knowledge_base', id, accessCheck.knowledgeBase.workspaceId)
 
     logger.info(`[${requestId}] Knowledge base deleted: ${id} for user ${session.user.id}`)
 
@@ -174,6 +171,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       data: { message: 'Knowledge base deleted successfully' },
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting knowledge base`, error)
     return NextResponse.json({ error: 'Failed to delete knowledge base' }, { status: 500 })
   }

@@ -4,9 +4,9 @@ import {
   throwIfServerToolAborted,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeTool } from '@/tools'
 
 interface ReadGDriveFileParams {
@@ -23,13 +23,12 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     const logger = createLogger('ReadGDriveFileServerTool')
     const scopedContext = withWorkspaceArgContext(context, params)
 
-    const userId = scopedContext?.userId
     const credentialId = params?.credentialId
     const fileId = params?.fileId
     const type = params?.type
 
     logger.info('read_gdrive_file input', {
-      hasUserId: !!userId,
+      hasUserId: !!scopedContext?.userId,
       workspaceId: scopedContext?.workspaceId,
       hasCredentialId: !!credentialId,
       hasFileId: !!fileId,
@@ -37,16 +36,9 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
       hasRange: !!params?.range,
     })
 
-    if (!userId || !credentialId || !fileId || !type) {
-      throw new Error('Authentication, credentialId, fileId and type are required')
-    }
-    const workspaceId = scopedContext?.workspaceId
-    if (!workspaceId) {
-      throw new Error('workspaceId is required')
-    }
-    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-      throw new Error('Access denied: You do not have permission to use this workspace')
+    const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
+    if (!credentialId || !fileId || !type) {
+      throw new Error('credentialId, fileId and type are required')
     }
     throwIfServerToolAborted(scopedContext)
 

@@ -6,7 +6,7 @@ import {
 } from '@/lib/copilot/runtime-tool-manifest-enrichment'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 
-export const COPILOT_RUNTIME_TOOL_MANIFEST_VERSION = 'v1' as const
+export const COPILOT_RUNTIME_TOOL_MANIFEST_VERSION = 'v2' as const
 
 export interface CopilotRuntimeToolManifestTool {
   name: string

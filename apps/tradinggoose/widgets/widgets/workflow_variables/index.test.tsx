@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { workflowVariablesWidget } from './index'
 
+const mockVariablesApp = vi.hoisted(() => vi.fn())
+
 vi.mock('next-intl', () => ({
   useLocale: () => 'es',
   useMessages: () => getPublicCopy('es'),
@@ -19,8 +21,6 @@ vi.mock('@/components/ui/loading-agent', () => ({
 }))
 
 let mockWorkflowWidgetState: any = {
-  channelId: 'workflow-variables-panel-1',
-  resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
   loadError: null,
@@ -32,18 +32,16 @@ vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
   useWorkflowWidgetState: () => mockWorkflowWidgetState,
 }))
 
-vi.mock('@/widgets/utils/workflow-selection', () => ({
-  emitWorkflowSelectionChange: vi.fn(),
-  useWorkflowSelectionPersistence: vi.fn(),
-}))
-
 vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
   WorkflowDropdown: () => <div>workflow-dropdown</div>,
 }))
 
 vi.mock('./components/workflow-variables-app', () => ({
   __esModule: true,
-  default: () => <div>variables-app</div>,
+  default: (props: Record<string, unknown>) => {
+    mockVariablesApp(props)
+    return <div>variables-app</div>
+  },
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -52,20 +50,9 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: (
-    selector: (state: { getActiveWorkflowId: (channelId: string) => string | null }) => unknown
-  ) =>
-    selector({
-      getActiveWorkflowId: () => 'wf-1',
-    }),
-}))
-
 describe('workflowVariablesWidget', () => {
   beforeEach(() => {
     mockWorkflowWidgetState = {
-      channelId: 'workflow-variables-panel-1',
-      resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
       loadError: null,
@@ -82,19 +69,31 @@ describe('workflowVariablesWidget', () => {
     mockWorkflowWidgetState.loadError = 'unableToLoadWorkflows'
 
     const markup = renderToStaticMarkup(
-      createElement(
-        workflowVariablesWidget.component,
-        {
-          context: { workspaceId: 'ws-1' },
-          widget: { key: 'workflow_variables' },
-          panelId: 'panel-1',
-        } as any
-      )
+      createElement(workflowVariablesWidget.component, {
+        context: { workspaceId: 'ws-1' },
+        widget: { key: 'workflow_variables' },
+        panelId: 'panel-1',
+      } as any)
     )
 
     expect(markup).toContain(
       getPublicCopy('es').workspace.widgets.workflowVariables.unableToLoadWorkflows
     )
     expect(markup).not.toContain('unableToLoadWorkflows')
+  })
+
+  it('forwards the runtime channel to the variables app', () => {
+    renderToStaticMarkup(
+      createElement(workflowVariablesWidget.component, {
+        channelId: 'pair-green',
+        context: { workspaceId: 'ws-1' },
+        params: { workflowId: 'wf-1' },
+        panelId: 'panel-1',
+      } as any)
+    )
+
+    expect(mockVariablesApp).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'pair-green', workflowId: 'wf-1' })
+    )
   })
 })

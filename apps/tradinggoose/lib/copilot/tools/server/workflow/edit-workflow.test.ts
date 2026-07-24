@@ -1,16 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
-const mockLoadBaseWorkflowState = vi.hoisted(() => vi.fn())
+const mockLoadWorkflowState = vi.hoisted(() => vi.fn())
+const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/copilot/tools/server/workflow/workflow-mutation-utils', async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...(actual as object),
-    loadBaseWorkflowState: (...args: any[]) => mockLoadBaseWorkflowState(...args),
-  }
-})
+vi.mock('@/lib/copilot/tools/server/entities/workflow', () => ({
+  loadWorkflowSnapshotForCopilot: async (...args: any[]) => ({
+    workflowId: 'wf-1',
+    entityName: 'Strategy Workflow',
+    workspaceId: 'workspace-1',
+    workflowState: await mockLoadWorkflowState(...args),
+    variables: {},
+  }),
+}))
+
+vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
+  verifySavedEntityContext: vi.fn(async () => ({
+    userId: 'user-1',
+    workspaceId: 'workspace-1',
+    ownerUserId: null,
+  })),
+}))
+
+vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
+  applyWorkflowState: (...args: any[]) => mockApplyWorkflowState(...args),
+}))
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -66,8 +82,9 @@ function graph(lines: string[]): string {
 
 describe('editWorkflowServerTool', () => {
   beforeEach(() => {
-    mockLoadBaseWorkflowState.mockReset()
-    mockLoadBaseWorkflowState.mockResolvedValue(BASE_WORKFLOW_STATE)
+    mockLoadWorkflowState.mockReset()
+    mockApplyWorkflowState.mockReset()
+    mockLoadWorkflowState.mockResolvedValue(BASE_WORKFLOW_STATE)
   })
 
   it('connects existing blocks without rewriting block internals', async () => {
@@ -94,12 +111,44 @@ describe('editWorkflowServerTool', () => {
       }),
     ])
     expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityName).toBe('Strategy Workflow')
     expect(result.entityDocument).not.toContain('%% TG_')
     expect(result.entityDocument).toContain('Compute Indicators')
+    expect(ToolResultSchemas.edit_workflow.parse(result)).toMatchObject({
+      entityName: 'Strategy Workflow',
+    })
+    expect(mockLoadWorkflowState).toHaveBeenCalledWith(
+      'wf-1',
+      { userId: 'user-1', accessLevel: 'limited' },
+      'write'
+    )
+  })
+
+  it('returns a valid applied result after full-access execution', async () => {
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+
+    expect(result.requiresReview).toBeUndefined()
+    expect(result.preview).toBeUndefined()
+    expect(result.entityName).toBe('Strategy Workflow')
+    expect(ToolResultSchemas.edit_workflow.parse(result)).toMatchObject({
+      entityName: 'Strategy Workflow',
+    })
+    expect(mockApplyWorkflowState).toHaveBeenCalledTimes(1)
   })
 
   it('re-lays out existing blocks when the graph direction changes', async () => {
-    mockLoadBaseWorkflowState.mockResolvedValueOnce({
+    mockLoadWorkflowState.mockResolvedValueOnce({
       ...BASE_WORKFLOW_STATE,
       direction: 'LR',
       blocks: {
@@ -189,7 +238,7 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('adds new blocks with canonical block defaults from metadata-only labels', async () => {
-    mockLoadBaseWorkflowState.mockResolvedValueOnce({
+    mockLoadWorkflowState.mockResolvedValueOnce({
       ...BASE_WORKFLOW_STATE,
       blocks: { input1: BASE_WORKFLOW_STATE.blocks.input1 },
     })
@@ -242,7 +291,7 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('preserves existing block absolute position when moving into a container', async () => {
-    mockLoadBaseWorkflowState.mockResolvedValueOnce({
+    mockLoadWorkflowState.mockResolvedValueOnce({
       ...BASE_WORKFLOW_STATE,
       blocks: {
         fn1: {
@@ -316,7 +365,7 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('removes omitted blocks only when removedBlockIds declares intent', async () => {
-    mockLoadBaseWorkflowState.mockResolvedValueOnce({
+    mockLoadWorkflowState.mockResolvedValueOnce({
       ...BASE_WORKFLOW_STATE,
       blocks: {
         input1: BASE_WORKFLOW_STATE.blocks.input1,

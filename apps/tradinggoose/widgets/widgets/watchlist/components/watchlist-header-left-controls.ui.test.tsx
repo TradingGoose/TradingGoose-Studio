@@ -7,11 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WatchlistHeaderLeftControls } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
-const mockEmitWatchlistParamsChange = vi.fn()
-
-vi.mock('@/widgets/utils/watchlist-params', () => ({
-  emitWatchlistParamsChange: (...args: unknown[]) => mockEmitWatchlistParamsChange(...args),
-}))
+const mockPatchWidgetParams = vi.fn()
 
 vi.mock('@/components/market-selector/provider-controls', () => ({
   MarketProviderControls: (props: {
@@ -46,6 +42,12 @@ vi.mock('@/components/market-selector/provider-controls', () => ({
 vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
+}))
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -83,6 +85,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'yahoo-finance' },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })
@@ -102,6 +105,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'alpaca' },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })
@@ -121,6 +125,7 @@ describe('WatchlistHeaderLeftControls', () => {
               params: { provider: 'alpaca', providerParams: { feed: 'sip' } },
             } as any
           }
+          canEditWidgetParams
         />
       )
     })
@@ -133,17 +138,12 @@ describe('WatchlistHeaderLeftControls', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(mockEmitWatchlistParamsChange).toHaveBeenCalledTimes(1)
-    expect(mockEmitWatchlistParamsChange).toHaveBeenCalledWith({
-      params: {
-        providerParams: { feed: 'iex' },
-        auth: { apiKey: '{{ ALPACA_API_KEY }}' },
-        runtime: {
-          refreshAt: expect.any(Number),
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      providerParams: { feed: 'iex' },
+      auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+      runtime: {
+        refreshAt: expect.any(Number),
       },
-      panelId: 'panel-7',
-      widgetKey: 'watchlist-widget',
     })
   })
 })

@@ -316,6 +316,7 @@ export function useUserInputMentions({
         entityKind: item.entityKind,
         entityId: item.id,
         workspaceId,
+        ownerUserId: item.ownerUserId,
         label,
       }),
       insertion
@@ -432,9 +433,10 @@ export function useUserInputMentions({
   const openMentionSubmenu = (submenu: MentionSubmenu) => {
     resetActiveMentionQuery()
     setOpenSubmenuFor(submenu)
+    setInAggregated(false)
     setSubmenuActiveIndex(0)
     setSubmenuQueryStart(getCaretPos())
-    void ensureSubmenuLoaded(submenu)
+    requestAnimationFrame(() => scrollActiveItemIntoView(0))
   }
 
   const handleMainMentionOptionSelect = (option: MentionOption) => {
@@ -855,13 +857,9 @@ export function useUserInputMentions({
   }, [message])
 
   useEffect(() => {
-    if (!showMentionMenu) {
-      setInAggregated(false)
-      return
-    }
+    if (!showMentionMenu) return
 
     if (openSubmenuFor) {
-      setInAggregated(false)
       void ensureSubmenuLoaded(openSubmenuFor)
       return
     }
@@ -877,14 +875,6 @@ export function useUserInputMentions({
       requestAnimationFrame(() => scrollActiveItemIntoView(0))
     }
   }, [showMentionMenu, openSubmenuFor, message, locale, ensureSubmenuLoaded])
-
-  useEffect(() => {
-    if (openSubmenuFor) {
-      setInAggregated(false)
-      setSubmenuActiveIndex(0)
-      requestAnimationFrame(() => scrollActiveItemIntoView(0))
-    }
-  }, [openSubmenuFor])
 
   return {
     aggregatedActive,

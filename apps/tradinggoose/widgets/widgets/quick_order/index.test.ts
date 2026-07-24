@@ -7,7 +7,7 @@ describe('quick order widget registry', () => {
     expect(getWidgetDefinition('quick_order')).toMatchObject({
       key: 'quick_order',
       title: 'Quick Order',
-      description: 'Manual broker order entry for the selected trading account.',
+      description: 'Place quick trading orders.',
     })
   })
 })

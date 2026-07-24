@@ -6,8 +6,8 @@
  */
 
 // Import the main LineToolCircle class
-import { LineToolCircle } from './model/LineToolCircle';
+import { LineToolCircle } from './model/LineToolCircle'
 
 // Re-export the LineToolCircle class to make it available
 // for external modules (like the core line tools plugin)
-export { LineToolCircle };
+export { LineToolCircle }

@@ -20,8 +20,6 @@ import {
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -32,7 +30,6 @@ interface WorkflowDropdownProps {
   onChange?: (workflowId: string, workflow?: WorkflowDropdownOption) => void
   disabled?: boolean
   placeholder?: string
-  pairColor?: PairColor
   align?: 'start' | 'end'
   triggerClassName?: string
   menuClassName?: string
@@ -53,18 +50,13 @@ export function WorkflowDropdown({
   onChange,
   disabled = false,
   placeholder,
-  pairColor,
   align = 'start',
   triggerClassName,
   menuClassName,
 }: WorkflowDropdownProps) {
   const copy = useWorkflowDropdownMessages()
   const [searchQuery, setSearchQuery] = useState('')
-  const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
-  const isPairContextActive = resolvedPairColor !== 'gray'
   const { members, error, isLoading } = useEntityList('workflow', workspaceId)
-
-  const setPairContext = useSetPairColorContext()
 
   const workspaceWorkflows = useMemo<WorkflowDropdownOption[]>(() => {
     if (!workspaceId) return []
@@ -101,10 +93,6 @@ export function WorkflowDropdown({
   const handleSelect = (workflow: WorkflowDropdownOption) => {
     if (!workflow) {
       return
-    }
-
-    if (isPairContextActive) {
-      setPairContext(resolvedPairColor, { workflowId: workflow.id })
     }
 
     onChange?.(workflow.id, workflow)

@@ -1,54 +1,36 @@
 'use client'
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
-import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useMessages } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { MCP_EDITOR_ACTION_EVENT, type McpEditorActionEventDetail } from '@/widgets/events'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
-import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
-import { readEntitySelectionState, resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityId } from '@/widgets/widget-contracts'
+import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
+import { mcpEditorWidgetContract } from '@/widgets/widgets/editor_mcp/contract'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
 
 const McpEditorSelector = ({
   workspaceId,
-  panelId,
   params,
-  pairColor = 'gray',
-  widgetKey,
 }: {
   workspaceId?: string | null
-  panelId?: string
   params?: Record<string, unknown> | null
-  pairColor?: PairColor
-  widgetKey?: string
 }) => {
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const copy = useMessages().workspace.widgets.mcpEditor
 
   const resolvedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
 
   const handleServerChange = (nextServerId: string | null) => {
-    if (isLinkedToColorPair) {
-      if (pairContext?.mcpServerId === nextServerId) return
-      setPairContext(resolvedPairColor, { mcpServerId: nextServerId })
-      return
-    }
-
-    emitMcpSelectionChange({
-      serverId: nextServerId,
-      panelId,
-      widgetKey: widgetKey ?? 'editor_mcp',
-    })
+    actions.patchWidgetLinkedParams?.({ mcpServerId: nextServerId })
   }
 
   return (
@@ -66,27 +48,19 @@ const McpEditorHeaderActions = ({
   workspaceId,
   panelId,
   params,
-  pairColor = 'gray',
   widgetKey,
 }: {
   workspaceId?: string | null
   panelId?: string
   params?: Record<string, unknown> | null
-  pairColor?: PairColor
   widgetKey?: string
 }) => {
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const pairContext = usePairColorContext(resolvedPairColor)
   const copy = useMessages().workspace.widgets.mcpEditor
-  const selectionState = readEntitySelectionState({
-    params,
-    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
-    entityIdKey: 'mcpServerId',
-  })
-  const hasSelection = !!selectionState.selectedEntityId
+  const { canEdit: canEditEntity } = useUserPermissionsContext()
+  const hasSelection = !!resolveEntityId('mcpServerId', { params })
 
   const emitAction = (action: 'save' | 'refresh' | 'close' | 'reset' | 'test') => {
-    emitMcpEditorAction({
+    emitEditorAction<McpEditorActionEventDetail>(MCP_EDITOR_ACTION_EVENT, {
       action,
       panelId,
       widgetKey,
@@ -100,7 +74,7 @@ const McpEditorHeaderActions = ({
         label={copy.refreshTools}
         icon={RefreshCw}
         onClick={() => emitAction('refresh')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
@@ -108,7 +82,7 @@ const McpEditorHeaderActions = ({
         label={copy.testConnection}
         icon={Play}
         onClick={() => emitAction('test')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
@@ -116,7 +90,7 @@ const McpEditorHeaderActions = ({
         label={copy.resetForm}
         icon={RotateCcw}
         onClick={() => emitAction('reset')}
-        disabled={!hasSelection}
+        disabled={!canEditEntity || !hasSelection}
         variant='secondary'
       />
       <EntityEditorHeaderButton
@@ -124,7 +98,7 @@ const McpEditorHeaderActions = ({
         label={copy.saveServer}
         icon={Save}
         onClick={() => emitAction('save')}
-        disabled={!workspaceId || !hasSelection}
+        disabled={!canEditEntity || !workspaceId || !hasSelection}
         variant='default'
       />
       <EntityEditorHeaderButton
@@ -140,11 +114,8 @@ const McpEditorHeaderActions = ({
 }
 
 export const editorMcpWidget: DashboardWidgetDefinition = {
-  key: 'editor_mcp',
-  title: 'MCP Editor',
+  contract: mcpEditorWidgetContract,
   icon: Server,
-  category: 'editor',
-  description: 'Inspect, edit, test, and refresh a selected MCP server.',
   component: (props) => <EditorMcpWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =
@@ -153,21 +124,12 @@ export const editorMcpWidget: DashboardWidgetDefinition = {
         : null
 
     return {
-      center: (
-        <McpEditorSelector
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          params={params}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
-        />
-      ),
+      center: <McpEditorSelector workspaceId={context?.workspaceId} params={params} />,
       right: (
         <McpEditorHeaderActions
           workspaceId={context?.workspaceId}
           panelId={panelId}
           params={params}
-          pairColor={widget?.pairColor}
           widgetKey={widget?.key}
         />
       ),

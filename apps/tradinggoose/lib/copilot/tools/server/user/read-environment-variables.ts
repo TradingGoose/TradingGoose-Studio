@@ -4,9 +4,9 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { requireUserId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 type ReadEnvironmentVariablesParams =
   | { scope: 'personal' }
@@ -23,21 +23,13 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
   ): Promise<any> {
     const logger = createLogger('ReadEnvironmentVariablesServerTool')
 
-    if (!context?.userId) {
-      throw new Error('Authentication required')
-    }
-
-    const userId = context.userId
     const scopedContext =
       params.scope === 'workspace' ? withWorkspaceArgContext(context, params) : context
-    const workspaceId = params.scope === 'workspace' ? scopedContext?.workspaceId : undefined
-    if (params.scope === 'workspace') {
-      if (!workspaceId) throw new Error('workspaceId is required')
-      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-      if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-        throw new Error('Access denied: You do not have permission to use this workspace')
-      }
-    }
+    const scope =
+      params.scope === 'workspace'
+        ? await verifyWorkspaceContext(scopedContext, 'read')
+        : { userId: requireUserId(context), workspaceId: undefined }
+    const { userId, workspaceId } = scope
 
     logger.info('Reading environment variables for authenticated user', {
       userId,

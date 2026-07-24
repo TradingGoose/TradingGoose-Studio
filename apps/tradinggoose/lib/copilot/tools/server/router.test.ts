@@ -7,10 +7,12 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
+import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 
 const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
   entityId: 'workflow-123',
+  entityName: 'Workflow 1',
   entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
   documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
   workflowState: { blocks: {} },
@@ -49,8 +51,8 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   scope: 'workspace',
   message: 'ok',
 }))
+const searchListingExecute = vi.fn(async () => ({ results: [] }))
 const noopEntityExecute = vi.fn(async () => ({}))
-const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
 
@@ -88,6 +90,12 @@ vi.mock('@/lib/copilot/tools/server/docs/search-documentation', () => ({
   searchDocumentationServerTool: {
     name: 'search_documentation',
     execute: vi.fn(async () => ({ results: [] })),
+  },
+}))
+vi.mock('@/lib/copilot/tools/server/listing/search-listing', () => ({
+  searchListingServerTool: {
+    name: 'search_listing',
+    execute: searchListingExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/gdrive/list-files', () => ({
@@ -155,34 +163,44 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
 vi.mock('@/lib/copilot/tools/server/entities', () => ({
   createCustomToolServerTool: entityTool('create_custom_tool'),
   createIndicatorServerTool: entityTool('create_indicator'),
+  createLayoutServerTool: entityTool('create_layout'),
   createMcpServerServerTool: entityTool('create_mcp_server'),
   createSkillServerTool: entityTool('create_skill'),
+  createWatchlistServerTool: entityTool('create_watchlist'),
   createWorkflowServerTool: entityTool('create_workflow'),
   editCustomToolServerTool: entityTool('edit_custom_tool'),
   editIndicatorServerTool: entityTool('edit_indicator'),
   editMcpServerServerTool: entityTool('edit_mcp_server'),
   editSkillServerTool: entityTool('edit_skill'),
-  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
-  editWorkflowServerTool: entityTool('edit_workflow', editWorkflowExecute),
+  editWatchlistServerTool: entityTool('edit_watchlist'),
   editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
   listCustomToolsServerTool: entityTool('list_custom_tools'),
   listIndicatorsServerTool: entityTool('list_indicators'),
+  listLayoutsServerTool: entityTool('list_layout'),
   listMcpServersServerTool: entityTool('list_mcp_servers'),
   listSkillsServerTool: entityTool('list_skills'),
+  listWatchlistsServerTool: entityTool('list_watchlist'),
   listWorkflowsServerTool: entityTool('list_workflows'),
   readCustomToolServerTool: entityTool('read_custom_tool'),
   readIndicatorServerTool: entityTool('read_indicator'),
+  readLayoutServerTool: entityTool('read_layout'),
+  renameLayoutServerTool: entityTool('rename_layout'),
   readMcpServerServerTool: entityTool('read_mcp_server'),
   readSkillServerTool: entityTool('read_skill'),
+  readWatchlistServerTool: entityTool('read_watchlist'),
   readWorkflowServerTool: entityTool('read_workflow'),
   renameCustomToolServerTool: entityTool('rename_custom_tool'),
   renameIndicatorServerTool: entityTool('rename_indicator'),
   renameMcpServerServerTool: entityTool('rename_mcp_server'),
   renameSkillServerTool: entityTool('rename_skill'),
+  renameWatchlistServerTool: entityTool('rename_watchlist'),
   renameWorkflowServerTool: entityTool('rename_workflow'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },
+}))
+vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow-block', () => ({
+  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
   readWorkflowLogsServerTool: {
@@ -190,18 +208,17 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
-vi.mock('@/lib/permissions/utils', () => ({
-  checkWorkspaceAccess,
-}))
-
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
 let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
+let isWorkspaceAgnosticServerTool: typeof import('@/lib/copilot/tools/server/router').isWorkspaceAgnosticServerTool
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
   ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
-  ;({ getMcpServerToolIds, routeExecution } = await import('@/lib/copilot/tools/server/router'))
+  ;({ getMcpServerToolIds, isWorkspaceAgnosticServerTool, routeExecution } = await import(
+    '@/lib/copilot/tools/server/router'
+  ))
 }, 30000)
 
 beforeEach(() => {
@@ -216,14 +233,8 @@ beforeEach(() => {
   readEnvironmentVariablesExecute.mockClear()
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
+  searchListingExecute.mockClear()
   noopEntityExecute.mockClear()
-  checkWorkspaceAccess.mockReset()
-  checkWorkspaceAccess.mockResolvedValue({
-    exists: true,
-    hasAccess: true,
-    canWrite: true,
-    workspace: { id: 'workspace-1' },
-  })
 })
 
 describe('copilot contract registry', () => {
@@ -242,6 +253,24 @@ describe('copilot contract registry', () => {
     expect(getMcpServerToolIds()).toContain('edit_workflow')
     expect(getMcpServerToolIds()).toContain('set_environment_variables')
     expect(getMcpServerToolIds()).toContain('create_mcp_server')
+    expect(getMcpServerToolIds()).toEqual(
+      expect.arrayContaining([
+        'list_watchlist',
+        'read_watchlist',
+        'create_watchlist',
+        'edit_watchlist',
+        'rename_watchlist',
+        'search_listing',
+        'list_layout',
+        'read_layout',
+        'create_layout',
+        'edit_layout',
+        'rename_layout',
+        'edit_widget',
+        'get_available_widgets',
+        'get_widgets_metadata',
+      ])
+    )
     expect(getMcpServerToolIds()).toContain('get_available_blocks')
     expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
@@ -292,6 +321,7 @@ describe('copilot contract registry', () => {
     const workflowReadResult = {
       entityKind: 'workflow',
       entityId: 'workflow-123',
+      entityName: 'Workflow 1',
       entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
@@ -348,6 +378,52 @@ describe('copilot contract registry', () => {
     })
   })
 
+  it('uses one aggregate layout document result for reads and both edit tools', () => {
+    const envelope = {
+      entityKind: 'dashboard_layout' as const,
+      entityId: 'layout-1',
+      entityName: 'Layout 1',
+      workspaceId: 'workspace-1',
+      ownerUserId: 'user-1',
+      documentFormat: DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
+      entityDocument: JSON.stringify({ layout: {}, widgets: {}, colorPairs: { pairs: [] } }),
+    }
+
+    expect(getToolContract('read_layout')?.result.parse(envelope)).toEqual(envelope)
+    expect(getToolContract('create_layout')?.result.parse({ success: true, ...envelope })).toEqual({
+      success: true,
+      ...envelope,
+    })
+    expect(() =>
+      getToolContract('create_layout')?.result.parse({
+        success: true,
+        entityKind: 'dashboard_layout',
+        entityId: 'layout-1',
+        entityName: 'Layout 1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+      })
+    ).toThrow()
+    for (const toolName of ['edit_layout', 'edit_widget'] as const) {
+      expect(getToolContract(toolName)?.result.parse({ success: true, ...envelope })).toEqual({
+        success: true,
+        ...envelope,
+      })
+    }
+  })
+
+  it('accepts the canonical workflow rename result', () => {
+    const result = {
+      success: true,
+      entityKind: 'workflow',
+      entityId: 'workflow-123',
+      entityName: 'Renamed Workflow',
+      workspaceId: 'workspace-123',
+    }
+
+    expect(getToolContract('rename_workflow')?.result.parse(result)).toEqual(result)
+  })
+
   it('accepts explicit entity ids on workflow execution tools', () => {
     expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
     expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
@@ -376,9 +452,9 @@ describe('copilot contract registry', () => {
     })
   })
 
-  it('exposes knowledge base document contracts without the legacy operation wrapper', () => {
+  it('exposes knowledge base document contracts directly', () => {
     const entityDocument =
-      '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
+      '{"description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
     const mutationArgs = {
       entityId: 'kb-123',
       entityDocument,
@@ -403,18 +479,23 @@ describe('copilot contract registry', () => {
     expect(
       getToolContract('create_knowledge_base')?.args.parse({
         workspaceId: 'workspace-123',
+        name: 'Research',
         entityDocument,
         documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
       })
     ).toEqual({
       workspaceId: 'workspace-123',
+      name: 'Research',
       entityDocument,
       documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
     })
-    expect(getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toEqual(mutationArgs)
-    expect(() =>
-      getToolContract('rename_knowledge_base')?.args.parse({ entityId: 'kb-123', name: 'Research' })
-    ).toThrow()
+    expect(
+      getToolContract('rename_knowledge_base')?.args.parse({
+        entityId: 'kb-123',
+        name: 'Research',
+      })
+    ).toEqual({ entityId: 'kb-123', name: 'Research' })
+    expect(() => getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toThrow()
     expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
     expect(
       getToolContract('edit_knowledge_base')?.result.parse({
@@ -449,6 +530,13 @@ describe('copilot contract registry', () => {
 })
 
 describe('routeExecution', () => {
+  it('identifies workspace-agnostic server tools from arbitrary strings', () => {
+    expect(isWorkspaceAgnosticServerTool('search_listing')).toBe(true)
+    expect(isWorkspaceAgnosticServerTool('search_documentation')).toBe(true)
+    expect(isWorkspaceAgnosticServerTool('list_watchlist')).toBe(false)
+    expect(isWorkspaceAgnosticServerTool('not_a_tool')).toBe(false)
+  })
+
   it('stops aborted server tool execution before invoking the tool', async () => {
     const controller = new AbortController()
     controller.abort()
@@ -477,26 +565,6 @@ describe('routeExecution', () => {
     })
   })
 
-  it('rejects inaccessible workspace context before invoking the tool', async () => {
-    checkWorkspaceAccess.mockResolvedValueOnce({
-      exists: true,
-      hasAccess: false,
-      canWrite: false,
-      workspace: { id: 'workspace-denied' },
-    })
-
-    await expect(
-      routeExecution(
-        'list_workflows',
-        { workspaceId: 'workspace-denied' },
-        { userId: 'user-1', accessLevel: 'full' }
-      )
-    ).rejects.toThrow('Access denied: You do not have permission to use this workspace')
-
-    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-denied', 'user-1')
-    expect(noopEntityExecute).not.toHaveBeenCalled()
-  })
-
   it('routes indicator catalog requests through the central contract', async () => {
     await expect(
       routeExecution('get_indicator_catalog', { query: 'input', includeItems: true })
@@ -509,6 +577,31 @@ describe('routeExecution', () => {
     expect(getIndicatorCatalogExecute).toHaveBeenCalledWith(
       { query: 'input', includeItems: true },
       undefined
+    )
+  })
+
+  it('routes listing search without workspace inheritance or workspace access checks', async () => {
+    await expect(
+      routeExecution(
+        'search_listing',
+        { query: 'AAPL' },
+        {
+          userId: 'user-1',
+          workspaceId: 'workspace-1',
+          contextEntityKind: 'watchlist',
+          contextEntityId: 'watchlist-1',
+        }
+      )
+    ).resolves.toEqual({ results: [] })
+
+    expect(searchListingExecute).toHaveBeenCalledWith(
+      { query: 'AAPL' },
+      {
+        userId: 'user-1',
+        accessLevel: undefined,
+        acceptedReviewBaseStateHash: undefined,
+        signal: undefined,
+      }
     )
   })
 
@@ -554,6 +647,7 @@ describe('routeExecution', () => {
     await expect(routeExecution('edit_workflow', payload)).resolves.toMatchObject({
       entityKind: 'workflow',
       entityId: 'workflow-123',
+      entityName: 'Workflow 1',
       entityDocument: expect.any(String),
       documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
@@ -567,12 +661,13 @@ describe('routeExecution', () => {
       limit: 5,
       includeDetails: false,
     }
+    const context = { userId: 'user-1', apiKeyType: 'personal' as const }
 
-    await expect(routeExecution('read_workflow_logs', payload)).resolves.toMatchObject({
+    await expect(routeExecution('read_workflow_logs', payload, context)).resolves.toMatchObject({
       entries: expect.any(Array),
     })
 
-    expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
+    expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, context)
   })
 
   it('injects hosted workspace context for workspace-scoped writes', async () => {

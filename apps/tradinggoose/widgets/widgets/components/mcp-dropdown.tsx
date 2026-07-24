@@ -18,12 +18,12 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
-const MCP_ICON_COLOR = '#64748b'
 
 interface McpDropdownProps {
   workspaceId?: string | null
@@ -160,6 +160,7 @@ export function McpDropdown({
       <div className='flex flex-col gap-1'>
         {filteredServers.map((server) => {
           const isSelected = server.id === selectedServerId
+          const iconColor = getEntityIconColor(server.id)
 
           return (
             <DropdownMenuItem
@@ -174,13 +175,13 @@ export function McpDropdown({
               <div className='flex min-w-0 items-center gap-2'>
                 <span
                   className='h-5 w-5 rounded-xs p-0.5'
-                  style={{ backgroundColor: `${MCP_ICON_COLOR}20` }}
+                  style={{ backgroundColor: `${iconColor}20` }}
                   aria-hidden='true'
                 >
                   <Server
                     className='h-full w-full'
                     aria-hidden='true'
-                    style={{ color: MCP_ICON_COLOR }}
+                    style={{ color: iconColor }}
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
@@ -197,13 +198,14 @@ export function McpDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const selectedIconColor = getEntityIconColor(selectedServerId)
   const iconBadge = (
     <span
       className='h-5 w-5 rounded-xs p-0.5'
-      style={{ backgroundColor: `${MCP_ICON_COLOR}20` }}
+      style={{ backgroundColor: `${selectedIconColor}20` }}
       aria-hidden='true'
     >
-      <Server className='h-full w-full' aria-hidden='true' style={{ color: MCP_ICON_COLOR }} />
+      <Server className='h-full w-full' aria-hidden='true' style={{ color: selectedIconColor }} />
     </span>
   )
   const labelContent = selectedServer ? (

@@ -5,19 +5,24 @@ import { useLocale } from 'next-intl'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { InputMetaMap } from '@/lib/indicators/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useSocket } from '@/contexts/socket-context'
-import { useIndicators } from '@/hooks/queries/indicators'
 import type { MarketSessionWindow } from '@/providers/market/types'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useDataChartParamsPersistence } from '@/widgets/utils/chart-params'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
+import {
+  CustomIndicatorDocumentConnections,
+  getCustomIndicatorConnectionKey,
+} from '@/widgets/widgets/data_chart/components/custom-indicator-document-connections'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'
 import { DataChartFooter } from '@/widgets/widgets/data_chart/components/footer'
 import { IndicatorSettingsModal } from '@/widgets/widgets/data_chart/components/indicator-settings-modal'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
+import {
+  formatDataChartIntervalLabel,
+  useWorkspaceWidgetsCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import { useChartDataLoader } from '@/widgets/widgets/data_chart/hooks/use-chart-data-loader'
-import { useChartDefaults } from '@/widgets/widgets/data_chart/hooks/use-chart-defaults'
 import { useChartInstance } from '@/widgets/widgets/data_chart/hooks/use-chart-instance'
 import { useChartLegend } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
 import { useChartStyles } from '@/widgets/widgets/data_chart/hooks/use-chart-styles'
@@ -29,17 +34,12 @@ import { useListingState } from '@/widgets/widgets/data_chart/hooks/use-listing-
 import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
-import {
-  formatDataChartIntervalLabel,
-  useWorkspaceWidgetsCopy,
-} from '@/widgets/widgets/data_chart/copy'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
 import type {
   DataChartDataContext,
-  DataChartWidgetParams,
-  dataChartWidgetParams,
+  IndicatorDocumentRuntimeSource,
   IndicatorRuntimeEntry,
 } from '@/widgets/widgets/data_chart/types'
 import {
@@ -53,31 +53,20 @@ const LEFT_OVERLAY_GAP_PX = 3
 const LEFT_OVERLAY_INSET_PX = DRAW_TOOLS_SIDEBAR_WIDTH_PX + LEFT_OVERLAY_GAP_PX
 const DRAW_TRACE_STORAGE_KEY = 'tg:data-chart:draw-trace'
 
-export const DataChartWidgetBody = ({
-  params,
-  context,
-  pairColor = 'gray',
-  panelId,
-  widget,
-  onWidgetParamsChange,
-}: WidgetComponentProps) => {
+export const DataChartWidgetBody = ({ params, context, panelId, widget }: WidgetComponentProps) => {
   const locale = useLocale()
   const widgetsCopy = useWorkspaceWidgetsCopy()
   const copy = widgetsCopy.dataChart
   const workspaceId = context?.workspaceId ?? null
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const pairContext = usePairColorContext(resolvedPairColor)
-  useDataChartParamsPersistence({ onWidgetParamsChange, panelId, widget, params })
 
   const dataParams = useMemo(() => {
     if (!params || typeof params !== 'object') return {}
-    return params as dataChartWidgetParams
+    return params as DataChartWidgetParams
   }, [params])
   const widgetKey = widget?.key ?? 'data_chart'
 
   const providerId = dataParams.data?.provider
-  const listingValue =
-    resolvedPairColor !== 'gray' ? (pairContext.listing ?? null) : (dataParams.listing ?? null)
+  const listingValue = dataParams.listing ?? null
   const seriesWindow = useMemo(
     () => resolveSeriesWindow(dataParams as DataChartWidgetParams, providerId),
     [providerId, dataParams.view?.interval, dataParams.view?.rangePresetId]
@@ -171,16 +160,6 @@ export const DataChartWidgetBody = ({
     [panelId, widgetKey, chartResetKey]
   )
 
-  useChartDefaults({
-    dataParams: dataParams as DataChartWidgetParams,
-    providerId,
-    seriesWindow,
-    onWidgetParamsChange,
-    resolvedPairColor,
-    panelId,
-    widgetKey,
-  })
-
   const intervalMs = intervalToMs(seriesWindow.interval ?? seriesWindow.requestInterval ?? null)
   dataContext.intervalMs = intervalMs
   dataContext.dataVersion = dataVersion
@@ -220,11 +199,34 @@ export const DataChartWidgetBody = ({
     errorCopy: copy.errors,
   })
 
-  const { data: pineIndicators = [] } = useIndicators(workspaceId ?? '')
   const pineIndicatorIds = useMemo(
     () => resolveIndicatorIds(dataParams.view),
     [dataParams.view?.pineIndicators]
   )
+  const { members: customIndicatorMembers } = useEntityList('indicator', workspaceId)
+  const [connectedCustomIndicators, setConnectedCustomIndicators] = useState(
+    () => new Map<string, IndicatorDocumentRuntimeSource>()
+  )
+  const handleCustomIndicatorChange = useCallback(
+    (key: string, indicator: IndicatorDocumentRuntimeSource | null) => {
+      setConnectedCustomIndicators((current) => {
+        const next = new Map(current)
+        if (indicator) next.set(key, indicator)
+        else next.delete(key)
+        return next
+      })
+    },
+    []
+  )
+  const pineIndicators = useMemo(() => {
+    if (!workspaceId) return []
+    return pineIndicatorIds.flatMap((id) => {
+      const indicator = connectedCustomIndicators.get(
+        getCustomIndicatorConnectionKey(workspaceId, id)
+      )
+      return indicator ? [indicator] : []
+    })
+  }, [connectedCustomIndicators, pineIndicatorIds, workspaceId])
   const pineIndicatorRefs = useMemo(
     () =>
       buildIndicatorRefs(
@@ -251,14 +253,15 @@ export const DataChartWidgetBody = ({
     const metaMap = new Map<string, { name: string; inputMeta?: InputMetaMap | null }>()
     pineIndicatorIds.forEach((id) => {
       const custom = customMap.get(id)
+      const customName = customIndicatorMembers.find((member) => member.entityId === id)?.entityName
       const fallback = DEFAULT_INDICATOR_MAP.get(id) ?? null
       metaMap.set(id, {
-        name: custom?.name ?? fallback?.name ?? id,
+        name: customName ?? fallback?.name ?? id,
         inputMeta: custom?.inputMeta ?? fallback?.inputMeta ?? undefined,
       })
     })
     return metaMap
-  }, [pineIndicators, pineIndicatorIds, widgetsCopy])
+  }, [customIndicatorMembers, pineIndicators, pineIndicatorIds])
 
   useIndicatorSync({
     chartRef,
@@ -398,7 +401,11 @@ export const DataChartWidgetBody = ({
       const isHidden = hiddenIndicators.has(indicatorId)
       entry.plots.forEach((plot) => {
         if (typeof (plot.series as { applyOptions?: unknown }).applyOptions === 'function') {
-          ;(plot.series as { applyOptions: (options: { visible: boolean }) => void }).applyOptions({
+          ;(
+            plot.series as {
+              applyOptions: (options: { visible: boolean }) => void
+            }
+          ).applyOptions({
             visible: !isHidden,
           })
         }
@@ -450,6 +457,12 @@ export const DataChartWidgetBody = ({
 
   return (
     <div className='relative flex h-full w-full flex-col'>
+      <CustomIndicatorDocumentConnections
+        workspaceId={workspaceId}
+        indicatorIds={pineIndicatorIds}
+        members={customIndicatorMembers}
+        onChange={handleCustomIndicatorChange}
+      />
       <div className='relative flex-1 overflow-hidden'>
         {!showEmptyState && !showErrorState && (
           <DrawToolsSidebar

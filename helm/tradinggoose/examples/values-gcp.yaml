@@ -34,7 +34,7 @@ app:
     # Generate using: openssl rand -hex 32
     BETTER_AUTH_SECRET: "your-secure-production-auth-secret-here"
     ENCRYPTION_KEY: "your-secure-production-encryption-key-here"
-    INTERNAL_API_SECRET: "your-secure-production-internal-api-secret-here"
+    INTERNAL_API_SECRET: ""
     CRON_SECRET: "your-secure-production-cron-secret-here"
 
     # API Key Encryption
@@ -51,7 +51,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 2
   
   # Node selector for realtime pods (customize based on your GKE node labels)
   nodeSelector:

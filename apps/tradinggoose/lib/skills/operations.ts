@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -9,12 +9,9 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  deleteYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -27,17 +24,7 @@ interface CreateSkillsParams {
   workspaceId: string
   userId: string
   requestId?: string
-}
-
-interface SaveSkillParams {
-  skill: {
-    id: string
-    name: string
-    description: string
-    content: string
-  }
-  workspaceId: string
-  requestId?: string
+  beforeInsert?: EntityListBeforeInsert
 }
 
 interface ImportSkillsParams {
@@ -49,39 +36,14 @@ interface ImportSkillsParams {
 
 export async function listSkills(params: { workspaceId: string }) {
   const entries = await readSavedEntityListFieldsForExecution('skill', params.workspaceId, false)
-  return entries.map(({ entityId, fields }) => ({
+  return entries.map(({ entityId, entityName, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
     userId: null,
-    name: String(fields.name ?? ''),
+    name: entityName,
     description: String(fields.description ?? ''),
     content: String(fields.content ?? ''),
   }))
-}
-
-export async function deleteSkill(params: {
-  skillId: string
-  workspaceId: string
-}): Promise<boolean> {
-  const [existingSkill] = await db
-    .select({ id: skill.id })
-    .from(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    .limit(1)
-
-  if (!existingSkill) {
-    return false
-  }
-
-  await db
-    .delete(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-
-  await refreshEntityListSession('skill', params.workspaceId)
-  await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])
-
-  logger.info(`Deleted skill ${params.skillId}`)
-  return true
 }
 
 export async function createSkills({
@@ -89,12 +51,15 @@ export async function createSkills({
   workspaceId,
   userId,
   requestId = generateRequestId(),
+  beforeInsert,
 }: CreateSkillsParams) {
   if (skills.length === 0) {
     return []
   }
 
   const created = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'skill', workspaceId)
+    await beforeInsert?.(tx)
     const existingSkills = await tx
       .select({
         id: skill.id,
@@ -141,29 +106,6 @@ export async function createSkills({
   return created
 }
 
-export async function saveSkill({
-  skill: currentSkill,
-  workspaceId,
-  requestId = generateRequestId(),
-}: SaveSkillParams) {
-  const [existingSkill] = await db
-    .select({ id: skill.id })
-    .from(skill)
-    .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
-    .limit(1)
-  if (!existingSkill) {
-    throw new Error(`Skill ${currentSkill.id} was not found`)
-  }
-
-  await applySavedEntityState('skill', currentSkill.id, {
-    name: currentSkill.name,
-    description: currentSkill.description,
-    content: currentSkill.content,
-  })
-  logger.info(`[${requestId}] Saved skill ${currentSkill.id}`)
-  return listSkills({ workspaceId })
-}
-
 export async function importSkills({
   skills,
   workspaceId,
@@ -171,6 +113,7 @@ export async function importSkills({
   requestId = generateRequestId(),
 }: ImportSkillsParams) {
   const result = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'skill', workspaceId)
     const existingNames = await tx
       .select({ name: skill.name })
       .from(skill)

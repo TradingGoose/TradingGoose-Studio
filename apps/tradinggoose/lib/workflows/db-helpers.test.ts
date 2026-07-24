@@ -140,8 +140,6 @@ function buildWorkflowSnapshotResponse(update: Uint8Array) {
     },
     runtime: {
       docState: 'active' as const,
-      replaySafe: true,
-      reseededFromCanonical: false,
     },
   }
 }
@@ -1110,8 +1108,6 @@ describe('Database Helpers', () => {
         },
         runtime: {
           docState: 'expired',
-          replaySafe: false,
-          reseededFromCanonical: false,
         },
       })
 

@@ -3,6 +3,7 @@ import {
   copilotReviewItems,
   copilotReviewSessions,
   document,
+  knowledgeBase,
   permissions,
   workflow,
   workflowExecutionLogs,
@@ -20,7 +21,6 @@ import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
   ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
@@ -30,7 +30,7 @@ import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-export type AgentContextType =
+type AgentContextType =
   | 'past_chat'
   | 'workflow'
   | 'current_workflow'
@@ -42,15 +42,19 @@ export type AgentContextType =
   | 'current_custom_tool'
   | 'mcp_server'
   | 'current_mcp_server'
+  | 'watchlist'
+  | 'current_watchlist'
+  | 'dashboard_layout'
+  | 'current_dashboard_layout'
   | 'blocks'
   | 'logs'
   | 'knowledge'
   | 'workflow_block'
   | 'docs'
 
-export interface AgentContext {
+interface AgentContext {
   type: AgentContextType
-  tag: string
+  tag?: string
   content: string
 }
 
@@ -68,26 +72,11 @@ export async function processContextsServer(
     try {
       const entityContext = readCopilotWorkspaceEntityContext(ctx)
       if (entityContext?.entityId) {
-        const tag = ctx.label ? `@${ctx.label}` : '@'
-        const entityKind = entityContext.entityKind
-
-        if (entityKind === 'workflow') {
-          return await processWorkflowContext({
-            workflowId: entityContext.entityId,
-            userId,
-            tag,
-            kind: entityContext.current ? 'current_workflow' : 'workflow',
-          })
+        return {
+          type: ctx.kind as AgentContextType,
+          tag: `@${entityContext.entityId}`,
+          content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
         }
-
-        return await processEntityContext({
-          contextKind: ctx.kind as Parameters<typeof processEntityContext>[0]['contextKind'],
-          entityKind,
-          entityId: entityContext.entityId,
-          userId,
-          workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
-          tag,
-        })
       }
 
       if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
@@ -119,19 +108,14 @@ export async function processContextsServer(
         return await processWorkflowBlockContext(ctx.workflowId, ctx.blockId, userId, ctx.label)
       }
       if (ctx.kind === 'docs') {
-        try {
-          const { searchDocumentationServerTool } = await import(
-            '@/lib/copilot/tools/server/docs/search-documentation'
-          )
-          const rawQuery = (userMessage || '').trim() || ctx.label || 'TradingGoose Documentation'
-          const query = sanitizeMessageForDocs(rawQuery, contexts)
-          const res = await searchDocumentationServerTool.execute({ query, topK: 10 })
-          const content = JSON.stringify(res?.results || [])
-          return { type: 'docs', tag: ctx.label ? `@${ctx.label}` : '@', content }
-        } catch (e) {
-          logger.error('Failed to process docs context', e)
-          return null
-        }
+        const { searchDocumentationServerTool } = await import(
+          '@/lib/copilot/tools/server/docs/search-documentation'
+        )
+        const rawQuery = (userMessage || '').trim() || ctx.label || 'TradingGoose Documentation'
+        const query = sanitizeMessageForDocs(rawQuery, contexts)
+        const res = await searchDocumentationServerTool.execute({ query, topK: 10 })
+        const content = JSON.stringify(res?.results || [])
+        return { type: 'docs', tag: ctx.label ? `@${ctx.label}` : '@', content }
       }
       return null
     } catch (error) {
@@ -151,72 +135,6 @@ export async function processContextsServer(
   return filtered
 }
 
-async function processEntityContext(params: {
-  contextKind:
-    | 'skill'
-    | 'current_skill'
-    | 'indicator'
-    | 'current_indicator'
-    | 'custom_tool'
-    | 'current_custom_tool'
-    | 'mcp_server'
-    | 'current_mcp_server'
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
-  entityId: string
-  userId: string
-  workspaceId: string | null
-  tag: string
-}): Promise<AgentContext | null> {
-  try {
-    const access = await verifyReviewTargetAccess(
-      params.userId,
-      buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId),
-      'read'
-    )
-    if (!access.hasAccess || !access.workspaceId) {
-      logger.warn('Skipping unauthorized copilot entity context', {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-        userId: params.userId,
-      })
-      return null
-    }
-
-    const fields = await readBootstrappedSavedEntityFields(
-      params.entityKind,
-      params.entityId,
-      access.workspaceId
-    )
-
-    return {
-      type: params.contextKind,
-      tag: params.tag,
-      content: JSON.stringify(
-        serializeEntityContext(params.entityKind, {
-          id: params.entityId,
-          workspaceId: access.workspaceId,
-          ...fields,
-        }),
-        null,
-        2
-      ),
-    }
-  } catch (error) {
-    // Only a genuinely missing entity degrades to "no context"; realtime
-    // failures must surface instead of silently omitting attached context.
-    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-      logger.warn('Skipping missing copilot entity context', {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-      })
-      return null
-    }
-    throw error
-  }
-}
-
 async function readBootstrappedCopilotYjsDoc<T>(
   descriptor: Parameters<typeof readBootstrappedReviewTargetSnapshot>[0],
   read: (doc: Y.Doc) => T
@@ -232,72 +150,6 @@ async function readBootstrappedCopilotYjsDoc<T>(
     return read(doc)
   } finally {
     doc.destroy()
-  }
-}
-
-function parseStructuredTextField(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value ?? null
-  }
-
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
-}
-
-function serializeEntityContext(
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
-  row: Record<string, unknown>
-) {
-  switch (entityKind) {
-    case 'skill':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        description: row.description ?? null,
-        content: row.content ?? null,
-      }
-    case 'indicator':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        color: row.color ?? null,
-        pineCode: row.pineCode ?? null,
-      }
-    case 'custom_tool':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        title: row.title ?? null,
-        schema: parseStructuredTextField(row.schemaText ?? row.schema),
-        code: row.codeText ?? row.code ?? null,
-      }
-    case 'mcp_server':
-      return {
-        id: row.id ?? null,
-        workspaceId: row.workspaceId ?? null,
-        name: row.name ?? null,
-        description: row.description ?? null,
-        transport: row.transport ?? null,
-        url: row.url ?? null,
-        command: row.command ?? null,
-        args: Array.isArray(row.args) ? row.args : [],
-        headerKeys:
-          row.headers && typeof row.headers === 'object'
-            ? Object.keys(row.headers as Record<string, unknown>)
-            : [],
-        envKeys:
-          row.env && typeof row.env === 'object'
-            ? Object.keys(row.env as Record<string, unknown>)
-            : [],
-        timeout: row.timeout ?? null,
-        retries: row.retries ?? null,
-        enabled: row.enabled ?? null,
-      }
   }
 }
 
@@ -419,44 +271,6 @@ async function processPastChatContext(
   }
 }
 
-async function processWorkflowContext({
-  workflowId,
-  userId,
-  tag,
-  kind,
-}: {
-  workflowId: string
-  userId: string
-  tag: string
-  kind: 'workflow' | 'current_workflow'
-}): Promise<AgentContext | null> {
-  try {
-    const workflowState = await readCopilotWorkflowStateFromYjs(workflowId, userId)
-    if (!workflowState) {
-      return null
-    }
-
-    // Sanitize workflow state for copilot (remove UI-specific data like positions)
-    const sanitizedState = sanitizeForCopilot({
-      blocks: workflowState.blocks || {},
-      edges: workflowState.edges || [],
-      loops: workflowState.loops || {},
-      parallels: workflowState.parallels || {},
-    })
-    // Match read-workflow format: just the workflow state JSON
-    const content = JSON.stringify(sanitizedState, null, 2)
-    logger.info('Processed sanitized workflow context', {
-      workflowId,
-      blocks: Object.keys(sanitizedState.blocks || {}).length,
-    })
-    // Use the provided kind for the type
-    return { type: kind, tag, content }
-  } catch (error) {
-    logger.error('Error processing workflow context', { workflowId, error })
-    return null
-  }
-}
-
 async function processKnowledgeContext(
   knowledgeBaseId: string,
   userId: string,
@@ -484,17 +298,30 @@ async function processKnowledgeContext(
       access.workspaceId
     )
 
-    const docRows = await db
-      .select({ filename: document.filename })
-      .from(document)
-      .where(and(eq(document.knowledgeBaseId, knowledgeBaseId), isNull(document.deletedAt)))
-      .limit(20)
+    const [[identity], docRows] = await Promise.all([
+      db
+        .select({ name: knowledgeBase.name })
+        .from(knowledgeBase)
+        .where(
+          and(
+            eq(knowledgeBase.id, knowledgeBaseId),
+            eq(knowledgeBase.workspaceId, access.workspaceId)
+          )
+        )
+        .limit(1),
+      db
+        .select({ filename: document.filename })
+        .from(document)
+        .where(and(eq(document.knowledgeBaseId, knowledgeBaseId), isNull(document.deletedAt)))
+        .limit(20),
+    ])
+    if (!identity) return null
 
     const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
     const summary = {
       id: knowledgeBaseId,
       workspaceId: access.workspaceId,
-      name: fields.name ?? null,
+      name: identity.name,
       description: fields.description ?? null,
       chunkingConfig: fields.chunkingConfig ?? null,
       docCount: sampleDocuments.length,
@@ -580,6 +407,7 @@ async function readCopilotWorkflowStateFromYjs(
   const workflowState = await readBootstrappedCopilotYjsDoc(
     {
       workspaceId: access.workspaceId ?? null,
+      ownerUserId: null,
       entityKind: 'workflow',
       entityId: workflowId,
       draftSessionId: null,

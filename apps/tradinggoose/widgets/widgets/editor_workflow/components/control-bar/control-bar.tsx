@@ -25,6 +25,7 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { listWorkflowRunTriggers } from '@/lib/workflows/triggers'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import {
   getKeyboardShortcutText,
   useKeyboardShortcuts,
@@ -106,9 +107,8 @@ export function ControlBar({
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
+  const { canEdit } = useWorkflowSession()
 
-  // Local state
-  const [, forceUpdate] = useState({})
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
   const [autoLayoutError, setAutoLayoutError] = useState<string | null>(null)
 
@@ -145,18 +145,12 @@ export function ControlBar({
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(
     () => {
-      if (!isWorkflowBlocked && userPermissions.canEdit && canRunWithShortcut) {
+      if (!isWorkflowBlocked && canEdit && canRunWithShortcut) {
         handleRunWorkflow({ triggerBlockId: runTriggers[0].blockId })
       }
     },
-    isWorkflowBlocked || !userPermissions.canEdit || !canRunWithShortcut
+    isWorkflowBlocked || !canEdit || !canRunWithShortcut
   )
-
-  // Update the time display every minute
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate({}), 60000)
-    return () => clearInterval(interval)
-  }, [])
 
   const fetchDeploymentStatus = useCallback(async () => {
     if (!activeWorkflowId) {
@@ -334,6 +328,7 @@ export function ControlBar({
       refetchDeployedState={fetchDeployedState}
       refetchDeploymentStatus={fetchDeploymentStatus}
       userPermissions={userPermissions}
+      canEdit={canEdit}
       variant={variant}
     />
   )
@@ -343,7 +338,7 @@ export function ControlBar({
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (isExecuting || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
+      if (isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks) {
         return
       }
 
@@ -372,7 +367,6 @@ export function ControlBar({
       }
     }
 
-    const canEdit = userPermissions.canEdit
     const isDisabled = isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
@@ -419,7 +413,7 @@ export function ControlBar({
    * Render run workflow button or cancel button when executing
    */
   const renderRunButton = () => {
-    const isButtonDisabled = !isExecuting && (isWorkflowBlocked || !userPermissions.canEdit)
+    const isButtonDisabled = !isExecuting && (isWorkflowBlocked || !canEdit)
 
     // If currently executing, show cancel button
     if (isExecuting) {
@@ -449,7 +443,7 @@ export function ControlBar({
         return copy.controlBar.checkingWorkflowPermissions
       }
 
-      if (!userPermissions.canEdit) {
+      if (!canEdit) {
         return copy.controlBar.writePermissionRequiredToRunWorkflows
       }
 
@@ -475,6 +469,7 @@ export function ControlBar({
     }
 
     const handleRunClick = (triggerBlockId: string) => {
+      if (!canEdit) return
       if (usageExceeded) {
         return openSubscriptionSettings()
       }

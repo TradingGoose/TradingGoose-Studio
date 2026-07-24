@@ -1,9 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { permissions, type permissionTypeEnum, user } from '@tradinggoose/db/schema'
+import { type permissionTypeEnum, user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { checkWorkspaceAccess, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 
 type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
@@ -60,15 +61,12 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create single permission for the new member
-    await db.insert(permissions).values({
-      id: crypto.randomUUID(),
-      userId: targetUser.id,
-      entityType: 'workspace' as const,
-      entityId: workspaceId,
-      permissionType: permission,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    await db.transaction(async (tx) => {
+      await grantWorkspaceAccessInTx(tx, {
+        workspaceId,
+        userId: targetUser.id,
+        permissionType: permission,
+      })
     })
 
     return NextResponse.json({

@@ -1,11 +1,11 @@
 'use client'
 
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 type DataChartProviderControlsProps = {
   widgetKey?: string
@@ -22,17 +22,14 @@ type RefreshButtonProps = {
 
 export const DataChartRefreshControl = ({ providerId, panelId, widgetKey }: RefreshButtonProps) => {
   const copy = useDataChartCopy().header
+  const patchWidgetParams = useDataChartParamsPatch()
   return (
     <WidgetHeaderRefreshButton
       label={copy.refresh}
       disabled={!providerId}
       onClick={() => {
         if (!providerId) return
-        emitDataChartParamsChange({
-          params: { runtime: { refreshAt: Date.now() } },
-          panelId,
-          widgetKey,
-        })
+        patchWidgetParams({ runtime: { refreshAt: Date.now() } })
       }}
     />
   )
@@ -47,6 +44,7 @@ export const DataChartProviderControls = ({
   const providerId = params.data?.provider
   const providerParams = params.data?.providerParams ?? {}
   const authParams = params.data?.auth
+  const patchWidgetParams = useDataChartParamsPatch()
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
@@ -64,13 +62,9 @@ export const DataChartProviderControls = ({
       unknown
     >
 
-    emitDataChartParamsChange({
-      params: {
-        data: nextData,
-        view: nextView,
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      data: nextData,
+      view: nextView,
     })
   }
 
@@ -84,16 +78,12 @@ export const DataChartProviderControls = ({
       workspaceId={workspaceId}
       onSettingsSave={({ providerParams: nextProviderParams, auth }) => {
         const { ...nextDataBase } = (params.data ?? {}) as Record<string, unknown>
-        emitDataChartParamsChange({
-          params: {
-            data: {
-              ...nextDataBase,
-              providerParams: nextProviderParams,
-              auth,
-            },
+        patchWidgetParams({
+          data: {
+            ...nextDataBase,
+            providerParams: nextProviderParams,
+            auth,
           },
-          panelId,
-          widgetKey,
         })
       }}
     />

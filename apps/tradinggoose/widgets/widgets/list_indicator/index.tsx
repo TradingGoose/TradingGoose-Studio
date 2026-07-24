@@ -12,16 +12,15 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
+import { indicatorListWidgetContract } from '@/widgets/widgets/list_indicator/contract'
 
 const buildNewIndicator = (defaults: { name: string }) => {
   return {
@@ -33,36 +32,22 @@ const buildNewIndicator = (defaults: { name: string }) => {
 const IndicatorListHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
   const importMutation = useImportIndicators()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('indicator', workspaceId)
 
   const selectIndicator = useCallback(
     (createdIndicatorId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
-        return
-      }
-
-      emitIndicatorSelectionChange({
-        indicatorId: createdIndicatorId,
-        panelId,
-        widgetKey: 'list_indicator',
-      })
+      actions.patchWidgetLinkedParams?.({ indicatorId: createdIndicatorId })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions]
   )
   const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 
@@ -134,11 +119,9 @@ const IndicatorListHeaderRight = ({
 const ListIndicatorHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.indicatorList
   if (!workspaceId) {
@@ -148,11 +131,7 @@ const ListIndicatorHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <IndicatorListHeaderRight
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <IndicatorListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -173,21 +152,12 @@ const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
 }
 
 export const listIndicatorWidget: DashboardWidgetDefinition = {
-  key: 'list_indicator',
-  title: 'Indicator List',
+  contract: indicatorListWidgetContract,
   icon: ListChecks,
-  category: 'list',
-  description: 'Browse and manage custom indicators for the workspace.',
   component: (props) => <ListIndicatorWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ context, panelId }) => {
     return {
-      right: (
-        <ListIndicatorHeaderRight
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          pairColor={widget?.pairColor}
-        />
-      ),
+      right: <ListIndicatorHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
     }
   },
 }

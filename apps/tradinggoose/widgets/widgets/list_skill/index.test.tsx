@@ -28,8 +28,11 @@ vi.mock('@/hooks/queries/skills', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/skill-selection', () => ({
-  emitSkillSelectionChange: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({

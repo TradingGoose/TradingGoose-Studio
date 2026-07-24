@@ -8,17 +8,20 @@ import { generateSearchEmbedding } from '@/lib/embeddings/utils'
 import { createKnowledgeBase, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import type { ChunkingConfig, KnowledgeBaseWithCounts } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityDocumentArgs,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
@@ -34,10 +37,10 @@ function toIsoString(value: Date | string | null | undefined): string | undefine
 
 function buildKnowledgeBaseDocumentEnvelope(
   kb: KnowledgeBaseWithCounts,
-  fields: Record<string, unknown> = savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, kb)
+  fields: Record<string, unknown> = savedEntityRowToContent(ENTITY_KIND_KNOWLEDGE_BASE, kb)
 ) {
   return {
-    ...buildDocumentEnvelope(ENTITY_KIND_KNOWLEDGE_BASE, kb.id, fields),
+    ...buildDocumentEnvelope(ENTITY_KIND_KNOWLEDGE_BASE, kb.id, kb.name, fields),
     workspaceId: kb.workspaceId,
     docCount: kb.docCount,
     tokenCount: kb.tokenCount,
@@ -49,13 +52,13 @@ function buildKnowledgeBaseDocumentEnvelope(
 }
 
 async function createKnowledgeBaseEntity(
+  name: string,
   fields: Record<string, unknown>,
-  context: ServerToolExecutionContext | undefined
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const created = await createKnowledgeBase(
     {
-      name: String(fields.name ?? ''),
+      name,
       description: String(fields.description ?? ''),
       workspaceId,
       userId,
@@ -63,12 +66,14 @@ async function createKnowledgeBaseEntity(
       embeddingDimension: 1536,
       chunkingConfig: fields.chunkingConfig as ChunkingConfig,
     },
-    crypto.randomUUID().slice(0, 8)
+    crypto.randomUUID().slice(0, 8),
+    { beforeInsert }
   )
 
   return {
     entityId: created.id,
-    fields: savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created),
+    entityName: created.name,
+    fields: savedEntityRowToContent(ENTITY_KIND_KNOWLEDGE_BASE, created),
   }
 }
 
@@ -106,15 +111,15 @@ export const readKnowledgeBaseServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const [kb, fields] = await Promise.all([
+    const [kb, document] = await Promise.all([
       getKnowledgeBaseById(entityId),
-      readSavedEntityDocumentFields(ENTITY_KIND_KNOWLEDGE_BASE, entityId, workspaceId),
+      readSavedEntityDocument(ENTITY_KIND_KNOWLEDGE_BASE, entityId, workspaceId),
     ])
     if (!kb) {
       throw new Error('Knowledge base not found')
     }
 
-    return buildKnowledgeBaseDocumentEnvelope(kb, fields)
+    return buildKnowledgeBaseDocumentEnvelope(kb, document.fields)
   },
 }
 
@@ -142,10 +147,10 @@ export const editKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> =
   },
 }
 
-export const renameKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> = {
+export const renameKnowledgeBaseServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_knowledge_base',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
+    return executeRenameEntityMutation(
       ENTITY_KIND_KNOWLEDGE_BASE,
       'rename_knowledge_base',
       args,

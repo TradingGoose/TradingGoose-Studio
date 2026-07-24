@@ -1,7 +1,7 @@
 import { chat, db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
+import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
 
 type CheckDeploymentStatusArgs = {
   entityId: string
@@ -21,15 +21,7 @@ export const checkDeploymentStatusServerTool: BaseServerTool<
 > = {
   name: 'check_deployment_status',
   async execute(args, context) {
-    const userId = context?.userId?.trim()
-    if (!userId) {
-      throw new Error('Authenticated user is required to check workflow deployment status')
-    }
-
-    const access = await verifyWorkflowAccess(userId, args.entityId, 'read')
-    if (!access.hasAccess) {
-      throw new Error('Access denied: You do not have permission to read this workflow')
-    }
+    await verifySavedEntityContext(context, 'workflow', args.entityId, 'read')
 
     const [workflowRow] = await db
       .select({
@@ -72,10 +64,7 @@ export const checkDeploymentStatusServerTool: BaseServerTool<
 
     const apiDeployed = workflowRow.isDeployed || false
     const chatDeployed = chatRows.length > 0
-    const deploymentTypes = [
-      ...(apiDeployed ? ['api'] : []),
-      ...(chatDeployed ? ['chat'] : []),
-    ]
+    const deploymentTypes = [...(apiDeployed ? ['api'] : []), ...(chatDeployed ? ['chat'] : [])]
 
     return {
       isDeployed: apiDeployed || chatDeployed,

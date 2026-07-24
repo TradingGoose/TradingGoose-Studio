@@ -22,7 +22,7 @@ app:
     repository: tradinggoose/tradinggoose
     tag: latest
     pullPolicy: Always
-  
+
   # Number of replicas
   replicaCount: 1
   
@@ -153,15 +153,13 @@ app:
 realtime:
   # Enable/disable the realtime service
   enabled: true
+  terminationGracePeriodSeconds: 300
   
   # Image configuration
   image:
     repository: tradinggoose/realtime
     tag: latest
     pullPolicy: Always
-  
-  # Number of replicas
-  replicaCount: 1
   
   # Resource limits and requests
   resources:
@@ -604,7 +602,7 @@ sharedStorage:
 extraVolumes: []
 extraVolumeMounts: []
 
-# Additional environment variables for custom integrations
+# Additional environment variables for the app and realtime containers
 extraEnvVars: []
 
 # Pod annotations for custom metadata
@@ -658,6 +656,15 @@ cronjobs:
       name: renew-subscriptions
       schedule: "0 */12 * * *"
       path: "/api/cron/renew-subscriptions"
+      concurrencyPolicy: Forbid
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+
+    idempotencyCleanup:
+      enabled: true
+      name: idempotency-cleanup
+      schedule: "0 3 * * *"
+      path: "/api/webhooks/cleanup/idempotency"
       concurrencyPolicy: Forbid
       successfulJobsHistoryLimit: 3
       failedJobsHistoryLimit: 1

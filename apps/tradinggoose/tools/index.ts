@@ -21,6 +21,7 @@ import {
   getTool,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
+import { isWatchlistToolId, WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 
 const logger = createLogger('Tools')
 
@@ -68,6 +69,37 @@ type ToolExecutionOptions = {
   signal?: AbortSignal
 }
 
+async function assertExecutionWorkspaceAccess(
+  toolId: string,
+  scope: ExecutionScope,
+  accessMode: 'read' | 'write'
+) {
+  if (!scope.workspaceId) {
+    throw new Error(`${toolId} requires workspace execution context`)
+  }
+
+  if (!scope.userId) {
+    const workflowWorkspaceId = scope.workflowId
+      ? await resolveWorkflowWorkspaceId(scope.workflowId)
+      : null
+    if (workflowWorkspaceId !== scope.workspaceId) {
+      throw new Error(`${toolId} requires authenticated workspace access`)
+    }
+    return
+  }
+
+  const { checkWorkspaceAccess } = await import('@/lib/permissions/utils')
+  const access = await checkWorkspaceAccess(scope.workspaceId, scope.userId)
+  if (!access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
+    throw new Error(`${toolId} requires ${accessMode} access to the workspace`)
+  }
+}
+
+async function assertToolWorkspaceAccess(toolId: string, tool: ToolConfig, scope: ExecutionScope) {
+  const requirement = tool.execution?.workspace
+  if (requirement) await assertExecutionWorkspaceAccess(toolId, scope, requirement.access)
+}
+
 async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
   const [{ db }, { workflow }, { eq }] = await Promise.all([
     import('@tradinggoose/db'),
@@ -104,10 +136,15 @@ async function getServerCustomTool(
     scopedWorkspaceId,
     isDeployedContext
   )
+  const { readEntityListMembersFromDb } = await import('@/lib/yjs/server/entity-loaders')
+  const title = (await readEntityListMembersFromDb('custom_tool', scopedWorkspaceId)).find(
+    (member) => member.id === identifier
+  )?.name
+  if (title === undefined) throw new Error(`Custom tool ${identifier} not found`)
 
   return createToolConfig(
     {
-      title: String(fields.title ?? ''),
+      title,
       schema: parseCustomToolSchemaText(fields.schemaText),
       code: String(fields.codeText ?? ''),
     },
@@ -115,6 +152,34 @@ async function getServerCustomTool(
     false,
     workflowId
   )
+}
+
+async function executeWatchlistTool(
+  toolId: string,
+  params: Record<string, any>
+): Promise<ToolResponse> {
+  const workspaceId = params._context?.workspaceId?.trim()
+  if (!workspaceId) throw new Error(`${toolId} requires workspace execution context`)
+  const isDeployedContext = params._context?.isDeployedContext !== false
+
+  if (toolId === WATCHLIST_TOOL_IDS.readLists) {
+    const { listWatchlists } = await import('@/lib/watchlists/operations')
+    return {
+      success: true,
+      output: { watchlists: await listWatchlists({ workspaceId }, isDeployedContext) },
+    }
+  }
+
+  const watchlistId = typeof params.watchlistId === 'string' ? params.watchlistId.trim() : ''
+  if (!watchlistId) throw new Error('watchlistId is required')
+  const { getWatchlist } = await import('@/lib/watchlists/operations')
+  const watchlist = await getWatchlist({ workspaceId }, watchlistId, isDeployedContext)
+  const listings = watchlist.items.filter((item) => item.type === 'listing')
+  const sections = watchlist.items.filter((item) => item.type === 'section')
+  return {
+    success: true,
+    output: { watchlist, items: watchlist.items, listings, sections },
+  }
 }
 
 export async function getToolAsync(
@@ -337,6 +402,7 @@ export async function executeTool(
     const isMcpTool = toolId.startsWith('mcp-')
 
     if (isSkillLoaderExecution(params)) {
+      await assertExecutionWorkspaceAccess(toolId, scope, 'read')
       const skillId = typeof params.skill_id === 'string' ? params.skill_id : null
       if (!skillId || !scope.workspaceId) {
         return {
@@ -367,6 +433,7 @@ export async function executeTool(
         scope.isDeployedContext !== false
       )
     } else if (isMcpTool) {
+      await assertExecutionWorkspaceAccess(toolId, scope, 'read')
       return await executeMcpTool(
         toolId,
         params,
@@ -378,6 +445,12 @@ export async function executeTool(
     } else {
       // For built-in tools, use the synchronous version
       tool = getTool(toolId)
+      if (tool && isWatchlistToolId(toolId)) {
+        tool = {
+          ...tool,
+          directExecution: (contextParams) => executeWatchlistTool(toolId, contextParams),
+        }
+      }
       if (!tool) {
         logger.error(`[${requestId}] Built-in tool not found: ${toolId}`)
       }
@@ -415,9 +488,7 @@ export async function executeTool(
       throw new Error(`Tool not found: ${toolId}`)
     }
 
-    if (tool.execution?.workspace?.required && !scope.workspaceId) {
-      throw new Error(`${toolId} requires workspace execution context`)
-    }
+    await assertToolWorkspaceAccess(toolId, tool, scope)
     if (tool.execution?.submissionSource === 'required' && !scope.submissionSource) {
       throw new Error(`${toolId} requires explicit submission source`)
     }

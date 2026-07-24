@@ -22,7 +22,6 @@ import { getQueryClient } from '@/app/query-provider'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
-import { indicatorKeys } from '@/hooks/queries/indicators'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
@@ -83,6 +82,7 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   [CopilotTool.get_indicator_metadata]: serverTool(CopilotTool.get_indicator_metadata),
   search_online: serverTool('search_online'),
   search_documentation: serverTool('search_documentation'),
+  search_listing: serverTool('search_listing'),
   [CopilotTool.read_environment_variables]: serverTool(CopilotTool.read_environment_variables),
   set_environment_variables: serverTool('set_environment_variables', true),
   [CopilotTool.read_credentials]: serverTool(CopilotTool.read_credentials),
@@ -115,6 +115,19 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   create_mcp_server: serverTool('create_mcp_server', true),
   edit_mcp_server: serverTool('edit_mcp_server', true),
   rename_mcp_server: serverTool('rename_mcp_server', true),
+  list_watchlist: serverTool('list_watchlist'),
+  read_watchlist: serverTool('read_watchlist'),
+  create_watchlist: serverTool('create_watchlist'),
+  edit_watchlist: serverTool('edit_watchlist'),
+  rename_watchlist: serverTool('rename_watchlist'),
+  list_layout: serverTool('list_layout'),
+  create_layout: serverTool('create_layout'),
+  read_layout: serverTool('read_layout'),
+  edit_layout: serverTool('edit_layout'),
+  rename_layout: serverTool('rename_layout'),
+  edit_widget: serverTool('edit_widget'),
+  get_available_widgets: serverTool('get_available_widgets'),
+  get_widgets_metadata: serverTool('get_widgets_metadata'),
   list_gdrive_files: serverTool('list_gdrive_files'),
   read_gdrive_file: serverTool('read_gdrive_file'),
   [CopilotTool.read_oauth_credentials]: serverTool(CopilotTool.read_oauth_credentials),
@@ -157,6 +170,10 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.create_skill,
   CopilotTool.list_mcp_servers,
   CopilotTool.create_mcp_server,
+  CopilotTool.list_watchlist,
+  CopilotTool.create_watchlist,
+  CopilotTool.list_layout,
+  CopilotTool.create_layout,
 ])
 
 const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([
@@ -343,7 +360,7 @@ export async function handleCopilotServerToolSuccess(
     } else if (toolName.endsWith('_custom_tool')) {
       await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
     } else if (toolName.endsWith('_indicator')) {
-      await queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
+      return
     } else if (toolName.endsWith('_knowledge_base')) {
       const entityId =
         result && typeof result === 'object' && !Array.isArray(result)
@@ -363,6 +380,8 @@ export async function handleCopilotServerToolSuccess(
           detail: { workspaceId },
         })
       )
+    } else if (toolName.endsWith('_watchlist')) {
+      return
     } else if (toolName === CopilotTool.edit_monitor) {
       window.dispatchEvent(
         new CustomEvent(MONITOR_DATA_CHANGED_EVENT, {

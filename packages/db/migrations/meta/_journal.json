@@ -267,6 +267,20 @@
       "when": 1783044372927,
       "tag": "0037_familiar_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783295069442,
+      "tag": "0038_bizarre_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1783709918711,
+      "tag": "0039_aromatic_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

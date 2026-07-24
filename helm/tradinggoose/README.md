@@ -165,10 +165,13 @@ The following table lists the configurable parameters and their default values.
 
 ### Realtime Service Parameters
 
+Realtime is the single process-local Yjs owner. The chart enforces one replica with a `Recreate`
+deployment strategy; autoscaling and pod disruption budget settings apply only to the app.
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `realtime.enabled` | Enable the realtime service | `true` |
-| `realtime.replicaCount` | Number of realtime replicas | `1` |
+| `realtime.terminationGracePeriodSeconds` | Time allowed for the realtime durability drain | `300` |
 | `realtime.image.repository` | Realtime image repository | `tradinggoose/realtime` |
 | `realtime.image.tag` | Realtime image tag | `latest` |
 | `realtime.image.pullPolicy` | Realtime image pull policy | `Always` |
@@ -405,7 +408,7 @@ The following table lists the configurable parameters and their default values.
 | `fullnameOverride` | Override the fullname of the chart | `""` |
 | `extraVolumes` | Additional volumes for all pods | `[]` |
 | `extraVolumeMounts` | Additional volume mounts for all containers | `[]` |
-| `extraEnvVars` | Additional environment variables for all containers | `[]` |
+| `extraEnvVars` | Additional environment variables for the app and realtime containers | `[]` |
 | `podAnnotations` | Additional annotations for all pods | `{}` |
 | `podLabels` | Additional labels for all pods | `{}` |
 | `affinity` | Affinity settings for all pods | `{}` |
@@ -415,7 +418,7 @@ The following table lists the configurable parameters and their default values.
 
 ### Autoscaling
 
-Enable automatic horizontal scaling based on CPU and memory usage:
+Enable automatic horizontal scaling for the app based on CPU and memory usage:
 
 ```yaml
 autoscaling:
@@ -585,9 +588,10 @@ This creates Kubernetes CronJob resources that:
 - Support individual enable/disable per job
 - Follow Kubernetes security best practices
 
-### High Availability
+### Application High Availability
 
-Configure pod disruption budgets and anti-affinity:
+Configure app pod disruption budgets and anti-affinity. Realtime remains a singleton so its
+process-local Yjs documents and mutation queues always have one owner.
 
 ```yaml
 podDisruptionBudget:
@@ -637,7 +641,7 @@ For production deployments, make sure to:
 **Required Secrets:**
 - `BETTER_AUTH_SECRET`: Authentication JWT signing (minimum 32 characters)
 - `ENCRYPTION_KEY`: Encrypts sensitive data like environment variables (minimum 32 characters)
-- `INTERNAL_API_SECRET`: Internal service-to-service authentication (minimum 32 characters)
+- `INTERNAL_API_SECRET`: Internal service authentication via a 32+ character literal or app/realtime `extraEnvVars` `valueFrom.secretKeyRef`
 
 **Optional Security (Recommended for Production):**
 - `CRON_SECRET`: Authenticates scheduled job requests to API endpoints (required only if `cronjobs.enabled=true`)
@@ -650,7 +654,7 @@ app:
   env:
     BETTER_AUTH_SECRET: "your-secure-random-string-here"
     ENCRYPTION_KEY: "your-secure-encryption-key-here"
-    INTERNAL_API_SECRET: "your-secure-internal-api-secret-here"
+    INTERNAL_API_SECRET: ""
     CRON_SECRET: "your-secure-cron-secret-here"
     API_ENCRYPTION_KEY: "your-64-char-hex-string-for-api-key-encryption"
 

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
-import { cleanupExpiredIdempotencyKeys, getIdempotencyKeyStats } from '@/lib/idempotency'
+import { cleanupExpiredIdempotencyKeys } from '@/lib/idempotency'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 
@@ -19,35 +19,16 @@ export async function GET(request: NextRequest) {
       return authError
     }
 
-    const statsBefore = await getIdempotencyKeyStats()
-    logger.info(
-      `Pre-cleanup stats: ${statsBefore.totalKeys} keys across ${Object.keys(statsBefore.keysByNamespace).length} namespaces`
-    )
-
-    const result = await cleanupExpiredIdempotencyKeys({
+    const deleted = await cleanupExpiredIdempotencyKeys({
       maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
       batchSize: 1000,
     })
-
-    const statsAfter = await getIdempotencyKeyStats()
-    logger.info(`Post-cleanup stats: ${statsAfter.totalKeys} keys remaining`)
 
     return NextResponse.json({
       success: true,
       message: 'Idempotency key cleanup completed',
       requestId,
-      result: {
-        deleted: result.deleted,
-        errors: result.errors,
-        statsBefore: {
-          totalKeys: statsBefore.totalKeys,
-          keysByNamespace: statsBefore.keysByNamespace,
-        },
-        statsAfter: {
-          totalKeys: statsAfter.totalKeys,
-          keysByNamespace: statsAfter.keysByNamespace,
-        },
-      },
+      result: { deleted },
     })
   } catch (error) {
     logger.error(`Error during idempotency cleanup (${requestId}):`, error)

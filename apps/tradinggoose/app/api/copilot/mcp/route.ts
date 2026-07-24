@@ -4,7 +4,11 @@ import {
   checkPublicApiEndpointRateLimit,
   type RateLimitResult,
 } from '@/lib/api/rate-limit'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyType,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
@@ -30,6 +34,7 @@ type JsonRpcRequest = {
 
 type AuthenticatedMcpUser = {
   userId: string
+  apiKeyType: ApiKeyType
 }
 
 function jsonRpcResult(id: JsonRpcId, result: unknown) {
@@ -120,7 +125,7 @@ async function authenticateCopilotMcpRequest(
   }
 
   const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
-  if (!auth.success || !auth.userId) {
+  if (!auth.success || !auth.userId || auth.keyType !== 'personal') {
     return { error: 'Invalid TradingGoose MCP token' }
   }
 
@@ -128,7 +133,7 @@ async function authenticateCopilotMcpRequest(
     await updateApiKeyLastUsed(auth.keyId)
   }
 
-  return { userId: auth.userId }
+  return { userId: auth.userId, apiKeyType: auth.keyType }
 }
 
 async function buildInstructions(userId: string) {
@@ -146,7 +151,7 @@ async function buildInstructions(userId: string) {
     'TradingGoose Copilot MCP exposes server-side Copilot tools for trusted personal coding agents, including direct mutation tools.',
     'Local MCP config stores only this user auth token. Do not store workspaceId, entityId, or entity targets in the local MCP config.',
     'Use tools/list as the source of truth for each tool input schema; target identifiers are tool-specific and come from list/read tool results. Mutating tools execute directly for the authenticated MCP key; Studio review tokens are not part of the external MCP protocol. Credential, OAuth, and environment reads require scope="personal" for the authenticated user or scope="workspace" with workspaceId. Workspace-scoped tools, including list/create, Google Drive, and workspace account reads, require workspaceId. Environment writes use the same personal/workspace scope rule.',
-    'MCP server documents redact header/env secret values as [redacted]. Keep [redacted] to preserve an existing secret, send a concrete value to replace it, or omit the key to delete it.',
+    'MCP server documents redact header/env values as `[redacted]`. Preserve an existing same-key value with that placeholder, submit a concrete value to replace it, and omit only keys that should be deleted.',
     'Accessible workspaces for the authenticated user:',
     ...workspaceLines,
   ].join('\n')
@@ -285,6 +290,7 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
         try {
           const result = await routeExecution(toolCall.name, toolCall.args, {
             userId: auth.userId,
+            apiKeyType: auth.apiKeyType,
             accessLevel: 'full',
           })
           return jsonRpcResult(id, {

@@ -1,234 +1,312 @@
 import { describe, expect, it } from 'vitest'
 import {
-  normalizeColorPairsState,
-  normalizeDashboardLayout,
-  resolveWidgetParamsForPairColorChange,
-  serializeLayout,
-} from '@/widgets/layout'
+  applyDashboardLayoutStructureMutation,
+  applyLayoutEditDocument,
+  closeDashboardTopologyPanel,
+  createDefaultDashboardLayoutProjection,
+  type DashboardLayoutProjectionContent,
+  type DashboardLayoutTopologyNode,
+  DashboardLayoutValidationError,
+  materializeDashboardWidgetBinding,
+  normalizeDashboardLayoutProjection,
+  normalizeDashboardLayoutTopology,
+  replaceDashboardPanelWidget,
+  resolveDashboardLayout,
+  splitDashboardTopologyPanel,
+} from '@/widgets/layout-document'
 
-describe('resolveWidgetParamsForPairColorChange', () => {
-  it('preserves full data chart params when switching to a linked color', () => {
-    const params = {
-      listing: {
-        listing_id: 'btc-usd',
-        base_id: 'btc',
-        quote_id: 'usd',
-        listing_type: 'spot',
+describe('dashboard layout tree operations', () => {
+  const layout = (): Extract<DashboardLayoutTopologyNode, { type: 'group' }> => ({
+    id: 'root',
+    type: 'group',
+    direction: 'horizontal',
+    sizes: [40, 60],
+    children: [
+      {
+        id: 'panel-a',
+        type: 'panel',
+        identityId: 'widget-a',
+        widgetKey: 'watchlist',
       },
-      data: {
-        provider: 'alpaca',
-        providerParams: { apiKey: 'key' },
+      {
+        id: 'panel-b',
+        type: 'panel',
+        identityId: 'widget-b',
+        widgetKey: 'heatmap',
       },
-      view: {
-        interval: '1h',
-        marketSession: 'regular',
-      },
+    ],
+  })
+  const content = (): DashboardLayoutProjectionContent => ({
+    layout: layout(),
+    widgets: {
+      'widget-a': { pairColor: 'blue', params: { watchlistId: 'watchlist-1' } },
+      'widget-b': { pairColor: 'red', params: null },
+    },
+    colorPairs: { pairs: [] },
+  })
+
+  const panels = (
+    node: DashboardLayoutTopologyNode
+  ): Array<Extract<DashboardLayoutTopologyNode, { type: 'panel' }>> =>
+    node.type === 'panel' ? [node] : node.children.flatMap(panels)
+
+  it('creates one real canonical null-widget child for every default panel', () => {
+    const created = createDefaultDashboardLayoutProjection()
+    const defaultPanels = panels(created.layout)
+
+    expect(defaultPanels.length).toBeGreaterThan(0)
+    expect(new Set(defaultPanels.map((panel) => panel.id)).size).toBe(defaultPanels.length)
+    expect(new Set(defaultPanels.map((panel) => panel.identityId)).size).toBe(defaultPanels.length)
+    expect(Object.keys(created.widgets)).toHaveLength(defaultPanels.length)
+    for (const panel of defaultPanels) {
+      expect(panel.widgetKey).toBeNull()
+      expect(created.widgets[panel.identityId]).toEqual({ pairColor: 'gray', params: null })
+    }
+    expect(normalizeDashboardLayoutProjection(created)).toEqual(created)
+    expect(created.colorPairs).toEqual({ pairs: [] })
+  })
+
+  it('requires unique node ids and widget identities in topology-only projections', () => {
+    const duplicateNodes = layout()
+    duplicateNodes.children[1] = { ...duplicateNodes.children[1]!, id: 'panel-a' }
+
+    expect(() => normalizeDashboardLayoutTopology(duplicateNodes)).toThrow(
+      /duplicate node panel-a/i
+    )
+
+    const duplicateIdentity = layout()
+    const duplicateIdentityPanel = duplicateIdentity.children[1]
+    if (duplicateIdentityPanel?.type !== 'panel') throw new Error('Expected child panel')
+    duplicateIdentity.children[1] = {
+      ...duplicateIdentityPanel,
+      identityId: 'widget-a',
+      widgetKey: null,
     }
 
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'data_chart',
-          pairColor: 'gray',
-          params,
-        },
-        'red'
-      )
-    ).toBe(params)
+    expect(() => normalizeDashboardLayoutTopology(duplicateIdentity)).toThrow(
+      /widget widget-a is referenced by multiple panels/i
+    )
   })
 
-  it('preserves data chart params when switching between linked colors', () => {
-    const params = {
-      data: {
-        provider: 'polygon',
+  it('requires every panel child and excludes inactive child rows from the projection', () => {
+    const nullPanel = {
+      layout: {
+        id: 'panel-empty',
+        type: 'panel',
+        identityId: 'widget-empty',
+        widgetKey: null,
       },
-      view: {
-        interval: '15m',
+      widgets: {
+        'widget-empty': { pairColor: 'gray', params: null },
       },
-    }
+      colorPairs: { pairs: [] },
+    } satisfies DashboardLayoutProjectionContent
 
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'data_chart',
-          pairColor: 'blue',
-          params,
-        },
-        'green'
-      )
-    ).toBe(params)
-  })
-
-  it('preserves heatmap params when switching to a linked color', () => {
-    const params = {
-      sourceMode: 'portfolio',
-      marketProvider: 'polygon',
-      tradingProvider: 'alpaca',
-      serviceId: 'cred-1',
-      accountId: 'acct-1',
-      marketProviderParams: { feed: 'sip' },
-    }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'heatmap',
-          pairColor: 'gray',
-          params,
-        },
-        'red'
-      )
-    ).toBe(params)
-  })
-
-  it('clears pair-context-owned widget params when switching to a linked color', () => {
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'editor_workflow',
-          pairColor: 'gray',
-          params: { workflowId: 'wf-local' },
-        },
-        'red'
-      )
-    ).toBeNull()
-  })
-
-  it('preserves existing params when switching back to gray', () => {
-    const params = { workflowId: 'wf-1' }
-
-    expect(
-      resolveWidgetParamsForPairColorChange(
-        {
-          key: 'watchlist',
-          pairColor: 'red',
-          params,
-        },
-        'gray'
-      )
-    ).toBe(params)
-  })
-})
-
-describe('normalizeColorPairsState', () => {
-  it('ignores unsupported color-pair fields', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          {
-            color: 'blue',
-            workflowId: 'wf-1',
-            unsupportedField: 'ignored',
-          },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        {
-          color: 'blue',
-          workflowId: 'wf-1',
-          listing: null,
-          indicatorId: undefined,
-          mcpServerId: undefined,
-          customToolId: undefined,
-          skillId: undefined,
-        },
-      ],
-    })
-  })
-
-  it('keeps provider and account fields out of persisted color-pair listings', () => {
-    const normalized = normalizeColorPairsState({
-      pairs: [
-        {
-          color: 'red',
-          listing: {
-            listing_id: 'AAPL',
-            base_id: 'ignored-base',
-            quote_id: 'ignored-quote',
-            listing_type: 'default',
-            provider: 'alpaca',
-            marketProvider: 'polygon',
-            tradingProvider: 'alpaca',
-            accountId: 'acct-1',
-            providerParams: { apiKey: 'secret' },
-          },
-        },
-      ],
-    })
-
-    const listing = normalized.pairs[0]?.listing
-
-    expect(listing).toEqual({
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-    expect(listing).not.toHaveProperty('provider')
-    expect(listing).not.toHaveProperty('marketProvider')
-    expect(listing).not.toHaveProperty('tradingProvider')
-    expect(listing).not.toHaveProperty('accountId')
-    expect(listing).not.toHaveProperty('providerParams')
-  })
-
-})
-
-describe('normalizeDashboardLayout', () => {
-  it('preserves persisted node ids so panel-scoped widget channels stay stable across reloads', () => {
-    const normalized = normalizeDashboardLayout({
-      id: 'group-1',
-      type: 'group',
-      direction: 'horizontal',
-      sizes: [100],
-      children: [
-        {
-          id: 'panel-1',
-          type: 'panel',
-          widget: {
-            key: 'copilot',
-            pairColor: 'gray',
-            params: null,
-          },
-        },
-      ],
-    })
-
-    expect(normalized.id).toBe('group-1')
-    expect(normalized.type).toBe('group')
-    if (normalized.type !== 'group') {
-      throw new Error('Expected normalized layout to remain a group')
-    }
-
-    expect(normalized.children[0]?.id).toBe('panel-1')
-    expect(serializeLayout(normalized)).toMatchObject({
-      id: 'group-1',
-      children: [{ id: 'panel-1', type: 'panel' }],
-    })
-  })
-
-  it('clears persisted copilot params instead of keeping sticky context state', () => {
-    const normalized = normalizeDashboardLayout({
+    expect(normalizeDashboardLayoutProjection(nullPanel)).toEqual(nullPanel)
+    expect(resolveDashboardLayout(nullPanel.layout, nullPanel.widgets)).toEqual({
+      id: 'panel-empty',
       type: 'panel',
-      widget: {
-        key: 'copilot',
-        pairColor: 'blue',
-        params: {
-          workflowId: 'wf-1',
-          reviewSessionId: 'review-1',
-        },
-      },
+      widget: null,
     })
+    expect(() => normalizeDashboardLayoutProjection({ ...nullPanel, widgets: {} })).toThrow(
+      /widget widget-empty is missing/i
+    )
+    expect(
+      normalizeDashboardLayoutProjection({
+        ...nullPanel,
+        widgets: {
+          ...nullPanel.widgets,
+          orphan: { pairColor: 'gray', params: null },
+        },
+      }).widgets
+    ).toEqual(nullPanel.widgets)
+  })
 
-    expect(normalized.type).toBe('panel')
-    if (normalized.type !== 'panel') {
-      throw new Error('Expected normalized copilot layout to remain a panel')
+  it('accepts only the exact canonical child state for a null widget key', () => {
+    const document = createDefaultDashboardLayoutProjection()
+    const panel = panels(document.layout)[0]!
+
+    expect(() =>
+      normalizeDashboardLayoutProjection({
+        ...document,
+        widgets: {
+          ...document.widgets,
+          [panel.identityId]: { pairColor: 'blue', params: null },
+        },
+      })
+    ).toThrow(/null-key dashboard widget/i)
+    expect(() =>
+      normalizeDashboardLayoutProjection({
+        ...document,
+        widgets: {
+          ...document.widgets,
+          [panel.identityId]: { pairColor: 'gray', params: {} },
+        },
+      })
+    ).toThrow(/null-key dashboard widget/i)
+  })
+
+  it('reports document validation through a writable domain error', () => {
+    let caught: unknown
+    try {
+      normalizeDashboardLayoutProjection({
+        layout: {},
+        widgets: {},
+        colorPairs: { pairs: [] },
+      })
+    } catch (error) {
+      caught = error
     }
 
-    expect(normalized.widget).toMatchObject({
-      key: 'copilot',
+    expect(caught).toBeInstanceOf(DashboardLayoutValidationError)
+    const domainError = caught as DashboardLayoutValidationError
+    expect(() => {
+      domainError.message = 'writable'
+    }).not.toThrow()
+    expect(domainError.message).toBe('writable')
+  })
+
+  it('updates group sizes without replacing unchanged layout nodes', () => {
+    const current = layout()
+    const resize = (sizes: number[], groupId = 'root') =>
+      applyDashboardLayoutStructureMutation(current, { type: 'resize', groupId, sizes }).layout
+
+    expect(resize([40, 60])).toBe(current)
+    expect(resize([0, 100])).toMatchObject({ id: 'root', sizes: [0, 100] })
+    expect(resize([49.995, 50])).toMatchObject({ sizes: [49.995, 50] })
+    for (const sizes of [
+      [0, 0],
+      [80, 80],
+    ]) {
+      expect(() => resize(sizes)).toThrow(/total approximately 100/i)
+    }
+    expect(() => resize([50, 50], 'missing-group')).toThrow(/Unknown group/)
+  })
+
+  it.each([[[1, 1]], [[80, 80]]])(
+    'rejects edit_layout sizes that do not total 100: %j',
+    (sizes) => {
+      const current = layout()
+      const children = current.children.map(({ id, type }) => ({ id, type }))
+
+      expect(() =>
+        applyLayoutEditDocument(
+          { layout: current },
+          JSON.stringify({ layout: { ...current, sizes, children } })
+        )
+      ).toThrow(/entityDocument\.layout\.sizes.*total approximately 100/i)
+    }
+  )
+
+  it('splits a panel and creates an independent child widget document', () => {
+    const result = splitDashboardTopologyPanel(layout(), 'panel-a', 'vertical')
+    const next = result.layout
+
+    expect(next.type).toBe('group')
+    if (next.type !== 'group') throw new Error('Expected root group')
+    const splitNode = next.children[0]
+    expect(splitNode.type).toBe('group')
+    if (splitNode.type !== 'group') throw new Error('Expected split group')
+    expect(splitNode.direction).toBe('vertical')
+    expect(splitNode.children).toHaveLength(2)
+    const clone = result.createdBindings[0]
+    expect(clone?.source).toEqual({ identityId: 'widget-a', widgetKey: 'watchlist' })
+    expect(clone?.identityId).not.toBe('widget-a')
+  })
+
+  it('splits a null-key panel by cloning its real null-widget child', () => {
+    const current = createDefaultDashboardLayoutProjection()
+    const source = panels(current.layout)[0]!
+    const result = splitDashboardTopologyPanel(current.layout, source.id, 'horizontal')
+    const clone = result.createdBindings[0]
+    const cloneIdentityId = clone?.identityId
+
+    expect(cloneIdentityId).toBeTruthy()
+    expect(cloneIdentityId).not.toBe(source.identityId)
+    expect(clone?.source).toEqual({ identityId: source.identityId, widgetKey: null })
+    expect(
+      normalizeDashboardLayoutProjection({
+        ...current,
+        layout: result.layout,
+        widgets: {
+          ...current.widgets,
+          [cloneIdentityId!]: { pairColor: 'gray', params: null },
+        },
+      })
+    ).toBeDefined()
+  })
+
+  it('closes a panel and marks its child document for removal', () => {
+    const result = closeDashboardTopologyPanel(layout(), 'panel-a')
+    const next = result.layout
+
+    expect(next.type).toBe('panel')
+    if (next.type !== 'panel') throw new Error('Expected survivor panel')
+    expect(next).toMatchObject({ identityId: 'widget-b', widgetKey: 'heatmap' })
+    expect(result.removedIdentityIds).toEqual(['widget-a'])
+
+    const collapsed = layout()
+    const first = collapsed.children[0]
+    if (first?.type !== 'panel') throw new Error('Expected child panel')
+    collapsed.children.push({ ...first, id: 'panel-c', identityId: 'widget-c' })
+    collapsed.sizes = [0, 0, 100]
+    expect(closeDashboardTopologyPanel(collapsed, 'panel-c').layout).toMatchObject({
+      sizes: [50, 50],
+    })
+    expect(() => closeDashboardTopologyPanel(layout(), 'missing-panel')).toThrow(/Unknown panel/)
+    expect(() => closeDashboardTopologyPanel(next, next.id)).toThrow(/Cannot close panel/)
+  })
+
+  it('preserves pair color while replacing a widget binding and clearing its local params', () => {
+    const current = content()
+    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', 'heatmap')
+    const panel = result.layout.type === 'group' ? result.layout.children[0] : null
+    const binding = result.createdBindings[0]
+    const identityId = binding?.identityId
+
+    expect(panel).toMatchObject({
+      id: 'panel-a',
+      identityId,
+      widgetKey: 'heatmap',
+    })
+    expect(identityId).not.toBe('widget-a')
+    expect(binding?.source).toEqual({ identityId: 'widget-a', widgetKey: 'watchlist' })
+    expect(materializeDashboardWidgetBinding(binding!, current.widgets['widget-a'])).toEqual({
       pairColor: 'blue',
       params: null,
     })
+    expect(result.removedIdentityIds).toEqual(['widget-a'])
+  })
+
+  it('preserves an existing widget binding when the selected key is unchanged', () => {
+    const current = content()
+    const result = replaceDashboardPanelWidget(current.layout, 'panel-a', 'watchlist')
+
+    expect(result.layout).toBe(current.layout)
+    expect(result.createdBindings).toEqual([])
+    expect(result.removedIdentityIds).toEqual([])
+  })
+
+  it('lets edit_layout replace an existing panel widget binding', () => {
+    const result = applyLayoutEditDocument(
+      { layout: content().layout },
+      JSON.stringify({
+        layout: {
+          id: 'root',
+          type: 'group',
+          direction: 'horizontal',
+          sizes: [40, 60],
+          children: [
+            { id: 'panel-a', type: 'panel', widget: { key: 'list_workflow' } },
+            { id: 'panel-b', type: 'panel' },
+          ],
+        },
+      })
+    )
+
+    expect(result.removedIdentityIds).toEqual(['widget-a'])
+    expect(result.createdBindings).toEqual([
+      expect.objectContaining({ widgetKey: 'list_workflow' }),
+    ])
   })
 })

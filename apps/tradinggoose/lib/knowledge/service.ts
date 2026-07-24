@@ -22,10 +22,8 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import {
-  deleteYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -65,7 +63,8 @@ export async function getKnowledgeBases(
  */
 export async function createKnowledgeBase(
   data: CreateKnowledgeBaseData,
-  requestId: string
+  requestId: string,
+  options?: { beforeInsert?: EntityListBeforeInsert }
 ): Promise<KnowledgeBaseWithCounts> {
   const kbId = randomUUID()
   const now = new Date()
@@ -104,7 +103,11 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await db.insert(knowledgeBase).values(newKnowledgeBase)
+  await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'knowledge_base', data.workspaceId)
+    await options?.beforeInsert?.(tx)
+    await tx.insert(knowledgeBase).values(newKnowledgeBase)
+  })
   await refreshEntityListSession('knowledge_base', data.workspaceId)
 
   logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
@@ -175,6 +178,7 @@ export async function copyKnowledgeBaseToWorkspace(
 
   const copiedName = `${sourceKnowledgeBase.name} (Copy)`
   const copyTransaction = db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'knowledge_base', targetWorkspaceId)
     await tx.insert(knowledgeBase).values({
       id: newKnowledgeBaseId,
       userId,
@@ -352,6 +356,7 @@ export async function copyKnowledgeBaseToWorkspace(
 
 export async function applyKnowledgeBaseMetadata(
   knowledgeBaseId: string,
+  actorUserId: string,
   fields: {
     name: string
     description: string
@@ -364,7 +369,17 @@ export async function applyKnowledgeBaseMetadata(
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  await applySavedEntityState(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, fields)
+  await applySavedEntityState(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    knowledgeBaseId,
+    existing.workspaceId,
+    actorUserId,
+    {
+      description: fields.description,
+      chunkingConfig: fields.chunkingConfig,
+    },
+    { identity: { name: fields.name } }
+  )
 
   logger.info(`[${requestId}] Applied knowledge base metadata through Yjs: ${knowledgeBaseId}`)
 
@@ -409,35 +424,4 @@ export async function getKnowledgeBaseById(
     chunkingConfig: result[0].chunkingConfig as ChunkingConfig,
     docCount: Number(result[0].docCount),
   }
-}
-
-/**
- * Delete a knowledge base (soft delete)
- */
-export async function deleteKnowledgeBase(
-  knowledgeBaseId: string,
-  requestId: string
-): Promise<void> {
-  const now = new Date()
-
-  const [existing] = await db
-    .select({ workspaceId: knowledgeBase.workspaceId })
-    .from(knowledgeBase)
-    .where(eq(knowledgeBase.id, knowledgeBaseId))
-    .limit(1)
-
-  await db
-    .update(knowledgeBase)
-    .set({
-      deletedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(knowledgeBase.id, knowledgeBaseId))
-
-  if (existing?.workspaceId) {
-    await refreshEntityListSession('knowledge_base', existing.workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(knowledgeBaseId)])
-  }
-
-  logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)
 }

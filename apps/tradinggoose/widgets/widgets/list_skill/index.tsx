@@ -12,51 +12,35 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
-import { SKILL_LIST_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
   SkillListMessage,
 } from '@/widgets/widgets/list_skill/components/skill-list/skill-list'
+import { skillListWidgetContract } from '@/widgets/widgets/list_skill/contract'
 
 const SkillListHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createSkillMutation = useCreateSkill()
   const importMutation = useImportSkills()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('skill', workspaceId)
 
   const selectSkill = useCallback(
     (createdSkillId: string) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { skillId: createdSkillId })
-        return
-      }
-
-      emitSkillSelectionChange({
-        skillId: createdSkillId,
-        panelId,
-        widgetKey: SKILL_LIST_WIDGET_KEY,
-      })
+      actions.patchWidgetLinkedParams?.({ skillId: createdSkillId })
     },
-    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+    [actions]
   )
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 
@@ -133,11 +117,9 @@ const SkillListHeaderRight = ({
 const ListSkillHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.skillList
   if (!workspaceId) {
@@ -147,7 +129,7 @@ const ListSkillHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
+        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -168,21 +150,12 @@ const ListSkillWidgetBody = (props: WidgetComponentProps) => {
 }
 
 export const listSkillWidget: DashboardWidgetDefinition = {
-  key: 'list_skill',
-  title: 'Skill List',
+  contract: skillListWidgetContract,
   icon: ToolCase,
-  category: 'list',
-  description: 'Browse and manage workspace skills.',
   component: (props) => <ListSkillWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ context, panelId }) => {
     return {
-      right: (
-        <ListSkillHeaderRight
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          pairColor={widget?.pairColor}
-        />
-      ),
+      right: <ListSkillHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
     }
   },
 }

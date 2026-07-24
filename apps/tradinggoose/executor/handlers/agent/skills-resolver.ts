@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
@@ -10,33 +11,43 @@ export async function resolveSkillMetadata(
   workspaceId: string,
   isDeployedContext: boolean
 ): Promise<SkillMetadata[]> {
-  const skillIds = skillInputs
-    .map((skillInput) => skillInput.skillId)
-    .filter((skillId): skillId is string => typeof skillId === 'string' && skillId.length > 0)
+  const selectedSkills = skillInputs.filter(
+    (skillInput) => typeof skillInput.skillId === 'string' && skillInput.skillId.length > 0
+  )
 
-  if (skillIds.length === 0 || !workspaceId) {
+  if (selectedSkills.length === 0 || !workspaceId) {
     return []
   }
 
+  const namesByIdPromise = readEntityListMembersFromDb('skill', workspaceId).then(
+    (members) => new Map(members.map(({ id, name }) => [id, name]))
+  )
+
   const results = await Promise.allSettled(
-    skillIds.map(async (skillId) => {
-      const fields = await readSavedEntityFieldsForExecution(
-        'skill',
-        skillId,
-        workspaceId,
-        isDeployedContext
-      )
+    selectedSkills.map(async (skillInput) => {
+      const [fields, namesById] = await Promise.all([
+        readSavedEntityFieldsForExecution(
+          'skill',
+          skillInput.skillId,
+          workspaceId,
+          isDeployedContext
+        ),
+        namesByIdPromise,
+      ])
+      const name = namesById.get(skillInput.skillId)
+      if (name === undefined) throw new Error('Canonical skill identity is missing')
       return {
-        id: skillId,
-        name: String(fields.name ?? ''),
+        id: skillInput.skillId,
+        name,
         description: String(fields.description ?? ''),
       }
     })
   )
 
   return results.flatMap((result, index) => {
+    const skillInput = selectedSkills[index]
     if (result.status === 'fulfilled') return [result.value]
-    logger.warn(`Skipping unavailable agent skill ${skillIds[index]}:`, result.reason)
+    logger.warn(`Skipping unavailable agent skill ${skillInput.skillId}:`, result.reason)
     return []
   })
 }

@@ -11,16 +11,14 @@ import type {
   Time,
   WhitespaceData,
 } from 'lightweight-charts'
+import type { DataChartViewParams } from '@/widgets/widgets/data_chart/contract'
+import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import {
   buildTimeFormatterConfig,
   formatLwcTime,
 } from '@/widgets/widgets/data_chart/utils/chart-styles'
-import type { DataChartViewParams, DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 
-type MainSeries =
-  | ISeriesApi<'Candlestick'>
-  | ISeriesApi<'Bar'>
-  | ISeriesApi<'Area'>
+type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
 
 export type LegendData = {
   time: string
@@ -52,11 +50,14 @@ const resolvePrecision = (value?: number | null) => {
 const isOhlcData = (
   data: CandlestickData<Time> | BarData<Time> | WhitespaceData<Time>
 ): data is CandlestickData<Time> | BarData<Time> =>
-  Boolean(data) && typeof data === 'object' && 'open' in data && 'high' in data && 'low' in data && 'close' in data
+  Boolean(data) &&
+  typeof data === 'object' &&
+  'open' in data &&
+  'high' in data &&
+  'low' in data &&
+  'close' in data
 
-const isLineData = (
-  data: LineData<Time> | WhitespaceData<Time>
-): data is LineData<Time> =>
+const isLineData = (data: LineData<Time> | WhitespaceData<Time>): data is LineData<Time> =>
   Boolean(data) && typeof data === 'object' && 'value' in data
 
 const resolveTimeLabel = (time: Time | null | undefined, timezone: string, locale?: string) => {
@@ -160,8 +161,9 @@ export const useChartLegend = ({
 
   const setLegendIfChanged = useCallback((next: LegendData | null) => {
     const key = next
-      ? `${next.time}|${next.open ?? ''}|${next.high ?? ''}|${next.low ?? ''}|${next.close ?? ''}|${next.value ?? ''
-      }|${next.change ?? ''}`
+      ? `${next.time}|${next.open ?? ''}|${next.high ?? ''}|${next.low ?? ''}|${next.close ?? ''}|${
+          next.value ?? ''
+        }|${next.change ?? ''}`
       : 'none'
     if (lastKeyRef.current === key) return
     lastKeyRef.current = key
@@ -201,7 +203,11 @@ export const useChartLegend = ({
       | null
     if (!latestData) return null
     const fallbackIndex = dataContext.barsMsRef.current.length - 1
-    return resolveLegendFromData(latestData, 'time' in latestData ? latestData.time : null, fallbackIndex)
+    return resolveLegendFromData(
+      latestData,
+      'time' in latestData ? latestData.time : null,
+      fallbackIndex
+    )
   }, [dataContext, mainSeriesRef, resolveLegendFromData])
 
   useEffect(() => {

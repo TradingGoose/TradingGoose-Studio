@@ -1,10 +1,10 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import {
   buildMonitorListEntry,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { listMonitorRows, toMonitorRecord } from '@/app/api/monitors/shared'
 
 type ListMonitorsArgs = {
@@ -17,16 +17,7 @@ export const listMonitorsServerTool: BaseServerTool<ListMonitorsArgs> = {
   name: 'list_monitors',
   async execute(args, context) {
     const executionContext = withWorkspaceArgContext(context, args)
-    const userId = executionContext?.userId?.trim()
-    const workspaceId = executionContext?.workspaceId?.trim()
-    if (!userId || !workspaceId) {
-      throw new Error('Authenticated user and workspaceId are required to list monitors')
-    }
-
-    const access = await checkWorkspaceAccess(workspaceId, userId)
-    if (!access.exists || !access.hasAccess) {
-      throw new Error('Access denied: You do not have permission to use this workspace')
-    }
+    const { workspaceId } = await verifyWorkspaceContext(executionContext, 'read')
 
     const rows = await listMonitorRows({
       workspaceId,

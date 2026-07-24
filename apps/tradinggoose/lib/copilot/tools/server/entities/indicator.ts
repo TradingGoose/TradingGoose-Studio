@@ -1,20 +1,27 @@
 import { ENTITY_KIND_INDICATOR } from '@/lib/copilot/review-sessions/types'
-import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  hashServerToolReviewBase,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createIndicators } from '@/lib/indicators/custom/operations'
 import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
   DEFAULT_INDICATOR_RUNTIME_MAP,
 } from '@/lib/indicators/default/runtime'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
+import type { EntityListReadStore } from '@/lib/yjs/server/entity-loaders'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
   type CopilotIndicatorListEntry,
+  type EntityCreateContext,
   type EntityCreateResult,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
+  executeRenameEntityMutation,
   executeUpdateEntityDocumentMutation,
-  readSavedEntityDocumentFields,
+  type RenameEntityArgs,
+  readSavedEntityDocument,
   requireEntityId,
   requireUserId,
   verifySavedEntityContext,
@@ -34,33 +41,48 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
   }
 }
 
-async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndicatorListEntry[]> {
+async function listCopilotIndicators(
+  workspaceId: string,
+  store?: EntityListReadStore
+): Promise<CopilotIndicatorListEntry[]> {
   const defaultOptions = DEFAULT_INDICATOR_RUNTIME_ENTRIES.map(toDefaultIndicatorListEntry)
-  const customOptions = (await buildSavedEntityListInfo(ENTITY_KIND_INDICATOR, workspaceId)).map(
-    (entry) => ({
-      name: entry.entityName,
-      source: 'custom' as const,
-      editable: true,
-      callableInFunctionBlock: true,
-      entityId: entry.entityId,
-      runtimeId: entry.entityId,
-    })
-  )
+  const customOptions = (
+    await buildSavedEntityListInfo(ENTITY_KIND_INDICATOR, workspaceId, undefined, store)
+  ).map((entry) => ({
+    name: entry.entityName,
+    source: 'custom' as const,
+    editable: true,
+    callableInFunctionBlock: true,
+    entityId: entry.entityId,
+    runtimeId: entry.entityId,
+  }))
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))
 }
 
+async function hashIndicatorCreateReviewBase(
+  workspaceId: string,
+  store?: EntityListReadStore
+): Promise<string> {
+  return hashServerToolReviewBase({
+    kind: ENTITY_KIND_INDICATOR,
+    workspaceId,
+    indicators: await listCopilotIndicators(workspaceId, store),
+  })
+}
+
 async function createIndicatorEntity(
+  name: string,
   fields: Record<string, unknown>,
-  context: Parameters<typeof verifyWorkspaceContext>[0]
+  { userId, workspaceId, beforeInsert }: EntityCreateContext
 ): Promise<EntityCreateResult> {
-  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const rows = await createIndicators({
     userId,
     workspaceId,
+    beforeInsert,
     indicators: [
       {
-        name: String(fields.name ?? ''),
+        name,
         color: String(fields.color ?? ''),
         pineCode: String(fields.pineCode ?? ''),
       },
@@ -73,7 +95,8 @@ async function createIndicatorEntity(
 
   return {
     entityId: row.id,
-    fields: savedEntityRowToFields(ENTITY_KIND_INDICATOR, row),
+    entityName: row.name,
+    fields: savedEntityRowToContent(ENTITY_KIND_INDICATOR, row),
   }
 }
 
@@ -102,8 +125,7 @@ export const readIndicatorServerTool: EntityServerTool = {
       requireUserId(context)
       const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(runtimeId)
       if (defaultIndicator) {
-        return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, {
-          name: defaultIndicator.name,
+        return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, defaultIndicator.name, {
           color: '',
           pineCode: defaultIndicator.pineCode,
         })
@@ -115,12 +137,13 @@ export const readIndicatorServerTool: EntityServerTool = {
         runtimeId,
         'read'
       )
-      const fields = await readSavedEntityDocumentFields(
+      const document = await readSavedEntityDocument(ENTITY_KIND_INDICATOR, runtimeId, workspaceId)
+      return buildDocumentEnvelope(
         ENTITY_KIND_INDICATOR,
         runtimeId,
-        workspaceId
+        document.entityName,
+        document.fields
       )
-      return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, runtimeId, fields)
     }
 
     const entityId = requireEntityId(args, 'read_indicator')
@@ -130,8 +153,13 @@ export const readIndicatorServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityDocumentFields(ENTITY_KIND_INDICATOR, entityId, workspaceId)
-    return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, entityId, fields)
+    const document = await readSavedEntityDocument(ENTITY_KIND_INDICATOR, entityId, workspaceId)
+    return buildDocumentEnvelope(
+      ENTITY_KIND_INDICATOR,
+      entityId,
+      document.entityName,
+      document.fields
+    )
   },
 }
 
@@ -142,7 +170,8 @@ export const createIndicatorServerTool: EntityServerTool = {
       ENTITY_KIND_INDICATOR,
       args,
       context,
-      createIndicatorEntity
+      createIndicatorEntity,
+      hashIndicatorCreateReviewBase
     )
   },
 }
@@ -159,14 +188,9 @@ export const editIndicatorServerTool: EntityServerTool = {
   },
 }
 
-export const renameIndicatorServerTool: EntityServerTool = {
+export const renameIndicatorServerTool: EntityServerTool<RenameEntityArgs> = {
   name: 'rename_indicator',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(
-      ENTITY_KIND_INDICATOR,
-      'rename_indicator',
-      args,
-      context
-    )
+    return executeRenameEntityMutation(ENTITY_KIND_INDICATOR, 'rename_indicator', args, context)
   },
 }

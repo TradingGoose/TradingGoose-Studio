@@ -9,6 +9,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
 import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
 
+const entityListState = vi.hoisted(() => ({ ids: ['skill-1'] }))
+
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: entityListState.ids.map((entityId) => ({ entityId })),
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -17,6 +31,13 @@ vi.mock('@/components/ui/tooltip', () => ({
 
 vi.mock('@/widgets/widgets/components/skill-dropdown', () => ({
   SkillDropdown: () => <div>skill-dropdown</div>,
+}))
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -29,6 +50,7 @@ describe('Skill Editor header controls', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    entityListState.ids = ['skill-1']
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -110,6 +132,7 @@ describe('Skill Editor header controls', () => {
 
     expect(actionSpy).toHaveBeenCalledWith({
       action: 'export',
+      entityId: 'skill-1',
       panelId: 'panel-1',
       widgetKey: 'editor_skill',
     })
@@ -145,9 +168,30 @@ describe('Skill Editor header controls', () => {
 
     expect(actionSpy).toHaveBeenCalledWith({
       action: 'save',
+      entityId: 'skill-1',
       panelId: 'panel-1',
       widgetKey: 'editor_skill',
     })
     window.removeEventListener(SKILL_EDITOR_ACTION_EVENT, handler)
+  })
+
+  it('disables actions when the selected skill leaves the shared list', async () => {
+    const renderActions = () =>
+      editorSkillWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_skill',
+          params: { skillId: 'skill-1' },
+          pairColor: 'gray',
+        } as any,
+      } as any)?.right as ReactNode
+
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[0]).not.toBeDisabled()
+
+    entityListState.ids = []
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[0]).toBeDisabled()
   })
 })

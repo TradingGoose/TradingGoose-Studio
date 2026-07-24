@@ -4,7 +4,6 @@ import {
   invitation,
   member,
   organization,
-  permissions,
   user,
   type WorkspaceInvitationStatus,
   workspaceInvitation,
@@ -13,6 +12,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 
 const logger = createLogger('OrganizationInvitation')
 
@@ -211,14 +211,10 @@ export async function PUT(
             })
             .where(eq(workspaceInvitation.id, wsInvitation.id))
 
-          await tx.insert(permissions).values({
-            id: randomUUID(),
-            entityType: 'workspace',
-            entityId: wsInvitation.workspaceId,
+          await grantWorkspaceAccessInTx(tx, {
+            workspaceId: wsInvitation.workspaceId,
             userId: session.user.id,
             permissionType: wsInvitation.permissions || 'read',
-            createdAt: new Date(),
-            updatedAt: new Date(),
           })
         }
       } else if (status === 'cancelled') {

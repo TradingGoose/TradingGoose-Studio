@@ -1,18 +1,22 @@
 'use client'
 
+import * as React from 'react'
 import * as ResizablePrimitive from 'react-resizable-panels'
 import { cn } from '@/lib/utils'
 
-type ResizablePanelGroupProps = React.ComponentProps<typeof ResizablePrimitive.PanelGroup> & {
-  layout?: number[]
-}
+type ResizablePanelGroupProps = React.ComponentProps<typeof ResizablePrimitive.PanelGroup>
 
-const ResizablePanelGroup = ({ className, ...props }: ResizablePanelGroupProps) => (
+const ResizablePanelGroup = React.forwardRef<
+  React.ElementRef<typeof ResizablePrimitive.PanelGroup>,
+  ResizablePanelGroupProps
+>(({ className, ...props }, ref) => (
   <ResizablePrimitive.PanelGroup
+    ref={ref}
     className={cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', className)}
     {...props}
   />
-)
+))
+ResizablePanelGroup.displayName = ResizablePrimitive.PanelGroup.displayName
 
 const ResizablePanel = ResizablePrimitive.Panel
 
@@ -26,7 +30,7 @@ const ResizableHandle = ({
   <ResizablePrimitive.PanelResizeHandle
     className={cn(
       'group',
-      'after:-translate-x-1/2 data-[panel-group-direction=vertical]:after:-translate-y-1/2 relative flex items-center justify-center after:absolute after:inset-y-0 after:left-1/2 w-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[panel-group-direction=vertical]:h-0 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:translate-x-0',
+      'after:-translate-x-1/2 data-[panel-group-direction=vertical]:after:-translate-y-1/2 relative flex w-0 items-center justify-center after:absolute after:inset-y-0 after:left-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[panel-group-direction=vertical]:h-0 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:translate-x-0',
       className
     )}
     {...props}

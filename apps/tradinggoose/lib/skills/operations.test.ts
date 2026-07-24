@@ -13,10 +13,32 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  workflow: {
+    id: 'workflow.id',
+    workspaceId: 'workflow.workspaceId',
+  },
   skill: {
     id: 'skill.id',
     workspaceId: 'skill.workspaceId',
     name: 'skill.name',
+  },
+  customTools: {
+    id: 'customTools.id',
+    workspaceId: 'customTools.workspaceId',
+  },
+  pineIndicators: {
+    id: 'pineIndicators.id',
+    workspaceId: 'pineIndicators.workspaceId',
+  },
+  mcpServers: {
+    id: 'mcpServers.id',
+    workspaceId: 'mcpServers.workspaceId',
+    deletedAt: 'mcpServers.deletedAt',
+  },
+  layoutMaps: {
+    id: 'layoutMaps.id',
+    workspaceId: 'layoutMaps.workspaceId',
+    userId: 'layoutMaps.userId',
   },
 }))
 
@@ -24,6 +46,8 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
+  isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }))
 
 vi.mock('nanoid', () => ({
@@ -38,8 +62,11 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readSavedEntityListFieldsForExecution: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  lockSavedEntityList: vi.fn(),
+}))
+
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  deleteYjsSessionInSocketServer: vi.fn(),
   refreshEntityListSession: mockNotifyEntityListMembersUpserted,
 }))
 
@@ -90,6 +117,7 @@ describe('skills import operations', () => {
     })
 
     const tx: any = {
+      execute: vi.fn(),
       select: vi.fn(() => createQueryChain(existingNames)),
       insert: vi.fn(() => ({
         values: insertValues,

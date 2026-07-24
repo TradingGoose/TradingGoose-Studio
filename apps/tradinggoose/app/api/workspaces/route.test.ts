@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
+  const txInsertMock = vi.fn()
+  const provisionDashboardLayoutForWorkspaceUserInTxMock = vi.fn()
+  let txInsertValues: Array<{ table: unknown; values: Record<string, unknown> }> = []
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read' | null
@@ -14,6 +17,15 @@ describe('Workspaces API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     userWorkspaces = []
+    txInsertValues = []
+    txInsertMock.mockImplementation((table: unknown) => ({
+      values: vi.fn(async (values: Record<string, unknown>) => {
+        txInsertValues.push({ table, values })
+      }),
+    }))
+    transactionMock.mockImplementation(async (callback: (tx: unknown) => unknown) =>
+      callback({ insert: txInsertMock })
+    )
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -46,9 +58,31 @@ describe('Workspaces API Route', () => {
         entityId: 'permissions.entityId',
       },
       workspace: {
+        table: 'workspace',
         id: 'workspace.id',
         ownerId: 'workspace.ownerId',
         createdAt: 'workspace.createdAt',
+      },
+      layoutMaps: {
+        table: 'layoutMaps',
+      },
+      workflow: {
+        table: 'workflow',
+      },
+      watchlistTable: {
+        table: 'watchlistTable',
+      },
+      skill: {
+        table: 'skill',
+      },
+      customTools: {
+        table: 'customTools',
+      },
+      pineIndicators: {
+        table: 'pineIndicators',
+      },
+      mcpServers: {
+        table: 'mcpServers',
       },
     }))
 
@@ -78,6 +112,11 @@ describe('Workspaces API Route', () => {
             : { userId: workspace.billingOwnerUserId }),
         },
       })),
+    }))
+
+    vi.doMock('@/lib/dashboard-layouts/operations', () => ({
+      provisionDashboardLayoutForWorkspaceUserInTx:
+        provisionDashboardLayoutForWorkspaceUserInTxMock,
     }))
   })
 
@@ -163,5 +202,36 @@ describe('Workspaces API Route', () => {
       }),
     ])
     expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('creates a workspace and its owner-scoped dashboard layout in the same transaction', async () => {
+    const { POST } = await import('@/app/api/workspaces/route')
+    const schema = await import('@tradinggoose/db/schema')
+
+    const response = await POST(
+      new Request('http://localhost/api/workspaces', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Trading Desk' }),
+      })
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspace).toMatchObject({
+      name: 'Trading Desk',
+      ownerId: 'user-1',
+      permissions: 'admin',
+    })
+    expect(transactionMock).toHaveBeenCalledTimes(1)
+    expect(txInsertValues.map((entry) => entry.table)).toEqual([schema.workspace])
+
+    const workspaceInsert = txInsertValues[0]?.values
+    expect(provisionDashboardLayoutForWorkspaceUserInTxMock).toHaveBeenCalledWith(
+      expect.objectContaining({ insert: txInsertMock }),
+      {
+        workspaceId: workspaceInsert.id,
+        ownerUserId: 'user-1',
+      }
+    )
   })
 })

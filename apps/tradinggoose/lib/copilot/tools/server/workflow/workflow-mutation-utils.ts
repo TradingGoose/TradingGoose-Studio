@@ -1,21 +1,15 @@
-import * as Y from 'yjs'
 import {
   assertAcceptedServerToolReviewBase,
   hashServerToolReviewBase,
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import {
-  createWorkflowSnapshot,
-  getVariablesSnapshot,
-  readWorkflowSnapshot,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
+import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 function buildWorkflowDocumentPreviewDiff(
   currentWorkflowState: WorkflowSnapshot | undefined,
@@ -99,54 +93,15 @@ function buildWorkflowDocumentPreviewDiff(
   }
 }
 
-export async function loadBaseWorkflowState(
-  workflowId: string,
-  context?: ServerToolExecutionContext
-): Promise<WorkflowSnapshot & { variables: Record<string, any> }> {
-  const userId = context?.userId?.trim()
-  if (!userId) {
-    throw new Error('Authenticated user is required to edit workflow state')
-  }
-
-  const { verifyWorkflowAccess } = await import('@/lib/copilot/review-sessions/permissions')
-  const access = await verifyWorkflowAccess(userId, workflowId, 'write')
-  if (!access.hasAccess) {
-    throw new Error('Access denied: You do not have permission to edit this workflow')
-  }
-
-  const snapshot = await readBootstrappedReviewTargetSnapshot({
-    workspaceId: access.workspaceId ?? context?.workspaceId ?? null,
-    entityKind: 'workflow',
-    entityId: workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
-    yjsSessionId: workflowId,
-  })
-
-  if (!snapshot.snapshotBase64) {
-    throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return {
-      ...createWorkflowSnapshot(readWorkflowSnapshot(doc)),
-      variables: getVariablesSnapshot(doc),
-    }
-  } finally {
-    doc.destroy()
-  }
-}
-
 export function buildWorkflowMutationResult(params: {
   workflowId: string
+  entityName: string
   baseWorkflowState: WorkflowSnapshot & { variables: Record<string, any> }
   nextWorkflowState: WorkflowSnapshot
   renderEntityDocument: (workflowState: WorkflowSnapshot) => string
   documentFormat: string
 }) {
-  const { workflowId, baseWorkflowState, nextWorkflowState } = params
+  const { workflowId, entityName, baseWorkflowState, nextWorkflowState } = params
   const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
     nextWorkflowState,
     baseWorkflowState
@@ -174,6 +129,7 @@ export function buildWorkflowMutationResult(params: {
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
+    entityName,
     entityDocument,
     documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
@@ -198,9 +154,11 @@ export async function resolveWorkflowMutationResultForExecution(
     return result
   }
 
+  const { userId } = await verifySavedEntityContext(context, 'workflow', result.entityId, 'write')
   assertAcceptedServerToolReviewBase(context, result.reviewBaseStateHash)
   await applyWorkflowState(
     result.entityId,
+    userId,
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>),
     result.variables
   )

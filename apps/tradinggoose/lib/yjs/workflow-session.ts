@@ -8,7 +8,7 @@
  *   - "workflow"  (Y.Map) — editable blocks, edges, loops, parallels, and save timestamp
  *   - "textFields" (Y.Map) — text-heavy subblock values keyed by blockId/subBlockId
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
- *   - "metadata"  (Y.Map) — session-level workflow metadata (e.g. reseed markers)
+ *   - "metadata"  (Y.Map) — session-level workflow metadata
  */
 
 import type { Edge } from '@xyflow/react'
@@ -370,10 +370,6 @@ export function replaceWorkflowDocumentState(
   if (variables !== undefined) {
     setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
   }
-
-  doc.transact(() => {
-    getMetadataMap(doc).delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SYSTEM)
 }
 
 // ---------------------------------------------------------------------------

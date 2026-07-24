@@ -1,3 +1,4 @@
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 
@@ -69,6 +70,7 @@ export function getCopilotServerToolErrorStatus(error: unknown): number | undefi
 export async function executeCopilotServerTool<TResult = unknown>(input: {
   toolName: string
   payload?: unknown
+  accessLevel?: CopilotAccessLevel
   context?: {
     contextEntityKind?: ReviewEntityKind
     contextEntityId?: string
@@ -76,8 +78,7 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
   }
   signal?: AbortSignal
 }): Promise<TResult> {
-  const context =
-    input.context && Object.keys(input.context).length > 0 ? input.context : undefined
+  const context = input.context && Object.keys(input.context).length > 0 ? input.context : undefined
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -85,6 +86,7 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
     body: JSON.stringify({
       toolName: input.toolName,
       payload: input.payload ?? {},
+      ...(input.accessLevel === 'full' ? { accessLevel: input.accessLevel } : {}),
       ...(context ? { context } : {}),
     }),
   })
@@ -120,8 +122,7 @@ export async function acceptCopilotServerToolReview<TResult = unknown>(input: {
   }
   signal?: AbortSignal
 }): Promise<TResult> {
-  const context =
-    input.context && Object.keys(input.context).length > 0 ? input.context : undefined
+  const context = input.context && Object.keys(input.context).length > 0 ? input.context : undefined
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

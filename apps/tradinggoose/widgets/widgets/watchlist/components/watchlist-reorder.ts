@@ -1,24 +1,24 @@
 import type { WatchlistItem } from '@/lib/watchlists/types'
 
 export type WatchlistDropTarget =
-  | { type: 'before'; itemId: string }
-  | { type: 'section'; sectionId: string }
+  | { type: 'position'; itemId: string }
+  | { type: 'container'; containerId: string }
   | { type: 'root' }
 
 export type DraggedWatchlistItem =
   | { type: 'listing'; itemId: string }
-  | { type: 'section'; itemId: string }
+  | { type: 'container'; itemId: string }
 
 const LISTING_SORTABLE_PREFIX = 'watchlist-listing:'
-const SECTION_SORTABLE_PREFIX = 'watchlist-section:'
+const CONTAINER_SORTABLE_PREFIX = 'watchlist-container:'
 
 export const WATCHLIST_ROOT_SORTABLE_ID = 'watchlist-root'
 
 export const createWatchlistListingSortableId = (itemId: string) =>
   `${LISTING_SORTABLE_PREFIX}${itemId}`
 
-export const createWatchlistSectionSortableId = (sectionId: string) =>
-  `${SECTION_SORTABLE_PREFIX}${sectionId}`
+export const createWatchlistContainerSortableId = (containerId: string) =>
+  `${CONTAINER_SORTABLE_PREFIX}${containerId}`
 
 export const resolveDraggedItem = (sortableId: string): DraggedWatchlistItem | null => {
   if (sortableId.startsWith(LISTING_SORTABLE_PREFIX)) {
@@ -26,9 +26,9 @@ export const resolveDraggedItem = (sortableId: string): DraggedWatchlistItem | n
     return itemId ? { type: 'listing', itemId } : null
   }
 
-  if (sortableId.startsWith(SECTION_SORTABLE_PREFIX)) {
-    const itemId = sortableId.slice(SECTION_SORTABLE_PREFIX.length)
-    return itemId ? { type: 'section', itemId } : null
+  if (sortableId.startsWith(CONTAINER_SORTABLE_PREFIX)) {
+    const itemId = sortableId.slice(CONTAINER_SORTABLE_PREFIX.length)
+    return itemId ? { type: 'container', itemId } : null
   }
 
   return null
@@ -41,84 +41,89 @@ export const resolveDropTarget = (sortableId: string): WatchlistDropTarget | nul
 
   if (sortableId.startsWith(LISTING_SORTABLE_PREFIX)) {
     const itemId = sortableId.slice(LISTING_SORTABLE_PREFIX.length)
-    return itemId ? { type: 'before', itemId } : null
+    return itemId ? { type: 'position', itemId } : null
   }
 
-  if (sortableId.startsWith(SECTION_SORTABLE_PREFIX)) {
-    const sectionId = sortableId.slice(SECTION_SORTABLE_PREFIX.length)
-    return sectionId ? { type: 'section', sectionId } : null
-  }
-
-  return null
-}
-
-const findSectionStartIndex = (items: WatchlistItem[], sectionId: string) =>
-  items.findIndex((item) => item.id === sectionId && item.type === 'section')
-
-const findSectionEndIndex = (items: WatchlistItem[], sectionId: string) => {
-  const startIndex = findSectionStartIndex(items, sectionId)
-  if (startIndex === -1) return null
-
-  for (let index = startIndex + 1; index < items.length; index += 1) {
-    if (items[index]?.type === 'section') {
-      return index
-    }
-  }
-
-  return items.length
-}
-
-const resolveSectionAppendIndex = (items: WatchlistItem[], sectionId: string) => {
-  const sectionIndex = findSectionStartIndex(items, sectionId)
-  if (sectionIndex === -1) return null
-
-  const sectionEndIndex = findSectionEndIndex(items, sectionId)
-  return sectionEndIndex == null ? null : sectionEndIndex
-}
-
-const resolveRootInsertIndex = (items: WatchlistItem[]) => {
-  const firstSectionIndex = items.findIndex((item) => item.type === 'section')
-  return firstSectionIndex === -1 ? items.length : firstSectionIndex
-}
-
-const resolveOwningSectionId = (items: WatchlistItem[], listingId: string) => {
-  const itemIndex = items.findIndex((item) => item.id === listingId && item.type === 'listing')
-  if (itemIndex === -1) return null
-
-  for (let index = itemIndex - 1; index >= 0; index -= 1) {
-    const candidate = items[index]
-    if (candidate?.type === 'section') {
-      return candidate.id
-    }
+  if (sortableId.startsWith(CONTAINER_SORTABLE_PREFIX)) {
+    const containerId = sortableId.slice(CONTAINER_SORTABLE_PREFIX.length)
+    return containerId ? { type: 'container', containerId } : null
   }
 
   return null
 }
 
-const moveListingItem = (
+const findItem = (items: WatchlistItem[], itemId: string) =>
+  items.find((item) => item.id === itemId) ?? null
+
+const resolveTargetParentId = (
   items: WatchlistItem[],
-  draggedItemId: string,
+  active: DraggedWatchlistItem,
+  target: WatchlistDropTarget
+) => {
+  if (active.type === 'container') {
+    return target.type === 'position' && target.itemId === active.itemId ? undefined : null
+  }
+  if (target.type === 'root') return null
+  if (target.type === 'container') {
+    const targetItem = findItem(items, target.containerId)
+    return targetItem?.type === 'section' ? targetItem.id : undefined
+  }
+
+  const targetItem = findItem(items, target.itemId)
+  return targetItem?.parentId ?? null
+}
+
+const resolveInsertIndex = (
+  items: WatchlistItem[],
+  remaining: WatchlistItem[],
+  target: WatchlistDropTarget,
+  parentId: string | null
+) => {
+  if (target.type === 'position') {
+    return items.findIndex((item) => item.id === target.itemId)
+  }
+
+  if (target.type === 'root') {
+    const firstSectionIndex = remaining.findIndex((item) => item.type === 'section')
+    return firstSectionIndex === -1 ? remaining.length : firstSectionIndex
+  }
+
+  for (let index = remaining.length - 1; index >= 0; index -= 1) {
+    if ((remaining[index]?.parentId ?? null) === parentId) {
+      return index + 1
+    }
+  }
+
+  if (target.type === 'container') {
+    const containerIndex = remaining.findIndex((item) => item.id === target.containerId)
+    return containerIndex === -1 ? remaining.length : containerIndex + 1
+  }
+
+  return remaining.length
+}
+
+const moveItem = (
+  items: WatchlistItem[],
+  active: DraggedWatchlistItem,
   target: WatchlistDropTarget
 ) => {
   const sourceIndex = items.findIndex(
-    (item) => item.id === draggedItemId && item.type === 'listing'
+    (item) =>
+      item.id === active.itemId &&
+      (active.type === 'container' ? item.type === 'section' : item.type === active.type)
   )
   if (sourceIndex === -1) return null
 
-  const draggedItem = items[sourceIndex]
-  const remaining = items.filter((item) => item.id !== draggedItemId)
+  const nextParentId = resolveTargetParentId(items, active, target)
+  if (nextParentId === undefined) return null
 
-  let insertIndex: number | null = null
-
-  if (target.type === 'before') {
-    insertIndex = remaining.findIndex((item) => item.id === target.itemId)
-  } else if (target.type === 'section') {
-    insertIndex = resolveSectionAppendIndex(remaining, target.sectionId)
-  } else {
-    insertIndex = resolveRootInsertIndex(remaining)
-  }
-
-  if (insertIndex == null || insertIndex === -1) return null
+  const draggedItem = {
+    ...items[sourceIndex],
+    parentId: active.type === 'container' ? null : nextParentId,
+  } as WatchlistItem
+  const remaining = items.filter((item) => item.id !== active.itemId)
+  const insertIndex = resolveInsertIndex(items, remaining, target, nextParentId)
+  if (insertIndex === -1) return null
 
   const nextItems = [
     ...remaining.slice(0, insertIndex),
@@ -126,45 +131,12 @@ const moveListingItem = (
     ...remaining.slice(insertIndex),
   ]
 
-  const unchanged = nextItems.every((item, index) => item.id === items[index]?.id)
-  return unchanged ? null : nextItems
-}
-
-const moveSectionBlock = (
-  items: WatchlistItem[],
-  draggedSectionId: string,
-  target: WatchlistDropTarget
-) => {
-  const sourceIndex = findSectionStartIndex(items, draggedSectionId)
-  const sourceEndIndex = findSectionEndIndex(items, draggedSectionId)
-  if (sourceIndex === -1 || sourceEndIndex == null) return null
-
-  const block = items.slice(sourceIndex, sourceEndIndex)
-  const remaining = [...items.slice(0, sourceIndex), ...items.slice(sourceEndIndex)]
-
-  let insertIndex: number | null = null
-
-  if (target.type === 'root') {
-    insertIndex = resolveRootInsertIndex(remaining)
-  } else if (target.type === 'section') {
-    if (target.sectionId === draggedSectionId) return null
-    insertIndex = findSectionStartIndex(remaining, target.sectionId)
-  } else {
-    const ownerSectionId = resolveOwningSectionId(remaining, target.itemId)
-    insertIndex = ownerSectionId
-      ? findSectionStartIndex(remaining, ownerSectionId)
-      : resolveRootInsertIndex(remaining)
-  }
-
-  if (insertIndex == null || insertIndex === -1) return null
-
-  const nextItems = [
-    ...remaining.slice(0, insertIndex),
-    ...block,
-    ...remaining.slice(insertIndex),
-  ]
-
-  const unchanged = nextItems.every((item, index) => item.id === items[index]?.id)
+  const unchanged =
+    nextItems.length === items.length &&
+    nextItems.every(
+      (item, index) =>
+        item.id === items[index]?.id && (item.parentId ?? null) === (items[index]?.parentId ?? null)
+    )
   return unchanged ? null : nextItems
 }
 
@@ -178,10 +150,17 @@ export const resolveEffectiveDropTarget = (
 
   if (!active || !rawTarget) return null
   if (active.type === 'listing') return rawTarget
-  if (rawTarget.type !== 'before') return rawTarget
+  if (rawTarget.type === 'root') return rawTarget
+  if (rawTarget.type === 'container') {
+    return rawTarget.containerId === active.itemId
+      ? null
+      : { type: 'position', itemId: rawTarget.containerId }
+  }
 
-  const ownerSectionId = resolveOwningSectionId(items, rawTarget.itemId)
-  return ownerSectionId ? { type: 'section', sectionId: ownerSectionId } : { type: 'root' }
+  const targetItem = findItem(items, rawTarget.itemId)
+  const parentId = targetItem?.parentId ?? null
+  if (!parentId) return rawTarget.itemId === active.itemId ? null : rawTarget
+  return parentId === active.itemId ? null : { type: 'position', itemId: parentId }
 }
 
 export const moveWatchlistItem = (
@@ -194,7 +173,5 @@ export const moveWatchlistItem = (
 
   if (!active || !target) return null
 
-  return active.type === 'section'
-    ? moveSectionBlock(items, active.itemId, target)
-    : moveListingItem(items, active.itemId, target)
+  return moveItem(items, active, target)
 }

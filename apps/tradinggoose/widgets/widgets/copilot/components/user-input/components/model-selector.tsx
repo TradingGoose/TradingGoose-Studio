@@ -1,7 +1,6 @@
 'use client'
 
 import { Brain, BrainCircuit, Zap } from 'lucide-react'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import {
   Button,
   DropdownMenu,
@@ -16,6 +15,7 @@ import {
   DEFAULT_COPILOT_RUNTIME_MODEL,
 } from '@/lib/copilot/runtime-models'
 import { cn } from '@/lib/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   ANTHROPIC_MODELS,

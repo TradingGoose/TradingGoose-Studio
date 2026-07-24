@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { type ListingIdentity } from '@/lib/listing/identity'
+import { ListingIdentityPassthroughSchema, type ListingIdentity } from '@/lib/listing/identity'
 import { executeProviderRequest } from '@/providers/market'
 import { MarketProviderError, normalizeMarketProviderError } from '@/providers/market/errors'
 import type { MarketProviderRequest } from '@/providers/market/providers'
@@ -49,31 +49,6 @@ export async function handleMarketProviderRequest({
         ? body.workspaceId.trim()
         : undefined
 
-    const ListingSchema = z
-      .object({
-        listing_id: z.string(),
-        base_id: z.string(),
-        quote_id: z.string(),
-        listing_type: z.enum(['default', 'crypto', 'currency']),
-      })
-      .passthrough()
-      .superRefine((value, ctx) => {
-        if (value.listing_type === 'default' && !value.listing_id?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'default listing requires listing_id',
-          })
-        }
-        if (value.listing_type !== 'default') {
-          if (!value.base_id?.trim() || !value.quote_id?.trim()) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: 'listing requires base_id and quote_id',
-            })
-          }
-        }
-      })
-
     const MarketSeriesWindowSchema = z.discriminatedUnion('mode', [
       z.object({
         mode: z.literal('bars'),
@@ -95,7 +70,7 @@ export async function handleMarketProviderRequest({
 
     const MarketProviderRequestSchema = z.object({
       kind: z.enum(MARKET_DATA_TYPES).default('series'),
-      listing: ListingSchema,
+      listing: ListingIdentityPassthroughSchema,
       auth: z
         .object({
           apiKey: z.string().optional(),

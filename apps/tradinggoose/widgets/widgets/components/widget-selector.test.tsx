@@ -64,4 +64,28 @@ describe('WidgetSelectorComponent', () => {
     expect(tradingSection).toContain('Quick Order')
     expect(tradingSection).toContain('Market Data')
   })
+
+  it('does not open while widget selection is unavailable', async () => {
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <WidgetSelectorComponent
+            currentKey='heatmap'
+            disabled
+            renderTrigger={() => <button type='button'>Select widget</button>}
+          />
+        </TooltipProvider>
+      )
+    })
+
+    await act(async () => {
+      container.querySelector('button')?.dispatchEvent(
+        new MouseEvent('pointerdown', {
+          bubbles: true,
+        })
+      )
+    })
+
+    expect(document.body.textContent).not.toContain('Trading')
+  })
 })

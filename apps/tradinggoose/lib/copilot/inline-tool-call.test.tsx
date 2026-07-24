@@ -3,9 +3,13 @@
  */
 
 import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { AppLocale } from '@/i18n/routing'
+import type { CopilotToolCall } from '@/stores/copilot/types'
 import { InlineToolCall } from './inline-tool-call'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -23,6 +27,16 @@ const mockGetToolInterruptDisplays = vi.fn()
 
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+}))
+
+vi.mock('@/hooks/queries/listing-resolution', () => ({
+  useResolvedListings: () => ({ data: {} }),
+}))
+
+vi.mock('@/components/listing-selector/listing/row', () => ({
+  MarketListingRow: ({ listing }: any) => (
+    <div data-testid='market-listing-row'>{listing?.base ?? listing?.name ?? ''}</div>
+  ),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
@@ -53,6 +67,13 @@ vi.mock(
 describe('InlineToolCall', () => {
   let container: HTMLDivElement
   let root: Root
+
+  const renderLocalized = (toolCall: CopilotToolCall, locale: AppLocale) =>
+    root.render(
+      <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+        <InlineToolCall toolCall={toolCall} />
+      </NextIntlClientProvider>
+    )
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -352,4 +373,182 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Accept changes')
     expect(container.textContent).toContain('Reject changes')
   })
+
+  it.each([
+    ['edit_layout', ClientToolCallState.review, true, 'Cambios propuestos al diseño del panel'],
+    ['create_layout', ClientToolCallState.success, false, 'Cambios aplicados al diseño del panel'],
+  ] as const)(
+    'localizes %s with the shared visual preview',
+    async (toolName, state, hasBefore, title) => {
+      const layoutDocument = (widgetKey: string) => ({
+        layout: {
+          id: 'panel-a',
+          type: 'panel',
+          identityId: 'widget-a',
+          widgetKey,
+        },
+        widgets: {
+          'widget-a': { pairColor: 'gray', params: null },
+        },
+        colorPairs: { pairs: [] },
+      })
+      const currentLayout = layoutDocument('data_chart')
+      const proposedLayout = layoutDocument('watchlist')
+
+      await act(async () => {
+        renderLocalized(
+          {
+            id: 'tool-dashboard-layout-review',
+            name: toolName,
+            state,
+            result: {
+              entityKind: 'dashboard_layout',
+              entityName: 'Layout 1',
+              preview: {
+                documentDiff: {
+                  before: hasBefore ? JSON.stringify(currentLayout) : '',
+                  after: JSON.stringify(proposedLayout),
+                },
+              },
+            },
+          },
+          'es'
+        )
+      })
+
+      expect(
+        container.querySelector('[data-testid="dashboard-layout-review-preview"]')
+      ).not.toBeNull()
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain('Actual')
+      expect(container.textContent).toContain('Propuesto')
+      expect(container.querySelector('[aria-label="Panel de control"]')).not.toBeNull()
+      expect(container.textContent).toContain('Layout 1')
+      expect(container.textContent.includes('data_chart')).toBe(hasBefore)
+      expect(container.textContent).toContain('watchlist')
+      expect(container.textContent).not.toContain('"layout"')
+      expect(container.textContent.includes('Documento nuevo')).toBe(!hasBefore)
+    }
+  )
+
+  it.each([
+    ['edit_watchlist', ClientToolCallState.review, true, '拟议的自选列表更改'],
+    ['create_watchlist', ClientToolCallState.success, false, '已应用自选列表更改'],
+  ] as const)(
+    'localizes %s with resolved-style listing rows',
+    async (toolName, state, hasBefore, title) => {
+      const document = {
+        settings: { showLogo: true, showTicker: true, showDescription: false },
+        items: [
+          { id: 'section-1', type: 'section', parentId: null, label: 'Other' },
+          {
+            id: 'listing-1',
+            type: 'listing',
+            parentId: 'section-2',
+            listing: {
+              listing_type: 'default',
+              listing_id: 'NVDA',
+              base_id: '',
+              quote_id: '',
+            },
+          },
+          { id: 'section-2', type: 'section', parentId: null, label: 'Semiconductors' },
+        ],
+      }
+
+      await act(async () => {
+        renderLocalized(
+          {
+            id: 'tool-watchlist-review',
+            name: toolName,
+            state,
+            result: {
+              entityKind: 'watchlist',
+              entityName: 'Momentum',
+              preview: {
+                documentDiff: {
+                  before: hasBefore ? JSON.stringify({ ...document, items: [] }) : '',
+                  after: JSON.stringify(document),
+                },
+              },
+            },
+          },
+          'zh'
+        )
+      })
+
+      expect(container.querySelector('[data-testid="watchlist-review-preview"]')).not.toBeNull()
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain('当前')
+      expect(container.textContent).toContain('拟议')
+      expect(container.textContent.includes('空自选列表')).toBe(hasBefore)
+      expect(container.textContent.includes('新文档')).toBe(!hasBefore)
+      expect(container.textContent).toContain('徽标')
+      expect(container.textContent).toContain('代码')
+      expect(container.textContent).toMatch(/Other.*Semiconductors.*NVDA/)
+      expect(container.textContent).not.toContain('Logo')
+      expect(container.textContent).not.toContain('Ticker')
+      expect(container.textContent).not.toContain('listing_id')
+    }
+  )
+
+  it.each([
+    ['es', ClientToolCallState.review, 'Cambios propuestos al widget', 'Actual', 'Propuesto'],
+    ['zh', ClientToolCallState.success, '已应用组件更改', '当前', '拟议'],
+  ] as const)(
+    'localizes dashboard widget changes through the generic JSON diff for %s',
+    async (locale, state, title, currentLabel, proposedLabel) => {
+      await act(async () => {
+        renderLocalized(
+          {
+            id: `tool-dashboard-widget-${state}`,
+            name: 'edit_widget',
+            state,
+            result: {
+              entityKind: 'dashboard_layout',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify(
+                    {
+                      panelId: 'panel-a',
+                      widgetKey: 'editor_workflow',
+                      widgetDocument: {
+                        pairColor: 'red',
+                        params: null,
+                      },
+                      colorPair: { workflowId: 'workflow-1' },
+                    },
+                    null,
+                    2
+                  ),
+                  after: JSON.stringify(
+                    {
+                      panelId: 'panel-a',
+                      widgetKey: 'watchlist',
+                      widgetDocument: {
+                        pairColor: 'red',
+                        params: { provider: 'alpaca' },
+                      },
+                      colorPair: { watchlistId: 'watchlist-1' },
+                    },
+                    null,
+                    2
+                  ),
+                },
+              },
+            },
+          },
+          locale
+        )
+      })
+
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain(currentLabel)
+      expect(container.textContent).toContain(proposedLabel)
+      expect(container.textContent).toContain('panel-a')
+      expect(container.textContent).toContain('editor_workflow')
+      expect(container.textContent).toContain('watchlist')
+      expect(container.textContent).toContain('watchlist-1')
+    }
+  )
 })

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
@@ -9,8 +9,8 @@ import {
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
@@ -24,17 +24,7 @@ interface CreateCustomToolsParams {
   workspaceId: string
   userId: string
   requestId?: string
-}
-
-interface SaveCustomToolParams {
-  tool: {
-    id: string
-    title: string
-    schema: Record<string, any>
-    code: string
-  }
-  workspaceId: string
-  requestId?: string
+  beforeInsert?: EntityListBeforeInsert
 }
 
 interface ImportCustomToolsParams {
@@ -50,11 +40,11 @@ export async function listCustomTools(params: { workspaceId: string }) {
     params.workspaceId,
     false
   )
-  return entries.map(({ entityId, fields }) => ({
+  return entries.map(({ entityId, entityName, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
     userId: null,
-    title: String(fields.title ?? ''),
+    title: entityName,
     schema: parseCustomToolSchemaText(fields.schemaText),
     code: String(fields.codeText ?? ''),
   }))
@@ -65,12 +55,15 @@ export async function createCustomTools({
   workspaceId,
   userId,
   requestId = generateRequestId(),
+  beforeInsert,
 }: CreateCustomToolsParams) {
   if (tools.length === 0) {
     return []
   }
 
   const created = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'custom_tool', workspaceId)
+    await beforeInsert?.(tx)
     const existingTools = await tx
       .select({
         id: customTools.id,
@@ -113,29 +106,6 @@ export async function createCustomTools({
   return created
 }
 
-export async function saveCustomTool({
-  tool,
-  workspaceId,
-  requestId = generateRequestId(),
-}: SaveCustomToolParams) {
-  const [existingTool] = await db
-    .select({ id: customTools.id })
-    .from(customTools)
-    .where(and(eq(customTools.id, tool.id), eq(customTools.workspaceId, workspaceId)))
-    .limit(1)
-  if (!existingTool) {
-    throw new Error(`Custom tool ${tool.id} was not found`)
-  }
-
-  await applySavedEntityState('custom_tool', tool.id, {
-    title: tool.title,
-    schemaText: JSON.stringify(tool.schema, null, 2),
-    codeText: tool.code,
-  })
-  logger.info(`[${requestId}] Saved custom tool ${tool.id}`)
-  return listCustomTools({ workspaceId })
-}
-
 export async function importCustomTools({
   tools,
   workspaceId,
@@ -143,6 +113,7 @@ export async function importCustomTools({
   requestId = generateRequestId(),
 }: ImportCustomToolsParams) {
   const result = await db.transaction(async (tx) => {
+    await lockSavedEntityList(tx, 'custom_tool', workspaceId)
     const existingTools = await tx
       .select({
         title: customTools.title,

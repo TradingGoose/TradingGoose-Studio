@@ -94,6 +94,11 @@
               "minLength": 32,
               "description": "Encryption key (minimum 32 characters required)"
             },
+            "INTERNAL_API_SECRET": {
+              "type": "string",
+              "pattern": "^$|^.{32,}$",
+              "description": "Internal service authentication secret; leave empty only when app/realtime extraEnvVars supplies its secretKeyRef"
+            },
             "API_ENCRYPTION_KEY": {
               "type": "string",
               "pattern": "^$|^[a-fA-F0-9]{64}$",
@@ -284,10 +289,10 @@
           "type": "boolean",
           "description": "Enable the realtime service"
         },
-        "replicaCount": {
+        "terminationGracePeriodSeconds": {
           "type": "integer",
-          "minimum": 1,
-          "description": "Number of realtime replicas"
+          "minimum": 300,
+          "description": "Seconds allowed for the realtime durability drain before pod termination"
         },
         "resources": {
           "type": "object",

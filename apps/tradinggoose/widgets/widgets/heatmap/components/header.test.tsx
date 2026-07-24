@@ -10,7 +10,7 @@ import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { renderHeatmapHeader } from '@/widgets/widgets/heatmap/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockEmitHeatmapParamsChange = vi.fn()
+const mockPatchWidgetParams = vi.fn()
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: {
     serviceId?: string | null
@@ -42,8 +42,10 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/widgets/utils/heatmap-params', () => ({
-  emitHeatmapParamsChange: (...args: unknown[]) => mockEmitHeatmapParamsChange(...args),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -142,6 +144,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('does not normalize an invalid market provider to a default provider', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -162,11 +165,9 @@ describe('HeatmapHeaderControls', () => {
       )
     })
 
-    expect(mockEmitHeatmapParamsChange).not.toHaveBeenCalledWith(
+    expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
     expect(mockUseOAuthProviderAvailability).not.toHaveBeenCalled()
@@ -175,6 +176,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('shows the account selector after a portfolio trading provider is selected', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -207,6 +209,7 @@ describe('HeatmapHeaderControls', () => {
 
   it('switches source mode from the header button group', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -226,15 +229,14 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: { sourceMode: 'portfolio' },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      sourceMode: 'portfolio',
     })
   })
 
   it('switches watchlist tile size metric from the header button group', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -255,15 +257,14 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: { watchlistSizeMetric: 'volume' },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      watchlistSizeMetric: 'volume',
     })
   })
 
   it('updates the account id from account selection', async () => {
     const slots = renderHeatmapHeader?.({
+      channelId: 'heatmap-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'heatmap',
@@ -284,13 +285,9 @@ describe('HeatmapHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: {
-        serviceId: selectedPortfolioIdentity.serviceId,
-        portfolioIdentity: selectedPortfolioIdentity,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      serviceId: selectedPortfolioIdentity.serviceId,
+      portfolioIdentity: selectedPortfolioIdentity,
     })
   })
 })

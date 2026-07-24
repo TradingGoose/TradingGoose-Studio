@@ -4,8 +4,8 @@ import { importIndicators } from '@/lib/indicators/custom/operations'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('IndicatorsImportAPI')
 
@@ -80,9 +80,8 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error importing indicators`, { error })
     return NextResponse.json({ error: 'Failed to import indicators' }, { status: 500 })
   }

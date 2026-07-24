@@ -1,3 +1,8 @@
+import type {
+  HeatmapSourceMode,
+  HeatmapWatchlistSizeMetric,
+  HeatmapWidgetParams,
+} from '@/widgets/widgets/heatmap/contract'
 import {
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
@@ -6,11 +11,6 @@ import {
   getSeriesMarketProviderOptions,
   resolveConfiguredSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
-import type {
-  HeatmapSourceMode,
-  HeatmapWatchlistSizeMetric,
-  HeatmapWidgetParams,
-} from '@/widgets/widgets/heatmap/types'
 
 export const HEATMAP_SOURCE_MODES: Array<{ id: HeatmapSourceMode; label: string }> = [
   { id: 'watchlist', label: 'Watchlist' },

@@ -7,13 +7,13 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { chatWidget } from './index'
 
+const mockChatApp = vi.hoisted(() => vi.fn())
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
 let mockWorkflowWidgetState: any = {
-  channelId: 'workflow-chat-panel-1',
-  resolvedPairColor: 'gray',
   resolvedWorkflowId: 'wf-1',
   hasLoadedWorkflows: true,
   loadError: null,
@@ -49,21 +49,6 @@ vi.mock('@/stores/chat/store', () => ({
   useChatStore: () => mockChatStore,
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: (
-    selector: (state: { getActiveWorkflowId: (channelId: string) => string | null }) => unknown
-  ) =>
-    selector({
-      getActiveWorkflowId: () => 'wf-1',
-    }),
-}))
-
-vi.mock('@/widgets/hooks/use-widget-channel', () => ({
-  resolveWidgetChannel: () => ({
-    channelId: 'workflow-chat-panel-1',
-  }),
-}))
-
 vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
   useWorkflowWidgetState: () => mockWorkflowWidgetState,
 }))
@@ -78,34 +63,32 @@ vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
   WorkflowDropdown: () => <div data-testid='workflow-dropdown'>workflow-dropdown</div>,
 }))
 
-vi.mock('@/widgets/utils/workflow-selection', () => ({
-  emitWorkflowSelectionChange: vi.fn(),
-  useWorkflowSelectionPersistence: vi.fn(),
-}))
-
 vi.mock('./components', () => ({
   OutputSelect: () => <div data-testid='output-select'>output-select</div>,
 }))
 
 vi.mock('./components/workflow-chat-app', () => ({
   __esModule: true,
-  default: () => <div data-testid='workflow-chat-app'>workflow-chat-app</div>,
+  default: (props: Record<string, unknown>) => {
+    mockChatApp(props)
+    return <div data-testid='workflow-chat-app'>workflow-chat-app</div>
+  },
   WorkflowChatSessionProviders: ({
+    channelId,
     workspaceId,
     workflowId,
-    channelId,
     children,
   }: {
+    channelId?: string
     workspaceId: string
     workflowId: string
-    channelId: string
     children: React.ReactNode
   }) => (
     <div
       data-testid='workflow-chat-session-providers'
+      data-channel-id={channelId}
       data-workspace-id={workspaceId}
       data-workflow-id={workflowId}
-      data-channel-id={channelId}
     >
       {children}
     </div>
@@ -122,8 +105,6 @@ describe('chatWidget header', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockWorkflowWidgetState = {
-      channelId: 'workflow-chat-panel-1',
-      resolvedPairColor: 'gray',
       resolvedWorkflowId: 'wf-1',
       hasLoadedWorkflows: true,
       loadError: null,
@@ -144,6 +125,7 @@ describe('chatWidget header', () => {
 
   it('wraps the header output selector with the workflow chat session providers', async () => {
     const slots = chatWidget.renderHeader?.({
+      channelId: 'pair-blue',
       widget: {
         key: 'workflow_chat',
         pairColor: 'gray',
@@ -165,7 +147,25 @@ describe('chatWidget header', () => {
     expect(provider).not.toBeNull()
     expect(provider?.getAttribute('data-workspace-id')).toBe('ws-1')
     expect(provider?.getAttribute('data-workflow-id')).toBe('wf-1')
-    expect(provider?.getAttribute('data-channel-id')).toBe('workflow-chat-panel-1')
+    expect(provider?.getAttribute('data-channel-id')).toBe('pair-blue')
     expect(container.querySelector('[data-testid="output-select"]')).not.toBeNull()
+  })
+
+  it('forwards the runtime channel to the chat app', async () => {
+    await act(async () => {
+      root.render(
+        <>
+          {chatWidget.component({
+            channelId: 'workflow_chat-panel-1',
+            context: { workspaceId: 'ws-1' },
+            params: { workflowId: 'wf-1' },
+          })}
+        </>
+      )
+    })
+
+    expect(mockChatApp).toHaveBeenCalledWith(
+      expect.objectContaining({ channelId: 'workflow_chat-panel-1', workflowId: 'wf-1' })
+    )
   })
 })

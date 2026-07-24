@@ -6,8 +6,38 @@ export const ExecuteResponseSuccessSchema = z.object({
   result: z.unknown(),
 })
 
+// dashboard widget catalog / metadata
+export const WidgetCatalogItemSchema = z.object({
+  widgetKey: z.string(),
+  title: z.string(),
+  category: z.enum(['editor', 'list', 'utility', 'trading']),
+  description: z.string(),
+  editable: z.boolean(),
+  editableFields: z.array(z.string()),
+  linkedParamFields: z.array(z.string()),
+})
+
+const WidgetParamFieldContractSchema = z.object({
+  field: z.string(),
+  kind: z.string(),
+  referenceKind: z.string().optional(),
+  allowedValues: z.array(z.string()).optional(),
+})
+
+export const WidgetMetadataProfileSchema = z.object({
+  widgetKey: z.string(),
+  title: z.string(),
+  category: z.enum(['editor', 'list', 'utility', 'trading']),
+  description: z.string(),
+  editable: z.boolean(),
+  defaultParams: z.record(z.any()).nullable(),
+  editableFields: z.array(z.string()),
+  paramContract: z.array(WidgetParamFieldContractSchema),
+  linkedParamFields: z.array(z.string()),
+})
+
 // get_available_blocks
-export const BlockCatalogCategorySchema = z.enum(['block', 'tool', 'trigger'])
+const BlockCatalogCategorySchema = z.enum(['block', 'tool', 'trigger'])
 export type BlockCatalogCategory = z.infer<typeof BlockCatalogCategorySchema>
 export const GetAvailableBlocksInput = z
   .object({
@@ -24,12 +54,12 @@ export const GetAvailableBlocksInput = z
     ),
   })
   .strict()
-export const BlockRequiredCredentialsSchema = z.object({
+const BlockRequiredCredentialsSchema = z.object({
   type: z.enum(['oauth', 'api_key', 'bot_token']),
   service: z.string().optional(),
   description: z.string(),
 })
-export const BlockMermaidContractSchema = z.object({
+const BlockMermaidContractSchema = z.object({
   renderKind: z.enum(['standard', 'condition', 'loop_container', 'parallel_container']),
   requiresSubgraph: z.boolean(),
   childrenPlacement: z.enum(['none', 'inside_container', 'outside_container']),
@@ -39,15 +69,15 @@ export const BlockMermaidContractSchema = z.object({
     edge: z.string(),
   }),
 })
-export const BlockMermaidExamplesSchema = z.object({
+const BlockMermaidExamplesSchema = z.object({
   minimalDocument: z.string(),
   connectedDocument: z.string(),
 })
-export const BlockMermaidSubBlockOptionSchema = z.object({
+const BlockMermaidSubBlockOptionSchema = z.object({
   id: z.string(),
   label: z.string(),
 })
-export const BlockMermaidSubBlockSchema = z.object({
+const BlockMermaidSubBlockSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   type: z.string(),
@@ -61,7 +91,7 @@ export const BlockMermaidSubBlockSchema = z.object({
   defaultValue: z.unknown().optional(),
   options: z.array(BlockMermaidSubBlockOptionSchema).optional(),
 })
-export const BlockInputReferencePatternSchema = z.object({
+const BlockInputReferencePatternSchema = z.object({
   syntax: z.string(),
   summary: z.string(),
   examples: z.array(z.string()).min(1),
@@ -76,12 +106,12 @@ export const BlockInputReferencePatternSchema = z.object({
     )
     .min(1),
 })
-export const BlockInputReferenceRuleSchema = z.object({
+const BlockInputReferenceRuleSchema = z.object({
   title: z.string(),
   summary: z.string(),
   examples: z.array(z.string()).optional(),
 })
-export const BlockInputReferenceGrammarSchema = z.object({
+const BlockInputReferenceGrammarSchema = z.object({
   hardRequirement: z.literal(true),
   summary: z.string(),
   workflowOutputs: BlockInputReferencePatternSchema,
@@ -89,7 +119,7 @@ export const BlockInputReferenceGrammarSchema = z.object({
   environmentVariables: BlockInputReferencePatternSchema,
   blockSpecificRules: z.array(BlockInputReferenceRuleSchema).optional(),
 })
-export const BlockMermaidOperationSchema = z.object({
+const BlockMermaidOperationSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
@@ -97,7 +127,7 @@ export const BlockMermaidOperationSchema = z.object({
   mermaidExamples: BlockMermaidExamplesSchema,
 })
 export type BlockMermaidOperationType = z.infer<typeof BlockMermaidOperationSchema>
-export const BlockMermaidCatalogItemSchema = z.object({
+const BlockMermaidCatalogItemSchema = z.object({
   blockType: z.string(),
   blockName: z.string(),
   category: BlockCatalogCategorySchema,
@@ -106,7 +136,7 @@ export const BlockMermaidCatalogItemSchema = z.object({
   operationIds: z.array(z.string()).optional(),
 })
 export type BlockMermaidCatalogItemType = z.infer<typeof BlockMermaidCatalogItemSchema>
-export const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
+const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
   bestPractices: z.string().optional(),
   authType: z.enum(['OAuth', 'API Key', 'Bot Token']).optional(),
   requiredCredentials: BlockRequiredCredentialsSchema.optional(),
@@ -120,7 +150,6 @@ export type BlockMermaidProfileType = z.infer<typeof BlockMermaidProfileSchema>
 export const GetAvailableBlocksResult = z.object({
   blocks: z.array(BlockMermaidCatalogItemSchema),
 })
-export type GetAvailableBlocksResultType = z.infer<typeof GetAvailableBlocksResult>
 
 // get_blocks_metadata
 export const GetBlocksMetadataInput = z.object({
@@ -141,7 +170,6 @@ export const GetBlocksMetadataInput = z.object({
 export const GetBlocksMetadataResult = z.object({
   metadata: z.record(BlockMermaidProfileSchema),
 })
-export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult>
 
 // get_agent_accessory_catalog
 export const GetAgentAccessoryCatalogInput = z
@@ -171,7 +199,7 @@ export type GetAgentAccessoryCatalogInputType = z.infer<typeof GetAgentAccessory
 export type GetAgentAccessoryCatalogResultType = z.infer<typeof GetAgentAccessoryCatalogResult>
 
 // get_indicator_catalog / get_indicator_metadata
-export const IndicatorCatalogSectionIdSchema = z.enum([
+const IndicatorCatalogSectionIdSchema = z.enum([
   'section:document',
   'section:runtime',
   'section:context',
@@ -182,10 +210,9 @@ export const IndicatorCatalogSectionIdSchema = z.enum([
 ])
 export type IndicatorCatalogSectionId = z.infer<typeof IndicatorCatalogSectionIdSchema>
 
-export const IndicatorCatalogSupportSchema = z.enum(['supported', 'curated', 'unsupported'])
-export type IndicatorCatalogSupport = z.infer<typeof IndicatorCatalogSupportSchema>
+const IndicatorCatalogSupportSchema = z.enum(['supported', 'curated', 'unsupported'])
 
-export const IndicatorCatalogItemTypeSchema = z.enum([
+const IndicatorCatalogItemTypeSchema = z.enum([
   'section',
   'document_field',
   'runtime_behavior',
@@ -195,15 +222,13 @@ export const IndicatorCatalogItemTypeSchema = z.enum([
   'trigger_api',
   'unsupported_feature',
 ])
-export type IndicatorCatalogItemType = z.infer<typeof IndicatorCatalogItemTypeSchema>
 
-export const IndicatorSourceReferenceSchema = z.object({
+const IndicatorSourceReferenceSchema = z.object({
   label: z.string(),
   path: z.string(),
 })
-export type IndicatorSourceReference = z.infer<typeof IndicatorSourceReferenceSchema>
 
-export const IndicatorCatalogSectionSchema = z.object({
+const IndicatorCatalogSectionSchema = z.object({
   id: IndicatorCatalogSectionIdSchema,
   title: z.string(),
   summary: z.string(),
@@ -211,7 +236,7 @@ export const IndicatorCatalogSectionSchema = z.object({
 })
 export type IndicatorCatalogSection = z.infer<typeof IndicatorCatalogSectionSchema>
 
-export const IndicatorCatalogItemSchema = z.object({
+const IndicatorCatalogItemSchema = z.object({
   id: z.string(),
   sectionId: IndicatorCatalogSectionIdSchema,
   type: IndicatorCatalogItemTypeSchema.exclude(['section']),
@@ -222,15 +247,14 @@ export const IndicatorCatalogItemSchema = z.object({
 })
 export type IndicatorCatalogItem = z.infer<typeof IndicatorCatalogItemSchema>
 
-export const IndicatorMetadataExampleSchema = z.object({
+const IndicatorMetadataExampleSchema = z.object({
   title: z.string(),
   summary: z.string().optional(),
   code: z.string().optional(),
   indicatorId: z.string().optional(),
 })
-export type IndicatorMetadataExample = z.infer<typeof IndicatorMetadataExampleSchema>
 
-export const IndicatorMetadataEntrySchema = z.object({
+const IndicatorMetadataEntrySchema = z.object({
   id: z.string(),
   sectionId: IndicatorCatalogSectionIdSchema.optional(),
   type: IndicatorCatalogItemTypeSchema,
@@ -274,7 +298,6 @@ export const GetIndicatorCatalogResult = z.object({
   count: z.number(),
   query: z.string().optional(),
 })
-export type GetIndicatorCatalogResultType = z.infer<typeof GetIndicatorCatalogResult>
 
 export const GetIndicatorMetadataInput = z.object({
   targetIds: z
@@ -296,7 +319,6 @@ export const GetIndicatorMetadataResult = z.object({
   items: z.array(IndicatorMetadataEntrySchema),
   missingIds: z.array(z.string()),
 })
-export type GetIndicatorMetadataResultType = z.infer<typeof GetIndicatorMetadataResult>
 
 export const ReadBlockOutputsInput = z.object({
   blockIds: z
@@ -332,7 +354,6 @@ export const ReadBlockOutputsResult = z.object({
     )
     .optional(),
 })
-export type ReadBlockOutputsInputType = z.infer<typeof ReadBlockOutputsInput>
 export type ReadBlockOutputsResultType = z.infer<typeof ReadBlockOutputsResult>
 
 export const ReadBlockUpstreamReferencesInput = z.object({
@@ -377,7 +398,6 @@ export const ReadBlockUpstreamReferencesResult = z.object({
     })
   ),
 })
-export type ReadBlockUpstreamReferencesInputType = z.infer<typeof ReadBlockUpstreamReferencesInput>
 export type ReadBlockUpstreamReferencesResultType = z.infer<
   typeof ReadBlockUpstreamReferencesResult
 >

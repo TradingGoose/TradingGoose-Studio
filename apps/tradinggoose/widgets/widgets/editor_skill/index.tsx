@@ -2,23 +2,17 @@
 
 import { ToolCase } from 'lucide-react'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
+import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import {
-  getSkillIdFromParams,
-  SKILL_EDITOR_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
-import {
-  SkillEditorExportButton,
-  SkillEditorSaveButton,
+  SkillEditorActionButtons,
   SkillEditorSelector,
 } from '@/widgets/widgets/editor_skill/components/skill-editor-header'
+import { skillEditorWidgetContract } from '@/widgets/widgets/editor_skill/contract'
 import { EditorSkillWidgetBody } from '@/widgets/widgets/editor_skill/editor-skill-body'
 
 export const editorSkillWidget: DashboardWidgetDefinition = {
-  key: SKILL_EDITOR_WIDGET_KEY,
-  title: 'Skill Editor',
+  contract: skillEditorWidgetContract,
   icon: ToolCase,
-  category: 'editor',
-  description: 'Edit workspace skills.',
   component: (props) => <EditorSkillWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const params =
@@ -28,32 +22,14 @@ export const editorSkillWidget: DashboardWidgetDefinition = {
     const skillId = getSkillIdFromParams(params)
 
     return {
-      center: (
-        <SkillEditorSelector
-          workspaceId={context?.workspaceId}
-          panelId={panelId}
-          skillId={skillId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
-          params={params}
-        />
-      ),
+      center: <SkillEditorSelector workspaceId={context?.workspaceId} skillId={skillId} />,
       right: (
         <div className='flex items-center gap-1'>
-          <SkillEditorExportButton
+          <SkillEditorActionButtons
             workspaceId={context?.workspaceId}
             skillId={skillId}
             panelId={panelId}
             widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-          <SkillEditorSaveButton
-            workspaceId={context?.workspaceId}
-            skillId={skillId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-            params={params}
           />
         </div>
       ),

@@ -16,15 +16,15 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import type { MarketInterval } from '@/providers/market/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
-import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   formatDataChartIntervalLabel,
   getDataChartCandleTypeLabel,
   useDataChartCopy,
 } from '@/widgets/widgets/data_chart/copy'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+import { useDataChartParamsPatch } from '@/widgets/widgets/data_chart/hooks/use-data-chart-params-patch'
+import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils/indicator-refs'
 
 type DataChartIntervalDropdownProps = {
@@ -45,6 +45,7 @@ export const DataChartIntervalDropdown = ({
   widgetKey,
 }: DataChartIntervalDropdownProps) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch()
 
   const handleIntervalSelect = (nextInterval: string) => {
     const {
@@ -62,14 +63,10 @@ export const DataChartIntervalDropdown = ({
     } = (params.view ?? {}) as Record<string, unknown>
     const nextView = { ...nextViewBase, interval: nextInterval }
 
-    emitDataChartParamsChange({
-      params: {
-        data: nextData,
-        view: nextView,
-        runtime: { refreshAt: Date.now() },
-      },
-      panelId,
-      widgetKey,
+    patchWidgetParams({
+      data: nextData,
+      view: nextView,
+      runtime: { refreshAt: Date.now() },
     })
   }
 
@@ -131,20 +128,17 @@ export const DataChartCandleTypeDropdown = ({
   widgetKey,
 }: DataChartCandleTypeDropdownProps) => {
   const copy = useDataChartCopy()
+  const patchWidgetParams = useDataChartParamsPatch()
   const selectedOption =
     CANDLE_TYPE_OPTIONS.find((option) => option.id === candleType) ?? CANDLE_TYPE_OPTIONS[0]
   const SelectedIcon = selectedOption?.icon
 
   const handleCandleType = (nextType: string) => {
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...(params.view ?? {}),
-          candleType: nextType,
-        },
+    patchWidgetParams({
+      view: {
+        ...(params.view ?? {}),
+        candleType: nextType,
       },
-      panelId,
-      widgetKey,
     })
   }
 
@@ -208,21 +202,18 @@ export const DataChartChartControls = ({
   widgetKey,
 }: DataChartChartControlsProps) => {
   const candleType = params.view?.candleType
+  const patchWidgetParams = useDataChartParamsPatch()
 
   const handleIndicatorChange = (nextIds: string[]) => {
     const restView = { ...(params.view ?? {}) } as Record<string, unknown>
-    emitDataChartParamsChange({
-      params: {
-        view: {
-          ...restView,
-          pineIndicators: buildIndicatorRefs(
-            nextIds,
-            Array.isArray(params.view?.pineIndicators) ? params.view?.pineIndicators : []
-          ),
-        },
+    patchWidgetParams({
+      view: {
+        ...restView,
+        pineIndicators: buildIndicatorRefs(
+          nextIds,
+          Array.isArray(params.view?.pineIndicators) ? params.view?.pineIndicators : []
+        ),
       },
-      panelId,
-      widgetKey,
     })
   }
 

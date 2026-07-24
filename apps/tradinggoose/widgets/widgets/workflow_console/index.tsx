@@ -14,14 +14,10 @@ import {
 } from '@/i18n/workspace-widget-hooks'
 import { useConsoleStore } from '@/stores/console/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
-import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { workflowConsoleWidgetContract } from '@/widgets/widgets/workflow_console/contract'
 import { FilterPopover } from './components/terminal/components/filter-popover'
 import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-store'
 import type { BlockInfo } from './components/terminal/types'
@@ -29,47 +25,19 @@ import { filterEntries } from './components/terminal/utils'
 import WorkflowConsoleApp from './components/workflow-console-app'
 
 const WorkflowConsoleWidgetBody = ({
+  channelId,
   params,
   context,
-  pairColor = 'gray',
   panelId,
-  widget,
-  onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const copy = useWorkflowConsoleMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
-  const widgetKey = widget?.key ?? 'workflow_console'
-  const {
-    channelId,
-    resolvedPairColor,
-    resolvedWorkflowId,
-    hasLoadedWorkflows,
-    loadError,
-    isLoading,
-    workflowIds,
-  } = useWorkflowWidgetState({
-    workspaceId,
-    pairColor,
-    widget,
-    panelId,
-    params,
-    fallbackWidgetKey: 'workflow-console',
-  })
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    pairColor: resolvedPairColor,
-    params,
-    scopeKey: widgetKey,
-  })
-  usePersistResolvedEntityId({
-    entityId: resolvedWorkflowId,
-    entityIdKey: 'workflowId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
-    params,
-  })
+  const { resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+    useWorkflowWidgetState({
+      workspaceId,
+      params,
+    })
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
@@ -121,8 +89,8 @@ const WorkflowConsoleWidgetBody = ({
         workspaceId={workspaceId}
         workflowId={resolvedWorkflowId}
         panelWidth={panelWidth || fallbackPanelWidth}
-        channelId={channelId}
         panelId={panelId}
+        channelId={channelId}
       />
     </div>
   )
@@ -136,23 +104,19 @@ const WidgetStateMessage = ({ message }: { message: string }) => (
 
 type WorkflowConsoleHeaderControlsProps = {
   workspaceId?: string
-  widget?: WidgetInstance | null
+  params?: Record<string, unknown> | null
   panelId?: string
 }
 
 const WorkflowConsoleHeaderControls = ({
   workspaceId,
-  widget,
+  params,
   panelId,
 }: WorkflowConsoleHeaderControlsProps) => {
   const copy = useWorkflowConsoleMessages()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    panelId,
-    params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-console',
+    params,
   })
 
   const entries = useConsoleStore((state) => state.entries)
@@ -307,40 +271,25 @@ const WorkflowConsoleHeaderControls = ({
 
 type WorkflowConsoleHeaderSelectorProps = {
   workspaceId?: string
-  widget?: WidgetInstance | null
-  panelId?: string
+  params?: Record<string, unknown> | null
 }
 
 const WorkflowConsoleHeaderSelector = ({
   workspaceId,
-  widget,
-  panelId,
+  params,
 }: WorkflowConsoleHeaderSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget,
-    panelId,
-    params: widget?.params ?? null,
-    fallbackWidgetKey: 'workflow-console',
+    params,
   })
-
+  const actions = useWidgetConfigRuntimeActions()
   const handleWorkflowChange = (workflowId: string) => {
-    if (resolvedPairColor !== 'gray') {
-      return
-    }
-
-    emitWorkflowSelectionChange({
-      panelId,
-      workflowId,
-      widgetKey: widget?.key ?? 'workflow_console',
-    })
+    actions.patchWidgetLinkedParams?.({ workflowId })
   }
 
   return (
     <WorkflowDropdown
       workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
       value={resolvedWorkflowId}
       onChange={handleWorkflowChange}
     />
@@ -348,25 +297,18 @@ const WorkflowConsoleHeaderSelector = ({
 }
 
 export const workflowConsoleWidget: DashboardWidgetDefinition = {
-  key: 'workflow_console',
-  title: 'Workflow Console',
+  contract: workflowConsoleWidgetContract,
   icon: Activity,
-  category: 'utility',
-  description: 'Live workflow execution console with logs and streaming output.',
   component: (props) => <WorkflowConsoleWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     return {
       center: (
-        <WorkflowConsoleHeaderSelector
-          workspaceId={context?.workspaceId}
-          widget={widget}
-          panelId={panelId}
-        />
+        <WorkflowConsoleHeaderSelector workspaceId={context?.workspaceId} params={widget?.params} />
       ),
       right: (
         <WorkflowConsoleHeaderControls
           workspaceId={context?.workspaceId}
-          widget={widget}
+          params={widget?.params}
           panelId={panelId}
         />
       ),

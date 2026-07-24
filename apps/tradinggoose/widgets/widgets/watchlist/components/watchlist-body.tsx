@@ -1,36 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
-import { useLocale } from 'next-intl'
+import { useCallback, useMemo } from 'react'
+import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
-import { useMessages } from 'next-intl'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
-import {
-  useRemoveWatchlistItem,
-  useRemoveWatchlistSection,
-  useRenameWatchlistSection,
-  useReorderWatchlistItems,
-  useUpdateWatchlistItemListing,
-  useWatchlists,
-} from '@/hooks/queries/watchlists'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitWatchlistParamsChange,
-  useWatchlistParamsPersistence,
-} from '@/widgets/utils/watchlist-params'
-import {
-  providerOptions,
-  resolveSeriesMarketProviderId,
-} from '@/widgets/widgets/data_chart/options'
-import {
-  resolveSelectedWatchlist,
-  resolveSelectedWatchlistId,
-} from '@/widgets/widgets/watchlist/components/watchlist-selection'
+import { moveWatchlistItem } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
-import type { WatchlistWidgetParams } from '@/widgets/widgets/watchlist/types'
+import { useWatchlistWidgetState } from '@/widgets/widgets/watchlist/hooks/use-watchlist-widget-state'
 
 const WatchlistMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
@@ -38,97 +16,31 @@ const WatchlistMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-const resolveProviderId = (params: WatchlistWidgetParams | null) => {
-  return resolveSeriesMarketProviderId(params?.provider, providerOptions)
-}
-
-export const WatchlistWidgetBody = ({
-  context,
-  panelId,
-  pairColor = 'gray',
-  widget,
-  params,
-  onWidgetParamsChange,
-}: WidgetComponentProps) => {
-  const locale = useLocale()
+export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const copy = useMessages().workspace.widgets.watchlist.body
-  const workspaceId = context?.workspaceId ?? null
-  const widgetKey = widget?.key ?? 'watchlist'
-  const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const widgetParams =
-    params && typeof params === 'object' ? (params as WatchlistWidgetParams) : null
-  const providerId = resolveProviderId(widgetParams)
-  const refreshAt =
-    typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
   const {
-    data: watchlists = [],
+    workspaceId,
+    canWrite,
+    widgetParams,
+    providerId,
+    refreshAt,
     isLoading,
-    isFetching,
     error,
-  } = useWatchlists(workspaceId ?? undefined)
-  const reorderMutation = useReorderWatchlistItems()
-  const updateListingMutation = useUpdateWatchlistItemListing()
-  const removeItemMutation = useRemoveWatchlistItem()
-  const renameSectionMutation = useRenameWatchlistSection()
-  const removeSectionMutation = useRemoveWatchlistSection()
+    selectedDocument,
+    selectedWatchlist,
+  } = useWatchlistWidgetState(props)
 
-  useWatchlistParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params: params && typeof params === 'object' ? (params as Record<string, unknown>) : null,
-  })
-
-  useEffect(() => {
-    if (!providerId) return
-    if (widgetParams?.provider) return
-    emitWatchlistParamsChange({
-      params: { provider: providerId },
-      panelId,
-      widgetKey,
-    })
-  }, [providerId, widgetParams?.provider, panelId, widgetKey])
-
-  const selectedWatchlistId = resolveSelectedWatchlistId(widgetParams)
-  const selectedWatchlistById = useMemo(
-    () => watchlists.find((entry) => entry.id === selectedWatchlistId) ?? null,
-    [watchlists, selectedWatchlistId]
-  )
-  const fallbackWatchlist = useMemo(() => watchlists[0] ?? null, [watchlists])
-  const selectedWatchlist = useMemo(
-    () => resolveSelectedWatchlist(watchlists, selectedWatchlistId),
-    [watchlists, selectedWatchlistId]
-  )
-  const shouldSyncFallbackWatchlistId = useMemo(() => {
-    if (!fallbackWatchlist) return false
-    if (!selectedWatchlistId) return true
-    if (selectedWatchlistById) return false
-    return !isFetching
-  }, [fallbackWatchlist, isFetching, selectedWatchlistById, selectedWatchlistId])
-
-  useEffect(() => {
-    if (!fallbackWatchlist) return
-    if (!shouldSyncFallbackWatchlistId) return
-    if (fallbackWatchlist.id === selectedWatchlistId) return
-    emitWatchlistParamsChange({
-      params: { watchlistId: fallbackWatchlist.id },
-      panelId,
-      widgetKey,
-    })
-  }, [fallbackWatchlist, panelId, selectedWatchlistId, shouldSyncFallbackWatchlistId, widgetKey])
-
+  const canEditWidgetParams = Boolean(props.onWidgetLinkedParamsPatch)
+  const viewItems = selectedWatchlist?.items ?? []
   const quoteItems = useMemo(
     () =>
-      (selectedWatchlist?.items ?? [])
+      viewItems
         .filter((item) => item.type === 'listing')
         .map((item) => ({
           key: item.id,
           listing: item.listing,
         })),
-    [selectedWatchlist]
+    [viewItems]
   )
 
   const { data: quotes = {} } = useMarketQuoteSnapshots({
@@ -141,23 +53,23 @@ export const WatchlistWidgetBody = ({
     enabled: Boolean(providerId && selectedWatchlist),
   })
 
-  const isMutating =
-    reorderMutation.isPending ||
-    updateListingMutation.isPending ||
-    removeItemMutation.isPending ||
-    renameSectionMutation.isPending ||
-    removeSectionMutation.isPending
+  const isMutating = !canWrite
+
+  const persistItems = (
+    updater: (items: typeof selectedDocument.items) => typeof selectedDocument.items
+  ) => {
+    if (!workspaceId || !selectedWatchlist || !canWrite) return
+    selectedDocument.updateItems(updater)
+  }
 
   const handleUpdateItemListing = async (itemId: string, listing: ListingIdentity) => {
-    if (!workspaceId || !selectedWatchlist || updateListingMutation.isPending) return false
-
+    if (!canWrite) return false
     try {
-      await updateListingMutation.mutateAsync({
-        workspaceId,
-        watchlistId: selectedWatchlist.id,
-        itemId,
-        listing,
-      })
+      persistItems((items) =>
+        items.map((item) =>
+          item.type === 'listing' && item.id === itemId ? { ...item, listing } : item
+        )
+      )
       return true
     } catch {
       return false
@@ -165,62 +77,50 @@ export const WatchlistWidgetBody = ({
   }
 
   const handleRemoveItem = async (itemId: string) => {
-    if (!workspaceId || !selectedWatchlist) return
-    await removeItemMutation.mutateAsync({
-      workspaceId,
-      watchlistId: selectedWatchlist.id,
-      itemId,
-    })
+    await persistItems((items) => items.filter((item) => item.id !== itemId))
   }
 
-  const handleRemoveSection = async (sectionId: string) => {
-    if (!workspaceId || !selectedWatchlist) return
-    await removeSectionMutation.mutateAsync({
-      workspaceId,
-      watchlistId: selectedWatchlist.id,
-      sectionId,
-    })
+  const handleRemoveContainer = async (containerId: string) => {
+    await persistItems((items) =>
+      items.filter((item) => item.id !== containerId && item.parentId !== containerId)
+    )
   }
 
-  const handleRenameSection = async (sectionId: string, label: string) => {
-    if (!workspaceId || !selectedWatchlist) return
-    await renameSectionMutation.mutateAsync({
-      workspaceId,
-      watchlistId: selectedWatchlist.id,
-      sectionId,
-      label,
-    })
+  const handleRenameContainer = async (containerId: string, label: string) => {
+    await persistItems((items) =>
+      items.map((item) =>
+        item.type === 'section' && item.id === containerId ? { ...item, label } : item
+      )
+    )
   }
 
-  const handleReorderItems = async (orderedItemIds: string[]) => {
-    if (!workspaceId || !selectedWatchlist) return
-    await reorderMutation.mutateAsync({
-      workspaceId,
-      watchlistId: selectedWatchlist.id,
-      orderedItemIds,
-    })
+  const handleMoveItem = async (activeSortableId: string, overSortableId: string) => {
+    await persistItems(
+      (currentItems) =>
+        moveWatchlistItem(currentItems, activeSortableId, overSortableId) ?? currentItems
+    )
   }
-  const selectedListing = isLinkedToColorPair ? (pairContext.listing ?? null) : null
+  const selectedListing = widgetParams?.listing ?? null
 
   const handleSelectListing = useCallback(
     (listing: ListingIdentity | null) => {
-      if (!isLinkedToColorPair) return
+      if (!canEditWidgetParams) return
       if (listing == null) {
-        if (pairContext.listing == null) return
-        setPairContext(resolvedPairColor, { listing: null })
+        if (selectedListing == null) return
+        props.onWidgetLinkedParamsPatch?.({ listing: null })
         return
       }
-      if (areListingIdentitiesEqual(pairContext.listing, listing)) return
-      setPairContext(resolvedPairColor, { listing })
+      if (areListingIdentitiesEqual(selectedListing, listing)) return
+      props.onWidgetLinkedParamsPatch?.({ listing })
     },
-    [isLinkedToColorPair, pairContext.listing, resolvedPairColor, setPairContext]
+    [canEditWidgetParams, props.onWidgetLinkedParamsPatch, selectedListing]
   )
 
   if (!workspaceId) {
     return <WatchlistMessage message={copy.selectWorkspace} />
   }
 
-  if (isLoading) {
+  if (isLoading || selectedDocument.isLoading) {
     return (
       <div className='flex h-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -228,16 +128,21 @@ export const WatchlistWidgetBody = ({
     )
   }
 
-  if (error) {
+  if (error || selectedDocument.error) {
+    const displayError = error ?? selectedDocument.error
     return (
       <WatchlistMessage
-        message={error instanceof Error ? error.message : copy.failedToLoadWatchlists}
+        message={displayError ? String(displayError) : copy.failedToLoadWatchlists}
       />
     )
   }
 
-  if (!selectedWatchlist) {
+  if (selectedDocument.members.length === 0) {
     return <WatchlistMessage message={copy.createWatchlistToGetStarted} />
+  }
+
+  if (!selectedWatchlist) {
+    return <WatchlistMessage message={copy.watchlistNotFound} />
   }
 
   return (
@@ -246,14 +151,13 @@ export const WatchlistWidgetBody = ({
       quotes={quotes}
       providerId={providerId}
       onUpdateItemListing={handleUpdateItemListing}
-      onReorderItems={handleReorderItems}
+      onMoveItem={handleMoveItem}
       onRemoveItem={handleRemoveItem}
-      onRenameSection={handleRenameSection}
-      onRemoveSection={handleRemoveSection}
+      onRenameContainer={handleRenameContainer}
+      onRemoveContainer={handleRemoveContainer}
       isMutating={isMutating}
       selectedListing={selectedListing}
-      isLinkedSelection={isLinkedToColorPair}
-      onSelectListing={handleSelectListing}
+      onSelectListing={canEditWidgetParams ? handleSelectListing : undefined}
     />
   )
 }

@@ -1,4 +1,4 @@
-import type { DataChartCandleType } from '@/widgets/widgets/data_chart/types'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 
 export const resolveSeriesType = (candleType?: DataChartCandleType | string | null) => {
   if (candleType === 'area') return 'Area'

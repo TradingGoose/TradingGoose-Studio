@@ -14,7 +14,10 @@ describe('Revert To Deployment Version API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    mockValidateWorkflowPermissions.mockResolvedValue({ error: null })
+    mockValidateWorkflowPermissions.mockResolvedValue({
+      error: null,
+      session: { user: { id: 'user-1' } },
+    })
     mockApplyWorkflowState.mockResolvedValue(undefined)
     mockDbSelectLimit.mockResolvedValue([
       {
@@ -133,6 +136,7 @@ describe('Revert To Deployment Version API Route', () => {
     expect(response.status).toBe(200)
     expect(mockApplyWorkflowState).toHaveBeenCalledWith(
       'workflow-1',
+      'user-1',
       expect.objectContaining({
         blocks: expect.any(Object),
         edges: [],
@@ -192,6 +196,11 @@ describe('Revert To Deployment Version API Route', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mockApplyWorkflowState).toHaveBeenCalledWith('workflow-1', expect.any(Object), undefined)
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
+      'workflow-1',
+      'user-1',
+      expect.any(Object),
+      undefined
+    )
   })
 })

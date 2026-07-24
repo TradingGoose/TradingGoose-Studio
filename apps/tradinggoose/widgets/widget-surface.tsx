@@ -2,10 +2,11 @@
 
 import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
-import type { WidgetInstance } from '@/widgets/layout'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
+import { LoadingAgent } from '@/components/ui/loading-agent'
+import type { PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
+import { useDashboardWidgetRenderState } from '@/widgets/widget-config-runtime'
 import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
 import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
 import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
@@ -14,7 +15,6 @@ type HeaderSlotContent = ReactNode | ReactNode[]
 type WidgetSurfaceHeader = Partial<WidgetHeaderSlots>
 
 interface WidgetSurfaceProps {
-  widget: WidgetInstance
   header?: WidgetSurfaceHeader
   context?: WidgetRuntimeContext
   onPairColorChange?: (color: PairColor) => void
@@ -23,11 +23,11 @@ interface WidgetSurfaceProps {
   onPanelSplit?: () => void
   onPanelSplitHorizontal?: () => void
   onPanelClose?: () => void
-  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
+  onWidgetParamsPatch?: (params: Record<string, unknown>) => void
+  onWidgetLinkedParamsPatch?: (params: Record<string, unknown>) => void
 }
 
 function WidgetSurfaceComponent({
-  widget,
   header,
   context,
   onPairColorChange,
@@ -36,20 +36,34 @@ function WidgetSurfaceComponent({
   onPanelSplit,
   onPanelSplitHorizontal,
   onPanelClose,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
+  onWidgetLinkedParamsPatch,
 }: WidgetSurfaceProps) {
-  const widgetKey = widget?.key ?? 'empty'
+  const renderState = useDashboardWidgetRenderState()
+  const renderWidget = renderState.renderWidget
+  const widgetKey = renderState.widgetKey ?? 'empty'
   const emptyDefinition = getWidgetDefinition('empty')
   const definition = getWidgetDefinition(widgetKey) ?? emptyDefinition
-  const pairColor = isPairColor(widget?.pairColor) ? widget?.pairColor : 'gray'
+  const pairColor = renderState.pairColor
+  const normalizedPanelId = panelId?.trim() || 'panel'
+  const channelId = pairColor === 'gray' ? `${widgetKey}-${normalizedPanelId}` : `pair-${pairColor}`
   const WidgetComponent = definition?.component ?? emptyDefinition?.component
   type RuntimeWidgetComponent = (
-    props: WidgetComponentProps & { onWidgetChange?: (widgetKey: string) => void }
+    props: WidgetComponentProps & {
+      onWidgetChange?: (widgetKey: string) => void
+    }
   ) => ReactNode
   const RenderWidgetComponent = WidgetComponent as RuntimeWidgetComponent
-  const registryHeader =
-    definition?.renderHeader?.({ widget, context, panelId }) ??
-    emptyDefinition?.renderHeader?.({ widget, context, panelId })
+  const headerContext = {
+    channelId,
+    widget: renderWidget,
+    context,
+    panelId,
+    canEditWidgetParams: renderState.isEffectiveParamsReady && Boolean(onWidgetParamsPatch),
+  }
+  const registryHeader = renderState.isEffectiveParamsReady
+    ? (definition?.renderHeader?.(headerContext) ?? emptyDefinition?.renderHeader?.(headerContext))
+    : undefined
   const headerScrollRef = useRef<HTMLDivElement>(null)
 
   const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
@@ -67,14 +81,6 @@ function WidgetSurfaceComponent({
       onWidgetChange(key)
     },
     [onWidgetChange]
-  )
-
-  const handlePairColorSelect = useCallback(
-    (color: PairColor) => {
-      if (!onPairColorChange) return
-      onPairColorChange(color)
-    },
-    [onPairColorChange]
   )
 
   const handlePanelSplit = useCallback(() => {
@@ -104,7 +110,10 @@ function WidgetSurfaceComponent({
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left'>
-                <PairColorDropdown color={pairColor} onChange={handlePairColorSelect} />
+                <PairColorDropdown
+                  color={pairColor}
+                  onChange={renderState.isWidgetReady ? onPairColorChange : undefined}
+                />
                 <WidgetSelector
                   currentKey={widgetKey}
                   onSelect={handleWidgetSelect}
@@ -132,15 +141,25 @@ function WidgetSurfaceComponent({
         </header>
 
         <div className='flex flex-1 flex-col overflow-hidden'>
-          {WidgetComponent ? (
+          {renderState.error ? (
+            <div className='flex h-full items-center justify-center px-4 text-center text-destructive text-sm'>
+              {renderState.error}
+            </div>
+          ) : !renderState.isEffectiveParamsReady ? (
+            <div className='flex h-full items-center justify-center'>
+              <LoadingAgent size='md' />
+            </div>
+          ) : WidgetComponent ? (
             <RenderWidgetComponent
-              params={widget?.params ?? null}
+              channelId={channelId}
+              params={renderWidget?.params ?? null}
               context={context}
               pairColor={pairColor}
               panelId={panelId}
-              widget={widget}
+              widget={renderWidget}
               onWidgetChange={onWidgetChange}
-              onWidgetParamsChange={onWidgetParamsChange}
+              onWidgetParamsPatch={onWidgetParamsPatch}
+              onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
             />
           ) : null}
         </div>
@@ -164,25 +183,20 @@ function renderHeaderSlot(slot?: HeaderSlotContent) {
 }
 
 function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
-  const prevWidget = prev.widget
-  const nextWidget = next.widget
-
-  const sameWidget =
-    prevWidget?.key === nextWidget?.key &&
-    prevWidget?.pairColor === nextWidget?.pairColor &&
-    prevWidget?.params === nextWidget?.params
-
   return (
-    sameWidget &&
     prev.panelId === next.panelId &&
     prev.context?.workspaceId === next.context?.workspaceId &&
+    prev.context?.dashboardLayoutOwnerUserId === next.context?.dashboardLayoutOwnerUserId &&
+    prev.context?.dashboardLayoutId === next.context?.dashboardLayoutId &&
+    prev.context?.dashboardLayoutName === next.context?.dashboardLayoutName &&
     prev.header === next.header &&
     prev.onPairColorChange === next.onPairColorChange &&
     prev.onWidgetChange === next.onWidgetChange &&
     prev.onPanelSplit === next.onPanelSplit &&
     prev.onPanelSplitHorizontal === next.onPanelSplitHorizontal &&
     prev.onPanelClose === next.onPanelClose &&
-    prev.onWidgetParamsChange === next.onWidgetParamsChange
+    prev.onWidgetParamsPatch === next.onWidgetParamsPatch &&
+    prev.onWidgetLinkedParamsPatch === next.onWidgetLinkedParamsPatch
   )
 }
 

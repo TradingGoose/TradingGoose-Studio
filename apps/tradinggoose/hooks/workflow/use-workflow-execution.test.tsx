@@ -81,6 +81,13 @@ describe('useWorkflowExecution', () => {
     subBlocks: {},
     outputs: {},
   }
+  const editableSession = {
+    canEdit: true,
+    doc: mockWorkflowDoc,
+    error: null,
+    isLoading: false,
+    readWorkflowSnapshot: mockReadWorkflowSnapshot,
+  }
 
   function mockSingleTriggerSnapshot(
     triggerId: string,
@@ -130,10 +137,7 @@ describe('useWorkflowExecution', () => {
       output: {},
       logs: [],
     })
-    mockUseWorkflowSession.mockReturnValue({
-      doc: mockWorkflowDoc,
-      readWorkflowSnapshot: mockReadWorkflowSnapshot,
-    })
+    mockUseWorkflowSession.mockReturnValue(editableSession)
     mockGetVariablesSnapshot.mockReturnValue({})
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
@@ -216,6 +220,17 @@ describe('useWorkflowExecution', () => {
       await execution.handleRunWorkflow({ triggerBlockId: 'chat-trigger' })
     })
 
+    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
+  })
+
+  it('blocks retained execution callbacks for readers before any execution mutation', async () => {
+    mockUseWorkflowSession.mockReturnValue({ ...editableSession, canEdit: false })
+    const execution = await renderExecutionHook()
+
+    await act(() => execution.handleRunWorkflow({ triggerBlockId: 'manual-trigger' }))
+
+    expect(execution.isWorkflowSessionReady).toBe(false)
+    expect(mockExecutionState.setIsExecuting).not.toHaveBeenCalled()
     expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
   })
 

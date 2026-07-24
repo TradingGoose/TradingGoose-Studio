@@ -1,4 +1,7 @@
+import { getStableVibrantColor } from '@/lib/colors'
+
 const SOLID_HEX_COLOR_PATTERN = /^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+const DEFAULT_ENTITY_ICON_COLOR_SEED = 'entity-icon'
 
 function normalizeSolidHexColor(value: string): string {
   const trimmed = value.trim()
@@ -39,4 +42,18 @@ export function getIconTileStyle(value?: string, alpha = '20') {
     backgroundColor: `${color}${alpha}`,
     color,
   }
+}
+
+export function getEntityIconColor(
+  entityId: string | null | undefined,
+  color?: string | null
+): string {
+  const sanitizedColor = sanitizeSolidIconColor(color ?? undefined)
+  if (sanitizedColor) return sanitizedColor
+
+  const seed =
+    typeof entityId === 'string' && entityId.trim()
+      ? entityId.trim()
+      : DEFAULT_ENTITY_ICON_COLOR_SEED
+  return getStableVibrantColor(seed)
 }

@@ -1,11 +1,12 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, IPaneApi, ISeriesApi } from 'lightweight-charts'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
 import type {
   OwnerId,
   ResolvedOwnerTarget,
 } from '@/widgets/widgets/data_chart/drawings/adapter-types'
 import { fromManualOwnerId } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
-import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 type AttachmentControllerTargetResolverParams = {
   chartRef: MutableRefObject<IChartApi | null>

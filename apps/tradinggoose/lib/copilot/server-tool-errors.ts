@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import { DashboardLayoutValidationError } from '@/widgets/layout-document'
+import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
-export interface CopilotServerToolErrorPayload {
+interface CopilotServerToolErrorPayload {
   error: string
   code: string
   hint?: string
@@ -11,7 +13,7 @@ export interface CopilotServerToolErrorPayload {
   }>
 }
 
-export interface CopilotServerToolErrorResponse {
+interface CopilotServerToolErrorResponse {
   status: number
   body: CopilotServerToolErrorPayload
 }
@@ -175,6 +177,32 @@ export function buildCopilotServerToolErrorResponse(
     return buildInvalidToolPayloadError(toolName, error)
   }
 
+  if (error instanceof DashboardLayoutValidationError) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_dashboard_layout_edit',
+        error: error.message,
+        hint: 'Send one complete tg-dashboard-layout-structure-v3 layout document. Retain existing panels by id, add or replace their widget with widget.key, add new panels with widget.key, and list intentionally omitted existing panels in removedPanelIds.',
+        retryable: true,
+        issues: error.issues,
+      },
+    }
+  }
+
+  if (error instanceof WidgetConfigValidationError) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_widget_config',
+        error: error.message,
+        hint: 'Use get_widgets_metadata for editable params, pair colors, and linked color-pair fields. Use edit_layout with a key from get_available_widgets to add, replace, or remove widget bindings.',
+        retryable: true,
+        issues: error.issues,
+      },
+    }
+  }
+
   const message = error instanceof Error ? error.message : 'Failed to execute server tool'
   if (toolName === 'edit_workflow') {
     const structuredError = buildEditWorkflowError(message)
@@ -182,7 +210,12 @@ export function buildCopilotServerToolErrorResponse(
       return structuredError
     }
   }
-  if (toolName === 'edit_workflow_variable' && /^(Invalid edited workflow variables:|Duplicate workflow variable|Unsupported workflow variable|Unsupported documentFormat ")/.test(message)) {
+  if (
+    toolName === 'edit_workflow_variable' &&
+    /^(Invalid edited workflow variables:|Duplicate workflow variable|Unsupported workflow variable|Unsupported documentFormat ")/.test(
+      message
+    )
+  ) {
     return {
       status: 422,
       body: {

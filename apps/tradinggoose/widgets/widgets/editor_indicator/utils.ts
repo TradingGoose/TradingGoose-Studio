@@ -1,6 +1,4 @@
-import { readEntitySelectionState, resolveEntityId } from '@/widgets/utils/entity-selection'
-
-export { readEntitySelectionState }
+import { resolveEntityId } from '@/widgets/widget-contracts'
 
 export const getIndicatorIdFromParams = (params?: Record<string, unknown> | null) =>
   resolveEntityId('indicatorId', { params })

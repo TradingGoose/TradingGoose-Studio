@@ -15,6 +15,7 @@ import {
   isYjsUpgradeRequest,
   shieldNonYjsUpgradeListeners,
 } from '@/socket-server/yjs/upgrade-routing'
+import { drainAllDocuments } from '@/socket-server/yjs/upstream-utils'
 import { handleYjsUpgrade } from '@/socket-server/yjs/ws-handler'
 
 const logger = createLogger('CollaborativeSocketServer')
@@ -24,6 +25,8 @@ const httpServer = createServer()
 
 // Yjs WebSocket server - noServer mode, upgrade handled manually
 const yjsWss = new WebSocketServer({ noServer: true })
+let isShuttingDown = false
+const SHUTDOWN_DRAIN_RETRY_MS = 1_000
 
 // Register the Yjs upgrade handler before Socket.IO and then shield the
 // remaining upgrade listeners so Engine.IO never sees /yjs/* requests.
@@ -31,8 +34,12 @@ const yjsUpgradeListener = (request: IncomingMessage, socket: Duplex, head: Buff
   if (!isYjsUpgradeRequest(request)) {
     return
   }
+  if (isShuttingDown) {
+    socket.destroy()
+    return
+  }
 
-  handleYjsUpgrade(yjsWss, request, socket, head)
+  handleYjsUpgrade(yjsWss, request, socket, head, () => !isShuttingDown)
 }
 
 httpServer.on('upgrade', yjsUpgradeListener)
@@ -68,10 +75,6 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
-})
-
-httpServer.on('error', (error) => {
-  logger.error('HTTP server error:', error)
 })
 
 io.engine.on('connection_error', (err) => {
@@ -139,33 +142,52 @@ httpServer.on('error', (error) => {
   process.exit(1)
 })
 
-let isShuttingDown = false
-const shutdown = () => {
+const shutdown = async () => {
   if (isShuttingDown) return
   isShuttingDown = true
 
   logger.info('Shutting down Socket.IO server...')
+  let attempt = 0
+  while (true) {
+    attempt += 1
+    try {
+      await drainAllDocuments()
+      break
+    } catch (error) {
+      logger.error('Failed to drain realtime state cleanly', { attempt, error })
+      if ((error as { retryable?: unknown } | null)?.retryable === false) {
+        process.exit(1)
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, SHUTDOWN_DRAIN_RETRY_MS))
+    }
+  }
+
   tradingPortfolioStreamManager.stop()
-  void Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.stop()))
-    .catch((error) => {
-      logger.error('Failed to stop monitor runtimes cleanly', { error })
-    })
-    .finally(() => {
-      void io.close((error) => {
-        if (error) {
-          logger.error('Failed to close Socket.IO server cleanly', { error })
-        }
-        void closeRedisConnection()
-          .catch((error) => {
-            logger.error('Failed to close Redis connection cleanly', { error })
-          })
-          .finally(() => {
-            logger.info('Socket.IO server closed')
-            process.exit(0)
-          })
+  const monitorEntries = Object.entries(monitorRuntimes)
+  const monitorResults = await Promise.allSettled(
+    monitorEntries.map(([, runtime]) => runtime.stop())
+  )
+  monitorResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      logger.error(`Failed to stop ${monitorEntries[index][0]} monitor runtime cleanly`, {
+        error: result.reason,
       })
+    }
+  })
+
+  await new Promise<void>((resolve) => {
+    io.close((error) => {
+      if (error) logger.error('Failed to close Socket.IO server cleanly', { error })
+      resolve()
     })
+  })
+  await closeRedisConnection().catch((error) => {
+    logger.error('Failed to close Redis connection cleanly', { error })
+  })
+  logger.info('Socket.IO server closed')
+  process.exit(0)
 }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+process.on('SIGINT', () => void shutdown())
+process.on('SIGTERM', () => void shutdown())

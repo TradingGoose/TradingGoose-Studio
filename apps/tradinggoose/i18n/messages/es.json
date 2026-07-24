@@ -454,12 +454,6 @@
         "headerAriaLabel": "Encabezado del widget",
         "widgetLabel": "Widget"
       },
-      "layout": {
-        "headerAriaLabel": "Encabezado del widget",
-        "sizeLabel": "Tamaño del widget",
-        "widthLabel": "ancho",
-        "heightLabel": "alto"
-      },
       "indicatorDropdown": {
         "placeholder": "Seleccionar indicadores",
         "tooltip": "Seleccionar indicadores",
@@ -985,6 +979,12 @@
     "dashboard": {
       "title": "Panel de control",
       "searchPlaceholder": "Buscar contenido del espacio de trabajo...",
+      "layoutPreview": {
+        "headerAriaLabel": "Panel de control",
+        "sizeLabel": "Tamaño del widget",
+        "widthLabel": "ancho",
+        "heightLabel": "alto"
+      },
       "sections": {
         "workspaces": "Espacios de trabajo",
         "knowledgeBases": "Bases de conocimiento",
@@ -992,6 +992,12 @@
         "docs": "Documentos"
       },
       "emptySearch": "Sin contenido coincidente",
+      "layoutState": {
+        "loading": "Cargando el diseño del panel...",
+        "empty": "No hay ningún diseño de panel disponible.",
+        "error": "No se pudo cargar el diseño del panel.",
+        "resizePersistenceError": "No se guardó el cambio de tamaño. Se restauró el diseño anterior."
+      },
       "pages": {
         "records": "Registros",
         "monitor": "Monitoreo",
@@ -2180,7 +2186,7 @@
       "titles": {
         "empty": "Superficie vacía",
         "data_chart": "Datos de mercado",
-        "workflow_list": "Flujos de trabajo",
+        "list_workflow": "Flujos de trabajo",
         "editor_workflow": "Editor de flujos",
         "workflow_chat": "Chat de flujos",
         "workflow_console": "Consola de flujos",
@@ -2617,9 +2623,7 @@
       },
       "empty": {
         "noWidgetSelected": "No se ha seleccionado ningún widget",
-        "emptyWidget": "Widget vacío",
         "noWidgetDescription": "Elige un widget de la galería para empezar a usar este panel.",
-        "emptyWidgetDescription": "Este widget está vacío por ahora; elige otro para continuar.",
         "chooseWidget": "Elegir widget",
         "surfaceTitle": "Superficie vacía",
         "surfaceDescription": "Estado de marcador de posición cuando el panel no tiene un widget asignado."
@@ -2922,10 +2926,12 @@
         "currentTool": "Herramienta actual",
         "currentIndicator": "Indicador actual",
         "currentMcpServer": "Servidor MCP actual",
+        "currentWatchlist": "Watchlist actual",
         "workflows": "Flujos de trabajo",
         "customTools": "Herramientas personalizadas",
         "indicators": "Indicadores",
         "mcpServers": "Servidores MCP",
+        "watchlists": "Watchlists",
         "allWorkflows": "Todos los flujos de trabajo",
         "operation": "Operación",
         "id": "Identificador",
@@ -3508,7 +3514,7 @@
           "zep": "Memoria a largo plazo para agentes de IA",
           "zoom": "Crear y gestionar reuniones y grabaciones de Zoom",
           "portfolio_detail": "Obtiene el detalle completo del portafolio desde una cuenta de broker seleccionada.",
-          "watchlist": "Lee listas de seguimiento y agrega o elimina elementos de listado."
+          "watchlist": "Lee listas de seguimiento, listados y secciones del espacio de trabajo."
         },
         "blockLongDescriptions": {
           "response": "Integra Response en el flujo de trabajo. Puede enviar, construir o editar respuestas estructuradas en una respuesta final del flujo de trabajo.",
@@ -20558,31 +20564,26 @@
           "listActionsTooltip": "Acciones de lista",
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Sección",
-          "selectMarketProvider": "Seleccionar watchlist",
-          "createWatchlist": "Crear watchlist",
+          "createList": "Crear lista",
+          "renameList": "Renombrar lista",
+          "deleteList": "Eliminar lista",
+          "deleteListDialogTitle": "¿Eliminar lista?",
+          "deleteListDialogDescription": "Al eliminar esta lista, se eliminan sus secciones y listados.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar",
           "createSection": "Crear sección",
           "import": "Importar",
           "export": "Exportar",
-          "deleteWatchlist": "Eliminar watchlist",
           "refresh": "Actualizar datos"
         },
         "listSelector": {
-          "selectionUnavailable": "La selección de watchlist no está disponible",
-          "selectLabel": "Seleccionar watchlist",
-          "searchPlaceholder": "Buscar watchlists...",
-          "noWatchlistsFound": "No se encontraron watchlists.",
-          "renameAriaLabel": "Renombrar {name}",
-          "deleteAriaLabel": "Eliminar {name}",
-          "deleteDialogTitle": "¿Eliminar watchlist?",
-          "deleteDialogDescription": "Esta acción eliminará permanentemente \"{name}\".",
-          "deleteDialogDescriptionFallback": "Esta acción eliminará permanentemente esta watchlist.",
-          "cancel": "Cancelar",
-          "delete": "Eliminar"
+          "noWatchlistsFound": "No se encontraron watchlists."
         },
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
-          "createWatchlistToGetStarted": "Crea una watchlist para empezar.",
+          "createWatchlistToGetStarted": "Crea una watchlist para comenzar.",
+          "watchlistNotFound": "No se encontró la watchlist.",
           "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
           "symbol": "Símbolo",
           "asset": "Activo",
@@ -21258,6 +21259,15 @@
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
           "copy": "Copiar"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
+          "newDocument": "Documento nuevo",
+          "dashboardLayoutTitle": "{state, select, applied {Cambios aplicados al diseño del panel} proposed {Cambios propuestos al diseño del panel} other {Cambios propuestos al diseño del panel}}",
+          "widgetTitle": "{state, select, applied {Cambios aplicados al widget} proposed {Cambios propuestos al widget} other {Cambios propuestos al widget}}",
+          "watchlistTitle": "{state, select, applied {Cambios aplicados a la lista de seguimiento} proposed {Cambios propuestos a la lista de seguimiento} other {Cambios propuestos a la lista de seguimiento}}",
+          "emptyWatchlist": "Lista de seguimiento vacía",
+          "watchlistSetting": "{setting, select, showLogo {Logotipo} showTicker {Símbolo} showDescription {Descripción} other {Configuración}}"
         },
         "contextUsage": {
           "title": "Contexto usado en este chat: {percentage}%",

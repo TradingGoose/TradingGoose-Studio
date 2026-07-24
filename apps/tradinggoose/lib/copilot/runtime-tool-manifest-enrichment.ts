@@ -6,12 +6,17 @@ import {
   INDICATOR_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
+  WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import {
   MONITOR_DOCUMENT_FORMAT,
   MonitorDocumentSchema,
 } from '@/lib/copilot/monitor/monitor-documents'
 import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
+import {
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  DashboardLayoutStructureDocumentSchema,
+} from '@/widgets/layout-document'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 
@@ -23,7 +28,6 @@ type DocumentSemanticSpecDefinition = {
 
 function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
   const jsonSchema = zodToJsonSchema(schema, {
-    $refStrategy: 'none',
     target: 'jsonSchema7',
   })
 
@@ -35,7 +39,7 @@ function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
     }
   }
 
-  const { $schema, definitions, ...parameters } = jsonSchema as Record<string, unknown>
+  const { $schema, ...parameters } = jsonSchema as Record<string, unknown>
   return parameters
 }
 
@@ -67,9 +71,19 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     schema: toJsonSchemaRecord(getEntityDocumentSchema('mcp_server')),
   },
   {
+    documentFormat: WATCHLIST_DOCUMENT_FORMAT,
+    documentLabel: 'watchlist',
+    schema: toJsonSchemaRecord(getEntityDocumentSchema('watchlist')),
+  },
+  {
     documentFormat: MONITOR_DOCUMENT_FORMAT,
     documentLabel: 'monitor',
     schema: toJsonSchemaRecord(MonitorDocumentSchema),
+  },
+  {
+    documentFormat: DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+    documentLabel: 'dashboard layout structure',
+    schema: toJsonSchemaRecord(DashboardLayoutStructureDocumentSchema),
   },
 ]
 

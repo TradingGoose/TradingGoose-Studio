@@ -16,6 +16,7 @@ import {
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { Variable } from '@/stores/variables/types'
@@ -115,30 +116,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const duplicatedVariables = remapVariableIds(sourceArtifacts.variables, newWorkflowId)
     const resolvedDescription = description || source.description
 
-    await db.insert(workflow).values({
-      id: newWorkflowId,
-      userId: session.user.id,
-      workspaceId,
-      folderId: folderId || null,
-      name,
-      description: resolvedDescription,
-      color: resolvedColor,
-      lastSynced: now,
-      createdAt: now,
-      updatedAt: now,
-      isDeployed: false,
-      collaborators: [],
-      runCount: 0,
+    await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'workflow', workspaceId)
+      await tx.insert(workflow).values({
+        id: newWorkflowId,
+        userId: session.user.id,
+        workspaceId,
+        folderId: folderId || null,
+        name,
+        description: resolvedDescription,
+        color: resolvedColor,
+        lastSynced: now,
+        createdAt: now,
+        updatedAt: now,
+        isDeployed: false,
+        collaborators: [],
+        runCount: 0,
+      })
     })
 
     try {
       await applyWorkflowState(
         newWorkflowId,
+        session.user.id,
         createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables
       )
     } catch (error) {
-      await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
+      await db.transaction(async (tx) => {
+        await lockSavedEntityList(tx, 'workflow', workspaceId)
+        await tx.delete(workflow).where(eq(workflow.id, newWorkflowId))
+      })
       throw error
     }
     await refreshWorkflowListForWorkflow(newWorkflowId)

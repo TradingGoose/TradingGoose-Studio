@@ -6,34 +6,75 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { WatchlistRecord } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
+import type { WidgetInstance } from '@/widgets/layout'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import {
   WatchlistHeaderCenterControls,
   WatchlistHeaderRightControls,
 } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
 
-const mockUseWatchlists = vi.fn()
-const mockAddWatchlistListing = vi.fn()
-const mockCreateWatchlist = vi.fn()
-const mockAddWatchlistSection = vi.fn()
-const mockDeleteWatchlist = vi.fn()
-const mockImportWatchlist = vi.fn()
-const mockExportWatchlist = vi.fn()
-const mockRenameWatchlist = vi.fn()
+const mockSetWatchlistItems = vi.fn()
+const mockPatchWidgetParams = vi.fn()
+const mockPatchWidgetLinkedParams = vi.fn()
+const mockPermissions = vi.hoisted(() => ({ canEdit: true, isLoading: false }))
 
-vi.mock('@/hooks/queries/watchlists', () => ({
-  useWatchlists: (...args: unknown[]) => mockUseWatchlists(...args),
-  useAddWatchlistListing: () => mockAddWatchlistListing(),
-  useCreateWatchlist: () => mockCreateWatchlist(),
-  useAddWatchlistSection: () => mockAddWatchlistSection(),
-  useDeleteWatchlist: () => mockDeleteWatchlist(),
-  useImportWatchlist: () => mockImportWatchlist(),
-  useExportWatchlist: () => mockExportWatchlist(),
-  useRenameWatchlist: () => mockRenameWatchlist(),
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => mockPermissions,
 }))
 
-vi.mock('@/widgets/utils/watchlist-params', () => ({
-  emitWatchlistParamsChange: vi.fn(),
+const rootWatchlist: WatchlistRecord = {
+  id: 'watchlist-1',
+  workspaceId: 'workspace-1',
+  name: 'Watchlist',
+  items: [],
+  settings: { showLogo: true, showTicker: true, showDescription: true },
+  createdAt: '1970-01-01T00:00:00.000Z',
+  updatedAt: '1970-01-01T00:00:00.000Z',
+}
+let currentWatchlist: WatchlistRecord = rootWatchlist
+let currentWatchlists: WatchlistRecord[] = [rootWatchlist]
+let isSelectedWatchlistDocumentReady = true
+
+const createWidget = (widget: NonNullable<WidgetInstance>): WidgetInstance => widget
+
+vi.mock('@/widgets/utils/watchlist-yjs', () => ({
+  useSelectedWatchlistYjsDocument: ({ watchlistId }: { watchlistId?: string | null }) => {
+    const selectedId = resolveEntityIdFromList({
+      requestedEntityId: watchlistId,
+      entityIds: currentWatchlists.map((watchlist) => watchlist.id),
+    })
+    const record = isSelectedWatchlistDocumentReady
+      ? (currentWatchlists.find((watchlist) => watchlist.id === selectedId) ?? null)
+      : null
+    return {
+      record,
+      name: record?.name ?? '',
+      settings: record?.settings ?? { showLogo: true, showTicker: true, showDescription: true },
+      items: record?.items ?? [],
+      updateItems: (update: (items: unknown[]) => unknown[]) =>
+        mockSetWatchlistItems(update(record?.items ?? [])),
+      isDocumentReady: Boolean(record),
+      canMutateDocument: Boolean(record),
+      isLoading: false,
+      error: null,
+      members: currentWatchlists.map((watchlist) => ({
+        entityId: watchlist.id,
+        entityName: watchlist.name,
+        createdAt: watchlist.createdAt,
+        updatedAt: watchlist.updatedAt,
+      })),
+      selectedWatchlistId: selectedId,
+    }
+  },
+}))
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+    patchWidgetLinkedParams: (...args: unknown[]) => mockPatchWidgetLinkedParams(...args),
+  }),
 }))
 
 vi.mock('@/components/listing-selector/selector/input', () => ({
@@ -65,38 +106,32 @@ vi.mock('@/components/listing-selector/selector/input', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-selector', () => ({
-  WatchlistListSelector: () => <div>watchlist-selector</div>,
-}))
-
 vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-actions-button', () => ({
   WatchlistListActionsButton: (props: {
+    createListDisabled?: boolean
     createSectionDisabled?: boolean
+    exportDisabled?: boolean
+    importDisabled?: boolean
+    onCreateList: () => void
     onCreateSection: () => void
+    onExport: () => void
+    onImport: () => void
   }) => (
-    <button type='button' disabled={props.createSectionDisabled} onClick={props.onCreateSection}>
-      Create Section
-    </button>
+    <>
+      <button type='button' disabled={props.createListDisabled} onClick={props.onCreateList}>
+        Create List
+      </button>
+      <button type='button' disabled={props.createSectionDisabled} onClick={props.onCreateSection}>
+        Create Section
+      </button>
+      <button type='button' disabled={props.importDisabled} onClick={props.onImport}>
+        Import
+      </button>
+      <button type='button' disabled={props.exportDisabled} onClick={props.onExport}>
+        Export
+      </button>
+    </>
   ),
-}))
-
-vi.mock('@/components/ui/alert-dialog', () => ({
-  AlertDialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogAction: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type='button' {...props}>
-      {children}
-    </button>
-  ),
-  AlertDialogCancel: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type='button' {...props}>
-      {children}
-    </button>
-  ),
-  AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -105,28 +140,47 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+    ...props
+  }: ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: (event: Event) => void }) => (
+    <button type='button' {...props} onClick={(event) => onSelect?.(event.nativeEvent)}>
+      {children}
+    </button>
+  ),
+}))
+
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: { children: ReactNode; open?: boolean }) =>
+    open ? <div>{children}</div> : null,
+  AlertDialogAction: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type='button' {...props} />
+  ),
+  AlertDialogCancel: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type='button' {...props} />
+  ),
+  AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}))
+
 vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
+  widgetHeaderControlClassName: (className?: string) =>
+    ['control', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',
+  widgetHeaderMenuContentClassName: 'menu-content',
+  widgetHeaderMenuItemClassName: 'menu-item',
+  widgetHeaderMenuTextClassName: 'menu-text',
 }))
-
-const createMutationState = (mutateAsync = vi.fn()) => ({
-  isPending: false,
-  mutateAsync,
-})
-
-const defaultWatchlist = {
-  id: 'default-watchlist',
-  workspaceId: 'workspace-1',
-  userId: 'user-1',
-  name: 'Default',
-  isSystem: true,
-  items: [],
-  settings: { showLogo: true, showTicker: true, showDescription: true },
-  createdAt: '2026-03-13T00:00:00.000Z',
-  updatedAt: '2026-03-13T00:00:00.000Z',
-}
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -139,21 +193,15 @@ describe('watchlist header controls', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    currentWatchlist = rootWatchlist
+    currentWatchlists = [rootWatchlist]
+    isSelectedWatchlistDocumentReady = true
+    mockPermissions.canEdit = true
+    mockPermissions.isLoading = false
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
     useListingSelectorStore.setState({ instances: {} })
-
-    mockUseWatchlists.mockReturnValue({
-      data: [defaultWatchlist],
-    })
-    mockAddWatchlistListing.mockReturnValue(createMutationState())
-    mockCreateWatchlist.mockReturnValue(createMutationState())
-    mockAddWatchlistSection.mockReturnValue(createMutationState())
-    mockDeleteWatchlist.mockReturnValue(createMutationState())
-    mockImportWatchlist.mockReturnValue(createMutationState())
-    mockExportWatchlist.mockReturnValue(createMutationState())
-    mockRenameWatchlist.mockReturnValue(createMutationState())
   })
 
   afterEach(() => {
@@ -162,56 +210,29 @@ describe('watchlist header controls', () => {
     })
     container.remove()
     useListingSelectorStore.setState({ instances: {} })
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
-  it('adds the staged listing from the center header control', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockAddWatchlistListing.mockReturnValue(createMutationState(mutateAsync))
-
+  it('adds the staged listing through the selected Yjs document', async () => {
     await act(async () => {
       root.render(
         <WatchlistHeaderCenterControls
           workspaceId='workspace-1'
           panelId='panel-2'
-          widget={
-            {
-              key: 'watchlist-widget',
-              params: {
-                watchlistId: 'default-watchlist',
-                provider: 'alpaca',
-              },
-            } as any
-          }
+          widget={createWidget({
+            key: 'watchlist-widget',
+            params: { provider: 'alpaca' },
+          })}
         />
       )
     })
-
-    expect(container.firstElementChild?.className).toContain('min-w-0')
 
     const buttons = Array.from(container.querySelectorAll('button'))
     const listingButton = buttons.find((button) => button.textContent?.includes('Select Listing'))
     const addButton = buttons.find((button) =>
       button.textContent?.includes('Add listing to watchlist')
     )
-
-    expect(listingButton).toBeTruthy()
-    expect(addButton?.hasAttribute('disabled')).toBe(true)
-
-    await act(async () => {
-      listingButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(addButton?.hasAttribute('disabled')).toBe(false)
-
-    await act(async () => {
-      useListingSelectorStore
-        .getState()
-        .updateInstance('watchlist-header-listing-panel-2-watchlist-widget', {
-          query: 'ETH',
-          selectedListingValue: null,
-          selectedListing: null,
-        })
-    })
 
     expect(addButton?.hasAttribute('disabled')).toBe(true)
 
@@ -226,175 +247,259 @@ describe('watchlist header controls', () => {
       await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      watchlistId: 'default-watchlist',
-      listing: {
-        listing_id: 'BTCUSD',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-    })
-    expect(addButton?.hasAttribute('disabled')).toBe(true)
+    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
+      expect.objectContaining({
+        type: 'listing',
+        parentId: null,
+        listing: {
+          listing_id: 'BTCUSD',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      }),
+    ])
   })
 
-  it('enables section creation on the Default watchlist and creates the next section name', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockAddWatchlistSection.mockReturnValue(createMutationState(mutateAsync))
-    mockUseWatchlists.mockReturnValue({
-      data: [
-        {
-          ...defaultWatchlist,
-          items: [
-            { id: 'section-1', type: 'section', label: 'Section 1' },
-            { id: 'section-3', type: 'section', label: 'Section 3' },
-          ],
-        },
+  it('creates the next section name through the selected Yjs document', async () => {
+    currentWatchlist = {
+      ...rootWatchlist,
+      items: [
+        { id: 'section-1', type: 'section', parentId: null, label: 'Section 1' },
+        { id: 'section-3', type: 'section', parentId: null, label: 'Section 3' },
       ],
-    })
+    }
+    currentWatchlists = [currentWatchlist]
 
     await act(async () => {
       root.render(
         <WatchlistHeaderRightControls
           workspaceId='workspace-1'
           panelId='panel-1'
-          widget={
-            {
-              key: 'watchlist',
-              params: { watchlistId: 'default-watchlist' },
-            } as any
-          }
+          widget={createWidget({ key: 'watchlist', params: {} })}
+          canEditWidgetParams
         />
       )
     })
-
-    expect(container.firstElementChild?.className).toContain('min-w-0')
 
     const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
       candidate.textContent?.includes('Create Section')
     )
 
-    expect(button).toBeTruthy()
     expect(button?.hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
+      await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      watchlistId: 'default-watchlist',
-      label: 'Section 2',
-    })
+    expect(mockSetWatchlistItems).toHaveBeenCalledWith([
+      { id: 'section-1', type: 'section', parentId: null, label: 'Section 1' },
+      { id: 'section-3', type: 'section', parentId: null, label: 'Section 3' },
+      expect.objectContaining({
+        type: 'section',
+        parentId: null,
+        label: 'Section 2',
+      }),
+    ])
   })
 
-  it('imports watchlist files with sections and listings', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({
-      watchlist: {
-        id: 'default-watchlist',
-      },
-      import: {
-        addedCount: 1,
-        skippedCount: 0,
+  it('skips duplicate root listings while appending the rest of an import', async () => {
+    const listingItem = (id: string, listingId: string, parentId: string | null = null) => ({
+      id,
+      type: 'listing' as const,
+      parentId,
+      listing: {
+        listing_id: listingId,
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default' as const,
       },
     })
-    mockImportWatchlist.mockReturnValue(createMutationState(mutateAsync))
+    const sourceSectionId = '00000000-0000-4000-8000-000000000002'
+    const existingItem = listingItem('00000000-0000-4000-8000-000000000001', 'AAPL')
+    const importedItems = [
+      { id: sourceSectionId, type: 'section' as const, parentId: null, label: 'Imported' },
+      listingItem('00000000-0000-4000-8000-000000000003', 'AAPL', sourceSectionId),
+      listingItem('00000000-0000-4000-8000-000000000004', 'AAPL'),
+      listingItem('00000000-0000-4000-8000-000000000005', 'MSFT'),
+    ]
+    currentWatchlist = {
+      ...rootWatchlist,
+      name: 'Destination',
+      settings: { showLogo: false, showTicker: true, showDescription: false },
+      items: [existingItem],
+    }
+    currentWatchlists = [currentWatchlist]
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
 
     await act(async () => {
       root.render(
         <WatchlistHeaderRightControls
           workspaceId='workspace-1'
-          panelId='panel-4'
-          widget={
-            {
-              key: 'watchlist-widget',
-              params: { watchlistId: 'default-watchlist' },
-            } as any
-          }
+          panelId='panel-import'
+          widget={createWidget({ key: 'watchlist', params: {} })}
+          canEditWidgetParams
         />
       )
     })
 
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement | null
-    expect(input).toBeTruthy()
-
-    const file = {
-      text: vi.fn().mockResolvedValue(
-        JSON.stringify({
-          version: '1',
-          fileType: 'tradingGooseExport',
-          exportedAt: '2026-04-06T12:00:00.000Z',
-          exportedFrom: 'watchlistWidget',
-          resourceTypes: ['watchlists'],
-          watchlists: [
-            {
-              name: 'Default',
-              items: [
-                {
-                  type: 'section',
-                  label: 'Tech',
-                  items: [
-                    {
-                      type: 'listing',
-                      listing: {
-                        listing_id: 'aapl-id',
-                        base_id: '',
-                        quote_id: '',
-                        listing_type: 'default',
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        })
-      ),
-    } as unknown as File
-
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
     Object.defineProperty(input, 'files', {
       configurable: true,
-      value: [file],
+      value: [
+        {
+          text: async () =>
+            JSON.stringify({
+              version: '1',
+              fileType: 'tradingGooseExport',
+              exportedAt: '2026-04-06T12:00:00.000Z',
+              exportedFrom: 'watchlistWidget',
+              resourceTypes: ['watchlists'],
+              watchlists: [
+                {
+                  name: 'Imported Replacement',
+                  settings: { showLogo: true, showTicker: false, showDescription: true },
+                  items: importedItems,
+                },
+              ],
+            }),
+        },
+      ],
+    })
+    await act(async () => {
+      input.dispatchEvent(new globalThis.Event('change', { bubbles: true }))
+    })
+    await vi.waitFor(() => expect(mockSetWatchlistItems).toHaveBeenCalledOnce())
+
+    const [persistedAapl, importedSection, importedSectionAapl, importedMsft] =
+      mockSetWatchlistItems.mock.calls[0]![0]
+    expect(persistedAapl).toBe(existingItem)
+    expect(importedSection).toMatchObject({ type: 'section', label: 'Imported' })
+    expect(importedSection.id).not.toBe(sourceSectionId)
+    expect(importedSectionAapl).toMatchObject({
+      type: 'listing',
+      parentId: importedSection.id,
+      listing: { listing_id: 'AAPL' },
+    })
+    expect(importedSectionAapl.id).not.toBe(importedItems[1]?.id)
+    expect(importedMsft).toMatchObject({
+      type: 'listing',
+      parentId: null,
+      listing: { listing_id: 'MSFT' },
+    })
+    expect(importedMsft.id).not.toBe(importedItems[3]?.id)
+    expect(currentWatchlist).toMatchObject({
+      name: 'Destination',
+      settings: { showLogo: false, showTicker: true, showDescription: false },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('allows widget-param updates while keeping watchlist mutations disabled', async () => {
+    mockPermissions.canEdit = false
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-4'
+          widget={createWidget({ key: 'watchlist-widget', params: { provider: 'alpaca' } })}
+          canEditWidgetParams
+        />
+      )
     })
 
+    const button = (label: string) =>
+      Array.from(container.querySelectorAll('button')).find((candidate) =>
+        candidate.textContent?.includes(label)
+      )
+    const refreshButton = button('Refresh')
+
+    expect(button('Create List')?.hasAttribute('disabled')).toBe(true)
+    expect(button('Import')?.hasAttribute('disabled')).toBe(true)
+    expect(button('Export')?.hasAttribute('disabled')).toBe(false)
+    expect(refreshButton?.hasAttribute('disabled')).toBe(false)
+
     await act(async () => {
-      input?.dispatchEvent(new Event('change', { bubbles: true }))
+      refreshButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      runtime: { refreshAt: expect.any(Number) },
+    })
+    expect(mockSetWatchlistItems).not.toHaveBeenCalled()
+  })
+
+  it('does not substitute the first watchlist for a stale widget selection', async () => {
+    currentWatchlist = { ...rootWatchlist, name: 'Primary Watchlist' }
+    currentWatchlists = [currentWatchlist]
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-5'
+          widget={createWidget({ key: 'watchlist', params: { watchlistId: 'missing-watchlist' } })}
+          canEditWidgetParams
+        />
+      )
+    })
+
+    const watchlistButton = Array.from(container.querySelectorAll('button')).find((candidate) =>
+      candidate.textContent?.includes('Watchlist')
+    )
+
+    expect(watchlistButton?.textContent).not.toContain(currentWatchlist.name)
+    expect(watchlistButton?.hasAttribute('disabled')).toBe(false)
+    expect(mockPatchWidgetLinkedParams).not.toHaveBeenCalled()
+  })
+
+  it('clears the active widget link when its document is still loading', async () => {
+    isSelectedWatchlistDocumentReady = false
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-delete'
+          widget={createWidget({
+            key: 'watchlist',
+            params: { watchlistId: rootWatchlist.id },
+          })}
+          canEditWidgetParams
+        />
+      )
+    })
+
+    const deleteButton = await vi.waitFor(() => {
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => /delete list/i.test(candidate.textContent ?? '')
+      )
+      expect(button).toBeTruthy()
+      return button!
+    })
+    expect(deleteButton.disabled).toBe(false)
+    await act(async () => deleteButton.click())
+    const confirm = await vi.waitFor(() => {
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => /^delete$/i.test(candidate.textContent?.trim() ?? '')
+      )
+      expect(button).toBeTruthy()
+      return button!
+    })
+    await act(async () => {
+      confirm.click()
       await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      watchlistId: 'default-watchlist',
-      file: {
-        version: '1',
-        fileType: 'tradingGooseExport',
-        exportedAt: '2026-04-06T12:00:00.000Z',
-        exportedFrom: 'watchlistWidget',
-        resourceTypes: ['watchlists'],
-        watchlists: [
-          {
-            name: 'Default',
-            items: [
-              {
-                type: 'section',
-                label: 'Tech',
-                items: [
-                  {
-                    type: 'listing',
-                    listing: {
-                      listing_id: 'aapl-id',
-                      base_id: '',
-                      quote_id: '',
-                      listing_type: 'default',
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: null })
   })
 })

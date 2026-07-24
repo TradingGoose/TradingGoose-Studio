@@ -103,11 +103,13 @@ export function Dropdown({
   const blockType = allBlocks[blockId]?.type
   const isWorkflowSelector =
     subBlockId === 'workflowId' && (blockType === 'workflow' || blockType === 'workflow_input')
+  const isWatchlistSelector = subBlockId === 'watchlistId' && blockType === 'watchlist'
+  const entityListKind = isWorkflowSelector ? 'workflow' : isWatchlistSelector ? 'watchlist' : null
   const {
-    members: workflowMembers,
-    isLoading: isLoadingWorkflowOptions,
-    error: workflowOptionsError,
-  } = useEntityList('workflow', isWorkflowSelector ? routeContext?.workspaceId : null)
+    members: entityListMembers,
+    isLoading: isLoadingEntityListOptions,
+    error: entityListOptionsError,
+  } = useEntityList(entityListKind ?? 'workflow', entityListKind ? routeContext?.workspaceId : null)
   const blockContextValues = useMemo(() => {
     if (!resolvedWorkflowId) return undefined
     const block = allBlocks[blockId]
@@ -196,33 +198,28 @@ export function Dropdown({
     })
   }, [fetchedOptions])
 
-  const workflowOptions = useMemo<DropdownOptionObject[]>(
+  const entityListOptions = useMemo<DropdownOptionObject[]>(
     () =>
-      workflowMembers
-        .filter((member) => member.entityId !== resolvedWorkflowId)
+      entityListMembers
+        .filter((member) => !isWorkflowSelector || member.entityId !== resolvedWorkflowId)
         .map((member) => ({
           id: member.entityId,
-          label: member.entityName || `Workflow ${member.entityId.slice(0, 8)}`,
+          label:
+            member.entityName || `${entityListKind ?? 'Entity'} ${member.entityId.slice(0, 8)}`,
           searchLabel: [member.entityName, member.entityDescription].filter(Boolean).join(' '),
         })),
-    [resolvedWorkflowId, workflowMembers]
+    [entityListKind, entityListMembers, isWorkflowSelector, resolvedWorkflowId]
   )
 
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
-    if (isWorkflowSelector) {
-      return workflowOptions
+    if (entityListKind) {
+      return entityListOptions
     }
     if (fetchOptions && normalizedFetchedOptions.length > 0) {
       return normalizedFetchedOptions
     }
     return evaluatedOptions ?? []
-  }, [
-    isWorkflowSelector,
-    workflowOptions,
-    fetchOptions,
-    normalizedFetchedOptions,
-    evaluatedOptions,
-  ])
+  }, [entityListKind, entityListOptions, fetchOptions, normalizedFetchedOptions, evaluatedOptions])
 
   const getOptionValue = (
     option:
@@ -239,18 +236,18 @@ export function Dropdown({
     return typeof option === 'string' ? option : hasExplicitValue(option) ? option.value : option.id
   }
 
-  const hasWorkflowOptions = workflowOptions.length > 0
-  const workflowOptionsUnavailable = Boolean(workflowOptionsError && !hasWorkflowOptions)
-  const resolvedFetchError = isWorkflowSelector
-    ? workflowOptionsUnavailable
-      ? workflowOptionsError
+  const hasEntityListOptions = entityListOptions.length > 0
+  const entityListOptionsUnavailable = Boolean(entityListOptionsError && !hasEntityListOptions)
+  const resolvedFetchError = entityListKind
+    ? entityListOptionsUnavailable
+      ? entityListOptionsError
       : null
     : fetchError
-  const isLoadingAvailableOptions = isWorkflowSelector
-    ? isLoadingWorkflowOptions && !hasWorkflowOptions
+  const isLoadingAvailableOptions = entityListKind
+    ? isLoadingEntityListOptions && !hasEntityListOptions
     : isLoadingOptions
-  const optionsReady = isWorkflowSelector
-    ? !isLoadingAvailableOptions && !workflowOptionsUnavailable
+  const optionsReady = entityListKind
+    ? !isLoadingAvailableOptions && !entityListOptionsUnavailable
     : fetchOptions
       ? hasFetchedOptions && !isLoadingOptions && !fetchError
       : true

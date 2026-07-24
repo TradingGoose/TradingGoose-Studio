@@ -12,6 +12,7 @@ import {
 } from '@/tools/utils'
 
 const readSavedEntityFieldsForExecutionMock = vi.hoisted(() => vi.fn())
+const readEntityListMembersFromDbMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn().mockReturnValue({
@@ -24,6 +25,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readSavedEntityFieldsForExecution: readSavedEntityFieldsForExecutionMock,
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  readEntityListMembersFromDb: readEntityListMembersFromDbMock,
 }))
 
 vi.mock('@/stores/settings/environment/store', () => {
@@ -45,6 +50,7 @@ const originalWindow = global.window
 beforeEach(() => {
   global.window = {} as any
   readSavedEntityFieldsForExecutionMock.mockRejectedValue(new Error('not found'))
+  readEntityListMembersFromDbMock.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -764,7 +770,6 @@ describe('createCustomToolRequestBody', () => {
     const serverWindow = global.window
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
-      title: 'Custom Weather Tool',
       codeText: 'return params',
       schemaText: JSON.stringify({
         type: 'function',
@@ -774,6 +779,9 @@ describe('createCustomToolRequestBody', () => {
         },
       }),
     })
+    readEntityListMembersFromDbMock.mockResolvedValueOnce([
+      { id: 'custom-tool-123', name: 'Custom Weather Tool' },
+    ])
 
     try {
       ;(global as any).window = undefined
@@ -789,6 +797,7 @@ describe('createCustomToolRequestBody', () => {
         'workspace-456',
         true
       )
+      expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
     } finally {
       global.window = serverWindow
       fetchSpy.mockRestore()
@@ -798,7 +807,6 @@ describe('createCustomToolRequestBody', () => {
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
     const serverWindow = global.window
     readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
-      title: 'Custom Weather Tool',
       codeText: 'return params',
       schemaText: JSON.stringify({
         type: 'function',
@@ -808,6 +816,9 @@ describe('createCustomToolRequestBody', () => {
         },
       }),
     })
+    readEntityListMembersFromDbMock.mockResolvedValueOnce([
+      { id: 'custom-tool-123', name: 'Custom Weather Tool' },
+    ])
 
     try {
       ;(global as any).window = undefined
@@ -822,6 +833,7 @@ describe('createCustomToolRequestBody', () => {
         'workspace-456',
         true
       )
+      expect(readEntityListMembersFromDbMock).toHaveBeenCalledWith('custom_tool', 'workspace-456')
     } finally {
       global.window = serverWindow
     }

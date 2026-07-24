@@ -22,7 +22,7 @@ app:
     # Generate using: openssl rand -hex 32
     BETTER_AUTH_SECRET: "your-production-auth-secret-here"
     ENCRYPTION_KEY: "your-production-encryption-key-here"
-    INTERNAL_API_SECRET: "your-production-internal-api-secret-here"
+    INTERNAL_API_SECRET: ""
     CRON_SECRET: "your-production-cron-secret-here"
 
     # API Key Encryption
@@ -42,7 +42,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 1
   env:
     NEXT_PUBLIC_APP_URL: "https://tradinggoose.acme.ai"
     BETTER_AUTH_URL: "https://tradinggoose.acme.ai"

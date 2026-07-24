@@ -8,9 +8,18 @@ export interface ToolPromptMetadata {
 }
 
 const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
-  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+  'Use `tg-custom-tool-document-v1` content JSON with exactly `schemaText` and `codeText`. Identity is outside the document: supply `name` to create and use `rename_custom_tool` to rename. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
-  'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
+  'Use `tg-knowledge-base-document-v1` content JSON with exactly `description` and `chunkingConfig`. Identity is outside the document: supply `name` to create and use `rename_knowledge_base` to rename. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
+const WATCHLIST_DOCUMENT_GUIDANCE =
+  'Use `tg-watchlist-document-v1` content JSON with exactly `settings` and flat ordered `items`. Identity is outside the document: supply `name` to create and use `rename_watchlist` to rename. Items are explicit `type: "section"` or `type: "listing"` entries. Submitted item ids are document-local references; use a section id as its listings\' `parentId`, and the persisted result will return generated item ids. Sections cannot nest and always use `parentId: null`; root listings use `parentId: null`, and listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
+const DASHBOARD_COLOR_STORE_GUIDANCE =
+  'The layout color store is `colorPairs`: each non-gray color is one layout-scoped shared channel, while `gray` means the widget is unlinked and uses only local `params`. Widgets synchronize a field only when they select the same non-gray `pairColor` and both list that field in `get_widgets_metadata.linkedParamFields`; other fields remain local. Set both widgets to the same `pairColor`, then update shared fields through `colorPair`, not `params`. Changing `pairColor` only changes the subscription and preserves both local params and stored color channels.'
+const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
+  "Returns a complete `tg-dashboard-layout-document-v3` inspection document with exactly `layout`, `widgets`, and `colorPairs`. These are independent owners: `layout` selects each panel's `identityId` and `widgetKey`, `widgets[identityId]` owns that widget's local `params` and selected `pairColor`, and each non-gray `colorPairs` entry owns shared parameters for that layout/color. This response is never one persisted or Yjs document. Layout identity is returned separately as `entityName`. `widgets[identityId].params` may canonically be `null`, meaning no local overrides rather than a missing widget. At runtime, the mounted widget combines its local params with its selected color-pair params. An entity ID in those params is only a reference; the mounted entity independently connects to its own entity Yjs document. Do not submit this complete read document to `edit_layout`. " +
+  DASHBOARD_COLOR_STORE_GUIDANCE
+const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
+  'Use raw `tg-dashboard-layout-structure-v3` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget params and color-pair edits belong to `edit_widget`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -104,6 +113,12 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'search',
     entityKind: 'documentation',
   },
+  search_listing: {
+    description:
+      'Search companies, tickers, crypto pairs, and currencies and return canonical listing identity objects. Takes only `query`; in watchlist listing items, put the returned object under the `listing` key.',
+    kind: 'search',
+    entityKind: 'listing',
+  },
   search_online: {
     description: 'Search web, news, places, or images.',
     kind: 'search',
@@ -185,7 +200,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'knowledge_base',
   },
   rename_knowledge_base: {
-    description: `Rename the target knowledge base by sending a full knowledge-base document with the updated \`name\`, then return the resulting document. ${KNOWLEDGE_BASE_DOCUMENT_GUIDANCE}`,
+    description: 'Rename the target knowledge base by exact `entityId` and `name`.',
     kind: 'rename',
     entityKind: 'knowledge_base',
   },
@@ -216,7 +231,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'custom_tool',
   },
   rename_custom_tool: {
-    description: `Rename the target custom tool by sending a full custom tool document with the updated title, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
+    description: 'Rename the target custom tool by exact `entityId` and `name`.',
     kind: 'rename',
     entityKind: 'custom_tool',
   },
@@ -252,19 +267,18 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_indicator: {
     description:
-      'Create a new custom indicator in the current workspace from a full indicator document and return the created document.',
+      'Create a custom indicator from separate `name` identity plus `tg-indicator-document-v1` content containing exactly `color` and `pineCode`.',
     kind: 'create',
     entityKind: 'indicator',
   },
   edit_indicator: {
     description:
-      'Update one custom indicator from a full indicator document and return the resulting document. Use only with `entityId` from `list_indicators` entries where `editable` is true. Built-in default indicators are not editable.',
+      'Update one custom indicator from `tg-indicator-document-v1` content containing exactly `color` and `pineCode`; use `rename_indicator` for identity. Use only with `entityId` from `list_indicators` entries where `editable` is true. Built-in default indicators are not editable.',
     kind: 'edit',
     entityKind: 'indicator',
   },
   rename_indicator: {
-    description:
-      'Rename one custom indicator by sending a full indicator document with the updated `name`, then return the resulting document. Use only with `entityId` from `list_indicators` entries where `editable` is true.',
+    description: 'Rename one custom indicator by exact `entityId` and `name`.',
     kind: 'rename',
     entityKind: 'indicator',
   },
@@ -281,19 +295,18 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_skill: {
     description:
-      'Create a new skill in the current workspace from a full skill document and return the created document.',
+      'Create a skill from separate `name` identity plus `tg-skill-document-v1` content containing exactly `description` and `content`.',
     kind: 'create',
     entityKind: 'skill',
   },
   edit_skill: {
     description:
-      'Update the target skill from a full skill document and return the resulting document.',
+      'Update the target skill from `tg-skill-document-v1` content containing exactly `description` and `content`; use `rename_skill` for identity.',
     kind: 'edit',
     entityKind: 'skill',
   },
   rename_skill: {
-    description:
-      'Rename the target skill by sending a full skill document with the updated `name`, then return the resulting document.',
+    description: 'Rename the target skill by exact `entityId` and `name`.',
     kind: 'rename',
     entityKind: 'skill',
   },
@@ -304,27 +317,102 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_mcp_server]: {
     description:
-      'Return one MCP server by `entityId` as an editable document payload. Secret header/env values are redacted as `[redacted]`.',
+      'Return one MCP server by `entityId` as a complete editable document payload. Header/env values are redacted as `[redacted]`; preserve an existing same-key value with that placeholder, provide a concrete value to replace it, and omit a key to delete it.',
     kind: 'read',
     entityKind: 'mcp_server',
   },
   create_mcp_server: {
     description:
-      'Create a new MCP server in the current workspace from a full MCP server document and return the created document.',
+      'Create an MCP server from separate `name` identity plus its full `tg-mcp-server-document-v1` content document.',
     kind: 'create',
     entityKind: 'mcp_server',
   },
   edit_mcp_server: {
     description:
-      'Update the target MCP server from a full server document. Keep `[redacted]` header/env values to preserve existing secrets, send concrete values to replace them, or omit keys to delete them.',
+      'Update the target MCP server from its content-only `tg-mcp-server-document-v1`; use `rename_mcp_server` for identity. Header/env values returned as `[redacted]` preserve the existing same-key value; submit a concrete value to replace one and omit a key to delete it.',
     kind: 'edit',
     entityKind: 'mcp_server',
   },
   rename_mcp_server: {
-    description:
-      'Rename the target MCP server by sending a full server document with the updated `name`. Keep `[redacted]` header/env values to preserve existing secrets.',
+    description: 'Rename the target MCP server by exact `entityId` and `name`.',
     kind: 'rename',
     entityKind: 'mcp_server',
+  },
+  list_watchlist: {
+    description:
+      'List the current workspace watchlist documents. Use the returned `entityId` to read or edit that watchlist.',
+    kind: 'list',
+    entityKind: 'watchlist',
+  },
+  read_watchlist: {
+    description: `Return one watchlist by \`entityId\` as an editable document payload with \`entityDocument\` and \`documentFormat\`. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'read',
+    entityKind: 'watchlist',
+  },
+  create_watchlist: {
+    description: `Create a new watchlist in the current workspace from a full watchlist document and return the created document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'create',
+    entityKind: 'watchlist',
+  },
+  edit_watchlist: {
+    description: `Update the target watchlist from a full watchlist document and return the resulting document. ${WATCHLIST_DOCUMENT_GUIDANCE}`,
+    kind: 'edit',
+    entityKind: 'watchlist',
+  },
+  rename_watchlist: {
+    description: 'Rename the target watchlist by exact `entityId` and `name`.',
+    kind: 'rename',
+    entityKind: 'watchlist',
+  },
+  list_layout: {
+    description:
+      'List the current user-owned dashboard layouts in the current workspace. Use the returned `entityId` with `read_layout`, `edit_layout`, or `edit_widget`.',
+    kind: 'list',
+    entityKind: 'dashboard_layout',
+  },
+  create_layout: {
+    description:
+      'Create an empty user-owned dashboard layout shell in the current workspace. The first layout is active automatically; later layouts are inactive until activated. Use the returned `entityId` with `edit_layout` to assign widgets and edit topology, then use `edit_widget` for existing-widget parameter edits.',
+    kind: 'create',
+    entityKind: 'dashboard_layout',
+  },
+  read_layout: {
+    description: `Return one user-owned dashboard layout by exact \`entityId\` with \`entityDocument\` and \`documentFormat\`. ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
+    kind: 'read',
+    entityKind: 'dashboard_layout',
+  },
+  edit_layout: {
+    description: `Update the target dashboard layout topology from one raw \`entityDocument\`, then return the same complete layout document shape as \`read_layout\`. ${DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE} ${DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE}`,
+    kind: 'edit',
+    entityKind: 'dashboard_layout',
+  },
+  rename_layout: {
+    description: 'Rename the target dashboard layout by exact `entityId` and `name`.',
+    kind: 'rename',
+    entityKind: 'dashboard_layout',
+  },
+  edit_widget: {
+    description:
+      'Patch the existing widget in one dashboard panel by exact `entityId` and `panelId`, then return the same complete layout document shape as `read_layout`. Use `params` for local or non-linked widget params, `pairColor` to select its color-store channel, and `colorPair` for shared linked fields. Use `colorPair: { field: null }` to clear one shared field or `colorPair: null` to clear the selected channel. Use `edit_layout` to add, replace, or remove widget bindings. ' +
+      'Credential values returned as `[redacted]` preserve the existing same-slot value; submit a concrete value to replace one and omit it from a submitted credential object to delete it. ' +
+      'Data-chart drawing state is user-managed and is neither returned nor editable through Copilot. ' +
+      DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE,
+    kind: 'edit',
+    entityKind: 'dashboard_layout',
+  },
+  get_available_widgets: {
+    description:
+      'List canonical dashboard widget catalog items, including widget keys, categories, editable fields, and linked color-pair fields. Use the selected key with edit_layout when adding or replacing a dashboard widget.',
+    kind: 'inspect',
+    entityKind: 'dashboard_layout',
+    surfaceKind: 'dashboard_widget',
+  },
+  get_widgets_metadata: {
+    description:
+      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults, editable params, and authoritative `linkedParamFields` that can synchronize through a shared non-gray layout color store.',
+    kind: 'inspect',
+    entityKind: 'dashboard_layout',
+    surfaceKind: 'dashboard_widget',
   },
   sleep: {
     description: 'Pause for a short duration.',

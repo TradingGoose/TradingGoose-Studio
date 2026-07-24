@@ -1,5 +1,10 @@
+import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { getEntityListMembers } from '@/lib/yjs/entity-session'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 import type { WorkspaceEntityItem } from './types'
+
+export type LazyWorkspaceEntityMentionKind = Exclude<CopilotWorkspaceEntityKind, 'dashboard_layout'>
 
 const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(items: T[]) =>
   [...items].sort((left, right) => {
@@ -11,9 +16,13 @@ const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(item
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 export async function loadWorkspaceEntityMentionItems(
-  entityKind: CopilotWorkspaceEntityKind,
+  entityKind: LazyWorkspaceEntityMentionKind,
   workspaceId: string
 ): Promise<WorkspaceEntityItem[]> {
+  if (entityKind === 'watchlist') {
+    return loadYjsEntityMentionItems(entityKind, workspaceId)
+  }
+
   let path = ''
 
   switch (entityKind) {
@@ -87,7 +96,27 @@ export async function loadWorkspaceEntityMentionItems(
           entityKind,
           id: item.id,
           name: toTrimmedString(item.name),
-          enabled: item.enabled !== false,
         }))
+  }
+}
+
+async function loadYjsEntityMentionItems(
+  entityKind: 'watchlist',
+  workspaceId: string
+): Promise<WorkspaceEntityItem[]> {
+  const result = await bootstrapYjsProvider(
+    buildEntityListDescriptor(entityKind, workspaceId),
+    undefined,
+    'read'
+  )
+  try {
+    const members = getEntityListMembers(result.doc, entityKind)
+    return sortByRecent(members).map((item) => ({
+      entityKind,
+      id: item.entityId,
+      name: toTrimmedString(item.entityName),
+    }))
+  } finally {
+    result.dispose()
   }
 }

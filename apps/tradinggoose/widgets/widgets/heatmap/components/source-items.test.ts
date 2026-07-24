@@ -14,35 +14,23 @@ const createListing = (symbol: string) => ({
 })
 
 describe('heatmap source item helpers', () => {
-  it('dedupes watchlist listings across workspace-user watchlists and tracks source labels', () => {
+  it('dedupes watchlist listings across workspace watchlists and tracks source labels', () => {
     const listing = createListing('AAPL')
 
     expect(
       resolveWatchlistHeatmapListings([
         {
           id: 'list-1',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
           name: 'One',
-          isSystem: false,
           items: [
-            { id: 'a', type: 'listing', listing },
-            { id: 'section', type: 'section', label: 'Tech' },
+            { id: 'a', type: 'listing', parentId: null, listing },
+            { id: 'section', type: 'section', parentId: null, label: 'Tech' },
           ],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '',
-          updatedAt: '',
         },
         {
           id: 'list-2',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
           name: 'Two',
-          isSystem: false,
-          items: [{ id: 'b', type: 'listing', listing }],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '',
-          updatedAt: '',
+          items: [{ id: 'b', type: 'listing', parentId: null, listing }],
         },
       ])
     ).toEqual([
@@ -92,36 +80,18 @@ describe('heatmap source item helpers', () => {
       resolveWatchlistHeatmapListings([
         {
           id: 'list-1',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
           name: 'One',
-          isSystem: false,
-          items: [{ id: 'a', type: 'listing', listing }],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '',
-          updatedAt: '',
+          items: [{ id: 'a', type: 'listing', parentId: null, listing }],
         },
         {
           id: 'list-2',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
           name: '  ',
-          isSystem: false,
-          items: [{ id: 'b', type: 'listing', listing }],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '',
-          updatedAt: '',
+          items: [{ id: 'b', type: 'listing', parentId: null, listing }],
         },
         {
           id: 'list-3',
-          workspaceId: 'workspace-1',
-          userId: 'user-1',
           name: 'Two',
-          isSystem: false,
-          items: [{ id: 'c', type: 'listing', listing }],
-          settings: { showLogo: true, showTicker: true, showDescription: true },
-          createdAt: '',
-          updatedAt: '',
+          items: [{ id: 'c', type: 'listing', parentId: null, listing }],
         },
       ])
     ).toEqual([

@@ -1,7 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workspace } from '@tradinggoose/db/schema'
 import { desc, eq, sql } from 'drizzle-orm'
-import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { provisionDashboardLayoutForWorkspaceUserInTx } from '@/lib/dashboard-layouts/operations'
+import { buildWorkspaceAccessScope, type PermissionType } from '@/lib/permissions/utils'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
@@ -55,6 +56,10 @@ export async function createDefaultWorkspaceForUser(userId: string, userName?: s
 
     const workspaceDetails = buildWorkspaceRecord(userId, name)
     await tx.insert(workspace).values(workspaceDetails)
+    await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+      workspaceId: workspaceDetails.id,
+      ownerUserId: userId,
+    })
     return toOwnedWorkspaceApiRecord(workspaceDetails)
   })
 }
@@ -85,6 +90,48 @@ function toOwnedWorkspaceApiRecord(workspaceDetails: WorkspaceRecord) {
 
 export async function createWorkspace(userId: string, name: string) {
   const workspaceDetails = buildWorkspaceRecord(userId, name)
-  await db.insert(workspace).values(workspaceDetails)
+  await db.transaction(async (tx) => {
+    await tx.insert(workspace).values(workspaceDetails)
+    await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+      workspaceId: workspaceDetails.id,
+      ownerUserId: userId,
+    })
+  })
   return toOwnedWorkspaceApiRecord(workspaceDetails)
+}
+
+export async function grantWorkspaceAccessInTx(
+  tx: Pick<typeof db, 'delete' | 'execute' | 'insert' | 'select' | 'update'>,
+  input: { workspaceId: string; userId: string; permissionType: PermissionType }
+) {
+  const now = new Date()
+  await tx
+    .insert(permissions)
+    .values({
+      id: crypto.randomUUID(),
+      userId: input.userId,
+      entityType: 'workspace' as const,
+      entityId: input.workspaceId,
+      permissionType: input.permissionType,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [permissions.userId, permissions.entityType, permissions.entityId],
+      set: {
+        permissionType: sql<PermissionType>`case
+          when ${permissions.permissionType} = 'admin' or excluded.permission_type = 'admin'
+            then 'admin'::permission_type
+          when ${permissions.permissionType} = 'write' or excluded.permission_type = 'write'
+            then 'write'::permission_type
+          else 'read'::permission_type
+        end`,
+        updatedAt: now,
+      },
+    })
+
+  await provisionDashboardLayoutForWorkspaceUserInTx(tx, {
+    workspaceId: input.workspaceId,
+    ownerUserId: input.userId,
+  })
 }

@@ -1,17 +1,10 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createIndicators, listIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
+import { createIndicators, listIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import {
-  deleteYjsSessionInSocketServer,
-  refreshEntityListSession,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -39,11 +32,12 @@ const logWorkspacePermissionDenied = ({
 const IndicatorSchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
   indicators: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().min(1, 'Indicator name is required'),
-      pineCode: z.string().default(''),
-    })
+    z
+      .object({
+        name: z.string().min(1, 'Indicator name is required'),
+        pineCode: z.string().default(''),
+      })
+      .strict()
   ),
 })
 
@@ -85,9 +79,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listIndicators({ workspaceId }) }, { status: 200 })
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching indicators:`, error)
     return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })
   }
@@ -101,7 +94,7 @@ export async function POST(request: NextRequest) {
       request,
       requestId,
       logger,
-      action: 'update',
+      action: 'creation',
       responseShape: 'errorOnly',
     })
     if ('response' in auth) return auth.response
@@ -127,38 +120,12 @@ export async function POST(request: NextRequest) {
         return permissionCheck.response
       }
 
-      const indicatorsToCreate = indicators.filter((indicator) => !indicator.id)
-      const indicatorsToSave = indicators.filter((indicator) => indicator.id)
-      if (indicatorsToCreate.length > 0 && indicatorsToSave.length > 0) {
-        return NextResponse.json(
-          { error: 'Create and save indicators in separate requests' },
-          { status: 400 }
-        )
-      }
-      if (indicatorsToSave.length > 1) {
-        return NextResponse.json(
-          { error: 'Save one existing indicator per request' },
-          { status: 400 }
-        )
-      }
-
-      const resultIndicators =
-        indicatorsToSave.length === 1
-          ? await saveIndicator({
-              indicator: {
-                id: indicatorsToSave[0].id!,
-                name: indicatorsToSave[0].name,
-                pineCode: indicatorsToSave[0].pineCode,
-              },
-              workspaceId,
-              requestId,
-            })
-          : await createIndicators({
-              indicators: indicatorsToCreate,
-              workspaceId,
-              userId: auth.userId,
-              requestId,
-            })
+      const resultIndicators = await createIndicators({
+        indicators,
+        workspaceId,
+        userId: auth.userId,
+        requestId,
+      })
 
       return NextResponse.json({ success: true, data: resultIndicators })
     } catch (validationError) {
@@ -179,20 +146,13 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      if (validationError instanceof SavedEntityPersistenceError) {
-        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
-      }
-      if (validationError instanceof Error && validationError.message.includes('was not found')) {
-        return NextResponse.json({ error: validationError.message }, { status: 404 })
-      }
       throw validationError
     }
   } catch (error) {
-    if (error instanceof SavedEntityRealtimeRequiredError) {
-      return NextResponse.json(error.responseBody(), { status: error.status })
-    }
-    logger.error(`[${requestId}] Error updating indicators`, error)
-    return NextResponse.json({ error: 'Failed to update indicators' }, { status: 500 })
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
+    logger.error(`[${requestId}] Error creating indicators`, error)
+    return NextResponse.json({ error: 'Failed to create indicators' }, { status: 500 })
   }
 }
 
@@ -237,27 +197,17 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const [existingIndicator] = await db
-      .select({ id: pineIndicators.id })
-      .from(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      .limit(1)
-
-    if (!existingIndicator) {
+    const deleted = await deleteSavedEntity('indicator', indicatorId, workspaceId)
+    if (!deleted) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await db
-      .delete(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-
-    await refreshEntityListSession('indicator', workspaceId)
-    await Promise.allSettled([deleteYjsSessionInSocketServer(indicatorId)])
-
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting indicator`, error)
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }

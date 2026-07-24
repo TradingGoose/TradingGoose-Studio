@@ -28,6 +28,9 @@ function createMockProvider() {
     connect: vi.fn(),
     destroy: vi.fn(),
     disconnect: vi.fn(),
+    emit: (event: string, ...args: any[]) => {
+      for (const handler of listeners.get(event) ?? []) handler(...args)
+    },
     off: vi.fn((event: string, handler: (...args: any[]) => void) => {
       listeners.get(event)?.delete(handler)
     }),
@@ -40,23 +43,26 @@ function createMockProvider() {
 }
 
 function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMockProvider>) {
-  return {
+  let resolveLifecycle!: (event: unknown) => void
+  const lifecycle = new Promise((resolve) => {
+    resolveLifecycle = resolve
+  })
+  const result = {
     doc,
     provider,
-    descriptor: {
-      workspaceId: 'workspace-1',
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: 'workflow-1',
-    },
-    runtime: {
-      docState: 'active',
-      replaySafe: true,
-      reseededFromCanonical: false,
-    },
+    lifecycle,
+    persist: vi.fn(),
+    dispose: vi.fn(() => {
+      provider.disconnect()
+      provider.destroy()
+      doc.destroy()
+    }),
+    emitTerminal: (error: Error & { retryable: false }) =>
+      resolveLifecycle({ type: 'terminal-failure', error }),
+    emitLineageReplaced: (pendingLocalEdits?: unknown) =>
+      resolveLifecycle({ type: 'lineage-replaced', pendingLocalEdits }),
   }
+  return result
 }
 
 async function waitForCondition(assertion: () => void, timeoutMs = 1000) {
@@ -136,12 +142,12 @@ describe('workflow shared session lifecycle', () => {
     release()
   })
 
-  it('reuses one bootstrapped workflow session across multiple acquisitions', async () => {
+  it('reuses one workflow session and clears it on terminal revocation', async () => {
     const doc = new Y.Doc()
-    const destroyDoc = vi.spyOn(doc, 'destroy')
     const provider = createMockProvider()
 
-    mockBootstrapYjsProvider.mockResolvedValue(createBootstrapResult(doc, provider))
+    const result = createBootstrapResult(doc, provider)
+    mockBootstrapYjsProvider.mockResolvedValue(result)
 
     const {
       acquireSharedWorkflowSession,
@@ -169,6 +175,9 @@ describe('workflow shared session lifecycle', () => {
         entityId: 'workflow-1',
         yjsSessionId: 'workflow-1',
       }),
+      undefined,
+      'write',
+      undefined,
     ])
 
     const writeLease = await acquireWritableWorkflowSessionLease({
@@ -185,23 +194,78 @@ describe('workflow shared session lifecycle', () => {
       doc,
     })
 
+    result.emitTerminal(
+      Object.assign(new Error('Authorization revoked'), { retryable: false as const })
+    )
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1')).toMatchObject({
+        doc: null,
+        provider: null,
+        error: 'Authorization revoked',
+      })
+    })
+    expect(mockUnregisterWorkflowSession).toHaveBeenCalledWith('workflow-1', doc)
+    expect(result.dispose).toHaveBeenCalledOnce()
+    await expect(
+      acquireWritableWorkflowSessionLease({
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      })
+    ).rejects.toThrow('Authorization revoked')
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledOnce()
     releaseEditor()
-    expect(provider.disconnect).not.toHaveBeenCalled()
-    expect(provider.destroy).not.toHaveBeenCalled()
-    expect(destroyDoc).not.toHaveBeenCalled()
-
     releaseChat()
-    expect(mockUnregisterWorkflowSession).not.toHaveBeenCalled()
-    expect(provider.disconnect).not.toHaveBeenCalled()
-    expect(provider.destroy).not.toHaveBeenCalled()
-    expect(destroyDoc).not.toHaveBeenCalled()
+  })
 
-    await vi.advanceTimersByTimeAsync(2_500)
+  it('retries a failed workflow replacement with the retained local edits', async () => {
+    const stale = createBootstrapResult(new Y.Doc(), createMockProvider())
+    const fresh = createBootstrapResult(new Y.Doc(), createMockProvider())
+    mockBootstrapYjsProvider
+      .mockResolvedValueOnce(stale)
+      .mockRejectedValueOnce(new Error('realtime unavailable'))
+      .mockResolvedValueOnce(fresh)
 
-    expect(mockUnregisterWorkflowSession).toHaveBeenCalledTimes(1)
-    expect(provider.disconnect).toHaveBeenCalledTimes(1)
-    expect(provider.destroy).toHaveBeenCalledTimes(1)
-    expect(destroyDoc).toHaveBeenCalledTimes(1)
+    const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
+      './workflow-shared-session'
+    )
+    const release = acquireSharedWorkflowSession({
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+    })
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(stale.doc)
+    })
+
+    const pendingLocalEdits = {
+      base: new Uint8Array([0]),
+      replay: [{ local: true, update: new Uint8Array([1]) }],
+    }
+    stale.emitLineageReplaced(pendingLocalEdits)
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').error).toBe('realtime unavailable')
+    })
+    await vi.advanceTimersByTimeAsync(1_000)
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(fresh.doc)
+    })
+
+    expect(stale.dispose).toHaveBeenCalledOnce()
+    expect(mockBootstrapYjsProvider.mock.calls.slice(1)).toEqual([
+      [
+        expect.objectContaining({ yjsSessionId: 'workflow-1' }),
+        undefined,
+        'write',
+        pendingLocalEdits,
+      ],
+      [
+        expect.objectContaining({ yjsSessionId: 'workflow-1' }),
+        undefined,
+        'write',
+        pendingLocalEdits,
+      ],
+    ])
+    release()
   })
 
   it('keeps the shared session alive when a new consumer reacquires during the destroy grace window', async () => {
@@ -279,6 +343,14 @@ describe('workflow shared session lifecycle', () => {
     await waitForCondition(() => {
       expect(getSharedWorkflowSessionState('workflow-1').canUndo).toBe(true)
     })
+
+    provider.emit('sync', false)
+    expect(getSharedWorkflowSessionState('workflow-1')).toMatchObject({
+      doc,
+      provider,
+      canUndo: true,
+    })
+    provider.emit('sync', true)
 
     undoSharedWorkflowSession('workflow-1')
 

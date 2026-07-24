@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
@@ -8,33 +8,48 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
 import { isValidSkillName } from '@/hooks/queries/skills'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 
 const logger = createLogger('SkillEditor')
 
 interface SkillEditorProps {
   skillId: string
+  entityName: string
   doc: Y.Doc | null
-  save: () => Promise<void>
-  exportRef: MutableRefObject<() => void>
-  saveRef: MutableRefObject<() => void>
+  save: (identityName?: string) => Promise<void>
+  panelId?: string
+  widgetKey?: string
+  readOnly?: boolean
 }
 
-export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEditorProps) {
+export function SkillEditor({
+  skillId,
+  entityName,
+  doc,
+  save,
+  panelId,
+  widgetKey,
+  readOnly = false,
+}: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
-  const [name, setName] = useYjsStringField(doc, 'name')
+  const [name, setName] = useState(entityName)
   const [description, setDescription] = useYjsStringField(doc, 'description')
   const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const readOnlyRef = useLatestRef(readOnly)
 
   useEffect(() => {
     setError(null)
-  }, [doc, skillId])
+    setName(entityName)
+  }, [doc, entityName, skillId])
 
   const handleSave = useCallback(async () => {
-    if (!doc) return
+    if (!doc || readOnlyRef.current) return
 
     const trimmedName = name.trim()
     const trimmedDescription = description.trim()
@@ -64,7 +79,8 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
     setError(null)
 
     try {
-      await save()
+      if (readOnlyRef.current) return
+      await save(trimmedName !== entityName ? trimmedName : undefined)
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
       logger.error('Failed to save skill', { error: saveError, skillId })
@@ -72,7 +88,7 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
     } finally {
       setIsSaving(false)
     }
-  }, [content, copy.validation, description, doc, name, save, skillId])
+  }, [content, copy.validation, description, doc, entityName, name, readOnlyRef, save, skillId])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -97,15 +113,13 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
     URL.revokeObjectURL(blobUrl)
   }, [content, description, doc, name])
 
-  useEffect(() => {
-    exportRef.current = handleExport
-  }, [exportRef, handleExport])
-
-  useEffect(() => {
-    saveRef.current = () => {
-      void handleSave()
-    }
-  }, [handleSave, saveRef])
+  useEditorActions<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: skillId,
+    export: handleExport,
+    save: handleSave,
+  })
 
   return (
     <div className='flex h-full flex-col overflow-hidden'>
@@ -115,9 +129,11 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
           <Input
             id='skill-editor-name'
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setName(event.target.value)
+            }}
             placeholder={copy.form.namePlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
           <p className='text-muted-foreground text-xs'>{copy.form.helperText}</p>
@@ -128,9 +144,11 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
           <Input
             id='skill-editor-description'
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setDescription(event.target.value)
+            }}
             placeholder={copy.form.descriptionPlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={1024}
           />
         </div>
@@ -140,9 +158,11 @@ export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEdi
           <Textarea
             id='skill-editor-content'
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setContent(event.target.value)
+            }}
             placeholder={copy.form.instructionsPlaceholder}
-            disabled={!doc || isSaving}
+            disabled={!doc || isSaving || readOnly}
             className='min-h-[320px] resize-y font-mono text-sm'
             maxLength={50000}
           />

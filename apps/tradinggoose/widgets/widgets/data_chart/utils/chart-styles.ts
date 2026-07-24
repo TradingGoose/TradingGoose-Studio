@@ -7,7 +7,10 @@ import {
   type Time,
 } from 'lightweight-charts'
 import { isUtcOffset, parseUtcOffsetMinutes } from '@/lib/time-format'
-import type { DataChartCandleType, DataChartViewParams } from '@/widgets/widgets/data_chart/types'
+import type {
+  DataChartCandleType,
+  DataChartViewParams,
+} from '@/widgets/widgets/data_chart/contract'
 
 export const DEFAULT_RIGHT_OFFSET = 50
 export const DEFAULT_UP_COLOR = '#089981'
@@ -61,11 +64,7 @@ const applyOffset = (date: Date, timezone: string) => {
   return new Date(date.getTime() + offsetMinutes * 60_000)
 }
 
-export const formatLwcTime = (
-  time: Time,
-  timezone: string,
-  locale?: string
-): string => {
+export const formatLwcTime = (time: Time, timezone: string, locale?: string): string => {
   const date = toUtcDate(time)
   if (!date) return ''
   const resolvedTimezone = timezone.trim() || 'UTC'
@@ -74,19 +73,19 @@ export const formatLwcTime = (
   const showSeconds = hasTime && adjustedDate.getUTCSeconds() !== 0
   const options: Intl.DateTimeFormatOptions = hasTime
     ? {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      ...(showSeconds ? { second: '2-digit' } : null),
-    }
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        ...(showSeconds ? { second: '2-digit' } : null),
+      }
     : {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-    }
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+      }
 
   const formatter = buildFormatter(
     locale,

@@ -1,5 +1,5 @@
-import { normalizeListingOptions } from '@/components/listing-selector/fetchers'
 import type { ListingOption } from '@/lib/listing/identity'
+import { normalizeListingOptions } from '@/lib/listing/search'
 import { marketClient } from '@/lib/market/client/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import {

@@ -54,11 +54,10 @@ type WatchlistListActionsButtonTestProps = ComponentProps<typeof WatchlistListAc
 const createProps = (): WatchlistListActionsButtonTestProps => ({
   open: true,
   onOpenChange: vi.fn(),
-  onCreateWatchlist: vi.fn(),
+  onCreateList: vi.fn(),
   onCreateSection: vi.fn(),
   onImport: vi.fn(),
   onExport: vi.fn(),
-  onDeleteWatchlist: vi.fn(),
 })
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -116,17 +115,18 @@ describe('WatchlistListActionsButton', () => {
     renderActionsButton(props)
     const items = getMenuButtons(container)
 
-    expect(items).toHaveLength(5)
+    expect(items).toHaveLength(4)
     expect(findMenuButton(items, 'Add Symbol')).toBeUndefined()
     expect(findMenuButton(items, 'Clear list')).toBeUndefined()
-    expect(findMenuButton(items, 'Create Watchlist')).toBeTruthy()
+    expect(findMenuButton(items, 'Create List')).toBeTruthy()
+    expect(findMenuButton(items, 'Rename List')).toBeUndefined()
     expect(findMenuButton(items, 'Create Section')).toBeTruthy()
     expect(findMenuButton(items, 'Import')).toBeTruthy()
     expect(findMenuButton(items, 'Export')).toBeTruthy()
-    expect(findMenuButton(items, 'Delete watchlist')).toBeTruthy()
+    expect(findMenuButton(items, 'Delete watchlist')).toBeUndefined()
   })
 
-  it('renders an icon-only trigger and closes menu before running create watchlist action', () => {
+  it('renders an icon-only trigger and closes menu before running create list action', () => {
     const props = createProps()
     renderActionsButton(props)
     const trigger = container.querySelector('button')
@@ -135,39 +135,22 @@ describe('WatchlistListActionsButton', () => {
     expect(trigger?.className).toContain('icon-button')
 
     const items = getMenuButtons(container)
-    const createWatchlistButton = findMenuButton(items, 'Create Watchlist')
+    const createListButton = findMenuButton(items, 'Create List')
 
-    expect(createWatchlistButton).toBeInstanceOf(HTMLButtonElement)
+    expect(createListButton).toBeInstanceOf(HTMLButtonElement)
 
     act(() => {
-      createWatchlistButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      createListButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
-    expect(props.onCreateWatchlist).toHaveBeenCalledOnce()
-  })
-
-  it('closes menu before running create section action', () => {
-    const props = createProps()
-    renderActionsButton(props)
-    const items = getMenuButtons(container)
-    const createSectionButton = findMenuButton(items, 'Create Section')
-
-    expect(createSectionButton).toBeInstanceOf(HTMLButtonElement)
-
-    act(() => {
-      createSectionButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(props.onOpenChange).toHaveBeenCalledWith(false)
-    expect(props.onCreateSection).toHaveBeenCalledOnce()
+    expect(props.onCreateList).toHaveBeenCalledOnce()
   })
 
   it('hides disabled actions instead of rendering disabled menu buttons', () => {
     renderActionsButton({
       ...createProps(),
       importDisabled: true,
-      deleteWatchlistDisabled: true,
     })
 
     const items = getMenuButtons(container)
@@ -176,7 +159,7 @@ describe('WatchlistListActionsButton', () => {
     expect(findMenuButton(items, 'Import')).toBeUndefined()
     expect(findMenuButton(items, 'Clear list')).toBeUndefined()
     expect(findMenuButton(items, 'Delete watchlist')).toBeUndefined()
-    expect(findMenuButton(items, 'Create Watchlist')).toBeTruthy()
+    expect(findMenuButton(items, 'Create List')).toBeTruthy()
     expect(findMenuButton(items, 'Create Section')).toBeTruthy()
     expect(findMenuButton(items, 'Export')).toBeTruthy()
   })
@@ -184,11 +167,10 @@ describe('WatchlistListActionsButton', () => {
   it('disables the trigger when every action is unavailable', () => {
     renderActionsButton({
       ...createProps(),
-      createWatchlistDisabled: true,
+      createListDisabled: true,
       createSectionDisabled: true,
       importDisabled: true,
       exportDisabled: true,
-      deleteWatchlistDisabled: true,
     })
 
     const trigger = container.querySelector('button')

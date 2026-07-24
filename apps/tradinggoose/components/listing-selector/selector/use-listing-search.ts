@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { fetchListings } from '@/components/listing-selector/fetchers'
 import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
 import {
   combineProviderSearchConfigs,
@@ -7,6 +6,7 @@ import {
   useTradingProviderSearchConfig,
 } from '@/components/listing-selector/selector/use-provider-config'
 import type { ListingOption } from '@/lib/listing/identity'
+import { fetchListings } from '@/lib/listing/search'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { ListingSelectorInstance } from '@/stores/market/selector/store'
 

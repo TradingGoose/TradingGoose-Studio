@@ -581,6 +581,7 @@ export function useWorkflowTextField(
   setValue: (value: string) => void
 } {
   const session = useOptionalWorkflowSession()
+  const transactWorkflow = session?.transactWorkflow
   const enabled = options.enabled ?? true
   const autoCreate = options.autoCreate ?? enabled
   const mirrorDelayMs = options.mirrorDelayMs ?? null
@@ -646,48 +647,58 @@ export function useWorkflowTextField(
   }, [blockId, doc, subBlockId, value])
 
   const setValue = useCallback(
-    (nextValue: string) => {
-      if (!doc) return
-      replaceWorkflowTextField(doc, blockId, subBlockId, nextValue, YJS_ORIGINS.USER)
-    },
-    [blockId, doc, subBlockId]
+    (nextValue: string) =>
+      transactWorkflow?.(
+        (workflowDoc) =>
+          replaceWorkflowTextField(workflowDoc, blockId, subBlockId, nextValue, YJS_ORIGINS.USER),
+        YJS_ORIGINS.USER
+      ),
+    [blockId, subBlockId, transactWorkflow]
   )
 
   useEffect(() => {
-    if (!doc || !autoCreate || readWorkflowTextField(doc, blockId, subBlockId)) {
+    if (
+      !doc ||
+      !autoCreate ||
+      !transactWorkflow ||
+      readWorkflowTextField(doc, blockId, subBlockId)
+    ) {
       return
     }
 
-    ensureWorkflowTextField(doc, blockId, subBlockId, extract())
-  }, [autoCreate, blockId, doc, extract, subBlockId])
+    transactWorkflow((workflowDoc) => {
+      if (!readWorkflowTextField(workflowDoc, blockId, subBlockId)) {
+        ensureWorkflowTextField(workflowDoc, blockId, subBlockId, extract())
+      }
+    }, YJS_ORIGINS.SYSTEM)
+  }, [autoCreate, blockId, doc, extract, subBlockId, transactWorkflow])
 
   useEffect(() => {
-    if (!doc || mirrorDelayMs === null) {
+    if (!doc || !transactWorkflow || mirrorDelayMs === null) {
       return
     }
 
     const timeoutId = setTimeout(() => {
-      const wMap = readWorkflowMap(doc)
-      const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
-      const block = blocks[blockId]
-      if (!block?.subBlocks?.[subBlockId]) return
-      if (block.subBlocks[subBlockId]?.value === value) return
+      transactWorkflow((workflowDoc) => {
+        const wMap = readWorkflowMap(workflowDoc)
+        const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
+        const block = blocks[blockId]
+        if (!block?.subBlocks?.[subBlockId]) return
+        if (block.subBlocks[subBlockId]?.value === value) return
 
-      blocks[blockId] = {
-        ...block,
-        subBlocks: {
-          ...block.subBlocks,
-          [subBlockId]: { ...block.subBlocks[subBlockId], value },
-        },
-      }
-
-      doc.transact(() => {
+        blocks[blockId] = {
+          ...block,
+          subBlocks: {
+            ...block.subBlocks,
+            [subBlockId]: { ...block.subBlocks[subBlockId], value },
+          },
+        }
         wMap.set(YJS_KEYS.BLOCKS, blocks)
       }, YJS_ORIGINS.SYSTEM)
     }, mirrorDelayMs)
 
     return () => clearTimeout(timeoutId)
-  }, [blockId, doc, mirrorDelayMs, subBlockId, value])
+  }, [blockId, doc, mirrorDelayMs, subBlockId, transactWorkflow, value])
 
   return {
     value,
@@ -1287,11 +1298,13 @@ export function useWorkflowMutations() {
   )
 
   const replaceWorkflowState = useCallback(
-    (state: WorkflowState) => {
-      if (!doc) return
-      setWorkflowState(doc, state as unknown as WorkflowSnapshot, YJS_ORIGINS.SYSTEM)
-    },
-    [doc]
+    (state: WorkflowState) =>
+      transactWorkflow(
+        (workflowDoc) =>
+          setWorkflowState(workflowDoc, state as unknown as WorkflowSnapshot, YJS_ORIGINS.SYSTEM),
+        YJS_ORIGINS.SYSTEM
+      ),
+    [transactWorkflow]
   )
 
   const patchBlockData = useCallback(
@@ -1363,35 +1376,39 @@ export function useWorkflowMutations() {
   )
 
   const addVariable = useCallback(
-    (variable: Omit<Variable, 'id'>, providedId?: string) => {
-      if (!doc) return ''
-      return addWorkflowVariable(doc, variable, providedId, YJS_ORIGINS.USER)
-    },
-    [doc]
+    (variable: Omit<Variable, 'id'>, providedId?: string) =>
+      transactWorkflow(
+        (workflowDoc) => addWorkflowVariable(workflowDoc, variable, providedId, YJS_ORIGINS.USER),
+        YJS_ORIGINS.USER
+      ) ?? '',
+    [transactWorkflow]
   )
 
   const updateVariable = useCallback(
-    (id: string, update: Partial<Omit<Variable, 'id' | 'workflowId'>>) => {
-      if (!doc) return false
-      return updateWorkflowVariable(doc, id, update, YJS_ORIGINS.USER)
-    },
-    [doc]
+    (id: string, update: Partial<Omit<Variable, 'id' | 'workflowId'>>) =>
+      transactWorkflow(
+        (workflowDoc) => updateWorkflowVariable(workflowDoc, id, update, YJS_ORIGINS.USER),
+        YJS_ORIGINS.USER
+      ) ?? false,
+    [transactWorkflow]
   )
 
   const deleteVariable = useCallback(
-    (id: string) => {
-      if (!doc) return false
-      return deleteWorkflowVariable(doc, id, YJS_ORIGINS.USER)
-    },
-    [doc]
+    (id: string) =>
+      transactWorkflow(
+        (workflowDoc) => deleteWorkflowVariable(workflowDoc, id, YJS_ORIGINS.USER),
+        YJS_ORIGINS.USER
+      ) ?? false,
+    [transactWorkflow]
   )
 
   const duplicateVariable = useCallback(
-    (id: string, providedId?: string) => {
-      if (!doc) return null
-      return duplicateWorkflowVariable(doc, id, providedId, YJS_ORIGINS.USER)
-    },
-    [doc]
+    (id: string, providedId?: string) =>
+      transactWorkflow(
+        (workflowDoc) => duplicateWorkflowVariable(workflowDoc, id, providedId, YJS_ORIGINS.USER),
+        YJS_ORIGINS.USER
+      ) ?? null,
+    [transactWorkflow]
   )
 
   const clear = useCallback(() => {
@@ -1477,12 +1494,10 @@ export function useWorkflowDoc() {
     },
 
     triggerUpdate: () => {}, // no-op, Yjs observer handles reactivity
-    updateLastSaved: () => {
-      if (!session?.doc) return
-      const wMap = readWorkflowMap(session.doc)
-      session.doc.transact(() => {
-        wMap.set(YJS_KEYS.LAST_SAVED, Date.now())
-      }, YJS_ORIGINS.SYSTEM)
-    },
+    updateLastSaved: () =>
+      session?.transactWorkflow(
+        (workflowDoc) => readWorkflowMap(workflowDoc).set(YJS_KEYS.LAST_SAVED, Date.now()),
+        YJS_ORIGINS.SYSTEM
+      ),
   }
 }

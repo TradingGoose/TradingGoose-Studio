@@ -1,6 +1,14 @@
 'use client'
 
-import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useMessages } from 'next-intl'
 import type * as Y from 'yjs'
 import { LoadingAgent } from '@/components/ui/loading-agent'
@@ -8,18 +16,15 @@ import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate } from '@/i18n/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
+import { MCP_EDITOR_ACTION_EVENT, type McpEditorActionEventDetail } from '@/widgets/events'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  resolveEntityIdFromList,
-  usePersistResolvedEntityId,
-} from '@/widgets/utils/entity-selection'
-import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
-import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   createDefaultMcpServerFormData,
@@ -60,7 +65,7 @@ function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpSer
   if (!doc) return fallback
   const fields = getFieldsMap(doc)
   return {
-    name: fields.get('name') ?? fallback.name,
+    name: fallback.name,
     description: fields.get('description') ?? fallback.description,
     transport: fields.get('transport') ?? fallback.transport,
     url: fields.get('url') ?? fallback.url,
@@ -76,7 +81,9 @@ function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpSer
 
 function useMcpServerYjsFormData(
   doc: Y.Doc | null,
-  fallback: McpServerFormData
+  fallback: McpServerFormData,
+  setName: (name: string) => void,
+  canEditRef: RefObject<boolean>
 ): [McpServerFormData, (next: SetStateAction<McpServerFormData>) => void] {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
@@ -90,13 +97,15 @@ function useMcpServerYjsFormData(
   const formData = useYjsSubscription(subscribe, read, fallback)
   const setFormData = useCallback(
     (next: SetStateAction<McpServerFormData>) => {
-      if (!doc) return
+      if (!doc || !canEditRef.current) return
       const value = typeof next === 'function' ? next(formData) : next
+      setName(value.name)
       for (const [key, fieldValue] of Object.entries(value)) {
+        if (key === 'name') continue
         setEntityField(doc, key, fieldValue)
       }
     },
-    [doc, formData]
+    [canEditRef, doc, formData, setName]
   )
 
   return [formData, setFormData]
@@ -124,19 +133,19 @@ const refreshServerApi = async (
 
 export function EditorMcpWidgetBody({
   params,
-  context,
   pairColor = 'gray',
+  context,
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetLinkedParamsPatch,
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
+  const canEditRef = useLatestRef(canEditEntity)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [identityName, setIdentityName] = useState('')
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
   const initializedServerIdRef = useRef<string | null>(null)
   const defaultFormData = useMemo(() => createDefaultMcpServerFormData(), [])
@@ -150,7 +159,6 @@ export function EditorMcpWidgetBody({
 
   const requestedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
   const requestedServerMember = requestedServerId
     ? serverMembers.find((member) => member.entityId === requestedServerId)
@@ -158,26 +166,36 @@ export function EditorMcpWidgetBody({
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: serverMembers.map((member) => member.entityId),
-    useDefaultEntity: !isLinkedToColorPair,
+    useDefaultEntity: false,
   })
 
   const selectedServerStatus = selectedServerId
     ? serverMembers.find((member) => member.entityId === selectedServerId)?.connectionStatus
     : undefined
+  const selectedServerMember =
+    serverMembers.find((member) => member.entityId === selectedServerId) ?? null
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
-  const serverSession = useSavedEntityYjsSession('mcp_server', selectedServerId, workspaceId)
+  const serverSession = useSavedEntityYjsSession(
+    'mcp_server',
+    isPermissionsLoading ? null : selectedServerId,
+    isPermissionsLoading ? null : workspaceId,
+    null,
+    canEditEntity ? 'write' : 'read'
+  )
+  const formFallback = useMemo(
+    () => ({ ...defaultFormData, name: identityName }),
+    [defaultFormData, identityName]
+  )
   const [formDataState, setFormDataState] = useMcpServerYjsFormData(
     serverSession.doc,
-    defaultFormData
+    formFallback,
+    setIdentityName,
+    canEditRef
   )
 
-  usePersistResolvedEntityId({
-    entityId: selectedServerId,
-    entityIdKey: 'mcpServerId',
-    onWidgetParamsChange,
-    pairColor: resolvedPairColor,
-    params,
-  })
+  useEffect(() => {
+    setIdentityName(selectedServerMember?.entityName ?? '')
+  }, [selectedServerId, selectedServerMember?.entityName])
 
   useEffect(() => {
     if (!selectedServerId || !serverSession.doc) {
@@ -198,36 +216,21 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
   }, [clearTestResult, defaultFormData, formDataState, selectedServerId, serverSession.doc])
 
-  useMcpSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'editor_mcp',
-    onServerSelect: (serverId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
-    },
-  })
-
   const handleClose = useCallback(() => {
-    if (isLinkedToColorPair) {
-      setPairContext(resolvedPairColor, { mcpServerId: null })
-      return
-    }
-
-    onWidgetParamsChange?.(null)
-  }, [isLinkedToColorPair, onWidgetParamsChange, resolvedPairColor, setPairContext])
+    onWidgetLinkedParamsPatch?.({ mcpServerId: null })
+  }, [onWidgetLinkedParamsPatch])
 
   const handleResetForm = useCallback(() => {
+    if (!canEditRef.current) return
     setFormDataState(initialFormDataRef.current)
     clearTestResult()
     setSaveError(null)
-  }, [clearTestResult, setFormDataState])
+  }, [canEditRef, clearTestResult, setFormDataState])
 
   const handleTestConnection = useCallback(async () => {
-    if (!workspaceId || !selectedServerId || !formDataState.url?.trim()) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !formDataState.url?.trim()) {
+      return
+    }
 
     await testConnection({
       name: formDataState.name.trim() || copy.unnamedServer,
@@ -237,12 +240,13 @@ export function EditorMcpWidgetBody({
       timeout: formDataState.timeout,
       workspaceId,
     })
-  }, [copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
+  }, [canEditRef, copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
 
   const handleRefreshTools = useCallback(async () => {
     if (
       !workspaceId ||
       !selectedServerId ||
+      !canEditRef.current ||
       formDataState.enabled === false ||
       !formDataState.url?.trim()
     ) {
@@ -251,13 +255,15 @@ export function EditorMcpWidgetBody({
 
     try {
       await refreshServerApi(selectedServerId, workspaceId, copy.failedToRefreshMcpServer)
+      if (!canEditRef.current) return
       await refreshTools()
     } catch (refreshError) {
       console.error('Failed to refresh MCP server tools', refreshError)
-      setSaveError(copy.failedToRefreshMcpServer)
+      if (canEditRef.current) setSaveError(copy.failedToRefreshMcpServer)
     }
   }, [
     copy.failedToRefreshMcpServer,
+    canEditRef,
     formDataState.enabled,
     formDataState.url,
     refreshTools,
@@ -266,7 +272,7 @@ export function EditorMcpWidgetBody({
   ])
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !selectedServerId || !serverSession.doc) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !serverSession.doc) return
 
     if (!formDataState.name.trim()) {
       setSaveError(copy.serverNameRequired)
@@ -276,7 +282,13 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
 
     try {
-      await serverSession.save()
+      if (!canEditRef.current) return
+      await serverSession.save(
+        formDataState.name.trim() !== selectedServerMember?.entityName
+          ? formDataState.name.trim()
+          : undefined
+      )
+      if (!canEditRef.current) return
       initialFormDataRef.current = formDataState
       if (formDataState.enabled === false || !formDataState.url?.trim()) {
         await refreshTools()
@@ -290,18 +302,20 @@ export function EditorMcpWidgetBody({
   }, [
     copy.failedToSaveMcpServer,
     copy.serverNameRequired,
+    canEditRef,
     formDataState,
     handleRefreshTools,
     refreshTools,
     serverSession.doc,
     serverSession.save,
     selectedServerId,
+    selectedServerMember?.entityName,
     workspaceId,
   ])
 
-  useMcpEditorActions({
+  useEditorActions<McpEditorActionEventDetail>(MCP_EDITOR_ACTION_EVENT, {
     panelId,
-    widget,
+    widgetKey: widget?.key,
     save: handleSave,
     refresh: handleRefreshTools,
     reset: handleResetForm,
@@ -338,7 +352,7 @@ export function EditorMcpWidgetBody({
   if (!selectedServerId) {
     return (
       <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
+        message={pairColor !== 'gray' ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
       />
     )
   }
@@ -390,6 +404,7 @@ export function EditorMcpWidgetBody({
           isTestingConnection={isTestingConnection}
           workspaceId={workspaceId}
           clearTestResult={clearTestResult}
+          disabled={!canEditEntity}
           className='p-5'
         />
 

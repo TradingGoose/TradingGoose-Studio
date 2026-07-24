@@ -21,23 +21,32 @@ function mockKnowledgeBaseWriteAccess() {
   }))
 }
 
+const createMockFile = (name = 'test.txt', type = 'text/plain', content = 'test content') =>
+  new File([content], name, { type })
+
+function createUploadRequest({
+  files = [createMockFile()],
+  fields = {},
+  type = 'general',
+}: {
+  files?: File[]
+  fields?: Record<string, string>
+  type?: 'general' | 'knowledge-base'
+} = {}) {
+  const formData = new FormData()
+  for (const file of files) formData.append('file', file)
+  for (const [key, value] of Object.entries(fields)) formData.append(key, value)
+  return new NextRequest(`http://localhost/api/files/upload?type=${type}`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+async function postUpload(options?: Parameters<typeof createUploadRequest>[0]) {
+  return (await import('@/app/api/files/upload/route')).POST(createUploadRequest(options))
+}
+
 describe('File Upload API Route', () => {
-  const createMockFormData = (files: File[]): FormData => {
-    const formData = new FormData()
-    files.forEach((file) => {
-      formData.append('file', file)
-    })
-    return formData
-  }
-
-  const createMockFile = (
-    name = 'test.txt',
-    type = 'text/plain',
-    content = 'test content'
-  ): File => {
-    return new File([content], name, { type })
-  }
-
   beforeEach(() => {
     vi.resetModules()
     vi.doMock('@/lib/uploads/setup.server', () => ({
@@ -49,69 +58,20 @@ describe('File Upload API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('should upload a file to local storage', async () => {
-    setupFileApiMocks({
-      cloudEnabled: false,
-      storageProvider: 'local',
-    })
+  it.each([
+    ['local', false],
+    ['s3', true],
+  ] as const)('uploads a file through %s storage', async (storageProvider, cloudEnabled) => {
+    setupFileApiMocks({ cloudEnabled, storageProvider })
 
-    const mockFile = createMockFile()
-    const formData = createMockFormData([mockFile])
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
+    const response = await postUpload()
     const data = await response.json()
 
-    if (response.status !== 200) {
-      console.error('Upload failed with status:', response.status)
-      console.error('Error response:', data)
-    }
-
     expect(response.status).toBe(200)
-    expect(data).toHaveProperty('path')
     expect(data.path).toMatch(/\/api\/files\/serve\/.*\.txt$/)
-    expect(data).toHaveProperty('name', 'test.txt')
+    expect(data).toMatchObject({ name: 'test.txt', type: 'text/plain' })
     expect(data).toHaveProperty('size')
-    expect(data).toHaveProperty('type', 'text/plain')
-
-    const { StorageService } = await import('@/lib/uploads')
-    expect(StorageService.uploadFile).toHaveBeenCalled()
-  })
-
-  it('should upload a file to S3 when in S3 mode', async () => {
-    setupFileApiMocks({
-      cloudEnabled: true,
-      storageProvider: 's3',
-    })
-
-    const mockFile = createMockFile()
-    const formData = createMockFormData([mockFile])
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data).toHaveProperty('path')
-    expect(data.path).toContain('/api/files/serve/')
-    expect(data).toHaveProperty('name', 'test.txt')
-    expect(data).toHaveProperty('size')
-    expect(data).toHaveProperty('type', 'text/plain')
-
-    const uploads = await import('@/lib/uploads')
-    expect(uploads.StorageService.uploadFile).toHaveBeenCalled()
+    expect((await import('@/lib/uploads')).StorageService.uploadFile).toHaveBeenCalled()
   })
 
   it('should upload knowledge-base files through the requested storage context', async () => {
@@ -121,19 +81,11 @@ describe('File Upload API Route', () => {
     })
     mockKnowledgeBaseWriteAccess()
 
-    const mockFile = createMockFile('jourwest.pdf', 'application/pdf', 'test pdf content')
-    const formData = createMockFormData([mockFile])
-    formData.append('workspaceId', 'workspace-123')
-    formData.append('knowledgeBaseId', 'kb-456')
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload?type=knowledge-base', {
-      method: 'POST',
-      body: formData,
+    const response = await postUpload({
+      files: [createMockFile('jourwest.pdf', 'application/pdf', 'test pdf content')],
+      fields: { workspaceId: 'workspace-123', knowledgeBaseId: 'kb-456' },
+      type: 'knowledge-base',
     })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -158,18 +110,9 @@ describe('File Upload API Route', () => {
       storageProvider: 'local',
     })
 
-    const mockFile1 = createMockFile('file1.txt', 'text/plain')
-    const mockFile2 = createMockFile('file2.txt', 'text/plain')
-    const formData = createMockFormData([mockFile1, mockFile2])
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload', {
-      method: 'POST',
-      body: formData,
+    const response = await postUpload({
+      files: [createMockFile('file1.txt'), createMockFile('file2.txt')],
     })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
     const data = await response.json()
 
     expect(response.status).toBeGreaterThanOrEqual(200)
@@ -180,16 +123,7 @@ describe('File Upload API Route', () => {
   it('should handle missing files', async () => {
     setupFileApiMocks()
 
-    const formData = new FormData()
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
+    const response = await postUpload({ files: [] })
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -208,17 +142,7 @@ describe('File Upload API Route', () => {
       hasCloudStorage: vi.fn().mockReturnValue(true),
     }))
 
-    const mockFile = createMockFile()
-    const formData = createMockFormData([mockFile])
-
-    const req = new NextRequest('http://localhost:3000/api/files/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const { POST } = await import('@/app/api/files/upload/route')
-
-    const response = await POST(req)
+    const response = await postUpload()
     const data = await response.json()
 
     expect(response.status).toBe(500)
@@ -238,6 +162,10 @@ describe('File Upload API Route', () => {
 })
 
 describe('File Upload Security Tests', () => {
+  const readWorkflowAccessContext = vi.fn()
+  const uploadExecutionFile = vi.fn()
+  const storageHasCloudStorage = vi.fn().mockReturnValue(false)
+
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -264,8 +192,27 @@ describe('File Upload Security Tests', () => {
         key: 'test-key',
         path: '/test/path',
       }),
-      hasCloudStorage: vi.fn().mockReturnValue(false),
+      hasCloudStorage: storageHasCloudStorage,
     }))
+
+    vi.doMock('@/lib/workflows/utils', () => ({
+      readWorkflowAccessContext,
+      hasWorkflowWriteAccess: (context: {
+        isWorkspaceOwner: boolean
+        workspacePermission: string | null
+      }) =>
+        context.isWorkspaceOwner ||
+        context.workspacePermission === 'write' ||
+        context.workspacePermission === 'admin',
+    }))
+    vi.doMock('@/lib/uploads/contexts/execution', () => ({ uploadExecutionFile }))
+    readWorkflowAccessContext.mockResolvedValue({
+      workflow: { workspaceId: 'workspace-1' },
+      isOwner: false,
+      isWorkspaceOwner: false,
+      workspacePermission: 'write',
+    })
+    uploadExecutionFile.mockResolvedValue({ id: 'file-1', name: 'input.txt' })
 
     mockKnowledgeBaseWriteAccess()
 
@@ -294,35 +241,18 @@ describe('File Upload Security Tests', () => {
       ]
 
       for (const ext of allowedTypes) {
-        const formData = new FormData()
-        const file = new File(['test content'], `test.${ext}`, { type: 'application/octet-stream' })
-        formData.append('file', file)
-
-        const req = new Request('http://localhost/api/files/upload', {
-          method: 'POST',
-          body: formData,
+        const response = await postUpload({
+          files: [createMockFile(`test.${ext}`, 'application/octet-stream')],
         })
-
-        const { POST } = await import('@/app/api/files/upload/route')
-        const response = await POST(req as any)
 
         expect(response.status).toBe(200)
       }
     })
 
     it('should reject HTML files to prevent XSS', async () => {
-      const formData = new FormData()
-      const maliciousContent = '<script>alert("XSS")</script>'
-      const file = new File([maliciousContent], 'malicious.html', { type: 'text/html' })
-      formData.append('file', file)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
+      const response = await postUpload({
+        files: [createMockFile('malicious.html', 'text/html', '<script>alert("XSS")</script>')],
       })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(400)
       const data = await response.json()
@@ -330,36 +260,20 @@ describe('File Upload Security Tests', () => {
     })
 
     it('should allow HTML files for knowledge-base document uploads', async () => {
-      const formData = new FormData()
-      const file = new File(['<h1>Knowledge</h1>'], 'knowledge.html', { type: 'text/html' })
-      formData.append('file', file)
-      formData.append('workspaceId', 'workspace-123')
-      formData.append('knowledgeBaseId', 'kb-456')
-
-      const req = new Request('http://localhost/api/files/upload?type=knowledge-base', {
-        method: 'POST',
-        body: formData,
+      const response = await postUpload({
+        files: [createMockFile('knowledge.html', 'text/html', '<h1>Knowledge</h1>')],
+        fields: { workspaceId: 'workspace-123', knowledgeBaseId: 'kb-456' },
+        type: 'knowledge-base',
       })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(200)
     })
 
     it('should reject SVG files to prevent XSS', async () => {
-      const formData = new FormData()
       const maliciousSvg = '<svg onload="alert(\'XSS\')" xmlns="http://www.w3.org/2000/svg"></svg>'
-      const file = new File([maliciousSvg], 'malicious.svg', { type: 'image/svg+xml' })
-      formData.append('file', file)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
+      const response = await postUpload({
+        files: [createMockFile('malicious.svg', 'image/svg+xml', maliciousSvg)],
       })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(400)
       const data = await response.json()
@@ -367,18 +281,9 @@ describe('File Upload Security Tests', () => {
     })
 
     it('should reject JavaScript files', async () => {
-      const formData = new FormData()
-      const maliciousJs = 'alert("XSS")'
-      const file = new File([maliciousJs], 'malicious.js', { type: 'application/javascript' })
-      formData.append('file', file)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
+      const response = await postUpload({
+        files: [createMockFile('malicious.js', 'application/javascript', 'alert("XSS")')],
       })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(400)
       const data = await response.json()
@@ -386,17 +291,9 @@ describe('File Upload Security Tests', () => {
     })
 
     it('should reject files without extensions', async () => {
-      const formData = new FormData()
-      const file = new File(['test content'], 'noextension', { type: 'application/octet-stream' })
-      formData.append('file', file)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
+      const response = await postUpload({
+        files: [createMockFile('noextension', 'application/octet-stream')],
       })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(400)
       const data = await response.json()
@@ -404,23 +301,12 @@ describe('File Upload Security Tests', () => {
     })
 
     it('should handle multiple files with mixed valid/invalid types', async () => {
-      const formData = new FormData()
-
-      const validFile = new File(['valid content'], 'valid.pdf', { type: 'application/pdf' })
-      formData.append('file', validFile)
-
-      const invalidFile = new File(['<script>alert("XSS")</script>'], 'malicious.html', {
-        type: 'text/html',
+      const response = await postUpload({
+        files: [
+          createMockFile('valid.pdf', 'application/pdf', 'valid content'),
+          createMockFile('malicious.html', 'text/html', '<script>alert("XSS")</script>'),
+        ],
       })
-      formData.append('file', invalidFile)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
 
       expect(response.status).toBe(400)
       const data = await response.json()
@@ -433,22 +319,70 @@ describe('File Upload Security Tests', () => {
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue(null),
       }))
-
-      const formData = new FormData()
-      const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' })
-      formData.append('file', file)
-
-      const req = new Request('http://localhost/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const { POST } = await import('@/app/api/files/upload/route')
-      const response = await POST(req as any)
+      const response = await postUpload({ files: [createMockFile('test.pdf')] })
 
       expect(response.status).toBe(401)
       const data = await response.json()
       expect(data.error).toBe('Unauthorized')
+    })
+  })
+
+  describe('Execution-scoped upload authorization', () => {
+    const executionTuple = {
+      workflowId: 'workflow-1',
+      executionId: 'execution-1',
+      workspaceId: 'workspace-1',
+    }
+
+    const without = (field: keyof typeof executionTuple) =>
+      Object.fromEntries(Object.entries(executionTuple).filter(([key]) => key !== field))
+
+    it('rejects invalid execution ownership before storage and accepts its canonical tuple', async () => {
+      const malformed = [
+        ['missing executionId', without('executionId')],
+        ['missing workflowId', without('workflowId')],
+        ['missing workspaceId', without('workspaceId')],
+        ['blank workflowId', { ...executionTuple, workflowId: '' }],
+        ['mixed owners', { ...executionTuple, knowledgeBaseId: 'knowledge-1' }, 'knowledge-base'],
+      ] as const
+      for (const [label, fields, type] of malformed) {
+        readWorkflowAccessContext.mockClear()
+        const response = await postUpload({ fields, type })
+        expect(response.status, label).toBe(400)
+        expect(readWorkflowAccessContext, label).not.toHaveBeenCalled()
+      }
+
+      readWorkflowAccessContext.mockResolvedValueOnce(null)
+      expect((await postUpload({ fields: executionTuple })).status).toBe(404)
+      readWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: { workspaceId: 'workspace-1' },
+        isOwner: false,
+        isWorkspaceOwner: false,
+        workspacePermission: 'read',
+      })
+      expect((await postUpload({ fields: executionTuple })).status).toBe(403)
+      expect(
+        (
+          await postUpload({
+            fields: { ...executionTuple, workspaceId: 'other-workspace' },
+          })
+        ).status
+      ).toBe(400)
+      expect(storageHasCloudStorage).not.toHaveBeenCalled()
+      expect(uploadExecutionFile).not.toHaveBeenCalled()
+
+      expect((await postUpload({ fields: executionTuple })).status).toBe(200)
+      expect(readWorkflowAccessContext).toHaveBeenLastCalledWith('workflow-1', 'test-user-id')
+      expect(uploadExecutionFile).toHaveBeenCalledWith(
+        {
+          workflowId: 'workflow-1',
+          executionId: 'execution-1',
+          workspaceId: 'workspace-1',
+        },
+        expect.any(Buffer),
+        'test.txt',
+        'text/plain'
+      )
     })
   })
 })

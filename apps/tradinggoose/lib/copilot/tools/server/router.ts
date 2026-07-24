@@ -11,34 +11,43 @@ import {
   throwIfServerToolAborted,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { editLayoutServerTool } from '@/lib/copilot/tools/server/dashboard-layout/edit-layout'
+import { editWidgetServerTool } from '@/lib/copilot/tools/server/dashboard-layout/edit-widget'
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import {
   createCustomToolServerTool,
   createIndicatorServerTool,
+  createLayoutServerTool,
   createMcpServerServerTool,
   createSkillServerTool,
+  createWatchlistServerTool,
   createWorkflowServerTool,
   editCustomToolServerTool,
   editIndicatorServerTool,
   editMcpServerServerTool,
   editSkillServerTool,
-  editWorkflowBlockServerTool,
-  editWorkflowServerTool,
+  editWatchlistServerTool,
   editWorkflowVariableServerTool,
   listCustomToolsServerTool,
   listIndicatorsServerTool,
+  listLayoutsServerTool,
   listMcpServersServerTool,
   listSkillsServerTool,
+  listWatchlistsServerTool,
   listWorkflowsServerTool,
   readCustomToolServerTool,
   readIndicatorServerTool,
+  readLayoutServerTool,
   readMcpServerServerTool,
   readSkillServerTool,
+  readWatchlistServerTool,
   readWorkflowServerTool,
   renameCustomToolServerTool,
   renameIndicatorServerTool,
+  renameLayoutServerTool,
   renameMcpServerServerTool,
   renameSkillServerTool,
+  renameWatchlistServerTool,
   renameWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -51,6 +60,7 @@ import {
   readKnowledgeBaseServerTool,
   renameKnowledgeBaseServerTool,
 } from '@/lib/copilot/tools/server/knowledge/knowledge-base'
+import { searchListingServerTool } from '@/lib/copilot/tools/server/listing/search-listing'
 import { editMonitorServerTool } from '@/lib/copilot/tools/server/monitor/edit-monitor'
 import { listMonitorsServerTool } from '@/lib/copilot/tools/server/monitor/list-monitors'
 import { readMonitorServerTool } from '@/lib/copilot/tools/server/monitor/read-monitor'
@@ -60,12 +70,15 @@ import { readCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-
 import { readEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/read-environment-variables'
 import { readOAuthCredentialsServerTool } from '@/lib/copilot/tools/server/user/read-oauth-credentials'
 import { setEnvironmentVariablesServerTool } from '@/lib/copilot/tools/server/user/set-environment-variables'
+import { getAvailableWidgetsServerTool } from '@/lib/copilot/tools/server/widgets/get-available-widgets'
+import { getWidgetsMetadataServerTool } from '@/lib/copilot/tools/server/widgets/get-widgets-metadata'
 import { checkDeploymentStatusServerTool } from '@/lib/copilot/tools/server/workflow/check-deployment-status'
+import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { readBlockOutputsServerTool } from '@/lib/copilot/tools/server/workflow/read-block-outputs'
 import { readBlockUpstreamReferencesServerTool } from '@/lib/copilot/tools/server/workflow/read-block-upstream-references'
 import { readWorkflowLogsServerTool } from '@/lib/copilot/tools/server/workflow/read-workflow-logs'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ServerToolRouter')
 
@@ -119,6 +132,20 @@ const serverToolRegistry: Partial<Record<ToolId, BaseServerTool<any, any>>> = {
   [createMcpServerServerTool.name]: createMcpServerServerTool,
   [editMcpServerServerTool.name]: editMcpServerServerTool,
   [renameMcpServerServerTool.name]: renameMcpServerServerTool,
+  [listWatchlistsServerTool.name]: listWatchlistsServerTool,
+  [readWatchlistServerTool.name]: readWatchlistServerTool,
+  [createWatchlistServerTool.name]: createWatchlistServerTool,
+  [editWatchlistServerTool.name]: editWatchlistServerTool,
+  [renameWatchlistServerTool.name]: renameWatchlistServerTool,
+  [listLayoutsServerTool.name]: listLayoutsServerTool,
+  [createLayoutServerTool.name]: createLayoutServerTool,
+  [readLayoutServerTool.name]: readLayoutServerTool,
+  [editLayoutServerTool.name]: editLayoutServerTool,
+  [renameLayoutServerTool.name]: renameLayoutServerTool,
+  [editWidgetServerTool.name]: editWidgetServerTool,
+  [getAvailableWidgetsServerTool.name]: getAvailableWidgetsServerTool,
+  [getWidgetsMetadataServerTool.name]: getWidgetsMetadataServerTool,
+  [searchListingServerTool.name]: searchListingServerTool,
 }
 
 const lazyServerToolLoaders: Partial<Record<ToolId, () => Promise<BaseServerTool<any, any>>>> = {
@@ -203,12 +230,45 @@ const mcpServerToolIds = [
   createMcpServerServerTool.name,
   editMcpServerServerTool.name,
   renameMcpServerServerTool.name,
+  listWatchlistsServerTool.name,
+  readWatchlistServerTool.name,
+  createWatchlistServerTool.name,
+  editWatchlistServerTool.name,
+  renameWatchlistServerTool.name,
+  listLayoutsServerTool.name,
+  createLayoutServerTool.name,
+  readLayoutServerTool.name,
+  editLayoutServerTool.name,
+  renameLayoutServerTool.name,
+  editWidgetServerTool.name,
+  getAvailableWidgetsServerTool.name,
+  getWidgetsMetadataServerTool.name,
+  searchListingServerTool.name,
   CopilotTool.get_available_blocks,
   CopilotTool.get_blocks_metadata,
   CopilotTool.get_agent_accessory_catalog,
   CopilotTool.get_indicator_catalog,
   CopilotTool.get_indicator_metadata,
 ] satisfies ToolId[]
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS = [
+  CopilotTool.search_documentation,
+  CopilotTool.search_listing,
+  CopilotTool.get_available_widgets,
+  CopilotTool.get_widgets_metadata,
+] as const satisfies readonly ToolId[]
+
+type WorkspaceAgnosticServerToolId = (typeof WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS)[number]
+
+const WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET: ReadonlySet<ToolId> = new Set(
+  WORKSPACE_AGNOSTIC_SERVER_TOOL_IDS
+)
+
+export function isWorkspaceAgnosticServerTool(
+  toolName: string
+): toolName is WorkspaceAgnosticServerToolId {
+  return isToolId(toolName) && WORKSPACE_AGNOSTIC_SERVER_TOOL_ID_SET.has(toolName)
+}
 
 export function getServerToolIds(): ToolId[] {
   return [
@@ -225,17 +285,6 @@ async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, 
   const lazyTool = lazyServerToolLoaders[toolName]
   if (lazyTool) return lazyTool()
   return serverToolRegistry[toolName] ?? null
-}
-
-async function assertWorkspaceAccess(context?: ServerToolExecutionContext): Promise<void> {
-  if (!context?.workspaceId) {
-    return
-  }
-
-  const access = await checkWorkspaceAccess(context.workspaceId, context.userId)
-  if (!access.exists || !access.hasAccess) {
-    throw new Error('Access denied: You do not have permission to use this workspace')
-  }
 }
 
 export async function routeExecution(
@@ -258,6 +307,23 @@ export async function routeExecution(
   }
 
   logger.debug('Routing to tool', { toolName })
+
+  if (isWorkspaceAgnosticServerTool(toolName)) {
+    const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
+    const executionContext = context
+      ? {
+          userId: context.userId,
+          accessLevel: context.accessLevel,
+          acceptedReviewBaseStateHash: context.acceptedReviewBaseStateHash,
+          signal: context.signal,
+        }
+      : undefined
+    throwIfServerToolAborted(executionContext)
+    const result = await tool.execute(args, executionContext)
+    throwIfServerToolAborted(executionContext)
+
+    return contract.result.parse(result)
+  }
 
   let args: any
   try {
@@ -282,7 +348,6 @@ export async function routeExecution(
   }
   const executionContext = withWorkspaceArgContext(context, args)
   throwIfServerToolAborted(executionContext)
-  await assertWorkspaceAccess(executionContext)
 
   const result = await tool.execute(args, executionContext)
   throwIfServerToolAborted(executionContext)

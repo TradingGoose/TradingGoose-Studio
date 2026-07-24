@@ -29,9 +29,11 @@ vi.mock('@/hooks/queries/custom-tools', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/custom-tool-selection', () => ({
-  emitCustomToolSelectionChange: vi.fn(),
-  useCustomToolSelectionPersistence: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({

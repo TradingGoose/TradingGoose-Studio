@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import enMessages from '../../../../../i18n/messages/en.json'
 import esMessages from '../../../../../i18n/messages/es.json'
 import zhMessages from '../../../../../i18n/messages/zh.json'
@@ -24,6 +25,8 @@ const createMentionSources = (): MentionSources => ({
     indicator: [],
     custom_tool: [{ entityKind: 'custom_tool', id: 'tool-1', name: 'Slack Alerts' }],
     mcp_server: [],
+    watchlist: [{ entityKind: 'watchlist', id: 'watchlist-1', name: 'Growth' }],
+    dashboard_layout: [{ entityKind: 'dashboard_layout', id: 'layout-1', name: 'Trading Desk' }],
   },
   knowledgeBases: [],
   blocksList: [],
@@ -68,11 +71,19 @@ describe('mention-utils', () => {
         value: sources.workspaceEntities.custom_tool[0],
       },
     ])
+
+    expect(buildAggregatedMentionItems('growth', sources, enMonitorCopy, enMentionCopy)).toEqual([
+      {
+        type: 'watchlist',
+        id: 'watchlist-1',
+        value: sources.workspaceEntities.watchlist[0],
+      },
+    ])
   })
 
   it('uses localized untitled labels for empty chat and workspace entity names', () => {
     const sources = createMentionSources()
-    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null, workflowId: null }]
+    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null }]
     sources.workspaceEntities.custom_tool = [
       { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
     ]
@@ -146,5 +157,28 @@ describe('mention-utils', () => {
     ])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'custom_tool:tool-1'])
+  })
+
+  it('prefers the longest exact mention label when labels share a prefix', () => {
+    const ranges = buildMentionRanges('@Alpha Workflow, then @Alpha.', [
+      { kind: 'workflow', workflowId: 'workflow-1', label: 'Alpha' },
+      { kind: 'skill', skillId: 'skill-1', label: 'Alpha Workflow' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'skill:skill-1',
+      'workflow:workflow-1',
+    ])
+  })
+
+  it('replaces ordered workspace-entity ranges with ids in model-bound text', () => {
+    const contexts = [
+      { kind: 'workflow' as const, workflowId: 'workflow-source', label: 'Shared' },
+      { kind: 'workflow' as const, workflowId: 'workflow-target', label: 'Shared' },
+    ]
+
+    expect(
+      replaceCopilotWorkspaceEntityMentionsWithIds('Copy (@Shared) into @Shared.', contexts)
+    ).toBe('Copy (@workflow-source) into @workflow-target.')
   })
 })

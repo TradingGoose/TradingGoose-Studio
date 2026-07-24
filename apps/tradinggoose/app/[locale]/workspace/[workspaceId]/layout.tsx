@@ -1,7 +1,7 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { redirect } from '@/i18n/navigation'
 import { type LocaleCode, requireCanonicalCallbackPath } from '@/i18n/utils'
@@ -32,7 +32,7 @@ export default async function WorkspaceLayout({
     })
   }
 
-  const access = await checkWorkspaceAccess(workspaceId, userId)
+  const access = await getCachedWorkspaceAccess(workspaceId, userId)
 
   if (!access.exists || !access.hasAccess) {
     redirect({ href: '/workspace', locale })

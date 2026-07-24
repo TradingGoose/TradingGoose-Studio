@@ -1077,18 +1077,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   ])
 
   const handleReorderViews = useCallback(
-    async (nextLayouts: LayoutTab[]) => {
-      const nextRows = nextLayouts
-        .map((layout, index) => {
-          const current = activeModeRows.find((row) => row.id === layout.id)
-          return current
-            ? {
-                ...current,
-                sortOrder: layout.sortOrder ?? index,
-              }
-            : null
-        })
-        .filter((row): row is MonitorViewRow => Boolean(row))
+    async (viewOrder: string[]) => {
+      const rowsById = new Map(activeModeRows.map((row) => [row.id, row]))
+      const nextRows = viewOrder.map((id, index) => ({
+        ...rowsById.get(id)!,
+        sortOrder: index,
+      }))
       const previousRows = viewRows
 
       setViewRows((current) => replaceRowsInModeSlots(current, activeMode, nextRows))
@@ -1098,7 +1092,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       try {
         await reorderMonitorViews(workspaceId, {
           mode: activeMode,
-          viewOrder: nextRows.map((row) => row.id),
+          viewOrder,
           activeViewId: activeModeViewId ?? undefined,
         })
       } catch (errorValue) {

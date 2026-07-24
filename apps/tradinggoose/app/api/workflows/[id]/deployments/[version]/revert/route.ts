@@ -28,9 +28,9 @@ export async function POST(
   const { id, version } = await params
 
   try {
-    const { error } = await validateWorkflowPermissions(id, requestId, 'admin')
-    if (error) {
-      return createErrorResponse(error.message, error.status)
+    const { error, session } = await validateWorkflowPermissions(id, requestId, 'admin')
+    if (error || !session?.user?.id) {
+      return createErrorResponse(error?.message ?? 'Unauthorized', error?.status ?? 401)
     }
 
     const versionSelector = version === 'active' ? null : Number(version)
@@ -100,7 +100,7 @@ export async function POST(
       lastSaved: now.toISOString(),
     })
 
-    await applyWorkflowState(id, revertSnapshot, revertVariables)
+    await applyWorkflowState(id, session.user.id, revertSnapshot, revertVariables)
 
     await pauseMonitorsMissingDeployedTrigger(id)
     await notifyMonitorsReconcile({ requestId, logger })

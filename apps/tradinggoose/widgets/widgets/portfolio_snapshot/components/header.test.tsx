@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderPortfolioSnapshotHeader } from '@/widgets/widgets/portfolio_snapshot/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockEmitPortfolioSnapshotParamsChange = vi.fn()
+const mockPatchWidgetParams = vi.fn()
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: unknown) => void
 }
@@ -37,9 +37,10 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/widgets/utils/portfolio-snapshot-params', () => ({
-  emitPortfolioSnapshotParamsChange: (...args: unknown[]) =>
-    mockEmitPortfolioSnapshotParamsChange(...args),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 vi.mock('@/components/widget-header-control', () => ({
@@ -154,6 +155,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
     }
   ) => {
     const slots = renderPortfolioSnapshotHeader?.({
+      channelId: 'portfolio-snapshot-panel-1',
       context: { workspaceId: 'workspace-1' } as any,
       panelId: 'panel-1',
       widget: {
@@ -179,11 +181,9 @@ describe('PortfolioSnapshotHeaderControls', () => {
     await renderHeader()
 
     expect(container.textContent).toContain('Market provider')
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith(
+    expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
   })
@@ -197,15 +197,11 @@ describe('PortfolioSnapshotHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        provider: 'tradier',
-        portfolioIdentity: null,
-        serviceId: null,
-        selectedWindow: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      provider: 'tradier',
+      portfolioIdentity: null,
+      serviceId: null,
+      selectedWindow: null,
     })
   })
 
@@ -216,17 +212,13 @@ describe('PortfolioSnapshotHeaderControls', () => {
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        portfolioIdentity: {
-          providerId: 'alpaca',
-          credentialId: 'oauth-account-1',
-          serviceId: 'alpaca-live',
-          accountId: 'acct-1',
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      portfolioIdentity: {
+        providerId: 'alpaca',
+        credentialId: 'oauth-account-1',
+        serviceId: 'alpaca-live',
+        accountId: 'acct-1',
       },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
     })
   })
 
@@ -258,14 +250,10 @@ describe('PortfolioSnapshotHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        runtime: {
-          refreshAt: expect.any(Number),
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      runtime: {
+        refreshAt: expect.any(Number),
       },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
     })
   })
 

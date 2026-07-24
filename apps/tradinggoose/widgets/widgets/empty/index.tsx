@@ -10,7 +10,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import type { EmptyDashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 
 type EmptyWidgetProps = WidgetComponentProps & {
@@ -26,8 +26,6 @@ const EmptyHeaderLabel = () => {
 const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
   const copy = useWorkspaceWidgetsMessages().empty
 
-  const isEmptyWidget = widget?.key && widget.key !== 'empty'
-
   return (
     <Empty className='p-6'>
       <EmptyHeader>
@@ -38,10 +36,8 @@ const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
             </AvatarFallback>
           </Avatar>
         </EmptyMedia>
-        <EmptyTitle>{isEmptyWidget ? copy.emptyWidget : copy.noWidgetSelected}</EmptyTitle>
-        <EmptyDescription>
-          {isEmptyWidget ? copy.emptyWidgetDescription : copy.noWidgetDescription}
-        </EmptyDescription>
+        <EmptyTitle>{copy.noWidgetSelected}</EmptyTitle>
+        <EmptyDescription>{copy.noWidgetDescription}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <WidgetSelector
@@ -59,12 +55,9 @@ const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
   )
 }
 
-export const emptyWidget: DashboardWidgetDefinition = {
+export const emptyWidget: EmptyDashboardWidgetDefinition = {
   key: 'empty',
-  title: 'Empty Surface',
   icon: MinusCircle,
-  category: 'utility',
-  description: 'Placeholder state shown when the panel does not have a widget assigned.',
   component: EmptyBody,
   renderHeader: () => ({
     center: <EmptyHeaderLabel />,

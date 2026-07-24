@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  buildDashboardColorPairDescriptor,
+  buildDashboardWidgetDescriptor,
   buildEntityListDescriptor,
   buildReviewTargetDescriptorFromEnvelope,
   buildYjsTransportEnvelope,
@@ -16,6 +18,7 @@ describe('review target identity helpers', () => {
       workspaceId: 'ws-1',
       entityKind: 'skill' as const,
       entityId: 'skill-1',
+      ownerUserId: null,
       draftSessionId: null,
       reviewSessionId: null,
       yjsSessionId: 'skill-1',
@@ -31,6 +34,7 @@ describe('review target identity helpers', () => {
       workspaceId: 'ws-1',
       entityKind: 'workflow' as const,
       entityId: 'workflow-1',
+      ownerUserId: null,
       draftSessionId: null,
       reviewSessionId: null,
       yjsSessionId: 'workflow-1',
@@ -42,6 +46,7 @@ describe('review target identity helpers', () => {
       sessionId: 'workflow-1',
       reviewSessionId: null,
       workspaceId: 'ws-1',
+      ownerUserId: null,
       entityKind: 'workflow',
       entityId: 'workflow-1',
       draftSessionId: null,
@@ -63,5 +68,46 @@ describe('review target identity helpers', () => {
     expect(() =>
       buildReviewTargetDescriptorFromEnvelope({ ...envelope, entityId: 'skill-1' })
     ).toThrow(/cannot carry/)
+  })
+
+  it('round-trips independent dashboard child documents without making them entities', () => {
+    const widget = buildDashboardWidgetDescriptor({
+      layoutId: 'layout-1',
+      identityId: 'widget-1',
+      workspaceId: 'ws-1',
+      ownerUserId: 'user-1',
+    })
+    const pair = buildDashboardColorPairDescriptor({
+      layoutId: 'layout-1',
+      color: 'red',
+      workspaceId: 'ws-1',
+      ownerUserId: 'user-1',
+    })
+
+    expect(widget.yjsSessionId).toBe('dashboard-widget:layout-1:widget-1')
+    expect(pair.yjsSessionId).toBe('dashboard-color-pair:layout-1:red')
+    expect(buildReviewTargetDescriptorFromEnvelope(buildYjsTransportEnvelope(widget))).toEqual(
+      widget
+    )
+    expect(buildReviewTargetDescriptorFromEnvelope(buildYjsTransportEnvelope(pair))).toEqual(pair)
+  })
+
+  it('rejects dashboard child kinds from entity-list transport', () => {
+    const widget = buildDashboardWidgetDescriptor({
+      layoutId: 'layout-1',
+      identityId: 'widget-1',
+      workspaceId: 'ws-1',
+      ownerUserId: 'user-1',
+    })
+    const envelope = buildYjsTransportEnvelope(widget)
+
+    expect(() =>
+      buildReviewTargetDescriptorFromEnvelope({
+        ...envelope,
+        targetKind: 'entity_list',
+        entityId: null,
+        sessionId: 'list:dashboard_widget:ws-1:user:user-1',
+      })
+    ).toThrow('Invalid or missing review entity kind')
   })
 })

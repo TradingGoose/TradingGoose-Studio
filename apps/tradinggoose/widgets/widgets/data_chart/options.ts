@@ -1,4 +1,3 @@
-import { getMarketProviderOptionsByKind } from '@/providers/market/providers'
 import {
   AreaChartIcon,
   BarDownHollow,
@@ -7,7 +6,8 @@ import {
   BarStroke,
   BarUpHollow,
 } from '@/components/icons/icons'
-import type { DataChartCandleType } from '@/widgets/widgets/data_chart/types'
+import { getMarketProviderOptionsByKind } from '@/providers/market/providers'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 
 export const getSeriesMarketProviderOptions = () => getMarketProviderOptionsByKind('series')
 

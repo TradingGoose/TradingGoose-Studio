@@ -28,11 +28,16 @@ const {
     warn: vi.fn(),
   },
 }))
+const drainHarness = vi.hoisted(() => ({
+  events: [] as string[],
+  delete: vi.fn(),
+  fenced: vi.fn(),
+  lockList: vi.fn(),
+}))
 
 const mockUpdateSet = vi.fn(() => ({
   where: mockUpdateWhere,
 }))
-
 vi.mock('@tradinggoose/db', () => ({
   db: {
     update: vi.fn(() => ({
@@ -100,7 +105,17 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/workspaces/service', () => ({
-  getUserWorkspaces: vi.fn(),
+  getUserWorkspaces: vi.fn().mockResolvedValue([{ id: 'workspace-1' }, { id: 'workspace-2' }]),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  SAVED_ENTITY_LIST_LOCK_KINDS: ['workflow', 'watchlist'],
+  lockSavedEntityList: drainHarness.lockList,
+}))
+
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  runYjsDrainFencedTransaction: drainHarness.fenced,
+  SocketServerBridgeError: class SocketServerBridgeError extends Error {},
 }))
 
 describe('Workspace by id PATCH route', () => {
@@ -112,10 +127,32 @@ describe('Workspace by id PATCH route', () => {
       user: { id: 'user-1' },
     })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockGetWorkspaceById.mockReset()
+    mockGetWorkspaceById.mockResolvedValue({ id: 'workspace-1', ownerId: 'user-1' })
     mockResolveWorkspaceBillingOwnerUpdate.mockReset()
     mockUpdateWhere.mockReset()
     mockUpdateSet.mockClear()
+    drainHarness.events.length = 0
+    drainHarness.delete.mockReturnValue({ where: vi.fn() })
+    drainHarness.lockList.mockResolvedValue(undefined)
+    drainHarness.fenced.mockImplementation(async (_target, mutate) => {
+      drainHarness.events.push('fence-begin')
+      const result = await mutate({ delete: drainHarness.delete })
+      drainHarness.events.push('fence-commit')
+      return result
+    })
+  })
+
+  it('fences every workspace document while deleting canonical rows', async () => {
+    const { DELETE } = await import('./route')
+    const response = await DELETE(new NextRequest('http://localhost/api/workspaces/workspace-1'), {
+      params: Promise.resolve({ id: 'workspace-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(drainHarness.fenced.mock.calls[0]?.[0]).toEqual({ workspaceIds: ['workspace-1'] })
+    expect(drainHarness.events).toEqual(['fence-begin', 'fence-commit'])
+    expect(drainHarness.lockList).toHaveBeenCalledTimes(2)
+    expect(drainHarness.delete).toHaveBeenCalledTimes(4)
   })
 
   it('returns 500 when the workspace update fails unexpectedly', async () => {

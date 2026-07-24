@@ -3,7 +3,7 @@ import {
   decodeManualOwnerSnapshot,
   encodeManualOwnerSnapshot,
   mergeManualOwnerSnapshots,
-} from '@/widgets/widgets/data_chart/drawings/snapshot'
+} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 
 describe('manual-line-tools-snapshot', () => {
   it('encodes only minimal editable options', () => {

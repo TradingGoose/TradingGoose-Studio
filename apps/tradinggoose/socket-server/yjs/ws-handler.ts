@@ -5,46 +5,127 @@ import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   isEntityListSessionId,
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
-import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
+import {
+  type ReviewAccessMode,
+  type ReviewEntityKind,
+  type ReviewTargetDescriptor,
+  YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
+  YJS_CLOSE_CODE_DOCUMENT_REJECTED,
+  YJS_CLOSE_CODE_RETRY_REQUIRED,
+} from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import { SavedEntityPersistenceError } from '@/lib/yjs/entity-state'
 import {
-  createEntityListBootstrapUpdate,
-  createSavedReviewTargetBootstrapUpdate,
-  getRuntimeStateFromDoc,
-} from '@/lib/yjs/server/bootstrap-review-target'
+  saveDashboardYjsDocsToDb,
+  saveSavedEntityYjsDocToDb,
+} from '@/lib/yjs/server/apply-entity-state'
+import { initializeSavedReviewTargetDocument } from '@/lib/yjs/server/bootstrap-review-target'
+import { YjsSessionAdmissionError } from '@/lib/yjs/server/revocation-fence'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, setupWSConnection } from './upstream-utils'
+import { bindEntityListSession, refreshActiveEntityListSession } from './entity-list-session'
+import {
+  acquireDocument,
+  type DocumentAdmission,
+  persistStagedDocuments,
+  setupWSConnection,
+} from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
-const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
+const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
 
-interface YjsIncomingMessage extends IncomingMessage {
-  yjsSessionId?: string
-  yjsUserId?: string
-  yjsBootstrapState?: Uint8Array
-  yjsPersistLiveUpdates?: boolean
-  yjsAccessMode?: ReviewAccessMode
+function manualPersistenceHandler(
+  accessMode: ReviewAccessMode,
+  descriptor: ReviewTargetDescriptor
+) {
+  if (
+    accessMode !== 'write' ||
+    !descriptor.entityId ||
+    !descriptor.workspaceId ||
+    descriptor.draftSessionId !== null ||
+    descriptor.reviewSessionId !== null
+  ) {
+    return undefined
+  }
+  switch (descriptor.entityKind) {
+    case 'skill':
+    case 'custom_tool':
+    case 'indicator':
+    case 'knowledge_base':
+    case 'mcp_server':
+      break
+    default:
+      return undefined
+  }
+  const { entityId, entityKind, workspaceId } = descriptor
+  return async (doc: Y.Doc, requestId: string, identityName?: string) => {
+    if (identityName !== undefined && !identityName.trim()) {
+      throw new SavedEntityPersistenceError(400, 'identity.name is required')
+    }
+    await persistStagedDocuments(
+      [{ doc }],
+      ([staged]) =>
+        saveSavedEntityYjsDocToDb(
+          entityKind,
+          entityId,
+          workspaceId,
+          staged!,
+          identityName ? { identity: { name: identityName } } : undefined
+        ),
+      requestId
+    )
+    await refreshActiveEntityListSession(entityKind, workspaceId).catch(() => undefined)
+  }
 }
 
-async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void> {
-  if (isEntityListSessionId(docId)) {
-    return
-  }
-
-  const metadata = doc.getMap<unknown>('metadata')
+function livePersistenceHandler(accessMode: ReviewAccessMode, descriptor: ReviewTargetDescriptor) {
   if (
-    metadata.get('entityId') !== docId ||
-    metadata.get('draftSessionId') != null ||
-    metadata.get('reviewSessionId') != null
+    accessMode !== 'write' ||
+    !descriptor.entityId ||
+    descriptor.draftSessionId !== null ||
+    descriptor.reviewSessionId !== null ||
+    (descriptor.entityKind !== 'workflow' &&
+      descriptor.entityKind !== 'watchlist' &&
+      descriptor.entityKind !== 'dashboard_widget' &&
+      descriptor.entityKind !== 'dashboard_color_pair')
   ) {
-    return
+    return undefined
   }
-
-  if (metadata.get('entityKind') === 'workflow') {
-    await saveWorkflowYjsDocToDb(docId, doc)
+  const entityId = descriptor.entityId
+  return async (_docId: string, staged: Y.Doc) => {
+    if (descriptor.entityKind === 'workflow') {
+      await saveWorkflowYjsDocToDb(entityId, staged)
+      return
+    }
+    if (!descriptor.workspaceId) {
+      throw new SavedEntityPersistenceError(409, 'Yjs persistence workspace is required')
+    }
+    if (descriptor.entityKind === 'watchlist') {
+      await saveSavedEntityYjsDocToDb('watchlist', entityId, descriptor.workspaceId, staged)
+      await refreshActiveEntityListSession('watchlist', descriptor.workspaceId).catch(
+        () => undefined
+      )
+      return
+    }
+    if (!descriptor.ownerUserId) {
+      throw new SavedEntityPersistenceError(409, 'Dashboard persistence owner is required')
+    }
+    const scope = { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId }
+    const part = descriptor.entityKind === 'dashboard_widget' ? 'widget' : 'colorPair'
+    const child =
+      descriptor.entityKind === 'dashboard_widget'
+        ? parseDashboardWidgetSessionId(descriptor.yjsSessionId)
+        : parseDashboardColorPairSessionId(descriptor.yjsSessionId)
+    if (!child) {
+      throw new SavedEntityPersistenceError(409, 'Dashboard persistence target is invalid')
+    }
+    await saveDashboardYjsDocsToDb(scope, {
+      layoutId: child.layoutId,
+      [part]: { sessionId: descriptor.yjsSessionId, doc: staged },
+    })
   }
 }
 
@@ -52,7 +133,8 @@ export function handleYjsUpgrade(
   wss: WebSocketServer,
   request: IncomingMessage,
   socket: Duplex,
-  head: Buffer
+  head: Buffer,
+  canAcceptConnection: () => boolean = () => true
 ): void {
   const url = new URL(request.url || '', `http://${request.headers.host}`)
   const pathname = url.pathname
@@ -64,43 +146,72 @@ export function handleYjsUpgrade(
   }
 
   const yjsSessionId = decodeURIComponent(match[1])
+  wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+    ws.pause()
+    const rejectConnection = (error: unknown) => {
+      logger.error('Failed to attach Yjs connection', { docId: yjsSessionId, error })
+      ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
+    }
 
-  void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ accessMode, bootstrapState, userId, resolvedSessionId, persistLiveUpdates }) => {
-      const yjsReq = request as YjsIncomingMessage
-      yjsReq.yjsSessionId = resolvedSessionId
-      yjsReq.yjsUserId = userId
-      yjsReq.yjsBootstrapState = bootstrapState
-      yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
-      yjsReq.yjsAccessMode = accessMode
+    void (async () => {
+      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+      const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
+      if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
 
-      ensureConnectionHandler(wss)
-      wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-        wss.emit('connection', ws, request)
-      })
-    })
-    .catch((error) => {
-      if (error instanceof YjsAuthError) {
-        rejectUpgrade(socket, error.code, error.message)
-        return
-      }
-
-      logger.error('Yjs upgrade error', { error })
-      rejectUpgrade(socket, 500, 'Internal error')
-    })
+      await acquireDocument(
+        yjsSessionId,
+        {
+          workspaceId: authenticated.descriptor.workspaceId,
+          admission: authenticated,
+          initialize: (_doc, admission, readStore) => {
+            if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
+            if (isEntityListSessionId(admission.descriptor.yjsSessionId)) {
+              bindEntityListSession(
+                _doc,
+                admission.descriptor.entityKind as ReviewEntityKind,
+                admission.descriptor.workspaceId as string,
+                admission.descriptor.ownerUserId ?? null
+              )
+              return
+            }
+            return initializeSavedReviewTargetDocument(admission.descriptor, readStore)
+          },
+        },
+        async (doc, admission) => {
+          if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
+          const { accessMode, userId, descriptor } = admission
+          logger.info('Yjs connection established', { docId: yjsSessionId, userId })
+          setupWSConnection(ws, request, {
+            doc,
+            userId,
+            accessMode,
+            descriptor,
+            persist: manualPersistenceHandler(accessMode, descriptor),
+            onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
+            onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+          })
+          ws.resume()
+        }
+      )
+    })().catch(rejectConnection)
+  })
 }
 
-async function authenticateAndPrepareUpgrade(
-  pathSessionId: string,
-  url: URL
-): Promise<{
-  bootstrapState?: Uint8Array
-  userId: string
-  resolvedSessionId: string
-  persistLiveUpdates: boolean
-  accessMode: ReviewAccessMode
-}> {
-  const accessMode = parseAccessMode(url, pathSessionId)
+function yjsConnectionRejectionCode(error: unknown): number {
+  if (error instanceof YjsSessionAdmissionError) {
+    return YJS_CLOSE_CODE_RETRY_REQUIRED
+  }
+  const status = Number((error as { status?: unknown } | null)?.status)
+  if (!Number.isInteger(status) || status < 400 || status >= 600) {
+    return YJS_CLOSE_CODE_RETRY_REQUIRED
+  }
+  if (status === 403) return YJS_CLOSE_CODE_AUTHORIZATION_REVOKED
+  if (status === 401 || status >= 500) return YJS_CLOSE_CODE_RETRY_REQUIRED
+  return YJS_CLOSE_CODE_DOCUMENT_REJECTED
+}
+
+async function authenticateYjsUpgrade(pathSessionId: string, url: URL): Promise<DocumentAdmission> {
+  const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
@@ -108,108 +219,31 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+  assertAccessModeAllowed(accessMode, descriptor)
 
-  const access = await verifyReviewTargetAccess(
-    userId,
-    {
-      entityKind: descriptor.entityKind,
-      entityId: descriptor.entityId,
-      draftSessionId: descriptor.draftSessionId,
-      reviewSessionId: descriptor.reviewSessionId,
-      workspaceId: descriptor.workspaceId,
-      yjsSessionId: descriptor.yjsSessionId,
-    },
-    accessMode
-  )
-
-  if (!access.hasAccess) {
-    throw new YjsAuthError(403, 'Forbidden')
-  }
-
-  // Every list connect follows a fresh snapshot fetch, which reseeds live
-  // list docs from DB (routes/http.ts), so no upgrade-time reseed is needed.
-  const liveDoc = await getExistingDocument(pathSessionId)
-
-  const bootstrapped = liveDoc
-    ? null
-    : isListTarget
-      ? await createEntityListBootstrapUpdate(
-          descriptor.entityKind,
-          descriptor.workspaceId as string
-        )
-      : descriptor.entityId
-        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
-        : null
-  const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : bootstrapped?.runtime
-
-  if (!runtime) {
-    throw new YjsAuthError(409, 'Review target is not bootstrapped')
-  }
-
-  if (runtime.docState === 'expired') {
-    throw new YjsAuthError(409, 'Review target expired')
-  }
-
-  return {
-    bootstrapState: bootstrapped?.state,
-    userId,
-    resolvedSessionId: pathSessionId,
-    accessMode,
-    persistLiveUpdates:
-      descriptor.entityKind === 'workflow' && descriptor.entityId === pathSessionId,
-  }
+  return { userId, accessMode, descriptor }
 }
 
-function parseAccessMode(url: URL, sessionId: string): ReviewAccessMode {
+function parseAccessMode(url: URL): ReviewAccessMode {
   const accessMode = url.searchParams.get('accessMode')
   if (accessMode !== 'read' && accessMode !== 'write') {
     throw new YjsAuthError(409, 'Invalid or missing access mode')
   }
 
-  // Entity-list documents are read-only over the socket (membership is written
-  // only by server-side create/delete); every other target requires write.
-  if (isEntityListSessionId(sessionId)) {
-    if (accessMode !== 'read') {
-      throw new YjsAuthError(403, 'Entity-list websocket is read-only')
-    }
-  } else if (accessMode !== 'write') {
-    throw new YjsAuthError(403, 'Yjs websocket requires write access')
-  }
-
   return accessMode
 }
 
-function ensureConnectionHandler(wss: WebSocketServer): void {
-  if (wss.listenerCount('connection') > 0) {
-    return
+function assertAccessModeAllowed(
+  accessMode: ReviewAccessMode,
+  descriptor: ReviewTargetDescriptor
+): void {
+  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
+  if (isListTarget && accessMode !== 'read') {
+    throw new YjsAuthError(403, 'Entity-list websocket is read-only')
   }
-
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-    const yjsReq = req as YjsIncomingMessage
-    const docId = yjsReq.yjsSessionId
-
-    if (!docId || !yjsReq.yjsAccessMode) {
-      ws.close(4409, 'Missing session access')
-      return
-    }
-
-    try {
-      logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
-      setupWSConnection(ws, req, {
-        docId,
-        accessMode: yjsReq.yjsAccessMode,
-        gc: true,
-        bootstrapState: yjsReq.yjsBootstrapState,
-        onDocumentIdle: persistWorkflowDocument,
-        onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistWorkflowDocument : undefined,
-        onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
-      })
-    } catch (error) {
-      logger.error('Failed to attach Yjs connection', { docId, error })
-      ws.close(4409, 'Failed to attach Yjs session')
-    }
-  })
+  if (descriptor.entityKind === 'dashboard_layout' && accessMode !== 'read') {
+    throw new YjsAuthError(403, 'Dashboard layout websocket is read-only')
+  }
 }
 
 function rejectUpgrade(socket: Duplex, statusCode: number, message: string): void {

@@ -29,6 +29,7 @@ interface McpServerFormProps {
   workspaceId: string
   clearTestResult: () => void
   className?: string
+  disabled?: boolean
 }
 
 export function McpServerForm({
@@ -39,6 +40,7 @@ export function McpServerForm({
   workspaceId,
   clearTestResult,
   className,
+  disabled = false,
 }: McpServerFormProps) {
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [envSearchTerm, setEnvSearchTerm] = useState('')
@@ -69,10 +71,7 @@ export function McpServerForm({
             return [line, '']
           }
 
-          return [
-            line.slice(0, separatorIndex).trim(),
-            line.slice(separatorIndex + 1).trim(),
-          ]
+          return [line.slice(0, separatorIndex).trim(), line.slice(separatorIndex + 1).trim()]
         })
         .filter(([key]) => key.length > 0)
     )
@@ -175,7 +174,7 @@ export function McpServerForm({
 
   return (
     <div className={cn('w-full rounded-md border bg-background shadow-xs', className)}>
-      <div className='space-y-4'>
+      <fieldset disabled={disabled} className='space-y-4 border-0 p-0'>
         <div>
           <Label htmlFor='server-name'>Server Name</Label>
           <Input
@@ -528,7 +527,7 @@ export function McpServerForm({
             </p>
           )}
         </div>
-      </div>
+      </fieldset>
     </div>
   )
 }

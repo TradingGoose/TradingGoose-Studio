@@ -16,6 +16,9 @@ import {
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { lockSavedEntityList, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -162,7 +165,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
   }
 
-  // Check if user has admin permissions to delete workspace
   const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
   if (userPermission !== 'admin') {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
@@ -176,27 +178,28 @@ export async function DELETE(
   try {
     logger.info(`Deleting workspace ${workspaceId} for user ${session.user.id}`)
 
-    // Delete workspace and all related data in a transaction
-    await db.transaction(async (tx) => {
+    await runYjsDrainFencedTransaction({ workspaceIds: [workspaceId] }, async (tx) => {
+      for (const entityKind of SAVED_ENTITY_LIST_LOCK_KINDS) {
+        await lockSavedEntityList(tx, entityKind, workspaceId)
+      }
+
       // Delete live workflow definitions first. Durable execution logs and snapshots
       // remain workspace-owned until the workspace row is deleted below.
       await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
 
       await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
 
-      // Delete all permissions associated with this workspace
       await tx
         .delete(permissions)
         .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
 
-      // Delete the workspace itself
       await tx.delete(workspace).where(eq(workspace.id, workspaceId))
-
-      logger.info(`Successfully deleted workspace ${workspaceId} and all related data`)
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`Error deleting workspace ${workspaceId}:`, error)
     return NextResponse.json({ error: 'Failed to delete workspace' }, { status: 500 })
   }

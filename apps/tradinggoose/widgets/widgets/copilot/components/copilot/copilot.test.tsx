@@ -70,10 +70,6 @@ vi.mock('@/stores/copilot/store-state', () => ({
   hasUiActiveToolCalls: () => false,
 }))
 
-vi.mock('@/stores/dashboard/pair-store', () => ({
-  usePairColorContext: () => null,
-}))
-
 vi.mock('@/widgets/widgets/copilot/live-contexts', () => ({
   buildImplicitCopilotContexts: () => [],
   resolveCopilotWorkflowId: () => null,
