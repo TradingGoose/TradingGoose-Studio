@@ -78,7 +78,6 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     : ''
   const { listing, listingIdentitySignature, resolvedListing, isResolving } = useListingState({
     listingValue,
-    intervalLabel,
   })
   const listingLabel = useMemo(() => {
     if (resolvedListing) {
