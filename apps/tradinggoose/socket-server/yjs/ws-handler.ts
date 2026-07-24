@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
-import type { WebSocket, WebSocketServer } from 'ws'
+import type { RawData, WebSocket, WebSocketServer } from 'ws'
 import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
@@ -36,6 +36,7 @@ import {
 
 const logger = createLogger('YjsWsHandler')
 const SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS = 1500
+const MAX_PENDING_MESSAGE_COUNT = 64
 
 function manualPersistenceHandler(
   accessMode: ReviewAccessMode,
@@ -150,6 +151,45 @@ export function handleYjsUpgrade(
     ws.close(yjsConnectionRejectionCode(error), 'Failed to attach Yjs session')
   }
 
+  const pendingMessages: Uint8Array[] = []
+  let pendingMessageBytes = 0
+  let awaitingAdmission = true
+  let ws!: WebSocket
+
+  function detachPendingListeners() {
+    ws.off('message', collectPendingMessage)
+    ws.off('close', abandonPendingMessages)
+    ws.off('error', abandonPendingMessages)
+  }
+  function abandonPendingMessages() {
+    if (!awaitingAdmission) return
+    awaitingAdmission = false
+    pendingMessages.length = 0
+    detachPendingListeners()
+  }
+  function collectPendingMessage(data: RawData) {
+    if (!awaitingAdmission) return
+    const message = copyWebSocketMessage(data)
+    pendingMessageBytes += message.byteLength
+    if (
+      pendingMessages.length >= MAX_PENDING_MESSAGE_COUNT ||
+      pendingMessageBytes > wss.options.maxPayload!
+    ) {
+      abandonPendingMessages()
+      ws.close(1009, 'Yjs message exceeds transport payload limit')
+      return
+    }
+    pendingMessages.push(message)
+  }
+
+  wss.handleUpgrade(request, socket, head, (upgraded: WebSocket) => {
+    ws = upgraded
+    ws.binaryType = 'arraybuffer'
+    ws.on('message', collectPendingMessage)
+    ws.once('close', abandonPendingMessages)
+    ws.once('error', abandonPendingMessages)
+  })
+
   void (async () => {
     if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
     const authenticated = await authenticateYjsUpgrade(yjsSessionId, url)
@@ -176,28 +216,42 @@ export function handleYjsUpgrade(
       (doc, admission) => {
         if (!admission) throw new YjsAuthError(503, 'Yjs authorization is unavailable')
         if (!canAcceptConnection()) throw new YjsSessionAdmissionError(yjsSessionId)
+        if (!awaitingAdmission) return
         const { accessMode, userId, descriptor } = admission
-        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-          try {
-            setupWSConnection(ws, request, {
-              doc,
-              userId,
-              accessMode,
-              descriptor,
-              persist: manualPersistenceHandler(accessMode, descriptor),
-              onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
-              onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
-            })
-            logger.info('Yjs connection established', { docId: yjsSessionId, userId })
-          } catch (error) {
-            rejectConnection(ws, error)
-          }
-        })
+        const initialMessages = pendingMessages.splice(0)
+        awaitingAdmission = false
+        detachPendingListeners()
+        try {
+          setupWSConnection(ws, request, {
+            doc,
+            userId,
+            accessMode,
+            descriptor,
+            initialMessages,
+            persist: manualPersistenceHandler(accessMode, descriptor),
+            onDocumentUpdate: livePersistenceHandler(accessMode, descriptor),
+            onDocumentUpdateDebounceMs: SAVED_DOCUMENT_LIVE_PERSIST_DEBOUNCE_MS,
+          })
+          logger.info('Yjs connection established', { docId: yjsSessionId, userId })
+        } catch (error) {
+          rejectConnection(ws, error)
+        }
       }
     )
   })().catch((error) => {
-    wss.handleUpgrade(request, socket, head, (ws: WebSocket) => rejectConnection(ws, error))
+    if (!awaitingAdmission) return
+    abandonPendingMessages()
+    rejectConnection(ws, error)
   })
+}
+
+function copyWebSocketMessage(data: RawData): Uint8Array {
+  const bytes = Array.isArray(data)
+    ? Buffer.concat(data)
+    : data instanceof ArrayBuffer
+      ? new Uint8Array(data)
+      : data
+  return Uint8Array.from(bytes)
 }
 
 function yjsConnectionRejectionCode(error: unknown): number {

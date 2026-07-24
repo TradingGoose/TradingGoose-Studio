@@ -632,6 +632,7 @@ export function setupWSConnection(
     userId: string
     accessMode: ReviewAccessMode
     descriptor: ReviewTargetDescriptor
+    initialMessages?: readonly Uint8Array[]
     persist?: (doc: Y.Doc, requestId: string, identityName?: string) => Promise<void>
     onDocumentUpdate?: DocumentPersistenceHandler
     onDocumentUpdateDebounceMs?: number
@@ -642,6 +643,7 @@ export function setupWSConnection(
     userId,
     accessMode,
     descriptor,
+    initialMessages,
     persist,
     onDocumentUpdate,
     onDocumentUpdateDebounceMs,
@@ -734,6 +736,8 @@ export function setupWSConnection(
     )
     send(doc, conn, encoding.toUint8Array(awarenessEncoder))
   }
+
+  initialMessages?.forEach((message) => handleMessage(conn, doc, message))
 }
 
 export async function discardDocument(candidate: Y.Doc): Promise<void> {
