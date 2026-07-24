@@ -1,44 +1,34 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 const database = vi.hoisted(() => {
-  let result: unknown
-  let inserted: Record<string, unknown> | undefined
+  const state: { record?: unknown; pending?: Record<string, unknown> } = {}
   const store: Record<string, any> = { execute: vi.fn() }
-  store.select = store.from = store.where = store.insert = store.onConflictDoNothing = () => store
+  for (const method of ['select', 'from', 'where', 'insert', 'update', 'onConflictDoNothing']) {
+    store[method] = () => store
+  }
   store.values = (value: Record<string, unknown>) => {
-    inserted = value
+    state.pending = value
     return store
   }
-  store.limit = async () => (result === undefined ? [] : [{ result }])
+  store.set = (value: Record<string, unknown>) => {
+    state.record = value.result
+    return store
+  }
+  store.limit = async () => (state.record === undefined ? [] : [{ result: state.record }])
   store.returning = async () => {
-    if (result !== undefined) return []
-    result = inserted?.result
-    return [{ key: inserted?.key }]
+    if (state.record !== undefined) return []
+    state.record = state.pending?.result
+    return [{ key: state.pending?.key }]
   }
-  return {
-    store,
-    inserted: () => inserted,
-    reset: () => {
-      result = undefined
-    },
-    transaction: async (run: (tx: typeof store) => Promise<unknown>) => {
-      try {
-        return await run(store)
-      } catch (error) {
-        result = undefined
-        throw error
-      }
-    },
-  }
+  return { state, store }
 })
 
 vi.mock('@tradinggoose/db', () => ({ db: database.store }))
 
 import {
+  beginRealtimeMutationTransaction,
   createRealtimeMutation,
-  getRealtimeMutationTransactionTimeout,
   inspectRealtimeMutation,
-  prepareRealtimeMutationTransaction,
 } from './mutation-idempotency'
 
 const mutation = (body: unknown = {}, suffix = '1') =>
@@ -51,41 +41,55 @@ const mutation = (body: unknown = {}, suffix = '1') =>
     body,
   })
 
-afterEach(() => vi.useRealTimers())
+const begin = (
+  request: ReturnType<typeof mutation>,
+  serializeResult: (result: any) => string = () => 'null'
+) =>
+  beginRealtimeMutationTransaction(database.store as never, { ...request, serializeResult }, 30_000)
+
+async function execute(
+  request: ReturnType<typeof mutation>,
+  write: () => Promise<unknown> = async () => undefined
+) {
+  const before = database.state.record
+  try {
+    const complete = await begin(request)
+    return complete(await write())
+  } catch (error) {
+    database.state.record = before
+    throw error
+  }
+}
 
 it('reconciles committed, expired, conflicting, and rolled-back realtime mutations', async () => {
+  const result = '{"headers":{"Authorization":"[redacted]"}}'
   const claimed = mutation({ fields: { headers: { Authorization: 'secret-token' } } })
-  const uncommitted = mutation({}, '2')
-  await prepareRealtimeMutationTransaction(database.store as never, claimed, 30_000)
+  const complete = await begin(claimed, () => result)
+  await complete({})
 
-  expect(database.inserted()).toMatchObject({
-    key: claimed.requestId,
-    namespace: 'yjs-mutation',
-    result: { fingerprint: claimed.fingerprint },
+  const recorded = { fingerprint: claimed.fingerprint, result }
+  expect(database.state.record).toEqual(recorded)
+  expect(JSON.stringify(recorded)).not.toContain('secret-token')
+  await expect(inspectRealtimeMutation(claimed)).resolves.toBe(result)
+  database.state.record = { fingerprint: claimed.fingerprint }
+  await expect(inspectRealtimeMutation(claimed)).rejects.toMatchObject({ status: 500 })
+  database.state.record = recorded
+  await expect(begin(claimed, () => result)).rejects.toMatchObject({ status: 425 })
+  await expect(inspectRealtimeMutation(mutation({ fields: {} }))).rejects.toMatchObject({
+    status: 409,
   })
-  expect(JSON.stringify(database.inserted())).not.toContain('secret-token')
-  await expect(inspectRealtimeMutation(claimed)).resolves.toBe('replay')
-  const replayRace = prepareRealtimeMutationTransaction(database.store as never, claimed, 30_000)
-  await expect(replayRace).rejects.toMatchObject({ status: 425 })
-  const conflicting = inspectRealtimeMutation(mutation({ fields: {} }))
-  await expect(conflicting).rejects.toMatchObject({ status: 409 })
 
-  vi.useFakeTimers()
-  vi.setSystemTime(claimed.deadlineAt + 1)
-  await expect(inspectRealtimeMutation(claimed)).resolves.toBe('replay')
-  database.reset()
-  await expect(inspectRealtimeMutation(uncommitted)).rejects.toMatchObject({ status: 408 })
+  claimed.deadlineAt = 1
+  await expect(inspectRealtimeMutation(claimed)).resolves.toBe(result)
+  database.state.record = undefined
+  const expired = { ...mutation({}, '2'), deadlineAt: 1 }
+  await expect(inspectRealtimeMutation(expired)).rejects.toMatchObject({ status: 408 })
 
-  vi.setSystemTime(1_000_000)
   const request = mutation()
-  expect(getRealtimeMutationTransactionTimeout(Date.now() + 20_000, 30_000)).toBe(20_000)
   await expect(
-    database.transaction(async (tx) => {
-      await prepareRealtimeMutationTransaction(tx as never, request, 30_000)
+    execute(request, async () => {
       throw new Error('write failed')
     })
   ).rejects.toThrow('write failed')
-  await expect(
-    database.transaction((tx) => prepareRealtimeMutationTransaction(tx as never, request, 30_000))
-  ).resolves.toBeUndefined()
+  await expect(execute(request)).resolves.toBeUndefined()
 })

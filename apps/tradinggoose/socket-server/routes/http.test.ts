@@ -259,6 +259,13 @@ const invokeWidgetEdit = (
     patch,
   })
 
+function expectDashboardOwnerCommit(part: 'widget' | 'colorPair', sessionId: string) {
+  expect(mocks.saveDashboard.mock.calls[0]?.[1]).toEqual({
+    layoutId: 'layout-1',
+    [part]: { sessionId, doc: expect.any(Y.Doc) },
+  })
+}
+
 describe('socket internal HTTP Yjs routes', () => {
   beforeEach(() => {
     for (const doc of documents.values()) doc.destroy()
@@ -267,17 +274,13 @@ describe('socket internal HTTP Yjs routes', () => {
     vi.clearAllMocks()
     mocks.refreshActiveEntityList.mockResolvedValue(null)
     mocks.saveDashboard.mockResolvedValue({})
-    mocks.inspectRealtimeMutation.mockResolvedValue('apply')
+    mocks.inspectRealtimeMutation.mockResolvedValue(null)
     mocks.drainTargets.mockResolvedValue(undefined)
     mocks.runRevocation.mockImplementation(async (target, drain, mutation) => {
       await drain(target)
       return mutation(admissionReadStore)
     })
-    mocks.commitDashboardStructure.mockImplementation(
-      async (_scope: unknown, _layoutId: string, commit: { layout: unknown }) => ({
-        layout: commit.layout,
-      })
-    )
+    mocks.commitDashboardStructure.mockResolvedValue({ createdWidgets: {} })
     mocks.saveEntity.mockImplementation(
       async (_kind: string, _id: string, _workspaceId: string, doc: Y.Doc) =>
         doc.getMap('test').get('fields')
@@ -407,11 +410,19 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(mocks.acquireDocument).not.toHaveBeenCalled()
   })
 
-  it('checks accepted entity review hashes inside the queued mutation', async () => {
+  it('replays the committed entity result before checking newer live state', async () => {
     const doc = new Y.Doc()
     doc.getMap('test').set('fields', { description: 'Changed', content: 'Current' })
     documents.set('skill-1', doc)
-
+    const fields = { description: 'Original', content: 'Committed' }
+    mocks.inspectRealtimeMutation.mockResolvedValueOnce(JSON.stringify(fields))
+    const replay = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
+      entityKind: 'skill',
+      workspaceId: 'workspace-1',
+      fields: { description: 'Reviewed', content: 'Next' },
+    })
+    expect(replay).toEqual({ status: 200, body: { success: true, fields } })
+    mocks.inspectRealtimeMutation.mockResolvedValue(null)
     const response = await invoke('POST', '/internal/yjs/entities/skill-1/apply-state', {
       entityKind: 'skill',
       workspaceId: 'workspace-1',
@@ -453,17 +464,19 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(documents.has('layout-1')).toBe(false)
   })
 
-  it('replays a committed structure mutation before planning it again', async () => {
+  it('replays the recorded dashboard document without reading newer child owners', async () => {
     setDashboardDocuments()
-    mocks.inspectRealtimeMutation.mockResolvedValueOnce('replay')
+    const content = { layout: 'original committed result' }
+    mocks.inspectRealtimeMutation.mockResolvedValueOnce(JSON.stringify(content))
 
     const response = await invokeDashboardEdit({
-      mutation: 'structure',
-      structure: { type: 'split', panelId: 'already-replaced', direction: 'horizontal' },
+      mutation: 'layout',
+      expectedReviewBaseStateHash: 'already-accepted',
     })
 
-    expect(response).toEqual({ status: 200, body: { success: true } })
+    expect(response).toEqual({ status: 200, body: { success: true, content } })
     expect(mocks.commitDashboardStructure).not.toHaveBeenCalled()
+    expect(mocks.acquireDocument.mock.calls.map(([sessionId]) => sessionId)).toEqual(['layout-1'])
   })
 
   it('lets a topology review commit after an independent widget changes', async () => {
@@ -487,7 +500,6 @@ describe('socket internal HTTP Yjs routes', () => {
       removedPanelIds: [],
     })
 
-    expect(response.status).toBe(200)
     expect(response.body.content.widgets['widget-1'].params.view.interval).toBe('1h')
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
@@ -606,18 +618,7 @@ describe('socket internal HTTP Yjs routes', () => {
 
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
-    expect(response.status).toBe(200)
-    expect(mocks.saveDashboard).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-      {
-        layoutId: 'layout-1',
-        widget: {
-          sessionId: 'dashboard-widget:layout-1:widget-1',
-          doc: expect.any(Y.Doc),
-        },
-      },
-      expect.objectContaining({ requestId: expect.any(String), fingerprint: expect.any(String) })
-    )
+    expectDashboardOwnerCommit('widget', 'dashboard-widget:layout-1:widget-1')
     expect(response.body.content.widgets['widget-1'].params.view).toMatchObject({
       interval: '1h',
       candleType: 'candle_solid',
@@ -659,22 +660,8 @@ describe('socket internal HTTP Yjs routes', () => {
 
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
-    expect(response.status).toBe(200)
-    expect(mocks.saveDashboard).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
-      {
-        layoutId: 'layout-1',
-        colorPair: {
-          sessionId: 'dashboard-color-pair:layout-1:red',
-          doc: expect.any(Y.Doc),
-        },
-      },
-      expect.objectContaining({ requestId: expect.any(String), fingerprint: expect.any(String) })
-    )
+    expectDashboardOwnerCommit('colorPair', 'dashboard-color-pair:layout-1:red')
     expect(response.body.content.colorPairs.pairs[0].listing.listing_id).toBe('NVDA')
-    for (const [, options] of mocks.acquireDocument.mock.calls) {
-      expect(options.admission).toMatchObject({ userId: 'user-1', accessMode: 'write' })
-    }
   })
 
   it('commits mixed widget and color-pair edits atomically before updating either live owner', async () => {

@@ -43,7 +43,7 @@ import {
 } from '@/lib/yjs/entity-state'
 import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import {
-  prepareRealtimeMutationTransaction,
+  beginRealtimeMutationTransaction,
   type RealtimeMutation,
 } from '@/lib/yjs/server/mutation-idempotency'
 import {
@@ -251,7 +251,7 @@ export async function saveSavedEntityYjsDocToDb(
   const canonicalFields = getEntityFields(doc, entityKind)
   try {
     const persistedFields = await db.transaction(async (tx) => {
-      await prepareRealtimeMutationTransaction(tx, options?.mutation, 30_000)
+      const complete = await beginRealtimeMutationTransaction(tx, options?.mutation, 30_000)
       await lockSavedEntityList(tx, entityKind, workspaceId)
       if (options?.identity) {
         await renameSavedEntityIdentityInTx(tx, {
@@ -261,7 +261,14 @@ export async function saveSavedEntityYjsDocToDb(
           name: options.identity.name,
         })
       }
-      return persistSavedEntityStateInTx(tx, entityKind, entityId, canonicalFields, workspaceId)
+      const result = await persistSavedEntityStateInTx(
+        tx,
+        entityKind,
+        entityId,
+        canonicalFields,
+        workspaceId
+      )
+      return complete(result)
     })
     if (entityKind === 'watchlist' && isEqual(getEntityFields(doc, entityKind), canonicalFields)) {
       seedEntitySession(doc, { entityKind, payload: persistedFields }, YJS_ORIGINS.SYSTEM)

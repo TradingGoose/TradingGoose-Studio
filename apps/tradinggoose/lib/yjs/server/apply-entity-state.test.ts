@@ -19,7 +19,7 @@ const mockDbTransaction = vi.fn()
 const mockDbExecute = vi.fn()
 const mockDbUpdate = vi.fn()
 const mockPersistDashboardWidgetAndColorPairDocuments = vi.fn()
-const mockClaimRealtimeMutation = vi.fn()
+const mockBeginRealtimeMutation = vi.fn()
 const mockNormalizeEntityFields = vi.fn((_entityKind, fields) => fields)
 const mockLockSavedEntityList = vi.fn()
 class MockDashboardLayoutOperationError extends Error {
@@ -105,7 +105,7 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 vi.mock('@/lib/yjs/server/mutation-idempotency', () => ({
-  prepareRealtimeMutationTransaction: mockClaimRealtimeMutation,
+  beginRealtimeMutationTransaction: mockBeginRealtimeMutation,
 }))
 
 const {
@@ -151,7 +151,7 @@ describe('applySavedEntityState', () => {
     events.length = 0
     mockNormalizeEntityFields.mockImplementation((_entityKind, fields) => fields)
     mockLockSavedEntityList.mockResolvedValue(undefined)
-    mockClaimRealtimeMutation.mockResolvedValue(undefined)
+    mockBeginRealtimeMutation.mockResolvedValue(async (result: unknown) => result)
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
     })
@@ -209,7 +209,6 @@ describe('applySavedEntityState', () => {
     mockLockSavedEntityList.mockImplementationOnce(async (_tx, entityKind, workspaceId) => {
       events.push(`lock:${entityKind}:${workspaceId}`)
     })
-    mockClaimRealtimeMutation.mockImplementationOnce(async () => events.push('timeout', 'claim'))
     mockRenameSavedEntityIdentityInTx.mockImplementationOnce(async () => {
       events.push('rename')
       return { name: 'Renamed', updatedAt: new Date('2026-07-13T12:00:00.000Z') }
@@ -222,11 +221,6 @@ describe('applySavedEntityState', () => {
     try {
       await saveSavedEntityYjsDocToDb('watchlist', 'watchlist-1', 'workspace-1', doc, {
         identity: { name: 'Renamed' },
-        mutation: {
-          requestId: 'request-1',
-          deadlineAt: Date.now() + 40_000,
-          fingerprint: 'fingerprint-1',
-        },
       })
     } finally {
       doc.destroy()
@@ -241,18 +235,7 @@ describe('applySavedEntityState', () => {
         name: 'Renamed',
       }
     )
-    expect(mockClaimRealtimeMutation).toHaveBeenCalledWith(
-      expect.objectContaining({ update: mockDbUpdate }),
-      expect.objectContaining({ requestId: 'request-1' }),
-      30_000
-    )
-    expect(events).toEqual([
-      'timeout',
-      'claim',
-      'lock:watchlist:workspace-1',
-      'rename',
-      'materialize',
-    ])
+    expect(events).toEqual(['lock:watchlist:workspace-1', 'rename', 'materialize'])
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {

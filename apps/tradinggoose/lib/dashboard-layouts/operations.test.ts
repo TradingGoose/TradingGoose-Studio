@@ -118,14 +118,14 @@ const m = vi.hoisted(() => {
         tx ? mutate(tx) : transaction(mutate)
       ),
     },
-    claimRealtimeMutation: vi.fn(),
+    beginRealtimeMutation: vi.fn(async () => async (result: unknown) => result),
   }
 })
 
 vi.mock('@tradinggoose/db', () => ({ db: m.db }))
 vi.mock('@tradinggoose/db/schema', () => m.tables)
 vi.mock('@/lib/yjs/server/mutation-idempotency', () => ({
-  prepareRealtimeMutationTransaction: m.claimRealtimeMutation,
+  beginRealtimeMutationTransaction: m.beginRealtimeMutation,
 }))
 vi.mock('drizzle-orm', () => ({
   and: (...conditions: unknown[]) => ({ operator: 'and', conditions }),
@@ -245,7 +245,7 @@ describe('dashboard layout operations', () => {
   it('materializes a replacement from source state persisted during drain', async () => {
     let source = { pairColor: 'red', params: null }
     m.returningResults.push([{ id: 'layout-1' }], [])
-    await runYjsRevocationTransaction(
+    const result = await runYjsRevocationTransaction(
       { sessionIds: ['dashboard-widget:layout-1:widget-1'] },
       async () => {
         source = { ...source, pairColor: 'blue' }
@@ -281,6 +281,9 @@ describe('dashboard layout operations', () => {
     expect(m.mutations[1]?.values).toEqual([
       expect.objectContaining({ pairColor: 'blue', params: null }),
     ])
+    expect(result).toEqual({
+      createdWidgets: { 'widget-2': { pairColor: 'blue', params: null } },
+    })
   })
 
   it('persists only the widget row through the widget owner', async () => {
@@ -324,14 +327,18 @@ describe('dashboard layout operations', () => {
     expect(m.transaction).toHaveBeenCalledTimes(transactionCalls)
   })
 
-  it('upserts or deletes only the selected color-pair row', async () => {
+  it('persists widget and color-pair owners in one transaction', async () => {
     m.selectResults.push([layoutRow()])
+    m.returningResults.push([{ id: 'widget-1' }])
     await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
+      widget: {
+        identityId: 'widget-1',
+        content: { pairColor: 'red', params: { view: { interval: '4h' } } },
+      },
       colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
     })
-    expect(m.mutations).toEqual([
-      expect.objectContaining({ kind: 'insert', table: 'layout_pairs' }),
-    ])
+    expect(m.transaction).toHaveBeenCalledOnce()
+    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
 
     m.mutations.length = 0
     m.selectResults.push([layoutRow()])
@@ -341,34 +348,6 @@ describe('dashboard layout operations', () => {
     expect(m.mutations).toEqual([
       expect.objectContaining({ kind: 'delete', table: 'layout_pairs' }),
     ])
-  })
-
-  it('persists widget and color-pair owners in one transaction', async () => {
-    m.selectResults.push([layoutRow()])
-    m.returningResults.push([{ id: 'widget-1' }])
-
-    await persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {
-      widget: {
-        identityId: 'widget-1',
-        content: { pairColor: 'red', params: { view: { interval: '4h' } } },
-      },
-      colorPair: { color: 'red', content: { watchlistId: 'watchlist-1' } },
-    })
-
-    expect(m.transaction).toHaveBeenCalledOnce()
-    expect(m.mutations.map(({ table }) => table)).toEqual(['layout_widgets', 'layout_pairs'])
-    m.mutations.length = 0
-    const mutation = {
-      requestId: 'request-1',
-      deadlineAt: Date.now() + 40_000,
-      fingerprint: 'fingerprint-1',
-    }
-    m.selectResults.push([layoutRow()])
-    await expect(
-      persistDashboardWidgetAndColorPairDocuments(scope, 'layout-1', {}, mutation)
-    ).resolves.toEqual({})
-    expect(m.claimRealtimeMutation).toHaveBeenCalledWith(m.store, mutation, 30_000)
-    expect(m.mutations).toEqual([])
   })
 
   it('fences the layout root before discovering and fencing child sessions', async () => {

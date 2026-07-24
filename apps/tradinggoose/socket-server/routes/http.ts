@@ -4,6 +4,7 @@ import {
   McpServerSecretPlaceholderError,
   normalizeEntityFields,
   resolveMcpServerSecretPlaceholders,
+  serializeEntityDocument,
 } from '@/lib/copilot/entity-documents'
 import {
   buildDashboardColorPairDescriptor,
@@ -29,7 +30,10 @@ import {
   hashServerToolReviewBase,
 } from '@/lib/copilot/tools/server/base-tool'
 import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
-import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
+import {
+  preserveDashboardLayoutCredentialPlaceholders,
+  serializeDashboardLayoutForCopilot,
+} from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
   buildDashboardWidgetReviewBase,
@@ -75,6 +79,7 @@ import {
   persistStagedDocuments,
 } from '@/socket-server/yjs/upstream-utils'
 import {
+  applyDashboardLayoutEditPlan,
   applyDashboardLayoutStructureMutation,
   applyLayoutEditDocument,
   type DashboardLayoutEditPlan,
@@ -432,16 +437,20 @@ async function applySavedEntityThroughStaging(input: {
   mutate: (staged: Y.Doc) => void
 }): Promise<Record<string, unknown>> {
   input.validate?.(input.doc)
+  const mutation: RealtimeMutation = {
+    ...input.mutation,
+    serializeResult: (fields) => serializeEntityDocument(input.entityKind, fields),
+  }
   const persisted = await persistStagedDocuments(
     [{ doc: input.doc, mutate: input.mutate }],
     ([staged]) =>
       saveSavedEntityYjsDocToDb(input.entityKind, input.entityId, input.workspaceId, staged!, {
         ...(input.identity ? { identity: input.identity } : {}),
-        mutation: input.mutation,
+        mutation,
       })
   )
   void refreshActiveEntityListSession(input.entityKind, input.workspaceId).catch(() => undefined)
-  return persisted
+  return JSON.parse(serializeEntityDocument(input.entityKind, persisted))
 }
 
 async function handleInternalYjsEntityListMembersRequest(
@@ -516,9 +525,8 @@ async function handleInternalYjsEntityApplyRequest(
     }
     const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, body.workspaceId)
     const fields = await withBootstrappedDocument(descriptor, actorUserId, async (doc) => {
-      if ((await inspectRealtimeMutation(mutation)) === 'replay') {
-        return getEntityFields(doc, body.entityKind)
-      }
+      const replay = await inspectRealtimeMutation(mutation)
+      if (replay !== null) return JSON.parse(replay) as Record<string, unknown>
       return applySavedEntityThroughStaging({
         doc,
         entityId,
@@ -589,7 +597,7 @@ async function commitDashboardStructurePlan(input: {
   ownerUserId: string
   plan: DashboardLayoutEditPlan
   mutation: RealtimeMutation
-}): Promise<void> {
+}) {
   const widgetDescriptor = (identityId: string) =>
     buildDashboardWidgetDescriptor({
       layoutId: input.layoutId,
@@ -613,7 +621,7 @@ async function commitDashboardStructurePlan(input: {
   const removedSessionIds = input.plan.removedIdentityIds.map(
     (identityId) => widgetDescriptor(identityId).yjsSessionId
   )
-  await persistStagedDocuments(
+  const committed = await persistStagedDocuments(
     [
       {
         doc: input.layoutDoc,
@@ -647,6 +655,7 @@ async function commitDashboardStructurePlan(input: {
     input.workspaceId,
     input.ownerUserId
   ).catch(() => undefined)
+  return committed
 }
 
 async function handleInternalDashboardEditRequest(
@@ -680,16 +689,8 @@ async function handleInternalDashboardEditRequest(
       ownerUserId,
     })
     const committed = await withBootstrappedDocument(descriptor, actorUserId, async (layoutDoc) => {
-      if ((await inspectRealtimeMutation(mutation)) === 'replay') {
-        return body.mutation === 'structure'
-          ? undefined
-          : readDashboardProjectionFromLiveOwners({
-              layoutDoc,
-              layoutId: entityId,
-              workspaceId,
-              ownerUserId,
-            })
-      }
+      const replay = await inspectRealtimeMutation(mutation)
+      if (replay !== null) return JSON.parse(replay) ?? undefined
       if (body.mutation === 'layout') {
         if (typeof body.entityDocument !== 'string') {
           throw new InvalidInternalYjsRequestError('entityDocument is required')
@@ -697,38 +698,55 @@ async function handleInternalDashboardEditRequest(
         const removedPanelIds = Array.isArray(body.removedPanelIds)
           ? body.removedPanelIds.filter((value): value is string => typeof value === 'string')
           : []
-        const current = readDashboardLayoutDocument(layoutDoc)
-        const plan = applyLayoutEditDocument(current, body.entityDocument, removedPanelIds)
+        const current = await readDashboardProjectionFromLiveOwners({
+          layoutDoc,
+          layoutId: entityId,
+          workspaceId,
+          ownerUserId,
+        })
+        const plan = applyLayoutEditDocument(
+          { layout: current.layout },
+          body.entityDocument,
+          removedPanelIds
+        )
         assertAcceptedServerToolReviewBase(
           { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
-          hashServerToolReviewBase(buildDashboardLayoutReviewBase(current, plan))
+          hashServerToolReviewBase(buildDashboardLayoutReviewBase({ layout: current.layout }, plan))
         )
-        await commitDashboardStructurePlan({
+        const next = applyDashboardLayoutEditPlan(current, plan)
+        const commit: RealtimeMutation = {
+          ...mutation,
+          serializeResult: ({ createdWidgets }) =>
+            serializeDashboardLayoutForCopilot({
+              ...next,
+              widgets: { ...next.widgets, ...createdWidgets },
+            }),
+        }
+        const result = await commitDashboardStructurePlan({
           layoutDoc,
           layoutId: entityId,
           workspaceId,
           ownerUserId,
           plan,
-          mutation,
+          mutation: commit,
         })
-        return readDashboardProjectionFromLiveOwners({
-          layoutDoc,
-          layoutId: entityId,
-          workspaceId,
-          ownerUserId,
-        })
+        return JSON.parse(commit.serializeResult!(result)!)
       }
       if (body.mutation === 'structure') {
         const structure = normalizeDashboardLayoutStructureMutation(body.structure)
         const current = readDashboardLayoutDocument(layoutDoc)
         const plan = applyDashboardLayoutStructureMutation(current.layout, structure)
+        const commit: RealtimeMutation = {
+          ...mutation,
+          serializeResult: () => 'null',
+        }
         await commitDashboardStructurePlan({
           layoutDoc,
           layoutId: entityId,
           workspaceId,
           ownerUserId,
           plan,
-          mutation,
+          mutation: commit,
         })
         return
       }
@@ -839,6 +857,15 @@ async function handleInternalDashboardEditRequest(
                   ),
               })
             }
+            const commit = {
+              ...mutation,
+              serializeResult: () =>
+                serializeDashboardLayoutForCopilot({
+                  ...current,
+                  widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
+                  colorPairs: planned.colorPairs,
+                }),
+            }
             await persistStagedDocuments(targets, (staged) =>
               saveDashboardYjsDocsToDb(
                 scope,
@@ -851,14 +878,10 @@ async function handleInternalDashboardEditRequest(
                     ])
                   ),
                 },
-                mutation
+                commit
               )
             )
-            return {
-              ...current,
-              widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
-              colorPairs: planned.colorPairs,
-            }
+            return JSON.parse(commit.serializeResult())
           }
 
           return pairDescriptor

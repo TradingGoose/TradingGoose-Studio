@@ -7,7 +7,7 @@ import {
   buildDashboardWidgetSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import {
-  prepareRealtimeMutationTransaction,
+  beginRealtimeMutationTransaction,
   type RealtimeMutation,
 } from '@/lib/yjs/server/mutation-idempotency'
 import {
@@ -315,9 +315,12 @@ export async function withDashboardLayoutOwnerLock<T>(
   mutation?: RealtimeMutation
 ): Promise<T> {
   const mutate = async (store: DashboardLayoutWriteStore) => {
-    if (mutation) await prepareRealtimeMutationTransaction(store, mutation, 60_000)
+    const complete = mutation
+      ? await beginRealtimeMutationTransaction(store, mutation, 60_000)
+      : undefined
     await lockDashboardLayoutOwner(store, scope)
-    return callback(store)
+    const result = await callback(store)
+    return complete ? complete(result) : result
   }
   return tx ? mutate(tx) : db.transaction(mutate)
 }
@@ -373,17 +376,18 @@ export async function commitDashboardLayoutStructure(
   commit: DashboardLayoutStructuralCommit,
   tx?: DashboardLayoutWriteStore,
   mutation?: RealtimeMutation
-): Promise<void> {
+) {
   const layout = normalizeDashboardLayoutTopology(commit.layout)
   const removedIdentityIds = [...new Set(commit.removedIdentityIds)]
   if (removedIdentityIds.length > 0 && !tx) {
     throw new DashboardLayoutOperationError(500, 'Widget removal requires a revocation transaction')
   }
 
-  await withDashboardLayoutOwnerLock(
+  return withDashboardLayoutOwnerLock(
     scope,
     async (store) => {
-      const createdWidgets = []
+      const createdRows = []
+      const createdWidgets: Record<string, DashboardWidgetDocument> = {}
       for (const binding of commit.createdBindings) {
         const sourceId = binding.source?.identityId
         const sourceDocument =
@@ -392,10 +396,12 @@ export async function commitDashboardLayoutStructure(
             : sourceId
               ? commit.retainedSourceDocuments.get(sourceId)
               : undefined
-        createdWidgets.push({
+        const document = materializeDashboardWidgetBinding(binding, sourceDocument)
+        createdWidgets[binding.identityId] = document
+        createdRows.push({
           id: binding.identityId,
           layoutId,
-          ...materializeDashboardWidgetBinding(binding, sourceDocument),
+          ...document,
         })
       }
       const updated = await store
@@ -404,7 +410,7 @@ export async function commitDashboardLayoutStructure(
         .where(ownedWhere(scope, layoutId))
         .returning({ id: layoutMaps.id })
       if (updated.length === 0) throw new DashboardLayoutOperationError(404, 'Layout not found')
-      if (createdWidgets.length > 0) await store.insert(layoutWidgets).values(createdWidgets)
+      if (createdRows.length > 0) await store.insert(layoutWidgets).values(createdRows)
       if (removedIdentityIds.length > 0) {
         await store
           .delete(layoutWidgets)
@@ -412,6 +418,7 @@ export async function commitDashboardLayoutStructure(
             and(eq(layoutWidgets.layoutId, layoutId), inArray(layoutWidgets.id, removedIdentityIds))
           )
       }
+      return { createdWidgets }
     },
     tx,
     mutation
@@ -452,7 +459,7 @@ export async function persistDashboardWidgetAndColorPairDocuments(
     throw new DashboardLayoutOperationError(400, 'Dashboard document commit is empty')
   }
   return db.transaction(async (tx) => {
-    await prepareRealtimeMutationTransaction(tx, mutation, 30_000)
+    const complete = await beginRealtimeMutationTransaction(tx, mutation, 30_000)
     const layout = await readOwnedLayoutRow(scope, layoutId, tx)
     const result: { widget?: DashboardWidgetDocument; colorPair?: PairColorContext } = {}
     if (commit.widget) {
@@ -480,7 +487,7 @@ export async function persistDashboardWidgetAndColorPairDocuments(
       await writeDashboardColorPairDocument(tx, layoutId, color, normalized)
       result.colorPair = normalized
     }
-    return result
+    return complete(result)
   })
 }
 

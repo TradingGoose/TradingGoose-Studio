@@ -6,12 +6,13 @@ import { and, eq, sql } from 'drizzle-orm'
 const MUTATION_NAMESPACE = 'yjs-mutation'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-type MutationStore = Pick<typeof db, 'execute' | 'insert' | 'select'>
+type MutationStore = Pick<typeof db, 'execute' | 'insert' | 'select' | 'update'>
 
 export type RealtimeMutation = {
   requestId: string
   deadlineAt: number
   fingerprint: string
+  serializeResult?: (result: any) => string | undefined
 }
 
 function fail(status: number, message: string): never {
@@ -51,17 +52,16 @@ export function createRealtimeMutation(input: {
   }
 }
 
-async function recordedFingerprint(
+async function recordedMutation(
   store: Pick<MutationStore, 'select'>,
   requestId: string
-): Promise<unknown> {
+): Promise<{ fingerprint?: unknown; result?: unknown } | undefined> {
   const [recorded] = await store
     .select({ result: idempotencyKey.result })
     .from(idempotencyKey)
     .where(and(eq(idempotencyKey.key, requestId), eq(idempotencyKey.namespace, MUTATION_NAMESPACE)))
     .limit(1)
-  const result = recorded?.result as { fingerprint?: unknown } | undefined
-  return result?.fingerprint
+  return recorded?.result as { fingerprint?: unknown; result?: unknown } | undefined
 }
 
 export function getRealtimeMutationTransactionTimeout(
@@ -75,47 +75,68 @@ export function getRealtimeMutationTransactionTimeout(
   return Math.min(maximumMs, remaining)
 }
 
-export async function inspectRealtimeMutation(
-  mutation: RealtimeMutation
-): Promise<'apply' | 'replay'> {
-  const recorded = await recordedFingerprint(db, mutation.requestId)
-  if (recorded === mutation.fingerprint) return 'replay'
-  if (recorded !== undefined) {
+export async function inspectRealtimeMutation(mutation: RealtimeMutation): Promise<string | null> {
+  const recorded = await recordedMutation(db, mutation.requestId)
+  if (recorded?.fingerprint === mutation.fingerprint) {
+    if (typeof recorded.result !== 'string') fail(500, 'Realtime mutation result is incomplete')
+    return recorded.result
+  }
+  if (recorded?.fingerprint !== undefined) {
     fail(409, 'Realtime mutation request ID was reused')
   }
   getRealtimeMutationTransactionTimeout(mutation.deadlineAt, Number.POSITIVE_INFINITY)
-  return 'apply'
+  return null
 }
 
-export async function prepareRealtimeMutationTransaction(
+export async function beginRealtimeMutationTransaction(
   store: MutationStore,
   mutation: RealtimeMutation | undefined,
   maximumMs: number
-): Promise<void> {
+): Promise<<T>(result: T) => Promise<T>> {
   const timeoutMs = mutation
     ? getRealtimeMutationTransactionTimeout(mutation.deadlineAt, maximumMs)
     : maximumMs
   await store.execute(
     sql`select set_config('transaction_timeout', ${String(Math.floor(timeoutMs))}, true)`
   )
-  if (!mutation) return
-  const inserted = await store
-    .insert(idempotencyKey)
-    .values({
-      key: mutation.requestId,
-      namespace: MUTATION_NAMESPACE,
-      result: { fingerprint: mutation.fingerprint },
-    })
-    .onConflictDoNothing({
-      target: [idempotencyKey.key, idempotencyKey.namespace],
-    })
-    .returning({ key: idempotencyKey.key })
-  if (inserted.length > 0) return
-  const recorded = await recordedFingerprint(store, mutation.requestId)
-  fail(
-    recorded === mutation.fingerprint ? 425 : 409,
-    recorded === mutation.fingerprint
-      ? 'Realtime mutation replay required'
-      : 'Realtime mutation request ID was reused'
-  )
+  if (mutation) {
+    const inserted = await store
+      .insert(idempotencyKey)
+      .values({
+        key: mutation.requestId,
+        namespace: MUTATION_NAMESPACE,
+        result: { fingerprint: mutation.fingerprint },
+      })
+      .onConflictDoNothing({
+        target: [idempotencyKey.key, idempotencyKey.namespace],
+      })
+      .returning({ key: idempotencyKey.key })
+    if (inserted.length === 0) {
+      const recorded = await recordedMutation(store, mutation.requestId)
+      fail(
+        recorded?.fingerprint === mutation.fingerprint ? 425 : 409,
+        recorded?.fingerprint === mutation.fingerprint
+          ? 'Realtime mutation replay required'
+          : 'Realtime mutation request ID was reused'
+      )
+    }
+  }
+  return async (result) => {
+    if (mutation) {
+      const serialized = mutation.serializeResult?.(result)
+      if (serialized === undefined) fail(500, 'Realtime mutation result serializer is required')
+      await store
+        .update(idempotencyKey)
+        .set({
+          result: { fingerprint: mutation.fingerprint, result: serialized },
+        })
+        .where(
+          and(
+            eq(idempotencyKey.key, mutation.requestId),
+            eq(idempotencyKey.namespace, MUTATION_NAMESPACE)
+          )
+        )
+    }
+    return result
+  }
 }
