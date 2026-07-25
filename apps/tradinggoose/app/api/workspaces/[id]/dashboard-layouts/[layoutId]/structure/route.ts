@@ -10,13 +10,20 @@ export async function POST(
   const userId = (await getSession(request.headers))?.user?.id
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  let mutation: unknown
+  try {
+    mutation = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
   const { id: workspaceId, layoutId } = await params
   try {
     await applyDashboardStructureMutationInSocketServer({
       entityId: layoutId,
       workspaceId,
       ownerUserId: userId,
-      mutation: await request.json().catch(() => null),
+      mutation,
     })
     return new NextResponse(null, { status: 204 })
   } catch (error) {
