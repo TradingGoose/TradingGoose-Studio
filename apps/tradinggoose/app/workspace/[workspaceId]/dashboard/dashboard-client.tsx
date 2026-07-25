@@ -272,6 +272,7 @@ export function DashboardClient({
   const { layouts } = dashboardLayoutList
   const selectedLayout = layouts.find((layout) => layout.isActive) ?? null
   const selectedLayoutId = selectedLayout?.id ?? null
+  const selectedLayoutName = selectedLayout?.name
   const selectedInitialTopology = selectedLayoutId === layoutId ? initialTopology : null
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
@@ -353,15 +354,15 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
-      ...(selectedLayout
+      ...(selectedLayoutId
         ? {
-            dashboardLayoutId: selectedLayout.id,
-            dashboardLayoutName: selectedLayout.name,
+            dashboardLayoutId: selectedLayoutId,
+            dashboardLayoutName: selectedLayoutName,
           }
         : {}),
       dashboardLayoutOwnerUserId: ownerUserId,
     }),
-    [ownerUserId, selectedLayout, workspaceId]
+    [ownerUserId, selectedLayoutId, selectedLayoutName, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(

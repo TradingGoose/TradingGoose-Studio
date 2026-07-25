@@ -1,7 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
+import type {
+  DashboardLayoutListMutation,
+  DashboardLayoutTab,
+} from '@/lib/dashboard-layouts/operations'
 import {
   getDashboardLayoutMap,
   readDashboardLayoutTopology,
@@ -9,10 +12,6 @@ import {
 import type { EntityListMember } from '@/lib/yjs/entity-session'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import {
-  type DashboardLayoutListMutation,
-  mutateDashboardLayoutListAction,
-} from '@/app/workspace/[workspaceId]/dashboard/actions'
 import {
   type DashboardLayoutStructureMutation,
   type DashboardLayoutTopologyNode,
@@ -43,8 +42,6 @@ function toLayoutListEntry(member: EntityListMember) {
 
 type DashboardLayoutListAttempt = {
   scopeKey: string
-  layouts: DashboardLayoutTab[]
-  revision?: number
 }
 
 export function useDashboardLayoutList(
@@ -62,51 +59,42 @@ export function useDashboardLayoutList(
   const currentMutation =
     mutation?.scopeKey === scopeKey && mutationRef.current?.scopeKey === scopeKey ? mutation : null
 
-  const submit = async (
-    listMutation: DashboardLayoutListMutation,
-    pendingLayouts: DashboardLayoutTab[] = layouts
-  ) => {
+  const submit = async (listMutation: DashboardLayoutListMutation) => {
     if (mutationRef.current?.scopeKey === scopeKey) return
-    const attempt: DashboardLayoutListAttempt = { scopeKey, layouts: pendingLayouts }
+    const attempt: DashboardLayoutListAttempt = { scopeKey }
     mutationRef.current = attempt
     setMutation(attempt)
     try {
-      const committedLayouts = await mutateDashboardLayoutListAction(workspaceId, listMutation)
-      if (mutationRef.current !== attempt) return
-      attempt.layouts = committedLayouts
-      attempt.revision = Math.max(...committedLayouts.map((layout) => Date.parse(layout.updatedAt)))
-      setMutation({ ...attempt })
+      const response = await fetch(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/dashboard-layouts`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(listMutation),
+        }
+      )
+      if (!response.ok) {
+        throw new Error(`Failed to update dashboard layouts (${response.status})`)
+      }
     } catch (error) {
       console.error('Failed to update dashboard layouts:', error)
-      if (mutationRef.current !== attempt) return
-      mutationRef.current = null
-      setMutation(null)
+    } finally {
+      if (mutationRef.current === attempt) {
+        mutationRef.current = null
+        setMutation(null)
+      }
     }
   }
 
-  useEffect(() => {
-    const current = mutationRef.current
-    const liveRevision = Math.max(0, ...liveLayouts.map((layout) => Date.parse(layout.updatedAt)))
-    if (current?.revision && session.hasLiveSnapshot && liveRevision >= current.revision) {
-      mutationRef.current = null
-      setMutation(null)
-    }
-  }, [currentMutation, liveLayouts, scopeKey, session.hasLiveSnapshot])
-
   return {
-    layouts: currentMutation?.layouts ?? layouts,
+    layouts,
     canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
     isBusy: currentMutation !== null,
     createLayout: () => submit({ type: 'create' }),
     activateLayout: (layoutId: string) => submit({ type: 'activate', layoutId }),
     renameLayout: (layoutId: string, name: string) => submit({ type: 'rename', layoutId, name }),
     deleteLayout: (layoutId: string) => submit({ type: 'delete', layoutId }),
-    reorderLayouts: (layoutOrder: string[]) => {
-      const pending = [...layouts].sort(
-        (left, right) => layoutOrder.indexOf(left.id) - layoutOrder.indexOf(right.id)
-      )
-      return submit({ type: 'reorder', layoutOrder }, pending)
-    },
+    reorderLayouts: (layoutOrder: string[]) => submit({ type: 'reorder', layoutOrder }),
   }
 }
 

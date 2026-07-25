@@ -44,6 +44,13 @@ export type DashboardLayoutTab = {
   updatedAt: string
 }
 
+export type DashboardLayoutListMutation =
+  | { type: 'create' }
+  | { type: 'activate'; layoutId: string }
+  | { type: 'rename'; layoutId: string; name: string }
+  | { type: 'delete'; layoutId: string }
+  | { type: 'reorder'; layoutOrder: string[] }
+
 export type DashboardLayoutProjection = DashboardLayoutTab & {
   topology: DashboardLayoutTopologyNode
 }

@@ -28,10 +28,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const dashboardClientMocks = vi.hoisted(() => ({
-  mutateList: vi.fn(),
-}))
-let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockDashboardLayoutList: {
   layouts: DashboardLayoutTab[]
@@ -120,10 +116,6 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
   }),
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
-  mutateDashboardLayoutListAction: dashboardClientMocks.mutateList,
-}))
-
 vi.mock('@/widgets/utils/watchlist-yjs', () => ({
   useWatchlistYjsDocument: () => ({
     items: [],
@@ -174,15 +166,8 @@ vi.mock('@/global-navbar', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
-  LayoutTabs: ({
-    layouts,
-    onSelect,
-  }: {
-    layouts: LayoutTab[]
-    onSelect: (layoutId: string) => void
-  }) => {
+  LayoutTabs: ({ layouts }: { layouts: LayoutTab[] }) => {
     mockLayoutTabsLayouts = layouts
-    mockSelectLayout = onSelect
     return <div data-testid='layout-tabs' />
   },
 }))
@@ -310,7 +295,6 @@ describe('DashboardClient', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     vi.clearAllMocks()
-    mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockDashboardLayoutList = null
     mockLayoutDocumentLayoutId = null
@@ -467,21 +451,6 @@ describe('DashboardClient', () => {
     } finally {
       consoleError.mockRestore()
     }
-  })
-
-  it('projects a committed activation before the live layout list arrives', async () => {
-    dashboardClientMocks.mutateList.mockResolvedValueOnce(createLayouts('layout-b', 1))
-    await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
-
-    await act(async () => {
-      await mockSelectLayout?.('layout-b')
-    })
-
-    expect(dashboardClientMocks.mutateList).toHaveBeenCalledWith('ws-a', {
-      type: 'activate',
-      layoutId: 'layout-b',
-    })
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
   })
 
   it('follows the live active layout when another client activates and deletes the previous one', async () => {
