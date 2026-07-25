@@ -57,9 +57,9 @@ export function useDashboardLayoutList(
   const [mutation, setMutation] = useState<DashboardLayoutListAttempt | null>(null)
   const mutationRef = useRef<DashboardLayoutListAttempt | null>(null)
   if (mutationRef.current?.scopeKey !== scopeKey) mutationRef.current = null
-  const currentMutation =
-    mutation?.scopeKey === scopeKey && mutationRef.current?.scopeKey === scopeKey ? mutation : null
+  const currentMutation = mutation?.scopeKey === scopeKey && mutationRef.current ? mutation : null
   const hasConverged =
+    currentMutation !== mutationRef.current &&
     currentMutation?.layouts &&
     Math.max(...liveLayouts.map(({ updatedAt }) => Date.parse(updatedAt))) >=
       Math.max(...currentMutation.layouts.map(({ updatedAt }) => Date.parse(updatedAt)))
@@ -68,6 +68,8 @@ export function useDashboardLayoutList(
   const submit = async (listMutation: DashboardLayoutListMutation) => {
     if (mutationRef.current?.scopeKey === scopeKey) return
     const attempt: DashboardLayoutListAttempt = { scopeKey }
+    if (listMutation.type === 'reorder')
+      attempt.layouts = listMutation.layoutOrder.map((id) => layouts.find((tab) => tab.id === id)!)
     mutationRef.current = attempt
     setMutation(attempt)
     try {
@@ -79,12 +81,10 @@ export function useDashboardLayoutList(
           body: JSON.stringify(listMutation),
         }
       )
-      if (!response.ok) {
-        throw new Error(`Failed to update dashboard layouts (${response.status})`)
-      }
-      const committedLayouts = (await response.json()) as DashboardLayoutTab[]
+      if (!response.ok) throw new Error(`Failed to update dashboard layouts (${response.status})`)
+      attempt.layouts = (await response.json()) as DashboardLayoutTab[]
       if (mutationRef.current !== attempt) return
-      setMutation({ ...attempt, layouts: committedLayouts })
+      setMutation({ ...attempt })
     } catch (error) {
       console.error('Failed to update dashboard layouts:', error)
       if (mutationRef.current !== attempt) return

@@ -184,7 +184,7 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.resizeReconcileVersion).toBe(0)
   })
 
-  it('projects acknowledged list mutations until Yjs converges', async () => {
+  it('projects list mutations until Yjs converges', async () => {
     let resolveMutation!: (result: unknown) => void
     setLiveList()
     const committed = layoutTabs(['layout-b', 'layout-a'], 1)
@@ -200,7 +200,7 @@ describe('useDashboardLayoutDocument live fields', () => {
       layoutOrder: ['layout-b', 'layout-a'],
     })
     expect(mockFetch.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' })
-    expect(latestList.layouts).toEqual(initialLayouts)
+    expect(latestList.layouts).toEqual([initialLayouts[1], initialLayouts[0]])
     expect(latestList.isBusy).toBe(true)
     await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))
     expect(latestList.layouts).toEqual(committed)
