@@ -145,17 +145,28 @@ describe('applyEntityStateInSocketServer', () => {
       workspaceId: 'workspace-1',
       fields: persistedFields,
     })
+  })
 
+  it('preserves structured dashboard mutation errors', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ error: 'Invalid widget target', code: 'invalid_widget_target' }),
+        JSON.stringify({
+          error: 'Invalid',
+          code: 'invalid_dashboard_layout_edit',
+          retryable: true,
+        }),
         { status: 422 }
       )
     )
-    await expect(applyEntityState({})).rejects.toMatchObject({
-      status: 422,
-      code: 'invalid_widget_target',
-    })
+    const { applyDashboardStructureMutationInSocketServer } = await import('./snapshot-bridge')
+    await expect(
+      applyDashboardStructureMutationInSocketServer({
+        entityId: 'layout-1',
+        workspaceId: 'workspace-1',
+        ownerUserId: 'user-1',
+        mutation: null,
+      })
+    ).rejects.toMatchObject({ status: 422, code: 'invalid_dashboard_layout_edit', retryable: true })
   })
 
   it.each([

@@ -347,7 +347,9 @@ export function applyDashboardStructureMutationInSocketServer(input: {
     {
       responseDeadlineMs: DASHBOARD_RESPONSE_DEADLINE_MS,
     }
-  ).then(() => undefined)
+  )
+    .then(() => undefined)
+    .catch(rethrowStructuredBridgeError)
 }
 
 /**
