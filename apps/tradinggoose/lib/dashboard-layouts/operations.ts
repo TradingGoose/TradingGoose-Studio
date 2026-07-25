@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { layoutMaps, layoutPairs, layoutWidgets } from '@tradinggoose/db/schema'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import {
   buildDashboardColorPairSessionId,
   buildDashboardWidgetSessionId,
@@ -44,12 +45,19 @@ export type DashboardLayoutTab = {
   updatedAt: string
 }
 
-export type DashboardLayoutListMutation =
-  | { type: 'create' }
-  | { type: 'activate'; layoutId: string }
-  | { type: 'rename'; layoutId: string; name: string }
-  | { type: 'delete'; layoutId: string }
-  | { type: 'reorder'; layoutOrder: string[] }
+const dashboardLayoutId = z.string().trim().min(1)
+export const DashboardLayoutListMutationSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('create') }),
+  z.object({ type: z.literal('activate'), layoutId: dashboardLayoutId }),
+  z.object({
+    type: z.literal('rename'),
+    layoutId: dashboardLayoutId,
+    name: z.string().trim().min(1),
+  }),
+  z.object({ type: z.literal('delete'), layoutId: dashboardLayoutId }),
+  z.object({ type: z.literal('reorder'), layoutOrder: z.array(dashboardLayoutId).min(1) }),
+])
+export type DashboardLayoutListMutation = z.infer<typeof DashboardLayoutListMutationSchema>
 
 export type DashboardLayoutProjection = DashboardLayoutTab & {
   topology: DashboardLayoutTopologyNode

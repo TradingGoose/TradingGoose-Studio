@@ -2,11 +2,15 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { applyDashboardStructureMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
+import { validateDashboardMutationRequest } from '../../mutation-request'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; layoutId: string }> }
 ) {
+  const requestError = validateDashboardMutationRequest(request)
+  if (requestError) return requestError
+
   const userId = (await getSession(request.headers))?.user?.id
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

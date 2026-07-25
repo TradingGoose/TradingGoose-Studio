@@ -165,6 +165,7 @@ describe('useDashboardLayoutDocument live fields', () => {
       ['/api/workspaces/workspace-1/dashboard-layouts/layout-1/structure', resize],
       ['/api/workspaces/workspace-2/dashboard-layouts/layout-2/structure', replace],
     ])
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' })
 
     rejectDepartedResize(new Error('departed resize failed'))
     await departedFailure
@@ -198,6 +199,7 @@ describe('useDashboardLayoutDocument live fields', () => {
       type: 'reorder',
       layoutOrder: ['layout-b', 'layout-a'],
     })
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' })
     expect(latestList.layouts).toEqual(initialLayouts)
     expect(latestList.isBusy).toBe(true)
     await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))

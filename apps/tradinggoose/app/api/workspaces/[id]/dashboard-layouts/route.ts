@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import {
   activateDashboardLayout,
   createDashboardLayout,
-  type DashboardLayoutListMutation,
+  DashboardLayoutListMutationSchema,
   DashboardLayoutOperationError,
   deleteDashboardLayout,
   listDashboardLayouts,
@@ -13,17 +12,12 @@ import {
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { renameSavedEntityIdentity, SavedEntityIdentityError } from '@/lib/saved-entities/identity'
 import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
-
-const layoutId = z.string().trim().min(1)
-const mutationSchema: z.ZodType<DashboardLayoutListMutation> = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('create') }),
-  z.object({ type: z.literal('activate'), layoutId }),
-  z.object({ type: z.literal('rename'), layoutId, name: z.string().trim().min(1) }),
-  z.object({ type: z.literal('delete'), layoutId }),
-  z.object({ type: z.literal('reorder'), layoutOrder: z.array(layoutId).min(1) }),
-])
+import { validateDashboardMutationRequest } from './mutation-request'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestError = validateDashboardMutationRequest(request)
+  if (requestError) return requestError
+
   const userId = (await getSession(request.headers))?.user?.id
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -33,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Workspace access is required' }, { status: 403 })
   }
 
-  const parsed = mutationSchema.safeParse(await request.json().catch(() => null))
+  const parsed = DashboardLayoutListMutationSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid dashboard layout mutation' }, { status: 400 })
   }
