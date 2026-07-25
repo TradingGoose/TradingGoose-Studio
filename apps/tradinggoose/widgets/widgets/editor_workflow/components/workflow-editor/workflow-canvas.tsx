@@ -1608,11 +1608,6 @@ const WorkflowCanvas = React.memo(
             />
           )}
 
-          {/* Floating Controls (Zoom, Undo, Redo) */}
-          {uiConfig.floatingControls && (
-            <FloatingControls constrainToContainer={Boolean(viewportBounds)} />
-          )}
-
           <ReactFlow
             id={reactFlowId}
             nodes={nodes}
@@ -1668,6 +1663,11 @@ const WorkflowCanvas = React.memo(
             }}
           >
             <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
+            {/* Floating Controls (Zoom, Undo, Redo) — rendered inside ReactFlow so it shares the
+                same stacking context as NodeEditorPanel, which sits above it via its higher z-index. */}
+            {uiConfig.floatingControls && (
+              <FloatingControls constrainToContainer={Boolean(viewportBounds)} />
+            )}
             <NodeEditorPanel selectedNodeId={resolvedSelectedNodeId} />
           </ReactFlow>
 

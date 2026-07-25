@@ -55,15 +55,13 @@ import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 
 export function toSavedEntityTransportError(error: unknown): SavedEntityPersistenceError | null {
   if (error instanceof SavedEntityPersistenceError) return error
-  if (error instanceof StructuredServerToolError) {
-    return new SavedEntityPersistenceError(error.status, error.message, error.code, error.retryable)
-  }
   if (!(error instanceof SocketServerBridgeError)) return null
   if (
-    error.status === 400 ||
-    error.status === 404 ||
-    error.status === 409 ||
-    error.status === 410
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 425 &&
+    error.status !== 429
   ) {
     return new SavedEntityPersistenceError(error.status, error.message)
   }

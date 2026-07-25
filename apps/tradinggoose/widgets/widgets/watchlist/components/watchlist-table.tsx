@@ -843,27 +843,35 @@ export const WatchlistTable = ({
             handleMove(active.id, over ? resolveOverSortableId(active, over) : null)
           }}
         >
-          <table className='w-full table-auto'>
+          <table className='w-full min-w-[720px] table-fixed'>
+            <colgroup>
+              <col />
+              <col className='w-28' />
+              <col className='w-28' />
+              <col className='w-28' />
+              <col className='w-28' />
+              <col className='w-24' />
+            </colgroup>
             <thead className='sticky top-0 z-10 border-b bg-card'>
               <tr>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.symbol}</span>
                 </th>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.asset}</span>
                 </th>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.last}</span>
                 </th>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.change}</span>
                 </th>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>
                     {copy.changePercent}
                   </span>
                 </th>
-                <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                <th className='whitespace-nowrap px-4 pt-2 pb-3 text-center align-middle font-medium'>
                   <span className='text-muted-foreground text-xs leading-none'>{copy.actions}</span>
                 </th>
               </tr>

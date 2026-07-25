@@ -24,7 +24,7 @@ const logger = createLogger('CollaborativeSocketServer')
 const httpServer = createServer()
 
 // Yjs WebSocket server - noServer mode, upgrade handled manually
-const yjsWss = new WebSocketServer({ noServer: true })
+const yjsWss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 })
 let isShuttingDown = false
 const SHUTDOWN_DRAIN_RETRY_MS = 1_000
 

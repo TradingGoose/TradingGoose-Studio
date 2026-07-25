@@ -148,6 +148,35 @@ describe('shared document lifecycle', () => {
     descriptor: buildSavedEntityDescriptor('watchlist', sessionId, null),
   })
 
+  it('hands pre-admission messages to the canonical connection listener', async () => {
+    const source = new Y.Doc()
+    source.getMap('fields').set('received', true)
+    const socket = new TestSocket()
+    const doc = await acquireDocument(
+      'pre-admission-message',
+      { workspaceId: 'workspace-1', initialize: () => undefined },
+      (shared) => {
+        setupWSConnection(socket as unknown as WebSocket, {} as IncomingMessage, {
+          doc: shared,
+          userId: 'user-1',
+          accessMode: 'write',
+          descriptor: buildSavedEntityDescriptor(
+            'watchlist',
+            'pre-admission-message',
+            'workspace-1'
+          ),
+          initialMessages: [createSyncUpdateMessage(Y.encodeStateAsUpdate(source))],
+        })
+        return shared
+      }
+    )
+
+    await vi.waitFor(() => expect(doc.getMap('fields').get('received')).toBe(true))
+    expect(socket.listenerCount('message')).toBe(1)
+    socket.emit('close')
+    source.destroy()
+  })
+
   it('serves reconnect bursts from their reserved admission connections', async () => {
     const capacity = 30
     const allOuterConnections = deferred()

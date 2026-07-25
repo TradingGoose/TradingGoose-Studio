@@ -22,6 +22,7 @@ import {
 } from '@/lib/watchlists/document'
 import {
   type SavedEntityKind,
+  SavedEntityPersistenceError,
   type SavedEntityRow,
   savedEntityRowToContent,
 } from '@/lib/yjs/entity-state'
@@ -127,14 +128,21 @@ export async function deleteSavedEntity(
 
   const deleted = await runYjsDrainFencedTransaction({ sessionIds: [entityId] }, async (tx) => {
     await lockSavedEntityList(tx, entityKind, workspaceId)
-    let deleted: boolean
+    if (entityKind !== 'knowledge_base') {
+      const members = await readEntityListMembersFromDb(entityKind, workspaceId, null, tx)
+      if (!members.some((member) => member.id === entityId)) return false
+      if (members.length === 1)
+        throw new SavedEntityPersistenceError(409, 'Cannot delete the final saved item')
+    }
+
     if (entityKind === 'watchlist') {
       const [row] = await tx
         .delete(watchlistTable)
         .where(rootWatchlistCondition(workspaceId, entityId))
         .returning({ id: watchlistTable.id })
-      deleted = Boolean(row)
-    } else if (entityKind === 'knowledge_base') {
+      return Boolean(row)
+    }
+    if (entityKind === 'knowledge_base') {
       const now = new Date()
       const [row] = await tx
         .update(knowledgeBase)
@@ -146,18 +154,16 @@ export async function deleteSavedEntity(
           ])
         )
         .returning({ id: knowledgeBase.id })
-      deleted = Boolean(row)
-    } else {
-      const { table } = ENTITY_TABLES[entityKind]
-      const [row] = await tx
-        .delete(table)
-        .where(
-          entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
-        )
-        .returning({ id: table.id })
-      deleted = Boolean(row)
+      return Boolean(row)
     }
-    return deleted
+    const { table } = ENTITY_TABLES[entityKind]
+    const [row] = await tx
+      .delete(table)
+      .where(
+        entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
+      )
+      .returning({ id: table.id })
+    return Boolean(row)
   })
   if (deleted) await refreshEntityListSession(entityKind, workspaceId)
   return deleted

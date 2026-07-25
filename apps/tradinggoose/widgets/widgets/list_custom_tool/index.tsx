@@ -381,6 +381,7 @@ function ListCustomToolWidgetBodyInner({
               onDelete={handleDeleteTool}
               onRename={handleRenameTool}
               canEdit={permissions.canEdit}
+              canDelete={tools.length > 1}
               isDeleting={deletingToolIds.has(tool.id)}
             />
           ))}

@@ -4,75 +4,72 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   fenced: vi.fn(),
   refresh: vi.fn(),
+  members: [] as Array<Record<string, unknown>>,
+  events: [] as string[],
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: { select: mocks.select },
-}))
-
+vi.mock('@tradinggoose/db', () => ({ db: { select: mocks.select } }))
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   runYjsDrainFencedTransaction: mocks.fenced,
   refreshEntityListSession: mocks.refresh,
 }))
 
-import { deleteSavedEntity, SAVED_ENTITY_LIST_LOCK_KINDS } from '@/lib/yjs/server/entity-loaders'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 
-function selectRows(rows: unknown[]) {
-  return {
-    from: vi.fn(() => ({
-      where: vi.fn(() => ({
-        limit: vi.fn().mockResolvedValue(rows),
-      })),
-    })),
-  }
-}
+const protectedKinds = ['skill', 'custom_tool', 'indicator', 'mcp_server', 'watchlist'] as const
+const query = (read: () => unknown[]) => ({
+  from: () => ({ where: () => ({ limit: read, orderBy: read }) }),
+})
+const member = (id: string) => ({
+  id,
+  settings: { showLogo: true, showTicker: true, showDescription: true },
+})
+const mutation = { where: () => ({ returning: async () => [{}] }) }
+const protectedScenarios = protectedKinds.map(
+  (entityKind) => [entityKind, [`${entityKind}-1`], 409, ['lock', 'read']] as const
+)
 
 describe('deleteSavedEntity', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('uses one shared lock-kind set for workspace entity lists', () => {
-    expect(SAVED_ENTITY_LIST_LOCK_KINDS).toEqual(expect.arrayContaining(['workflow', 'watchlist']))
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.members = []
+    mocks.events = []
+    mocks.select.mockReturnValue(query(() => [{ workspaceId: 'workspace-1' }]))
+    mocks.fenced.mockImplementation((_target, mutate) =>
+      mutate({
+        execute: async () => void mocks.events.push('lock'),
+        select: () =>
+          query(() => {
+            mocks.events.push('read')
+            return mocks.members
+          }),
+        delete: () => mutation,
+        update: () => ({ set: () => mutation }),
+      })
+    )
+    mocks.refresh.mockImplementation(async () => void mocks.events.push('refresh'))
   })
 
-  it.each(['skill', 'watchlist'] as const)(
-    'does not fence %s outside the workspace',
-    async (entityKind) => {
-      const entityId = `${entityKind}-1`
-      mocks.select.mockReturnValue(selectRows([{ workspaceId: 'workspace-2' }]))
-
-      await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(false)
-      expect(mocks.fenced).not.toHaveBeenCalled()
+  it.each([
+    ...protectedScenarios,
+    ['skill', ['skill-1', 'remaining'], true, ['lock', 'read', 'refresh']],
+    ['skill', ['remaining'], false, ['lock', 'read']],
+    ['knowledge_base', [], true, ['lock', 'refresh']],
+  ] as const)(
+    'enforces the locked %s deletion scenario',
+    async (entityKind, ids, expected, events) => {
+      mocks.members = ids.map(member)
+      const deletion = deleteSavedEntity(entityKind, `${entityKind}-1`, 'workspace-1')
+      if (expected === 409)
+        await expect(deletion).rejects.toMatchObject({ status: 409, retryable: false })
+      else await expect(deletion).resolves.toBe(expected)
+      expect(mocks.events).toEqual(events)
     }
   )
 
-  it.each([
-    ['skill', 'delete'],
-    ['knowledge_base', 'update'],
-    ['watchlist', 'delete'],
-  ] as const)('fences, locks, writes, and refreshes %s in order', async (entityKind, write) => {
-    const entityId = `${entityKind}-1`
-    const events: string[] = []
-    mocks.select.mockReturnValue(selectRows([{ workspaceId: 'workspace-1' }]))
-    const query = {
-      where: () => ({
-        returning: async () => {
-          events.push(write)
-          return [{ id: entityId }]
-        },
-      }),
-    }
-    mocks.fenced.mockImplementation(async (_target, mutate) => {
-      events.push('fence')
-      return mutate({
-        execute: async () => events.push('lock'),
-        delete: () => query,
-        update: () => ({ set: () => query }),
-      })
-    })
-    mocks.refresh.mockImplementation(async () => void events.push('refresh'))
-
-    await expect(deleteSavedEntity(entityKind, entityId, 'workspace-1')).resolves.toBe(true)
-    expect(mocks.fenced).toHaveBeenCalledWith({ sessionIds: [entityId] }, expect.any(Function))
-    expect(events).toEqual(['fence', 'lock', write, 'refresh'])
+  it('does not fence a target outside the workspace', async () => {
+    mocks.select.mockReturnValue(query(() => [{ workspaceId: 'workspace-2' }]))
+    await expect(deleteSavedEntity('skill', 'skill-1', 'workspace-1')).resolves.toBe(false)
+    expect(mocks.fenced).not.toHaveBeenCalled()
   })
 })

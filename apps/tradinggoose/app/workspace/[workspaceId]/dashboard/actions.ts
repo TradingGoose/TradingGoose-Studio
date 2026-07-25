@@ -10,8 +10,6 @@ import {
 } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
-import { applyDashboardStructureMutationInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import type { DashboardLayoutStructureMutation } from '@/widgets/layout-document'
 
 export type DashboardLayoutListMutation =
   | { type: 'create' }
@@ -53,17 +51,4 @@ export async function mutateDashboardLayoutListAction(
       name: mutation.name,
     })
   return listDashboardLayouts(scope)
-}
-
-export async function mutateDashboardLayoutStructureAction(
-  workspaceId: string,
-  layoutId: string,
-  mutation: DashboardLayoutStructureMutation
-) {
-  const scope = await requireDashboardLayoutScope(workspaceId)
-  return applyDashboardStructureMutationInSocketServer({
-    entityId: layoutId,
-    ...scope,
-    mutation,
-  })
 }

@@ -45,6 +45,11 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
 const panelClassName =
   'allow-scroll !m-2 max-h-[calc(100%-1rem)] min-w-0 w-[calc(100%-1rem)] max-w-96 overflow-y-auto rounded-lg border bg-card shadow-md'
 
+// React Flow's `.react-flow__panel` hard-codes `z-index: 5`; FloatingControls sits
+// at `z-10` in the same stacking context. An inline style is the reliable way to
+// lift the panel above it (beats the class rule, needs no Tailwind class generation).
+const panelStyle = { zIndex: 20 }
+
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
   const canEdit = useOptionalWorkflowSession()?.canEdit === true
@@ -359,6 +364,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
+        style={panelStyle}
         className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
@@ -377,6 +383,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
+        style={panelStyle}
         className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
@@ -396,6 +403,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   return (
     <Panel
       position='top-right'
+      style={panelStyle}
       className={`${panelClassName} px-4 pb-4`}
       onMouseDown={stopPanelEvent}
       onPointerDown={stopPanelEvent}

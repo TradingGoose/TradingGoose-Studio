@@ -26,6 +26,7 @@ interface IndicatorListItemProps {
   onDelete: (indicatorId: string) => Promise<void>
   onRename: (indicatorId: string, name: string) => Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isCopying: boolean
   isDeleting: boolean
 }
@@ -38,6 +39,7 @@ export function IndicatorListItem({
   onDelete,
   onRename,
   canEdit,
+  canDelete = true,
   isCopying,
   isDeleting,
 }: IndicatorListItemProps) {
@@ -109,7 +111,7 @@ export function IndicatorListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting) return
+    if (isDeleting || !canDelete) return
     try {
       await onDelete(indicator.entityId)
       setShowDeleteDialog(false)
@@ -232,16 +234,18 @@ export function IndicatorListItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameIndicator}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteIndicator}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteIndicator}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

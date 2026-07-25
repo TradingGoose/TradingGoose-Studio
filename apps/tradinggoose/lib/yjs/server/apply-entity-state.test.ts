@@ -4,7 +4,6 @@
 
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import {
   getDashboardWidgetMap,
@@ -108,12 +107,9 @@ vi.mock('@/lib/yjs/server/mutation-idempotency', () => ({
   beginRealtimeMutationTransaction: mockBeginRealtimeMutation,
 }))
 
-const {
-  applySavedEntityState,
-  saveDashboardYjsDocsToDb,
-  saveSavedEntityYjsDocToDb,
-  toSavedEntityTransportError,
-} = await import('./apply-entity-state')
+const { applySavedEntityState, saveDashboardYjsDocsToDb, saveSavedEntityYjsDocToDb } = await import(
+  './apply-entity-state'
+)
 const { getEntityFields, getFieldsMap, seedEntitySession, updateWatchlistItems } = await import(
   '@/lib/yjs/entity-session'
 )
@@ -467,6 +463,7 @@ describe('applySavedEntityState', () => {
   })
 
   it.each([
+    [new MockSocketServerBridgeError(403, 'Forbidden'), 403, false],
     [new MockSocketServerBridgeError(410, 'Review target expired'), 410, false],
     [new TypeError('fetch failed'), 503, true],
   ])(
@@ -485,19 +482,4 @@ describe('applySavedEntityState', () => {
       expect(events).toEqual([])
     }
   )
-
-  it('preserves structured bridge status, code, and retryability', async () => {
-    expect(
-      toSavedEntityTransportError(
-        new StructuredServerToolError({
-          status: 409,
-          body: { error: 'Review is stale', code: 'stale_server_tool_review', retryable: true },
-        })
-      )
-    ).toMatchObject({
-      status: 409,
-      code: 'stale_server_tool_review',
-      retryable: true,
-    })
-  })
 })

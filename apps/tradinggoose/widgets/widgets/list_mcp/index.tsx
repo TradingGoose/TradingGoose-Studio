@@ -310,6 +310,7 @@ const ListMcpWidgetContent = ({
               onRename={handleRenameServer}
               onDelete={handleDeleteServer}
               canEdit={permissions.canEdit}
+              canDelete={workspaceServers.length > 1}
               isDeleting={deletingIds.has(server.id)}
             />
           ))}
@@ -326,6 +327,7 @@ const McpServerListItem = ({
   onRename,
   onDelete,
   canEdit,
+  canDelete = true,
   isDeleting,
 }: {
   server: McpServerListEntry
@@ -334,6 +336,7 @@ const McpServerListItem = ({
   onRename: (serverId: string, name: string) => Promise<void>
   onDelete: (serverId: string) => void | Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isDeleting: boolean
 }) => {
   const copy = useMessages().workspace.widgets.mcpList.listItem
@@ -403,13 +406,14 @@ const McpServerListItem = ({
   }
 
   const handleConfirmDelete = useCallback(async () => {
+    if (!canDelete) return
     try {
       await Promise.resolve(onDelete(server.id))
       setShowDeleteDialog(false)
     } catch (error) {
       console.error('Failed to delete MCP server', error)
     }
-  }, [onDelete, server.id])
+  }, [canDelete, onDelete, server.id])
 
   return (
     <div className='mb-1'>
@@ -500,16 +504,18 @@ const McpServerListItem = ({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameMcpServer}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteMcpServer}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteMcpServer}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

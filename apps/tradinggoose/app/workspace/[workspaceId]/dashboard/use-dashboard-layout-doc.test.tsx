@@ -5,12 +5,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import * as Y from 'yjs'
-import { seedDashboardLayoutSession } from '@/lib/yjs/dashboard-layout-session'
 import type { DashboardLayoutTopologyNode } from '@/widgets/layout-document'
 import { useDashboardLayoutDocument, useDashboardLayoutList } from './use-dashboard-layout-doc'
 
-let mockLayoutDoc: Y.Doc | null = null
 let mockEntityList = {
   members: [] as Array<{
     entityId: string
@@ -23,7 +20,7 @@ let mockEntityList = {
   error: null as string | null,
 }
 const mockUseSavedEntityYjsSession = vi.hoisted(() => vi.fn())
-const mockMutateStructure = vi.hoisted(() => vi.fn())
+const mockFetch = vi.hoisted(() => vi.fn())
 const mockMutateList = vi.hoisted(() => vi.fn())
 
 const topology: DashboardLayoutTopologyNode = {
@@ -55,8 +52,9 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
   mutateDashboardLayoutListAction: mockMutateList,
-  mutateDashboardLayoutStructureAction: mockMutateStructure,
 }))
+
+vi.stubGlobal('fetch', mockFetch)
 
 describe('useDashboardLayoutDocument live fields', () => {
   let container: HTMLDivElement
@@ -108,12 +106,13 @@ describe('useDashboardLayoutDocument live fields', () => {
   }
 
   beforeEach(() => {
-    mockMutateStructure.mockReset()
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue({ ok: true })
     mockMutateList.mockReset()
     mockEntityList = { members: [], hasLiveSnapshot: false, isLoading: true, error: null }
     mockUseSavedEntityYjsSession.mockClear()
     mockUseSavedEntityYjsSession.mockImplementation(() => ({
-      doc: mockLayoutDoc,
+      doc: null,
       isLoading: false,
       error: null,
     }))
@@ -124,8 +123,6 @@ describe('useDashboardLayoutDocument live fields', () => {
 
   afterEach(() => {
     act(() => root.unmount())
-    mockLayoutDoc?.destroy()
-    mockLayoutDoc = null
     container.remove()
   })
 
@@ -150,67 +147,47 @@ describe('useDashboardLayoutDocument live fields', () => {
   })
 
   it('isolates departed layout queues and recovers from resize failures', async () => {
-    mockLayoutDoc = new Y.Doc()
-    seedDashboardLayoutSession(mockLayoutDoc, { layout: topology })
+    const resize = { type: 'resize' as const, groupId: 'group-1', sizes: [35, 65] }
+    const split = {
+      type: 'split' as const,
+      panelId: 'panel-chart',
+      direction: 'horizontal' as const,
+    }
+    const replace = {
+      type: 'replace' as const,
+      panelId: 'panel-chart',
+      widgetKey: 'watchlist' as const,
+    }
     let rejectDepartedResize!: (error: Error) => void
-    mockMutateStructure.mockImplementationOnce(
-      () => new Promise<void>((_resolve, reject) => (rejectDepartedResize = reject))
+    mockFetch.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (rejectDepartedResize = reject))
     )
     act(() => root.render(<Capture workspaceId='workspace-1' layoutId='layout-1' />))
-    const departedResize = latest.mutateStructure({
-      type: 'resize',
-      groupId: 'group-1',
-      sizes: [35, 65],
-    })
+    const departedResize = latest.mutateStructure(resize)
     const departedFailure = expect(departedResize).rejects.toThrow('departed resize failed')
-    const departedSplit = latest.mutateStructure({
-      type: 'split',
-      panelId: 'panel-chart',
-      direction: 'horizontal',
-    })
+    const departedSplit = latest.mutateStructure(split)
     act(() => root.render(<Capture workspaceId='workspace-2' layoutId='layout-2' />))
-    const replacement = latest.mutateStructure({
-      type: 'replace',
-      panelId: 'panel-chart',
-      widgetKey: 'watchlist',
-    })
-    await act(async () => Promise.resolve())
-    expect(mockMutateStructure).toHaveBeenCalledTimes(2)
-    expect(mockMutateStructure).toHaveBeenNthCalledWith(1, 'workspace-1', 'layout-1', {
-      type: 'resize',
-      groupId: 'group-1',
-      sizes: [35, 65],
-    })
-    expect(mockMutateStructure).toHaveBeenNthCalledWith(2, 'workspace-2', 'layout-2', {
-      type: 'replace',
-      panelId: 'panel-chart',
-      widgetKey: 'watchlist',
-    })
-    await replacement
+    await latest.mutateStructure(replace)
+    expect(mockFetch.mock.calls.map(([url, init]) => [url, JSON.parse(init.body)])).toEqual([
+      ['/api/workspaces/workspace-1/dashboard-layouts/layout-1/structure', resize],
+      ['/api/workspaces/workspace-2/dashboard-layouts/layout-2/structure', replace],
+    ])
 
     rejectDepartedResize(new Error('departed resize failed'))
     await departedFailure
-    await vi.waitFor(() => expect(mockMutateStructure).toHaveBeenCalledTimes(3))
-    expect(mockMutateStructure).toHaveBeenLastCalledWith('workspace-1', 'layout-1', {
-      type: 'split',
-      panelId: 'panel-chart',
-      direction: 'horizontal',
-    })
     await departedSplit
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual(split)
 
-    mockMutateStructure.mockRejectedValueOnce(new Error('resize failed'))
-    await act(async () => {
-      await expect(
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 409 })
+    await act(async () =>
+      expect(
         latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [40, 60] })
-      ).rejects.toThrow('resize failed')
-    })
+      ).rejects.toThrow('Failed to update dashboard layout (409)')
+    )
     expect(latest.resizeReconcileVersion).toBe(1)
-    expect(latest.hasResizePersistenceError).toBe(true)
 
-    await act(async () => {
-      await latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [45, 55] })
-    })
-    expect(latest.hasResizePersistenceError).toBe(false)
+    await act(() => latest.mutateStructure({ type: 'resize', groupId: 'group-1', sizes: [45, 55] }))
+    expect(latest.resizeReconcileVersion).toBe(0)
   })
 
   it('keeps list mutations projected until a matching or newer Yjs revision arrives', async () => {
