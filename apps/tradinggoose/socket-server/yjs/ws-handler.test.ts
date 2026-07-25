@@ -225,11 +225,18 @@ describe('handleYjsUpgrade', () => {
     )
   })
 
-  it('rejects invalid authentication on the already-upgraded socket', async () => {
+  it('starts authentication only after upgrade and rejects invalid credentials', async () => {
     const target = { sessionId: 'workflow-invalid-token', entityKind: 'workflow' }
-    const wss = websocketServer()
     mocks.authenticate.mockRejectedValue(new mocks.YjsAuthError(401, 'Invalid token'))
 
+    const malformed = websocketServer()
+    malformed.handleUpgrade.mockImplementation(() => undefined)
+    handleYjsUpgrade(malformed, requestFor(target), {} as Duplex, Buffer.alloc(0))
+    await tick()
+    expect(malformed.handleUpgrade).toHaveBeenCalledOnce()
+    expect(mocks.authenticate).not.toHaveBeenCalled()
+
+    const wss = websocketServer()
     handleYjsUpgrade(wss, requestFor(target), {} as Duplex, Buffer.alloc(0))
     await tick()
 
