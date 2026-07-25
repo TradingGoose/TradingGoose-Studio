@@ -6,7 +6,7 @@ import { EventEmitter } from 'node:events'
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WebSocketServer } from 'ws'
+import type { RawData, WebSocketServer } from 'ws'
 import * as Y from 'yjs'
 import {
   YJS_CLOSE_CODE_AUTHORIZATION_REVOKED,
@@ -127,10 +127,7 @@ function requestFor(target: TestTarget, accessMode: 'read' | 'write' = 'write') 
   } as IncomingMessage
 }
 
-function websocketServer(
-  messages: Uint8Array[] = [new Uint8Array([0, 0])],
-  maxPayload = 1024 * 1024
-) {
+function websocketServer(messages: RawData[] = [Buffer.from([0, 0])], maxPayload = 1024 * 1024) {
   const wss = Object.assign(new EventEmitter(), {
     options: { maxPayload },
     handleUpgrade: vi.fn((_request, _socket, _head, callback) => {
@@ -147,7 +144,7 @@ async function runUpgrade(
   options: {
     accessMode?: 'read' | 'write'
     bootstrap?: { workspaceId?: string | null; state: Uint8Array } | null
-    messages?: Uint8Array[]
+    messages?: RawData[]
     maxPayload?: number
   } = {}
 ) {
@@ -250,7 +247,7 @@ describe('handleYjsUpgrade', () => {
       entityId: 'widget-1',
       ownerUserId: 'user-1',
     }
-    const messages = [new Uint8Array([0, 0]), new Uint8Array([1, 2, 3])]
+    const messages = [Buffer.from([0, 0]), Buffer.from([1, 2, 3])]
     const { request, wss } = await runUpgrade(target, { messages })
 
     expect(mocks.initialize).toHaveBeenCalledWith(
@@ -262,18 +259,56 @@ describe('handleYjsUpgrade', () => {
       request,
       expect.objectContaining({
         accessMode: 'write',
-        initialMessages: messages,
+        initialMessages: messages.map((message) => Uint8Array.from(message)),
         onDocumentUpdate: expect.any(Function),
       })
     )
+    const initialMessages = mocks.setup.mock.calls[0]?.[2].initialMessages as Uint8Array[]
+    initialMessages.forEach((message, index) => {
+      expect(message).not.toBe(messages[index])
+    })
     expect(wss.handleUpgrade.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.initialize.mock.invocationCallOrder[0]!
     )
   })
 
+  it('rejects an oversized pre-admission frame before copying it', () => {
+    const target = { sessionId: 'watchlist-oversized-frame', entityKind: 'watchlist' }
+    const copy = vi.spyOn(Uint8Array, 'from')
+    mocks.authenticate.mockReturnValue(new Promise(() => {}))
+
+    handleYjsUpgrade(
+      websocketServer([Buffer.alloc(2 * 1024 * 1024)]),
+      requestFor(target),
+      {} as Duplex,
+      Buffer.alloc(0)
+    )
+
+    expect(copy).not.toHaveBeenCalled()
+    expect(mocks.close).toHaveBeenCalledWith(1009, 'Yjs message exceeds transport payload limit')
+    copy.mockRestore()
+  })
+
+  it('rejects an oversized fragmented frame before concatenating it', () => {
+    const target = { sessionId: 'watchlist-oversized-fragments', entityKind: 'watchlist' }
+    const concat = vi.spyOn(Buffer, 'concat')
+    mocks.authenticate.mockReturnValue(new Promise(() => {}))
+
+    handleYjsUpgrade(
+      websocketServer([[Buffer.alloc(1024 * 1024), Buffer.alloc(1024 * 1024)]]),
+      requestFor(target),
+      {} as Duplex,
+      Buffer.alloc(0)
+    )
+
+    expect(concat).not.toHaveBeenCalled()
+    expect(mocks.close).toHaveBeenCalledWith(1009, 'Yjs message exceeds transport payload limit')
+    concat.mockRestore()
+  })
+
   it('closes cumulative pre-admission overflow without attaching it', async () => {
     const target = { sessionId: 'watchlist-overflow', entityKind: 'watchlist' }
-    const messages = [new Uint8Array([0, 0]), new Uint8Array([1, 2, 3])]
+    const messages = [Buffer.from([0, 0]), Buffer.from([1, 2, 3])]
     const { wss } = await runUpgrade(target, { messages, maxPayload: 4 })
 
     expect(wss.handleUpgrade).toHaveBeenCalledOnce()
@@ -284,7 +319,7 @@ describe('handleYjsUpgrade', () => {
   it('closes zero-byte frame overflow without attaching it', async () => {
     const target = { sessionId: 'watchlist-frame-overflow', entityKind: 'watchlist' }
     const { wss } = await runUpgrade(target, {
-      messages: Array.from({ length: 65 }, () => new Uint8Array()),
+      messages: Array.from({ length: 65 }, () => Buffer.alloc(0)),
     })
 
     expect(wss.handleUpgrade).toHaveBeenCalledOnce()

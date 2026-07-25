@@ -169,17 +169,19 @@ export function handleYjsUpgrade(
   }
   function collectPendingMessage(data: RawData) {
     if (!awaitingAdmission) return
-    const message = copyWebSocketMessage(data)
-    pendingMessageBytes += message.byteLength
+    const messageBytes = Array.isArray(data)
+      ? data.reduce((total, fragment) => total + fragment.byteLength, 0)
+      : data.byteLength
     if (
       pendingMessages.length >= MAX_PENDING_MESSAGE_COUNT ||
-      pendingMessageBytes > wss.options.maxPayload!
+      pendingMessageBytes + messageBytes > wss.options.maxPayload!
     ) {
       abandonPendingMessages()
       ws.close(1009, 'Yjs message exceeds transport payload limit')
       return
     }
-    pendingMessages.push(message)
+    pendingMessageBytes += messageBytes
+    pendingMessages.push(copyWebSocketMessage(data))
   }
 
   wss.handleUpgrade(request, socket, head, (upgraded: WebSocket) => {
