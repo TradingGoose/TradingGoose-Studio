@@ -273,12 +273,11 @@ export function DashboardClient({
   const selectedLayout = layouts.find((layout) => layout.isActive) ?? null
   const selectedLayoutId = selectedLayout?.id ?? null
   const selectedLayoutName = selectedLayout?.name
-  const selectedInitialTopology = selectedLayoutId === layoutId ? initialTopology : null
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
     ownerUserId,
     layoutId: selectedLayoutId,
-    initialTopology: selectedInitialTopology,
+    initialTopology: selectedLayoutId === layoutId ? initialTopology : null,
   })
   const rawTree = layoutDocument.topology
   const canMutateLayouts = dashboardLayoutList.canMutate
@@ -354,12 +353,8 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
-      ...(selectedLayoutId
-        ? {
-            dashboardLayoutId: selectedLayoutId,
-            dashboardLayoutName: selectedLayoutName,
-          }
-        : {}),
+      dashboardLayoutId: selectedLayoutId ?? undefined,
+      dashboardLayoutName: selectedLayoutName,
       dashboardLayoutOwnerUserId: ownerUserId,
     }),
     [ownerUserId, selectedLayoutId, selectedLayoutName, workspaceId]

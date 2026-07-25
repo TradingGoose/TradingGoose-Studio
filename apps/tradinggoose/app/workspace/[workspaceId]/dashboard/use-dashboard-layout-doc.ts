@@ -42,6 +42,7 @@ function toLayoutListEntry(member: EntityListMember) {
 
 type DashboardLayoutListAttempt = {
   scopeKey: string
+  layouts?: DashboardLayoutTab[]
 }
 
 export function useDashboardLayoutList(
@@ -58,6 +59,11 @@ export function useDashboardLayoutList(
   if (mutationRef.current?.scopeKey !== scopeKey) mutationRef.current = null
   const currentMutation =
     mutation?.scopeKey === scopeKey && mutationRef.current?.scopeKey === scopeKey ? mutation : null
+  const hasConverged =
+    currentMutation?.layouts &&
+    Math.max(...liveLayouts.map(({ updatedAt }) => Date.parse(updatedAt))) >=
+      Math.max(...currentMutation.layouts.map(({ updatedAt }) => Date.parse(updatedAt)))
+  if (hasConverged) mutationRef.current = null
 
   const submit = async (listMutation: DashboardLayoutListMutation) => {
     if (mutationRef.current?.scopeKey === scopeKey) return
@@ -76,20 +82,21 @@ export function useDashboardLayoutList(
       if (!response.ok) {
         throw new Error(`Failed to update dashboard layouts (${response.status})`)
       }
+      const committedLayouts = (await response.json()) as DashboardLayoutTab[]
+      if (mutationRef.current !== attempt) return
+      setMutation({ ...attempt, layouts: committedLayouts })
     } catch (error) {
       console.error('Failed to update dashboard layouts:', error)
-    } finally {
-      if (mutationRef.current === attempt) {
-        mutationRef.current = null
-        setMutation(null)
-      }
+      if (mutationRef.current !== attempt) return
+      mutationRef.current = null
+      setMutation(null)
     }
   }
 
   return {
-    layouts,
+    layouts: !hasConverged && currentMutation?.layouts ? currentMutation.layouts : layouts,
     canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
-    isBusy: currentMutation !== null,
+    isBusy: currentMutation !== null && !hasConverged,
     createLayout: () => submit({ type: 'create' }),
     activateLayout: (layoutId: string) => submit({ type: 'activate', layoutId }),
     renameLayout: (layoutId: string, name: string) => submit({ type: 'rename', layoutId, name }),

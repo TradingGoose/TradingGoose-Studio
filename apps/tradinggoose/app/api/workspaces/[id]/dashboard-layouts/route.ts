@@ -7,6 +7,7 @@ import {
   type DashboardLayoutListMutation,
   DashboardLayoutOperationError,
   deleteDashboardLayout,
+  listDashboardLayouts,
   reorderDashboardLayouts,
 } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         name: mutation.name,
       })
     }
-    return new NextResponse(null, { status: 204 })
+    return NextResponse.json(await listDashboardLayouts(scope))
   } catch (error) {
     if (
       error instanceof DashboardLayoutOperationError ||

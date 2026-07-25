@@ -19,6 +19,7 @@ vi.mock('@/lib/permissions/utils', () => ({
 vi.mock('@/lib/dashboard-layouts/operations', async (importOriginal) => ({
   ...(await importOriginal()),
   createDashboardLayout: mocks.create,
+  listDashboardLayouts: vi.fn().mockResolvedValue([{ id: 'layout-1' }]),
   reorderDashboardLayouts: mocks.reorder,
 }))
 vi.mock('@/lib/saved-entities/identity', async (importOriginal) => ({
@@ -39,27 +40,25 @@ describe('dashboard layout-list route', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it.each([
-    ['create', { type: 'create' }, mocks.create, undefined, 204],
+    ['create', { type: 'create' }, mocks.create, undefined],
     [
-      'operation error',
+      'stale reorder',
       { type: 'reorder', layoutOrder: ['missing'] },
       mocks.reorder,
       new DashboardLayoutOperationError(400, 'Invalid layout order'),
-      400,
     ],
     [
-      'identity error',
+      'missing rename',
       { type: 'rename', layoutId: 'missing', name: 'Renamed' },
       mocks.rename,
       new SavedEntityIdentityError(404, 'Layout not found'),
-      404,
     ],
-  ] as const)('preserves the %s result', async (_case, mutation, operation, error, status) => {
+  ] as const)('preserves the %s result', async (_case, mutation, operation, error) => {
     if (error) operation.mockRejectedValueOnce(error)
 
     const response = await invoke(mutation)
 
-    expect(response.status).toBe(status)
-    if (error) expect(await response.json()).toEqual({ error: error.message })
+    expect(response.status).toBe(error?.status ?? 200)
+    expect(await response.json()).toEqual(error ? { error: error.message } : [{ id: 'layout-1' }])
   })
 })

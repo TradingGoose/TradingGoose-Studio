@@ -81,7 +81,6 @@ describe('useDashboardLayoutDocument live fields', () => {
   }
   const renderList = (workspaceId = 'workspace-1', ownerUserId = 'user-1') =>
     act(() => root.render(<CaptureList {...{ workspaceId, ownerUserId }} />))
-  const listIds = () => latestList.layouts.map(({ id }: { id: string }) => id)
   const setLiveList = (layouts = initialLayouts) => {
     mockEntityList = {
       members: layouts.map(
@@ -184,10 +183,10 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.resizeReconcileVersion).toBe(0)
   })
 
-  it('posts list mutations while Yjs remains the sole projection', async () => {
+  it('projects acknowledged list mutations until Yjs converges', async () => {
     let resolveMutation!: (result: unknown) => void
-    renderList()
     setLiveList()
+    const committed = layoutTabs(['layout-b', 'layout-a'], 1)
     mockFetch.mockReturnValueOnce(new Promise((resolve) => (resolveMutation = resolve)))
 
     act(() => {
@@ -199,13 +198,13 @@ describe('useDashboardLayoutDocument live fields', () => {
       type: 'reorder',
       layoutOrder: ['layout-b', 'layout-a'],
     })
-    expect(listIds()).toEqual(['layout-a', 'layout-b'])
+    expect(latestList.layouts).toEqual(initialLayouts)
     expect(latestList.isBusy).toBe(true)
-    await act(async () => resolveMutation({ ok: true }))
+    await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))
+    expect(latestList.layouts).toEqual(committed)
+    expect(latestList.isBusy).toBe(true)
+    setLiveList(layoutTabs(['layout-b'], 2, 'layout-b'))
+    expect(latestList.layouts).toHaveLength(1)
     expect(latestList.isBusy).toBe(false)
-
-    const liveUpdate = layoutTabs(['layout-b', 'layout-a'], 1, 'layout-b', 'Renamed B')
-    setLiveList(liveUpdate)
-    expect(latestList.layouts).toEqual(liveUpdate)
   })
 })
