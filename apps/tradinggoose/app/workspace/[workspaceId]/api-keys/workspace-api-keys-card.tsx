@@ -773,7 +773,7 @@ const WorkspaceApiKeysCardComponent = (
       )}
 
       <AlertDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.createTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -828,7 +828,7 @@ const WorkspaceApiKeysCardComponent = (
           }
         }}
       >
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.newKeyTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>{t('dialogs.newKeyDescription')}</AlertDialogDescription>
@@ -856,7 +856,7 @@ const WorkspaceApiKeysCardComponent = (
       </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.deleteTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>{t('dialogs.deleteDescription')}</AlertDialogDescription>

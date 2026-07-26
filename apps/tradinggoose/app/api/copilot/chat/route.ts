@@ -1414,10 +1414,10 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       logger.error(`[${tracker.requestId}] Validation error:`, {
         duration,
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

@@ -195,13 +195,13 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin system settings payload`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
         {
           error: 'Invalid request data',
           code: ADMIN_ERROR_CODES.INVALID_REQUEST_DATA,
-          details: error.errors,
+          details: error.issues,
         },
         { status: 400, headers: NO_STORE_HEADERS }
       )

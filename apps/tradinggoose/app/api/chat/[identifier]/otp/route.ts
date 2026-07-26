@@ -170,7 +170,7 @@ export async function POST(
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(
-            error.errors[0]?.message || 'Invalid request',
+            error.issues[0]?.message || 'Invalid request',
             400,
             CHAT_ERROR_CODES.INVALID_REQUEST
           ),
@@ -268,7 +268,7 @@ export async function PUT(
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(
-            error.errors[0]?.message || 'Invalid request',
+            error.issues[0]?.message || 'Invalid request',
             400,
             CHAT_ERROR_CODES.INVALID_REQUEST
           ),

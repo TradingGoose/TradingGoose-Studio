@@ -164,12 +164,12 @@ const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
   z
     .object({
       scope: z.literal('personal'),
-      variables: z.record(z.string()),
+      variables: z.record(z.string(), z.string()),
     })
     .strict(),
   WorkspaceTargetArgs.extend({
     scope: z.literal('workspace'),
-    variables: z.record(z.string()),
+    variables: z.record(z.string(), z.string()),
   }).strict(),
 ])
 
@@ -243,7 +243,7 @@ const EditWorkflowBlockArgs = z
     name: z.string().trim().min(1).optional(),
     enabled: z.boolean().optional(),
     subBlocks: z
-      .record(z.any())
+      .record(z.string(), z.any())
       .optional()
       .describe(
         'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `read_workflow` for current derived sub-block entries.'
@@ -328,14 +328,14 @@ const EditDashboardWidgetArgs = EntityTargetArgs.extend({
       "Select this widget's layout-scoped color-store channel. Gray is unlinked/local. Compatible widgets synchronize linked fields only when assigned the same non-gray color; changing color preserves existing local and shared state."
     ),
   params: z
-    .record(z.any())
+    .record(z.string(), z.any())
     .nullable()
     .optional()
     .describe(
       'Patch persisted local widget params. For a non-gray widget, do not put fields from get_widgets_metadata.linkedParamFields here; update those through colorPair. Data-chart drawing fields are user-managed and unavailable to Copilot.'
     ),
   colorPair: z
-    .record(z.any())
+    .record(z.string(), z.any())
     .nullable()
     .optional()
     .describe(
@@ -444,7 +444,7 @@ export const ToolArgSchemas = {
       .trim()
       .min(1)
       .describe('Exact trigger block id from `read_workflow.workflowSummary.blocks`.'),
-    workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
+    workflow_input: z.union([z.string(), z.record(z.string(), z.any())]).optional(),
   }),
 
   [CopilotTool.read_workflow_logs]: EntityTargetArgs.extend({
@@ -484,9 +484,9 @@ export const ToolArgSchemas = {
   make_api_request: z.object({
     url: z.string(),
     method: z.enum(['GET', 'POST', 'PUT']),
-    queryParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-    headers: z.record(z.string()).optional(),
-    body: z.union([z.record(z.any()), z.string()]).optional(),
+    queryParams: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
+    body: z.union([z.record(z.string(), z.any()), z.string()]).optional(),
   }),
 
   [CopilotTool.read_environment_variables]: PersonalOrWorkspaceReadArgs,
@@ -659,7 +659,7 @@ const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
 const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(WORKFLOW_VARIABLE_DOCUMENT_FORMAT),
   entityDocument: z.string(),
-  variables: z.record(z.any()),
+  variables: z.record(z.string(), z.any()),
 })
 
 // A list is a discovery surface: id, canonical name, and basic usability state.
@@ -1023,7 +1023,7 @@ export const ToolResultSchemas = {
   make_api_request: z.object({
     status: z.number(),
     statusText: z.string().optional(),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     data: z.any().optional(),
     body: z.any().optional(),
   }),
@@ -1211,7 +1211,7 @@ export const ToolResultSchemas = {
     count: z.number(),
   }),
   get_widgets_metadata: z.object({
-    metadata: z.record(WidgetMetadataProfileSchema),
+    metadata: z.record(z.string(), WidgetMetadataProfileSchema),
   }),
   sleep: z.object({
     success: z.boolean(),

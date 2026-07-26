@@ -26,7 +26,7 @@ const DataChartCandleTypeSchema = z.enum([
 const IndicatorRefSchema = z
   .object({
     id: z.string().trim().min(1),
-    inputs: z.record(z.unknown()).optional(),
+    inputs: z.record(z.string(), z.unknown()).optional(),
     visible: z.boolean().optional(),
   })
   .strict()
@@ -44,8 +44,8 @@ export type DrawToolsRef = {
 const DataChartDataSchema = z
   .object({
     provider: z.string().optional(),
-    providerParams: z.record(z.unknown()).optional(),
-    auth: z.record(z.unknown()).optional(),
+    providerParams: z.record(z.string(), z.unknown()).optional(),
+    auth: z.record(z.string(), z.unknown()).optional(),
     live: z
       .object({ enabled: z.boolean().optional(), interval: z.string().optional() })
       .strict()
@@ -67,7 +67,7 @@ const DataChartViewSchema = z
     priceAxisType: z.enum(['normal', 'percentage', 'log']).optional(),
     pineIndicators: z.array(IndicatorRefSchema).optional(),
     rangePresetId: z.string().optional(),
-    stylesOverride: z.record(z.unknown()).optional(),
+    stylesOverride: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough()
 

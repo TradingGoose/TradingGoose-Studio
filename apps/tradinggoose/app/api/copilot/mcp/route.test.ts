@@ -5,13 +5,13 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
+import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 
 const {
   mockAuthenticateApiKeyFromHeader,
   mockCheckApiEndpointRateLimit,
   mockCheckPublicApiEndpointRateLimit,
   mockCreateDefaultWorkspaceForUser,
-  mockGetCopilotRuntimeToolManifest,
   mockGetMcpServerToolIds,
   mockGetUserWorkspaces,
   mockRouteExecution,
@@ -21,7 +21,6 @@ const {
   mockCheckApiEndpointRateLimit: vi.fn(),
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
   mockCreateDefaultWorkspaceForUser: vi.fn(),
-  mockGetCopilotRuntimeToolManifest: vi.fn(),
   mockGetMcpServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
   mockRouteExecution: vi.fn(),
@@ -37,10 +36,6 @@ vi.mock('@/lib/api/rate-limit', () => ({
 vi.mock('@/lib/api-key/service', () => ({
   authenticateApiKeyFromHeader: (...args: unknown[]) => mockAuthenticateApiKeyFromHeader(...args),
   updateApiKeyLastUsed: (...args: unknown[]) => mockUpdateApiKeyLastUsed(...args),
-}))
-
-vi.mock('@/lib/copilot/runtime-tool-manifest', () => ({
-  getCopilotRuntimeToolManifest: (...args: unknown[]) => mockGetCopilotRuntimeToolManifest(...args),
 }))
 
 vi.mock('@/lib/copilot/tools/server/router', () => ({
@@ -62,6 +57,7 @@ function createMcpRequest(
     method: 'POST',
     headers: {
       authorization,
+      accept: 'application/json, text/event-stream',
       'content-type': 'application/json',
       ...headers,
     },
@@ -69,12 +65,16 @@ function createMcpRequest(
   })
 }
 
-function initializeRequest(id: string | number = 1, protocolVersion = '2025-06-18') {
+function initializeRequest(id: string | number = 1, protocolVersion = '2025-11-25') {
   return {
     jsonrpc: '2.0',
     id,
     method: 'initialize',
-    params: { protocolVersion },
+    params: {
+      protocolVersion,
+      capabilities: {},
+      clientInfo: { name: 'TradingGoose test client', version: '1.0.0' },
+    },
   }
 }
 
@@ -110,26 +110,6 @@ describe('Copilot MCP route', () => {
       permissions: 'admin',
     })
     mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow', 'search_listing'])
-    mockGetCopilotRuntimeToolManifest.mockResolvedValue({
-      version: 'v1',
-      tools: [
-        {
-          name: 'list_workflows',
-          description: 'List workflows.',
-          parameters: { type: 'object', properties: { workspaceId: { type: 'string' } } },
-        },
-        {
-          name: 'plan',
-          description: 'Client-only planning tool.',
-          parameters: { type: 'object', properties: {} },
-        },
-        {
-          name: 'make_api_request',
-          description: 'Make an HTTP request.',
-          parameters: { type: 'object', properties: { url: { type: 'string' } } },
-        },
-      ],
-    })
     mockRouteExecution.mockResolvedValue({ results: [] })
   })
 
@@ -150,14 +130,17 @@ describe('Copilot MCP route', () => {
     const response = await POST(createMcpRequest(initializeRequest()))
     const body = await response.json()
 
-    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-06-18')
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-tradinggoose-test', {
       keyTypes: ['personal'],
     })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockCheckApiEndpointRateLimit).toHaveBeenCalledWith('user-1', 'copilot-mcp')
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1' })
-    expect(body.result.capabilities).toEqual({ tools: {} })
+    expect(body.result.capabilities).toEqual({
+      prompts: {},
+      resources: {},
+      tools: { listChanged: true },
+    })
     expect(body.result.serverInfo).toEqual({ name: 'TradingGoose', version: '0.1.0' })
     expect(body.result.instructions).toContain('workspaceId=workspace-1, permissions=admin')
     expect(body.result.instructions).toContain('workspaceId=workspace-2, permissions=read')
@@ -172,15 +155,17 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).not.toContain('No accessible workspaces')
   })
 
-  it('keeps older supported MCP protocol negotiation internally consistent', async () => {
-    const { POST } = await import('./route')
+  it.each(['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05', '2024-10-07'])(
+    'keeps %s negotiation internally consistent',
+    async (version) => {
+      const { POST } = await import('./route')
 
-    const response = await POST(createMcpRequest(initializeRequest(2, '2025-03-26')))
-    const body = await response.json()
+      const response = await POST(createMcpRequest(initializeRequest(2, version)))
+      const body = await response.json()
 
-    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
-    expect(body.result.protocolVersion).toBe('2025-03-26')
-  })
+      expect(body.result.protocolVersion).toBe(version)
+    }
+  )
 
   it('repairs workspace-less authenticated users during initialize', async () => {
     const { POST } = await import('./route')
@@ -211,14 +196,19 @@ describe('Copilot MCP route', () => {
     const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }))
     const body = await response.json()
 
-    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
-    expect(body.result.tools).toEqual([
-      {
-        name: 'list_workflows',
-        description: 'List workflows.',
-        inputSchema: { type: 'object', properties: { workspaceId: { type: 'string' } } },
-      },
+    expect(body.result.tools.map((tool: { name: string }) => tool.name)).toEqual([
+      'list_workflows',
+      'read_workflow',
+      'search_listing',
     ])
+    expect(body.result.tools[0]).toMatchObject({
+      name: 'list_workflows',
+      description: TOOL_PROMPT_METADATA.list_workflows.description,
+      inputSchema: {
+        type: 'object',
+        required: ['workspaceId'],
+      },
+    })
   })
 
   it('returns MCP rate-limit errors from the shared API limiter', async () => {
@@ -238,7 +228,6 @@ describe('Copilot MCP route', () => {
     expect(response.headers.get('X-RateLimit-Limit')).toBe('10')
     expect(response.headers.get('Retry-After')).toBeTruthy()
     expect(body.error.message).toBe('Rate limit exceeded')
-    expect(mockGetCopilotRuntimeToolManifest).not.toHaveBeenCalled()
   })
 
   it('applies the public MCP rate limit before API-key authentication', async () => {
@@ -273,7 +262,7 @@ describe('Copilot MCP route', () => {
     )
     const body = await response.json()
 
-    expect(body.error.message).toBe('Unsupported MCP tool: make_api_request')
+    expect(body.result.isError).toBe(true)
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
@@ -358,7 +347,7 @@ describe('Copilot MCP route', () => {
         method: 'tools/call',
         params: {
           name: 'edit_workflow',
-          arguments: { workflowId: 'workflow-1', mermaid: 'graph TD' },
+          arguments: { entityId: 'workflow-1', entityDocument: 'flowchart TD' },
         },
       })
     )
@@ -366,7 +355,7 @@ describe('Copilot MCP route', () => {
 
     expect(mockRouteExecution).toHaveBeenCalledWith(
       'edit_workflow',
-      { workflowId: 'workflow-1', mermaid: 'graph TD' },
+      { entityId: 'workflow-1', entityDocument: 'flowchart TD' },
       { userId: 'user-1', apiKeyType: 'personal', accessLevel: 'full' }
     )
     expect(body.result.structuredContent).toEqual({ success: true })
@@ -407,17 +396,11 @@ describe('Copilot MCP route', () => {
     expect(JSON.stringify(body)).not.toContain('shard-3')
   })
 
-  it('enforces JSON-RPC and MCP initialize request shape', async () => {
+  it('delegates protocol validation and version negotiation to the SDK', async () => {
     const { POST } = await import('./route')
 
     const invalidJsonRpcResponse = await POST(
       createMcpRequest({ jsonrpc: '1.0', id: 8, method: 'ping' })
-    )
-    const nullIdResponse = await POST(
-      createMcpRequest({ jsonrpc: '2.0', id: null, method: 'ping' })
-    )
-    const invalidInitializeResponse = await POST(
-      createMcpRequest({ jsonrpc: '2.0', id: 9, method: 'initialize', params: {} })
     )
     const unsupportedVersionResponse = await POST(createMcpRequest(initializeRequest(10, '1.0')))
     const notificationResponse = await POST(
@@ -449,24 +432,17 @@ describe('Copilot MCP route', () => {
       createMcpRequest({ jsonrpc: '2.0', id: 14, result: {} })
     )
 
-    expect((await invalidJsonRpcResponse.json()).error.code).toBe(-32600)
-    expect((await nullIdResponse.json()).error.code).toBe(-32600)
-    expect((await invalidInitializeResponse.json()).error.code).toBe(-32602)
+    expect((await invalidJsonRpcResponse.json()).error.code).toBe(-32700)
     const unsupportedVersionBody = await unsupportedVersionResponse.json()
-    expect(unsupportedVersionBody.error.code).toBe(-32000)
-    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual([
-      '2025-06-18',
-      '2025-03-26',
-    ])
+    expect(unsupportedVersionBody.result.protocolVersion).toBe('2025-11-25')
     expect(notificationResponse.status).toBe(202)
     expect(negotiatedProtocolHeaderResponse.status).toBe(200)
     expect(wrongProtocolHeaderResponse.status).toBe(400)
-    expect((await wrongProtocolHeaderResponse.json()).error.message).toBe(
-      'Unsupported MCP protocol version'
+    expect((await wrongProtocolHeaderResponse.json()).error.message).toContain(
+      'Unsupported protocol version: 1.0'
     )
     const invalidToolArgumentsBody = await invalidToolArgumentsResponse.json()
-    expect(invalidToolArgumentsBody.error.code).toBe(-32602)
-    expect(invalidToolArgumentsBody.error.message).toBe('Invalid tools/call params')
+    expect(invalidToolArgumentsBody.error.code).toBe(-32603)
     expect(jsonRpcResponseMessage.status).toBe(202)
     expect(await jsonRpcResponseMessage.text()).toBe('')
     expect(mockRouteExecution).not.toHaveBeenCalled()
@@ -479,44 +455,26 @@ describe('Copilot MCP route', () => {
 
     expect(response.status).toBe(405)
     expect(response.headers.get('allow')).toBe('POST')
-    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-06-18')
   })
 
-  it('returns per-entry invalid request errors for malformed batches', async () => {
+  it('uses the SDK parse error for malformed JSON-RPC batches', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(createMcpRequest([null]))
     const body = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(body).toEqual([
-      {
-        jsonrpc: '2.0',
-        id: null,
-        error: {
-          code: -32600,
-          message: 'Invalid JSON-RPC request',
-        },
-      },
-    ])
+    expect(response.status).toBe(400)
+    expect(body.error.code).toBe(-32700)
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
-  it('rejects empty JSON-RPC batches as invalid requests', async () => {
+  it('accepts empty JSON-RPC batches without dispatch', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(createMcpRequest([]))
-    const body = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(body).toEqual({
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: -32600,
-        message: 'Invalid JSON-RPC request',
-      },
-    })
+    expect(response.status).toBe(202)
+    expect(await response.text()).toBe('')
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
@@ -539,14 +497,19 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
-  it('rejects batched initialize requests', async () => {
+  it('supports a single initialize request delivered in a JSON-RPC batch', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(createMcpRequest([initializeRequest()]))
     const body = await response.json()
 
-    expect(body.error.code).toBe(-32600)
-    expect(body.error.message).toBe('initialize cannot be batched')
-    expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
+    expect(body).toEqual(
+      expect.objectContaining({
+        id: 1,
+        jsonrpc: '2.0',
+        result: expect.objectContaining({ protocolVersion: '2025-11-25' }),
+      })
+    )
+    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1' })
   })
 })

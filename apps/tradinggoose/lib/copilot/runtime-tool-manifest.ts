@@ -1,4 +1,4 @@
-import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod'
 import { ToolArgSchemas, type ToolId, ToolIds } from '@/lib/copilot/registry'
 import {
   buildAutomaticSemanticValidators,
@@ -24,9 +24,14 @@ export interface CopilotRuntimeToolManifest {
 }
 
 const buildToolParameterSchema = (toolId: ToolId): Record<string, unknown> => {
-  const schema = zodToJsonSchema(ToolArgSchemas[toolId], {
-    $refStrategy: 'none',
-    target: 'jsonSchema7',
+  // zod-to-json-schema only understands Zod 3 internals, so Zod 4 schemas are
+  // converted with Zod's own emitter. `reused: 'inline'` reproduces the old
+  // `$refStrategy: 'none'`, keeping every tool's parameters self-contained.
+  const schema = z.toJSONSchema(ToolArgSchemas[toolId], {
+    target: 'draft-7',
+    io: 'input',
+    reused: 'inline',
+    unrepresentable: 'any',
   })
 
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
@@ -37,7 +42,7 @@ const buildToolParameterSchema = (toolId: ToolId): Record<string, unknown> => {
     }
   }
 
-  const { $schema, definitions, ...parameters } = schema as Record<string, unknown>
+  const { $schema, definitions, $defs, ...parameters } = schema as Record<string, unknown>
   return parameters
 }
 

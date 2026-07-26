@@ -106,7 +106,7 @@ export const parseIndicatorRequestBody = async <Schema extends ZodTypeAny>({
   const body = await request.json().catch(() => ({}))
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
-    const message = parsed.error.errors[0]?.message ?? 'Invalid request'
+    const message = parsed.error.issues[0]?.message ?? 'Invalid request'
     return { response: createIndicatorErrorResponse(message, 400, responseShape) }
   }
 

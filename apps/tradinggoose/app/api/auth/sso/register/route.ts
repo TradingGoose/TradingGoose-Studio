@@ -153,11 +153,11 @@ export async function POST(request: NextRequest) {
     const parseResult = ssoRegistrationSchema.safeParse(rawBody)
 
     if (!parseResult.success) {
-      const firstError = parseResult.error.errors[0]
+      const firstError = parseResult.error.issues[0]
       const errorMessage = firstError?.message || 'Validation failed'
 
       logger.warn('Invalid SSO registration request', {
-        errors: parseResult.error.errors,
+        errors: parseResult.error.issues,
       })
 
       return NextResponse.json({ error: errorMessage }, { status: 400 })

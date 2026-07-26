@@ -11,17 +11,17 @@ import {
 } from '@/providers/market/providers'
 
 const MonitorAuthCreateInputSchema = z.object({
-  secrets: z.record(z.string()),
+  secrets: z.record(z.string(), z.string()),
 })
 
 const MonitorAuthUpdateInputSchema = z
   .object({
-    secrets: z.record(z.string()).optional(),
+    secrets: z.record(z.string(), z.string()).optional(),
   })
   .optional()
 
-const ProviderParamsInputSchema = z.record(z.unknown()).optional()
-const IndicatorInputsInputSchema = z.record(z.unknown()).optional()
+const ProviderParamsInputSchema = z.record(z.string(), z.unknown()).optional()
+const IndicatorInputsInputSchema = z.record(z.string(), z.unknown()).optional()
 
 export const IndicatorMonitorCreateSchema = z.object({
   source: z.literal(INDICATOR_MONITOR_PROVIDER),

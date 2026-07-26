@@ -12,7 +12,7 @@ import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 const logger = createLogger('WorkspaceEnvironmentAPI')
 
 const UpsertSchema = z.object({
-  variables: z.record(z.string()),
+  variables: z.record(z.string(), z.string()),
 })
 
 const DeleteSchema = z.object({

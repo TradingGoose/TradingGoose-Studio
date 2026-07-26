@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const validation = updateSeatsSchema.safeParse(body)
     if (!validation.success) {
-      const firstError = validation.error.errors[0]
+      const firstError = validation.error.issues[0]
       return NextResponse.json({ error: firstError.message }, { status: 400 })
     }
 

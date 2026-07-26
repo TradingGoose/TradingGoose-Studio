@@ -81,7 +81,7 @@ export async function handleMarketProviderRequest({
       windows: z.array(MarketSeriesWindowSchema).optional(),
       normalizationMode: z.enum(NORMALIZATION_MODES).optional(),
       stream: z.string().optional(),
-      providerParams: z.record(z.any()).optional(),
+      providerParams: z.record(z.string(), z.any()).optional(),
     })
 
     const parsed = MarketProviderRequestSchema.safeParse({
@@ -97,7 +97,7 @@ export async function handleMarketProviderRequest({
 
     if (!parsed.success) {
       logger.warn(`[${requestId}] Invalid market provider request`, {
-        errors: parsed.error.errors,
+        errors: parsed.error.issues,
       })
       return NextResponse.json(
         {
@@ -105,7 +105,7 @@ export async function handleMarketProviderRequest({
             code: 'INVALID_REQUEST',
             message: 'Invalid request body',
             provider: providerId,
-            details: parsed.error.errors,
+            details: parsed.error.issues,
           },
         },
         { status: 400 }

@@ -83,7 +83,10 @@ const LinkedPairColorSchema = z.enum(
   ]
 )
 
-const DashboardLayoutNodeSchema: z.ZodTypeAny = z.lazy(() =>
+// Annotated with its real output type rather than `z.ZodTypeAny`: Zod 4 infers
+// `ZodTypeAny` as `unknown` (Zod 3 inferred `any`), which would erase the node
+// type for every consumer of the projection schema.
+const DashboardLayoutNodeSchema: z.ZodType<DashboardLayoutTopologyNode> = z.lazy(() =>
   z.union([DashboardLayoutPanelNodeSchema, DashboardLayoutGroupNodeSchema])
 )
 
@@ -132,7 +135,9 @@ export type DashboardLayoutStructureMutation = z.infer<
   typeof DashboardLayoutStructureMutationSchema
 >
 
-const DashboardLayoutGroupNodeSchema: z.ZodTypeAny = z
+const DashboardLayoutGroupNodeSchema: z.ZodType<
+  Extract<DashboardLayoutTopologyNode, { type: 'group' }>
+> = z
   .object({
     id: z.string().trim().min(1),
     type: z.literal('group'),
@@ -186,11 +191,11 @@ export const DashboardLayoutDocumentSchema = z
 export const DashboardWidgetDocumentSchema = z
   .object({
     pairColor: PairColorSchema,
-    params: z.record(z.unknown()).nullable(),
+    params: z.record(z.string(), z.unknown()).nullable(),
   })
   .strict()
 
-const DashboardWidgetsSchema = z.record(DashboardWidgetDocumentSchema)
+const DashboardWidgetsSchema = z.record(z.string(), DashboardWidgetDocumentSchema)
 const DashboardColorPairsSchema = z
   .object({
     pairs: z.array(
@@ -251,8 +256,10 @@ function joinValidationPath(prefix: string, path: PropertyKey[]): string {
 }
 
 function flattenZodIssue(issue: z.ZodIssue): z.ZodIssue[] {
+  // Zod 4 reports union failures as `errors: ZodIssue[][]` (one entry per union
+  // member) rather than Zod 3's `unionErrors: ZodError[]`.
   return issue.code === 'invalid_union'
-    ? issue.unionErrors.flatMap((error) => error.issues.flatMap(flattenZodIssue))
+    ? issue.errors.flatMap((memberIssues) => memberIssues.flatMap(flattenZodIssue))
     : [issue]
 }
 

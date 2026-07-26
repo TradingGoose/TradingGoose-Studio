@@ -9,7 +9,7 @@ const logger = createLogger('StagehandExtractAPI')
 
 const requestSchema = z.object({
   instruction: z.string(),
-  schema: z.record(z.any()),
+  schema: z.record(z.string(), z.any()),
   useTextExtract: z.boolean().optional().default(false),
   selector: z.string().nullable().optional(),
   apiKey: z.string(),
@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
     const validationResult = requestSchema.safeParse(body)
 
     if (!validationResult.success) {
-      logger.error('Invalid request body', { errors: validationResult.error.errors })
+      logger.error('Invalid request body', { errors: validationResult.error.issues })
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: validationResult.error.errors },
+        { error: 'Invalid request parameters', details: validationResult.error.issues },
         { status: 400 }
       )
     }

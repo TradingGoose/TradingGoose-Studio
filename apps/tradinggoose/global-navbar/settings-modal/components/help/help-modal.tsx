@@ -44,7 +44,7 @@ const createHelpFormSchema = (tHelp: HelpMessageResolver) =>
     subject: z.string().min(1, tHelp('errorMessages.subjectRequired')),
     message: z.string().min(1, tHelp('errorMessages.messageRequired')),
     type: z.enum(['bug', 'feedback', 'feature_request', 'other'], {
-      required_error: tHelp('errorMessages.requestTypeRequired'),
+      error: tHelp('errorMessages.requestTypeRequired'),
     }),
   })
 

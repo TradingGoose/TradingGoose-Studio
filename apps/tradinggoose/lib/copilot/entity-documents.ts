@@ -75,12 +75,12 @@ const McpServerDocumentSchema = z
     transport: z.enum(['http', 'sse', 'streamable-http']),
     url: z.string(),
     headers: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .describe('MCP server headers shared with authorized workspace readers.'),
     command: z.string(),
     args: z.array(z.string()),
     env: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .describe('MCP server environment variables shared with authorized workspace readers.'),
     timeout: z.number(),
     retries: z.number(),

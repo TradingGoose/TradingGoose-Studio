@@ -46,7 +46,7 @@ export function buildCustomToolModelDescription({
 
 export const CustomToolParametersSchema = z.object({
   type: z.literal('object'),
-  properties: z.record(z.any()),
+  properties: z.record(z.string(), z.any()),
   required: z.array(z.string()).optional(),
 })
 
@@ -73,7 +73,7 @@ export const CustomToolTransferSchema = z
 
 export const CustomToolCreateRequestSchema = z.object({
   workspaceId: z
-    .string({ required_error: 'workspaceId is required' })
+    .string({ error: 'workspaceId is required' })
     .min(1, 'workspaceId is required'),
   tools: z.array(
     z

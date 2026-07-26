@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       tagSlot: z.string().min(1, 'Tag slot is required'),
       displayName: z.string().min(1, 'Display name is required'),
       fieldType: z.enum(SUPPORTED_FIELD_TYPES as [string, ...string[]], {
-        errorMap: () => ({ message: 'Invalid field type' }),
+        error: 'Invalid field type',
       }),
     })
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: 'Invalid request data', details: error.errors },
+          { error: 'Invalid request data', details: error.issues },
           { status: 400 }
         )
       }

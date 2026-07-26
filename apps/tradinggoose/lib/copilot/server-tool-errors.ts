@@ -2,7 +2,10 @@ import { z } from 'zod'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
-interface CopilotServerToolErrorPayload {
+// Declared as a type alias rather than an interface so it keeps an implicit
+// index signature: the MCP SDK types `structuredContent` as
+// `{ [x: string]: unknown }`, which interfaces are not assignable to.
+type CopilotServerToolErrorPayload = {
   error: string
   code: string
   hint?: string
@@ -46,10 +49,14 @@ function formatZodIssuePath(issue: z.ZodIssue): string {
     return '$'
   }
 
+  // Zod 4 widens path segments to PropertyKey, so a segment can be a symbol
+  // that would throw on implicit string conversion.
   return issue.path
-    .map((segment, index) =>
-      typeof segment === 'number' ? `[${segment}]` : index === 0 ? segment : `.${segment}`
-    )
+    .map((segment, index) => {
+      if (typeof segment === 'number') return `[${segment}]`
+      const key = String(segment)
+      return index === 0 ? key : `.${key}`
+    })
     .join('')
 }
 

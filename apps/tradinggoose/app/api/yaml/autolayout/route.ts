@@ -8,10 +8,10 @@ const logger = createLogger('YamlAutoLayoutAPI')
 
 const AutoLayoutRequestSchema = z.object({
   workflowState: z.object({
-    blocks: z.record(z.any()),
+    blocks: z.record(z.string(), z.any()),
     edges: z.array(z.any()),
-    loops: z.record(z.any()).optional().default({}),
-    parallels: z.record(z.any()).optional().default({}),
+    loops: z.record(z.string(), z.any()).optional().default({}),
+    parallels: z.record(z.string(), z.any()).optional().default({}),
   }),
   options: z
     .object({
