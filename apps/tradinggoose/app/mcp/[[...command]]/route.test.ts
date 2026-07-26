@@ -54,7 +54,7 @@ describe('MCP install route', () => {
     expect(script).toContain('irm <studio-url>/mcp/login | iex')
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain("baseUrl + '/api/auth/mcp/poll'")
-    expect(script).toContain('const verificationKey = String(startJson?.verificationKey ||')
+    expect(script).toContain('const verificationKey = String(start?.verificationKey ||')
     expect(script).toContain('return { code, verificationKey, token }')
     expect(script).toContain('async function acknowledge(login)')
     expect(script).toContain('ackApiKey: login.token')
@@ -112,7 +112,7 @@ describe('MCP install route', () => {
     // Inside resolveApiKey the device login only runs when no saved key works.
     const resolveFnIndex = script.indexOf('async function resolveApiKey()')
     const storedReadIndex = script.indexOf('readStoredApiKey()', resolveFnIndex)
-    const validateIndex = script.indexOf('isStoredApiKeyValid(stored)', resolveFnIndex)
+    const validateIndex = script.indexOf('checkStoredApiKey(stored)', resolveFnIndex)
     const loginIndex = script.indexOf('await authenticate()', resolveFnIndex)
     const saveIndex = script.indexOf('saveApiKey(login.token)', resolveFnIndex)
     expect(storedReadIndex).toBeGreaterThan(resolveFnIndex)
@@ -137,8 +137,32 @@ describe('MCP install route', () => {
     expect(script).not.toContain('parsed.baseUrl')
 
     // Validation reuses the MCP endpoint's own auth rather than a new route.
-    expect(script).toContain('return response.status !== 401')
     expect(script).toContain("method: 'tools/list'")
+  })
+
+  it('never treats an unverifiable saved key as authenticated', async () => {
+    const response = await callInstaller('/mcp')
+    const script = await response.text()
+
+    // The endpoint rate-limits before it authenticates, so 429/503/500 prove
+    // nothing about the key. Only 2xx may be read as valid, only 401 as invalid.
+    expect(script).not.toContain('return response.status !== 401')
+    expect(script).toContain("if (response.status === 401) {\n    return { state: 'invalid' }")
+    expect(script).toContain("if (response.ok) {\n    return { state: 'valid' }")
+    expect(script).toContain("return { state: 'unverified', detail: 'HTTP ' + response.status }")
+
+    // A network failure is unverifiable too, never a silent re-login.
+    expect(script).toContain("state: 'unverified',\n      detail: error instanceof Error")
+
+    // Unverifiable stops the run before any config is written.
+    const unverifiedIndex = script.indexOf("if (check.state === 'unverified')")
+    const failIndex = script.indexOf(
+      'Studio could not confirm the saved credentials',
+      unverifiedIndex
+    )
+    expect(unverifiedIndex).toBeGreaterThan(-1)
+    expect(failIndex).toBeGreaterThan(unverifiedIndex)
+    expect(script).toContain('No configuration was changed')
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {

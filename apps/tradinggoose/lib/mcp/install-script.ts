@@ -161,11 +161,15 @@ function saveApiKey(token) {
 
 /**
  * The MCP endpoint authenticates the bearer token on every request, so it
- * doubles as the validity check: only a rejected key answers 401.
+ * doubles as the validity check. The result is deliberately three-state: the
+ * endpoint rate-limits before it authenticates, so a 429/503/500 says nothing
+ * about the key and must never be read as success. Only a 2xx proves the key
+ * still authenticates; only a 401 proves it does not.
  */
-async function isStoredApiKeyValid(token) {
+async function checkStoredApiKey(token) {
+  let response
   try {
-    const response = await fetch(mcpUrl, {
+    response = await fetch(mcpUrl, {
       method: 'POST',
       headers: {
         accept: 'application/json, text/event-stream',
@@ -174,10 +178,20 @@ async function isStoredApiKeyValid(token) {
       },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     })
-    return response.status !== 401
-  } catch {
-    return false
+  } catch (error) {
+    return {
+      state: 'unverified',
+      detail: error instanceof Error ? error.message : String(error),
+    }
   }
+
+  if (response.status === 401) {
+    return { state: 'invalid' }
+  }
+  if (response.ok) {
+    return { state: 'valid' }
+  }
+  return { state: 'unverified', detail: 'HTTP ' + response.status }
 }
 
 /**
@@ -190,10 +204,25 @@ async function resolveApiKey() {
 
   if (stored) {
     const checking = spinner('Checking saved credentials...').start()
-    if (await isStoredApiKeyValid(stored)) {
+    const check = await checkStoredApiKey(stored)
+
+    if (check.state === 'valid') {
       checking.succeed(pc.brand('Using saved TradingGoose credentials'))
       return stored
     }
+
+    // Stop rather than guess. Writing an unconfirmed token would leave every
+    // configured client unable to authenticate, and signing in again would mint
+    // a duplicate key for what is usually a transient outage.
+    if (check.state === 'unverified') {
+      checking.fail(pc.red('Could not verify saved credentials'))
+      fail(
+        'Studio could not confirm the saved credentials (' +
+          check.detail +
+          '). No configuration was changed; run the command again once Studio is reachable.'
+      )
+    }
+
     checking.stop()
     log.warn('Saved credentials are no longer valid, signing in again.')
   }
@@ -233,80 +262,57 @@ async function chooseTargets() {
 }
 
 async function authenticate() {
-  const startSpinner = spinner('Preparing login...').start()
-
-  let startJson
-  try {
-    startJson = await postJson(baseUrl + '/api/auth/mcp/start')
-  } catch (error) {
-    startSpinner.fail(pc.red('Login failed'))
-    fail(error instanceof Error ? error.message : String(error))
+  let spin = spinner('Preparing login...').start()
+  const abort = (message) => {
+    spin.fail(pc.red('Login failed'))
+    fail(message)
   }
+  const asMessage = (error) => (error instanceof Error ? error.message : String(error))
 
-  const code = String(startJson?.code || '')
-  const verificationKey = String(startJson?.verificationKey || '')
-  const authorizeUrl = String(startJson?.authorizeUrl || '')
-  const intervalSeconds = Math.max(1, Number(startJson?.intervalSeconds) || 2)
+  const start = await postJson(baseUrl + '/api/auth/mcp/start').catch((error) =>
+    abort(asMessage(error))
+  )
 
-  if (!code) {
-    startSpinner.fail(pc.red('Login failed'))
-    fail('Studio did not return a login code')
-  }
-  if (!verificationKey) {
-    startSpinner.fail(pc.red('Login failed'))
-    fail('Studio did not return a login verification key')
-  }
-  if (!authorizeUrl) {
-    startSpinner.fail(pc.red('Login failed'))
-    fail('Studio did not return an authorization URL')
-  }
+  const code = String(start?.code || '')
+  const verificationKey = String(start?.verificationKey || '')
+  const authorizeUrl = String(start?.authorizeUrl || '')
+  const intervalSeconds = Math.max(1, Number(start?.intervalSeconds) || 2)
+  const missing = !code
+    ? 'code'
+    : !verificationKey
+      ? 'verification key'
+      : !authorizeUrl
+        ? 'authorization URL'
+        : ''
+  if (missing) abort('Studio did not return a login ' + missing)
 
-  startSpinner.stop()
-
+  spin.stop()
   log.blank()
   log.plain('  ' + pc.dim('Open this link to approve MCP access:'))
   log.plain('  ' + pc.cyan(link(authorizeUrl, authorizeUrl)))
   log.blank()
+  spin = spinner('Waiting for authorization...').start()
 
-  const waitingSpinner = spinner('Waiting for authorization...').start()
   const deadline = Date.now() + 600000
-
   while (Date.now() < deadline) {
-    let pollJson
-    try {
-      pollJson = await postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey })
-    } catch (error) {
-      waitingSpinner.fail(pc.red('Login failed'))
-      fail(error instanceof Error ? error.message : String(error))
-    }
-
-    const status = String(pollJson?.status || 'pending')
+    const poll = await postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey }).catch(
+      (error) => abort(asMessage(error))
+    )
+    const status = String(poll?.status || 'pending')
 
     if (status === 'approved') {
-      const token = String(pollJson?.apiKey || '')
-      if (!token) {
-        waitingSpinner.fail(pc.red('Login failed'))
-        fail('Studio approved login without returning a token')
-      }
-      waitingSpinner.succeed(pc.brand('Authorized'))
+      const token = String(poll?.apiKey || '')
+      if (!token) abort('Studio approved login without returning a token')
+      spin.succeed(pc.brand('Authorized'))
       return { code, verificationKey, token }
     }
-
-    if (status === 'expired') {
-      waitingSpinner.fail(pc.red('Login expired. Run the command again.'))
-      process.exit(1)
-    }
-
-    if (status !== 'pending') {
-      waitingSpinner.fail(pc.red('Unexpected login status: ' + status))
-      process.exit(1)
-    }
+    if (status === 'expired') abort('Login expired. Run the command again.')
+    if (status !== 'pending') abort('Unexpected login status: ' + status)
 
     await sleep(intervalSeconds * 1000)
   }
 
-  waitingSpinner.fail(pc.red('Timed out waiting for browser approval'))
-  process.exit(1)
+  abort('Timed out waiting for browser approval')
 }
 
 async function acknowledge(login) {

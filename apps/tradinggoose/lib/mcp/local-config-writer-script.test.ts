@@ -194,7 +194,68 @@ describe('MCP local config writer script', () => {
 
     expect(result.path).toBe(variantPath)
     expect(existsSync(join(home, '.config', 'opencode', 'opencode.json'))).toBe(false)
-    expect(JSON.parse(readFileSync(variantPath, 'utf8')).mcp.TradingGoose.type).toBe('remote')
+
+    // The comment survives the write, so the file is no longer plain JSON.
+    const updated = readFileSync(variantPath, 'utf8')
+    expect(updated).toContain('// existing config')
+    expect(JSON.parse(updated.replace(/^\s*\/\/.*$/gm, '')).mcp.TradingGoose.type).toBe('remote')
+  })
+
+  it('preserves comments and formatting when updating a JSONC config', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-jsonc-'))
+    const variantPath = join(home, '.config', 'opencode', 'opencode.jsonc')
+    mkdirSync(join(home, '.config', 'opencode'), { recursive: true })
+    const original = [
+      '{',
+      '  // Keep my provider settings above everything else.',
+      '  "theme": "dark",',
+      '  /* MCP servers live here */',
+      '  "mcp": {',
+      '    "Other": {',
+      '      // do not touch this one',
+      '      "type": "remote",',
+      '      "url": "http://other.example"',
+      '    }',
+      '  }',
+      '}',
+      '',
+    ].join('\n')
+    writeFileSync(variantPath, original, 'utf8')
+
+    runWriter(home, ['opencode', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
+
+    const updated = readFileSync(variantPath, 'utf8')
+    expect(updated).toContain('// Keep my provider settings above everything else.')
+    expect(updated).toContain('/* MCP servers live here */')
+    expect(updated).toContain('// do not touch this one')
+    expect(updated).toContain('"theme": "dark"')
+
+    const parsed = JSON.parse(updated.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''))
+    expect(parsed.mcp.Other).toEqual({ type: 'remote', url: 'http://other.example' })
+    expect(parsed.mcp.TradingGoose).toEqual({
+      type: 'remote',
+      url: 'http://localhost:3000/api/copilot/mcp',
+      enabled: true,
+      headers: { Authorization: 'Bearer mcp-token' },
+    })
+  })
+
+  it('preserves comments when re-running against an already configured JSONC file', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-jsonc-rerun-'))
+    const variantPath = join(home, '.config', 'opencode', 'opencode.jsonc')
+    mkdirSync(join(home, '.config', 'opencode'), { recursive: true })
+    writeFileSync(variantPath, '{\n  // keep me\n  "mcp": {}\n}\n', 'utf8')
+
+    runWriter(home, ['opencode', 'http://localhost:3000/api/copilot/mcp', 'first'])
+    const second = JSON.parse(
+      runWriter(home, ['opencode', 'http://localhost:3000/api/copilot/mcp', 'second'])
+    )
+
+    const updated = readFileSync(variantPath, 'utf8')
+    expect(second.alreadyExists).toBe(true)
+    expect(updated).toContain('// keep me')
+    expect(updated).toContain('Bearer second')
+    expect(updated).not.toContain('Bearer first')
   })
 
   it('rejects unsupported targets', () => {

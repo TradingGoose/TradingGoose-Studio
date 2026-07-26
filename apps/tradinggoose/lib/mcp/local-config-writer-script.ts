@@ -123,9 +123,16 @@ function ensureParent(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
 }
 
-/** Tolerates .jsonc candidates. Comments are not preserved on write. */
-function stripJsonComments(text) {
-  let result = ''
+const WHITESPACE = ' \t\n\r'
+
+/**
+ * Replaces comment bytes with spaces, keeping the text the same length so any
+ * offset found in the blanked copy applies directly to the original. That lets
+ * a write splice one entry in place instead of re-serialising the whole file,
+ * which would delete a JSONC config's comments.
+ */
+function blankComments(text) {
+  let out = ''
   let index = 0
   while (index < text.length) {
     if (text[index] === '"') {
@@ -134,19 +141,18 @@ function stripJsonComments(text) {
         if (text[index] === '\\') index++
         index++
       }
-      result += text.slice(start, ++index)
-    } else if (text[index] === '/' && text[index + 1] === '/') {
-      index += 2
-      while (index < text.length && text[index] !== '\n') index++
-    } else if (text[index] === '/' && text[index + 1] === '*') {
-      index += 2
-      while (index < text.length && !(text[index] === '*' && text[index + 1] === '/')) index++
-      index += 2
+      out += text.slice(start, ++index)
+    } else if (text[index] === '/' && (text[index + 1] === '/' || text[index + 1] === '*')) {
+      const block = text[index + 1] === '*'
+      const found = block ? text.indexOf('*/', index + 2) : text.indexOf('\n', index)
+      const stop = found === -1 ? text.length : block ? found + 2 : found
+      out += text.slice(index, stop).replace(/[^\n]/g, ' ')
+      index = stop
     } else {
-      result += text[index++]
+      out += text[index++]
     }
   }
-  return result
+  return out
 }
 
 function readJson(filePath) {
@@ -154,19 +160,156 @@ function readJson(filePath) {
     return {}
   }
   const text = fs.readFileSync(filePath, 'utf8').trim()
-  return text ? JSON.parse(stripJsonComments(text)) : {}
+  return text ? JSON.parse(blankComments(text)) : {}
+}
+
+function skipSpace(text, index) {
+  while (index < text.length && WHITESPACE.indexOf(text[index]) !== -1) index++
+  return index
+}
+
+/** The index sits on a quote; returns the index just past the closing quote. */
+function scanString(text, index) {
+  index++
+  while (index < text.length) {
+    if (text[index] === '\\') index += 2
+    else if (text[index] === '"') return index + 1
+    else index++
+  }
+  return index
+}
+
+/** Returns the index just past the value starting at or after the given index. */
+function scanValue(text, index) {
+  index = skipSpace(text, index)
+  if (text[index] === '"') return scanString(text, index)
+
+  if (text[index] !== '{' && text[index] !== '[') {
+    while (index < text.length && ',}]'.indexOf(text[index]) === -1 && WHITESPACE.indexOf(text[index]) === -1) {
+      index++
+    }
+    return index
+  }
+
+  let depth = 0
+  while (index < text.length) {
+    const ch = text[index]
+    if (ch === '"') {
+      index = scanString(text, index)
+      continue
+    }
+    if (ch === '{' || ch === '[') depth++
+    else if ((ch === '}' || ch === ']') && --depth === 0) return index + 1
+    index++
+  }
+  return index
+}
+
+/** Span of one member inside the object opening at objOpen, or null. */
+function findMember(text, objOpen, key) {
+  let index = objOpen + 1
+  while (index < text.length) {
+    index = skipSpace(text, index)
+    if (text[index] === ',') {
+      index++
+      continue
+    }
+    if (text[index] !== '"') return null
+
+    const keyStart = index
+    const keyEnd = scanString(text, index)
+    const colon = skipSpace(text, keyEnd)
+    if (text[colon] !== ':') return null
+    const valueStart = skipSpace(text, colon + 1)
+    const valueEnd = scanValue(text, valueStart)
+    if (JSON.parse(text.slice(keyStart, keyEnd)) === key) {
+      return { keyStart: keyStart, valueStart: valueStart, valueEnd: valueEnd }
+    }
+    index = valueEnd
+  }
+  return null
+}
+
+function indentAt(text, index) {
+  const lineStart = text.lastIndexOf('\n', index) + 1
+  let cursor = lineStart
+  while (cursor < text.length && (text[cursor] === ' ' || text[cursor] === '\t')) cursor++
+  return text.slice(lineStart, cursor)
+}
+
+function serializeValue(value, indent) {
+  return JSON.stringify(value, null, 2)
+    .split('\n')
+    .map((line, lineIndex) => (lineIndex === 0 ? line : indent + line))
+    .join('\n')
+}
+
+/** Appends a member just before the closing brace, keeping comments in place. */
+function insertMember(original, scan, objOpen, key, value) {
+  const closeIndex = scanValue(scan, objOpen) - 1
+  const baseIndent = indentAt(original, objOpen)
+  const memberIndent = baseIndent + '  '
+
+  let last = closeIndex - 1
+  while (last > objOpen && WHITESPACE.indexOf(scan[last]) !== -1) last--
+
+  // The comma goes right after the previous value, not after a trailing
+  // comment, which would swallow it.
+  let text = original
+  let close = closeIndex
+  if (last > objOpen && scan[last] !== ',') {
+    text = text.slice(0, last + 1) + ',' + text.slice(last + 1)
+    close += 1
+  }
+
+  const member = '\n' + memberIndent + JSON.stringify(key) + ': ' + serializeValue(value, memberIndent)
+  return text.slice(0, close).replace(/\s*$/, '') + member + '\n' + baseIndent + text.slice(close)
+}
+
+/** Returns null when the shape is not safely editable, so the caller re-serialises. */
+function spliceServerEntry(original, section, entry) {
+  const scan = blankComments(original)
+  const rootOpen = skipSpace(scan, 0)
+  if (scan[rootOpen] !== '{') return null
+
+  const sectionSpan = findMember(scan, rootOpen, section)
+  if (!sectionSpan) {
+    const wrapper = {}
+    wrapper[mcpServerName] = entry
+    return insertMember(original, scan, rootOpen, section, wrapper)
+  }
+  if (scan[sectionSpan.valueStart] !== '{') return null
+
+  const existing = findMember(scan, sectionSpan.valueStart, mcpServerName)
+  if (!existing) {
+    return insertMember(original, scan, sectionSpan.valueStart, mcpServerName, entry)
+  }
+  return (
+    original.slice(0, existing.valueStart) +
+    serializeValue(entry, indentAt(original, existing.keyStart)) +
+    original.slice(existing.valueEnd)
+  )
 }
 
 function writeJsonConfig(filePath, section, entry) {
   ensureParent(filePath)
-  const config = readJson(filePath)
+  const original = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''
+  const config = original.trim() ? JSON.parse(blankComments(original)) : {}
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new Error(filePath + ' must contain a JSON object')
   }
-  if (!config[section] || typeof config[section] !== 'object' || Array.isArray(config[section])) {
-    config[section] = {}
+
+  const current = config[section]
+  const sectionIsObject = Boolean(current) && typeof current === 'object' && !Array.isArray(current)
+  const alreadyExists = sectionIsObject && Object.prototype.hasOwnProperty.call(current, mcpServerName)
+
+  const spliced = original.trim() ? spliceServerEntry(original, section, entry) : null
+  if (spliced !== null) {
+    fs.writeFileSync(filePath, spliced, 'utf8')
+    return alreadyExists
   }
-  const alreadyExists = Object.prototype.hasOwnProperty.call(config[section], mcpServerName)
+
+  if (!sectionIsObject) config[section] = {}
   config[section][mcpServerName] = entry
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n', 'utf8')
   return alreadyExists
