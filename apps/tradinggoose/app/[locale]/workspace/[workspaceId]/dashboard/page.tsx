@@ -6,15 +6,18 @@ import {
 } from '@/lib/dashboard-layouts/operations'
 import { getCachedWorkspaceAccess } from '@/lib/permissions/utils'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
+import { redirect } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 
 export default async function WorkspaceDashboardPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ workspaceId: string }>
+  params: Promise<{ locale: string; workspaceId: string }>
   searchParams?: Promise<{ layoutId?: string }>
 }) {
-  const { workspaceId } = await params
+  const { locale: routeLocale, workspaceId } = await params
+  const locale = routeLocale as LocaleCode
   const session = await getSession()
 
   if (!session?.user?.id) {
@@ -30,15 +33,13 @@ export default async function WorkspaceDashboardPage({
 
   const scope = { workspaceId, ownerUserId: userId }
   await ensureDashboardLayoutProvisioned(scope)
-  let projection = await readActiveDashboardLayoutProjection(scope)
+  const projection = await readActiveDashboardLayoutProjection(scope)
   const requestedLayoutId = (await searchParams)?.layoutId
-  if (
-    requestedLayoutId &&
-    requestedLayoutId !== projection.activeLayout?.id &&
-    projection.layouts.some((layout) => layout.id === requestedLayoutId)
-  ) {
-    await activateDashboardLayout(scope, requestedLayoutId)
-    projection = await readActiveDashboardLayoutProjection(scope)
+  if (requestedLayoutId && projection.layouts.some((layout) => layout.id === requestedLayoutId)) {
+    if (requestedLayoutId !== projection.activeLayout?.id) {
+      await activateDashboardLayout(scope, requestedLayoutId)
+    }
+    redirect({ href: `/workspace/${workspaceId}/dashboard`, locale })
   }
   const activeLayout = projection.activeLayout
   if (!activeLayout) {

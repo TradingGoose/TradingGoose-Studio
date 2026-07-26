@@ -11,6 +11,9 @@ const m = vi.hoisted(() => ({
   ensureLayout: vi.fn(),
   readActive: vi.fn(),
   activateLayout: vi.fn(),
+  redirect: vi.fn(({ href, locale }) => {
+    throw new Error(`redirect:${locale}:${href}`)
+  }),
   clientProps: null as Record<string, unknown> | null,
 }))
 
@@ -23,6 +26,8 @@ vi.mock('@/lib/dashboard-layouts/operations', () => ({
   ensureDashboardLayoutProvisioned: m.ensureLayout,
   readActiveDashboardLayoutProjection: m.readActive,
 }))
+
+vi.mock('@/i18n/navigation', () => ({ redirect: m.redirect }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/dashboard-client', () => ({
   DashboardClient: (props: Record<string, unknown>) => {
@@ -48,7 +53,7 @@ const activeLayout = {
 const renderPage = async (layoutId?: string) =>
   renderToStaticMarkup(
     await WorkspaceDashboardPage({
-      params: Promise.resolve({ workspaceId: 'workspace-1' }),
+      params: Promise.resolve({ locale: 'en', workspaceId: 'workspace-1' }),
       searchParams: layoutId ? Promise.resolve({ layoutId }) : undefined,
     })
   )
@@ -82,26 +87,20 @@ describe('WorkspaceDashboardPage', () => {
     expect(m.clientProps).not.toHaveProperty('initialColorPairs')
   })
 
-  it('activates an owned layout requested by deep link', async () => {
+  it('activates and consumes owned layout deep links', async () => {
     const requestedLayout = { ...activeLayout, id: 'layout-requested', name: 'Requested' }
-    m.readActive
-      .mockResolvedValueOnce({
-        activeLayout,
-        layouts: [activeLayout, { ...requestedLayout, isActive: false }],
-      })
-      .mockResolvedValueOnce({
-        activeLayout: requestedLayout,
-        layouts: [{ ...activeLayout, isActive: false }, requestedLayout],
-      })
+    m.readActive.mockResolvedValueOnce({
+      activeLayout,
+      layouts: [activeLayout, { ...requestedLayout, isActive: false }],
+    })
 
-    await renderPage(requestedLayout.id)
+    await expect(renderPage(requestedLayout.id)).rejects.toThrow(
+      'redirect:en:/workspace/workspace-1/dashboard'
+    )
 
     expect(m.activateLayout).toHaveBeenCalledWith(scope, requestedLayout.id)
-    expect(m.readActive).toHaveBeenCalledTimes(2)
-    expect(m.clientProps).toMatchObject({
-      initialTopology: requestedLayout.topology,
-      layoutId: requestedLayout.id,
-    })
+    await expect(renderPage(activeLayout.id)).rejects.toThrow('redirect')
+    expect(m.activateLayout).toHaveBeenCalledOnce()
   })
 
   it('keeps a reader personal layout available while workspace entities remain read-only', async () => {
