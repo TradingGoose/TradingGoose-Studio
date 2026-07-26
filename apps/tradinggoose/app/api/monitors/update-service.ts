@@ -48,7 +48,7 @@ const parseUpdatePayload = (
       : IndicatorMonitorUpdateSchema.safeParse(body)
 
   if (!parsed.success) {
-    throw new MonitorRequestError(parsed.error.errors[0]?.message ?? 'Invalid request')
+    throw new MonitorRequestError(parsed.error.issues[0]?.message ?? 'Invalid request')
   }
 
   return parsed.data

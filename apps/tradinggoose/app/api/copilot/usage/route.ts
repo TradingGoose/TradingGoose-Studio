@@ -273,11 +273,11 @@ export async function POST(req: NextRequest) {
     if (action === 'reserve') {
       const parsed = ReserveUsageRequestSchema.safeParse(body)
       if (!parsed.success) {
-        logger.warn('Invalid copilot usage reserve request', { errors: parsed.error.errors })
+        logger.warn('Invalid copilot usage reserve request', { errors: parsed.error.issues })
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: parsed.error.errors,
+            details: parsed.error.issues,
           },
           { status: 400 }
         )
@@ -293,11 +293,11 @@ export async function POST(req: NextRequest) {
 
       const parsed = CompletionCommitRequestSchema.safeParse(body)
       if (!parsed.success) {
-        logger.warn('Invalid copilot usage commit request', { errors: parsed.error.errors })
+        logger.warn('Invalid copilot usage commit request', { errors: parsed.error.issues })
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: parsed.error.errors,
+            details: parsed.error.issues,
           },
           { status: 400 }
         )
@@ -309,11 +309,11 @@ export async function POST(req: NextRequest) {
     if (action === 'release') {
       const parsed = ReleaseUsageRequestSchema.safeParse(body)
       if (!parsed.success) {
-        logger.warn('Invalid copilot usage release request', { errors: parsed.error.errors })
+        logger.warn('Invalid copilot usage release request', { errors: parsed.error.issues })
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: parsed.error.errors,
+            details: parsed.error.issues,
           },
           { status: 400 }
         )
@@ -324,11 +324,11 @@ export async function POST(req: NextRequest) {
     const parsed = ContextUsageRequestSchema.safeParse(body)
 
     if (!parsed.success) {
-      logger.warn('Invalid copilot usage request', { errors: parsed.error.errors })
+      logger.warn('Invalid copilot usage request', { errors: parsed.error.issues })
       return NextResponse.json(
         {
           error: 'Invalid request body',
-          details: parsed.error.errors,
+          details: parsed.error.issues,
         },
         { status: 400 }
       )

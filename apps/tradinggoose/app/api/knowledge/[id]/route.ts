@@ -121,10 +121,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid knowledge base update data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }

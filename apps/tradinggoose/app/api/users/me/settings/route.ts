@@ -142,10 +142,10 @@ export async function PATCH(request: Request) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid settings data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
         return NextResponse.json(
-          { error: 'Invalid settings data', details: validationError.errors },
+          { error: 'Invalid settings data', details: validationError.issues },
           { status: 400 }
         )
       }

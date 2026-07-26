@@ -13,10 +13,10 @@ const IndicatorMonitorDocumentSchema = z.object({
   indicatorId: z.string(),
   listing: ListingIdentityPassthroughSchema,
   isActive: z.boolean(),
-  providerParams: z.record(z.unknown()).optional(),
+  providerParams: z.record(z.string(), z.unknown()).optional(),
   auth: z
     .object({
-      secrets: z.record(z.string()).optional(),
+      secrets: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
 })

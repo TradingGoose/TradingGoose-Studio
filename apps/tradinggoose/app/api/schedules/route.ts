@@ -23,9 +23,9 @@ const ScheduleRequestSchema = z.object({
   workflowId: z.string(),
   blockId: z.string().min(1),
   state: z.object({
-    blocks: z.record(z.any()),
+    blocks: z.record(z.string(), z.any()),
     edges: z.array(z.any()),
-    loops: z.record(z.any()),
+    loops: z.record(z.string(), z.any()),
   }),
 })
 
@@ -357,7 +357,7 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

@@ -442,9 +442,9 @@ export async function POST(request: NextRequest) {
     const validationResult = requestSchema.safeParse(body)
 
     if (!validationResult.success) {
-      logger.error('Invalid request body', { errors: validationResult.error.errors })
+      logger.error('Invalid request body', { errors: validationResult.error.issues })
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: validationResult.error.errors },
+        { error: 'Invalid request parameters', details: validationResult.error.issues },
         { status: 400 }
       )
     }

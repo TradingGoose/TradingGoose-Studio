@@ -109,10 +109,10 @@ export async function POST(req: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid custom tools data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
 
-        const workspaceError = validationError.errors.find(
+        const workspaceError = validationError.issues.find(
           (err) => err.path.length === 1 && err.path[0] === 'workspaceId'
         )
         if (workspaceError) {
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }

@@ -16,7 +16,7 @@ const InsertSchema = z.object({
   ssl: z.enum(['disabled', 'required', 'preferred']).default('preferred'),
   collection: z.string().min(1, 'Collection name is required'),
   documents: z
-    .union([z.array(z.record(z.unknown())), z.string()])
+    .union([z.array(z.record(z.string(), z.unknown())), z.string()])
     .transform((val) => {
       if (typeof val === 'string') {
         try {
@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid request data`, { errors: error.errors })
+      logger.warn(`[${requestId}] Invalid request data`, { errors: error.issues })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

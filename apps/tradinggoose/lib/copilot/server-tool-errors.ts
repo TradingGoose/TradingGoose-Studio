@@ -49,10 +49,14 @@ function formatZodIssuePath(issue: z.ZodIssue): string {
     return '$'
   }
 
+  // Zod 4 widens path segments to PropertyKey, so a segment can be a symbol
+  // that would throw on implicit string conversion.
   return issue.path
-    .map((segment, index) =>
-      typeof segment === 'number' ? `[${segment}]` : index === 0 ? segment : `.${segment}`
-    )
+    .map((segment, index) => {
+      if (typeof segment === 'number') return `[${segment}]`
+      const key = String(segment)
+      return index === 0 ? key : `.${key}`
+    })
     .join('')
 }
 

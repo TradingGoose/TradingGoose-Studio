@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: resultSkills })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
-        logger.warn(`[${requestId}] Invalid skills data`, { errors: validationError.errors })
-        const workspaceError = validationError.errors.find(
+        logger.warn(`[${requestId}] Invalid skills data`, { errors: validationError.issues })
+        const workspaceError = validationError.issues.find(
           (error) => error.path.length === 1 && error.path[0] === 'workspaceId'
         )
         if (workspaceError) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }

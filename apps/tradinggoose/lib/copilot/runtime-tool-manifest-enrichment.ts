@@ -1,5 +1,4 @@
-import type { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   getEntityDocumentSchema,
@@ -27,8 +26,13 @@ type DocumentSemanticSpecDefinition = {
 }
 
 function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
-  const jsonSchema = zodToJsonSchema(schema, {
-    target: 'jsonSchema7',
+  // zod-to-json-schema only understands Zod 3 internals, so Zod 4 schemas are
+  // converted with Zod's own emitter. `io: 'input'` keeps these describing what
+  // callers may send, matching the previous behaviour.
+  const jsonSchema = z.toJSONSchema(schema, {
+    target: 'draft-7',
+    io: 'input',
+    unrepresentable: 'any',
   })
 
   if (!jsonSchema || typeof jsonSchema !== 'object' || Array.isArray(jsonSchema)) {

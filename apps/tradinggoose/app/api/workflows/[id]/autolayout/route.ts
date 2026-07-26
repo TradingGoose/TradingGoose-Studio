@@ -27,7 +27,7 @@ const AutoLayoutRequestSchema = z.object({
       y: z.number().min(50).max(500).optional(),
     })
     .optional(),
-  blocks: z.record(z.any()).optional(),
+  blocks: z.record(z.string(), z.any()).optional(),
   edges: z.array(z.any()).optional(),
 })
 
@@ -131,9 +131,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (realtimeResponse) return realtimeResponse
 
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid autolayout request data`, { errors: error.errors })
+      logger.warn(`[${requestId}] Invalid autolayout request data`, { errors: error.issues })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

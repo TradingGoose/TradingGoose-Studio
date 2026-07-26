@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0]?.message ?? 'workspaceId is required' },
+        { error: parsed.error.issues[0]?.message ?? 'workspaceId is required' },
         { status: 400 }
       )
     }

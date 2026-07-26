@@ -102,7 +102,7 @@ describe('copilot entity documents', () => {
           colorPairs: { pairs: [] },
         })
       )
-    ).toThrow('unknown_widget')
+    ).toThrow(/widgetKey/)
   })
 
   it('round-trips canonical null-key panels with their real widget child', () => {
@@ -159,7 +159,7 @@ describe('copilot entity documents', () => {
     [
       'data_chart',
       { data: { provider: 123 } },
-      'widget.params.data.provider: Expected string, received number',
+      'widget.params.data.provider: Invalid input: expected string, received number',
     ],
     ['watchlist', { watchlistId: ' ' }, 'params must be canonical'],
   ])('rejects lossy persisted %s widget params', (widgetKey, params, expectedMessage) => {

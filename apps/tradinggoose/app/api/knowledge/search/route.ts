@@ -40,7 +40,7 @@ const VectorSearchSchema = z
       .default(10)
       .transform((val) => val ?? 10),
     filters: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .optional()
       .nullable()
       .transform((val) => val || undefined), // Allow dynamic filter keys (display names)
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }

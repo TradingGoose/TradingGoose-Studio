@@ -12,7 +12,7 @@ import type { EnvironmentVariable } from '@/stores/settings/environment/types'
 const logger = createLogger('EnvironmentAPI')
 
 const EnvVarSchema = z.object({
-  variables: z.record(z.string()),
+  variables: z.record(z.string(), z.string()),
 })
 const UpsertEnvVarSchema = z.object({
   key: z.string().min(1),
@@ -62,10 +62,10 @@ export async function POST(req: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid environment variables data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }
@@ -111,10 +111,10 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid personal environment variable payload`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }
@@ -147,10 +147,10 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid personal environment variable delete payload`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

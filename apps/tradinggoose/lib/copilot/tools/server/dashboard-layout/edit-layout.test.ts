@@ -48,7 +48,7 @@ describe('edit_layout server tool', () => {
 
   it('rejects row metadata in the topology-only edit_layout contract', async () => {
     await expect(execute(currentStructure({ sortOrder: 2 }))).rejects.toThrow(
-      "Unrecognized key(s) in object: 'sortOrder'"
+      'Unrecognized key: "sortOrder"'
     )
 
     expect(toolMocks.shouldStage).not.toHaveBeenCalled()

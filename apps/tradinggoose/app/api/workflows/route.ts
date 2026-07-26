@@ -228,10 +228,10 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid workflow creation data`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

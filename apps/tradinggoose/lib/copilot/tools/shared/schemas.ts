@@ -30,7 +30,7 @@ export const WidgetMetadataProfileSchema = z.object({
   category: z.enum(['editor', 'list', 'utility', 'trading']),
   description: z.string(),
   editable: z.boolean(),
-  defaultParams: z.record(z.any()).nullable(),
+  defaultParams: z.record(z.string(), z.any()).nullable(),
   editableFields: z.array(z.string()),
   paramContract: z.array(WidgetParamFieldContractSchema),
   linkedParamFields: z.array(z.string()),
@@ -168,7 +168,7 @@ export const GetBlocksMetadataInput = z.object({
     ),
 })
 export const GetBlocksMetadataResult = z.object({
-  metadata: z.record(BlockMermaidProfileSchema),
+  metadata: z.record(z.string(), BlockMermaidProfileSchema),
 })
 
 // get_agent_accessory_catalog
@@ -182,13 +182,13 @@ const AgentToolAccessoryOptionSchema = z.object({
   id: z.string(),
   source: z.enum(['block', 'custom_tool', 'mcp']),
   title: z.string(),
-  value: z.record(z.any()),
+  value: z.record(z.string(), z.any()),
 })
 const AgentSkillAccessoryOptionSchema = z.object({
   id: z.string(),
   source: z.literal('skill'),
   title: z.string(),
-  value: z.record(z.any()),
+  value: z.record(z.string(), z.any()),
 })
 
 export const GetAgentAccessoryCatalogResult = z.object({

@@ -199,9 +199,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid duplication request data`, { errors: error.errors })
+      logger.warn(`[${requestId}] Invalid duplication request data`, { errors: error.issues })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

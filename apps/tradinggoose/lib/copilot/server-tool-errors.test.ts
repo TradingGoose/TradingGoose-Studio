@@ -120,19 +120,21 @@ describe('copilot server tool errors', () => {
   it('returns a structured 422 payload for tool argument schema failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',
+      // Zod 4 issue shapes: `invalid_type` dropped `received`, and
+      // `invalid_enum_value` became `invalid_value` carrying `values`.
       new z.ZodError([
         {
-          code: z.ZodIssueCode.invalid_type,
+          code: 'invalid_type',
           expected: 'string',
-          received: 'undefined',
+          input: undefined,
           path: ['url'],
           message: 'Required',
         },
         {
-          code: z.ZodIssueCode.invalid_enum_value,
-          options: ['GET', 'POST', 'PUT'],
+          code: 'invalid_value',
+          values: ['GET', 'POST', 'PUT'],
+          input: 'get',
           path: ['method'],
-          received: 'get',
           message: "Invalid enum value. Expected 'GET' | 'POST' | 'PUT', received 'get'",
         },
       ])

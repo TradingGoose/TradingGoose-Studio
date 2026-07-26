@@ -18,14 +18,14 @@ const EnvVarSchema = z.discriminatedUnion('scope', [
   z
     .object({
       scope: z.literal('personal'),
-      variables: z.record(z.string()),
+      variables: z.record(z.string(), z.string()),
     })
     .strict(),
   z
     .object({
       scope: z.literal('workspace'),
       workspaceId: z.string().min(1),
-      variables: z.record(z.string()),
+      variables: z.record(z.string(), z.string()),
     })
     .strict(),
 ])

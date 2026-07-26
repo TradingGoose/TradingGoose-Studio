@@ -351,10 +351,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const elapsed = Date.now() - startTime
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid workflow update data for ${workflowId}`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

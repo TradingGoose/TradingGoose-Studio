@@ -1,4 +1,7 @@
-import { z } from 'zod'
+// Stagehand 2.5.8 peer-depends on Zod 3 and introspects `_def.typeName` at
+// runtime, so the schemas handed to `page.extract()` must be Zod 3 instances.
+// Zod 4 ships the v3 API on this subpath, so this stays a single zod package.
+import { z } from 'zod/v3'
 import type { Logger } from '@/lib/logs/console/logger'
 
 // Convert JSON schema to Zod schema (reused from extract route)

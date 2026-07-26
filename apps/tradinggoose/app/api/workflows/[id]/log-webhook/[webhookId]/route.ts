@@ -67,7 +67,7 @@ export async function PUT(
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: validationResult.error.errors },
+        { error: 'Invalid request', details: validationResult.error.issues },
         { status: 400 }
       )
     }
