@@ -28,9 +28,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const dashboardClientMocks = vi.hoisted(() => ({
-  mutateList: vi.fn(),
-}))
+const mockFetch = vi.fn()
 let mockSelectLayout: ((layoutId: string) => void) | null = null
 let mockLayoutTabsLayouts: LayoutTab[] = []
 let mockDashboardLayoutList: {
@@ -120,27 +118,6 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
   }),
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
-  mutateDashboardLayoutListAction: dashboardClientMocks.mutateList,
-}))
-
-vi.mock('@/widgets/utils/watchlist-yjs', () => ({
-  useWatchlistYjsDocument: () => ({
-    items: [],
-    record: {
-      id: 'ws-a',
-      workspaceId: 'ws-a',
-      name: 'Watchlist',
-      items: [],
-      settings: { showLogo: true, showTicker: true, showDescription: true },
-      createdAt: '',
-      updatedAt: '',
-    },
-    isLoading: false,
-    error: null,
-  }),
-}))
-
 vi.mock(
   '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc',
   async (importOriginal) => {
@@ -183,7 +160,7 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
   }) => {
     mockLayoutTabsLayouts = layouts
     mockSelectLayout = onSelect
-    return <div data-testid='layout-tabs' />
+    return <div />
   },
 }))
 
@@ -240,7 +217,6 @@ vi.mock('@/widgets/widget-surface', async () => {
             data-testid={`widget-surface-${panelId ?? 'panel'}`}
             data-pair-color={pairColor}
             data-workflow-id={String(renderWidget?.params?.workflowId ?? '')}
-            data-watchlist-id={String(renderWidget?.params?.watchlistId ?? '')}
             data-workspace-id={context?.workspaceId ?? ''}
             data-dashboard-layout-id={context?.dashboardLayoutId ?? ''}
             data-dashboard-layout-name={context?.dashboardLayoutName ?? ''}
@@ -251,12 +227,6 @@ vi.mock('@/widgets/widget-surface', async () => {
             data-testid={`pair-color-red-${panelId ?? 'panel'}`}
             disabled={!onPairColorChange}
             onClick={() => onPairColorChange?.('red')}
-          />
-          <button
-            type='button'
-            data-testid={`pair-color-blue-${panelId ?? 'panel'}`}
-            disabled={!onPairColorChange}
-            onClick={() => onPairColorChange?.('blue')}
           />
           <button
             type='button'
@@ -310,6 +280,7 @@ describe('DashboardClient', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     vi.clearAllMocks()
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ workspaces: [] }) })
     mockSelectLayout = null
     mockLayoutTabsLayouts = []
     mockDashboardLayoutList = null
@@ -319,22 +290,14 @@ describe('DashboardClient', () => {
     mockDocuments = new Set()
     mockWidgetDocuments = new Map()
     mockPairDocuments = new Map()
-    for (const color of ['red', 'blue']) {
-      const pairDoc = new Y.Doc()
-      seedDashboardColorPairSession(pairDoc, {})
-      mockPairDocuments.set(color, pairDoc)
-      mockDocuments.add(pairDoc)
-    }
+    const pairDoc = new Y.Doc()
+    seedDashboardColorPairSession(pairDoc, {})
+    mockPairDocuments.set('red', pairDoc)
+    mockDocuments.add(pairDoc)
     mockPanelGroupLayout = []
     mockResizeHandleProps = undefined
     resetDashboardStores()
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ workspaces: [] }),
-      }))
-    )
+    vi.stubGlobal('fetch', mockFetch)
   })
 
   afterEach(() => {
@@ -352,11 +315,8 @@ describe('DashboardClient', () => {
 
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
-      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'gray',
-    })
-    expect(readWidgetRuntimeContext(container)).toEqual({
       dashboardLayoutId: 'layout-a',
       dashboardLayoutName: 'Layout A',
       dashboardLayoutOwnerUserId: 'user-a',
@@ -371,11 +331,8 @@ describe('DashboardClient', () => {
 
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-b',
-      watchlistId: '',
       workspaceId: 'ws-b',
       pairColor: 'gray',
-    })
-    expect(readWidgetRuntimeContext(container)).toEqual({
       dashboardLayoutId: 'layout-b',
       dashboardLayoutName: 'Layout B',
       dashboardLayoutOwnerUserId: 'user-b',
@@ -394,9 +351,8 @@ describe('DashboardClient', () => {
     await act(async () => {
       switchToRedButton.click()
     })
-    expect(readWidgetSurface(container, 'panel-a')).toEqual({
+    expect(readWidgetSurface(container, 'panel-a')).toMatchObject({
       workflowId: '',
-      watchlistId: '',
       workspaceId: 'ws-a',
       pairColor: 'red',
     })
@@ -469,45 +425,26 @@ describe('DashboardClient', () => {
     }
   })
 
-  it('projects a committed activation before the live layout list arrives', async () => {
-    dashboardClientMocks.mutateList.mockResolvedValueOnce(createLayouts('layout-b', 1))
-    await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
-
-    await act(async () => {
-      await mockSelectLayout?.('layout-b')
-    })
-
-    expect(dashboardClientMocks.mutateList).toHaveBeenCalledWith('ws-a', {
-      type: 'activate',
-      layoutId: 'layout-b',
-    })
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-  })
-
-  it('follows the live active layout when another client activates and deletes the previous one', async () => {
+  it('projects activation before Yjs converges and follows a live deletion', async () => {
     const layoutA = createPanelLayout('panel-a', 'wf-a')
     const layoutB = createPanelLayout('panel-b', 'wf-b')
     mockLayoutTopologies.set('layout-b', layoutB)
     await renderDashboard({ topology: layoutA })
+    let resolveActivation!: (response: unknown) => void
+    mockFetch.mockReturnValueOnce(new Promise((resolve) => (resolveActivation = resolve)))
 
-    mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b'),
-      hasLiveSnapshot: true,
-      isLoading: false,
-      error: null,
-    }
-    await renderDashboard({ topology: layoutA })
-
-    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-    expect(mockLayoutTabsLayouts).toEqual(createLayouts('layout-b'))
-    expect(readWidgetRuntimeContext(container)).toEqual({
-      dashboardLayoutId: 'layout-b',
-      dashboardLayoutName: 'Layout B',
-      dashboardLayoutOwnerUserId: 'user-a',
+    act(() => mockSelectLayout?.('layout-b'))
+    expect(JSON.parse(mockFetch.mock.calls.at(-1)![1].body)).toEqual({
+      type: 'activate',
+      layoutId: 'layout-b',
     })
+    const projected = createLayouts('layout-b', 1)
+    await act(async () => resolveActivation({ ok: true, json: () => Promise.resolve(projected) }))
+    expect(mockLayoutDocumentLayoutId).toBe('layout-b')
+    expect(mockLayoutTabsLayouts).toEqual(projected)
 
     mockDashboardLayoutList = {
-      layouts: createLayouts('layout-b').filter((layout) => layout.id !== 'layout-a'),
+      layouts: projected.filter((layout) => layout.id !== 'layout-a'),
       hasLiveSnapshot: true,
       isLoading: false,
       error: null,
@@ -515,7 +452,7 @@ describe('DashboardClient', () => {
     await renderDashboard({ topology: layoutA })
 
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
-    expect(mockLayoutTabsLayouts).toEqual([{ ...createLayouts('layout-b')[1]!, sortOrder: 0 }])
+    expect(mockLayoutTabsLayouts).toEqual([{ ...projected[1]!, sortOrder: 0 }])
     expect(container.querySelector('[data-testid="dashboard-layout-document-state"]')).toBeNull()
   })
 
@@ -639,22 +576,8 @@ function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
 
   return {
     workflowId: element.dataset.workflowId ?? '',
-    watchlistId: element.dataset.watchlistId ?? '',
     workspaceId: element.dataset.workspaceId ?? '',
     pairColor: element.dataset.pairColor ?? 'gray',
-  }
-}
-
-function readWidgetRuntimeContext(container: HTMLDivElement, panelId?: string) {
-  const selector = panelId
-    ? `[data-testid="widget-surface-${panelId}"]`
-    : '[data-testid^="widget-surface-"]'
-  const element = container.querySelector(selector)
-  if (!(element instanceof HTMLElement)) {
-    throw new Error('Expected widget surface to be rendered')
-  }
-
-  return {
     dashboardLayoutId: element.dataset.dashboardLayoutId ?? '',
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',

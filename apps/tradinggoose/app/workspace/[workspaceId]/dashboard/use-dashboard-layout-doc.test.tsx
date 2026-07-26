@@ -21,7 +21,6 @@ let mockEntityList = {
 }
 const mockUseSavedEntityYjsSession = vi.hoisted(() => vi.fn())
 const mockFetch = vi.hoisted(() => vi.fn())
-const mockMutateList = vi.hoisted(() => vi.fn())
 
 const topology: DashboardLayoutTopologyNode = {
   id: 'panel-chart',
@@ -48,10 +47,6 @@ const initialLayouts = layoutTabs()
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
   useEntityList: () => mockEntityList,
   useSavedEntityYjsSession: (...args: unknown[]) => mockUseSavedEntityYjsSession(...args),
-}))
-
-vi.mock('@/app/workspace/[workspaceId]/dashboard/actions', () => ({
-  mutateDashboardLayoutListAction: mockMutateList,
 }))
 
 vi.stubGlobal('fetch', mockFetch)
@@ -84,31 +79,27 @@ describe('useDashboardLayoutDocument live fields', () => {
     latestList = useDashboardLayoutList(workspaceId, ownerUserId, initialLayouts)
     return null
   }
-  const renderList = (workspaceId = 'workspace-1', ownerUserId = 'user-1') =>
-    act(() => root.render(<CaptureList {...{ workspaceId, ownerUserId }} />))
-  const listIds = () => latestList.layouts.map(({ id }: { id: string }) => id)
-  const setLiveList = (layouts = initialLayouts) => {
+  const setLiveList = (
+    layouts = initialLayouts,
+    workspaceId = 'workspace-1',
+    ownerUserId = 'user-1'
+  ) => {
     mockEntityList = {
-      members: layouts.map(
-        ({ id: entityId, name: entityName, isActive, sortOrder, updatedAt }) => ({
-          entityId,
-          entityName,
-          isActive,
-          sortOrder,
-          updatedAt,
-        })
-      ),
+      members: layouts.map(({ id: entityId, name: entityName, ...member }) => ({
+        entityId,
+        entityName,
+        ...member,
+      })),
       hasLiveSnapshot: true,
       isLoading: false,
       error: null,
     }
-    renderList()
+    act(() => root.render(<CaptureList {...{ workspaceId, ownerUserId }} />))
   }
 
   beforeEach(() => {
     mockFetch.mockReset()
     mockFetch.mockResolvedValue({ ok: true })
-    mockMutateList.mockReset()
     mockEntityList = { members: [], hasLiveSnapshot: false, isLoading: true, error: null }
     mockUseSavedEntityYjsSession.mockClear()
     mockUseSavedEntityYjsSession.mockImplementation(() => ({
@@ -172,6 +163,7 @@ describe('useDashboardLayoutDocument live fields', () => {
       ['/api/workspaces/workspace-1/dashboard-layouts/layout-1/structure', resize],
       ['/api/workspaces/workspace-2/dashboard-layouts/layout-2/structure', replace],
     ])
+    expect(mockFetch.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' })
 
     rejectDepartedResize(new Error('departed resize failed'))
     await departedFailure
@@ -190,23 +182,26 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.resizeReconcileVersion).toBe(0)
   })
 
-  it('keeps list mutations projected until a matching or newer Yjs revision arrives', async () => {
+  it('projects complete list mutations until matching or newer Yjs revisions arrive', async () => {
     let resolveMutation!: (result: unknown) => void
-    renderList()
     setLiveList()
-    const reordered = layoutTabs(['layout-b', 'layout-a'], 1)
-    mockMutateList.mockReturnValueOnce(new Promise((resolve) => (resolveMutation = resolve)))
+    const committed = layoutTabs(['layout-b', 'layout-a'], 1)
+    const matchingLive = layoutTabs(['layout-b', 'layout-a'], 1, 'layout-b')
+    const response = (layouts: ReturnType<typeof layoutTabs>) => ({
+      ok: true,
+      json: async () => layouts,
+    })
+    mockFetch.mockImplementation(() => new Promise((resolve) => (resolveMutation = resolve)))
 
     act(() => {
       void latestList.reorderLayouts(['layout-b', 'layout-a'])
       void latestList.reorderLayouts(['layout-a', 'layout-b'])
     })
-    expect(mockMutateList).toHaveBeenCalledOnce()
-    expect(listIds()).toEqual(['layout-b', 'layout-a'])
-    setLiveList(reordered)
-    expect(latestList.isBusy).toBe(true)
-    await act(async () => resolveMutation(reordered))
-    expect(latestList.isBusy).toBe(false)
+    expect(mockFetch).toHaveBeenCalledOnce()
+    expect(latestList.layouts).toEqual([initialLayouts[1], initialLayouts[0]])
+    setLiveList(matchingLive)
+    await act(async () => resolveMutation(response(committed)))
+    expect(latestList.layouts).toEqual(matchingLive)
 
     const created = layoutTabs(['layout-b', 'layout-a', 'layout-c'], 2)
     const activated = layoutTabs(['layout-b', 'layout-a', 'layout-c'], 3, 'layout-b')
@@ -219,33 +214,51 @@ describe('useDashboardLayoutDocument live fields', () => {
       [() => latestList.deleteLayout('layout-c'), deleted],
     ] as const
     for (const [mutate, projected] of projectedMutations) {
-      mockMutateList.mockResolvedValueOnce(projected)
+      mockFetch.mockResolvedValueOnce(response(projected))
       await act(mutate)
       expect(latestList.layouts).toEqual(projected)
-      setLiveList(projected)
-      expect(latestList.isBusy).toBe(false)
     }
+    const requestBoundary = [
+      '/api/workspaces/workspace-1/dashboard-layouts',
+      'POST',
+      { 'Content-Type': 'application/json' },
+    ] as const
+    expect(
+      mockFetch.mock.calls
+        .slice(0, 5)
+        .map(([url, init]) => [url, init.method, init.headers, JSON.parse(init.body)])
+    ).toEqual([
+      [...requestBoundary, { type: 'reorder', layoutOrder: ['layout-b', 'layout-a'] }],
+      [...requestBoundary, { type: 'create' }],
+      [...requestBoundary, { type: 'activate', layoutId: 'layout-b' }],
+      [...requestBoundary, { type: 'rename', layoutId: 'layout-b', name: 'Renamed B' }],
+      [...requestBoundary, { type: 'delete', layoutId: 'layout-c' }],
+    ])
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 409 })
+    await act(() => latestList.reorderLayouts(['layout-a', 'layout-b']))
+    expect(latestList.layouts).toEqual(deleted)
 
     const activatedLocally = layoutTabs(['layout-b', 'layout-a'], 6, 'layout-a', 'Renamed B')
-    mockMutateList.mockResolvedValueOnce(activatedLocally)
+    mockFetch.mockResolvedValueOnce(response(activatedLocally))
     await act(() => latestList.activateLayout('layout-a'))
     expect(latestList.layouts).toEqual(activatedLocally)
+    expect(latestList.isBusy).toBe(false)
     const supersedingActivation = layoutTabs(['layout-b', 'layout-a'], 7, 'layout-b', 'Renamed B')
     setLiveList(supersedingActivation)
     expect(latestList.layouts).toEqual(supersedingActivation)
-    expect(latestList.isBusy).toBe(false)
 
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    mockMutateList.mockRejectedValueOnce(new Error('reorder failed'))
-    await act(() => latestList.reorderLayouts(['layout-a', 'layout-b']))
-    expect(latestList.layouts).toEqual(supersedingActivation)
-    expect(latestList.isBusy).toBe(false)
-
-    mockMutateList.mockReturnValueOnce(new Promise((resolve) => (resolveMutation = resolve)))
-    act(() => void latestList.reorderLayouts(['layout-a', 'layout-b']))
-    renderList('workspace-2', 'user-2')
-    expect(latestList.isBusy).toBe(false)
-    await act(async () => resolveMutation(supersedingActivation))
+    for (const [workspaceId, ownerUserId] of [
+      ['workspace-2', 'user-1'],
+      ['workspace-2', 'user-2'],
+    ] as const) {
+      mockFetch.mockReturnValueOnce(new Promise((resolve) => (resolveMutation = resolve)))
+      act(() => void latestList.createLayout())
+      setLiveList(initialLayouts, workspaceId, ownerUserId)
+      await act(async () => resolveMutation(response(supersedingActivation)))
+      expect(latestList.layouts).toEqual(initialLayouts)
+    }
     consoleError.mockRestore()
   })
 })
