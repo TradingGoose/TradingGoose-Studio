@@ -3,7 +3,7 @@
  */
 
 import { spawnSync } from 'child_process'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
@@ -135,6 +135,30 @@ describe('MCP local config writer script', () => {
         },
       },
     ],
+    [
+      'gemini',
+      ['.gemini', 'settings.json'],
+      {
+        mcpServers: {
+          TradingGoose: {
+            httpUrl: 'http://localhost:3000/api/copilot/mcp',
+            headers: { Authorization: 'Bearer mcp-token' },
+          },
+        },
+      },
+    ],
+    [
+      'antigravity',
+      ['.gemini', 'config', 'mcp_config.json'],
+      {
+        mcpServers: {
+          TradingGoose: {
+            serverUrl: 'http://localhost:3000/api/copilot/mcp',
+            headers: { Authorization: 'Bearer mcp-token' },
+          },
+        },
+      },
+    ],
   ])('writes %s config', (target, pathParts, expectedConfig) => {
     const home = mkdtempSync(join(tmpdir(), `tg-mcp-${target}-`))
     const configPath = join(home, ...pathParts)
@@ -142,5 +166,50 @@ describe('MCP local config writer script', () => {
     runWriter(home, [target, 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
 
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual(expectedConfig)
+  })
+
+  it('reports the resolved path and whether the entry already existed', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-report-'))
+
+    const first = JSON.parse(
+      runWriter(home, ['cursor', 'http://localhost:3000/api/copilot/mcp', 't1'])
+    )
+    expect(first).toEqual({ path: join(home, '.cursor', 'mcp.json'), alreadyExists: false })
+
+    const second = JSON.parse(
+      runWriter(home, ['cursor', 'http://localhost:3000/api/copilot/mcp', 't2'])
+    )
+    expect(second).toEqual({ path: join(home, '.cursor', 'mcp.json'), alreadyExists: true })
+  })
+
+  it('updates an existing OpenCode variant instead of creating the canonical file', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-opencode-variant-'))
+    const variantPath = join(home, '.config', 'opencode', 'opencode.jsonc')
+    mkdirSync(join(home, '.config', 'opencode'), { recursive: true })
+    writeFileSync(variantPath, '{\n  // existing config\n  "mcp": {}\n}\n', 'utf8')
+
+    const result = JSON.parse(
+      runWriter(home, ['opencode', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
+    )
+
+    expect(result.path).toBe(variantPath)
+    expect(existsSync(join(home, '.config', 'opencode', 'opencode.json'))).toBe(false)
+    expect(JSON.parse(readFileSync(variantPath, 'utf8')).mcp.TradingGoose.type).toBe('remote')
+  })
+
+  it('rejects unsupported targets', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-unknown-'))
+    const scriptPath = join(home, 'writer.js')
+    writeFileSync(scriptPath, MCP_LOCAL_CONFIG_WRITER_SCRIPT, 'utf8')
+
+    const result = spawnSync('node', [scriptPath, 'windsurf', 'http://localhost:3000', 'token'], {
+      cwd: home,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      timeout: 5000,
+    })
+
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain('Unsupported setup target: windsurf')
   })
 })

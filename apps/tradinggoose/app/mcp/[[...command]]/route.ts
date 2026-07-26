@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import {
   buildMcpInstallScript,
+  MCP_SETUP_AGENTS,
   type McpInstallScriptFormat,
   type McpInstallScriptOptions,
 } from '../../../lib/mcp/install-script'
@@ -8,7 +9,7 @@ import { getBaseUrl } from '../../../lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
-const SETUP_TARGETS = new Set(['codex', 'cursor', 'claude', 'opencode', 'all'])
+const SETUP_TARGETS = new Set<string>([...MCP_SETUP_AGENTS, 'all'])
 
 function parseInstallOptions(command: string[] | undefined): McpInstallScriptOptions | null {
   if (!command || command.length === 0) {

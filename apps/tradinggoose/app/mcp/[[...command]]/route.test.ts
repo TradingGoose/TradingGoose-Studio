@@ -67,31 +67,46 @@ describe('MCP install route', () => {
     expect(script).toContain("Authorization: Bearer ' + login.token")
     expect(script).toContain('setup   Write MCP config, authenticating when needed.')
     expect(script).not.toContain('read-tokens')
-    expect(script).toContain('node - "$BASE_URL" "$COMMAND" "$TARGETS"')
+    // The installer runs from a temp file, not `node -`, so node's stdin stays
+    // attached to the terminal for the interactive target picker.
+    expect(script).toContain('cat >"$tmp_dir/installer.js" <<\'NODE\'')
+    expect(script).toContain(
+      'node "$tmp_dir/installer.js" "$BASE_URL" "$COMMAND" "$TARGETS" </dev/tty'
+    )
+    expect(script).not.toContain('node - "$BASE_URL"')
     expect(script).toContain('runConfigWriter([target, mcpUrl, login.token])')
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("'[mcp_servers.' + mcpServerName + '.http_headers]'")
-    expect(script).toContain("'Authorization = ' + JSON.stringify('Bearer ' + token)")
     expect(script).not.toContain('TRADINGGOOSE_BEARER_TOKEN')
     expect(script).not.toContain('bearer_token_env_var')
     expect(script).not.toContain("spawnSync('setx'")
     expect(script).toContain("path.join(os.homedir(), '.codex', 'config.toml')")
     expect(script).toContain("path.join(os.homedir(), '.cursor', 'mcp.json')")
     expect(script).toContain("path.join(os.homedir(), '.claude.json')")
-    expect(script).toContain("path.join(os.homedir(), '.config', 'opencode', 'opencode.json')")
+    expect(script).toContain("path.join(dir, 'opencode.json')")
+    expect(script).toContain("path.join(os.homedir(), '.gemini', 'settings.json')")
+    expect(script).toContain("path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json')")
     expect(script).not.toContain('workspaceId')
     expect(script).not.toContain('entityId')
 
-    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + login.token)")
+    const printedTokenIndex = script.indexOf("pc.dim('Authorization: Bearer ' + login.token)")
     const firstReturnTokenIndex = script.indexOf('return { code, verificationKey, token }')
-    const setupIndex = script.indexOf("if (command === 'setup')")
-    const configWriteIndex = script.indexOf(
-      'const configPath = runConfigWriter([target, mcpUrl, login.token])'
-    )
-    const acknowledgeIndex = script.indexOf('await acknowledge(login)', setupIndex)
     expect(printedTokenIndex).toBeGreaterThan(firstReturnTokenIndex)
-    expect(configWriteIndex).toBeGreaterThan(setupIndex)
-    expect(acknowledgeIndex).toBeGreaterThan(setupIndex)
+
+    // Within the setup branch the token must be minted and acknowledged before
+    // any config file is written.
+    const setupIndex = script.indexOf("if (command === 'setup')")
+    expect(setupIndex).toBeGreaterThan(-1)
+    const chooseIndex = script.indexOf('await chooseTargets()', setupIndex)
+    const authenticateIndex = script.indexOf('await authenticate()', setupIndex)
+    const acknowledgeIndex = script.indexOf('await acknowledge(login)', setupIndex)
+    const configWriteIndex = script.indexOf('configureTarget(target, login)', setupIndex)
+
+    for (const index of [chooseIndex, authenticateIndex, acknowledgeIndex, configWriteIndex]) {
+      expect(index).toBeGreaterThan(setupIndex)
+    }
+    expect(chooseIndex).toBeLessThan(authenticateIndex)
+    expect(authenticateIndex).toBeLessThan(acknowledgeIndex)
     expect(acknowledgeIndex).toBeLessThan(configWriteIndex)
   })
 
@@ -151,14 +166,18 @@ describe('MCP install route', () => {
     expect(script).toContain("$Command = 'setup'")
     expect(script).toContain("$Targets = @('codex')")
     expect(script).toContain('irm <studio-url>/mcp/setup | iex')
-    expect(script).toContain("$NodeScript | & node - $BaseUrl $Command ($Targets -join ' ')")
+    // Same temp-file execution as the POSIX path, so the console stays on stdin.
+    expect(script).toContain(
+      'Set-Content -LiteralPath $ScriptPath -Value $NodeScript -Encoding UTF8'
+    )
+    expect(script).toContain("& node $ScriptPath $BaseUrl $Command ($Targets -join ' ')")
+    expect(script).not.toContain('| & node -')
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain('ackApiKey: login.token')
     expect(script).not.toContain("runConfigWriter(['read-tokens'])")
     expect(script).not.toContain("method: 'ping'")
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("'[mcp_servers.' + mcpServerName + '.http_headers]'")
-    expect(script).toContain("'Authorization = ' + JSON.stringify('Bearer ' + token)")
     expect(script).not.toContain('TRADINGGOOSE_BEARER_TOKEN')
     expect(script).not.toContain('bearer_token_env_var')
     expect(script).not.toContain("spawnSync('setx'")
@@ -172,6 +191,59 @@ describe('MCP install route', () => {
     expectShellScript(script)
     expect(script).toContain('COMMAND="login"')
     expect(script).toContain('TARGETS=""')
+  })
+
+  it.each(['claude', 'cursor', 'opencode', 'codex', 'antigravity', 'gemini'])(
+    'serves a setup script for the %s target',
+    async (target) => {
+      const response = await callInstaller(`/mcp/setup/${target}`, ['setup', target])
+      const script = await response.text()
+
+      expectShellScript(script)
+      expect(script).toContain(`TARGETS="${target}"`)
+    }
+  )
+
+  it('expands the all target to every supported agent', async () => {
+    const response = await callInstaller('/mcp/setup/all', ['setup', 'all'])
+    const script = await response.text()
+
+    expect(script).toContain('TARGETS="claude cursor opencode codex antigravity gemini"')
+  })
+
+  it('renders the interactive target picker in the installer, not the shell', async () => {
+    const response = await callInstaller('/mcp')
+    const script = await response.text()
+
+    // Target selection moved out of the shell into the node installer so it can
+    // render the Context7-style checkbox instead of a numbered read prompt.
+    expect(script).toContain("message: 'Which agents do you want to set up?'")
+    expect(script).toContain('function checkbox(options)')
+    expect(script).not.toContain('choose_targets')
+    expect(script).not.toContain('Target [1-5]')
+    expect(script).toContain(
+      'AGENT_ORDER.map((name) => ({ name: AGENT_NAMES[name], value: name }))'
+    )
+  })
+
+  it('uses the TradingGoose brand color rather than the Context7 green', async () => {
+    const response = await callInstaller('/mcp')
+    const script = await response.text()
+
+    expect(script).toContain("'38;2;255;204;0'")
+    expect(script).toContain("'38;5;220'")
+    expect(script).toContain('brand: paint(BRAND_OPEN')
+    expect(script).not.toContain("green: paint('32'")
+  })
+
+  it('reports configured versus reconfigured per agent', async () => {
+    const response = await callInstaller('/mcp')
+    const script = await response.text()
+
+    expect(script).toContain(
+      "(written.alreadyExists ? 'reconfigured' : 'configured') + ' with ' + AUTH_MODE_LABEL"
+    )
+    expect(script).toContain('JSON.stringify({ path: filePath, alreadyExists: alreadyExists })')
   })
 
   it('rejects unknown installer commands', async () => {
