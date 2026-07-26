@@ -12,7 +12,6 @@ import {
   resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
@@ -325,26 +324,26 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
   }
 
+  // No billing-enabled gate here: a signature-verified Stripe webhook resolving to a local row
+  // that carries a stripeSubscriptionId is only reachable while billing is configured and
+  // running. Re-deriving that from settings only added a fallible read that could skip the
+  // restore and leave the user unentitled.
   if (subscriptionToSettle.referenceType === 'user') {
-    const { billingEnabled } = await getResolvedBillingSettings()
+    subscriptionForUsageLimits = await db.transaction(async (tx) => {
+      const nextSubscription = await ensureDefaultUserSubscription(
+        subscriptionToSettle.referenceId,
+        tx
+      )
 
-    if (billingEnabled) {
-      subscriptionForUsageLimits = await db.transaction(async (tx) => {
-        const nextSubscription = await ensureDefaultUserSubscription(
+      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+        await resetUserDefaultUsageToOnboardingAllowanceBalance(
           subscriptionToSettle.referenceId,
           tx
         )
+      }
 
-        if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-          await resetUserDefaultUsageToOnboardingAllowanceBalance(
-            subscriptionToSettle.referenceId,
-            tx
-          )
-        }
-
-        return nextSubscription
-      })
-    }
+      return nextSubscription
+    })
   }
 
   await syncSubscriptionUsageLimits(subscriptionForUsageLimits)

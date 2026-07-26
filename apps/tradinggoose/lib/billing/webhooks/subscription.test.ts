@@ -12,7 +12,6 @@ const {
   mockEnsureDefaultUserSubscription,
   mockEq,
   mockGetBilledOverageForSubscription,
-  mockGetResolvedBillingSettings,
   mockGetSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
@@ -33,7 +32,6 @@ const {
   mockEnsureDefaultUserSubscription: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
-  mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
@@ -77,10 +75,6 @@ vi.mock('@/lib/billing/core/usage', () => ({
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
   getSubscriptionByStripeSubscriptionId: mockGetSubscriptionByStripeSubscriptionId,
-}))
-
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: mockGetResolvedBillingSettings,
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -211,7 +205,6 @@ describe('handleSubscriptionCreated', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockRequireStripeClient.mockReturnValue({})
     mockIsPaidBillingTier.mockReturnValue(false)
   })
@@ -289,7 +282,6 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
