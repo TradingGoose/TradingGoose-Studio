@@ -1,7 +1,6 @@
 export interface CustomToolSchema {
   type: string
   function: {
-    name: string
     description?: string
     parameters: {
       type: string
@@ -18,7 +17,7 @@ export interface CustomToolDefinition {
   title: string
   schema: CustomToolSchema
   code: string
-  createdAt: string
+  createdAt?: string
   updatedAt?: string
 }
 

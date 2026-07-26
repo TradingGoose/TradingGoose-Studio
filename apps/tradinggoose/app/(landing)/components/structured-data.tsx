@@ -2,13 +2,15 @@ import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { type LocaleCode, localizeSiteUrl, SITE_BASE_URL } from '@/i18n/utils'
+import { type LocaleCode, localizeSiteUrl } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 const STRUCTURED_DATA_MODIFIED_AT = '2026-04-04T00:00:00+00:00'
-const siteEntityUrl = (id: string) => `${SITE_BASE_URL}/#${id}`
-const siteAssetUrl = (pathname: string) => `${SITE_BASE_URL}${pathname}`
 
-function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBillingCatalog>>) {
+function buildStructuredOffers(
+  catalog: Awaited<ReturnType<typeof getPublicBillingCatalog>>,
+  siteEntityUrl: (id: string) => string
+) {
   if (!catalog.billingEnabled) {
     return []
   }
@@ -86,6 +88,9 @@ export default async function StructuredData() {
   const billingCatalog = await getPublicBillingCatalog()
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
+  const siteBaseUrl = getBaseUrl()
+  const siteEntityUrl = (id: string) => `${siteBaseUrl}/#${id}`
+  const siteAssetUrl = (pathname: string) => `${siteBaseUrl}${pathname}`
   const siteHomeUrl = localizeSiteUrl(locale, '/')
   const pricingNarrative = billingCatalog.billingEnabled
     ? buildHostedPricingNarrative(billingCatalog)
@@ -211,7 +216,7 @@ export default async function StructuredData() {
         applicationSubCategory: 'Trading Platform',
         operatingSystem: 'Web, Windows, macOS, Linux',
         softwareVersion: '2026.04.04',
-        offers: buildStructuredOffers(billingCatalog),
+        offers: buildStructuredOffers(billingCatalog, siteEntityUrl),
         featureList: [
           'Visual workflow canvas for trading strategies',
           'Custom indicator editor (PineTS)',

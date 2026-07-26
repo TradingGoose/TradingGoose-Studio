@@ -1,5 +1,12 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
+import {
+  decodeManualOwnerSnapshot,
+  encodeManualOwnerSnapshot,
+  type ManualOwnerSnapshot,
+  normalizeManualOwnerSnapshot,
+} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import type {
   ClearOwnerStateOptions,
   DetachOptions,
@@ -25,12 +32,6 @@ import {
   TEXT_EDITABLE_TOOL_TYPES,
 } from '@/widgets/widgets/data_chart/drawings/plugin-registry'
 import {
-  decodeManualOwnerSnapshot,
-  encodeManualOwnerSnapshot,
-  type ManualOwnerSnapshot,
-  normalizeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/snapshot'
-import {
   MANUAL_TOOL_TYPES,
   type ManualToolType,
 } from '@/widgets/widgets/data_chart/drawings/tool-types'
@@ -39,7 +40,7 @@ import {
   type ILineToolsPlugin,
   type LineToolExport,
 } from '@/widgets/widgets/data_chart/plugins/core'
-import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 type ManualLineToolsAttachmentControllerParams = {
   chartRef: MutableRefObject<IChartApi | null>

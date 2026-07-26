@@ -3,6 +3,7 @@ import {
   buildLocalizedAlternates,
   getLocaleDisplayName,
   getOpenGraphLocale,
+  localizeDocsUrl,
   localizeSiteUrl,
   localizeUrl,
   normalizeCallbackUrl,
@@ -44,6 +45,17 @@ describe('i18n utils', () => {
     expect(normalizeCallbackUrl('workspace/ws-1/dashboard')).toBeNull()
   })
 
+  it('rejects localized callback URLs', () => {
+    expect(normalizeCallbackUrl('/en?source=nav')).toBeNull()
+    expect(normalizeCallbackUrl('/es/workspace/ws-1/dashboard?layoutId=layout-1')).toBeNull()
+    expect(
+      normalizeCallbackUrl(
+        'https://tradinggoose.ai/zh/invite/invitation-1?token=abc',
+        'https://tradinggoose.ai'
+      )
+    ).toBeNull()
+  })
+
   it('builds localized site URLs and alternate hreflang mappings', () => {
     const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL
     process.env.NEXT_PUBLIC_APP_URL = 'https://preview.example.com'
@@ -54,10 +66,10 @@ describe('i18n utils', () => {
       expect(buildLocalizedAlternates('es', '/blog')).toEqual({
         canonical: 'https://preview.example.com/es/blog',
         languages: {
-          en: 'https://preview.example.com/blog',
+          en: 'https://preview.example.com/en/blog',
           es: 'https://preview.example.com/es/blog',
           zh: 'https://preview.example.com/zh/blog',
-          'x-default': 'https://preview.example.com/blog',
+          'x-default': 'https://preview.example.com/en/blog',
         },
       })
     } finally {
@@ -74,11 +86,16 @@ describe('i18n utils', () => {
       'https://tradinggoose.ai/es/reset-password?token=abc'
     )
     expect(localizeUrl('https://tradinggoose.ai', 'en', '/workspace')).toBe(
-      'https://tradinggoose.ai/workspace'
+      'https://tradinggoose.ai/en/workspace'
     )
     expect(localizeUrl('https://tradinggoose.ai', 'invalid', '/login')).toBe(
-      'https://tradinggoose.ai/login'
+      'https://tradinggoose.ai/en/login'
     )
+  })
+
+  it('keeps docs URLs aligned with the docs app locale contract', () => {
+    expect(localizeDocsUrl('en')).toBe('https://docs.tradinggoose.ai/')
+    expect(localizeDocsUrl('zh', '/widgets')).toBe('https://docs.tradinggoose.ai/zh/widgets')
   })
 
   it('rejects non-canonical app URL inputs', () => {

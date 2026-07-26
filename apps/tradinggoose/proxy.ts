@@ -1,4 +1,3 @@
-import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
@@ -14,6 +13,8 @@ import {
   CANONICAL_CALLBACK_PATH_HEADER,
   defaultLocale,
   isLocaleCode,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
   type LocaleCode,
   localizeUrl,
   stripLocaleFromPathname,
@@ -23,29 +24,7 @@ import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
-const LOCALE_COOKIE = 'NEXT_LOCALE'
-const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
-
-const AUTH_ROUTES = new Set(['/login', '/signup'])
-const AUTH_COOKIE_KEYS = [
-  'better-auth.session_token',
-  'better-auth.session_data',
-  'better-auth.dont_remember',
-  '__Secure-better-auth.session_token',
-  '__Secure-better-auth.session_data',
-  '__Secure-better-auth.dont_remember',
-]
-
-function clearAuthCookies(response: NextResponse) {
-  AUTH_COOKIE_KEYS.forEach((name) => {
-    response.cookies.set({
-      name,
-      value: '',
-      maxAge: 0,
-      path: '/',
-    })
-  })
-}
+const MCP_INSTALL_TARGETS = new Set(['codex', 'cursor', 'claude', 'opencode', 'all'])
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/,
@@ -61,30 +40,21 @@ interface LocaleRoute {
   hasLocalePrefix: boolean
 }
 
-function resolveLocaleRoute(pathname: string): LocaleRoute {
+type AcceptLanguageCandidate = {
+  locale: LocaleCode
+  quality: number
+  index: number
+}
+
+function resolveLocaleRoute(pathname: string, localeOverride?: LocaleCode): LocaleRoute {
   const firstSegment = pathname.split('/').filter(Boolean)[0]
   const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+  const hasLocalePrefix = Boolean(firstSegment && isLocaleCode(firstSegment))
   return {
-    locale,
+    locale: hasLocalePrefix ? locale : (localeOverride ?? locale),
     pathname: normalizedPathname,
-    hasLocalePrefix: Boolean(firstSegment && isLocaleCode(firstSegment)),
+    hasLocalePrefix,
   }
-}
-
-function buildNormalizedUrl(request: NextRequest, pathname: string) {
-  const normalizedUrl = new URL(pathname, request.url)
-  normalizedUrl.search = request.nextUrl.search
-  return normalizedUrl
-}
-
-function resolveRequestLocale(
-  request: NextRequest,
-  route = resolveLocaleRoute(request.nextUrl.pathname)
-) {
-  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  return route.hasLocalePrefix || !preferredLocale || !isLocaleCode(preferredLocale)
-    ? route.locale
-    : preferredLocale
 }
 
 function isCanonicalRouteHandlerPath(pathname: string) {
@@ -100,20 +70,83 @@ function isCanonicalRouteHandlerPath(pathname: string) {
     pathname === '/llms.txt' ||
     pathname === '/llms-full.txt' ||
     pathname === '/manifest.webmanifest' ||
+    isMcpInstallScriptPath(pathname) ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   )
 }
 
-function buildLoginRedirect(request: NextRequest, callback?: string) {
-  const locale = resolveRequestLocale(request)
-  const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
-
-  if (callback) {
-    loginUrl.searchParams.set('callbackUrl', callback)
+function isMcpInstallScriptPath(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments[0] !== 'mcp') {
+    return false
   }
 
-  return withLocaleCookie(NextResponse.redirect(loginUrl), locale)
+  if (segments.length === 1) {
+    return true
+  }
+
+  if (segments[1] === 'login') {
+    return segments.length === 2
+  }
+
+  if (segments[1] !== 'setup') {
+    return false
+  }
+
+  const target = segments[2]
+  return (
+    segments.length === 2 ||
+    (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
+  )
+}
+
+function getLocaleCookie(request: NextRequest): LocaleCode | null {
+  const locale = request.cookies.get(LOCALE_COOKIE)?.value
+  return locale && isLocaleCode(locale) ? locale : null
+}
+
+function getAcceptLanguageLocale(header: string | null): LocaleCode | null {
+  if (!header) {
+    return null
+  }
+
+  const candidates: AcceptLanguageCandidate[] = []
+
+  header.split(',').forEach((entry, index) => {
+    const [rawLanguageRange, ...rawParams] = entry
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (!rawLanguageRange || rawLanguageRange === '*') {
+      return
+    }
+
+    const locale = rawLanguageRange.toLowerCase().split('-', 1)[0]
+    if (!isLocaleCode(locale)) {
+      return
+    }
+
+    const qualityParam = rawParams.find((param) => param.toLowerCase().startsWith('q='))
+    const quality = qualityParam ? Number.parseFloat(qualityParam.slice(2)) : 1
+    if (!Number.isFinite(quality) || quality <= 0) {
+      return
+    }
+
+    candidates.push({ locale, quality, index })
+  })
+
+  candidates.sort((a, b) => b.quality - a.quality || a.index - b.index)
+  return candidates[0]?.locale ?? null
+}
+
+function resolveRequestLocale(request: NextRequest): LocaleCode {
+  return (
+    getLocaleCookie(request) ??
+    getAcceptLanguageLocale(request.headers.get('accept-language')) ??
+    defaultLocale
+  )
 }
 
 function isProtectedAppPath(pathname: string): boolean {
@@ -127,14 +160,10 @@ function isProtectedAppPath(pathname: string): boolean {
   )
 }
 
-function isAuthRoute(pathname: string): boolean {
-  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
-  return AUTH_ROUTES.has(normalizedPathname)
-}
-
-function getCanonicalCallbackPath(pathname: string, search: string) {
-  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
-  return `${normalizedPathname}${search}`
+function buildProtectedRequestHeaders(request: NextRequest, route: LocaleRoute) {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CANONICAL_CALLBACK_PATH_HEADER, `${route.pathname}${request.nextUrl.search}`)
+  return requestHeaders
 }
 
 function isMarkdownRequestPath(pathname: string) {
@@ -166,10 +195,6 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
   const route = resolveLocaleRoute(request.nextUrl.pathname)
   const { locale, pathname: normalizedPathname } = route
 
-  if (route.hasLocalePrefix && locale === defaultLocale) {
-    return NextResponse.redirect(buildNormalizedUrl(request, normalizedPathname))
-  }
-
   const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
   rewriteUrl.searchParams.set('path', normalizedPathname)
   rewriteUrl.searchParams.set('locale', locale)
@@ -193,31 +218,52 @@ function withLocaleCookie(response: NextResponse, locale: LocaleCode) {
   return response
 }
 
-function redirectToCookieLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
-  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+function resolveCanonicalLocaleRoute(request: NextRequest, route: LocaleRoute): LocaleRoute {
+  if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
+    return route
+  }
 
-  if (
-    route.hasLocalePrefix ||
-    isCanonicalRouteHandlerPath(request.nextUrl.pathname) ||
-    (request.method !== 'GET' && request.method !== 'HEAD') ||
-    !preferredLocale ||
-    !isLocaleCode(preferredLocale) ||
-    preferredLocale === defaultLocale
-  ) {
+  if (route.hasLocalePrefix) {
+    return route
+  }
+
+  return { ...route, locale: resolveRequestLocale(request) }
+}
+
+function routeToCanonicalLocale(
+  request: NextRequest,
+  route: LocaleRoute,
+  requestHeaders?: Headers
+): NextResponse | null {
+  if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return null
   }
 
-  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, route.pathname))
-  redirectUrl.search = request.nextUrl.search
-  return NextResponse.redirect(redirectUrl)
+  const requestRoute = resolveLocaleRoute(request.nextUrl.pathname)
+  if (route.hasLocalePrefix && requestRoute.locale === route.locale) {
+    return null
+  }
+
+  const targetUrl = new URL(localizeUrl(request.nextUrl.origin, route.locale, route.pathname))
+  targetUrl.search = request.nextUrl.search
+
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return withLocaleCookie(NextResponse.redirect(targetUrl), route.locale)
+  }
+
+  return requestHeaders
+    ? NextResponse.rewrite(targetUrl, { request: { headers: requestHeaders } })
+    : NextResponse.rewrite(targetUrl)
 }
 
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
   const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
+  const isCodexMcpClientRequest =
+    request.nextUrl.pathname === '/api/copilot/mcp' && /^\s*$/.test(userAgent)
   const isSuspicious = SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent))
 
-  if (isSuspicious && !isWebhookEndpoint) {
+  if (isSuspicious && !isWebhookEndpoint && !isCodexMcpClientRequest) {
     logger.warn('Blocked suspicious request', {
       userAgent,
       ip: request.headers.get('x-forwarded-for') || 'unknown',
@@ -246,39 +292,21 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
-  const route = resolveLocaleRoute(url.pathname)
+  const initialRoute = resolveLocaleRoute(url.pathname)
+  const route = resolveCanonicalLocaleRoute(request, initialRoute)
   const { locale, pathname: normalizedPathname } = route
 
-  const hasActiveSession = Boolean(getSessionCookie(request))
   const isProtectedPath = isProtectedAppPath(url.pathname)
-  const reauth = url.searchParams.get('reauth') === '1'
 
-  if (isProtectedPath && !hasActiveSession) {
-    const callbackTarget = getCanonicalCallbackPath(url.pathname, url.search)
-    return buildLoginRedirect(request, callbackTarget)
-  }
-
-  if (isAuthRoute(url.pathname)) {
-    if (reauth) {
-      const response = handleI18nRouting(request)
-      clearAuthCookies(response)
-      return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
-    }
-
-    if (hasActiveSession) {
-      const requestLocale = resolveRequestLocale(request, route)
-      return withLocaleCookie(
-        NextResponse.redirect(new URL(localizeUrl(url.origin, requestLocale, '/workspace'))),
-        requestLocale
-      )
-    }
-  }
+  const protectedRequestHeaders = isProtectedPath
+    ? buildProtectedRequestHeaders(request, route)
+    : undefined
 
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const localeRedirect = redirectToCookieLocale(request, route)
-  if (localeRedirect) return localeRedirect
+  const localeResponse = routeToCanonicalLocale(request, route, protectedRequestHeaders)
+  if (localeResponse) return localeResponse
 
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite
@@ -291,15 +319,12 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  if (isProtectedPath) {
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set(
-      CANONICAL_CALLBACK_PATH_HEADER,
-      getCanonicalCallbackPath(url.pathname, url.search)
+  if (protectedRequestHeaders) {
+    NextResponse.next({ request: { headers: protectedRequestHeaders } }).headers.forEach(
+      (value, key) => {
+        response.headers.set(key, value)
+      }
     )
-    NextResponse.next({ request: { headers: requestHeaders } }).headers.forEach((value, key) => {
-      response.headers.set(key, value)
-    })
   }
 
   response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))
@@ -316,7 +341,7 @@ export async function proxy(request: NextRequest) {
     appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
-  return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
+  return isCanonicalRouteHandlerPath(url.pathname) ? response : withLocaleCookie(response, locale)
 }
 
 export const config = {

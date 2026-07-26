@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { ActionBar } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/action-bar/action-bar'
@@ -84,10 +84,10 @@ export interface SubflowNodeData extends Record<string, unknown> {
 type SubflowNode = Node<SubflowNodeData, 'subflowNode'>
 
 export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<SubflowNode>) => {
-  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
+  const { workflowEditorCopy: copy } = useWorkflowI18n()
   const { getNodes } = useReactFlow()
   const updateNodeInternals = useUpdateNodeInternals()
-  const userPermissions = useUserPermissionsContext()
+  const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const workflowRoute = useOptionalWorkflowRoute()
 
   const currentWorkflow = useCurrentWorkflow()
@@ -103,7 +103,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
   const blockColor = subflowConfig.bgColor
-  const blockName = getLocalizedDefaultBlockName(data.kind, data.name)
+  const blockName = data.name
   const BlockIcon = subflowConfig.icon
   const hasPriorityRing = Boolean(data?.hasNestedError)
 
@@ -168,7 +168,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               blockType={data.kind}
               workflowId={workflowRoute.workflowId}
               channelId={workflowRoute.channelId}
-              disabled={!userPermissions.canEdit}
+              disabled={!canEdit}
             />
           )}
 

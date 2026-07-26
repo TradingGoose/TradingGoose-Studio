@@ -2,16 +2,14 @@ import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
-import { TriggerUtils } from '@/lib/workflows/triggers'
-import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
+import { resolveWorkflowRunTrigger, TriggerUtils } from '@/lib/workflows/triggers'
+import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
-import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useCurrentWorkflow } from './use-current-workflow'
 
 const logger = createLogger('useWorkflowExecution')
 const WORKFLOW_EXECUTION_FAILURE_MESSAGE = 'Workflow execution failed'
@@ -19,6 +17,7 @@ type WorkflowExecutionTriggerType = 'chat' | 'manual'
 type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
+  triggerBlockId?: string
   selectedOutputs?: string[]
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
@@ -64,35 +63,17 @@ function createExecutionId() {
   return globalThis.crypto.randomUUID()
 }
 
-function getInputFormatTestValues(inputFormatValue: unknown): Record<string, unknown> {
-  const testInput: Record<string, unknown> = {}
-  if (!Array.isArray(inputFormatValue)) return testInput
-
-  for (const field of inputFormatValue) {
-    if (field && typeof field === 'object' && 'name' in field && 'value' in field) {
-      const name = (field as { name?: unknown }).name
-      if (typeof name === 'string' && name.length > 0) {
-        testInput[name] = (field as { value?: unknown }).value
-      }
-    }
-  }
-
-  return testInput
-}
-
 export function useWorkflowExecution() {
-  const currentWorkflow = useCurrentWorkflow()
-  const { workflowId: routeWorkflowId, channelId } = useWorkflowRoute()
-  const workflows = useWorkflowRegistry((state) => state.workflows)
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
-  const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
+  const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
+  const { canEdit, doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
-  const yjsVariables = useWorkflowVariables()
-  const yjsVariablesRef = useLatestRef(yjsVariables)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
     useExecutionStore()
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
+  const isWorkflowSessionReady = canEdit && Boolean(doc) && !isLoading && !error
+  const isWorkflowSessionReadyRef = useRef(isWorkflowSessionReady)
+  isWorkflowSessionReadyRef.current = isWorkflowSessionReady
 
   const applyExecutionEvent = useCallback(
     (event: WorkflowExecutionEvent) => {
@@ -169,89 +150,54 @@ export function useWorkflowExecution() {
   )
 
   const buildExecutionRequest = useCallback(
-    async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
-      if (!activeWorkflowId) throw new Error('Workflow target is required')
-
-      const workspaceId = workflows[activeWorkflowId]?.workspaceId
+    async (
+      workflowInput: unknown,
+      triggerType: WorkflowExecutionTriggerType,
+      requestedTriggerBlockId?: string
+    ) => {
+      const workflowSnapshot = readWorkflowSnapshot()
+      if (!workflowSnapshot || !doc) {
+        throw new Error('Workflow session is not ready')
+      }
       if (!workspaceId) {
         throw new Error('Cannot execute workflow without workspaceId')
       }
 
-      const validBlocks = Object.entries(currentWorkflow.blocks).reduce(
-        (acc, [blockId, block]) => {
-          if (block?.type && block.enabled !== false) {
-            acc[blockId] = block
-          }
-          return acc
-        },
-        {} as typeof currentWorkflow.blocks
+      const workflowData = buildExecutableWorkflowData(
+        workflowSnapshot.blocks,
+        workflowSnapshot.edges
       )
 
-      const isChatExecution = triggerType === 'chat'
-      let startBlockId: string | undefined
+      let triggerBlockId: string | undefined
       let finalWorkflowInput = workflowInput
+      let finalTriggerType = triggerType
 
-      if (isChatExecution) {
-        const startBlock = TriggerUtils.findStartBlock(validBlocks, 'chat')
-        if (!startBlock) {
-          throw new Error(TriggerUtils.getTriggerValidationMessage('chat', 'missing'))
+      if (triggerType === 'chat') {
+        const chatTrigger = TriggerUtils.findTriggerBlock(workflowData.blocks, 'chat')
+        if (!chatTrigger) {
+          throw new Error('Chat execution requires a Chat Trigger block')
         }
-        startBlockId = startBlock.blockId
+        triggerBlockId = chatTrigger.blockId
       } else {
-        const entries = Object.entries(validBlocks)
-        const apiTriggers = TriggerUtils.findTriggersByType(validBlocks, 'api')
-        const manualTriggers = TriggerUtils.findTriggersByType(validBlocks, 'manual')
-
-        if (apiTriggers.length > 1) {
-          throw new Error('Multiple API Trigger blocks found. Keep only one.')
+        if (!requestedTriggerBlockId) {
+          throw new Error('Run requires choosing a configured trigger block')
         }
-
-        let selectedTrigger: any = null
-        let selectedBlockId: string | null = null
-
-        if (apiTriggers.length === 1) {
-          selectedTrigger = apiTriggers[0]
-          selectedBlockId = entries.find(([, block]) => block === selectedTrigger)?.[0] ?? null
-
-          const testInput = getInputFormatTestValues(selectedTrigger.subBlocks?.inputFormat?.value)
-          if (Object.keys(testInput).length > 0) {
-            finalWorkflowInput = testInput
+        const editorTestTrigger = resolveWorkflowRunTrigger(
+          workflowData.blocks,
+          workflowData.edges,
+          {
+            surface: 'editor',
+            workflowInput,
+            triggerBlockId: requestedTriggerBlockId,
           }
-        } else if (manualTriggers.length > 0) {
-          selectedTrigger =
-            manualTriggers.find((trigger) => trigger.type === 'manual_trigger') ??
-            manualTriggers.find((trigger) => trigger.type === 'input_trigger') ??
-            manualTriggers[0]
-          selectedBlockId = entries.find(([, block]) => block === selectedTrigger)?.[0] ?? null
-
-          if (selectedTrigger.type === 'input_trigger') {
-            const testInput = getInputFormatTestValues(
-              selectedTrigger.subBlocks?.inputFormat?.value
-            )
-            if (Object.keys(testInput).length > 0) {
-              finalWorkflowInput = testInput
-            }
-          }
-        } else {
-          throw new Error('Manual run requires a Manual, Input Form, or API Trigger block')
-        }
-
-        if (!selectedBlockId || !selectedTrigger) {
-          throw new Error('No valid trigger block found to start execution')
-        }
-
-        const outgoingConnections = currentWorkflow.edges.filter(
-          (edge) => edge.source === selectedBlockId
         )
-        if (outgoingConnections.length === 0) {
-          const triggerName = selectedTrigger.name || selectedTrigger.type
-          throw new Error(`${triggerName} must be connected to other blocks to execute`)
-        }
-
-        startBlockId = selectedBlockId
+        triggerBlockId = editorTestTrigger.blockId
+        workflowData.blocks = editorTestTrigger.blocks
+        finalWorkflowInput = editorTestTrigger.input
+        finalTriggerType = editorTestTrigger.triggerType
       }
 
-      const workflowVariables = Object.values(yjsVariablesRef.current ?? {}).reduce(
+      const workflowVariables = Object.values(getVariablesSnapshot(doc)).reduce(
         (acc, variable: any) => {
           if (variable?.id) acc[variable.id] = variable
           return acc
@@ -262,18 +208,13 @@ export function useWorkflowExecution() {
       return {
         workspaceId,
         input: finalWorkflowInput,
-        startBlockId,
-        triggerType,
+        triggerBlockId,
+        triggerType: finalTriggerType,
         workflowVariables,
-        workflowData: {
-          blocks: validBlocks,
-          edges: currentWorkflow.edges,
-          loops: generateLoopBlocks(validBlocks),
-          parallels: generateParallelBlocks(validBlocks),
-        },
+        workflowData,
       }
     },
-    [activeWorkflowId, currentWorkflow.blocks, currentWorkflow.edges, workflows]
+    [doc, readWorkflowSnapshot, workspaceId]
   )
 
   const uploadChatFiles = useCallback(
@@ -338,7 +279,7 @@ export function useWorkflowExecution() {
 
   const handleRunWorkflow = useCallback(
     async (request: WorkflowExecutionRequest = {}) => {
-      if (!activeWorkflowId) return
+      if (!activeWorkflowId || !isWorkflowSessionReadyRef.current) return
 
       const executionId = createExecutionId()
       setExecutionResult(null)
@@ -350,10 +291,14 @@ export function useWorkflowExecution() {
       abortControllerRef.current = abortController
 
       try {
-        const triggerType = request.triggerType ?? 'manual'
-        const executionRequest = await buildExecutionRequest(request.input, triggerType)
+        const requestedTriggerType = request.triggerType ?? 'manual'
+        const executionRequest = await buildExecutionRequest(
+          request.input,
+          requestedTriggerType,
+          request.triggerBlockId
+        )
         const input =
-          triggerType === 'chat'
+          executionRequest.triggerType === 'chat'
             ? await uploadChatFiles(
                 executionRequest.input,
                 executionId,
@@ -366,11 +311,11 @@ export function useWorkflowExecution() {
             workflowId: activeWorkflowId,
             executionId,
             input,
-            triggerType,
+            triggerType: executionRequest.triggerType,
             executionTarget: 'live',
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,
-            startBlockId: executionRequest.startBlockId,
+            triggerBlockId: executionRequest.triggerBlockId,
             selectedOutputs: request.selectedOutputs,
             stream: true,
             signal: abortController.signal,
@@ -424,6 +369,7 @@ export function useWorkflowExecution() {
 
   return {
     isExecuting,
+    isWorkflowSessionReady,
     executionResult,
     handleRunWorkflow,
     handleCancelExecution,

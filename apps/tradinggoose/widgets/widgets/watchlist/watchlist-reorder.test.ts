@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { WatchlistItem } from '@/lib/watchlists/types'
 import {
+  createWatchlistContainerSortableId,
   createWatchlistListingSortableId,
-  createWatchlistSectionSortableId,
   moveWatchlistItem,
   resolveDraggedItem,
   resolveDropTarget,
@@ -10,9 +10,10 @@ import {
   WATCHLIST_ROOT_SORTABLE_ID,
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 
-const listing = (id: string): WatchlistItem => ({
+const listing = (id: string, parentId: string | null = null): WatchlistItem => ({
   id,
   type: 'listing',
+  parentId,
   listing: {
     listing_id: id,
     base_id: '',
@@ -24,36 +25,70 @@ const listing = (id: string): WatchlistItem => ({
 const section = (id: string, label = id): WatchlistItem => ({
   id,
   type: 'section',
+  parentId: null,
   label,
 })
 
 describe('watchlist reorder helpers', () => {
-  it('moves a listing before another listing', () => {
-    const items = [listing('a'), listing('b'), section('s1'), listing('c')]
+  it('moves a nested listing before the first root listing', () => {
+    const items = [listing('root-a'), listing('root-b'), section('s1'), listing('nested', 's1')]
 
     const next = moveWatchlistItem(
       items,
-      createWatchlistListingSortableId('c'),
-      createWatchlistListingSortableId('b')
+      createWatchlistListingSortableId('nested'),
+      createWatchlistListingSortableId('root-a')
     )
 
-    expect(next?.map((item) => item.id)).toEqual(['a', 'c', 'b', 's1'])
+    expect(next?.map((item) => item.id)).toEqual(['nested', 'root-a', 'root-b', 's1'])
+    expect(next?.map((item) => item.parentId)).toEqual([null, null, null, null])
+  })
+
+  it('moves listings to the hovered final index when dragging downward', () => {
+    const items = [listing('a'), listing('b'), listing('c')]
+
+    expect(
+      moveWatchlistItem(
+        items,
+        createWatchlistListingSortableId('a'),
+        createWatchlistListingSortableId('b')
+      )?.map((item) => item.id)
+    ).toEqual(['b', 'a', 'c'])
+    expect(
+      moveWatchlistItem(
+        items,
+        createWatchlistListingSortableId('a'),
+        createWatchlistListingSortableId('c')
+      )?.map((item) => item.id)
+    ).toEqual(['b', 'c', 'a'])
   })
 
   it('moves a listing to the end of a target section', () => {
-    const items = [listing('a'), section('s1'), listing('b'), listing('c'), section('s2'), listing('d')]
+    const items = [
+      listing('a'),
+      section('s1'),
+      listing('b', 's1'),
+      listing('c', 's1'),
+      section('s2'),
+      listing('d', 's2'),
+    ]
 
     const next = moveWatchlistItem(
       items,
       createWatchlistListingSortableId('a'),
-      createWatchlistSectionSortableId('s1')
+      createWatchlistContainerSortableId('s1')
     )
 
-    expect(next?.map((item) => item.id)).toEqual(['s1', 'b', 'c', 'a', 's2', 'd'])
+    expect(next?.find((item) => item.id === 'a')?.parentId).toBe('s1')
   })
 
   it('moves a listing to root area before the first section', () => {
-    const items = [section('s1'), listing('a'), listing('b'), section('s2'), listing('c')]
+    const items = [
+      section('s1'),
+      listing('a', 's1'),
+      listing('b', 's1'),
+      section('s2'),
+      listing('c', 's2'),
+    ]
 
     const next = moveWatchlistItem(
       items,
@@ -61,80 +96,106 @@ describe('watchlist reorder helpers', () => {
       WATCHLIST_ROOT_SORTABLE_ID
     )
 
-    expect(next?.map((item) => item.id)).toEqual(['c', 's1', 'a', 'b', 's2'])
+    expect(next?.map((item) => [item.id, item.parentId])).toEqual([
+      ['c', null],
+      ['s1', null],
+      ['a', 's1'],
+      ['b', 's1'],
+      ['s2', null],
+    ])
   })
 
-  it('moves a section as a block before another section', () => {
-    const items = [listing('a'), section('s1'), listing('b'), listing('c'), section('s2'), listing('d')]
+  it('reorders sections at the root without rewriting their listing parents', () => {
+    const items = [
+      listing('a'),
+      section('s1'),
+      listing('b', 's1'),
+      listing('c', 's1'),
+      section('s2'),
+      listing('d', 's2'),
+    ]
 
     const next = moveWatchlistItem(
       items,
-      createWatchlistSectionSortableId('s2'),
-      createWatchlistSectionSortableId('s1')
+      createWatchlistContainerSortableId('s2'),
+      createWatchlistContainerSortableId('s1')
     )
 
-    expect(next?.map((item) => item.id)).toEqual(['a', 's2', 'd', 's1', 'b', 'c'])
+    expect(next?.map((item) => item.id)).toEqual(['a', 's2', 's1', 'b', 'c', 'd'])
+    expect(next?.find((item) => item.id === 's2')?.parentId).toBeNull()
+    expect(next?.find((item) => item.id === 'd')?.parentId).toBe('s2')
   })
 
-  it('resolves a section drag over child rows to the target section block', () => {
-    const items = [listing('a'), section('s1'), listing('b'), listing('c'), section('s2'), listing('d')]
+  it('moves sections to the hovered final index when dragging downward', () => {
+    const items = [section('s1'), section('s2'), section('s3')]
+
+    const next = moveWatchlistItem(
+      items,
+      createWatchlistContainerSortableId('s1'),
+      createWatchlistContainerSortableId('s3')
+    )
+
+    expect(next?.map((item) => item.id)).toEqual(['s2', 's3', 's1'])
+  })
+
+  it('resolves a section drag over child rows before the root section block', () => {
+    const items = [
+      listing('a'),
+      section('s1'),
+      listing('b', 's1'),
+      listing('c', 's1'),
+      section('s2'),
+      listing('d', 's2'),
+    ]
 
     expect(
       resolveEffectiveDropTarget(
         items,
-        createWatchlistSectionSortableId('s2'),
+        createWatchlistContainerSortableId('s2'),
         createWatchlistListingSortableId('b')
       )
-    ).toEqual({ type: 'section', sectionId: 's1' })
+    ).toEqual({ type: 'position', itemId: 's1' })
   })
 
-  it('resolves a section drag over unsectioned rows to the root bucket', () => {
-    const items = [listing('a'), listing('b'), section('s1'), listing('c')]
+  it('resolves a section drag over an unsectioned row as a root reorder', () => {
+    const items = [listing('a'), listing('b'), section('s1'), listing('c', 's1')]
 
     expect(
       resolveEffectiveDropTarget(
         items,
-        createWatchlistSectionSortableId('s1'),
+        createWatchlistContainerSortableId('s1'),
         createWatchlistListingSortableId('a')
       )
-    ).toEqual({ type: 'root' })
+    ).toEqual({ type: 'position', itemId: 'a' })
   })
 
   it('returns null when drop results in no change or invalid ids', () => {
     const items = [listing('a'), listing('b'), section('s1')]
+    const listingA = createWatchlistListingSortableId('a')
+    const missingListing = createWatchlistListingSortableId('missing')
+    const sectionS1 = createWatchlistContainerSortableId('s1')
+    const missingSection = createWatchlistContainerSortableId('missing')
+    const listingAsSection = createWatchlistContainerSortableId('b')
 
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistListingSortableId('a'),
-        createWatchlistListingSortableId('a')
-      )
-    ).toBeNull()
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistListingSortableId('missing'),
-        createWatchlistListingSortableId('a')
-      )
-    ).toBeNull()
-    expect(
-      moveWatchlistItem(
-        items,
-        createWatchlistSectionSortableId('s1'),
-        createWatchlistSectionSortableId('s1')
-      )
-    ).toBeNull()
+    expect(moveWatchlistItem(items, listingA, listingA)).toBeNull()
+    expect(moveWatchlistItem(items, missingListing, listingA)).toBeNull()
+    expect(moveWatchlistItem(items, sectionS1, sectionS1)).toBeNull()
+    expect(moveWatchlistItem(items, listingA, missingSection)).toBeNull()
+    expect(moveWatchlistItem(items, listingA, listingAsSection)).toBeNull()
   })
 
   it('maps sortable ids to dragged items and raw drop targets', () => {
     const listingSortableId = createWatchlistListingSortableId('l1')
-    const sectionSortableId = createWatchlistSectionSortableId('s1')
+    const sectionSortableId = createWatchlistContainerSortableId('s1')
 
     expect(resolveDraggedItem(listingSortableId)).toEqual({ type: 'listing', itemId: 'l1' })
-    expect(resolveDraggedItem(sectionSortableId)).toEqual({ type: 'section', itemId: 's1' })
+    expect(resolveDraggedItem(sectionSortableId)).toEqual({ type: 'container', itemId: 's1' })
 
-    expect(resolveDropTarget(listingSortableId)).toEqual({ type: 'before', itemId: 'l1' })
-    expect(resolveDropTarget(sectionSortableId)).toEqual({ type: 'section', sectionId: 's1' })
+    expect(resolveDropTarget(listingSortableId)).toEqual({ type: 'position', itemId: 'l1' })
+    expect(resolveDropTarget(sectionSortableId)).toEqual({
+      type: 'container',
+      containerId: 's1',
+    })
     expect(resolveDropTarget(WATCHLIST_ROOT_SORTABLE_ID)).toEqual({ type: 'root' })
     expect(resolveDropTarget('unknown')).toBeNull()
   })

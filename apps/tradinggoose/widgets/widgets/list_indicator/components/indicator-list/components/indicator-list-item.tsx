@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Activity, Pencil, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { Activity, Copy, Pencil, Trash2 } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,18 +14,19 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
+import type { EntityListMember } from '@/lib/yjs/entity-session'
 
 interface IndicatorListItemProps {
-  indicator: IndicatorDefinition
+  indicator: EntityListMember
   isSelected: boolean
   onSelect: (indicatorId: string) => void
-  onCopy: (indicator: IndicatorDefinition) => Promise<void>
+  onCopy: (indicator: EntityListMember) => Promise<void>
   onDelete: (indicatorId: string) => Promise<void>
   onRename: (indicatorId: string, name: string) => Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isCopying: boolean
   isDeleting: boolean
 }
@@ -38,6 +39,7 @@ export function IndicatorListItem({
   onDelete,
   onRename,
   canEdit,
+  canDelete = true,
   isCopying,
   isDeleting,
 }: IndicatorListItemProps) {
@@ -45,15 +47,16 @@ export function IndicatorListItem({
   const copy = useMessages().workspace.widgets.indicatorList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(indicator.name ?? '')
+  const [editValue, setEditValue] = useState(indicator.entityName)
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = indicator.name || copy.untitledIndicator
+  const nameLabel = indicator.entityName || copy.untitledIndicator
+  const iconColor = getEntityIconColor(indicator.entityId, indicator.color)
 
   useEffect(() => {
-    setEditValue(indicator.name ?? '')
-  }, [indicator.name])
+    setEditValue(indicator.entityName)
+  }, [indicator.entityName])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -65,24 +68,24 @@ export function IndicatorListItem({
   const handleStartEdit = () => {
     if (!canEdit) return
     setIsEditing(true)
-    setEditValue(indicator.name ?? '')
+    setEditValue(indicator.entityName)
   }
 
   const handleSaveEdit = async () => {
     const trimmed = editValue.trim()
-    if (!trimmed || trimmed === indicator.name) {
+    if (!trimmed || trimmed === indicator.entityName) {
       setIsEditing(false)
-      setEditValue(indicator.name ?? '')
+      setEditValue(indicator.entityName)
       return
     }
 
     setIsRenaming(true)
     try {
-      await onRename(indicator.id, trimmed)
+      await onRename(indicator.entityId, trimmed)
       setIsEditing(false)
     } catch (error) {
       console.error('Failed to rename indicator', error)
-      setEditValue(indicator.name ?? '')
+      setEditValue(indicator.entityName)
     } finally {
       setIsRenaming(false)
     }
@@ -90,7 +93,7 @@ export function IndicatorListItem({
 
   const handleCancelEdit = () => {
     setIsEditing(false)
-    setEditValue(indicator.name ?? '')
+    setEditValue(indicator.entityName)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -108,9 +111,9 @@ export function IndicatorListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting) return
+    if (isDeleting || !canDelete) return
     try {
-      await onDelete(indicator.id)
+      await onDelete(indicator.entityId)
       setShowDeleteDialog(false)
     } catch (error) {
       console.error('Failed to delete indicator', error)
@@ -186,22 +189,18 @@ export function IndicatorListItem({
               event.preventDefault()
               return
             }
-            onSelect(indicator.id)
+            onSelect(indicator.entityId)
           }}
           draggable={false}
         >
           <span
             className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
             style={{
-              backgroundColor: `${indicator.color ?? '#3972F6'}20`,
+              backgroundColor: `${iconColor}20`,
             }}
             aria-hidden='true'
           >
-            <Activity
-              className='h-full'
-              aria-hidden='true'
-              style={{ color: indicator.color ?? '#3972F6' }}
-            />
+            <Activity className='h-full' aria-hidden='true' style={{ color: iconColor }} />
           </span>
           {interactiveChildren}
         </button>
@@ -235,16 +234,18 @@ export function IndicatorListItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameIndicator}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteIndicator}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteIndicator}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

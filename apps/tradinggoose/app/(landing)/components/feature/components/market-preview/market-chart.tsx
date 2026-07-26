@@ -20,9 +20,10 @@ import {
 } from 'lightweight-charts'
 import type { BarMs, NormalizedPineFill, NormalizedPineOutput } from '@/lib/indicators/types'
 import { cn } from '@/lib/utils'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
 import { mapBarsMsToSeriesData } from '@/widgets/widgets/data_chart/series-data'
-import type { DataChartCandleType, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 import {
   buildSeriesOptions,
   formatLwcTick,

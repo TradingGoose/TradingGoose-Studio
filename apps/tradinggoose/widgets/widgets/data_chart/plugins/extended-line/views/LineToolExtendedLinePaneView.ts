@@ -1,30 +1,8 @@
 // /src/views/LineToolExtendedLinePaneView.ts
 
-import {
-	BaseLineTool,
-	LineToolPaneView,
-	CompositeRenderer,
-	LineAnchorRenderer,
-	SegmentRenderer,
-	TextRenderer,
-	Point,
-	LineToolHitTestData,
-	LineToolOptionsInternal,
-	LineToolType,
-	ExtendOptions,
-	LineOptions
-} from '../../core';
-
-import {
-	IChartApiBase,
-	ISeriesApi,
-	SeriesType,
-	Coordinate,
-} from 'lightweight-charts';
-
-import { LineToolTrendLinePaneView } from '../../shared/lines/views/LineToolTrendLinePaneView';
-import { LineToolTrendLine } from '../../shared/lines/model/LineToolTrendLine';
-
+import type { IChartApiBase, ISeriesApi, SeriesType } from 'lightweight-charts'
+import type { LineToolTrendLine } from '../../shared/lines/model/LineToolTrendLine'
+import { LineToolTrendLinePaneView } from '../../shared/lines/views/LineToolTrendLinePaneView'
 
 /**
  * Pane View for the Extended Line tool.
@@ -41,24 +19,25 @@ import { LineToolTrendLine } from '../../shared/lines/model/LineToolTrendLine';
  * which contains the mathematical logic to clip infinite lines to the viewport.
  * Therefore, this view requires no custom drawing code.
  */
-export class LineToolExtendedLinePaneView<HorzScaleItem> extends LineToolTrendLinePaneView<HorzScaleItem> {
+export class LineToolExtendedLinePaneView<
+  HorzScaleItem,
+> extends LineToolTrendLinePaneView<HorzScaleItem> {
+  /**
+   * Initializes the Extended Line View.
+   *
+   * @param source - The specific Extended Line model instance.
+   * @param chart - The Chart API.
+   * @param series - The Series API.
+   */
+  public constructor(
+    source: LineToolTrendLine<HorzScaleItem>,
+    chart: IChartApiBase<HorzScaleItem>,
+    series: ISeriesApi<SeriesType, HorzScaleItem>
+  ) {
+    // Call the parent constructor (LineToolTrendLinePaneView)
+    super(source, chart, series)
+  }
 
-	/**
-	 * Initializes the Extended Line View.
-	 *
-	 * @param source - The specific Extended Line model instance.
-	 * @param chart - The Chart API.
-	 * @param series - The Series API.
-	 */
-	public constructor(
-		source: LineToolTrendLine<HorzScaleItem>,
-		chart: IChartApiBase<HorzScaleItem>,
-		series: ISeriesApi<SeriesType, HorzScaleItem>,
-	) {
-		// Call the parent constructor (LineToolTrendLinePaneView)
-		super(source, chart, series);
-	}
-
-	// NOTE: No need to override the renderer() or _updateImpl() if the parent correctly
-	// reads and uses the tool's options() which now contains the 'extend: { left: true, right: true }' property.
+  // NOTE: No need to override the renderer() or _updateImpl() if the parent correctly
+  // reads and uses the tool's options() which now contains the 'extend: { left: true, right: true }' property.
 }

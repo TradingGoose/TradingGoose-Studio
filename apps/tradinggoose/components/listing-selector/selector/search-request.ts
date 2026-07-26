@@ -55,10 +55,8 @@ export function buildMarketSearchRequest(args: {
 
   const resolvedMarketCodes = providerConfig.marketCodes.length ? providerConfig.marketCodes : []
 
-  if (includeListings) {
-    if (resolvedMarketCodes.length) {
-      filtersPayload.market = resolvedMarketCodes
-    }
+  if (includeListings && resolvedMarketCodes.length) {
+    filtersPayload.market = resolvedMarketCodes
   }
 
   if (includeListings && providerConfig.listingQuoteCodes.length) {

@@ -1,10 +1,12 @@
 import { getBlock } from '@/blocks'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
 
 type TriggerSubBlockValue = { value?: unknown } | unknown
 
 type TriggerResolvableBlock = {
   type: string
+  name?: string
   triggerMode?: boolean
   subBlocks?: Record<string, TriggerSubBlockValue>
 }
@@ -64,4 +66,25 @@ export function resolveTriggerIdForBlock(block: TriggerResolvableBlock): string 
   }
 
   return resolveTriggerIdFromSubBlocks(block.subBlocks, blockConfig.triggers?.available)
+}
+
+export function resolveTriggerExecutionIdentity(block: TriggerResolvableBlock): {
+  triggerSource: string
+  triggerType: QueuedWorkflowTriggerType
+} {
+  const triggerSource = resolveTriggerIdForBlock(block)
+  if (!triggerSource) {
+    const blockConfig = getBlock(block.type)
+    throw new Error(
+      `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
+    )
+  }
+
+  if (block.type === 'api_trigger') return { triggerSource, triggerType: 'api' }
+  if (block.type === 'chat_trigger') return { triggerSource, triggerType: 'chat' }
+  if (block.type === 'schedule') return { triggerSource, triggerType: 'schedule' }
+  if (block.type === 'input_trigger' || block.type === 'manual_trigger') {
+    return { triggerSource, triggerType: 'manual' }
+  }
+  return { triggerSource, triggerType: 'webhook' }
 }

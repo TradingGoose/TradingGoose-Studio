@@ -1,181 +1,50 @@
-/**
- * MCP Service - Clean stateless service for MCP operations
- */
-
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
-import { isTest } from '@/lib/environment'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { McpClient } from '@/lib/mcp/client'
 import type {
   McpServerConfig,
-  McpServerSummary,
   McpTool,
   McpToolCall,
   McpToolResult,
   McpTransport,
 } from '@/lib/mcp/types'
-import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
+import { savedEntityRowToContent } from '@/lib/yjs/entity-state'
 import {
-  applySavedEntityYjsStateToRow,
-  applySavedEntityYjsStateToRows,
-} from '@/lib/yjs/entity-state'
+  readSavedEntityFieldsForExecution,
+  readSavedEntityListFieldsForExecution,
+} from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  type EntityListBeforeInsert,
+  lockSavedEntityList,
+  readEntityListMembersFromDb,
+} from '@/lib/yjs/server/entity-loaders'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
 
-interface ToolCache {
-  tools: McpTool[]
-  expiry: Date
-  lastAccessed: Date
+export class McpServerNotFoundError extends Error {
+  readonly status = 404
+
+  constructor(serverId: string) {
+    super(`Server ${serverId} not found or not accessible`)
+    this.name = 'McpServerNotFoundError'
+  }
 }
 
-interface CacheStats {
-  totalEntries: number
-  activeEntries: number
-  expiredEntries: number
-  maxCacheSize: number
-  cacheHitRate: number
-  memoryUsage: {
-    approximateBytes: number
-    entriesEvicted: number
+export class McpServerConfigError extends Error {
+  readonly status = 400
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'McpServerConfigError'
   }
 }
 
 class McpService {
-  private toolCache = new Map<string, ToolCache>()
-  private readonly cacheTimeout = MCP_CONSTANTS.CACHE_TIMEOUT
-  private readonly maxCacheSize = 1000
-  private cleanupInterval: NodeJS.Timeout | null = null
-  private cacheHits = 0
-  private cacheMisses = 0
-  private entriesEvicted = 0
-
-  constructor() {
-    this.startPeriodicCleanup()
-  }
-
-  /**
-   * Start periodic cleanup of expired cache entries
-   */
-  private startPeriodicCleanup(): void {
-    this.cleanupInterval = setInterval(
-      () => {
-        this.cleanupExpiredEntries()
-      },
-      5 * 60 * 1000
-    )
-  }
-
-  /**
-   * Stop periodic cleanup
-   */
-  private stopPeriodicCleanup(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval)
-      this.cleanupInterval = null
-    }
-  }
-
-  /**
-   * Cleanup expired cache entries
-   */
-  private cleanupExpiredEntries(): void {
-    const now = new Date()
-    const expiredKeys: string[] = []
-
-    this.toolCache.forEach((cache, key) => {
-      if (cache.expiry <= now) {
-        expiredKeys.push(key)
-      }
-    })
-
-    expiredKeys.forEach((key) => this.toolCache.delete(key))
-
-    if (expiredKeys.length > 0) {
-      logger.debug(`Cleaned up ${expiredKeys.length} expired cache entries`)
-    }
-  }
-
-  /**
-   * Evict least recently used entries when cache exceeds max size
-   */
-  private evictLRUEntries(): void {
-    if (this.toolCache.size <= this.maxCacheSize) {
-      return
-    }
-
-    const entries: { key: string; cache: ToolCache }[] = []
-    this.toolCache.forEach((cache, key) => {
-      entries.push({ key, cache })
-    })
-    entries.sort((a, b) => a.cache.lastAccessed.getTime() - b.cache.lastAccessed.getTime())
-
-    const entriesToRemove = this.toolCache.size - this.maxCacheSize + 1
-    for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
-      this.toolCache.delete(entries[i].key)
-      this.entriesEvicted++
-    }
-
-    logger.debug(`Evicted ${entriesToRemove} LRU cache entries to maintain size limit`)
-  }
-
-  /**
-   * Get cache entry and update last accessed time
-   */
-  private getCacheEntry(key: string): ToolCache | undefined {
-    const entry = this.toolCache.get(key)
-    if (entry) {
-      entry.lastAccessed = new Date()
-      this.cacheHits++
-      return entry
-    }
-    this.cacheMisses++
-    return undefined
-  }
-
-  /**
-   * Set cache entry with LRU eviction
-   */
-  private setCacheEntry(key: string, tools: McpTool[]): void {
-    const now = new Date()
-    const cache: ToolCache = {
-      tools,
-      expiry: new Date(now.getTime() + this.cacheTimeout),
-      lastAccessed: now,
-    }
-
-    this.toolCache.set(key, cache)
-
-    this.evictLRUEntries()
-  }
-
-  /**
-   * Calculate approximate memory usage of cache
-   */
-  private calculateMemoryUsage(): number {
-    let totalBytes = 0
-
-    this.toolCache.forEach((cache, key) => {
-      totalBytes += key.length * 2 // UTF-16 encoding
-      totalBytes += JSON.stringify(cache.tools).length * 2
-      totalBytes += 64
-    })
-
-    return totalBytes
-  }
-
-  /**
-   * Dispose of the service and cleanup resources
-   */
-  dispose(): void {
-    this.stopPeriodicCleanup()
-    this.toolCache.clear()
-    logger.info('MCP Service disposed and cleanup stopped')
-  }
-
   /**
    * Resolve environment variables in strings
    */
@@ -201,7 +70,7 @@ class McpService {
     if (missingVars.length > 0) {
       throw new Error(
         `Missing required environment variable${missingVars.length > 1 ? 's' : ''}: ${missingVars.join(', ')}. ` +
-        `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
+          `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
       )
     }
 
@@ -240,77 +109,124 @@ class McpService {
     }
   }
 
-  /**
-   * Get server configuration from database
-   */
-  private async getServerConfig(
+  private toServerConfig(
     serverId: string,
-    workspaceId: string
-  ): Promise<McpServerConfig | null> {
-    const [server] = await db
-      .select()
-      .from(mcpServers)
-      .where(
-        and(
-          eq(mcpServers.id, serverId),
-          eq(mcpServers.workspaceId, workspaceId),
-          isNull(mcpServers.deletedAt)
-        )
-      )
-      .limit(1)
-
-    if (!server) {
-      return null
-    }
-
-    const config = await applySavedEntityYjsStateToRow('mcp_server', server)
-    if (!config.enabled) {
-      return null
-    }
-
+    name: string,
+    fields: Record<string, unknown>
+  ): McpServerConfig {
     return {
-      id: config.id,
-      name: config.name,
-      description: config.description || undefined,
-      transport: config.transport as 'http' | 'sse',
-      url: config.url || undefined,
-      headers: (config.headers as Record<string, string>) || {},
-      timeout: config.timeout || 30000,
-      retries: config.retries || 3,
-      enabled: config.enabled,
-      createdAt: config.createdAt.toISOString(),
-      updatedAt: config.updatedAt.toISOString(),
+      id: serverId,
+      name,
+      description: String(fields.description ?? '') || undefined,
+      transport: fields.transport as McpTransport,
+      url: String(fields.url ?? '') || undefined,
+      headers: fields.headers as Record<string, string>,
+      timeout: Number(fields.timeout ?? 30000),
+      retries: Number(fields.retries ?? 3),
+      enabled: fields.enabled !== false,
     }
   }
 
-  /**
-   * Get all enabled servers for a workspace
-   */
-  private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
-    const whereConditions = [
-      eq(mcpServers.workspaceId, workspaceId),
-      isNull(mcpServers.deletedAt),
-    ]
+  async createWorkspaceServer(input: {
+    userId: string
+    workspaceId: string
+    name: string
+    fields: Record<string, unknown>
+    beforeInsert?: EntityListBeforeInsert
+  }): Promise<{ entityId: string; entityName: string; fields: Record<string, unknown> }> {
+    let normalized: Record<string, unknown>
+    try {
+      normalized = normalizeEntityFields('mcp_server', input.fields)
+    } catch (error) {
+      throw new McpServerConfigError(error instanceof Error ? error.message : 'Invalid MCP server')
+    }
 
-    const rows = await db
-      .select()
-      .from(mcpServers)
-      .where(and(...whereConditions))
-    const servers = await applySavedEntityYjsStateToRows('mcp_server', rows)
+    const entityId = crypto.randomUUID()
+    const row = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'mcp_server', input.workspaceId)
+      await input.beforeInsert?.(tx)
+      const [created] = await tx
+        .insert(mcpServers)
+        .values({
+          id: entityId,
+          workspaceId: input.workspaceId,
+          createdBy: input.userId,
+          name: input.name,
+          description: String(normalized.description ?? '') || null,
+          transport: normalized.transport as McpTransport,
+          url: String(normalized.url ?? '') || null,
+          headers: normalized.headers,
+          command: String(normalized.command ?? '') || null,
+          args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
+          env: normalized.env,
+          timeout: Number(normalized.timeout ?? 30000),
+          retries: Number(normalized.retries ?? 3),
+          enabled: normalized.enabled !== false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning()
+      return created
+    })
 
-    return servers.filter((server) => server.enabled).map((server) => ({
-      id: server.id,
-      name: server.name,
-      description: server.description || undefined,
-      transport: server.transport as McpTransport,
-      url: server.url || undefined,
-      headers: (server.headers as Record<string, string>) || {},
-      timeout: server.timeout || 30000,
-      retries: server.retries || 3,
-      enabled: server.enabled,
-      createdAt: server.createdAt.toISOString(),
-      updatedAt: server.updatedAt.toISOString(),
-    }))
+    if (!row) {
+      throw new Error('Created MCP server was not returned from canonical insert')
+    }
+
+    await refreshEntityListSession('mcp_server', input.workspaceId)
+
+    return {
+      entityId,
+      entityName: row.name,
+      fields: savedEntityRowToContent('mcp_server', row),
+    }
+  }
+
+  private async getServerConfig(
+    serverId: string,
+    workspaceId: string,
+    isDeployedContext = true
+  ): Promise<McpServerConfig | null> {
+    try {
+      const [rawFields, members] = await Promise.all([
+        readSavedEntityFieldsForExecution('mcp_server', serverId, workspaceId, isDeployedContext),
+        readEntityListMembersFromDb('mcp_server', workspaceId),
+      ])
+      const fields = normalizeEntityFields('mcp_server', rawFields)
+      const name = members.find((member) => member.id === serverId)?.name
+      if (name === undefined) return null
+      return fields.enabled === false ? null : this.toServerConfig(serverId, name, fields)
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        (error as { status?: number }).status === 404
+      ) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  private async getWorkspaceServers(
+    workspaceId: string,
+    isDeployedContext = true
+  ): Promise<McpServerConfig[]> {
+    const servers = await readSavedEntityListFieldsForExecution(
+      'mcp_server',
+      workspaceId,
+      isDeployedContext
+    )
+
+    return servers.flatMap(({ entityId, entityName, fields: rawFields }) => {
+      try {
+        const fields = normalizeEntityFields('mcp_server', rawFields)
+        return fields.enabled === false ? [] : [this.toServerConfig(entityId, entityName, fields)]
+      } catch (error) {
+        logger.warn(`Skipping invalid MCP server ${entityId} during workspace discovery:`, error)
+        return []
+      }
+    })
   }
 
   /**
@@ -336,7 +252,8 @@ class McpService {
     userId: string,
     serverId: string,
     toolCall: McpToolCall,
-    workspaceId: string
+    workspaceId: string,
+    isDeployedContext = true
   ): Promise<McpToolResult> {
     const requestId = generateRequestId()
 
@@ -345,9 +262,9 @@ class McpService {
         `[${requestId}] Executing MCP tool ${toolCall.name} on server ${serverId} for user ${userId}`
       )
 
-      const config = await this.getServerConfig(serverId, workspaceId)
+      const config = await this.getServerConfig(serverId, workspaceId, isDeployedContext)
       if (!config) {
-        throw new Error(`Server ${serverId} not found or not accessible`)
+        throw new McpServerNotFoundError(serverId)
       }
 
       const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)
@@ -376,24 +293,14 @@ class McpService {
   async discoverTools(
     userId: string,
     workspaceId: string,
-    forceRefresh = false
+    isDeployedContext = true
   ): Promise<McpTool[]> {
     const requestId = generateRequestId()
 
-    const cacheKey = `workspace:${workspaceId}`
-
     try {
-      if (!forceRefresh) {
-        const cached = this.getCacheEntry(cacheKey)
-        if (cached && cached.expiry > new Date()) {
-          logger.debug(`[${requestId}] Using cached tools for user ${userId}`)
-          return cached.tools
-        }
-      }
-
       logger.info(`[${requestId}] Discovering MCP tools for workspace ${workspaceId}`)
 
-      const servers = await this.getWorkspaceServers(workspaceId)
+      const servers = await this.getWorkspaceServers(workspaceId, isDeployedContext)
 
       if (servers.length === 0) {
         logger.info(`[${requestId}] No servers found for workspace ${workspaceId}`)
@@ -428,8 +335,6 @@ class McpService {
         }
       })
 
-      this.setCacheEntry(cacheKey, allTools)
-
       logger.info(
         `[${requestId}] Discovered ${allTools.length} tools from ${servers.length} servers`
       )
@@ -446,16 +351,17 @@ class McpService {
   async discoverServerTools(
     userId: string,
     serverId: string,
-    workspaceId: string
+    workspaceId: string,
+    isDeployedContext = true
   ): Promise<McpTool[]> {
     const requestId = generateRequestId()
 
     try {
       logger.info(`[${requestId}] Discovering tools from server ${serverId} for user ${userId}`)
 
-      const config = await this.getServerConfig(serverId, workspaceId)
+      const config = await this.getServerConfig(serverId, workspaceId, isDeployedContext)
       if (!config) {
-        throw new Error(`Server ${serverId} not found or not accessible`)
+        throw new McpServerNotFoundError(serverId)
       }
 
       const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)
@@ -474,121 +380,6 @@ class McpService {
       throw error
     }
   }
-
-  /**
-   * Get server summaries for a user
-   */
-  async getServerSummaries(userId: string, workspaceId: string): Promise<McpServerSummary[]> {
-    const requestId = generateRequestId()
-
-    try {
-      logger.info(`[${requestId}] Getting server summaries for workspace ${workspaceId}`)
-
-      const servers = await this.getWorkspaceServers(workspaceId)
-      const summaries: McpServerSummary[] = []
-
-      for (const config of servers) {
-        try {
-          const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)
-          const client = await this.createClient(resolvedConfig)
-          const tools = await client.listTools()
-          await client.disconnect()
-
-          summaries.push({
-            id: config.id,
-            name: config.name,
-            url: config.url,
-            transport: config.transport,
-            status: 'connected',
-            toolCount: tools.length,
-            lastSeen: new Date(),
-            error: undefined,
-          })
-        } catch (error) {
-          summaries.push({
-            id: config.id,
-            name: config.name,
-            url: config.url,
-            transport: config.transport,
-            status: 'error',
-            toolCount: 0,
-            lastSeen: undefined,
-            error: error instanceof Error ? error.message : 'Connection failed',
-          })
-        }
-      }
-
-      return summaries
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to get server summaries for user ${userId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Clear tool cache for a workspace or all workspaces
-   */
-  clearCache(workspaceId?: string): void {
-    if (workspaceId) {
-      const workspaceCacheKey = `workspace:${workspaceId}`
-      this.toolCache.delete(workspaceCacheKey)
-      logger.debug(`Cleared MCP tool cache for workspace ${workspaceId}`)
-    } else {
-      this.toolCache.clear()
-      this.cacheHits = 0
-      this.cacheMisses = 0
-      this.entriesEvicted = 0
-      logger.debug('Cleared all MCP tool cache and reset statistics')
-    }
-  }
-
-  /**
-   * Get comprehensive cache statistics
-   */
-  getCacheStats(): CacheStats {
-    const entries: { key: string; cache: ToolCache }[] = []
-    this.toolCache.forEach((cache, key) => {
-      entries.push({ key, cache })
-    })
-
-    const now = new Date()
-    const activeEntries = entries.filter(({ cache }) => cache.expiry > now)
-    const totalRequests = this.cacheHits + this.cacheMisses
-    const hitRate = totalRequests > 0 ? this.cacheHits / totalRequests : 0
-
-    return {
-      totalEntries: entries.length,
-      activeEntries: activeEntries.length,
-      expiredEntries: entries.length - activeEntries.length,
-      maxCacheSize: this.maxCacheSize,
-      cacheHitRate: Math.round(hitRate * 100) / 100,
-      memoryUsage: {
-        approximateBytes: this.calculateMemoryUsage(),
-        entriesEvicted: this.entriesEvicted,
-      },
-    }
-  }
 }
 
 export const mcpService = new McpService()
-
-/**
- * Setup process signal handlers for graceful shutdown
- */
-export function setupMcpServiceCleanup() {
-  if (isTest) {
-    return
-  }
-
-  const cleanup = () => {
-    mcpService.dispose()
-  }
-
-  process.on('SIGTERM', cleanup)
-  process.on('SIGINT', cleanup)
-
-  return () => {
-    process.removeListener('SIGTERM', cleanup)
-    process.removeListener('SIGINT', cleanup)
-  }
-}

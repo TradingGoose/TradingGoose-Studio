@@ -6,9 +6,22 @@ import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useSkillsStore } from '@/stores/skills/store'
-import { emitSkillEditorState } from '@/widgets/utils/skill-editor-actions'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
 import { editorSkillWidget } from '@/widgets/widgets/editor_skill'
+
+const entityListState = vi.hoisted(() => ({ ids: ['skill-1'] }))
+
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: entityListState.ids.map((entityId) => ({ entityId })),
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -20,62 +33,28 @@ vi.mock('@/widgets/widgets/components/skill-dropdown', () => ({
   SkillDropdown: () => <div>skill-dropdown</div>,
 }))
 
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
+}))
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const readBlobText = async (blob: Blob) =>
-  await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsText(blob)
-  })
-
 describe('Skill Editor header controls', () => {
   let container: HTMLDivElement
   let root: Root
-  let createObjectUrlSpy: ReturnType<typeof vi.fn>
-  let revokeObjectUrlSpy: ReturnType<typeof vi.fn>
-  let clickSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
+    entityListState.ids = ['skill-1']
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-
-    useSkillsStore.getState().resetAll()
-    useSkillsStore.getState().setSkills('workspace-1', [
-      {
-        id: 'skill-1',
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        name: 'Market Research',
-        description: 'Investigate the market.',
-        content: 'Use multiple trusted sources.',
-        createdAt: '2026-04-06T12:00:00.000Z',
-        updatedAt: '2026-04-06T12:00:00.000Z',
-      },
-    ])
-
-    createObjectUrlSpy = vi.fn(() => 'blob:skill-export')
-    revokeObjectUrlSpy = vi.fn()
-    clickSpy = vi.fn()
-
-    Object.defineProperty(globalThis.URL, 'createObjectURL', {
-      configurable: true,
-      value: createObjectUrlSpy,
-    })
-    Object.defineProperty(globalThis.URL, 'revokeObjectURL', {
-      configurable: true,
-      value: revokeObjectUrlSpy,
-    })
-    Object.defineProperty(HTMLAnchorElement.prototype, 'click', {
-      configurable: true,
-      value: clickSpy,
-    })
   })
 
   afterEach(() => {
@@ -83,7 +62,6 @@ describe('Skill Editor header controls', () => {
       root.unmount()
     })
     container.remove()
-    useSkillsStore.getState().resetAll()
   })
 
   it('renders Export skill immediately left of Save skill', async () => {
@@ -125,7 +103,12 @@ describe('Skill Editor header controls', () => {
     expect(buttons[0]?.hasAttribute('disabled')).toBe(true)
   })
 
-  it('disables export while the editor is dirty and re-enables it when the editor becomes clean', async () => {
+  it('emits export for the selected skill', async () => {
+    const actionSpy = vi.fn()
+    const handler = (event: Event) => {
+      actionSpy((event as CustomEvent<SkillEditorActionEventDetail>).detail)
+    }
+    window.addEventListener(SKILL_EDITOR_ACTION_EVENT, handler)
     const header = editorSkillWidget.renderHeader?.({
       context: { workspaceId: 'workspace-1' } as any,
       panelId: 'panel-1',
@@ -142,93 +125,73 @@ describe('Skill Editor header controls', () => {
 
     const buttons = Array.from(container.querySelectorAll('button'))
     const exportButton = buttons[0]
-
-    expect(exportButton?.hasAttribute('disabled')).toBe(true)
-
-    await act(async () => {
-      emitSkillEditorState({
-        isDirty: false,
-        panelId: 'panel-1',
-        widgetKey: 'editor_skill',
-      })
-    })
-
-    expect(exportButton?.hasAttribute('disabled')).toBe(false)
-
-    await act(async () => {
-      emitSkillEditorState({
-        isDirty: true,
-        panelId: 'panel-1',
-        widgetKey: 'editor_skill',
-      })
-    })
-
-    expect(exportButton?.hasAttribute('disabled')).toBe(true)
-
-    await act(async () => {
-      emitSkillEditorState({
-        isDirty: false,
-        panelId: 'panel-1',
-        widgetKey: 'editor_skill',
-      })
-    })
-
-    expect(exportButton?.hasAttribute('disabled')).toBe(false)
-  })
-
-  it('downloads the unified export envelope for the selected skill', async () => {
-    const header = editorSkillWidget.renderHeader?.({
-      context: { workspaceId: 'workspace-1' } as any,
-      panelId: 'panel-1',
-      widget: {
-        key: 'editor_skill',
-        params: { skillId: 'skill-1' },
-        pairColor: 'gray',
-      } as any,
-    } as any)
-
-    await act(async () => {
-      root.render(header?.right as ReactNode)
-    })
-
-    const buttons = Array.from(container.querySelectorAll('button'))
-    const exportButton = buttons[0]
-
-    await act(async () => {
-      emitSkillEditorState({
-        isDirty: false,
-        panelId: 'panel-1',
-        widgetKey: 'editor_skill',
-      })
-    })
 
     await act(async () => {
       exportButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
-    expect(clickSpy).toHaveBeenCalledTimes(1)
-    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:skill-export')
-
-    const blob = createObjectUrlSpy.mock.calls[0]?.[0] as Blob
-    const payload = JSON.parse(await readBlobText(blob))
-
-    expect(payload).toMatchObject({
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedFrom: 'skillEditor',
-      resourceTypes: ['skills'],
-      skills: [
-        {
-          name: 'Market Research',
-          description: 'Investigate the market.',
-          content: 'Use multiple trusted sources.',
-        },
-      ],
-      workflows: [],
-      customTools: [],
-      watchlists: [],
-      indicators: [],
+    expect(actionSpy).toHaveBeenCalledWith({
+      action: 'export',
+      entityId: 'skill-1',
+      panelId: 'panel-1',
+      widgetKey: 'editor_skill',
     })
+    window.removeEventListener(SKILL_EDITOR_ACTION_EVENT, handler)
+  })
+
+  it('emits save for the selected skill', async () => {
+    const actionSpy = vi.fn()
+    const handler = (event: Event) => {
+      actionSpy((event as CustomEvent<SkillEditorActionEventDetail>).detail)
+    }
+    window.addEventListener(SKILL_EDITOR_ACTION_EVENT, handler)
+    const header = editorSkillWidget.renderHeader?.({
+      context: { workspaceId: 'workspace-1' } as any,
+      panelId: 'panel-1',
+      widget: {
+        key: 'editor_skill',
+        params: { skillId: 'skill-1' },
+        pairColor: 'gray',
+      } as any,
+    } as any)
+
+    await act(async () => {
+      root.render(header?.right as ReactNode)
+    })
+
+    const buttons = Array.from(container.querySelectorAll('button'))
+    const saveButton = buttons[1]
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(actionSpy).toHaveBeenCalledWith({
+      action: 'save',
+      entityId: 'skill-1',
+      panelId: 'panel-1',
+      widgetKey: 'editor_skill',
+    })
+    window.removeEventListener(SKILL_EDITOR_ACTION_EVENT, handler)
+  })
+
+  it('disables actions when the selected skill leaves the shared list', async () => {
+    const renderActions = () =>
+      editorSkillWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_skill',
+          params: { skillId: 'skill-1' },
+          pairColor: 'gray',
+        } as any,
+      } as any)?.right as ReactNode
+
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[0]).not.toBeDisabled()
+
+    entityListState.ids = []
+    await act(async () => root.render(renderActions()))
+    expect(container.querySelectorAll('button')[0]).toBeDisabled()
   })
 })

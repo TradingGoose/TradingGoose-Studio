@@ -6,9 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockUpsertSkills = vi.fn()
+const mockCreateSkills = vi.fn()
 const mockListSkills = vi.fn()
-const mockDeleteSkill = vi.fn()
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: mockCheckHybridAuth,
@@ -19,25 +18,16 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/lib/skills/operations', () => ({
-  upsertSkills: mockUpsertSkills,
+  createSkills: mockCreateSkills,
   listSkills: mockListSkills,
-  deleteSkill: mockDeleteSkill,
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([{ id: 'skill-1' }]),
-        }),
-      }),
-    }),
-  },
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  deleteSavedEntity: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  skill: {},
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  toSavedEntityTransportError: vi.fn(() => null),
 }))
 
 describe('Skills API Routes', () => {
@@ -45,9 +35,8 @@ describe('Skills API Routes', () => {
     vi.resetAllMocks()
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockUpsertSkills.mockResolvedValue([])
+    mockCreateSkills.mockResolvedValue([])
     mockListSkills.mockResolvedValue([])
-    mockDeleteSkill.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -76,6 +65,15 @@ describe('Skills API Routes', () => {
     expect(body.error).toBe('workspaceId is required')
   })
 
+  it('GET should list live workspace skills', async () => {
+    const req = new NextRequest('http://localhost:3000/api/skills?workspaceId=ws-1')
+    const { GET } = await import('@/app/api/skills/route')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockListSkills).toHaveBeenCalledWith({ workspaceId: 'ws-1' })
+  })
+
   it('POST should require workspaceId in body', async () => {
     const req = new NextRequest('http://localhost:3000/api/skills', {
       method: 'POST',
@@ -99,7 +97,7 @@ describe('Skills API Routes', () => {
   })
 
   it('POST should accept human-readable skill names', async () => {
-    mockUpsertSkills.mockResolvedValue([
+    mockCreateSkills.mockResolvedValue([
       {
         id: 'skill-1',
         name: 'Market Research',

@@ -1,5 +1,5 @@
 import { createNavigation } from 'next-intl/navigation'
-import { localizeUrl } from './utils'
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, localizeUrl } from './utils'
 import { routing } from './routing'
 
 // These navigation helpers localize canonical internal paths like `/verify`.
@@ -13,6 +13,6 @@ export function replaceLocaleDocument(locale: typeof routing.locales[number], pa
     return
   }
 
-  document.cookie = `NEXT_LOCALE=${encodeURIComponent(locale)}; path=/; max-age=31536000; samesite=lax`
+  document.cookie = `${LOCALE_COOKIE}=${encodeURIComponent(locale)}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`
   window.location.replace(localizeUrl(window.location.origin, locale, pathname))
 }

@@ -1,15 +1,13 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { type BaseServerTool, withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
-import {
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import type {
   GetAgentAccessoryCatalogInputType,
   GetAgentAccessoryCatalogResultType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { listCustomTools } from '@/lib/custom-tools/operations'
+import { createCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { listSkills } from '@/lib/skills/operations'
@@ -75,21 +73,13 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
 > = {
   name: CopilotTool.get_agent_accessory_catalog,
   async execute(args, context) {
-    if (!context?.userId) throw new Error('User context is required')
-
-    const scope = await resolveServerWorkflowScope(args, context)
-    if (scope && !scope.hasAccess) {
-      throw new Error('Workflow not found or access denied')
-    }
-    const workspaceId = resolveServerWorkspaceId(context, scope)
-    if (!workspaceId) {
-      throw new Error('Workspace context is required')
-    }
+    const scopedContext = withWorkspaceArgContext(context, args)
+    const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
 
     const [blockToolOptions, customToolRows, mcpToolRows, skillRows] = await Promise.all([
       getBlockToolOptions(),
       listCustomTools({ workspaceId }),
-      mcpService.discoverTools(context.userId, workspaceId),
+      mcpService.discoverTools(userId, workspaceId, false),
       listSkills({ workspaceId }),
     ])
 
@@ -104,7 +94,7 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
             value: {
               type: 'custom-tool',
               title: tool.title,
-              toolId: `custom_${tool.id}`,
+              toolId: createCustomToolRuntimeId(tool.id),
               params: {},
               isExpanded: true,
               schema: tool.schema,

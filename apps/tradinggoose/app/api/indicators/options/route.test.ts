@@ -8,38 +8,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockAuthenticateIndicatorRequest,
   mockCheckWorkspacePermission,
-  mockFrom,
-  mockSelect,
-  mockWhere,
+  mockListIndicators,
   mockIsIndicatorTriggerCapable,
 } = vi.hoisted(() => ({
   mockAuthenticateIndicatorRequest: vi.fn(),
   mockCheckWorkspacePermission: vi.fn(),
-  mockFrom: vi.fn(),
-  mockSelect: vi.fn(),
-  mockWhere: vi.fn(),
+  mockListIndicators: vi.fn(),
   mockIsIndicatorTriggerCapable: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: mockSelect,
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  pineIndicators: {
-    id: 'pineIndicators.id',
-    name: 'pineIndicators.name',
-    color: 'pineIndicators.color',
-    pineCode: 'pineIndicators.pineCode',
-    inputMeta: 'pineIndicators.inputMeta',
-    workspaceId: 'pineIndicators.workspaceId',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+vi.mock('@/lib/indicators/custom/operations', () => ({
+  listIndicators: (...args: unknown[]) => mockListIndicators(...args),
 }))
 
 vi.mock('@/lib/indicators/default/runtime', () => ({
@@ -81,7 +60,7 @@ describe('indicator options route', () => {
     })
     mockCheckWorkspacePermission.mockResolvedValue({ ok: true, permission: 'admin' })
     mockIsIndicatorTriggerCapable.mockImplementation((code: string) => code === 'trigger-capable')
-    mockWhere.mockResolvedValue([
+    mockListIndicators.mockResolvedValue([
       {
         id: 'custom-trigger',
         name: 'Custom Trigger',
@@ -89,7 +68,6 @@ describe('indicator options route', () => {
         pineCode: 'trigger-capable',
         inputMeta: {
           Threshold: { title: 'Threshold', type: 'float', defval: 2.5 },
-          Broken: { title: '' },
         },
       },
       {
@@ -102,17 +80,13 @@ describe('indicator options route', () => {
         },
       },
       {
-        id: 'custom-malformed',
-        name: 'Custom Malformed',
+        id: 'custom-without-inputs',
+        name: 'Custom Without Inputs',
         color: '#654321',
         pineCode: 'trigger-capable',
-        inputMeta: {
-          Broken: { title: '' },
-        },
+        inputMeta: undefined,
       },
     ])
-    mockFrom.mockReturnValue({ where: mockWhere })
-    mockSelect.mockReturnValue({ from: mockFrom })
   })
 
   const getOptions = async (search: string) => {
@@ -120,14 +94,14 @@ describe('indicator options route', () => {
     return GET(new NextRequest(`http://localhost/api/indicators/options${search}`))
   }
 
-  it('returns monitor-surface trigger-capable options with normalized input metadata', async () => {
+  it('returns monitor-surface trigger-capable options with derived input metadata', async () => {
     const response = await getOptions('?workspaceId=workspace-1&surface=monitor')
     const payload = await response.json()
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-trigger',
+      'custom-without-inputs',
       'default-trigger',
     ])
 
@@ -148,9 +122,11 @@ describe('indicator options route', () => {
       })
     )
 
-    const malformedOption = payload.data.find((entry: any) => entry.id === 'custom-malformed')
-    expect(malformedOption.inputTitles).toEqual([])
-    expect(malformedOption.inputMeta).toBeUndefined()
+    const optionWithoutInputs = payload.data.find(
+      (entry: any) => entry.id === 'custom-without-inputs'
+    )
+    expect(optionWithoutInputs.inputTitles).toEqual([])
+    expect(optionWithoutInputs.inputMeta).toBeUndefined()
   })
 
   it('keeps copilot surface broader than monitor surface', async () => {
@@ -159,9 +135,9 @@ describe('indicator options route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-study',
       'custom-trigger',
+      'custom-without-inputs',
       'default-study',
       'default-trigger',
     ])

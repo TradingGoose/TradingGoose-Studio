@@ -16,11 +16,11 @@ export class TestExecutor extends Executor {
   /**
    * Override the execute method to return a pre-defined result for testing
    */
-  async execute(workflowId: string): Promise<ExecutionResult> {
+  async execute(workflowId: string, triggerBlockId: string): Promise<ExecutionResult> {
     try {
       // Call validateWorkflow to ensure we validate the workflow
       // even though we're not actually executing it
-      ;(this as any).validateWorkflow()
+      ;(this as any).validateWorkflow(triggerBlockId)
 
       // Return a successful result
       return {

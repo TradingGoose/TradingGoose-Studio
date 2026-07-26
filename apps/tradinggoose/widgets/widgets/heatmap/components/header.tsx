@@ -1,14 +1,14 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useMessages } from 'next-intl'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
-import { emitHeatmapParamsChange } from '@/widgets/utils/heatmap-params'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getHeatmapMarketProviderOptions,
@@ -21,7 +21,7 @@ import {
   resolveHeatmapTradingProviderId,
   resolveHeatmapWatchlistSizeMetric,
 } from '@/widgets/widgets/heatmap/components/shared'
-import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
+import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/contract'
 
 type HeaderControlProps = {
   workspaceId?: string
@@ -30,9 +30,16 @@ type HeaderControlProps = {
   params: HeatmapWidgetParams | null
 }
 
+const usePatchHeatmapParams = () => {
+  const actions = useWidgetConfigRuntimeActions()
+  return actions.patchWidgetParams
+}
+
 function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const marketProviderOptions = useMemo(() => getHeatmapMarketProviderOptions(), [])
   const marketProviderId = resolveHeatmapMarketProviderId(params, marketProviderOptions)
+  const patchParams = usePatchHeatmapParams()
+  if (!patchParams) return null
 
   return (
     <MarketProviderControls
@@ -43,26 +50,18 @@ function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: Head
       workspaceId={workspaceId}
       onChange={(nextProvider) => {
         if (!nextProvider || nextProvider === marketProviderId) return
-        emitHeatmapParamsChange({
-          params: {
-            marketProvider: nextProvider,
-            marketProviderParams: null,
-            marketAuth: null,
-            runtime: { refreshAt: Date.now() },
-          },
-          panelId,
-          widgetKey,
+        patchParams({
+          marketProvider: nextProvider,
+          marketProviderParams: null,
+          marketAuth: null,
+          runtime: { refreshAt: Date.now() },
         })
       }}
       onSettingsSave={({ providerParams, auth }) => {
-        emitHeatmapParamsChange({
-          params: {
-            marketProviderParams: providerParams,
-            marketAuth: auth,
-            runtime: { refreshAt: Date.now() },
-          },
-          panelId,
-          widgetKey,
+        patchParams({
+          marketProviderParams: providerParams,
+          marketAuth: auth,
+          runtime: { refreshAt: Date.now() },
         })
       }}
     />
@@ -71,6 +70,8 @@ function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: Head
 
 function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProps) {
   const sourceMode = resolveHeatmapSourceMode(params)
+  const patchParams = usePatchHeatmapParams()
+  if (!patchParams) return null
 
   return (
     <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
@@ -86,11 +87,7 @@ function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProp
             className='h-5 min-w-14 rounded-xs px-3 text-sm'
             onClick={() => {
               if (mode.id === sourceMode) return
-              emitHeatmapParamsChange({
-                params: { sourceMode: mode.id },
-                panelId,
-                widgetKey,
-              })
+              patchParams({ sourceMode: mode.id })
             }}
           >
             {mode.label}
@@ -103,6 +100,8 @@ function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProp
 
 function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderControlProps) {
   const sizeMetric = resolveHeatmapWatchlistSizeMetric(params)
+  const patchParams = usePatchHeatmapParams()
+  if (!patchParams) return null
 
   return (
     <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
@@ -118,11 +117,7 @@ function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderCont
             className='h-5 min-w-16 rounded-xs px-3 text-sm'
             onClick={() => {
               if (metric.id === sizeMetric) return
-              emitHeatmapParamsChange({
-                params: { watchlistSizeMetric: metric.id },
-                panelId,
-                widgetKey,
-              })
+              patchParams({ watchlistSizeMetric: metric.id })
             }}
           >
             {metric.label}
@@ -143,6 +138,8 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
     [providerAvailabilityQuery.data]
   )
   const providerId = resolveHeatmapTradingProviderId(params, providerOptions)
+  const patchParams = usePatchHeatmapParams()
+  if (!patchParams) return null
 
   return (
     <TradingProviderControls
@@ -153,24 +150,16 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
       toolName={copy.title}
       onProviderChange={(nextProvider) => {
         if (!nextProvider || nextProvider === providerId) return
-        emitHeatmapParamsChange({
-          params: {
-            tradingProvider: nextProvider,
-            serviceId: null,
-            portfolioIdentity: null,
-          },
-          panelId,
-          widgetKey,
+        patchParams({
+          tradingProvider: nextProvider,
+          serviceId: null,
+          portfolioIdentity: null,
         })
       }}
       onAccountSelect={({ serviceId, portfolioIdentity }) => {
-        emitHeatmapParamsChange({
-          params: {
-            portfolioIdentity,
-            ...(serviceId ? { serviceId } : {}),
-          },
-          panelId,
-          widgetKey,
+        patchParams({
+          portfolioIdentity,
+          ...(serviceId ? { serviceId } : {}),
         })
       }}
     />
@@ -178,15 +167,13 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
 }
 
 function HeatmapRefreshControl({ panelId, widgetKey }: HeaderControlProps) {
+  const patchParams = usePatchHeatmapParams()
+  if (!patchParams) return null
   return (
     <WidgetHeaderRefreshButton
       label='Refresh heatmap'
       onClick={() => {
-        emitHeatmapParamsChange({
-          params: { runtime: { refreshAt: Date.now() } },
-          panelId,
-          widgetKey,
-        })
+        patchParams({ runtime: { refreshAt: Date.now() } })
       }}
     />
   )

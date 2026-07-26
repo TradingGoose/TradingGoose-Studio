@@ -21,7 +21,8 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
 }))
 
-vi.mock('@/lib/workflows/utils', () => ({
+vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/workflows/utils')>()),
   readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 
@@ -51,6 +52,8 @@ vi.mock('@/lib/utils', () => ({
   SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
+vi.unmock('@/blocks/registry')
+
 import { POST } from './route'
 
 describe('POST /api/workflows/[id]/queue', () => {
@@ -69,7 +72,8 @@ describe('POST /api/workflows/[id]/queue', () => {
         isDeployed: true,
       },
       isOwner: true,
-      workspacePermission: null,
+      isWorkspaceOwner: false,
+      workspacePermission: 'write',
     })
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-1',
@@ -142,13 +146,18 @@ describe('POST /api/workflows/[id]/queue', () => {
   it.each([
     {
       name: 'unsupported trigger type',
-      body: JSON.stringify({ triggerType: 'webhook' }),
+      body: JSON.stringify({ triggerType: 'api-endpoint' }),
       error: 'Unsupported queued workflow trigger type',
     },
     {
       name: 'unsupported execution target',
       body: JSON.stringify({ executionTarget: 'draft' }),
       error: 'Unsupported queued workflow execution target',
+    },
+    {
+      name: 'webhook without live trigger block',
+      body: JSON.stringify({ executionTarget: 'live', triggerType: 'webhook' }),
+      error: 'Webhook and schedule queued workflow executions require a live trigger block',
     },
     {
       name: 'malformed JSON',
@@ -284,10 +293,10 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('queues editor live executions with the canonical workflow payload', async () => {
+  it('queues editor live executions as manual runs with trigger source metadata', async () => {
     const workflowData = {
       blocks: {
-        'trigger-1': { id: 'trigger-1', type: 'manual_trigger' },
+        'trigger-1': { id: 'trigger-1', type: 'schedule' },
       },
       edges: [],
       loops: {},
@@ -304,7 +313,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           triggerType: 'manual',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
-          startBlockId: 'trigger-1',
+          triggerBlockId: 'trigger-1',
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -323,10 +332,12 @@ describe('POST /api/workflows/[id]/queue', () => {
         payload: expect.objectContaining({
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
+          triggerType: 'manual',
           executionTarget: 'live',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
-          startBlockId: 'trigger-1',
+          triggerBlockId: 'trigger-1',
+          triggerData: { source: 'schedule' },
         }),
       })
     )

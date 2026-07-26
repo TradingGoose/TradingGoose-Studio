@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -22,7 +23,6 @@ import {
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useKnowledgeUpload } from '@/app/workspace/[workspaceId]/knowledge/hooks/use-knowledge-upload'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
-import { useTranslations } from 'next-intl'
 
 const logger = createLogger('CreateModal')
 
@@ -317,8 +317,6 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
       const newKnowledgeBase = result.data
 
       if (files.length > 0) {
-        newKnowledgeBase.docCount = files.length
-
         if (onKnowledgeBaseCreated) {
           onKnowledgeBaseCreated(newKnowledgeBase)
         }
@@ -524,13 +522,9 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                                 isDragging ? 'text-amber-700' : ''
                               }`}
                             >
-                              {isDragging
-                                ? t('dropFilesHere')
-                                : t('dropFilesHereOrClickToBrowse')}
+                              {isDragging ? t('dropFilesHere') : t('dropFilesHereOrClickToBrowse')}
                             </p>
-                            <p className='text-muted-foreground text-xs'>
-                              {t('supportedFormats')}
-                            </p>
+                            <p className='text-muted-foreground text-xs'>{t('supportedFormats')}</p>
                           </div>
                         </div>
                       </div>

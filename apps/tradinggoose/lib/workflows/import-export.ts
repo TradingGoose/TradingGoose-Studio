@@ -9,8 +9,10 @@ import {
   type SkillTransferRecord,
   SkillTransferSchema,
 } from '@/lib/skills/import-export'
+import type { SkillDefinition } from '@/lib/skills/types'
 import { type ExportWorkflowState, sanitizeForExport } from '@/lib/workflows/json-sanitizer'
-import type { SkillDefinition } from '@/stores/skills/types'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 export const WORKFLOW_EXPORT_SOURCE = 'workflowEditor'
@@ -27,7 +29,6 @@ const formatZodIssue = (issue: z.ZodIssue) => {
 export interface WorkflowTransferRecord {
   name: string
   description: string
-  color: string
   state: ExportWorkflowState['state']
   skills: SkillTransferRecord[]
 }
@@ -37,7 +38,6 @@ type WorkflowSkillSource = Pick<SkillDefinition, 'id' | 'name' | 'description' |
 type WorkflowTransferInput = {
   name: string
   description?: string | null
-  color?: string | null
   state?: unknown
 }
 
@@ -47,17 +47,32 @@ type ParseWorkflowImportResult = {
   matched: boolean
 }
 
-const WorkflowTransferSchema = z
-  .object({
-    name: z
-      .string()
-      .transform(normalizeInlineWhitespace)
-      .pipe(z.string().min(1, 'Workflow name is required')),
-    description: z.string().transform(normalizeString).optional().default(''),
-    color: z.string().transform(normalizeString).optional().default(''),
-    state: z.unknown(),
-  })
-  .strict()
+export function remapVariableIds(
+  sourceVariables: Record<string, Variable>,
+  newWorkflowId: string
+): Record<string, Variable> {
+  const remapped: Record<string, Variable> = {}
+
+  for (const variable of Object.values(sourceVariables)) {
+    const newVarId = crypto.randomUUID()
+    remapped[newVarId] = {
+      ...variable,
+      id: newVarId,
+      workflowId: newWorkflowId,
+    }
+  }
+
+  return remapped
+}
+
+const WorkflowTransferSchema = z.object({
+  name: z
+    .string()
+    .transform(normalizeInlineWhitespace)
+    .pipe(z.string().min(1, 'Workflow name is required')),
+  description: z.string().transform(normalizeString).optional().default(''),
+  state: z.unknown(),
+})
 
 const WorkflowImportEnvelopeSchema = TradingGooseExportEnvelopeSchema.extend({
   workflows: z.array(WorkflowTransferSchema).length(1, 'Exactly one workflow is required'),
@@ -188,6 +203,7 @@ function validateWorkflowState(input: unknown): {
       edges: workflowState.edges || [],
       loops: workflowState.loops || {},
       parallels: workflowState.parallels || {},
+      variables: normalizeVariables(workflowState.variables),
     },
     errors: [],
   }
@@ -211,7 +227,6 @@ function normalizeWorkflowTransferRecord(
     data: {
       name: workflowName,
       description: normalizeString(workflow.description ?? ''),
-      color: normalizeString(workflow.color ?? ''),
       state: stateResult.data,
       skills: [],
     },
@@ -270,7 +285,7 @@ function readWorkflowSkillValues(
   )
 }
 
-function collectWorkflowSkillIds(state: WorkflowState): string[] {
+export function collectWorkflowSkillIds(state: WorkflowState): string[] {
   const orderedSkillIds: string[] = []
   const seenSkillIds = new Set<string>()
 
@@ -412,7 +427,6 @@ export function createWorkflowExportFile({
   workflow: {
     name: string
     description?: string | null
-    color?: string | null
     state: WorkflowState
   }
   skills?: WorkflowSkillSource[]
@@ -432,29 +446,11 @@ export function createWorkflowExportFile({
         {
           name: normalizeInlineWhitespace(workflow.name),
           description: normalizeString(workflow.description ?? ''),
-          color: normalizeString(workflow.color ?? ''),
           state: exportData.state,
         },
       ],
     },
   })
-}
-
-export function exportWorkflowAsJson({
-  workflow,
-  skills = [],
-  exportedFrom = WORKFLOW_EXPORT_SOURCE,
-}: {
-  workflow: {
-    name: string
-    description?: string | null
-    color?: string | null
-    state: WorkflowState
-  }
-  skills?: WorkflowSkillSource[]
-  exportedFrom?: string
-}): string {
-  return JSON.stringify(createWorkflowExportFile({ workflow, skills, exportedFrom }), null, 2)
 }
 
 export function parseImportedWorkflowFile(input: unknown): {

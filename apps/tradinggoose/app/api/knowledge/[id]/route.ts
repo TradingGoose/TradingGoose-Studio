@@ -1,14 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import {
-  deleteKnowledgeBase,
-  getKnowledgeBaseById,
-  updateKnowledgeBase,
-} from '@/lib/knowledge/service'
+import { applyKnowledgeBaseMetadata, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseByIdAPI')
 
@@ -17,9 +15,12 @@ const UpdateKnowledgeBaseSchema = z.object({
   description: z.string().optional(),
   chunkingConfig: z
     .object({
-      maxSize: z.number(),
-      minSize: z.number(),
-      overlap: z.number(),
+      maxSize: z.number().min(100).max(4000),
+      minSize: z.number().min(1).max(2000),
+      overlap: z.number().min(0).max(500),
+    })
+    .refine((data) => data.minSize < data.maxSize, {
+      message: 'minSize must be less than maxSize',
     })
     .optional(),
 })
@@ -95,12 +96,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
       const validatedData = UpdateKnowledgeBaseSchema.parse(body)
 
-      const updatedKnowledgeBase = await updateKnowledgeBase(
+      const currentKnowledgeBase = await getKnowledgeBaseById(id)
+      if (!currentKnowledgeBase) {
+        return NextResponse.json({ error: 'Knowledge base not found' }, { status: 404 })
+      }
+
+      const updatedKnowledgeBase = await applyKnowledgeBaseMetadata(
         id,
+        session.user.id,
         {
-          name: validatedData.name,
-          description: validatedData.description,
-          chunkingConfig: validatedData.chunkingConfig,
+          name: validatedData.name ?? currentKnowledgeBase.name,
+          description: validatedData.description ?? currentKnowledgeBase.description ?? '',
+          chunkingConfig: validatedData.chunkingConfig ?? currentKnowledgeBase.chunkingConfig,
         },
         requestId
       )
@@ -114,10 +121,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid knowledge base update data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }
@@ -125,6 +132,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     logger.error(`[${requestId}] Error updating knowledge base`, error)
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Failed to update knowledge base' }, { status: 500 })
   }
 }
@@ -153,7 +162,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await deleteKnowledgeBase(id, requestId)
+    await deleteSavedEntity('knowledge_base', id, accessCheck.knowledgeBase.workspaceId)
 
     logger.info(`[${requestId}] Knowledge base deleted: ${id} for user ${session.user.id}`)
 
@@ -162,6 +171,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       data: { message: 'Knowledge base deleted successfully' },
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting knowledge base`, error)
     return NextResponse.json({ error: 'Failed to delete knowledge base' }, { status: 500 })
   }

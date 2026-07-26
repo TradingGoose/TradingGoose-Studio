@@ -5,11 +5,11 @@
  * This file registers the LineToolParallelChannel class with the core line tools plugin.
  */
 
-import { ILineToolsPlugin } from '../core';
-import { LineToolParallelChannel } from './model/LineToolParallelChannel';
+import type { ILineToolsPlugin } from '../core'
+import { LineToolParallelChannel } from './model/LineToolParallelChannel'
 
 // Define the name under which this specific tool will be registered
-const PARALLEL_CHANNEL_NAME = 'ParallelChannel';
+const PARALLEL_CHANNEL_NAME = 'ParallelChannel'
 
 /**
  * Registers the Parallel Channel tool with the provided Core Plugin instance.
@@ -21,16 +21,17 @@ const PARALLEL_CHANNEL_NAME = 'ParallelChannel';
  * @returns void
  *
  */
-export function registerParallelChannelPlugin<HorzScaleItem>(corePlugin: ILineToolsPlugin & { registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void }): void {
-	// 1. Register the ParallelChannel Tool
-	corePlugin.registerLineTool(PARALLEL_CHANNEL_NAME, LineToolParallelChannel);
-
+export function registerParallelChannelPlugin<HorzScaleItem>(
+  corePlugin: ILineToolsPlugin & {
+    registerLineTool: <H>(type: string, toolClass: new (...args: any[]) => any) => void
+  }
+): void {
+  // 1. Register the ParallelChannel Tool
+  corePlugin.registerLineTool(PARALLEL_CHANNEL_NAME, LineToolParallelChannel)
 }
 
 // Export the LineToolParallelChannel class for direct use/type referencing if necessary
-export {
-	LineToolParallelChannel,
-};
+export { LineToolParallelChannel }
 
 // Export the registration function as the primary way to use the plugin
-export default registerParallelChannelPlugin;
+export default registerParallelChannelPlugin

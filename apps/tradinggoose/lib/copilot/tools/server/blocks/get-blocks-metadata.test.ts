@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
 
@@ -131,17 +132,13 @@ vi.mock('@/tools/registry', () => ({
 
 describe('getBlocksMetadataServerTool', () => {
   beforeEach(() => {
-    vi.resetModules()
+    mockGetOAuthProviderAvailability.mockReset()
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
       Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
     )
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
-    const { getBlocksMetadataServerTool } = await import(
-      '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
-    )
-
     const result = await getBlocksMetadataServerTool.execute({
       blockTypes: [
         'github',
@@ -212,7 +209,7 @@ describe('getBlocksMetadataServerTool', () => {
         workflowVariables: expect.objectContaining({
           syntax: '<variable.name>',
           summary: expect.stringContaining('Copy the exact workflow variable tag'),
-          sourceTools: ['read_workflow_variables'],
+          sourceTools: ['read_workflow'],
         }),
         environmentVariables: expect.objectContaining({
           syntax: '{{ENV_VAR_NAME}}',
@@ -237,9 +234,10 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.function?.inputReferenceGrammar?.blockSpecificRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          title: 'Use built-in indicators with full Historical Data output',
+          title: 'Use available indicators with full Historical Data output',
           examples: expect.arrayContaining([
             'await indicator.RSI(<historical_data>, { Length: 7 })',
+            'await indicator["custom-indicator-id"](<historical_data>)',
           ]),
         }),
         expect.objectContaining({

@@ -6,6 +6,7 @@ import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateProxyUrl } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
+import type { ExecutionContext } from '@/executor/types'
 import { executeTool } from '@/tools'
 import { getTool, validateRequiredParametersAfterMerge } from '@/tools/utils'
 
@@ -227,6 +228,9 @@ export async function POST(request: NextRequest) {
       logger.error(`[${requestId}] Authentication failed for proxy:`, authResult.error)
       return createErrorResponse('Unauthorized', 401)
     }
+    if (!authResult.userId) {
+      return createErrorResponse('Authenticated user context is required', 403)
+    }
 
     let requestBody
     try {
@@ -238,7 +242,55 @@ export async function POST(request: NextRequest) {
       throw new Error('Invalid JSON in request body')
     }
 
-    const { toolId, params, executionContext } = requestBody
+    const { toolId } = requestBody
+    const requestParams =
+      requestBody.params &&
+      typeof requestBody.params === 'object' &&
+      !Array.isArray(requestBody.params)
+        ? requestBody.params
+        : {}
+    const requestedExecutionContext =
+      requestBody.executionContext &&
+      typeof requestBody.executionContext === 'object' &&
+      !Array.isArray(requestBody.executionContext)
+        ? requestBody.executionContext
+        : {}
+    const parameterContext =
+      requestParams._context &&
+      typeof requestParams._context === 'object' &&
+      !Array.isArray(requestParams._context)
+        ? requestParams._context
+        : {}
+    const requestedWorkspaceId =
+      typeof requestedExecutionContext.workspaceId === 'string'
+        ? requestedExecutionContext.workspaceId.trim()
+        : typeof parameterContext.workspaceId === 'string'
+          ? parameterContext.workspaceId.trim()
+          : ''
+    if (
+      authResult.apiKeyType === 'workspace' &&
+      (!authResult.workspaceId ||
+        (requestedWorkspaceId && requestedWorkspaceId !== authResult.workspaceId))
+    ) {
+      return createErrorResponse('Workspace API key cannot access the requested workspace', 403)
+    }
+    const workspaceId = authResult.workspaceId ?? (requestedWorkspaceId || undefined)
+    const params = {
+      ...requestParams,
+      _context: {
+        userId: authResult.userId,
+        workspaceId,
+        toolExecutionId: requestId,
+        submissionSource: 'manual',
+        isDeployedContext: true,
+      },
+    }
+    const executionContext = {
+      userId: authResult.userId,
+      workspaceId,
+      submissionSource: 'manual' as const,
+      isDeployedContext: true,
+    } as ExecutionContext
 
     if (!toolId) {
       logger.error(`[${requestId}] Missing toolId in request`)
@@ -250,6 +302,9 @@ export async function POST(request: NextRequest) {
         'Function execution is only available inside workflow execution',
         403
       )
+    }
+    if (requestParams.__tradinggooseSkillLoader === true) {
+      return createErrorResponse('Skill-loader execution is internal-only', 403)
     }
 
     logger.info(`[${requestId}] Processing tool: ${toolId}`)

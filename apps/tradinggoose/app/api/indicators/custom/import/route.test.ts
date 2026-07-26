@@ -72,9 +72,10 @@ describe('Indicators import route', () => {
           indicators: [
             {
               name: 'RSI Export Example',
-              color: '#3972F6',
               pineCode: "indicator('RSI Export Example')",
-              inputMeta: {},
+              inputMeta: {
+                Stale: { title: 'Stale', type: 'string', defval: 'old' },
+              },
             },
           ],
         },
@@ -93,9 +94,7 @@ describe('Indicators import route', () => {
         indicators: [
           {
             name: 'RSI Export Example',
-            color: '#3972F6',
             pineCode: "indicator('RSI Export Example')",
-            inputMeta: {},
           },
         ],
       })

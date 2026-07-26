@@ -8,27 +8,30 @@ import {
   SKILL_DESCRIPTION_MAX_LENGTH,
   SKILL_NAME_MAX_LENGTH,
 } from '@/lib/skills/import-export'
-import { deleteSkill, listSkills, upsertSkills } from '@/lib/skills/operations'
+import { createSkills, listSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('SkillsAPI')
 
 const SkillSchema = z.object({
   workspaceId: z.string().trim().min(1, 'workspaceId is required'),
   skills: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().trim().min(1, 'Skill name is required').max(SKILL_NAME_MAX_LENGTH),
-      description: z
-        .string()
-        .trim()
-        .min(1, 'Description is required')
-        .max(SKILL_DESCRIPTION_MAX_LENGTH),
-      content: z
-        .string()
-        .max(SKILL_CONTENT_MAX_LENGTH, 'Content is too large')
-        .refine((value) => value.trim().length > 0, 'Content is required'),
-    })
+    z
+      .object({
+        name: z.string().trim().min(1, 'Skill name is required').max(SKILL_NAME_MAX_LENGTH),
+        description: z
+          .string()
+          .trim()
+          .min(1, 'Description is required')
+          .max(SKILL_DESCRIPTION_MAX_LENGTH),
+        content: z
+          .string()
+          .max(SKILL_CONTENT_MAX_LENGTH, 'Content is too large')
+          .refine((value) => value.trim().length > 0, 'Content is required'),
+      })
+      .strict()
   ),
 })
 
@@ -57,9 +60,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const result = await listSkills({ workspaceId })
-    return NextResponse.json({ data: result }, { status: 200 })
+    return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching skills:`, error)
     return NextResponse.json({ error: 'Failed to fetch skills' }, { status: 500 })
   }
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
       }
 
-      const resultSkills = await upsertSkills({
+      const resultSkills = await createSkills({
         skills,
         workspaceId,
         userId: authResult.userId,
@@ -105,8 +109,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: resultSkills })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
-        logger.warn(`[${requestId}] Invalid skills data`, { errors: validationError.errors })
-        const workspaceError = validationError.errors.find(
+        logger.warn(`[${requestId}] Invalid skills data`, { errors: validationError.issues })
+        const workspaceError = validationError.issues.find(
           (error) => error.path.length === 1 && error.path[0] === 'workspaceId'
         )
         if (workspaceError) {
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }
@@ -122,10 +126,11 @@ export async function POST(request: NextRequest) {
       if (validationError instanceof Error && validationError.message.includes('already exists')) {
         return NextResponse.json({ error: validationError.message }, { status: 409 })
       }
-
       throw validationError
     }
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error updating skills`, error)
     return NextResponse.json({ error: 'Failed to update skills' }, { status: 500 })
   }
@@ -169,7 +174,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const deleted = await deleteSkill({ skillId, workspaceId })
+    const deleted = await deleteSavedEntity('skill', skillId, workspaceId)
     if (!deleted) {
       logger.warn(`[${requestId}] Skill not found: ${skillId}`)
       return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
@@ -177,6 +182,8 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting skill:`, error)
     return NextResponse.json({ error: 'Failed to delete skill' }, { status: 500 })
   }

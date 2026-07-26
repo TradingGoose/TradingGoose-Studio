@@ -378,6 +378,10 @@ export async function queueWebhookExecution(
     }
 
     const headers = Object.fromEntries(request.headers.entries())
+    if (typeof foundWebhook.blockId !== 'string' || foundWebhook.blockId.length === 0) {
+      logger.warn(`[${options.requestId}] Webhook ${foundWebhook.id} is missing trigger block`)
+      return NextResponse.json({ message: 'Webhook trigger block not found' }, { status: 410 })
+    }
 
     // For Microsoft Teams Graph notifications, extract unique identifiers for idempotency
     if (
@@ -409,7 +413,7 @@ export async function queueWebhookExecution(
 
     const pendingExecutionId = `webhook_execution:${IdempotencyService.createWebhookIdempotencyKey(
       foundWebhook.id,
-      headers,
+      headers
     )}`
 
     const handle = await enqueuePendingExecution({
@@ -429,7 +433,7 @@ export async function queueWebhookExecution(
     logger.info(
       `[${options.requestId}] Queued ${options.testMode ? 'TEST ' : ''}webhook execution ${
         handle.pendingExecutionId
-      } for ${foundWebhook.provider} webhook`,
+      } for ${foundWebhook.provider} webhook`
     )
   } catch (error: any) {
     if (error instanceof TriggerExecutionUnavailableError) {

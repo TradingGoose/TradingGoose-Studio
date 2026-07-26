@@ -7,8 +7,10 @@ export const defaultLocale = 'en' satisfies (typeof locales)[number]
 export const routing = defineRouting({
   locales,
   defaultLocale,
-  localePrefix: 'as-needed',
+  localePrefix: 'always',
+  // Proxy owns locale negotiation so every renderable page URL stays explicitly prefixed.
   localeDetection: false,
+  alternateLinks: false,
 })
 
 export type AppLocale = (typeof locales)[number]

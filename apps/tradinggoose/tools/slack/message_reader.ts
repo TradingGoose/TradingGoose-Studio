@@ -60,7 +60,7 @@ export const slackMessageReaderTool: ToolConfig<
     url: (params: SlackMessageReaderParams) => {
       const url = new URL('https://slack.com/api/conversations.history')
       url.searchParams.append('channel', params.channel)
-      // Cap limit at 15 due to Slack API restrictions for non-Marketplace apps
+      // Cap limit at 15 due to Slack API tier restrictions.
       url.searchParams.append('limit', String(Math.min(params.limit || 10, 15)))
 
       if (params.oldest) {

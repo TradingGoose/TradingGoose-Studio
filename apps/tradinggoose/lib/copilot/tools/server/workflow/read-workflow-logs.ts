@@ -7,6 +7,7 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { requireUserId } from '@/lib/copilot/tools/server/entities/shared'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 
@@ -226,17 +227,13 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
     const logger = createLogger('ReadWorkflowLogsServerTool')
     const { limit = 3, includeDetails = true } = rawArgs || ({} as ReadWorkflowLogsArgs)
     const workflowId = requireCopilotEntityId(rawArgs, { toolName: CopilotTool.read_workflow_logs })
-
-    if (!context?.userId) {
-      throw new Error('Authenticated user context is required')
-    }
+    const userId = requireUserId(context)
 
     logger.info('Reading workflow logs', { workflowId, limit, includeDetails })
 
-    const workspaceAccess = buildWorkspaceAccessScope(
-      context.userId,
-      workflowExecutionLogs.workspaceId
-    )
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
+    const apiKeyAccess =
+      context?.apiKeyType === 'personal' ? eq(workspace.allowPersonalApiKeys, true) : undefined
     const executionLogs = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -258,7 +255,8 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
             eq(workflowExecutionLogs.workflowId, workflowId),
             sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
           ),
-          workspaceAccess.accessFilter
+          workspaceAccess.accessFilter,
+          apiKeyAccess
         )
       )
       .orderBy(desc(workflowExecutionLogs.startedAt))

@@ -1,3 +1,4 @@
+import type { Edge } from '@xyflow/react'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 const DEFAULT_LOOP_ITERATIONS = 5
@@ -199,4 +200,21 @@ export function generateParallelBlocks(
     })
 
   return parallels
+}
+
+export function buildExecutableWorkflowData(blocks: Record<string, BlockState>, edges: Edge[]) {
+  const executableBlocks = Object.fromEntries(
+    Object.entries(blocks).filter(([, block]) => block?.type && block.enabled !== false)
+  )
+  const executableBlockIds = new Set(Object.keys(executableBlocks))
+  const executableEdges = edges.filter(
+    (edge) => executableBlockIds.has(edge.source) && executableBlockIds.has(edge.target)
+  )
+
+  return {
+    blocks: executableBlocks,
+    edges: executableEdges,
+    loops: generateLoopBlocks(executableBlocks),
+    parallels: generateParallelBlocks(executableBlocks),
+  }
 }

@@ -115,6 +115,7 @@ export interface ExecutionContext {
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
   triggerType?: TriggerType
+  triggerBlockId?: string
   workflowDepth?: number
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
   // Manual executions in the builder should leave this undefined/false

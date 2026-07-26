@@ -21,7 +21,7 @@ import { getIconTileStyle, withIconColorAlpha } from '@/lib/ui/icon-colors'
 import { cn, validateName } from '@/lib/utils'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { useBlock, useBlockProtection, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
@@ -63,13 +63,9 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 export const WorkflowBlock = memo(
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
-    const {
-      formatWorkflowTemplate,
-      getLocalizedDefaultBlockName,
-      localizeWorkflowSubBlockConfig,
-      workflowLabelsCopy,
-    } = useWorkflowI18n()
-    const displayName = getLocalizedDefaultBlockName(type, name)
+    const { formatWorkflowTemplate, localizeWorkflowSubBlockConfig, workflowLabelsCopy } =
+      useWorkflowI18n()
+    const displayName = name
 
     // State management
     const [, setIsConnecting] = useState(false)
@@ -184,10 +180,10 @@ export const WorkflowBlock = memo(
     }, [data.isPreview])
 
     // Use the clean abstraction for current workflow state
-    const userPermissions = useUserPermissionsContext()
+    const canEdit = useOptionalWorkflowSession()?.canEdit === true
     const currentBlock = useBlock(id)
     const isCurrentBlockProtected = useBlockProtection(id)
-    const isReadOnlyBlock = Boolean(data.isPreview || data.readOnly)
+    const isReadOnlyBlock = Boolean(data.isPreview || data.readOnly || !canEdit)
     const isLocked = data.isPreview
       ? (data.blockState?.locked ?? false)
       : (currentBlock?.locked ?? false)
@@ -231,12 +227,12 @@ export const WorkflowBlock = memo(
 
     const tooltipPortalContainer = tooltipContainer ?? undefined
     const popoverPortalContainer = popoverContainer ?? undefined
+    // Tooltips portal into the transformed React Flow viewport, so viewport zoom already scales them.
     const tooltipEnvironmentValue = useMemo(
       () => ({
         container: tooltipPortalContainer,
-        scale: normalizedViewportScale,
       }),
-      [tooltipPortalContainer, normalizedViewportScale]
+      [tooltipPortalContainer]
     )
     const popoverEnvironmentValue = useMemo(
       () => ({
@@ -275,7 +271,7 @@ export const WorkflowBlock = memo(
     // Clear credential-dependent fields when credential changes
     const prevCredRef = useRef<string | undefined>(undefined)
     useEffect(() => {
-      if (isReadOnlyBlock || !userPermissions.canEdit) return
+      if (isReadOnlyBlock) return
       const subBlocks = currentYjsBlock?.subBlocks
       if (!subBlocks) return
       const cred = subBlocks.credential?.value as string | undefined
@@ -285,13 +281,7 @@ export const WorkflowBlock = memo(
         const dependentKeys = keys.filter((k) => k !== 'credential')
         dependentKeys.forEach((k) => collaborativeSetSubblockValue(id, k, ''))
       }
-    }, [
-      id,
-      collaborativeSetSubblockValue,
-      currentYjsBlock?.subBlocks,
-      isReadOnlyBlock,
-      userPermissions.canEdit,
-    ])
+    }, [id, collaborativeSetSubblockValue, currentYjsBlock?.subBlocks, isReadOnlyBlock])
 
     // Workflow store actions - use Yjs mutations
     const updateBlockLayoutMetrics = yjsMutations.updateBlockLayoutMetrics
@@ -650,7 +640,7 @@ export const WorkflowBlock = memo(
     const shouldShowScheduleBadge = type === 'schedule' && !isLoadingScheduleInfo
     const hasScheduleInfo = scheduleInfo !== null
     let onScheduleToggle: (() => void) | undefined
-    if (userPermissions.canEdit && scheduleInfo?.id) {
+    if (!isReadOnlyBlock && scheduleInfo?.id) {
       const scheduleId = scheduleInfo.id
       onScheduleToggle = scheduleInfo.isDisabled
         ? () => reactivateSchedule(scheduleId)
@@ -761,12 +751,12 @@ export const WorkflowBlock = memo(
                   '--block-active-pulse-color': activePulseColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
                 } as CSSProperties &
-                Record<
-                  | '--block-active-pulse-color'
-                  | '--block-active-ring-color'
-                  | '--block-hover-color',
-                  string
-                >
+                  Record<
+                    | '--block-active-pulse-color'
+                    | '--block-active-ring-color'
+                    | '--block-hover-color',
+                    string
+                  >
               }
             >
               {/* Show debug indicator for pending blocks */}
@@ -782,7 +772,7 @@ export const WorkflowBlock = memo(
                   blockType={type}
                   workflowId={currentWorkflowId}
                   channelId={workflowChannelId}
-                  disabled={!userPermissions.canEdit || isReadOnlyBlock}
+                  disabled={isReadOnlyBlock}
                   showWebhookIndicator={showWebhookIndicator}
                   showScheduleBadge={shouldShowScheduleBadge}
                   hasScheduleInfo={hasScheduleInfo}
@@ -797,7 +787,7 @@ export const WorkflowBlock = memo(
                   <ConnectionBlocks
                     blockId={id}
                     setIsConnecting={setIsConnecting}
-                    isDisabled={!userPermissions.canEdit || isReadOnlyBlock}
+                    isDisabled={isReadOnlyBlock}
                     horizontalHandles={horizontalHandles}
                   />
                 )}

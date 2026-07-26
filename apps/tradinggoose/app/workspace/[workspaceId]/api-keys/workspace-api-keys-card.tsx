@@ -2,33 +2,17 @@
 
 import {
   forwardRef,
+  type Ref,
   useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
-  type Ref,
 } from 'react'
+import { AlertCircle, Check, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  useApiKeys,
-  useCreateApiKey,
-  useDeleteApiKey,
-  type ApiKey,
-} from '@/hooks/queries/api-keys'
-import {
-  AlertCircle,
-  Check,
-  Copy,
-  Eye,
-  EyeOff,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { Alert, AlertDescription, Button, Input, Label, Skeleton } from '@/components/ui'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,11 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Alert, AlertDescription, Button, Input, Label, Skeleton } from '@/components/ui'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { cn } from '@/lib/utils'
-import { type LocaleCode } from '@/i18n/utils'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { type ApiKey, useApiKeys, useCreateApiKey, useDeleteApiKey } from '@/hooks/queries/api-keys'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface WorkspaceApiKeysCardProps {
   workspaceId?: string
@@ -59,25 +43,6 @@ const logger = createLogger('WorkspaceApiKeysCard')
 
 export interface WorkspaceApiKeysCardHandle {
   openCreateDialog: () => void
-}
-
-const getMaskedKeyValue = (apiKey: ApiKey): string => {
-  const sourceKey = apiKey.key || apiKey.displayKey || ''
-  if (!sourceKey) return ''
-
-  const prefixLength = Math.min(4, sourceKey.length)
-  const suffixLength = Math.min(4, sourceKey.length - prefixLength)
-  const prefix = sourceKey.slice(0, prefixLength)
-  const suffix = sourceKey.slice(sourceKey.length - suffixLength)
-
-  const totalLength = apiKey.key?.length ?? sourceKey.length
-  const maskedSegmentLength = Math.max(totalLength - (prefixLength + suffixLength), 3)
-
-  if (maskedSegmentLength <= 0) {
-    return `${prefix}${suffix}`
-  }
-
-  return `${prefix}${'.'.repeat(maskedSegmentLength)}${suffix}`
 }
 
 function ApiKeyDisplay({ value }: { value: string }) {
@@ -122,8 +87,6 @@ const WorkspaceApiKeysCardComponent = (
   const [deleteConfirmationName, setDeleteConfirmationName] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({})
-  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null)
   const [editingKeyName, setEditingKeyName] = useState('')
@@ -209,35 +172,6 @@ const WorkspaceApiKeysCardComponent = (
     })
   }
 
-  const handleCopyKey = useCallback(
-    (keyValue: string, keyId: string) => {
-      if (!keyValue || typeof navigator === 'undefined' || !navigator.clipboard) {
-        return
-      }
-
-      void navigator.clipboard
-        .writeText(keyValue)
-        .then(() => {
-          setCopiedKeyId(keyId)
-          if (copyTimeoutRef.current) {
-            clearTimeout(copyTimeoutRef.current)
-          }
-          copyTimeoutRef.current = setTimeout(() => setCopiedKeyId(null), 1500)
-        })
-        .catch((error) => {
-          logger.error('Error copying API key', { error, scope })
-        })
-    },
-    []
-  )
-
-  const toggleRevealKey = useCallback((keyId: string) => {
-    setRevealedKeys((prev) => ({
-      ...prev,
-      [keyId]: !prev[keyId],
-    }))
-  }, [])
-
   const startEditingKey = useCallback(
     (key: ApiKey) => {
       if (!canRenameKeys) return
@@ -299,7 +233,18 @@ const WorkspaceApiKeysCardComponent = (
     } finally {
       setIsUpdatingKeyName(false)
     }
-  }, [cancelEditingKey, canRenameKeys, editingKeyId, editingKeyName, refetchApiKeys, scope, scopeLabel, t, workspaceId, isWorkspaceScope])
+  }, [
+    cancelEditingKey,
+    canRenameKeys,
+    editingKeyId,
+    editingKeyName,
+    refetchApiKeys,
+    scope,
+    scopeLabel,
+    t,
+    workspaceId,
+    isWorkspaceScope,
+  ])
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim() || isSubmittingCreate) return
@@ -327,9 +272,7 @@ const WorkspaceApiKeysCardComponent = (
     } catch (error) {
       logger.error('Error creating API key', { error, scope })
       const message =
-        error instanceof Error
-          ? error.message
-          : t('labels.failedCreate', { scope: scopeLabel })
+        error instanceof Error ? error.message : t('labels.failedCreate', { scope: scopeLabel })
       setCreateError(message)
     }
   }
@@ -356,9 +299,22 @@ const WorkspaceApiKeysCardComponent = (
   }
 
   const copyToClipboard = (key: string) => {
-    navigator.clipboard.writeText(key)
-    setCopySuccess(true)
-    setTimeout(() => setCopySuccess(false), 1500)
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      return
+    }
+
+    void navigator.clipboard
+      .writeText(key)
+      .then(() => {
+        setCopySuccess(true)
+        if (copyTimeoutRef.current) {
+          clearTimeout(copyTimeoutRef.current)
+        }
+        copyTimeoutRef.current = setTimeout(() => setCopySuccess(false), 1500)
+      })
+      .catch((error) => {
+        logger.error('Error copying API key', { error, scope })
+      })
   }
 
   const renderCardView = () => {
@@ -403,16 +359,6 @@ const WorkspaceApiKeysCardComponent = (
     return (
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
         {filteredKeys.map((key) => {
-          const rawKeyValue = key.key || key.displayKey || ''
-          const isRevealed = Boolean(revealedKeys[key.id])
-          const displayValue = rawKeyValue
-            ? isRevealed
-              ? rawKeyValue
-              : getMaskedKeyValue(key)
-            : key.displayKey || '—'
-          const canRevealOrCopy = Boolean(rawKeyValue)
-          const isCopied = copiedKeyId === key.id
-
           return (
             <div
               key={key.id}
@@ -422,7 +368,7 @@ const WorkspaceApiKeysCardComponent = (
                 <div className='w-full'>
                   {canRenameKeys && editingKeyId === key.id ? (
                     <div className='py-1.5'>
-                      <div className='flex items-center gap-2 max-w-md'>
+                      <div className='flex max-w-md items-center gap-2'>
                         <Input
                           ref={(el) => {
                             if (editingKeyId === key.id) {
@@ -442,7 +388,7 @@ const WorkspaceApiKeysCardComponent = (
                             }
                           }}
                           disabled={isUpdatingKeyName}
-                          className='h-8 flex-1 min-w-0'
+                          className='h-8 min-w-0 flex-1'
                           autoComplete='off'
                         />
                         <button
@@ -455,9 +401,7 @@ const WorkspaceApiKeysCardComponent = (
                           <span className='sr-only'>{t('labels.saveName')}</span>
                         </button>
                       </div>
-                      {renameError && (
-                        <p className='text-destructive text-xs'>{renameError}</p>
-                      )}
+                      {renameError && <p className='text-destructive text-xs'>{renameError}</p>}
                     </div>
                   ) : (
                     <div className='flex items-center justify-center gap-2'>
@@ -475,7 +419,9 @@ const WorkspaceApiKeysCardComponent = (
                           disabled={isUpdatingKeyName || (isWorkspaceScope && !workspaceId)}
                         >
                           <Pencil className='h-3.5 w-3.5' />
-                          <span className='sr-only'>{t('labels.rename', { scope: scopeLabel })}</span>
+                          <span className='sr-only'>
+                            {t('labels.rename', { scope: scopeLabel })}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -483,39 +429,9 @@ const WorkspaceApiKeysCardComponent = (
                 </div>
                 <div className='flex w-full justify-center'>
                   <div className='flex flex-col items-center gap-2 md:flex-row md:justify-center md:gap-2'>
-                    <button
-                      type='button'
-                      disabled={!canRevealOrCopy}
-                      className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                      onClick={() => toggleRevealKey(key.id)}
-                    >
-                      {isRevealed ? (
-                        <EyeOff className='h-3.5 w-3.5' />
-                      ) : (
-                        <Eye className='h-3.5 w-3.5' />
-                      )}
-                      <span className='sr-only'>
-                        {isRevealed
-                          ? t('labels.hide', { scope: scopeLabel })
-                          : t('labels.reveal', { scope: scopeLabel })}
-                      </span>
-                    </button>
                     <div className='max-w-xs'>
-                      <ApiKeyDisplay value={displayValue} />
+                      <ApiKeyDisplay value={key.displayKey || '—'} />
                     </div>
-                    <button
-                      type='button'
-                      disabled={!canRevealOrCopy}
-                      className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                      onClick={() => handleCopyKey(rawKeyValue, key.id)}
-                    >
-                      {isCopied ? (
-                        <Check className='h-3.5 w-3.5' />
-                      ) : (
-                        <Copy className='h-3.5 w-3.5' />
-                      )}
-                      <span className='sr-only'>{t('labels.copy', { scope: scopeLabel })}</span>
-                    </button>
                     <button
                       type='button'
                       disabled={!canDeleteKeys}
@@ -579,8 +495,8 @@ const WorkspaceApiKeysCardComponent = (
                     setIsCreateDialogOpen(true)
                     setCreateError(null)
                   }}
-                  >
-                    <Plus className='mr-2 h-4 w-4' />
+                >
+                  <Plus className='mr-2 h-4 w-4' />
                   {t(`emptyState.${scope}.button`)}
                 </Button>
               )}
@@ -600,23 +516,14 @@ const WorkspaceApiKeysCardComponent = (
       }
 
       return filteredKeys.map((key) => {
-        const rawKeyValue = key.key || key.displayKey || ''
-        const isRevealed = Boolean(revealedKeys[key.id])
-        const displayValue = rawKeyValue
-          ? isRevealed
-            ? rawKeyValue
-            : getMaskedKeyValue(key)
-          : key.displayKey || '—'
-        const canRevealOrCopy = Boolean(rawKeyValue)
-        const isCopied = copiedKeyId === key.id
         const isEditing = canRenameKeys && editingKeyId === key.id
 
         return (
           <tr key={key.id} className='border-b transition-colors hover:bg-card/30'>
-            <td className='px-4 py-4 text-muted-foreground text-sm text-center'>
+            <td className='px-4 py-4 text-center text-muted-foreground text-sm'>
               {formatDate(key.createdAt)}
             </td>
-            <td className='px-4 py-4 align-center'>
+            <td className='px-4 py-4 align-middle'>
               {canRenameKeys && editingKeyId === key.id ? (
                 <div className='space-y-2'>
                   <div className='flex max-w-sm items-center gap-2'>
@@ -646,58 +553,24 @@ const WorkspaceApiKeysCardComponent = (
                     <p className='text-destructive text-xs'>{renameError}</p>
                   )}
                 </div>
-                  ) : (
-                    <div className='text-center'>
-                      <p className='font-medium text-sm'>{key.name}</p>
-                    </div>
-                  )}
+              ) : (
+                <div className='text-center'>
+                  <p className='font-medium text-sm'>{key.name}</p>
+                </div>
+              )}
             </td>
             <td className='px-4 py-4'>
               <div className='flex flex-wrap items-center gap-2 md:flex-nowrap'>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  disabled={!canRevealOrCopy}
-                  className='h-8 w-8 text-muted-foreground'
-                  onClick={() => toggleRevealKey(key.id)}
-                  >
-                    {isRevealed ? (
-                      <EyeOff className='h-4 w-4' />
-                    ) : (
-                      <Eye className='h-4 w-4' />
-                    )}
-                    <span className='sr-only'>
-                      {isRevealed
-                        ? t('labels.hide', { scope: scopeLabel })
-                        : t('labels.reveal', { scope: scopeLabel })}
-                    </span>
-                  </Button>
                 <div className='min-w-0 flex-1'>
-                  <ApiKeyDisplay value={displayValue} />
+                  <ApiKeyDisplay value={key.displayKey || '—'} />
                 </div>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  disabled={!canRevealOrCopy}
-                  className='h-8 w-8 text-muted-foreground'
-                  onClick={() => handleCopyKey(rawKeyValue, key.id)}
-                >
-                  {isCopied ? (
-                    <Check className='h-4 w-4' />
-                  ) : (
-                    <Copy className='h-4 w-4' />
-                  )}
-                  <span className='sr-only'>{t('labels.copy', { scope: scopeLabel })}</span>
-                </Button>
               </div>
             </td>
-            <td className='px-4 py-4 text-muted-foreground text-sm text-center'>
+            <td className='px-4 py-4 text-center text-muted-foreground text-sm'>
               {formatDate(key.lastUsed)}
             </td>
             <td className='px-4 py-4'>
-              <div className='flex items-center justify-centergap-1.5'>
+              <div className='flex items-center justify-center gap-1.5'>
                 {isEditing ? (
                   <>
                     <Button
@@ -824,9 +697,7 @@ const WorkspaceApiKeysCardComponent = (
       return (
         <Alert variant='destructive'>
           <AlertCircle className='h-4 w-4' />
-          <AlertDescription>
-            {t('labels.unableToDetermineWorkspace')}
-          </AlertDescription>
+          <AlertDescription>{t('labels.unableToDetermineWorkspace')}</AlertDescription>
         </Alert>
       )
     }
@@ -902,7 +773,7 @@ const WorkspaceApiKeysCardComponent = (
       )}
 
       <AlertDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.createTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -921,7 +792,7 @@ const WorkspaceApiKeysCardComponent = (
                 if (createError) setCreateError(null)
               }}
             />
-            {createError && <p className='text-sm text-red-600'>{createError}</p>}
+            {createError && <p className='text-red-600 text-sm'>{createError}</p>}
           </div>
 
           <AlertDialogFooter className='flex'>
@@ -957,24 +828,25 @@ const WorkspaceApiKeysCardComponent = (
           }
         }}
       >
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.newKeyTitle', { scope: scopeLabel })}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('dialogs.newKeyDescription')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('dialogs.newKeyDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
 
           {newKey && (
             <div className='relative'>
               <div className='flex h-10 items-center rounded-md bg-muted px-3 pr-10'>
-                <code className='flex-1 truncate font-mono text-sm'>{newKey.key}</code>
+                <code className='flex-1 truncate font-mono text-sm'>{newKey.key || '—'}</code>
               </div>
               <Button
                 variant='ghost'
                 size='icon'
+                disabled={!newKey.key}
                 className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-sm text-muted-foreground hover:bg-card hover:text-foreground'
-                onClick={() => copyToClipboard(newKey.key)}
+                onClick={() => {
+                  if (newKey.key) copyToClipboard(newKey.key)
+                }}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}
               </Button>
@@ -984,19 +856,15 @@ const WorkspaceApiKeysCardComponent = (
       </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+        <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.deleteTitle', { scope: scopeLabel })}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('dialogs.deleteDescription')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('dialogs.deleteDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
 
           {deleteKey && (
             <div className='py-2'>
-              <p className='mb-2 text-sm'>
-                {t('dialogs.deletePrompt', { name: deleteKey.name })}
-              </p>
+              <p className='mb-2 text-sm'>{t('dialogs.deletePrompt', { name: deleteKey.name })}</p>
               <Input
                 autoFocus
                 value={deleteConfirmationName}

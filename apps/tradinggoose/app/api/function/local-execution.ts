@@ -1,6 +1,9 @@
 import { createContext, Script } from 'vm'
 import { withLocalVmSaturationLimit } from '@/lib/execution/local-saturation-limit'
-import { createFunctionIndicatorRuntime } from '@/lib/indicators/execution/function-indicator-runtime'
+import {
+  createFunctionIndicatorRuntime,
+  type FunctionIndicatorRuntimeManifest,
+} from '@/lib/indicators/execution/function-indicator-runtime'
 import { validateProxyUrl } from '@/lib/security/input-validation'
 
 type LocalExecutionArgs = {
@@ -10,6 +13,7 @@ type LocalExecutionArgs = {
   executionParams: Record<string, any>
   envVars: Record<string, string>
   contextVariables: Record<string, any>
+  indicatorRuntimeManifest: FunctionIndicatorRuntimeManifest
   isCustomTool: boolean
   ownerKey?: string
   onStdout: (chunk: string) => void
@@ -50,6 +54,7 @@ export const executeFunctionInLocalVm = async ({
   executionParams,
   envVars,
   contextVariables,
+  indicatorRuntimeManifest,
   isCustomTool,
   ownerKey,
   onStdout,
@@ -57,6 +62,7 @@ export const executeFunctionInLocalVm = async ({
   onError,
 }: LocalExecutionArgs): Promise<{ result: unknown; userCodeStartLine: number }> => {
   const indicator = createFunctionIndicatorRuntime({
+    manifest: indicatorRuntimeManifest,
     requestId,
     onWarn,
   })

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
-import { useLocale } from 'next-intl'
+import { useCallback, useMemo } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
@@ -9,16 +9,10 @@ import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
-import { useWatchlists } from '@/hooks/queries/watchlists'
-import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
-import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitHeatmapParamsChange,
-  useHeatmapParamsPersistence,
-} from '@/widgets/utils/heatmap-params'
+import { useWorkspaceWatchlistYjsDocuments } from '@/widgets/utils/watchlist-yjs'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
@@ -38,7 +32,7 @@ import {
 import type {
   HeatmapWatchlistSizeMetric,
   HeatmapWidgetParams,
-} from '@/widgets/widgets/heatmap/types'
+} from '@/widgets/widgets/heatmap/contract'
 
 const HeatmapMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
@@ -67,12 +61,13 @@ export function HeatmapWidgetBody({
   panelId,
   widget,
   params,
-  pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
+  const canEditWidgetParams = Boolean(onWidgetParamsPatch)
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
   const sourceMode = resolveHeatmapSourceMode(widgetParams)
@@ -80,30 +75,27 @@ export function HeatmapWidgetBody({
   const marketProviderId = resolveHeatmapMarketProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
-
-  useHeatmapParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params: params && typeof params === 'object' ? (params as Record<string, unknown>) : null,
-  })
-
-  useEffect(() => {
-    const nextParams: Record<string, unknown> = {}
-    if (!widgetParams?.sourceMode) nextParams.sourceMode = sourceMode
-    if (Object.keys(nextParams).length === 0) return
-    emitHeatmapParamsChange({ params: nextParams, panelId, widgetKey })
-  }, [panelId, sourceMode, widgetKey, widgetParams])
-
-  const watchlistsQuery = useWatchlists(
-    sourceMode === 'watchlist' ? (workspaceId ?? undefined) : undefined
+  const patchWidgetParams = useCallback(
+    (nextParams: Record<string, unknown>) => {
+      if (!canEditWidgetParams) return
+      onWidgetParamsPatch?.(nextParams)
+    },
+    [canEditWidgetParams, onWidgetParamsPatch]
   )
+  const watchlistDocuments = useWorkspaceWatchlistYjsDocuments(
+    sourceMode === 'watchlist' ? workspaceId : null
+  )
+
+  const watchlistDocumentsLoading =
+    sourceMode === 'watchlist' && Boolean(workspaceId) && watchlistDocuments.isLoading
+  const watchlistDocumentError =
+    sourceMode === 'watchlist' && watchlistDocuments.error ? String(watchlistDocuments.error) : null
   const watchlistSources = useMemo(
     () =>
-      watchlistsQuery.isPlaceholderData
+      sourceMode === 'watchlist' && (watchlistDocumentsLoading || watchlistDocumentError)
         ? []
-        : resolveWatchlistHeatmapListings(watchlistsQuery.data ?? []),
-    [watchlistsQuery.data, watchlistsQuery.isPlaceholderData]
+        : resolveWatchlistHeatmapListings(watchlistDocuments.records),
+    [sourceMode, watchlistDocumentError, watchlistDocuments.records, watchlistDocumentsLoading]
   )
 
   const providerAvailabilityQuery = useOAuthProviderAvailability(
@@ -116,30 +108,11 @@ export function HeatmapWidgetBody({
   )
   const tradingProviderId = resolveHeatmapTradingProviderId(widgetParams, tradingProviderOptions)
   const hasSelectedTradingProvider = Boolean(tradingProviderId)
-  const hasInvalidPersistedTradingProvider =
-    sourceMode === 'portfolio' &&
-    !providerAvailabilityQuery.isLoading &&
-    !providerAvailabilityQuery.error &&
-    Boolean(widgetParams?.tradingProvider) &&
-    !hasSelectedTradingProvider
   const isTradingProviderReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     hasSelectedTradingProvider &&
     tradingProviderOptions.length > 0
-
-  useEffect(() => {
-    if (!hasInvalidPersistedTradingProvider) return
-    emitHeatmapParamsChange({
-      params: {
-        tradingProvider: null,
-        serviceId: null,
-        portfolioIdentity: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
@@ -147,9 +120,6 @@ export function HeatmapWidgetBody({
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,
       enabled: sourceMode === 'portfolio' && isTradingProviderReady,
-      panelId,
-      widgetKey,
-      emitParamsChange: emitHeatmapParamsChange,
     })
 
   const snapshotQuery = usePortfolioDetail({
@@ -211,13 +181,11 @@ export function HeatmapWidgetBody({
     listings: cappedListings,
     enabled: cappedListings.length > 0,
   })
-  const setPairContext = useSetPairColorContext()
   const handleListingSelect = useCallback(
     (listing: ListingIdentity) => {
-      if (pairColor === 'gray') return
-      setPairContext(pairColor, { listing })
+      onWidgetLinkedParamsPatch?.({ listing })
     },
-    [pairColor, setPairContext]
+    [onWidgetLinkedParamsPatch]
   )
   const chartItems = useMemo(
     () =>
@@ -252,7 +220,7 @@ export function HeatmapWidgetBody({
   }
 
   if (sourceMode === 'watchlist') {
-    if (watchlistsQuery.isLoading || watchlistsQuery.isPlaceholderData) {
+    if (watchlistDocumentsLoading) {
       return (
         <div className='flex h-full items-center justify-center'>
           <LoadingAgent size='md' />
@@ -260,16 +228,8 @@ export function HeatmapWidgetBody({
       )
     }
 
-    if (watchlistsQuery.error) {
-      return (
-        <HeatmapMessage
-          message={
-            watchlistsQuery.error instanceof Error
-              ? watchlistsQuery.error.message
-              : copy.failedToLoadWatchlists
-          }
-        />
-      )
+    if (watchlistDocumentError) {
+      return <HeatmapMessage message={watchlistDocumentError} />
     }
   }
 
@@ -323,11 +283,11 @@ export function HeatmapWidgetBody({
         return (
           <HeatmapMessage
             message={
-            accountsQuery.error instanceof Error
-              ? accountsQuery.error.message
-              : copy.failedToLoadBrokerAccounts
-          }
-        />
+              accountsQuery.error instanceof Error
+                ? accountsQuery.error.message
+                : copy.failedToLoadBrokerAccounts
+            }
+          />
         )
       }
 
@@ -372,9 +332,9 @@ export function HeatmapWidgetBody({
   }
 
   const quoteErrorMessage = quoteSnapshotsQuery.error
-      ? quoteSnapshotsQuery.error instanceof Error
-        ? quoteSnapshotsQuery.error.message
-        : copy.failedToLoadMarketQuotes
+    ? quoteSnapshotsQuery.error instanceof Error
+      ? quoteSnapshotsQuery.error.message
+      : copy.failedToLoadMarketQuotes
     : null
 
   return (
@@ -385,7 +345,7 @@ export function HeatmapWidgetBody({
           errorMessage={quoteErrorMessage}
           isLoading={quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data}
           items={chartItems}
-          onListingSelect={pairColor === 'gray' ? undefined : handleListingSelect}
+          onListingSelect={onWidgetLinkedParamsPatch ? handleListingSelect : undefined}
           totalCount={totalCount}
         />
       </div>

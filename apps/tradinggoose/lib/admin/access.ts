@@ -38,8 +38,8 @@ export async function claimFirstSystemAdmin(userId: string) {
   })
 }
 
-export async function getSystemAdminAccess() {
-  const session = await getSession()
+export async function getSystemAdminAccess(headersOverride?: Headers) {
+  const session = await getSession(headersOverride)
   const user = session?.user ?? null
   const userId = user?.id ?? null
 

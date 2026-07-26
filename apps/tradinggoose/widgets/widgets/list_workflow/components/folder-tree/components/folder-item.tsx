@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('FolderItem')
 
@@ -87,7 +87,7 @@ export function FolderItem({
 
     // Set global drag state for validation in other components
     if (typeof window !== 'undefined') {
-      ; (window as any).currentDragFolderId = folder.id
+      ;(window as any).currentDragFolderId = folder.id
     }
   }
 
@@ -99,7 +99,7 @@ export function FolderItem({
 
     // Clear global drag state
     if (typeof window !== 'undefined') {
-      ; (window as any).currentDragFolderId = null
+      ;(window as any).currentDragFolderId = null
     }
   }
 
@@ -199,7 +199,7 @@ export function FolderItem({
                 className={clsx(
                   'relative flex h-[14px] w-[14px] items-center justify-center rounded transition-colors hover:bg-card',
                   dragOver &&
-                  'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
+                    'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
                 )}
               >
                 {isExpanded ? (
@@ -221,11 +221,7 @@ export function FolderItem({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete folder?</AlertDialogTitle>
               <AlertDialogDescription>
-                Deleting this folder will permanently remove all associated workflows, logs, and
-                knowledge bases.{' '}
-                <span className='text-red-500 dark:text-red-500'>
-                  This action cannot be undone.
-                </span>
+                Deleting this folder moves its workflows and child folders up one level.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -340,9 +336,7 @@ export function FolderItem({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete folder?</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting this folder will permanently remove all associated workflows, logs, and
-              knowledge bases.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              Deleting this folder moves its workflows and child folders up one level.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

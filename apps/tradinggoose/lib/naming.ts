@@ -185,6 +185,15 @@ export function generateIncrementalName<T extends NameableEntity>(
   return `${prefix} ${nextNumber}`
 }
 
+export function generateAvailableName(existingNames: string[], baseName: string): string {
+  return existingNames.includes(baseName)
+    ? generateIncrementalName(
+        existingNames.map((name) => ({ name })),
+        baseName
+      )
+    : baseName
+}
+
 /**
  * Generates the next workspace name
  */

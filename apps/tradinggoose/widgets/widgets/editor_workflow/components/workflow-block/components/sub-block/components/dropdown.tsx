@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -98,12 +98,18 @@ export function Dropdown({
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const routeWorkflowId = routeContext?.workflowId ?? null
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
+  const resolvedWorkflowId = routeContext?.workflowId ?? null
   const allBlocks = useWorkflowBlocks()
+  const blockType = allBlocks[blockId]?.type
+  const isWorkflowSelector =
+    subBlockId === 'workflowId' && (blockType === 'workflow' || blockType === 'workflow_input')
+  const isWatchlistSelector = subBlockId === 'watchlistId' && blockType === 'watchlist'
+  const entityListKind = isWorkflowSelector ? 'workflow' : isWatchlistSelector ? 'watchlist' : null
+  const {
+    members: entityListMembers,
+    isLoading: isLoadingEntityListOptions,
+    error: entityListOptionsError,
+  } = useEntityList(entityListKind ?? 'workflow', entityListKind ? routeContext?.workspaceId : null)
   const blockContextValues = useMemo(() => {
     if (!resolvedWorkflowId) return undefined
     const block = allBlocks[blockId]
@@ -192,12 +198,28 @@ export function Dropdown({
     })
   }, [fetchedOptions])
 
+  const entityListOptions = useMemo<DropdownOptionObject[]>(
+    () =>
+      entityListMembers
+        .filter((member) => !isWorkflowSelector || member.entityId !== resolvedWorkflowId)
+        .map((member) => ({
+          id: member.entityId,
+          label:
+            member.entityName || `${entityListKind ?? 'Entity'} ${member.entityId.slice(0, 8)}`,
+          searchLabel: [member.entityName, member.entityDescription].filter(Boolean).join(' '),
+        })),
+    [entityListKind, entityListMembers, isWorkflowSelector, resolvedWorkflowId]
+  )
+
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
+    if (entityListKind) {
+      return entityListOptions
+    }
     if (fetchOptions && normalizedFetchedOptions.length > 0) {
       return normalizedFetchedOptions
     }
     return evaluatedOptions ?? []
-  }, [fetchOptions, normalizedFetchedOptions, evaluatedOptions])
+  }, [entityListKind, entityListOptions, fetchOptions, normalizedFetchedOptions, evaluatedOptions])
 
   const getOptionValue = (
     option:
@@ -214,7 +236,21 @@ export function Dropdown({
     return typeof option === 'string' ? option : hasExplicitValue(option) ? option.value : option.id
   }
 
-  const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
+  const hasEntityListOptions = entityListOptions.length > 0
+  const entityListOptionsUnavailable = Boolean(entityListOptionsError && !hasEntityListOptions)
+  const resolvedFetchError = entityListKind
+    ? entityListOptionsUnavailable
+      ? entityListOptionsError
+      : null
+    : fetchError
+  const isLoadingAvailableOptions = entityListKind
+    ? isLoadingEntityListOptions && !hasEntityListOptions
+    : isLoadingOptions
+  const optionsReady = entityListKind
+    ? !isLoadingAvailableOptions && !entityListOptionsUnavailable
+    : fetchOptions
+      ? hasFetchedOptions && !isLoadingOptions && !fetchError
+      : true
   const hasValue = value !== null && value !== undefined && value !== ''
 
   const clearSelectedValue = useCallback(() => {
@@ -485,7 +521,7 @@ export function Dropdown({
 
   const hasOptions = filteredOptions.length > 0
   const emptyMessage =
-    fetchError || (shouldFilter ? copy.noMatchingOptions : copy.noOptionsAvailable)
+    resolvedFetchError || (shouldFilter ? copy.noMatchingOptions : copy.noOptionsAvailable)
   const triggerLabel = selectedOption?.label ?? ''
   const triggerRightLabel = selectedOption?.rightLabel
 
@@ -541,7 +577,7 @@ export function Dropdown({
           className='allow-scroll max-h-48 overflow-y-auto p-1'
           style={{ scrollbarWidth: 'thin' }}
         >
-          {isLoadingOptions ? (
+          {isLoadingAvailableOptions ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
               {copy.loading}
             </DropdownMenuItem>

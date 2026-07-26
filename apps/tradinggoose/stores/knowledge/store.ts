@@ -17,8 +17,8 @@ export interface KnowledgeBaseData {
   embeddingModel: string
   embeddingDimension: number
   chunkingConfig: ChunkingConfig
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
   workspaceId: string
 }
 

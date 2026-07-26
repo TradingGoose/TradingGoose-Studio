@@ -1,17 +1,15 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('DeploymentUtils')
 
 /**
  * Build a curl -d example payload based on the API trigger input format.
  */
-export function getInputFormatExample(workflowId?: string): string {
+export function getInputFormatExample(workflowId: string): string {
   let inputFormatExample = ''
   try {
-    const targetWorkflowId = workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
-    const snapshot = targetWorkflowId ? getSnapshotForWorkflow(targetWorkflowId) : null
+    const snapshot = getSnapshotForWorkflow(workflowId)
     const blocks = Object.values(snapshot?.blocks ?? {})
 
     const apiTriggerBlock = blocks.find((block: any) => block.type === 'api_trigger')

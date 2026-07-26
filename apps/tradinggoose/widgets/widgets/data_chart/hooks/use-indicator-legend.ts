@@ -9,7 +9,8 @@ import type {
   Time,
   WhitespaceData,
 } from 'lightweight-charts'
-import type { DataChartViewParams, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { DataChartViewParams } from '@/widgets/widgets/data_chart/contract'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 
 export type IndicatorPlotValue = {
   key: string
@@ -55,10 +56,7 @@ const resolveSeriesData = (
   param?: MouseEventParams | null
 ): LineData<Time> | WhitespaceData<Time> | null => {
   if (param?.time) {
-    const entry = param.seriesData.get(series) as
-      | LineData<Time>
-      | WhitespaceData<Time>
-      | undefined
+    const entry = param.seriesData.get(series) as LineData<Time> | WhitespaceData<Time> | undefined
     if (entry) return entry
   }
   return series.dataByIndex(Number.MAX_SAFE_INTEGER, -1) as

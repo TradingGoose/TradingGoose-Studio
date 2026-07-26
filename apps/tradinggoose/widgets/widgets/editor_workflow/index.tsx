@@ -3,20 +3,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useWorkflowEditorMessages } from '@/i18n/workspace-widget-hooks'
-import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
-import type { WidgetInstance } from '@/widgets/layout'
-import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import {
-  emitWorkflowSelectionChange,
-  useWorkflowSelectionPersistence,
-} from '@/widgets/utils/workflow-selection'
+  useWorkflowDropdownMessages,
+  useWorkflowEditorMessages,
+} from '@/i18n/workspace-widget-hooks'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import WorkflowEditorApp from '@/widgets/widgets/editor_workflow/components/workflow-editor-app'
 import { WorkflowToolbar } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar'
 import { WorkflowUIConfigProvider } from '@/widgets/widgets/editor_workflow/context/workflow-ui-context'
+import { workflowEditorWidgetContract } from '@/widgets/widgets/editor_workflow/contract'
 
 const WORKFLOW_WIDGET_UI_CONFIG: WorkflowCanvasUIConfig = {
   floatingControls: true,
@@ -28,42 +29,22 @@ const readWorkflowToolbarScopeId = (widgetKey: string, panelId?: string) =>
 type ViewportBounds = { x: number; y: number; width: number; height: number }
 
 const WorkflowEditorWidgetBody = ({
+  channelId,
   params,
   context,
-  pairColor = 'gray',
   panelId,
   widget,
-  onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
   const copy = useWorkflowEditorMessages()
+  const dropdownCopy = useWorkflowDropdownMessages()
   const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-  const {
-    channelId,
-    resolvedPairColor,
-    resolvedWorkflowId,
-    hasLoadedWorkflows,
-    loadError,
-    isLoading,
-    workflowIds,
-  } = useWorkflowWidgetState({
-    workspaceId,
-    pairColor,
-    widget,
-    panelId,
-    params,
-    onWidgetParamsChange,
-    fallbackWidgetKey: 'editor_workflow',
-    loggerScope: 'workflow editor widget',
-  })
-  useWorkflowSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    pairColor: resolvedPairColor,
-    params,
-  })
+  const { resolvedWorkflowId, hasLoadedWorkflows, loadError, isLoading, workflowIds } =
+    useWorkflowWidgetState({
+      workspaceId,
+      params,
+    })
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     setContainerElement((prev) => {
@@ -148,15 +129,7 @@ const WorkflowEditorWidgetBody = ({
   }
 
   if (!resolvedWorkflowId) {
-    if (resolvedPairColor !== 'gray') {
-      return <WidgetStateMessage message={copy.noSharedWorkflowSelected} />
-    }
-
-    return (
-      <div className='flex h-full w-full items-center justify-center '>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <WidgetStateMessage message={dropdownCopy.selectWorkflow} />
   }
 
   return (
@@ -169,105 +142,56 @@ const WorkflowEditorWidgetBody = ({
           toolbarScopeId={toolbarScopeId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
-          disableNavigation={true}
         />
       </WorkflowUIConfigProvider>
     </div>
   )
 }
 
-const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
-    {message}
-  </div>
-)
-
 type WorkflowEditorHeaderSelectorProps = {
   workspaceId?: string
-  widget?: WidgetInstance | null
-  panelId?: string
+  params?: Record<string, unknown> | null
 }
 
 const WorkflowEditorHeaderSelector = ({
   workspaceId,
-  widget,
-  panelId,
+  params,
 }: WorkflowEditorHeaderSelectorProps) => {
-  const { resolvedPairColor, resolvedWorkflowId } = useWorkflowWidgetState({
+  const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
-    pairColor: widget?.pairColor ?? 'gray',
-    widget: widget as WidgetComponentProps['widget'],
-    panelId,
-    params: widget?.params ?? null,
-    fallbackWidgetKey: 'editor_workflow',
-    loggerScope: 'workflow editor header',
-    activateWorkflow: false,
+    params,
   })
-
+  const actions = useWidgetConfigRuntimeActions()
   const handleWorkflowChange = (workflowId: string) => {
-    if (resolvedPairColor !== 'gray') {
-      return
-    }
-
-    emitWorkflowSelectionChange({
-      panelId,
-      widgetKey: widget?.key ?? undefined,
-      workflowId,
-    })
+    actions.patchWidgetLinkedParams?.({ workflowId })
   }
 
   return (
     <WorkflowDropdown
       workspaceId={workspaceId}
-      pairColor={resolvedPairColor}
       value={resolvedWorkflowId}
       onChange={handleWorkflowChange}
     />
   )
 }
 
-type WorkflowEditorHeaderControlsProps = {
-  workspaceId?: string
-  toolbarScopeId: string
-}
-
-const WorkflowEditorHeaderControls = ({
-  workspaceId,
-  toolbarScopeId,
-}: WorkflowEditorHeaderControlsProps) => {
-  return <WorkflowToolbar workspaceId={workspaceId} toolbarScopeId={toolbarScopeId} />
-}
-
 export const workflowEditorWidget: DashboardWidgetDefinition = {
-  key: 'editor_workflow',
-  title: 'Workflow Editor',
+  contract: workflowEditorWidgetContract,
   icon: Workflow,
-  category: 'editor',
-  description: 'Canvas interface to build and edit workflows.',
   component: (props) => <WorkflowEditorWidgetBody {...props} />,
-  renderHeader: ({ widget, context, panelId }) => {
+  renderHeader: ({ channelId, widget, context, panelId }) => {
     const widgetKey = widget?.key ?? 'editor_workflow'
     const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-
     return {
-      left: (
-        <WorkflowEditorHeaderControls
-          workspaceId={context?.workspaceId}
-          toolbarScopeId={toolbarScopeId}
-        />
-      ),
+      left: <WorkflowToolbar workspaceId={context?.workspaceId} toolbarScopeId={toolbarScopeId} />,
       center: (
-        <WorkflowEditorHeaderSelector
-          workspaceId={context?.workspaceId}
-          widget={widget}
-          panelId={panelId}
-        />
+        <WorkflowEditorHeaderSelector workspaceId={context?.workspaceId} params={widget?.params} />
       ),
       right: (
         <WorkflowWidgetControlBar
           workspaceId={context?.workspaceId}
-          widget={widget}
-          panelId={panelId}
+          params={widget?.params}
+          channelId={channelId}
         />
       ),
     }

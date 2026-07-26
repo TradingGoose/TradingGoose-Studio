@@ -344,27 +344,11 @@ export const generateCopilotIndicatorReference = async () => {
     string,
     { summary: string; detail: string; examples?: MetadataExample[]; relatedIds?: string[] }
   > = {
-    name: {
-      summary: 'Human-readable indicator name in the canonical document.',
-      detail:
-        'The `name` field is part of the live indicator document schema and is what TradingGoose renames when Copilot updates an indicator title.',
-    },
-    color: {
-      summary: 'Default display color in the canonical document.',
-      detail:
-        'The `color` field is part of the live indicator document schema and stores the default indicator display color.',
-    },
     pineCode: {
       summary: 'PineTS authoring source in the canonical document.',
       detail:
         'The `pineCode` field stores the complete PineTS-compatible indicator source executed by the TradingGoose runtime.',
       ...(runtimeExample ? { examples: [runtimeExample] } : {}),
-    },
-    inputMeta: {
-      summary: 'Saved input-definition map in the canonical document.',
-      detail:
-        'The `inputMeta` field stores the saved input metadata map used by the editor and runtime override flow. TradingGoose can infer common metadata from `input.*(...)` calls, but the saved document remains the canonical state.',
-      relatedIds: ['section:inputs'],
     },
   }
 
@@ -400,9 +384,9 @@ export const generateCopilotIndicatorReference = async () => {
       title: 'Input Metadata Inference',
       summary: 'How TradingGoose derives editable input metadata from indicator code.',
       detail:
-        'TradingGoose scans `input.*(...)` calls, derives the saved input title and common metadata fields, and uses that map as the stable input override contract.',
+        'TradingGoose scans `input.*(...)` calls, derives the declared input title and common metadata fields, and uses that runtime map as the stable input override contract.',
       support: 'curated',
-      relatedIds: ['section:inputs', 'document.inputMeta'],
+      relatedIds: ['section:inputs'],
       sourceReferences: [createSourceReference('Input metadata inference', SOURCE_PATHS.inputMeta)],
     }),
   ]
@@ -518,7 +502,7 @@ export const generateCopilotIndicatorReference = async () => {
       detail: buildInputDetail(type),
       support: 'supported',
       signature: buildInputSignature(type),
-      relatedIds: ['document.inputMeta'],
+      relatedIds: ['runtime.input_meta_inference'],
       examples: [buildInputExample(type)],
       sourceReferences: [
         createSourceReference('Input metadata inference', SOURCE_PATHS.inputMeta),

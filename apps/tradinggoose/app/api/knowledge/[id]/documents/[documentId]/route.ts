@@ -174,11 +174,11 @@ export async function PUT(
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid document update data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
           documentId,
         })
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }

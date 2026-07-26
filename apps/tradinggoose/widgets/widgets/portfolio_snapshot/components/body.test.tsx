@@ -13,7 +13,7 @@ const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
 const mockUsePortfolioPerformance = vi.fn()
-const mockEmitPortfolioSnapshotParamsChange = vi.fn()
+const mockOnWidgetParamsPatch = vi.fn()
 
 const selectedPortfolioIdentity = {
   providerId: 'alpaca',
@@ -86,12 +86,6 @@ vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
   usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
   usePortfolioPerformance: (...args: unknown[]) => mockUsePortfolioPerformance(...args),
-}))
-
-vi.mock('@/widgets/utils/portfolio-snapshot-params', () => ({
-  emitPortfolioSnapshotParamsChange: (...args: unknown[]) =>
-    mockEmitPortfolioSnapshotParamsChange(...args),
-  usePortfolioSnapshotParamsPersistence: vi.fn(),
 }))
 
 vi.mock('@/widgets/widgets/portfolio_snapshot/components/performance-chart', () => ({
@@ -196,8 +190,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             selectedWindow: '1D',
@@ -206,7 +202,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalled()
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
@@ -222,7 +218,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('clears the saved account when the saved service has disconnected', async () => {
+  it('derives the connected service and ignores a stale saved account', async () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
       credentialId: 'oauth-account-paper',
@@ -244,8 +240,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             serviceId: 'alpaca-live',
@@ -268,17 +266,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
       serviceId: 'alpaca-paper',
       portfolioIdentity: undefined,
     })
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        serviceId: 'alpaca-paper',
-        portfolioIdentity: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
-  it('clears provider-scoped state when it normalizes an invalid provider', async () => {
+  it('normalizes an invalid provider for reads without passively patching params', async () => {
     const params = {
       provider: 'unsupported-provider',
       portfolioIdentity: selectedPortfolioIdentity,
@@ -288,23 +279,16 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={params}
         />
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        provider: null,
-        portfolioIdentity: null,
-        serviceId: null,
-        selectedWindow: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
@@ -314,12 +298,14 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Select a trading provider to get started.')
   })
 
-  it('falls back to the provider-supported window list', async () => {
+  it('falls back to the provider-supported window list without passively patching params', async () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -329,11 +315,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: { selectedWindow: '1D' },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
+    expect(mockUsePortfolioPerformance).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedWindow: '1D' })
+    )
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalled()
   })
 
   it('renders performance windows from the selected trading provider', async () => {
@@ -352,8 +337,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'tradier',
             portfolioIdentity: tradierPortfolioIdentity,
@@ -388,8 +375,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -399,11 +388,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith({
-      params: { portfolioIdentity: null },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ portfolioIdentity: null })
+    )
   })
 
   it('renders the no-accounts empty state when the broker returns zero accounts', async () => {
@@ -416,8 +403,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: null,
@@ -436,9 +425,11 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -491,9 +482,11 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -503,11 +496,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith(
+    expect(mockOnWidgetParamsPatch).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
@@ -554,9 +545,11 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -582,9 +575,11 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -617,8 +612,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -663,8 +660,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -677,8 +676,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             portfolioIdentity: selectedPortfolioIdentity,
@@ -710,8 +711,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{
             provider: 'alpaca',
             selectedWindow: '1D',
@@ -741,8 +744,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          channelId='portfolio-snapshot-panel-1'
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
+          onWidgetParamsPatch={mockOnWidgetParamsPatch}
           params={{}}
         />
       )

@@ -6,7 +6,6 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useSkillsStore } from '@/stores/skills/store'
 import { listSkillWidget } from '@/widgets/widgets/list_skill'
 
 const mockCreateSkillMutation = vi.fn()
@@ -29,8 +28,11 @@ vi.mock('@/hooks/queries/skills', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/skill-selection', () => ({
-  emitSkillSelectionChange: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -84,7 +86,6 @@ describe('Skill List header controls', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    useSkillsStore.getState().resetAll()
 
     mockCreateSkillMutation.mockReturnValue(createMutationState())
     mockImportSkillsMutation.mockReturnValue(createMutationState())
@@ -95,7 +96,6 @@ describe('Skill List header controls', () => {
       root.unmount()
     })
     container.remove()
-    useSkillsStore.getState().resetAll()
   })
 
   it('renders import inside Manage skills and removes export', async () => {

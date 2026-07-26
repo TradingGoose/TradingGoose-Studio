@@ -1,37 +1,25 @@
 import { db } from '@tradinggoose/db'
-import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
+import { watchlistTable } from '@tradinggoose/db/schema'
+import { DEFAULT_WATCHLIST_SETTINGS } from '@/lib/watchlists/constants'
 import {
-  areListingIdentitiesEqual,
-  getListingIdentityKey,
-  toListingValueObject,
-} from '@/lib/listing/identity'
-import { DEFAULT_WATCHLIST_NAME, MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
-import type {
-  WatchlistImportFileItem,
-  WatchlistImportFileListingItem,
-  WatchlistItem,
-  WatchlistRecord,
-  WatchlistSettings,
-} from '@/lib/watchlists/types'
+  fetchRootWatchlistRow,
+  listRootWatchlistRowsInTx,
+  materializeWatchlistDocumentInTx,
+  type WatchlistRootRow,
+} from '@/lib/watchlists/document'
+import type { WatchlistDocumentFields, WatchlistRecord } from '@/lib/watchlists/types'
 import {
-  isProtectedWatchlistName,
-  normalizeWatchlistName,
-  normalizeWatchlistSettings,
+  normalizePersistedWatchlistDocumentFields,
+  normalizeWatchlistDocumentFields,
+  WatchlistDocumentError,
 } from '@/lib/watchlists/validation'
+import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { type EntityListBeforeInsert, lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 type WatchlistScope = {
   workspaceId: string
-  userId: string
 }
-
-type WatchlistRow = typeof watchlistTable.$inferSelect
-type WatchlistItemRow = typeof watchlistItem.$inferSelect
-
-type WatchlistTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-const UNSECTIONED = '__unsectioned__'
 
 export class WatchlistOperationError extends Error {
   status: number
@@ -43,985 +31,140 @@ export class WatchlistOperationError extends Error {
   }
 }
 
-const mapWatchlistRow = (row: WatchlistRow, items: WatchlistItem[]): WatchlistRecord => ({
-  id: row.id,
-  workspaceId: row.workspaceId,
-  userId: row.userId,
-  name: row.name,
-  isSystem: row.isSystem,
-  items,
-  settings: normalizeWatchlistSettings(row.settings),
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-})
-
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Error &&
-  (error.message.includes('watchlist_table_workspace_user_name_unique') ||
-    error.message.includes('watchlist_item_watchlist_listing_identity_unique') ||
-    error.message.toLowerCase().includes('duplicate key'))
-
-const ensureFound = (row: WatchlistRow | undefined) => {
-  if (!row) {
-    throw new WatchlistOperationError('Watchlist not found', 404)
+function mapDocumentError(error: unknown): never {
+  if (error instanceof WatchlistDocumentError) {
+    throw new WatchlistOperationError(error.message, error.status)
   }
-  return row
+  throw error
 }
 
-const fetchWatchlistRow = async (
-  tx: WatchlistTx,
-  watchlistId: string,
-  scope: WatchlistScope
-): Promise<WatchlistRow> => {
-  const [row] = await tx
-    .select()
-    .from(watchlistTable)
-    .where(
-      and(
-        eq(watchlistTable.id, watchlistId),
-        eq(watchlistTable.workspaceId, scope.workspaceId),
-        eq(watchlistTable.userId, scope.userId),
-        isNull(watchlistTable.parentId)
-      )
-    )
-    .limit(1)
-
-  return ensureFound(row)
-}
-
-const loadWatchlistRows = async (tx: WatchlistTx, row: WatchlistRow) => {
-  const [sections, items] = await Promise.all([
-    tx
-      .select()
-      .from(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.workspaceId, row.workspaceId),
-          eq(watchlistTable.userId, row.userId),
-          eq(watchlistTable.parentId, row.id)
-        )
-      )
-      .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
-    tx
-      .select()
-      .from(watchlistItem)
-      .where(eq(watchlistItem.watchlistId, row.id))
-      .orderBy(asc(watchlistItem.sortOrder), asc(watchlistItem.createdAt)),
-  ])
-
-  return { sections, items }
-}
-
-const mapListingRow = (row: WatchlistItemRow): WatchlistItem | null => {
-  const listing = toListingValueObject(row.listing as ListingInputValue)
-  if (!listing) return null
-
-  return {
-    id: row.id,
-    type: 'listing',
-    listing,
+function isDuplicateWatchlistNameViolation(error: unknown): boolean {
+  const seen = new Set<object>()
+  let current = error
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
+    seen.add(current)
+    const record = current as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (
+      record.code === '23505' &&
+      record.constraint_name === 'watchlist_table_workspace_user_name_unique'
+    ) {
+      return true
+    }
+    current = record.cause
   }
+  return false
 }
 
-const buildItemsBySectionMap = (items: WatchlistItemRow[]) => {
-  const bySection = new Map<string, WatchlistItemRow[]>()
-  const unsectioned: WatchlistItemRow[] = []
-
-  for (const item of items) {
-    if (!item.containerId) {
-      unsectioned.push(item)
-      continue
-    }
-
-    const bucket = bySection.get(item.containerId) ?? []
-    bucket.push(item)
-    bySection.set(item.containerId, bucket)
-  }
-
-  bySection.forEach((bucket) => {
-    bucket.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder
-      }
-      return a.createdAt.getTime() - b.createdAt.getTime()
-    })
-  })
-
-  unsectioned.sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) {
-      return a.sortOrder - b.sortOrder
-    }
-    return a.createdAt.getTime() - b.createdAt.getTime()
-  })
-
-  return { bySection, unsectioned }
-}
-
-const composeWatchlistItems = (
-  sections: WatchlistRow[],
-  items: WatchlistItemRow[]
-): WatchlistItem[] => {
-  const output: WatchlistItem[] = []
-  const sortedSections = [...sections].sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) {
-      return a.sortOrder - b.sortOrder
-    }
-    return a.createdAt.getTime() - b.createdAt.getTime()
-  })
-  const { bySection: itemsBySection, unsectioned } = buildItemsBySectionMap(items)
-
-  for (const row of unsectioned) {
-    const listingItem = mapListingRow(row)
-    if (listingItem) {
-      output.push(listingItem)
-    }
-  }
-
-  for (const section of sortedSections) {
-    output.push({
-      id: section.id,
-      type: 'section',
-      label: section.name,
-    })
-
-    for (const row of itemsBySection.get(section.id) ?? []) {
-      const listingItem = mapListingRow(row)
-      if (listingItem) {
-        output.push(listingItem)
-      }
-    }
-  }
-
-  return output
-}
-
-const touchWatchlist = async (tx: WatchlistTx, watchlistId: string): Promise<WatchlistRow> => {
-  const [updated] = await tx
-    .update(watchlistTable)
-    .set({
-      updatedAt: new Date(),
-    })
-    .where(and(eq(watchlistTable.id, watchlistId), isNull(watchlistTable.parentId)))
-    .returning()
-
-  return ensureFound(updated)
-}
-
-const mapRecordInTx = async (tx: WatchlistTx, row: WatchlistRow): Promise<WatchlistRecord> => {
-  const { sections, items } = await loadWatchlistRows(tx, row)
-  return mapWatchlistRow(row, composeWatchlistItems(sections, items))
-}
-
-const getNextRootSortOrder = async (tx: WatchlistTx, scope: WatchlistScope) => {
-  const [last] = await tx
-    .select({ sortOrder: watchlistTable.sortOrder })
-    .from(watchlistTable)
-    .where(
-      and(
-        eq(watchlistTable.workspaceId, scope.workspaceId),
-        eq(watchlistTable.userId, scope.userId),
-        isNull(watchlistTable.parentId)
-      )
-    )
-    .orderBy(desc(watchlistTable.sortOrder))
-    .limit(1)
-
-  return last ? last.sortOrder + 1 : 0
-}
-
-const getNextSortOrderForSection = async (tx: WatchlistTx, row: WatchlistRow) => {
-  const [last] = await tx
-    .select({ sortOrder: watchlistTable.sortOrder })
-    .from(watchlistTable)
-    .where(
-      and(
-        eq(watchlistTable.workspaceId, row.workspaceId),
-        eq(watchlistTable.userId, row.userId),
-        eq(watchlistTable.parentId, row.id)
-      )
-    )
-    .orderBy(desc(watchlistTable.sortOrder))
-    .limit(1)
-
-  return last ? last.sortOrder + 1 : 0
-}
-
-const getNextSortOrderForItem = async (
-  tx: WatchlistTx,
-  watchlistId: string,
-  containerId: string | null
-) => {
-  const [last] = await tx
-    .select({ sortOrder: watchlistItem.sortOrder })
-    .from(watchlistItem)
-    .where(
-      and(
-        eq(watchlistItem.watchlistId, watchlistId),
-        containerId ? eq(watchlistItem.containerId, containerId) : isNull(watchlistItem.containerId)
-      )
-    )
-    .orderBy(desc(watchlistItem.sortOrder))
-    .limit(1)
-
-  return last ? last.sortOrder + 1 : 0
-}
-
-const getFirstSortOrderForItem = async (
-  tx: WatchlistTx,
-  watchlistId: string,
-  containerId: string | null
-) => {
-  const [first] = await tx
-    .select({ sortOrder: watchlistItem.sortOrder })
-    .from(watchlistItem)
-    .where(
-      and(
-        eq(watchlistItem.watchlistId, watchlistId),
-        containerId ? eq(watchlistItem.containerId, containerId) : isNull(watchlistItem.containerId)
-      )
-    )
-    .orderBy(asc(watchlistItem.sortOrder))
-    .limit(1)
-
-  return first ? first.sortOrder - 1 : 0
-}
-
-const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentity) =>
-  items.some((entry) => {
-    const existing = toListingValueObject(entry.listing as ListingInputValue)
-    return existing ? areListingIdentitiesEqual(existing, candidate) : false
-  })
-
-const flattenImportedWatchlistListings = (items: WatchlistImportFileItem[]) =>
-  items.flatMap<WatchlistImportFileListingItem>((item) =>
-    item.type === 'listing' ? [item] : item.items
-  )
-
-const ensureDefaultWatchlistInTx = async (tx: WatchlistTx, scope: WatchlistScope) => {
-  const [existingSystem] = await tx
-    .select()
-    .from(watchlistTable)
-    .where(
-      and(
-        eq(watchlistTable.workspaceId, scope.workspaceId),
-        eq(watchlistTable.userId, scope.userId),
-        eq(watchlistTable.isSystem, true),
-        isNull(watchlistTable.parentId)
-      )
-    )
-    .orderBy(asc(watchlistTable.createdAt))
-    .limit(1)
-
-  if (existingSystem) {
-    if (existingSystem.name === DEFAULT_WATCHLIST_NAME) {
-      return existingSystem
-    }
-
-    try {
-      const [renamed] = await tx
-        .update(watchlistTable)
-        .set({
-          name: DEFAULT_WATCHLIST_NAME,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(watchlistTable.id, existingSystem.id), isNull(watchlistTable.parentId)))
-        .returning()
-      return ensureFound(renamed)
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        return existingSystem
-      }
-      throw error
-    }
-  }
-
-  const sortOrder = await getNextRootSortOrder(tx, scope)
-  const [created] = await tx
-    .insert(watchlistTable)
-    .values({
-      workspaceId: scope.workspaceId,
-      userId: scope.userId,
-      parentId: null,
-      name: DEFAULT_WATCHLIST_NAME,
-      sortOrder,
-      isSystem: true,
-      settings: {},
-      updatedAt: new Date(),
-    })
-    .returning()
-
-  return ensureFound(created)
-}
-
-const ensureMutableList = (row: WatchlistRow, action: string) => {
-  if (row.isSystem) {
-    throw new WatchlistOperationError(
-      `Cannot ${action} the protected ${DEFAULT_WATCHLIST_NAME}`,
-      400
-    )
-  }
-}
-
-export async function listWatchlists(scope: WatchlistScope): Promise<WatchlistRecord[]> {
-  return db.transaction(async (tx) => {
-    await ensureDefaultWatchlistInTx(tx, scope)
-
-    const rows = await tx
-      .select()
-      .from(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.workspaceId, scope.workspaceId),
-          eq(watchlistTable.userId, scope.userId),
-          isNull(watchlistTable.parentId)
-        )
-      )
-      .orderBy(
-        desc(watchlistTable.isSystem),
-        asc(watchlistTable.name),
-        asc(watchlistTable.createdAt)
-      )
-
-    if (rows.length === 0) {
-      return []
-    }
-
-    const ids = rows.map((row) => row.id)
-    const [sections, items] = await Promise.all([
-      tx
-        .select()
-        .from(watchlistTable)
-        .where(
-          and(
-            eq(watchlistTable.workspaceId, scope.workspaceId),
-            eq(watchlistTable.userId, scope.userId),
-            inArray(watchlistTable.parentId, ids)
-          )
-        )
-        .orderBy(asc(watchlistTable.sortOrder), asc(watchlistTable.createdAt)),
-      tx
-        .select()
-        .from(watchlistItem)
-        .where(inArray(watchlistItem.watchlistId, ids))
-        .orderBy(asc(watchlistItem.sortOrder), asc(watchlistItem.createdAt)),
-    ])
-
-    const sectionsByWatchlist = new Map<string, WatchlistRow[]>()
-    const itemsByWatchlist = new Map<string, WatchlistItemRow[]>()
-
-    for (const section of sections) {
-      if (!section.parentId) continue
-      const bucket = sectionsByWatchlist.get(section.parentId) ?? []
-      bucket.push(section)
-      sectionsByWatchlist.set(section.parentId, bucket)
-    }
-
-    for (const item of items) {
-      const bucket = itemsByWatchlist.get(item.watchlistId) ?? []
-      bucket.push(item)
-      itemsByWatchlist.set(item.watchlistId, bucket)
-    }
-
-    return rows.map((row) =>
-      mapWatchlistRow(
-        row,
-        composeWatchlistItems(
-          sectionsByWatchlist.get(row.id) ?? [],
-          itemsByWatchlist.get(row.id) ?? []
-        )
-      )
-    )
-  })
-}
-
-export async function getWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string
+async function readWatchlistRecordForExecution(
+  root: WatchlistRootRow,
+  isDeployed: boolean
 ): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    return mapRecordInTx(tx, row)
-  })
+  const { id, workspaceId } = root
+  const fields = await readSavedEntityFieldsForExecution('watchlist', id, workspaceId, isDeployed)
+  return {
+    id,
+    workspaceId,
+    ...normalizePersistedWatchlistDocumentFields({ ...fields, name: root.name }),
+    createdAt: root.createdAt.toISOString(),
+    updatedAt: root.updatedAt.toISOString(),
+  }
 }
 
 export async function createWatchlist(
   scope: WatchlistScope,
-  rawName: string
+  input: { name: string }
 ): Promise<WatchlistRecord> {
-  const name = normalizeWatchlistName(rawName)
-  if (isProtectedWatchlistName(name)) {
-    throw new WatchlistOperationError(`"${DEFAULT_WATCHLIST_NAME}" is reserved`, 400)
+  const name = input.name.trim()
+  if (!name) {
+    throw new WatchlistOperationError('Watchlist name is required', 400)
   }
+
+  const created = await createWatchlistFromDocument(scope, {
+    name,
+    settings: DEFAULT_WATCHLIST_SETTINGS,
+    items: [],
+  })
+  return getWatchlist(scope, created.id)
+}
+
+export async function createWatchlistFromDocument(
+  scope: WatchlistScope,
+  rawFields: Record<string, unknown>,
+  options?: { beforeInsert?: EntityListBeforeInsert }
+): Promise<{ id: string; fields: WatchlistDocumentFields }> {
+  const fields = normalizeWatchlistDocumentFields(rawFields)
 
   try {
-    const sortOrder = await db.transaction((tx) => getNextRootSortOrder(tx, scope))
-    const [created] = await db
-      .insert(watchlistTable)
-      .values({
-        workspaceId: scope.workspaceId,
-        userId: scope.userId,
-        parentId: null,
-        name,
-        sortOrder,
-        isSystem: false,
-        settings: {},
-        updatedAt: new Date(),
-      })
-      .returning()
+    const created = await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'watchlist', scope.workspaceId)
+      await options?.beforeInsert?.(tx)
+      const roots = await listRootWatchlistRowsInTx(tx, scope.workspaceId)
+      const sortOrder = roots.reduce((max, root) => Math.max(max, root.sortOrder), -1) + 1
+      const [createdRoot] = await tx
+        .insert(watchlistTable)
+        .values({
+          id: crypto.randomUUID(),
+          workspaceId: scope.workspaceId,
+          userId: null,
+          parentId: null,
+          name: fields.name,
+          sortOrder,
+          settings: fields.settings,
+        })
+        .returning({ id: watchlistTable.id })
 
-    return mapWatchlistRow(ensureFound(created), [])
+      if (!createdRoot) {
+        throw new WatchlistDocumentError('Failed to create watchlist', 500)
+      }
+
+      return {
+        id: createdRoot.id,
+        fields: {
+          name: fields.name,
+          ...(await materializeWatchlistDocumentInTx(tx, scope.workspaceId, createdRoot.id, {
+            settings: fields.settings,
+            items: fields.items,
+          })),
+        },
+      }
+    })
+
+    await refreshEntityListSession('watchlist', scope.workspaceId)
+    return created
   } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new WatchlistOperationError('A watchlist with this name already exists', 409)
-    }
-    throw error
-  }
-}
-
-export async function renameWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string,
-  rawName: string
-): Promise<WatchlistRecord> {
-  const name = normalizeWatchlistName(rawName)
-  if (isProtectedWatchlistName(name)) {
-    throw new WatchlistOperationError(`"${DEFAULT_WATCHLIST_NAME}" is reserved`, 400)
-  }
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    ensureMutableList(row, 'rename')
-
-    try {
-      const [updated] = await tx
-        .update(watchlistTable)
-        .set({
-          name,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
-        .returning()
-
-      return mapRecordInTx(tx, ensureFound(updated))
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new WatchlistOperationError('A watchlist with this name already exists', 409)
-      }
-      throw error
-    }
-  })
-}
-
-export async function clearWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string
-): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    ensureMutableList(row, 'clear')
-
-    await tx.delete(watchlistItem).where(eq(watchlistItem.watchlistId, row.id))
-    await tx
-      .delete(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.workspaceId, row.workspaceId),
-          eq(watchlistTable.userId, row.userId),
-          eq(watchlistTable.parentId, row.id)
-        )
-      )
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function deleteWatchlist(scope: WatchlistScope, watchlistId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    ensureMutableList(row, 'delete')
-    await tx
-      .delete(watchlistTable)
-      .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
-  })
-}
-
-export async function updateWatchlistSettings(
-  scope: WatchlistScope,
-  watchlistId: string,
-  settings: Partial<WatchlistSettings>
-): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const currentSettings = normalizeWatchlistSettings(row.settings)
-    const nextSettings = normalizeWatchlistSettings({
-      ...currentSettings,
-      ...settings,
-    })
-
-    const [updated] = await tx
-      .update(watchlistTable)
-      .set({
-        settings: nextSettings,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
-      .returning()
-
-    return mapRecordInTx(tx, ensureFound(updated))
-  })
-}
-
-export async function addListingToWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string,
-  listingInput: ListingIdentity
-): Promise<WatchlistRecord> {
-  const listing = toListingValueObject(listingInput)
-  if (!listing) {
-    throw new WatchlistOperationError('Invalid listing payload', 400)
-  }
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row)
-
-    if (hasListingIdentity(items, listing)) {
-      return mapRecordInTx(tx, row)
-    }
-
-    if (items.length + 1 > MAX_SYMBOLS_PER_WATCHLIST) {
+    if (isDuplicateWatchlistNameViolation(error)) {
       throw new WatchlistOperationError(
-        `Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`,
-        400
+        `A watchlist with the name "${fields.name}" already exists`,
+        409
       )
     }
-
-    const sortOrder = await getFirstSortOrderForItem(tx, row.id, null)
-
-    try {
-      await tx.insert(watchlistItem).values({
-        watchlistId: row.id,
-        containerId: null,
-        listing,
-        sortOrder,
-      })
-    } catch (error) {
-      if (!isUniqueViolation(error)) {
-        throw error
-      }
-    }
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function updateWatchlistItemListing(
-  scope: WatchlistScope,
-  watchlistId: string,
-  itemId: string,
-  listingInput: ListingIdentity
-): Promise<WatchlistRecord> {
-  const listing = toListingValueObject(listingInput)
-  if (!listing) {
-    throw new WatchlistOperationError('Invalid listing payload', 400)
+    mapDocumentError(error)
   }
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row)
-
-    const target = items.find((item) => item.id === itemId)
-    if (!target) {
-      return mapRecordInTx(tx, row)
-    }
-
-    const currentListing = toListingValueObject(target.listing as ListingInputValue)
-    if (currentListing && areListingIdentitiesEqual(currentListing, listing)) {
-      return mapRecordInTx(tx, row)
-    }
-
-    if (
-      items.some((item) => {
-        if (item.id === itemId) return false
-        const identity = toListingValueObject(item.listing as ListingInputValue)
-        return identity ? areListingIdentitiesEqual(identity, listing) : false
-      })
-    ) {
-      throw new WatchlistOperationError('Listing already exists in watchlist', 409)
-    }
-
-    try {
-      await tx
-        .update(watchlistItem)
-        .set({
-          listing,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(watchlistItem.id, itemId), eq(watchlistItem.watchlistId, row.id)))
-    } catch (error) {
-      if (!isUniqueViolation(error)) {
-        throw error
-      }
-      throw new WatchlistOperationError('Listing already exists in watchlist', 409)
-    }
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
 }
 
-export async function addSectionToWatchlist(
+export async function getWatchlist(
   scope: WatchlistScope,
   watchlistId: string,
-  labelInput: string
+  isDeployedContext = true
 ): Promise<WatchlistRecord> {
-  const label = normalizeWatchlistName(labelInput)
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const sortOrder = await getNextSortOrderForSection(tx, row)
-
-    await tx.insert(watchlistTable).values({
-      workspaceId: row.workspaceId,
-      userId: row.userId,
-      parentId: row.id,
-      name: label,
-      sortOrder,
-      isSystem: false,
-      settings: {},
-      updatedAt: new Date(),
-    })
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function renameWatchlistSection(
-  scope: WatchlistScope,
-  watchlistId: string,
-  sectionId: string,
-  labelInput: string
-): Promise<WatchlistRecord> {
-  const label = normalizeWatchlistName(labelInput)
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections } = await loadWatchlistRows(tx, row)
-
-    const target = sections.find((section) => section.id === sectionId)
-    if (!target) {
-      return mapRecordInTx(tx, row)
-    }
-
-    if (target.name === label) {
-      return mapRecordInTx(tx, row)
-    }
-
-    await tx
-      .update(watchlistTable)
-      .set({
-        name: label,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(watchlistTable.id, sectionId),
-          eq(watchlistTable.workspaceId, row.workspaceId),
-          eq(watchlistTable.userId, row.userId),
-          eq(watchlistTable.parentId, row.id)
-        )
-      )
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function removeWatchlistItem(
-  scope: WatchlistScope,
-  watchlistId: string,
-  itemId: string
-): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-
-    await tx
-      .delete(watchlistItem)
-      .where(and(eq(watchlistItem.id, itemId), eq(watchlistItem.watchlistId, row.id)))
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function removeListingFromWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string,
-  listingInput: ListingIdentity
-): Promise<WatchlistRecord> {
-  const listing = toListingValueObject(listingInput)
-  if (!listing) {
-    throw new WatchlistOperationError('Invalid listing payload', 400)
+  try {
+    const root = await fetchRootWatchlistRow(db, scope.workspaceId, watchlistId)
+    return await readWatchlistRecordForExecution(root, isDeployedContext)
+  } catch (error) {
+    mapDocumentError(error)
   }
-
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row)
-    const target = items.find((item) => {
-      const identity = toListingValueObject(item.listing as ListingInputValue)
-      return identity ? areListingIdentitiesEqual(identity, listing) : false
-    })
-
-    if (!target) {
-      return mapRecordInTx(tx, row)
-    }
-
-    await tx
-      .delete(watchlistItem)
-      .where(and(eq(watchlistItem.id, target.id), eq(watchlistItem.watchlistId, row.id)))
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
 }
 
-export async function removeWatchlistSection(
+export async function listWatchlists(
   scope: WatchlistScope,
-  watchlistId: string,
-  sectionId: string
-): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections } = await loadWatchlistRows(tx, row)
-
-    const target = sections.find((section) => section.id === sectionId)
-    if (!target) {
-      return mapRecordInTx(tx, row)
-    }
-
-    await tx
-      .delete(watchlistItem)
-      .where(and(eq(watchlistItem.watchlistId, row.id), eq(watchlistItem.containerId, sectionId)))
-
-    await tx
-      .delete(watchlistTable)
-      .where(
-        and(
-          eq(watchlistTable.id, sectionId),
-          eq(watchlistTable.workspaceId, row.workspaceId),
-          eq(watchlistTable.userId, row.userId),
-          eq(watchlistTable.parentId, row.id)
-        )
-      )
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function reorderWatchlistItems(
-  scope: WatchlistScope,
-  watchlistId: string,
-  orderedItemIds: string[]
-): Promise<WatchlistRecord> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { sections, items } = await loadWatchlistRows(tx, row)
-
-    const expectedSize = sections.length + items.length
-    if (orderedItemIds.length !== expectedSize) {
-      throw new WatchlistOperationError('Reorder payload must include all item ids', 400)
-    }
-
-    const sectionById = new Map(sections.map((section) => [section.id, section] as const))
-    const itemById = new Map(items.map((item) => [item.id, item] as const))
-    const seen = new Set<string>()
-
-    for (const id of orderedItemIds) {
-      if (seen.has(id)) {
-        throw new WatchlistOperationError('Reorder payload contains duplicate item ids', 400)
-      }
-      seen.add(id)
-      if (!sectionById.has(id) && !itemById.has(id)) {
-        throw new WatchlistOperationError('Reorder payload contains unknown item id', 400)
-      }
-    }
-
-    let currentSectionId: string | null = null
-    let sectionOrder = 0
-    const itemOrderBySection = new Map<string, number>()
-
-    const nextOrder = (bucket: string) => {
-      const next = itemOrderBySection.get(bucket) ?? 0
-      itemOrderBySection.set(bucket, next + 1)
-      return next
-    }
-
-    for (const id of orderedItemIds) {
-      if (sectionById.has(id)) {
-        currentSectionId = id
-        await tx
-          .update(watchlistTable)
-          .set({
-            sortOrder: sectionOrder,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(watchlistTable.id, id),
-              eq(watchlistTable.workspaceId, row.workspaceId),
-              eq(watchlistTable.userId, row.userId),
-              eq(watchlistTable.parentId, row.id)
-            )
-          )
-        sectionOrder += 1
-        continue
-      }
-
-      const bucket = currentSectionId ?? UNSECTIONED
-      const nextSortOrder = nextOrder(bucket)
-
-      await tx
-        .update(watchlistItem)
-        .set({
-          containerId: currentSectionId,
-          sortOrder: nextSortOrder,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(watchlistItem.id, id), eq(watchlistItem.watchlistId, row.id)))
-    }
-
-    const updated = await touchWatchlist(tx, row.id)
-    return mapRecordInTx(tx, updated)
-  })
-}
-
-export async function appendWatchlistItemsToWatchlist(
-  scope: WatchlistScope,
-  watchlistId: string,
-  importedItems: WatchlistImportFileItem[]
-): Promise<{ watchlist: WatchlistRecord; addedCount: number; skippedCount: number }> {
-  return db.transaction(async (tx) => {
-    const row = await fetchWatchlistRow(tx, watchlistId, scope)
-    const { items } = await loadWatchlistRows(tx, row)
-
-    const existingListingKeys = new Set(
-      items
-        .map((entry) => toListingValueObject(entry.listing as ListingInputValue))
-        .filter((entry): entry is ListingIdentity => Boolean(entry))
-        .map(getListingIdentityKey)
+  isDeployedContext = true
+): Promise<WatchlistRecord[]> {
+  try {
+    const roots = await listRootWatchlistRowsInTx(db, scope.workspaceId)
+    return await Promise.all(
+      roots.map((root) => readWatchlistRecordForExecution(root, isDeployedContext))
     )
-    const plannedAdditionKeys = new Set<string>()
-    const importedListings = flattenImportedWatchlistListings(importedItems)
-
-    let addedCount = 0
-    let skippedCount = 0
-
-    for (const item of importedListings) {
-      const listing = toListingValueObject(item.listing)
-      const key = listing ? getListingIdentityKey(listing) : null
-      const isDuplicate = key ? existingListingKeys.has(key) || plannedAdditionKeys.has(key) : true
-
-      if (!listing || !key || isDuplicate) {
-        skippedCount += 1
-        continue
-      }
-
-      plannedAdditionKeys.add(key)
-      addedCount += 1
-    }
-
-    if (items.length + addedCount > MAX_SYMBOLS_PER_WATCHLIST) {
-      throw new WatchlistOperationError(
-        `Watchlist cannot contain more than ${MAX_SYMBOLS_PER_WATCHLIST} symbols`,
-        400
-      )
-    }
-
-    let nextSectionSortOrder = await getNextSortOrderForSection(tx, row)
-    let nextUnsectionedSortOrder = await getNextSortOrderForItem(tx, row.id, null)
-    const insertedListingKeys = new Set<string>()
-
-    const resolveInsertableListing = (listingItem: WatchlistImportFileListingItem) => {
-      const listing = toListingValueObject(listingItem.listing)
-      const key = listing ? getListingIdentityKey(listing) : null
-      if (!listing || !key || !plannedAdditionKeys.has(key) || insertedListingKeys.has(key)) {
-        return null
-      }
-
-      return { listing, key }
-    }
-
-    const insertListing = async (
-      listingItem: WatchlistImportFileListingItem,
-      containerId: string | null,
-      sortOrder: number
-    ) => {
-      const resolved = resolveInsertableListing(listingItem)
-      if (!resolved) return false
-
-      await tx.insert(watchlistItem).values({
-        watchlistId: row.id,
-        containerId,
-        listing: resolved.listing,
-        sortOrder,
-      })
-      insertedListingKeys.add(resolved.key)
-      return true
-    }
-
-    for (const item of importedItems) {
-      if (item.type === 'listing') {
-        const sortOrder = (() => {
-          const next = nextUnsectionedSortOrder
-          nextUnsectionedSortOrder += 1
-          return next
-        })()
-
-        await insertListing(item, null, sortOrder)
-        continue
-      }
-
-      let currentSectionId: string | null = null
-      let nextSectionItemSortOrder = 0
-      for (const sectionItem of item.items) {
-        if (!resolveInsertableListing(sectionItem)) {
-          continue
-        }
-
-        if (!currentSectionId) {
-          const [createdSection] = await tx
-            .insert(watchlistTable)
-            .values({
-              workspaceId: row.workspaceId,
-              userId: row.userId,
-              parentId: row.id,
-              name: item.label,
-              sortOrder: nextSectionSortOrder,
-              isSystem: false,
-              settings: {},
-              updatedAt: new Date(),
-            })
-            .returning()
-
-          currentSectionId = ensureFound(createdSection).id
-          nextSectionSortOrder += 1
-        }
-
-        await insertListing(sectionItem, currentSectionId, nextSectionItemSortOrder)
-        nextSectionItemSortOrder += 1
-      }
-    }
-
-    const updated = await touchWatchlist(tx, row.id)
-
-    return {
-      watchlist: await mapRecordInTx(tx, updated),
-      addedCount,
-      skippedCount,
-    }
-  })
+  } catch (error) {
+    mapDocumentError(error)
+  }
 }

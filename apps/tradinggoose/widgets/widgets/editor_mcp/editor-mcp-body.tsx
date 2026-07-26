@@ -1,65 +1,42 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { useMessages } from 'next-intl'
+import type * as Y from 'yjs'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { sanitizeRecord } from '@/lib/utils'
+import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
-import type { PairColor } from '@/widgets/pair-colors'
+import { MCP_EDITOR_ACTION_EVENT, type McpEditorActionEventDetail } from '@/widgets/events'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
-import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   createDefaultMcpServerFormData,
-  createFormDataFromServer,
-  createMcpSavePayload,
   type McpServerFormData,
   resolveMcpServerId,
 } from '@/widgets/widgets/_shared/mcp/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 type EditorMcpWidgetBodyProps = WidgetComponentProps
+type McpConnectionStatus = 'connected' | 'disconnected' | 'error'
 
-const getServerName = (server?: Pick<McpServerWithStatus, 'name'> | null) =>
-  server?.name?.trim() || ''
-
-const formatRelativeTime = (
-  dateString: string | undefined,
-  copy: {
-    justNow: string
-    minutesAgo: string
-    hoursAgo: string
-    daysAgo: string
-    weeksAgo: string
-    monthsAgo: string
-    yearsAgo: string
-  }
-) => {
-  if (!dateString) return null
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-
-  if (diffInSeconds < 60) return copy.justNow
-  if (diffInSeconds < 3600)
-    return formatTemplate(copy.minutesAgo, { count: Math.floor(diffInSeconds / 60) })
-  if (diffInSeconds < 86400)
-    return formatTemplate(copy.hoursAgo, { count: Math.floor(diffInSeconds / 3600) })
-  if (diffInSeconds < 604800)
-    return formatTemplate(copy.daysAgo, { count: Math.floor(diffInSeconds / 86400) })
-  if (diffInSeconds < 2592000)
-    return formatTemplate(copy.weeksAgo, { count: Math.floor(diffInSeconds / 604800) })
-  if (diffInSeconds < 31536000)
-    return formatTemplate(copy.monthsAgo, { count: Math.floor(diffInSeconds / 2592000) })
-  return formatTemplate(copy.yearsAgo, { count: Math.floor(diffInSeconds / 31536000) })
-}
-
-const getStatusClassName = (status?: McpServerWithStatus['connectionStatus']) => {
+const getStatusClassName = (status?: McpConnectionStatus) => {
   if (status === 'connected') {
     return 'border-green-700 bg-green-500/10 text-green-700'
   }
@@ -72,7 +49,7 @@ const getStatusClassName = (status?: McpServerWithStatus['connectionStatus']) =>
 }
 
 const getStatusLabel = (
-  status: McpServerWithStatus['connectionStatus'] | undefined,
+  status: McpConnectionStatus | undefined,
   copy: {
     connected: string
     error: string
@@ -82,6 +59,56 @@ const getStatusLabel = (
   if (status === 'connected') return copy.connected
   if (status === 'error') return copy.error
   return copy.disconnected
+}
+
+function readMcpFormData(doc: Y.Doc | null, fallback: McpServerFormData): McpServerFormData {
+  if (!doc) return fallback
+  const fields = getFieldsMap(doc)
+  return {
+    name: fallback.name,
+    description: fields.get('description') ?? fallback.description,
+    transport: fields.get('transport') ?? fallback.transport,
+    url: fields.get('url') ?? fallback.url,
+    headers: fields.get('headers') ?? fallback.headers,
+    command: fields.get('command') ?? fallback.command,
+    args: fields.get('args') ?? fallback.args,
+    env: fields.get('env') ?? fallback.env,
+    timeout: fields.get('timeout') ?? fallback.timeout,
+    retries: fields.get('retries') ?? fallback.retries,
+    enabled: fields.get('enabled') ?? fallback.enabled,
+  }
+}
+
+function useMcpServerYjsFormData(
+  doc: Y.Doc | null,
+  fallback: McpServerFormData,
+  setName: (name: string) => void,
+  canEditRef: RefObject<boolean>
+): [McpServerFormData, (next: SetStateAction<McpServerFormData>) => void] {
+  const subscribe = useMemo(() => {
+    if (!doc) return (cb: () => void) => () => {}
+    const fields = getFieldsMap(doc)
+    return (cb: () => void) => {
+      fields.observe(cb)
+      return () => fields.unobserve(cb)
+    }
+  }, [doc])
+  const read = useCallback(() => readMcpFormData(doc, fallback), [doc, fallback])
+  const formData = useYjsSubscription(subscribe, read, fallback)
+  const setFormData = useCallback(
+    (next: SetStateAction<McpServerFormData>) => {
+      if (!doc || !canEditRef.current) return
+      const value = typeof next === 'function' ? next(formData) : next
+      setName(value.name)
+      for (const [key, fieldValue] of Object.entries(value)) {
+        if (key === 'name') continue
+        setEntityField(doc, key, fieldValue)
+      }
+    },
+    [canEditRef, doc, formData, setName]
+  )
+
+  return [formData, setFormData]
 }
 
 const refreshServerApi = async (
@@ -106,163 +133,148 @@ const refreshServerApi = async (
 
 export function EditorMcpWidgetBody({
   params,
-  context,
   pairColor = 'gray',
+  context,
   panelId,
   widget,
-  onWidgetParamsChange,
+  onWidgetLinkedParamsPatch,
 }: EditorMcpWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-  const [formDataState, setFormDataState] = useState<McpServerFormData>(() =>
-    createDefaultMcpServerFormData()
-  )
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
+  const canEditRef = useLatestRef(canEditEntity)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [identityName, setIdentityName] = useState('')
   const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
   const initializedServerIdRef = useRef<string | null>(null)
-  const {
-    servers,
-    isLoading: isServersLoading,
-    error: serverError,
-    fetchServers,
-    refreshServer,
-    updateServer,
-  } = useMcpServersStore((state) => ({
-    servers: state.servers,
-    isLoading: state.isLoading,
-    error: state.error,
-    fetchServers: state.fetchServers,
-    refreshServer: state.refreshServer,
-    updateServer: state.updateServer,
-  }))
+  const defaultFormData = useMemo(() => createDefaultMcpServerFormData(), [])
   const { refreshTools, getToolsByServer } = useMcpTools(workspaceId ?? '')
   const { testResult, isTestingConnection, testConnection, clearTestResult } = useMcpServerTest()
+  const {
+    members: serverMembers,
+    isLoading: isServerListLoading,
+    error: serverListError,
+  } = useEntityList('mcp_server', workspaceId)
 
-  const selectedServerId = resolveMcpServerId({
+  const requestedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
+  const requestedServerMember = requestedServerId
+    ? serverMembers.find((member) => member.entityId === requestedServerId)
+    : null
+  const selectedServerId = resolveEntityIdFromList({
+    requestedEntityId: requestedServerId,
+    entityIds: serverMembers.map((member) => member.entityId),
+    useDefaultEntity: false,
   })
 
-  const workspaceServers = useMemo(
-    () =>
-      workspaceId
-        ? servers
-            .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-            .sort((a, b) => {
-              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-            })
-        : [],
-    [servers, workspaceId]
-  )
-  const selectedServer = selectedServerId
-    ? (workspaceServers.find((server) => server.id === selectedServerId) ?? null)
-    : null
+  const selectedServerStatus = selectedServerId
+    ? serverMembers.find((member) => member.entityId === selectedServerId)?.connectionStatus
+    : undefined
+  const selectedServerMember =
+    serverMembers.find((member) => member.entityId === selectedServerId) ?? null
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
+  const serverSession = useSavedEntityYjsSession(
+    'mcp_server',
+    isPermissionsLoading ? null : selectedServerId,
+    isPermissionsLoading ? null : workspaceId,
+    null,
+    canEditEntity ? 'write' : 'read'
+  )
+  const formFallback = useMemo(
+    () => ({ ...defaultFormData, name: identityName }),
+    [defaultFormData, identityName]
+  )
+  const [formDataState, setFormDataState] = useMcpServerYjsFormData(
+    serverSession.doc,
+    formFallback,
+    setIdentityName,
+    canEditRef
+  )
 
   useEffect(() => {
-    if (!workspaceId) return
-
-    fetchServers(workspaceId).catch((fetchError) => {
-      console.error('Failed to load MCP servers for editor widget', fetchError)
-    })
-  }, [fetchServers, workspaceId])
+    setIdentityName(selectedServerMember?.entityName ?? '')
+  }, [selectedServerId, selectedServerMember?.entityName])
 
   useEffect(() => {
-    if (!selectedServer) {
+    if (!selectedServerId || !serverSession.doc) {
       initializedServerIdRef.current = null
-      const emptyForm = createDefaultMcpServerFormData()
-      initialFormDataRef.current = emptyForm
-      setFormDataState(emptyForm)
+      initialFormDataRef.current = defaultFormData
       clearTestResult()
       setSaveError(null)
       return
     }
 
-    if (initializedServerIdRef.current === selectedServer.id) {
+    if (initializedServerIdRef.current === selectedServerId) {
       return
     }
 
-    const nextForm = createFormDataFromServer(selectedServer)
-    initializedServerIdRef.current = selectedServer.id
-    initialFormDataRef.current = nextForm
-    setFormDataState(nextForm)
+    initializedServerIdRef.current = selectedServerId
+    initialFormDataRef.current = formDataState
     clearTestResult()
     setSaveError(null)
-  }, [clearTestResult, selectedServer])
-
-  useMcpSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'editor_mcp',
-    onServerSelect: (serverId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
-    },
-  })
+  }, [clearTestResult, defaultFormData, formDataState, selectedServerId, serverSession.doc])
 
   const handleClose = useCallback(() => {
-    if (isLinkedToColorPair) {
-      setPairContext(resolvedPairColor, { mcpServerId: null })
-      return
-    }
-
-    onWidgetParamsChange?.(null)
-  }, [isLinkedToColorPair, onWidgetParamsChange, resolvedPairColor, setPairContext])
+    onWidgetLinkedParamsPatch?.({ mcpServerId: null })
+  }, [onWidgetLinkedParamsPatch])
 
   const handleResetForm = useCallback(() => {
+    if (!canEditRef.current) return
     setFormDataState(initialFormDataRef.current)
     clearTestResult()
     setSaveError(null)
-  }, [clearTestResult])
+  }, [canEditRef, clearTestResult, setFormDataState])
 
   const handleTestConnection = useCallback(async () => {
-    if (!workspaceId || !selectedServerId || !formDataState.url?.trim()) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !formDataState.url?.trim()) {
+      return
+    }
 
     await testConnection({
-      name: formDataState.name.trim() || getServerName(selectedServer) || copy.unnamedServer,
+      name: formDataState.name.trim() || copy.unnamedServer,
       transport: formDataState.transport,
       url: formDataState.url,
-      headers: createMcpSavePayload(formDataState).headers,
+      headers: sanitizeRecord(formDataState.headers),
       timeout: formDataState.timeout,
       workspaceId,
     })
-  }, [formDataState, selectedServer, selectedServerId, testConnection, workspaceId])
+  }, [canEditRef, copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
 
   const handleRefreshTools = useCallback(async () => {
-    if (!workspaceId || !selectedServerId) return
+    if (
+      !workspaceId ||
+      !selectedServerId ||
+      !canEditRef.current ||
+      formDataState.enabled === false ||
+      !formDataState.url?.trim()
+    ) {
+      return
+    }
 
     try {
       await refreshServerApi(selectedServerId, workspaceId, copy.failedToRefreshMcpServer)
-      await refreshServer(workspaceId, selectedServerId)
-      await refreshTools(true)
-      await fetchServers(workspaceId)
+      if (!canEditRef.current) return
+      await refreshTools()
     } catch (refreshError) {
       console.error('Failed to refresh MCP server tools', refreshError)
-      setSaveError(copy.failedToRefreshMcpServer)
+      if (canEditRef.current) setSaveError(copy.failedToRefreshMcpServer)
     }
   }, [
     copy.failedToRefreshMcpServer,
-    fetchServers,
-    refreshServer,
+    canEditRef,
+    formDataState.enabled,
+    formDataState.url,
     refreshTools,
     selectedServerId,
     workspaceId,
   ])
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !selectedServerId) return
+    if (!canEditRef.current || !workspaceId || !selectedServerId || !serverSession.doc) return
 
-    const payload = createMcpSavePayload(formDataState)
-    if (!payload.name) {
+    if (!formDataState.name.trim()) {
       setSaveError(copy.serverNameRequired)
       return
     }
@@ -270,9 +282,19 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
 
     try {
-      await updateServer(workspaceId, selectedServerId, payload)
+      if (!canEditRef.current) return
+      await serverSession.save(
+        formDataState.name.trim() !== selectedServerMember?.entityName
+          ? formDataState.name.trim()
+          : undefined
+      )
+      if (!canEditRef.current) return
       initialFormDataRef.current = formDataState
-      await fetchServers(workspaceId)
+      if (formDataState.enabled === false || !formDataState.url?.trim()) {
+        await refreshTools()
+      } else {
+        await handleRefreshTools()
+      }
     } catch (error) {
       console.error('Failed to save MCP server', error)
       setSaveError(copy.failedToSaveMcpServer)
@@ -280,16 +302,20 @@ export function EditorMcpWidgetBody({
   }, [
     copy.failedToSaveMcpServer,
     copy.serverNameRequired,
-    fetchServers,
+    canEditRef,
     formDataState,
+    handleRefreshTools,
+    refreshTools,
+    serverSession.doc,
+    serverSession.save,
     selectedServerId,
-    updateServer,
+    selectedServerMember?.entityName,
     workspaceId,
   ])
 
-  useMcpEditorActions({
+  useEditorActions<McpEditorActionEventDetail>(MCP_EDITOR_ACTION_EVENT, {
     panelId,
-    widget,
+    widgetKey: widget?.key,
     save: handleSave,
     refresh: handleRefreshTools,
     reset: handleResetForm,
@@ -301,11 +327,21 @@ export function EditorMcpWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspaceToEdit} />
   }
 
-  if (serverError && workspaceServers.length === 0 && !isServersLoading) {
-    return <WidgetStateMessage message={serverError} />
+  if (serverListError && serverMembers.length === 0) {
+    return <WidgetStateMessage message={serverListError} />
   }
 
-  if (isServersLoading && workspaceServers.length === 0) {
+  if (
+    requestedServerId &&
+    !isServerListLoading &&
+    !serverListError &&
+    !requestedServerMember &&
+    !selectedServerId
+  ) {
+    return <WidgetStateMessage message={copy.mcpServerNotFound} />
+  }
+
+  if (!selectedServerId && isServerListLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -316,16 +352,30 @@ export function EditorMcpWidgetBody({
   if (!selectedServerId) {
     return (
       <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
+        message={pairColor !== 'gray' ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
       />
     )
   }
 
-  if (!selectedServer) {
-    return <WidgetStateMessage message={copy.mcpServerNotFound} />
+  if (serverSession.error) {
+    return <WidgetStateMessage message={serverSession.error} />
   }
 
-  const displayStatus = selectedServer.connectionStatus ?? 'disconnected'
+  if (serverSession.isLoading) {
+    return (
+      <div className='flex h-full w-full items-center justify-center'>
+        <LoadingAgent size='md' />
+      </div>
+    )
+  }
+
+  const displayStatus: McpConnectionStatus = testResult
+    ? testResult.success
+      ? 'connected'
+      : 'error'
+    : selectedServerStatus === 'connected' || selectedServerStatus === 'error'
+      ? selectedServerStatus
+      : 'disconnected'
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
@@ -333,7 +383,7 @@ export function EditorMcpWidgetBody({
         <div className='space-y-2'>
           <div className='flex flex-wrap items-center gap-2'>
             <h3 className='font-medium text-foreground text-sm'>
-              {getServerName(selectedServer) || copy.unnamedServer}
+              {formDataState.name.trim() || copy.unnamedServer}
             </h3>
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-[10px] ${getStatusClassName(displayStatus)}`}
@@ -345,30 +395,6 @@ export function EditorMcpWidgetBody({
               {formDataState.transport.toUpperCase()}
             </span>
           </div>
-          <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
-            {selectedServer.updatedAt ? (
-              <span>
-                {formatTemplate(copy.updated, {
-                  time: formatRelativeTime(selectedServer.updatedAt, copy.relativeTime) ?? '',
-                })}
-              </span>
-            ) : null}
-            {selectedServer.lastToolsRefresh ? (
-              <span>
-                {formatTemplate(copy.toolsRefreshed, {
-                  time:
-                    formatRelativeTime(selectedServer.lastToolsRefresh, copy.relativeTime) ?? '',
-                })}
-              </span>
-            ) : null}
-            {selectedServer.lastConnected ? (
-              <span>
-                {formatTemplate(copy.lastConnected, {
-                  time: formatRelativeTime(selectedServer.lastConnected, copy.relativeTime) ?? '',
-                })}
-              </span>
-            ) : null}
-          </div>
         </div>
 
         <McpServerForm
@@ -378,6 +404,7 @@ export function EditorMcpWidgetBody({
           isTestingConnection={isTestingConnection}
           workspaceId={workspaceId}
           clearTestResult={clearTestResult}
+          disabled={!canEditEntity}
           className='p-5'
         />
 
@@ -408,13 +435,6 @@ export function EditorMcpWidgetBody({
             </div>
           )}
         </div>
-
-        {selectedServer.lastError ? (
-          <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>
-            <p className='font-medium'>{copy.lastError}</p>
-            <p className='text-destructive/80 text-xs'>{selectedServer.lastError}</p>
-          </div>
-        ) : null}
 
         {saveError ? (
           <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>

@@ -1,36 +1,41 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import { normalizePairColorContext, type PairColorContext } from '@/stores/dashboard/pair-store'
 import {
   buildCopilotWorkspaceEntityContext,
-  COPILOT_WORKSPACE_ENTITY_CONFIGS,
-  getCopilotWorkspaceEntityIdFromPairContext,
+  COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
+  type CopilotWorkspaceEntityKind,
+  getCopilotWorkspaceEntityIdFromEffectiveParams,
 } from './workspace-entities'
 
 type BuildImplicitCopilotContextsOptions = {
   workspaceId?: string | null
-  pairContext?: PairColorContext | null
+  effectiveParams?: Record<string, unknown> | null
+  currentLayoutId?: string | null
+  currentLayoutOwnerUserId?: string | null
+  currentLabels: Partial<Record<CopilotWorkspaceEntityKind, string>>
 }
 
 export function resolveCopilotWorkflowId(
-  pairContext?: PairColorContext | null
+  effectiveParams?: Record<string, unknown> | null
 ): string | undefined {
-  return getCopilotWorkspaceEntityIdFromPairContext(pairContext, 'workflow') ?? undefined
+  return getCopilotWorkspaceEntityIdFromEffectiveParams(effectiveParams, 'workflow') ?? undefined
 }
 
 export const buildImplicitCopilotContexts = ({
   workspaceId,
-  pairContext,
+  effectiveParams,
+  currentLayoutId,
+  currentLayoutOwnerUserId,
+  currentLabels,
 }: BuildImplicitCopilotContextsOptions): ChatContext[] => {
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
-  const currentPairContext = normalizePairColorContext(pairContext)
   const contexts: ChatContext[] = []
 
-  for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
-    const entityId = getCopilotWorkspaceEntityIdFromPairContext(
-      currentPairContext,
+  for (const config of COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS) {
+    const entityId = getCopilotWorkspaceEntityIdFromEffectiveParams(
+      effectiveParams,
       config.entityKind
     )
     if (!entityId) {
@@ -42,6 +47,22 @@ export const buildImplicitCopilotContexts = ({
         entityKind: config.entityKind,
         entityId,
         workspaceId: resolvedWorkspaceId,
+        label: currentLabels[config.entityKind] ?? `Current ${config.entityKind}`,
+        current: true,
+      })
+    )
+  }
+
+  const layoutId = normalizeOptionalString(currentLayoutId)
+  const layoutOwnerUserId = normalizeOptionalString(currentLayoutOwnerUserId)
+  if (layoutId && layoutOwnerUserId && resolvedWorkspaceId) {
+    contexts.push(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'dashboard_layout',
+        entityId: layoutId,
+        workspaceId: resolvedWorkspaceId,
+        ownerUserId: layoutOwnerUserId,
+        label: currentLabels.dashboard_layout ?? 'Current dashboard layout',
         current: true,
       })
     )

@@ -1,0 +1,283 @@
+/**
+ * @vitest-environment node
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { renameSavedEntityIdentity } from '@/lib/saved-entities/identity'
+
+const m = vi.hoisted(() => {
+  const tables = {
+    workflow: {
+      id: 'workflow.id',
+      workspaceId: 'workflow.workspaceId',
+      name: 'workflow.name',
+      updatedAt: 'workflow.updatedAt',
+    },
+    skill: {
+      id: 'skill.id',
+      workspaceId: 'skill.workspaceId',
+      name: 'skill.name',
+      updatedAt: 'skill.updatedAt',
+    },
+    customTools: {
+      id: 'customTools.id',
+      workspaceId: 'customTools.workspaceId',
+      title: 'customTools.title',
+      updatedAt: 'customTools.updatedAt',
+    },
+    pineIndicators: {
+      id: 'pineIndicators.id',
+      workspaceId: 'pineIndicators.workspaceId',
+      name: 'pineIndicators.name',
+      updatedAt: 'pineIndicators.updatedAt',
+    },
+    knowledgeBase: {
+      id: 'knowledgeBase.id',
+      workspaceId: 'knowledgeBase.workspaceId',
+      deletedAt: 'knowledgeBase.deletedAt',
+      name: 'knowledgeBase.name',
+      updatedAt: 'knowledgeBase.updatedAt',
+    },
+    mcpServers: {
+      id: 'mcpServers.id',
+      workspaceId: 'mcpServers.workspaceId',
+      deletedAt: 'mcpServers.deletedAt',
+      name: 'mcpServers.name',
+      updatedAt: 'mcpServers.updatedAt',
+    },
+    watchlistTable: {
+      id: 'watchlistTable.id',
+      workspaceId: 'watchlistTable.workspaceId',
+      userId: 'watchlistTable.userId',
+      parentId: 'watchlistTable.parentId',
+      name: 'watchlistTable.name',
+      updatedAt: 'watchlistTable.updatedAt',
+    },
+    layoutMaps: {
+      id: 'layoutMaps.id',
+      workspaceId: 'layoutMaps.workspaceId',
+      userId: 'layoutMaps.userId',
+      name: 'layoutMaps.name',
+      updatedAt: 'layoutMaps.updatedAt',
+    },
+  }
+  const persistedAt = new Date('2026-07-11T12:34:56.789Z')
+  const state: {
+    rows: Array<{ id: string; updatedAt: Date }>
+    error: unknown
+    last: null | {
+      table: unknown
+      values: Record<string, unknown>
+      condition: unknown
+    }
+  } = {
+    rows: [{ id: 'entity-1', updatedAt: persistedAt }],
+    error: null,
+    last: null,
+  }
+  const update = vi.fn((table: unknown) => ({
+    set: (values: Record<string, unknown>) => ({
+      where: (condition: unknown) => ({
+        returning: async () => {
+          state.last = { table, values, condition }
+          if (state.error) throw state.error
+          return state.rows
+        },
+      }),
+    }),
+  }))
+  const execute = vi.fn(async () => undefined)
+  const transaction = vi.fn(
+    (callback: (tx: { update: typeof update; execute: typeof execute }) => unknown) =>
+      callback({ update, execute })
+  )
+  return {
+    tables,
+    persistedAt,
+    state,
+    update,
+    execute,
+    transaction,
+    withDashboardLayoutOwnerLock: vi.fn(
+      async (_scope: unknown, mutate: (tx: unknown) => Promise<unknown>) =>
+        mutate({ update, execute })
+    ),
+    refreshEntityListSession: vi.fn((..._args: unknown[]) => Promise.resolve()),
+  }
+})
+
+vi.mock('@tradinggoose/db', () => ({ db: { update: m.update, transaction: m.transaction } }))
+vi.mock('@tradinggoose/db/schema', () => m.tables)
+vi.mock('drizzle-orm', () => ({
+  and: (...conditions: unknown[]) => ({ and: conditions.filter(Boolean) }),
+  eq: (field: unknown, value: unknown) => ({ field, value }),
+  isNull: (field: unknown) => ({ field, isNull: true }),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+}))
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  refreshEntityListSession: m.refreshEntityListSession,
+}))
+vi.mock('@/lib/dashboard-layouts/operations', () => ({
+  listDashboardLayouts: vi.fn(() => Promise.resolve([{ updatedAt: m.persistedAt.toISOString() }])),
+  nextDashboardLayoutRevision: vi.fn(() => new Date(m.persistedAt.getTime() + 1)),
+  withDashboardLayoutOwnerLock: m.withDashboardLayoutOwnerLock,
+}))
+
+describe('renameSavedEntityIdentity', () => {
+  const entity = { entityId: 'entity-1', workspaceId: 'workspace-1' }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    m.state.rows = [{ id: 'entity-1', updatedAt: m.persistedAt }]
+    m.state.error = null
+    m.state.last = null
+  })
+
+  it.each([
+    ['workflow', 'workflow', 'name', '  Workflow  ', 'Workflow', false],
+    ['skill', 'skill', 'name', '  Skill  ', 'Skill', false],
+    ['custom_tool', 'customTools', 'title', '  Custom   Tool  ', 'Custom Tool', false],
+    ['indicator', 'pineIndicators', 'name', '  Indicator  ', 'Indicator', false],
+    ['knowledge_base', 'knowledgeBase', 'name', '  Knowledge  ', 'Knowledge', true],
+    ['mcp_server', 'mcpServers', 'name', '  MCP  ', 'MCP', true],
+  ] as const)(
+    'renames %s through its canonical row identity',
+    async (entityKind, tableKey, identityField, inputName, expectedName, softDeleted) => {
+      const table = m.tables[tableKey] as {
+        id: string
+        workspaceId: string
+        deletedAt?: string
+      }
+      const result = await renameSavedEntityIdentity({
+        ...entity,
+        entityKind,
+        name: inputName,
+      })
+      expect(result).toEqual({ name: expectedName, updatedAt: m.persistedAt })
+      expect(result.updatedAt).not.toBe(m.state.last?.values.updatedAt)
+
+      expect(m.state.last).toMatchObject({
+        table,
+        values: { [identityField]: expectedName, updatedAt: expect.any(Date) },
+        condition: {
+          and: [
+            { field: table.id, value: 'entity-1' },
+            { field: table.workspaceId, value: 'workspace-1' },
+            ...(softDeleted ? [{ field: table.deletedAt, isNull: true }] : []),
+          ],
+        },
+      })
+      expect(m.refreshEntityListSession).toHaveBeenCalledWith(entityKind, 'workspace-1', null)
+      if (entityKind === 'workflow') expect(m.execute).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('scopes watchlist identity to a workspace root folder', async () => {
+    await renameSavedEntityIdentity({
+      ...entity,
+      entityKind: 'watchlist',
+      name: 'Watchlist',
+    })
+
+    expect(m.state.last?.condition).toEqual({
+      and: [
+        { field: 'watchlistTable.id', value: 'entity-1' },
+        { field: 'watchlistTable.workspaceId', value: 'workspace-1' },
+        { field: 'watchlistTable.userId', isNull: true },
+        { field: 'watchlistTable.parentId', isNull: true },
+      ],
+    })
+    expect(m.transaction).toHaveBeenCalledTimes(1)
+    expect(m.execute).toHaveBeenCalledOnce()
+  })
+
+  it('scopes layout identity to the authenticated owner', async () => {
+    await renameSavedEntityIdentity({
+      ...entity,
+      entityKind: 'dashboard_layout',
+      ownerUserId: 'user-1',
+      name: 'Layout',
+    })
+
+    expect(m.state.last?.condition).toEqual({
+      and: [
+        { field: 'layoutMaps.id', value: 'entity-1' },
+        { field: 'layoutMaps.workspaceId', value: 'workspace-1' },
+        { field: 'layoutMaps.userId', value: 'user-1' },
+      ],
+    })
+    expect(m.refreshEntityListSession).toHaveBeenCalledWith(
+      'dashboard_layout',
+      'workspace-1',
+      'user-1'
+    )
+    expect(m.withDashboardLayoutOwnerLock).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1', ownerUserId: 'user-1' },
+      expect.any(Function)
+    )
+  })
+
+  it('rejects missing layout ownership before writing', async () => {
+    await expect(
+      renameSavedEntityIdentity({
+        ...entity,
+        entityKind: 'dashboard_layout',
+        name: 'Layout',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(m.update).not.toHaveBeenCalled()
+  })
+
+  it('maps missing rows at the identity boundary', async () => {
+    m.state.rows = []
+    await expect(
+      renameSavedEntityIdentity({
+        ...entity,
+        entityKind: 'skill',
+        entityId: 'missing',
+        name: 'Skill',
+      })
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it.each([
+    ['skill', 'skill_workspace_name_unique'],
+    ['custom_tool', 'custom_tools_workspace_title_unique'],
+    ['watchlist', 'watchlist_table_workspace_user_name_unique'],
+  ] as const)(
+    'maps a wrapped %s name constraint at the identity boundary',
+    async (entityKind, constraintName) => {
+      m.state.error = Object.assign(new Error('Failed query'), {
+        cause: Object.assign(new Error('duplicate key'), {
+          code: '23505',
+          constraint_name: constraintName,
+        }),
+      })
+
+      await expect(
+        renameSavedEntityIdentity({ ...entity, entityKind, name: 'Skill' })
+      ).rejects.toMatchObject({ status: 409, code: 'saved_entity_name_conflict' })
+    }
+  )
+
+  it('makes an accepted rename conditional on its reviewed identity', async () => {
+    m.state.rows = []
+    await expect(
+      renameSavedEntityIdentity({
+        ...entity,
+        entityKind: 'skill',
+        name: 'Renamed Skill',
+        expectedCurrentName: 'Reviewed Skill',
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'stale_server_tool_review' })
+
+    expect(m.state.last?.condition).toEqual({
+      and: [
+        { field: 'skill.id', value: 'entity-1' },
+        { field: 'skill.workspaceId', value: 'workspace-1' },
+        { field: 'skill.name', value: 'Reviewed Skill' },
+      ],
+    })
+  })
+})

@@ -1,13 +1,15 @@
+import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { encodeSSE } from '@/lib/utils'
+import { environmentKeys } from '@/hooks/queries/environment'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
+import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 
@@ -122,10 +124,12 @@ function createRuntimeContext({
   workspaceId = null,
   workflowId = null,
   implicitContexts = [],
+  authenticatedUserId = null,
 }: {
   workspaceId?: string | null
   workflowId?: string | null
   implicitContexts?: ChatContext[]
+  authenticatedUserId?: string | null
 } = {}): CopilotSendRuntimeContext {
   return {
     liveContext: {
@@ -134,6 +138,7 @@ function createRuntimeContext({
       reviewTarget: null,
     },
     implicitContexts,
+    authenticatedUserId,
   }
 }
 
@@ -748,9 +753,7 @@ describe('copilot streaming regressions', () => {
         role: 'assistant',
         content: '',
         timestamp: '2026-04-13T00:00:01.000Z',
-        contentBlocks: [
-          toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' }),
-        ],
+        contentBlocks: [toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' })],
       },
     ] as any
 
@@ -859,7 +862,7 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
-  it('treats awaiting_tools as a pause and skips terminal billing fetch', async () => {
+  it('treats awaiting_tools as a pause and skips terminal context usage refresh', async () => {
     const channelId = 'copilot-awaiting-tools-pause'
     const store = getCopilotStore(channelId)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -1298,6 +1301,12 @@ describe('copilot streaming regressions', () => {
     const toolCallId = 'edit-workflow-limited-tool'
     const assistantMessageId = 'assistant-message-limited-edit'
     const reviewResult = {
+      requiresReview: true,
+      reviewToken: 'review-token-limited-edit',
+      entityKind: 'workflow',
+      entityId: 'wf-limited-edit',
+      entityDocument: 'flowchart TD',
+      documentFormat: 'tg-workflow-graph-mermaid-v1',
       workflowState: {
         blocks: {},
         edges: [],
@@ -1305,19 +1314,19 @@ describe('copilot streaming regressions', () => {
         parallels: {},
       },
     }
-    let toolState = ClientToolCallState.pending
-    const fakeTool: any = {
-      persistedToolCall: {} as any,
-      setExecutionContext: vi.fn(),
-      hydratePersistedToolCall: vi.fn(),
-      handleUserAction: vi.fn(async () => {
-        toolState = ClientToolCallState.review
-        fakeTool.persistedToolCall = { result: reviewResult }
-      }),
-      getState: vi.fn(() => toolState),
-    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: reviewResult }),
+        }
+      }
 
-    registerClientTool(toolCallId, fakeTool)
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     try {
       const store = getCopilotStore('copilot-limited-access-edit-workflow')
@@ -1345,8 +1354,7 @@ describe('copilot streaming regressions', () => {
               name: 'edit_workflow',
               arguments: {
                 entityId: 'wf-limited-edit',
-                entityDocument: 'workflow: {}',
-                documentFormat: 'tg-mermaid-v1',
+                entityDocument: 'flowchart TD',
               },
             },
           },
@@ -1356,12 +1364,15 @@ describe('copilot streaming regressions', () => {
       )
       await vi.advanceTimersByTimeAsync(0)
 
-      expect(fakeTool.handleUserAction).toHaveBeenCalledTimes(1)
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
       expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
-      expect(store.getState().isSendingMessage).toBe(true)
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/copilot/execute-copilot-server-tool',
+        expect.objectContaining({
+          method: 'POST',
+        })
+      )
     } finally {
-      unregisterClientTool(toolCallId)
       vi.useRealTimers()
     }
   })
@@ -2102,11 +2113,18 @@ describe('copilot streaming regressions', () => {
         }
       }
 
-      if (url === '/api/workflows?workspaceId=workspace-1') {
+      if (url === '/api/copilot/execute-copilot-server-tool') {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ data: [] }),
+          json: async () => ({
+            success: true,
+            result: {
+              entityKind: 'workflow',
+              entities: [],
+              count: 0,
+            },
+          }),
         }
       }
 
@@ -2168,8 +2186,139 @@ describe('copilot streaming regressions', () => {
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/workflows?workspaceId=workspace-1', {
-      method: 'GET',
+    const executeRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/execute-copilot-server-tool'
+    })
+    expect(parseJsonRequestBody(executeRequest)).toEqual({
+      toolName: 'list_workflows',
+      payload: {
+        workspaceId: 'workspace-1',
+      },
+      context: {
+        workspaceId: 'workspace-1',
+      },
+    })
+  })
+
+  it('serializes authenticated current dashboard provenance for streamed dashboard tools', async () => {
+    const channelId = 'copilot-current-dashboard-context'
+    const toolCallId = 'edit-widget-current-dashboard'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: { success: true } }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      currentChat: {
+        reviewSessionId: 'review-current-dashboard-context',
+        workspaceId: 'workspace-1',
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Current dashboard context',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-current-dashboard-context',
+        createdAt: new Date('2026-03-31T00:00:00.000Z'),
+        updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+      },
+    })
+
+    const sendPromise = store.getState().sendMessage('Edit the current dashboard widget', {
+      runtimeContext: createRuntimeContext({
+        workspaceId: 'workspace-1',
+        authenticatedUserId: 'user-1',
+        implicitContexts: [
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'watchlist',
+            entityId: 'watchlist-current',
+            workspaceId: 'workspace-1',
+            label: 'Current Watchlist',
+            current: true,
+          }),
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'dashboard_layout',
+            entityId: 'layout-current',
+            workspaceId: 'workspace-1',
+            ownerUserId: 'user-1',
+            label: 'Current Dashboard',
+            current: true,
+          }),
+        ],
+      }),
+    })
+    await deferredStream.ready
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'edit_widget',
+        arguments: {
+          entityId: 'layout-current',
+          panelId: 'panel-1',
+          params: { watchlistId: 'watchlist-1' },
+        },
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-current-dashboard-context' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
+      contextEntityKind: 'dashboard_layout',
+      contextEntityId: 'layout-current',
+      workspaceId: 'workspace-1',
+    })
+
+    await store.getState().executeCopilotToolCall(toolCallId)
+
+    const executeRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/execute-copilot-server-tool'
+    })
+    expect(parseJsonRequestBody(executeRequest)).toEqual({
+      toolName: 'edit_widget',
+      payload: {
+        entityId: 'layout-current',
+        panelId: 'panel-1',
+        params: { watchlistId: 'watchlist-1' },
+      },
+      context: {
+        contextEntityKind: 'dashboard_layout',
+        contextEntityId: 'layout-current',
+        workspaceId: 'workspace-1',
+      },
     })
   })
 
@@ -2807,7 +2956,7 @@ describe('copilot context usage', () => {
     store.setState({
       currentChat: {
         reviewSessionId: 'review-context-usage-generic',
-        workspaceId: null,
+        workspaceId: 'workspace-context-usage',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -2839,6 +2988,7 @@ describe('copilot context usage', () => {
       conversationId: 'conversation-context-usage-generic',
       model: 'claude-sonnet-4.6',
       provider: 'anthropic',
+      workspaceId: 'workspace-context-usage',
     })
     expect(store.getState().contextUsage).toEqual({
       usage: 1234,
@@ -2857,28 +3007,36 @@ describe('copilot tool user action delegation', () => {
     resetCopilotWorkspaceSelectionState()
   })
 
-  it('delegates pending tool execution to the client tool user-action handler', async () => {
+  it('routes pending server-managed workflow edits through server tool execution', async () => {
     const channelId = 'copilot-edit-workflow-order'
     const toolCallId = 'edit-workflow-order-tool'
     const store = getCopilotStore(channelId)
-    const calls: string[] = []
-    const fakeTool = {
-      setExecutionContext: vi.fn(),
-      handleUserAction: vi.fn(async () => {
-        calls.push('userAction')
-      }),
-      execute: vi.fn(async () => {
-        calls.push('execute')
-      }),
-      handleAccept: vi.fn(async () => {
-        calls.push('accept')
-      }),
-      handleReject: vi.fn(async () => {
-        calls.push('reject')
-      }),
+    const reviewResult = {
+      requiresReview: true,
+      reviewToken: 'review-token-edit-workflow-order',
+      entityKind: 'workflow',
+      entityId: 'wf-edit-workflow-order',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      documentFormat: 'tg-workflow-graph-mermaid-v1',
+      workflowState: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
     }
-
-    registerClientTool(toolCallId, fakeTool)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: reviewResult }),
+        }
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
       currentChat: {
@@ -2910,34 +3068,118 @@ describe('copilot tool user action delegation', () => {
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
-    expect(calls).toEqual(['userAction'])
-    expect(store.getState().isSendingMessage).toBe(true)
-
-    unregisterClientTool(toolCallId)
+    const executeRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/execute-copilot-server-tool'
+    })
+    expect(parseJsonRequestBody(executeRequest)).toEqual({
+      toolName: 'edit_workflow',
+      payload: {
+        entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+        entityId: 'wf-edit-workflow-order',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
   })
 
-  it('delegates review-state tool execution to the same client tool user-action handler', async () => {
+  it('passes dashboard layout owner scope to pending server-managed layout tools', async () => {
+    const channelId = 'copilot-edit-widget-owner-scope'
+    const toolCallId = 'edit-widget-owner-scope-tool'
+    const store = getCopilotStore(channelId)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: { success: true } }),
+        }
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      accessLevel: 'full',
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'edit_widget',
+          state: ClientToolCallState.pending,
+          params: {
+            entityId: 'layout-1',
+            panelId: 'panel-1',
+            params: { workflowId: 'workflow-1' },
+          },
+          provenance: {
+            contextEntityKind: 'dashboard_layout',
+            contextEntityId: 'layout-1',
+            workspaceId: 'workspace-1',
+          },
+        } as any,
+      },
+    })
+
+    await store.getState().executeCopilotToolCall(toolCallId)
+
+    const executeRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/execute-copilot-server-tool'
+    })
+    expect(parseJsonRequestBody(executeRequest)).toEqual({
+      toolName: 'edit_widget',
+      accessLevel: 'full',
+      payload: {
+        entityId: 'layout-1',
+        panelId: 'panel-1',
+        params: { workflowId: 'workflow-1' },
+      },
+      context: {
+        contextEntityKind: 'dashboard_layout',
+        contextEntityId: 'layout-1',
+        workspaceId: 'workspace-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
+  })
+
+  it('accepts review-state server-managed workflow edits through the review accept path', async () => {
     const channelId = 'copilot-edit-workflow-review'
     const toolCallId = 'edit-workflow-review-tool'
     const store = getCopilotStore(channelId)
-    const calls: string[] = []
-    const fakeTool = {
-      setExecutionContext: vi.fn(),
-      handleUserAction: vi.fn(async () => {
-        calls.push('userAction')
-      }),
-      execute: vi.fn(async () => {
-        calls.push('execute')
-      }),
-      handleAccept: vi.fn(async () => {
-        calls.push('accept')
-      }),
-      handleReject: vi.fn(async () => {
-        calls.push('reject')
-      }),
+    const reviewResult = {
+      requiresReview: true,
+      reviewToken: 'review-token-edit-workflow-review',
+      entityKind: 'workflow',
+      entityId: 'wf-edit-workflow-review',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      documentFormat: 'tg-workflow-graph-mermaid-v1',
+      workflowState: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
     }
-
-    registerClientTool(toolCallId, fakeTool)
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: { ...reviewResult, success: true } }),
+        }
+      }
+      if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     store.setState({
       currentChat: {
@@ -2963,23 +3205,23 @@ describe('copilot tool user action delegation', () => {
               'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             entityId: 'wf-edit-workflow-review',
           },
-          result: {
-            workflowState: {
-              blocks: {},
-              edges: [],
-              loops: {},
-              parallels: {},
-            },
-          },
+          result: reviewResult,
         } as any,
       },
     })
 
     await store.getState().executeCopilotToolCall(toolCallId)
 
-    expect(calls).toEqual(['userAction'])
-
-    unregisterClientTool(toolCallId)
+    const executeRequest = fetchMock.mock.calls.find(([input]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/execute-copilot-server-tool'
+    })
+    expect(parseJsonRequestBody(executeRequest)).toEqual({
+      toolName: 'edit_workflow',
+      reviewAction: 'accept',
+      reviewToken: 'review-token-edit-workflow-review',
+    })
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
   })
 
   it('auto-executes pending reviewed API tools when access switches to full', async () => {
@@ -3047,6 +3289,7 @@ describe('copilot tool user action delegation', () => {
       })
       expect(parseJsonRequestBody(executeRequest)).toEqual({
         toolName: 'make_api_request',
+        accessLevel: 'full',
         payload: {
           url: 'https://example.com/data',
           method: 'GET',
@@ -3067,8 +3310,9 @@ describe('copilot tool user action delegation', () => {
     const channelId = 'copilot-env-refresh'
     const toolCallId = 'set-env-tool'
     const store = getCopilotStore(channelId)
-    const originalLoadEnvironmentVariables = useEnvironmentStore.getState().loadEnvironmentVariables
-    const loadEnvironmentVariables = vi.fn(async () => {})
+    const invalidateQueries = vi
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
+      .mockResolvedValue(undefined)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/copilot/execute-copilot-server-tool') {
@@ -3077,7 +3321,7 @@ describe('copilot tool user action delegation', () => {
           status: 200,
           json: async () => ({
             success: true,
-            result: { message: 'ok' },
+            result: { success: true, scope: 'personal', message: 'ok' },
           }),
         }
       }
@@ -3094,30 +3338,23 @@ describe('copilot tool user action delegation', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
-    useEnvironmentStore.setState({ loadEnvironmentVariables } as any)
 
-    try {
-      store.setState({
-        accessLevel: 'full',
-        toolCallsById: {
-          [toolCallId]: {
-            id: toolCallId,
-            name: 'set_environment_variables',
-            state: ClientToolCallState.pending,
-            params: { variables: { API_KEY: 'secret' } },
-          } as any,
-        },
-      })
+    store.setState({
+      accessLevel: 'full',
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'set_environment_variables',
+          state: ClientToolCallState.pending,
+          params: { scope: 'personal', variables: { API_KEY: 'secret' } },
+        } as any,
+      },
+    })
 
-      await store.getState().executeCopilotToolCall(toolCallId)
+    await store.getState().executeCopilotToolCall(toolCallId)
 
-      expect(loadEnvironmentVariables).toHaveBeenCalledTimes(1)
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-    } finally {
-      useEnvironmentStore.setState({
-        loadEnvironmentVariables: originalLoadEnvironmentVariables,
-      } as any)
-    }
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: environmentKeys.personal() })
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
   })
 
   it('persists completed server-managed tool states into assistant message blocks', async () => {

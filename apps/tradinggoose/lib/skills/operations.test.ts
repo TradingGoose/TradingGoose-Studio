@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction, mockNanoid } = vi.hoisted(() => ({
+const { mockTransaction, mockNanoid, mockNotifyEntityListMembersUpserted } = vi.hoisted(() => ({
   mockTransaction: vi.fn(),
   mockNanoid: vi.fn(),
+  mockNotifyEntityListMembersUpserted: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -12,10 +13,32 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  workflow: {
+    id: 'workflow.id',
+    workspaceId: 'workflow.workspaceId',
+  },
   skill: {
     id: 'skill.id',
     workspaceId: 'skill.workspaceId',
     name: 'skill.name',
+  },
+  customTools: {
+    id: 'customTools.id',
+    workspaceId: 'customTools.workspaceId',
+  },
+  pineIndicators: {
+    id: 'pineIndicators.id',
+    workspaceId: 'pineIndicators.workspaceId',
+  },
+  mcpServers: {
+    id: 'mcpServers.id',
+    workspaceId: 'mcpServers.workspaceId',
+    deletedAt: 'mcpServers.deletedAt',
+  },
+  layoutMaps: {
+    id: 'layoutMaps.id',
+    workspaceId: 'layoutMaps.workspaceId',
+    userId: 'layoutMaps.userId',
   },
 }))
 
@@ -23,11 +46,28 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  ne: vi.fn((left: unknown, right: unknown) => ({ kind: 'ne', left, right })),
+  isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }))
 
 vi.mock('nanoid', () => ({
   nanoid: (...args: unknown[]) => mockNanoid(...args),
+}))
+
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  applySavedEntityState: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readSavedEntityListFieldsForExecution: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  lockSavedEntityList: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  refreshEntityListSession: mockNotifyEntityListMembersUpserted,
 }))
 
 import { importSkills } from '@/lib/skills/operations'
@@ -77,6 +117,7 @@ describe('skills import operations', () => {
     })
 
     const tx: any = {
+      execute: vi.fn(),
       select: vi.fn(() => createQueryChain(existingNames)),
       insert: vi.fn(() => ({
         values: insertValues,

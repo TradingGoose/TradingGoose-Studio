@@ -267,6 +267,7 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/monitor/components/data/api', () => ({
+  MONITOR_DATA_CHANGED_EVENT: 'tradinggoose:monitor-data-changed',
   createMonitorView: vi.fn(),
   createMonitorRecord: vi.fn(),
   deleteMonitorRecord: vi.fn(),

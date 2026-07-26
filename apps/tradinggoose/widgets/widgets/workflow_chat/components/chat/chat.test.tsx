@@ -8,9 +8,11 @@ import { useChatStore } from '@/stores/chat/store'
 import { Chat } from './chat'
 
 const mockHandleRunWorkflow = vi.hoisted(() => vi.fn())
+const mockExecution = vi.hoisted(() => ({ isWorkflowSessionReady: true }))
 
 vi.mock('@/hooks/workflow/use-workflow-execution', () => ({
   useWorkflowExecution: () => ({
+    isWorkflowSessionReady: mockExecution.isWorkflowSessionReady,
     handleRunWorkflow: mockHandleRunWorkflow,
   }),
 }))
@@ -40,8 +42,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 describe('Workflow Chat', () => {
-  let container: HTMLDivElement | null = null
-  let root: Root | null = null
+  let container: HTMLDivElement
+  let root: Root
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
   const scrollIntoView = vi.fn()
 
@@ -52,6 +54,7 @@ describe('Workflow Chat', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockExecution.isWorkflowSessionReady = true
     window.localStorage.clear()
     useChatStore.setState({
       messages: [],
@@ -65,19 +68,24 @@ describe('Workflow Chat', () => {
   })
 
   afterEach(async () => {
-    if (root) {
-      await act(async () => {
-        root?.unmount()
-      })
-    }
-    root = null
-    container?.remove()
-    container = null
+    await act(async () => root.unmount())
+    container.remove()
   })
 
   afterAll(() => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
+
+  async function renderChat(message = 'hello') {
+    function Harness() {
+      const [chatMessage, setChatMessage] = useState(message)
+      return <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} />
+    }
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => root.render(<Harness />))
+  }
 
   it('renders queued workflow stream chunks before the final result resolves', async () => {
     let resolveExecution: (value: unknown) => void = () => {}
@@ -111,18 +119,7 @@ describe('Workflow Chat', () => {
       })
     })
 
-    function Harness() {
-      const [message, setMessage] = useState('hello')
-      return <Chat chatMessage={message} setChatMessage={setMessage} />
-    }
-
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root?.render(<Harness />)
-    })
+    await renderChat()
 
     const sendButton = container.querySelector('button:last-of-type') as HTMLButtonElement
     await act(async () => {
@@ -162,18 +159,7 @@ describe('Workflow Chat', () => {
       logs: [],
     })
 
-    function Harness() {
-      const [message, setMessage] = useState('hello')
-      return <Chat chatMessage={message} setChatMessage={setMessage} />
-    }
-
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    await act(async () => {
-      root?.render(<Harness />)
-    })
+    await renderChat()
 
     await act(async () => {
       useChatStore.getState().setSelectedWorkflowOutput('workflow-1', ['agent-2_content'])
@@ -189,5 +175,24 @@ describe('Workflow Chat', () => {
         selectedOutputs: ['agent-2_content'],
       })
     )
+  })
+
+  it('keeps reader chat input, attachments, and local messages disabled', async () => {
+    mockExecution.isWorkflowSessionReady = false
+
+    await renderChat('blocked message')
+
+    const controls = Array.from(
+      container.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button')
+    )
+    expect(controls).toHaveLength(4)
+    expect(controls.every((control) => control.disabled)).toBe(true)
+
+    await act(async () => {
+      controls.at(-1)?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(mockHandleRunWorkflow).not.toHaveBeenCalled()
+    expect(useChatStore.getState().messages).toEqual([])
   })
 })

@@ -3,20 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
-  areListingIdentitiesEqual,
+  getListingIdentityKey,
   type ListingIdentity,
   type ListingInputValue,
   type ListingOption,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import {
-  buildListingDisplay,
-  getFlagData,
-} from '@/widgets/widgets/data_chart/utils/listing-utils'
 
 type UseListingStateArgs = {
   listingValue: ListingInputValue
-  intervalLabel?: string | null
 }
 
 export type ListingState = {
@@ -24,186 +19,77 @@ export type ListingState = {
   listingIdentitySignature: string | null
   resolvedListing: ListingOption | null
   isResolving: boolean
-  tooltipTitle: string
 }
 
-const getListingDetailsFromValue = (listingValue: ListingInputValue) => {
-  if (!listingValue || typeof listingValue !== 'object') return null
-  const candidate = listingValue as ListingOption
-  if (!hasResolvedListingDetails(candidate)) return null
-  return candidate
+const RESOLVE_RETRY_MS = 1000
+
+type ResolvedEntry = {
+  signature: string
+  listing: ListingOption
 }
 
-const hasResolvedListingDetails = (listing?: ListingOption | null): boolean => {
-  if (!listing) return false
-  const base = listing.base?.trim()
-  if (!base) return false
-  if (listing.listing_type === 'default') return true
-  const quote = listing.quote?.trim()
-  return Boolean(quote)
-}
+/**
+ * Resolves a widget-param listing identity into full listing details.
+ *
+ * `params.listing` is always the minimal `ListingIdentity` (the widget contract
+ * normalizes it), so the only source of display details is the market
+ * resolution endpoint. Resolution is keyed on the stable identity *signature*
+ * string — not on the identity object reference — so unrelated widget-param
+ * re-renders (view/interval/live bars/drawings churn) never cancel or restart
+ * an in-flight resolution.
+ */
+export const useListingState = ({ listingValue }: UseListingStateArgs): ListingState => {
+  const listing = useMemo(() => toListingValueObject(listingValue), [listingValue])
+  const listingIdentitySignature = listing ? getListingIdentityKey(listing) : null
 
-export const useListingState = ({
-  listingValue,
-  intervalLabel,
-}: UseListingStateArgs): ListingState => {
-  const [resolvedListingState, setResolvedListing] = useState<ListingOption | null>(null)
-  const [isResolving, setIsResolving] = useState(false)
-  const listingResolveRef = useRef(0)
-  const hydratedListingRef = useRef<ListingIdentity | null>(null)
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const listingIdentityRef = useRef<ListingIdentity | null>(null)
+  const [resolved, setResolved] = useState<ResolvedEntry | null>(null)
 
-  const listingIdentity = useMemo(() => {
-    if (!listingValue || typeof listingValue !== 'object') return null
-    return toListingValueObject(listingValue)
-  }, [listingValue])
-
-  const listing = listingIdentity ?? null
-  const listingIdentitySignature = useMemo(() => {
-    if (!listingIdentity) return null
-    return `${listingIdentity.listing_type}|${listingIdentity.listing_id}|${listingIdentity.base_id}|${listingIdentity.quote_id}`
-  }, [listingIdentity])
-
-  const listingDetailsFromValue = useMemo(
-    () => getListingDetailsFromValue(listingValue),
-    [listingValue]
-  )
+  // The effect below is keyed on `listingIdentitySignature` (a value-stable
+  // string). This ref hands it the current identity object without adding an
+  // unstable dependency that would re-run — and cancel — resolution on every
+  // param re-render.
+  const listingRef = useRef<ListingIdentity | null>(listing)
+  listingRef.current = listing
 
   useEffect(() => {
-    if (listingIdentity && !areListingIdentitiesEqual(listingIdentityRef.current, listingIdentity)) {
-      listingIdentityRef.current = listingIdentity
-    }
-
-    const activeIdentity = listingIdentityRef.current
-    if (!activeIdentity || !listingIdentitySignature) {
-      setResolvedListing(null)
-      setIsResolving(false)
-      hydratedListingRef.current = null
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = null
-      }
-      return
-    }
-
-    if (listingDetailsFromValue) {
-      setResolvedListing(listingDetailsFromValue)
-      setIsResolving(false)
-      hydratedListingRef.current = activeIdentity
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = null
-      }
-      return
-    }
-
-    setResolvedListing(null)
+    const identity = listingRef.current
+    if (!listingIdentitySignature || !identity) return
 
     let cancelled = false
-    const retryDelayMs = 1000
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-    const scheduleRetry = () => {
-      if (cancelled) return
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-      }
-      retryTimeoutRef.current = setTimeout(() => {
-        runResolve()
-      }, retryDelayMs)
-    }
-
-    const runResolve = () => {
-      if (cancelled) return
-      setIsResolving(true)
-      const requestId = ++listingResolveRef.current
-      requestListingResolution(activeIdentity)
-        .then((resolved) => {
-          if (cancelled || listingResolveRef.current !== requestId) return
-          if (resolved) {
-            setResolvedListing(resolved)
-            setIsResolving(false)
-            if (retryTimeoutRef.current) {
-              clearTimeout(retryTimeoutRef.current)
-              retryTimeoutRef.current = null
-            }
+    const run = () => {
+      requestListingResolution(identity)
+        .then((result) => {
+          if (cancelled) return
+          if (result) {
+            setResolved({ signature: listingIdentitySignature, listing: result })
             return
           }
-          scheduleRetry()
+          retryTimer = setTimeout(run, RESOLVE_RETRY_MS)
         })
         .catch(() => {
-          if (cancelled || listingResolveRef.current !== requestId) return
-          scheduleRetry()
+          if (cancelled) return
+          retryTimer = setTimeout(run, RESOLVE_RETRY_MS)
         })
     }
 
-    if (!areListingIdentitiesEqual(hydratedListingRef.current, activeIdentity)) {
-      hydratedListingRef.current = activeIdentity
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = null
-      }
-      runResolve()
-    }
+    run()
 
     return () => {
       cancelled = true
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = null
-      }
+      if (retryTimer) clearTimeout(retryTimer)
     }
-  }, [listingDetailsFromValue, listingIdentity, listingIdentitySignature])
+  }, [listingIdentitySignature])
 
-  const resolvedListingIdentity = useMemo(
-    () => toListingValueObject(resolvedListingState),
-    [resolvedListingState]
-  )
-  const displayListing = useMemo(() => {
-    if (listingDetailsFromValue) return listingDetailsFromValue
-    if (!listingIdentity || !resolvedListingState) return null
-    if (
-      resolvedListingIdentity &&
-      !areListingIdentitiesEqual(resolvedListingIdentity, listingIdentity)
-    ) {
-      return null
-    }
-    return resolvedListingState
-  }, [listingDetailsFromValue, listingIdentity, resolvedListingIdentity, resolvedListingState])
-
-  const listingType = displayListing?.listing_type ?? listingIdentity?.listing_type
-  const { listingSymbolText, listingName } = useMemo(
-    () => buildListingDisplay(displayListing),
-    [displayListing]
-  )
-  const flagData = useMemo(
-    () => (listingType === 'default' ? getFlagData(displayListing?.countryCode) : null),
-    [displayListing?.countryCode, listingType]
-  )
-  const overlayLabel = useMemo(() => {
-    let text = listingSymbolText
-    if (listingName && listingName !== listingSymbolText) {
-      text = `${text} - ${listingName}`
-    }
-    return text
-  }, [listingName, listingSymbolText])
-  const tooltipLabel = useMemo(() => {
-    if (listingType === 'default' && flagData?.emoji) {
-      return `${overlayLabel} ${flagData.emoji}`
-    }
-    return overlayLabel
-  }, [flagData?.emoji, listingType, overlayLabel])
-  const intervalText = intervalLabel ?? ''
-  const tooltipTitle = useMemo(() => {
-    if (!intervalText) return tooltipLabel
-    return `${tooltipLabel} - ${intervalText}`
-  }, [intervalText, tooltipLabel])
+  const resolvedListing =
+    resolved && resolved.signature === listingIdentitySignature ? resolved.listing : null
+  const isResolving = Boolean(listingIdentitySignature) && !resolvedListing
 
   return {
     listing,
     listingIdentitySignature,
-    resolvedListing: displayListing,
+    resolvedListing,
     isResolving,
-    tooltipTitle,
   }
 }

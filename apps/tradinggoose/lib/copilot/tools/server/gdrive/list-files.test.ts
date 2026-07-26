@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { listGDriveFilesServerTool } from './list-files'
 
 const mocks = vi.hoisted(() => ({
+  checkWorkspaceAccess: vi.fn(),
   executeTool: vi.fn(),
   getOAuthAccessTokenForUserCredential: vi.fn(),
-  verifyWorkflowAccess: vi.fn(),
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
   getOAuthAccessTokenForUserCredential: mocks.getOAuthAccessTokenForUserCredential,
 }))
 
-vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyWorkflowAccess: mocks.verifyWorkflowAccess,
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: mocks.checkWorkspaceAccess,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -33,10 +33,10 @@ describe('listGDriveFilesServerTool', () => {
     vi.clearAllMocks()
   })
 
-  it('uses authenticated route context as the user source', async () => {
-    mocks.verifyWorkflowAccess.mockResolvedValue({
+  it('uses explicit workspaceId and authenticated route context as the user source', async () => {
+    mocks.checkWorkspaceAccess.mockResolvedValue({
+      exists: true,
       hasAccess: true,
-      workspaceId: 'workspace-1',
     })
     mocks.getOAuthAccessTokenForUserCredential.mockResolvedValue('google-token')
     mocks.executeTool.mockResolvedValue({
@@ -49,11 +49,9 @@ describe('listGDriveFilesServerTool', () => {
 
     await expect(
       listGDriveFilesServerTool.execute(
-        { credentialId: 'credential-1', search_query: 'report' },
+        { workspaceId: 'workspace-1', credentialId: 'credential-1', search_query: 'report' },
         {
           userId: 'auth-user',
-          contextEntityKind: 'workflow',
-          contextEntityId: 'workflow-1',
         }
       )
     ).resolves.toEqual({
@@ -62,7 +60,7 @@ describe('listGDriveFilesServerTool', () => {
       nextPageToken: 'next-page',
     })
 
-    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1', 'read')
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'auth-user')
     expect(mocks.getOAuthAccessTokenForUserCredential).toHaveBeenCalledWith({
       credentialId: 'credential-1',
       userId: 'auth-user',

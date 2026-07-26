@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   type BlockState,
@@ -15,17 +14,18 @@ import {
   getSubBlockValue,
   validateCronExpression,
 } from '@/lib/schedules/utils'
+import { resolveTimezoneState } from '@/lib/timezone/timezone-resolver'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('ScheduledAPI')
 
 const ScheduleRequestSchema = z.object({
   workflowId: z.string(),
-  blockId: z.string().optional(),
+  blockId: z.string().min(1),
   state: z.object({
-    blocks: z.record(z.any()),
+    blocks: z.record(z.string(), z.any()),
     edges: z.array(z.any()),
-    loops: z.record(z.any()),
+    loops: z.record(z.string(), z.any()),
   }),
 })
 
@@ -212,66 +212,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authorized to modify this workflow' }, { status: 403 })
     }
 
-    // Find the target block - prioritize the specific blockId if provided
-    let targetBlock: BlockState | undefined
-    if (blockId) {
-      targetBlock = Object.values(state.blocks).find((block: any) => block.id === blockId) as
-        | BlockState
-        | undefined
-    } else {
-      targetBlock = Object.values(state.blocks).find(
-        (block: any) => block.type === 'schedule'
-      ) as BlockState | undefined
-    }
+    const targetBlock = Object.values(state.blocks).find((block: any) => block.id === blockId) as
+      | BlockState
+      | undefined
 
     if (!targetBlock) {
-      logger.warn(`[${requestId}] No schedule block found in workflow ${workflowId}`)
-      return NextResponse.json(
-        { error: 'No schedule block found in workflow' },
-        { status: 400 }
-      )
+      logger.warn(`[${requestId}] Schedule block ${blockId} not found in workflow ${workflowId}`)
+      return NextResponse.json({ error: 'Schedule block not found in workflow' }, { status: 400 })
     }
 
     const scheduleType = getSubBlockValue(targetBlock, 'scheduleType')
-    const isScheduleBlock = targetBlock.type === 'schedule'
+    if (targetBlock.type !== 'schedule') {
+      return NextResponse.json({ error: 'Schedule block is required' }, { status: 400 })
+    }
 
     const scheduleValues = getScheduleTimeValues(targetBlock)
 
     const hasValidConfig = hasValidScheduleConfig(scheduleType, scheduleValues, targetBlock)
 
-    // Debug logging to understand why validation fails
-    logger.info(`[${requestId}] Schedule validation debug:`, {
-      workflowId,
-      blockId,
-      blockType: targetBlock.type,
-      scheduleType,
-      hasValidConfig,
-      scheduleValues: {
-        minutesInterval: scheduleValues.minutesInterval,
-        dailyTime: scheduleValues.dailyTime,
-        cronExpression: scheduleValues.cronExpression,
-      },
-    })
-
     if (!hasValidConfig) {
       logger.info(
         `[${requestId}] Removing schedule for workflow ${workflowId} - no valid configuration found`
       )
-      // Build delete conditions
-      const deleteConditions = [eq(workflowSchedule.workflowId, workflowId)]
-      if (blockId) {
-        deleteConditions.push(eq(workflowSchedule.blockId, blockId))
-      }
-
       await db
         .delete(workflowSchedule)
-        .where(deleteConditions.length > 1 ? and(...deleteConditions) : deleteConditions[0])
+        .where(
+          and(eq(workflowSchedule.workflowId, workflowId), eq(workflowSchedule.blockId, blockId))
+        )
 
       return NextResponse.json({ message: 'Schedule removed' })
-    }
-
-    if (isScheduleBlock) {
-      logger.info(`[${requestId}] Processing schedule trigger block for workflow ${workflowId}`)
     }
 
     logger.debug(`[${requestId}] Schedule type for workflow ${workflowId}: ${scheduleType}`)
@@ -313,7 +282,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      nextRunAt = calculateNextRunTime(defaultScheduleType, scheduleValues, undefined, utcOffsetMinutes)
+      nextRunAt = calculateNextRunTime(
+        defaultScheduleType,
+        scheduleValues,
+        undefined,
+        utcOffsetMinutes
+      )
 
       logger.debug(
         `[${requestId}] Generated cron: ${cronExpression}, next run at: ${nextRunAt.toISOString()}`
@@ -383,7 +357,7 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

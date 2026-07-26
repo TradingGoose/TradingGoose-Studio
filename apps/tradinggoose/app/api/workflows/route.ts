@@ -8,10 +8,13 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
+import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowAPI')
@@ -19,7 +22,6 @@ const logger = createLogger('WorkflowAPI')
 const CreateWorkflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().default(''),
-  color: z.string().optional(),
   workspaceId: z.string().min(1, 'Workspace ID is required'),
   folderId: z.string().nullable().optional(),
   initialWorkflowState: z.any().optional(),
@@ -35,32 +37,28 @@ function getInitialWorkflowState(
 ): {
   canonicalState: WorkflowState
   variables: Record<string, unknown>
-} | null {
-  if (!isPlainObject(initialWorkflowState)) {
-    return null
-  }
+} {
+  const source = isPlainObject(initialWorkflowState) ? initialWorkflowState : {}
+  const sourceRecord = source as Record<string, unknown>
 
-  const blocks = isPlainObject(initialWorkflowState.blocks) ? initialWorkflowState.blocks : {}
-  const edges = Array.isArray(initialWorkflowState.edges) ? initialWorkflowState.edges : []
-  const loops = isPlainObject(initialWorkflowState.loops) ? initialWorkflowState.loops : {}
-  const parallels = isPlainObject(initialWorkflowState.parallels)
-    ? initialWorkflowState.parallels
-    : {}
-  const variables = isPlainObject(initialWorkflowState.variables)
-    ? initialWorkflowState.variables
-    : {}
+  const blocks = isPlainObject(sourceRecord.blocks) ? sourceRecord.blocks : {}
+  const edges = Array.isArray(sourceRecord.edges) ? sourceRecord.edges : []
+  const loops = isPlainObject(sourceRecord.loops) ? sourceRecord.loops : {}
+  const parallels = isPlainObject(sourceRecord.parallels) ? sourceRecord.parallels : {}
+  const variables = isPlainObject(sourceRecord.variables) ? sourceRecord.variables : {}
+  const direction =
+    sourceRecord.direction === 'TD' || sourceRecord.direction === 'LR'
+      ? sourceRecord.direction
+      : undefined
 
   return {
     canonicalState: {
+      ...(direction ? { direction } : {}),
       blocks: blocks as WorkflowState['blocks'],
       edges: edges as WorkflowState['edges'],
       loops: loops as WorkflowState['loops'],
       parallels: parallels as WorkflowState['parallels'],
       lastSaved: now.getTime(),
-      isDeployed: false,
-      deployedAt: undefined,
-      deploymentStatuses: {},
-      needsRedeployment: false,
     },
     variables,
   }
@@ -129,7 +127,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, description, color, workspaceId, folderId, initialWorkflowState } =
+    const { name, description, workspaceId, folderId, initialWorkflowState } =
       CreateWorkflowSchema.parse(body)
 
     const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
@@ -158,13 +156,10 @@ export async function POST(req: NextRequest) {
     const now = new Date()
     const initialState = getInitialWorkflowState(initialWorkflowState, now)
     const remappedVariables = remapVariableIds(
-      normalizeVariables(initialState?.variables),
+      normalizeVariables(initialState.variables),
       workflowId
     )
-    const resolvedColor =
-      typeof color === 'string' && color.trim().length > 0
-        ? color.trim()
-        : getStableVibrantColor(workflowId)
+    const resolvedColor = getStableVibrantColor(workflowId)
 
     logger.info(`[${requestId}] Creating workflow ${workflowId} for user ${session.user.id}`)
 
@@ -180,54 +175,40 @@ export async function POST(req: NextRequest) {
       // Silently fail
     }
 
-    await db.insert(workflow).values({
-      id: workflowId,
-      userId: session.user.id,
-      workspaceId,
-      folderId: folderId || null,
-      name,
-      description,
-      color: resolvedColor,
-      lastSynced: now,
-      createdAt: now,
-      updatedAt: now,
-      isDeployed: false,
-      collaborators: [],
-      runCount: 0,
-      variables: remappedVariables,
-      isPublished: false,
-      marketplaceData: null,
+    await db.transaction(async (tx) => {
+      await lockSavedEntityList(tx, 'workflow', workspaceId)
+      await tx.insert(workflow).values({
+        id: workflowId,
+        userId: session.user.id,
+        workspaceId,
+        folderId: folderId || null,
+        name,
+        description,
+        color: resolvedColor,
+        lastSynced: now,
+        createdAt: now,
+        updatedAt: now,
+        isDeployed: false,
+        collaborators: [],
+        runCount: 0,
+      })
     })
 
-    let persistedInitialState = initialState?.canonicalState ?? null
-    if (initialState) {
-      const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
-      if (!saveResult.success) {
-        await db.delete(workflow).where(eq(workflow.id, workflowId))
-        throw new Error(saveResult.error || 'Failed to persist initial workflow state')
-      }
-      persistedInitialState = saveResult.normalizedState ?? initialState.canonicalState
+    try {
+      await applyWorkflowState(
+        workflowId,
+        session.user.id,
+        createWorkflowSnapshot(initialState.canonicalState),
+        remappedVariables
+      )
+    } catch (error) {
+      await db.transaction(async (tx) => {
+        await lockSavedEntityList(tx, 'workflow', workspaceId)
+        await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      })
+      throw error
     }
-
-    // Seed the Yjs doc for the new workflow
-    const defaultWorkflowSnapshot = createWorkflowSnapshot({
-      blocks: persistedInitialState?.blocks,
-      edges: persistedInitialState?.edges,
-      loops: persistedInitialState?.loops,
-      parallels: persistedInitialState?.parallels,
-      lastSaved: now.toISOString(),
-      isDeployed: false,
-    })
-
-    const yjsSeedResult = await tryApplyWorkflowState(
-      workflowId,
-      defaultWorkflowSnapshot,
-      remappedVariables,
-      name
-    )
-    if (yjsSeedResult.success) {
-      logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)
-    }
+    await refreshWorkflowListForWorkflow(workflowId)
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)
 
@@ -242,12 +223,15 @@ export async function POST(req: NextRequest) {
       updatedAt: now,
     })
   } catch (error) {
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid workflow creation data`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

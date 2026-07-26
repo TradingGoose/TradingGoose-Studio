@@ -3,9 +3,9 @@
 import { memo } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocale } from 'next-intl'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
-import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 interface ContextUsagePillProps {
   percentage: number

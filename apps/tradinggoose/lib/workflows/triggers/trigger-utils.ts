@@ -1,3 +1,5 @@
+import { LISTING_IDENTITY_VALUE_TYPE, type ListingIdentity } from '@/lib/listing/identity'
+
 /**
  * Generates mock data based on the output type definition
  */
@@ -26,6 +28,13 @@ function generateMockValue(type: string, _description?: string, fieldName?: stri
         name: 'Sample Object',
         status: 'active',
       }
+    case LISTING_IDENTITY_VALUE_TYPE:
+      return {
+        listing_id: 'AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      } satisfies ListingIdentity
     default:
       return null
   }

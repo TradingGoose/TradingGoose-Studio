@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -86,7 +87,7 @@ export const apiKey = pgTable(
     expiresAt: timestamp('expires_at'),
   },
   (table) => ({
-    // Ensure workspace keys have a workspace_id and personal keys don't
+    // Ensure only workspace keys have a workspace_id.
     workspaceTypeCheck: check(
       'workspace_type_check',
       sql`(type = 'workspace' AND workspace_id IS NOT NULL) OR (type = 'personal' AND workspace_id IS NULL)`
@@ -151,7 +152,6 @@ export const pineIndicators = pgTable(
     name: text('name').notNull().default('New Indicator'),
     color: text('color').notNull().default('#3972F6'),
     pineCode: text('pine_code').notNull().default(''),
-    inputMeta: json('input_meta'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -167,15 +167,12 @@ export const watchlistTable = pgTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     parentId: uuid('parent_id').references((): AnyPgColumn => watchlistTable.id, {
       onDelete: 'cascade',
     }),
     name: text('name').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
-    isSystem: boolean('is_system').notNull().default(false),
     settings: jsonb('settings').notNull().default('{}'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -192,8 +189,8 @@ export const watchlistTable = pgTable(
     ),
     parentSortIdx: index('watchlist_table_parent_sort_idx').on(table.parentId, table.sortOrder),
     workspaceUserNameUnique: uniqueIndex('watchlist_table_workspace_user_name_unique')
-      .on(table.workspaceId, table.userId, table.name)
-      .where(sql`${table.parentId} is null`),
+      .on(table.workspaceId, table.name)
+      .where(sql`${table.userId} is null and ${table.parentId} is null`),
   })
 )
 
@@ -201,9 +198,11 @@ export const watchlistItem = pgTable(
   'watchlist_item',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    watchlistId: uuid('watchlist_id')
+    workspaceId: text('workspace_id')
       .notNull()
-      .references(() => watchlistTable.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    watchlistId: uuid('watchlist_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
     containerId: uuid('container_id').references(() => watchlistTable.id, { onDelete: 'cascade' }),
     listing: jsonb('listing').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -211,9 +210,14 @@ export const watchlistItem = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
+    workspaceUserIdx: index('watchlist_item_workspace_user_idx').on(
+      table.workspaceId,
+      table.userId
+    ),
     watchlistIdx: index('watchlist_item_watchlist_idx').on(table.watchlistId),
-    watchlistContainerSortIdx: index('watchlist_item_watchlist_container_sort_idx').on(
-      table.watchlistId,
+    workspaceContainerSortIdx: index('watchlist_item_workspace_container_sort_idx').on(
+      table.workspaceId,
+      table.userId,
       table.containerId,
       table.sortOrder
     ),
@@ -221,20 +225,21 @@ export const watchlistItem = pgTable(
       table.containerId,
       table.sortOrder
     ),
-    watchlistListingIdentityUnique: uniqueIndex(
-      'watchlist_item_watchlist_listing_identity_unique'
-    ).on(
-      table.watchlistId,
-      sql`coalesce(${table.listing}->>'listing_type', '')`,
-      sql`coalesce(${table.listing}->>'listing_id', '')`,
-      sql`coalesce(${table.listing}->>'base_id', '')`,
-      sql`coalesce(${table.listing}->>'quote_id', '')`
-    ),
+    watchlistListingIdentityUnique: uniqueIndex('watchlist_item_watchlist_listing_identity_unique')
+      .on(
+        table.workspaceId,
+        sql`coalesce(${table.containerId}::text, '')`,
+        sql`coalesce(${table.listing}->>'listing_type', '')`,
+        sql`coalesce(${table.listing}->>'listing_id', '')`,
+        sql`coalesce(${table.listing}->>'base_id', '')`,
+        sql`coalesce(${table.listing}->>'quote_id', '')`
+      )
+      .where(sql`${table.userId} is null`),
   })
 )
 
-export const layoutMap = pgTable(
-  'layout_map',
+export const layoutMaps = pgTable(
+  'layout_maps',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id')
@@ -244,22 +249,50 @@ export const layoutMap = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    sort_order: integer('sort_order').notNull().default(0),
-    layout: jsonb('layout').notNull().default('{}'),
-    color_pair: jsonb('color_pair').notNull().default('{}'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    layout: jsonb('layout').notNull(),
     isActive: boolean('is_active').notNull().default(false),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workspaceIdx: index('layout_map_workspace_idx').on(table.workspaceId),
-    userIdx: index('layout_map_user_idx').on(table.userId),
-    workspaceUserIdx: index('layout_map_workspace_user_idx').on(table.workspaceId, table.userId),
-    workspaceUserActiveIdx: index('layout_map_workspace_user_active_idx').on(
+    workspaceIdx: index('layout_maps_workspace_idx').on(table.workspaceId),
+    userIdx: index('layout_maps_user_idx').on(table.userId),
+    workspaceUserIdx: index('layout_maps_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserActiveIdx: index('layout_maps_workspace_user_active_idx').on(
       table.workspaceId,
       table.userId,
       table.isActive
     ),
+  })
+)
+
+export const layoutWidgets = pgTable(
+  'layout_widgets',
+  {
+    id: text('id').primaryKey(),
+    layoutId: text('layout_id')
+      .notNull()
+      .references(() => layoutMaps.id, { onDelete: 'cascade' }),
+    pairColor: text('pair_color').notNull(),
+    params: jsonb('params'),
+  },
+  (table) => ({
+    layoutIdIdx: index('layout_widgets_layout_id_idx').on(table.layoutId),
+  })
+)
+
+export const layoutPairs = pgTable(
+  'layout_pairs',
+  {
+    layoutId: text('layout_id')
+      .notNull()
+      .references(() => layoutMaps.id, { onDelete: 'cascade' }),
+    color: text('color').notNull(),
+    context: jsonb('context').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.layoutId, table.color] }),
   })
 )
 

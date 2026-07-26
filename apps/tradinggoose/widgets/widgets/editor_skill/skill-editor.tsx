@@ -1,82 +1,56 @@
-import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { createLogger } from '@/lib/logs/console/logger'
+import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { isValidSkillName } from '@/hooks/queries/skills'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { createLogger } from '@/lib/logs/console/logger'
-import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
-import { isValidSkillName, useUpdateSkill } from '@/hooks/queries/skills'
-import { useSkillsStore } from '@/stores/skills/store'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 
 const logger = createLogger('SkillEditor')
 
-interface SkillInitialValues {
-  id: string
-  name: string
-  description: string
-  content: string
-}
-
 interface SkillEditorProps {
-  workspaceId: string
-  initialValues: SkillInitialValues
-  saveRef: MutableRefObject<() => void>
-  onDirtyChange?: (isDirty: boolean) => void
+  skillId: string
+  entityName: string
+  doc: Y.Doc | null
+  save: (identityName?: string) => Promise<void>
+  panelId?: string
+  widgetKey?: string
+  readOnly?: boolean
 }
 
 export function SkillEditor({
-  workspaceId,
-  initialValues,
-  saveRef,
-  onDirtyChange,
+  skillId,
+  entityName,
+  doc,
+  save,
+  panelId,
+  widgetKey,
+  readOnly = false,
 }: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [content, setContent] = useState('')
+  const [name, setName] = useState(entityName)
+  const [description, setDescription] = useYjsStringField(doc, 'description')
+  const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [savedValues, setSavedValues] = useState({
-    name: '',
-    description: '',
-    content: '',
-  })
-
-  const updateSkillMutation = useUpdateSkill()
+  const readOnlyRef = useLatestRef(readOnly)
 
   useEffect(() => {
-    const nextSavedValues = {
-      name: initialValues.name,
-      description: initialValues.description,
-      content: initialValues.content,
-    }
-
-    setName(nextSavedValues.name)
-    setDescription(nextSavedValues.description)
-    setContent(nextSavedValues.content)
-    setSavedValues(nextSavedValues)
     setError(null)
-  }, [initialValues.content, initialValues.description, initialValues.id, initialValues.name])
-
-  useEffect(() => {
-    onDirtyChange?.(
-      name !== savedValues.name ||
-        description !== savedValues.description ||
-        content !== savedValues.content
-    )
-  }, [
-    content,
-    description,
-    name,
-    onDirtyChange,
-    savedValues.content,
-    savedValues.description,
-    savedValues.name,
-  ])
+    setName(entityName)
+  }, [doc, entityName, skillId])
 
   const handleSave = useCallback(async () => {
+    if (!doc || readOnlyRef.current) return
+
     const trimmedName = name.trim()
     const trimmedDescription = description.trim()
     const trimmedContent = content.trim()
@@ -101,56 +75,51 @@ export function SkillEditor({
       return
     }
 
-    const existingSkills = useSkillsStore.getState().getAllSkills(workspaceId)
-    const isDuplicate = existingSkills.some((skill) => {
-      if (skill.id === initialValues.id) {
-        return false
-      }
-
-      return skill.name === trimmedName
-    })
-
-    if (isDuplicate) {
-      setError(formatTemplate(copy.validation.duplicateName, { name: trimmedName }))
-      return
-    }
-
     setIsSaving(true)
     setError(null)
 
     try {
-      await updateSkillMutation.mutateAsync({
-        workspaceId,
-        skillId: initialValues.id,
-        updates: {
-          name: trimmedName,
-          description: trimmedDescription,
-          content: trimmedContent,
-        },
-      })
-
-      setName(trimmedName)
-      setDescription(trimmedDescription)
-      setContent(trimmedContent)
-      setSavedValues({
-        name: trimmedName,
-        description: trimmedDescription,
-        content: trimmedContent,
-      })
+      if (readOnlyRef.current) return
+      await save(trimmedName !== entityName ? trimmedName : undefined)
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
-      logger.error('Failed to save skill', { error: saveError, skillId: initialValues.id })
+      logger.error('Failed to save skill', { error: saveError, skillId })
       setError(message)
     } finally {
       setIsSaving(false)
     }
-  }, [content, description, initialValues.id, name, updateSkillMutation, workspaceId])
+  }, [content, copy.validation, description, doc, entityName, name, readOnlyRef, save, skillId])
 
-  useEffect(() => {
-    saveRef.current = () => {
-      void handleSave()
-    }
-  }, [handleSave, saveRef])
+  const handleExport = useCallback(() => {
+    if (!doc) return
+    const json = exportSkillsAsJson({
+      exportedFrom: 'skillEditor',
+      skills: [{ name, description, content }],
+    })
+    const fileNameBase =
+      name
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+        .replace(/\s+/g, '-') || 'skill'
+    const blobUrl = URL.createObjectURL(
+      new Blob([json], { type: 'application/json;charset=utf-8' })
+    )
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = `${fileNameBase}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(blobUrl)
+  }, [content, description, doc, name])
+
+  useEditorActions<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: skillId,
+    export: handleExport,
+    save: handleSave,
+  })
 
   return (
     <div className='flex h-full flex-col overflow-hidden'>
@@ -160,14 +129,14 @@ export function SkillEditor({
           <Input
             id='skill-editor-name'
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setName(event.target.value)
+            }}
             placeholder={copy.form.namePlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
-          <p className='text-muted-foreground text-xs'>
-            {copy.form.helperText}
-          </p>
+          <p className='text-muted-foreground text-xs'>{copy.form.helperText}</p>
         </div>
 
         <div className='space-y-2'>
@@ -175,9 +144,11 @@ export function SkillEditor({
           <Input
             id='skill-editor-description'
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setDescription(event.target.value)
+            }}
             placeholder={copy.form.descriptionPlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving || readOnly}
             maxLength={1024}
           />
         </div>
@@ -187,9 +158,11 @@ export function SkillEditor({
           <Textarea
             id='skill-editor-content'
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) => {
+              if (!readOnlyRef.current) setContent(event.target.value)
+            }}
             placeholder={copy.form.instructionsPlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving || readOnly}
             className='min-h-[320px] resize-y font-mono text-sm'
             maxLength={50000}
           />

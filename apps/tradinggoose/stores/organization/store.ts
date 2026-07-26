@@ -1,8 +1,8 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useGeneralStore } from '@/stores/settings/general/store'
+import { stripLocaleFromPathname } from '@/i18n/utils'
 import type { OrganizationStore, WorkspaceInvitation } from '@/stores/organization/types'
 import {
   calculateSeatUsage,
@@ -14,6 +14,12 @@ import {
 const logger = createLogger('OrganizationStore')
 
 const CACHE_DURATION = 30 * 1000
+
+function getCurrentRouteLocale() {
+  return typeof window === 'undefined'
+    ? 'en'
+    : stripLocaleFromPathname(window.location.pathname).locale
+}
 
 export const useOrganizationStore = create<OrganizationStore>()(
   devtools(
@@ -291,18 +297,8 @@ export const useOrganizationStore = create<OrganizationStore>()(
               if (permissionResponse.ok) {
                 const permissionData = await permissionResponse.json()
 
-                // Check if current user has admin permission
-                // Use userId if provided, otherwise fall back to checking isOwner from workspace data
-                let hasAdminAccess = false
+                const hasAdminAccess = permissionData.currentUserPermission === 'admin'
 
-                if (userId && permissionData.users) {
-                  const currentUserPermission = permissionData.users.find(
-                    (user: any) => user.id === userId || user.userId === userId
-                  )
-                  hasAdminAccess = currentUserPermission?.permissionType === 'admin'
-                }
-
-                // Also check if user is the workspace owner
                 const isOwner = workspace.isOwner || workspace.ownerId === userId
 
                 if (hasAdminAccess || isOwner) {
@@ -519,7 +515,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
             workspaceInvitations,
           })
 
-          const locale = useGeneralStore.getState().preferredLocale
+          const locale = getCurrentRouteLocale()
           const inviteUrl =
             workspaceInvitations && workspaceInvitations.length > 0
               ? `/api/organizations/${activeOrganization.id}/invitations?batch=true`

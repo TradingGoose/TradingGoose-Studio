@@ -37,6 +37,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
   let mockDbResults: any[] = []
   let mockGetSession: any
   let mockHasWorkspaceAdminAccess: any
+  let mockGrantWorkspaceAccessInTx: any
   let mockTransaction: any
 
   beforeEach(async () => {
@@ -57,8 +58,12 @@ describe('Workspace Invitation [invitationId] API Route', () => {
     }))
 
     mockHasWorkspaceAdminAccess = vi.fn()
+    mockGrantWorkspaceAccessInTx = vi.fn()
     vi.doMock('@/lib/permissions/utils', () => ({
       hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
+    }))
+    vi.doMock('@/lib/workspaces/service', () => ({
+      grantWorkspaceAccessInTx: mockGrantWorkspaceAccessInTx,
     }))
 
     vi.doMock('@/lib/env', () => {
@@ -185,7 +190,6 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([mockInvitation])
       mockDbResults.push([mockWorkspace])
       mockDbResults.push([{ ...mockUser, email: 'invited@example.com' }])
-      mockDbResults.push([])
 
       mockTransaction.mockImplementation(async (callback: any) => {
         await callback({
@@ -209,7 +213,47 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       expect(response.headers.get('location')).toBe(
         'https://test.tradinggoose.ai/es/workspace/workspace-456/dashboard'
       )
+      expect(mockGrantWorkspaceAccessInTx).toHaveBeenCalledWith(expect.any(Object), {
+        workspaceId: 'workspace-456',
+        userId: 'user-123',
+        permissionType: 'read',
+      })
     })
+
+    it.each(['write', 'admin'] as const)(
+      'merges an accepted %s invitation with existing workspace access',
+      async (permissionType) => {
+        const { GET } = await import('./route')
+        mockGetSession.mockResolvedValue({
+          user: { ...mockUser, email: 'invited@example.com' },
+        })
+        mockDbResults.push([{ ...mockInvitation, permissions: permissionType }])
+        mockDbResults.push([mockWorkspace])
+        mockDbResults.push([{ ...mockUser, email: 'invited@example.com' }])
+        mockTransaction.mockImplementation(async (callback: any) => {
+          await callback({
+            update: vi.fn().mockReturnThis(),
+            set: vi.fn().mockReturnThis(),
+            where: vi.fn().mockResolvedValue(undefined),
+          })
+        })
+
+        const request = new NextRequest(
+          'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+          { headers: { referer: 'https://test.tradinggoose.ai/invite/token-abc123' } }
+        )
+        const response = await GET(request, {
+          params: Promise.resolve({ invitationId: 'token-abc123' }),
+        })
+
+        expect(response.status).toBe(307)
+        expect(mockGrantWorkspaceAccessInTx).toHaveBeenCalledWith(expect.any(Object), {
+          workspaceId: 'workspace-456',
+          userId: 'user-123',
+          permissionType,
+        })
+      }
+    )
 
     it('should redirect to error page when invitation expired', async () => {
       const { GET } = await import('./route')
@@ -393,6 +437,9 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       }))
       vi.doMock('@/lib/permissions/utils', () => ({
         hasWorkspaceAdminAccess: vi.fn(),
+      }))
+      vi.doMock('@/lib/workspaces/service', () => ({
+        grantWorkspaceAccessInTx: vi.fn(),
       }))
       vi.doMock('@/lib/env', () => {
         const mockEnv = {

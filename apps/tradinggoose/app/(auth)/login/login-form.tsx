@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,8 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
+import { isSessionRecoveryAuthError, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -27,11 +27,12 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
-import { useMessages } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
+import { clearUserData } from '@/stores'
 
 const logger = createLogger('LoginForm')
+const REAUTH_CLEANUP_TIMEOUT_MS = 4000
 
 const validateEmailField = (
   emailValue: string,
@@ -122,6 +123,50 @@ export default function LoginPage({
   const [email, setEmail] = useState('')
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
+  const isReauth = searchParams.get('reauth') === '1'
+  const shouldRunReauthCleanupRef = useRef(isReauth)
+  const reauthCleanupPromiseRef = useRef<Promise<void> | null>(null)
+
+  const runReauthCleanup = useCallback(() => {
+    if (reauthCleanupPromiseRef.current) {
+      return reauthCleanupPromiseRef.current
+    }
+
+    const abortController = new AbortController()
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const signOutPromise = client
+      .signOut({ fetchOptions: { signal: abortController.signal } })
+      .then(() => undefined)
+      .catch((error) => {
+        if (!abortController.signal.aborted) {
+          logger.warn('Reauth sign-out failed', { error })
+        }
+      })
+    const timeoutPromise = new Promise<void>((resolve) => {
+      timeoutId = setTimeout(() => {
+        abortController.abort()
+        resolve()
+      }, REAUTH_CLEANUP_TIMEOUT_MS)
+    })
+
+    const cleanupPromise = Promise.race([signOutPromise, timeoutPromise]).finally(async () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      await clearUserData()
+      shouldRunReauthCleanupRef.current = false
+      reauthCleanupPromiseRef.current = null
+    })
+
+    reauthCleanupPromiseRef.current = cleanupPromise
+    return cleanupPromise
+  }, [])
+
+  const prepareAuthStart = useCallback(async () => {
+    if (shouldRunReauthCleanupRef.current || reauthCleanupPromiseRef.current) {
+      await runReauthCleanup()
+    }
+  }, [runReauthCleanup])
 
   useEffect(() => {
     if (searchParams) {
@@ -143,6 +188,13 @@ export default function LoginPage({
       setIsInviteFlow(inviteFlow)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    shouldRunReauthCleanupRef.current = isReauth
+    if (isReauth) {
+      void runReauthCleanup()
+    }
+  }, [isReauth, runReauthCleanup])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -180,6 +232,17 @@ export default function LoginPage({
     setPasswordErrors(errors)
     setShowValidationError(false)
   }
+
+  const isSessionRecoveryError = (error: any) =>
+    [
+      error?.code,
+      error?.error,
+      error?.message,
+      error?.response?.data?.error,
+      error?.response?.data?.message,
+    ].some((value) => {
+      return isSessionRecoveryAuthError(value)
+    })
 
   const resolveLoginErrorMessage = (error: any) => {
     const rawMessage =
@@ -226,9 +289,6 @@ export default function LoginPage({
     }
     if (authErrorCode === 'EMAIL_PASSWORD_DISABLED') {
       return loginCopy.errors.emailPasswordDisabled
-    }
-    if (authErrorCode === 'FAILED_TO_CREATE_SESSION') {
-      return loginCopy.errors.failedToCreateSession
     }
     if (authErrorCode === 'TOO_MANY_ATTEMPTS' || searchable.includes('too many attempts')) {
       return loginCopy.errors.tooManyAttempts
@@ -278,6 +338,9 @@ export default function LoginPage({
     }
 
     try {
+      await prepareAuthStart()
+
+      let requiresReauthCleanup = false
       const result = await client.signIn.email(
         {
           email,
@@ -287,22 +350,16 @@ export default function LoginPage({
         {
           onError: (ctx) => {
             console.error('Login error:', ctx.error)
-            const errorMessage: string[] = []
-            const resolvedMessage = resolveLoginErrorMessage(ctx.error)
-
-            const status =
-              (ctx.error as any)?.status ??
-              (ctx.error as any)?.statusCode ??
-              (ctx.error as any)?.response?.status
-
-            if (resolvedMessage === null) {
+            if (isSessionRecoveryError(ctx.error)) {
+              requiresReauthCleanup = true
               return
             }
 
-            // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
-            if (status === 401) {
-              handleAuthError('login-unauthorized').catch(() => {})
-              errorMessage.push(loginCopy.errors.sessionExpired)
+            const errorMessage: string[] = []
+            const resolvedMessage = resolveLoginErrorMessage(ctx.error)
+
+            if (resolvedMessage === null) {
+              return
             }
 
             if (resolvedMessage) {
@@ -320,6 +377,15 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
+        if (requiresReauthCleanup || isSessionRecoveryError(result?.error)) {
+          shouldRunReauthCleanupRef.current = true
+          void runReauthCleanup()
+          setPasswordErrors([loginCopy.errors.unableToSignInNow])
+          setShowValidationError(true)
+          setIsLoading(false)
+          return
+        }
+
         const message =
           resolveLoginErrorMessage(result?.error) ?? loginCopy.errors.unableToSignInNow
 
@@ -334,6 +400,13 @@ export default function LoginPage({
           sessionStorage.setItem('verificationEmail', email)
         }
         router.push('/verify')
+        return
+      }
+      if (isSessionRecoveryError(err)) {
+        shouldRunReauthCleanupRef.current = true
+        void runReauthCleanup()
+        setPasswordErrors([loginCopy.errors.unableToSignInNow])
+        setShowValidationError(true)
         return
       }
 
@@ -551,8 +624,15 @@ export default function LoginPage({
             githubAvailable={githubAvailable}
             isProduction={isProduction}
             callbackURL={callbackUrl}
+            beforeSignIn={prepareAuthStart}
           >
-            {ssoEnabled && <SSOLoginButton callbackURL={callbackUrl} variant='outline' />}
+            {ssoEnabled && (
+              <SSOLoginButton
+                callbackURL={callbackUrl}
+                variant='outline'
+                beforeSignIn={prepareAuthStart}
+              />
+            )}
           </SocialLoginButtons>
         </div>
       )}

@@ -1,95 +1,58 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createWorkflowExportFile } from '@/lib/workflows/import-export'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
-import { useSkillsStore } from '@/stores/skills/store'
-import type { SkillDefinition } from '@/stores/skills/types'
-import { useWorkflowRegistry } from '../registry/store'
+import { fetchSkills } from '@/hooks/queries/skills'
 
 const logger = createLogger('WorkflowJsonStore')
 
 export interface WorkflowJsonScope {
-  workflowId?: string | null
-  channelId?: string
-  workspaceSkills?: Array<Pick<SkillDefinition, 'id' | 'name' | 'description' | 'content'>>
+  workflowId: string
+  name: string
+  description?: string
+  workspaceId?: string | null
 }
 
 interface WorkflowJsonStore {
   json: string
-  lastGenerated?: number
 
-  generateJson: (scope?: WorkflowJsonScope) => void
-  getJson: (scope?: WorkflowJsonScope) => Promise<string>
-  refreshJson: (scope?: WorkflowJsonScope) => void
+  generateJson: (scope: WorkflowJsonScope) => Promise<void>
+  getJson: (scope: WorkflowJsonScope) => Promise<string>
+  refreshJson: (scope: WorkflowJsonScope) => Promise<void>
 }
 
 export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
   devtools(
     (set, get) => ({
       json: '',
-      lastGenerated: undefined,
 
-      generateJson: (scope) => {
-        const clearJson = () =>
-          set({
-            json: '',
-            lastGenerated: Date.now(),
-          })
+      generateJson: async (scope) => {
+        const clearJson = () => set({ json: '' })
 
-        const scopedWorkflowId =
-          typeof scope?.workflowId === 'string' && scope.workflowId.trim().length > 0
-            ? scope.workflowId
-            : null
-        const registryState = useWorkflowRegistry.getState()
-        const activeWorkflowId =
-          scopedWorkflowId ?? registryState.getActiveWorkflowId(scope?.channelId)
-
-        if (!activeWorkflowId) {
-          logger.warn('No active workflow to generate JSON for')
+        const workflowId = scope.workflowId.trim()
+        if (!workflowId) {
+          logger.warn('No workflow to generate JSON for')
           clearJson()
           return
         }
 
         try {
-          const currentWorkflow = registryState.workflows[activeWorkflowId]
-
-          if (!currentWorkflow) {
-            logger.warn('No workflow metadata found for ID:', activeWorkflowId)
-            clearJson()
-            return
-          }
-
-          const workflowSnapshot = getSnapshotForWorkflow(activeWorkflowId)
+          const workflowSnapshot = getSnapshotForWorkflow(workflowId)
 
           if (!workflowSnapshot) {
-            logger.warn('No workflow state found for ID:', activeWorkflowId)
+            logger.warn('No workflow state found for ID:', workflowId)
             clearJson()
             return
           }
-
-          const workspaceSkills =
-            scope?.workspaceSkills ??
-            (currentWorkflow.workspaceId
-              ? useSkillsStore
-                  .getState()
-                  .getAllSkills(currentWorkflow.workspaceId)
-                  .map((skill) => ({
-                    id: skill.id,
-                    name: skill.name,
-                    description: skill.description,
-                    content: skill.content,
-                  }))
-              : [])
 
           const exportFile = createWorkflowExportFile({
             workflow: {
-              name: currentWorkflow.name,
-              description: currentWorkflow.description ?? '',
-              color: currentWorkflow.color ?? '',
+              name: scope.name,
+              description: scope.description ?? '',
               state: workflowSnapshot,
             },
-            skills: workspaceSkills,
+            skills: scope.workspaceId ? await fetchSkills(scope.workspaceId) : [],
           })
 
           // Convert to formatted JSON
@@ -97,7 +60,6 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
 
           set({
             json: jsonString,
-            lastGenerated: Date.now(),
           })
 
           logger.info('Workflow JSON generated successfully', {
@@ -115,24 +77,12 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
       },
 
       getJson: async (scope) => {
-        const currentTime = Date.now()
-        const { json, lastGenerated } = get()
-        const hasScope =
-          typeof scope?.workflowId === 'string' ||
-          (typeof scope?.channelId === 'string' && scope.channelId.length > 0)
-
-        // Scoped requests are always refreshed to avoid channel/workflow cache mismatch.
-        // Unscoped requests keep the short cache to reduce repeated work.
-        if (hasScope || !lastGenerated || currentTime - lastGenerated > 1000) {
-          get().generateJson(scope)
-          return get().json
-        }
-
-        return json
+        await get().generateJson(scope)
+        return get().json
       },
 
-      refreshJson: (scope) => {
-        get().generateJson(scope)
+      refreshJson: async (scope) => {
+        await get().generateJson(scope)
       },
     }),
     {

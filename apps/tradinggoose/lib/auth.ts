@@ -28,16 +28,12 @@ import {
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
-import { localizeUrl } from '@/i18n/utils'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import {
   ensureDefaultUserSubscription,
   getEffectiveSubscription,
 } from '@/lib/billing/core/subscription'
-import {
-  handleNewUser,
-  resetUserDefaultUsageToOnboardingAllowanceBalance,
-} from '@/lib/billing/core/usage'
+import { handleNewUser } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
@@ -55,11 +51,11 @@ import {
   handleInvoicePaymentSucceeded,
 } from '@/lib/billing/webhooks/invoices'
 import {
+  handleStripeSubscriptionDeleted,
   handleSubscriptionCreated,
-  handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
-import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { resolveEmailLocale } from '@/lib/email/locale'
+import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
@@ -86,6 +82,8 @@ import {
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { createDefaultWorkspaceForUser } from '@/lib/workspaces/service'
+import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
@@ -428,15 +426,14 @@ export const auth = betterAuth({
     getBaseUrl(),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
   ],
+  advanced: {
+    crossSubDomainCookies: { enabled: false },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,
   }),
   session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 24 * 60 * 60, // 24 hours in seconds
-    },
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
     freshAge: 60 * 60, // 1 hour (or set to 0 to disable completely)
@@ -461,6 +458,8 @@ export const auth = betterAuth({
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
             userId: user.id,
           })
+
+          await createDefaultWorkspaceForUser(user.id, user.name)
 
           try {
             await markWaitlistEntrySignedUp(user.email, user.id)
@@ -646,7 +645,6 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
-    nextCookies(),
     oneTimeToken({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
@@ -689,18 +687,9 @@ export const auth = betterAuth({
             to: data.email,
             subject: getEmailSubject(data.type, locale),
             html,
+            text: `${getEmailSubject(data.type, locale)}\n\n${data.otp}`,
             emailType: 'transactional',
           })
-
-          if (!result.success && result.message.includes('no email service configured')) {
-            logger.info('🔑 VERIFICATION CODE FOR LOGIN/SIGNUP', {
-              email: data.email,
-              otp: data.otp,
-              type: data.type,
-              validation: validation.checks,
-            })
-            return
-          }
 
           if (!result.success) {
             throw new Error(`Failed to send verification code: ${result.message}`)
@@ -1688,65 +1677,6 @@ export const auth = betterAuth({
             })
           }
         },
-        onSubscriptionDeleted: async ({
-          event,
-          stripeSubscription,
-          subscription,
-        }: {
-          event: Stripe.Event
-          stripeSubscription: Stripe.Subscription
-          subscription: any
-        }) => {
-          logger.info('[onSubscriptionDeleted] Subscription deleted', {
-            subscriptionId: subscription.id,
-            referenceType: subscription.referenceType,
-            referenceId: subscription.referenceId,
-          })
-
-          try {
-            await syncSubscriptionBillingTierFromStripeSubscription(
-              subscription.id,
-              stripeSubscription || (event.data.object as Stripe.Subscription | undefined)
-            )
-
-            const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
-            const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
-
-            await handleSubscriptionDeleted(subscriptionRecord)
-
-            const { billingEnabled } = await getBillingGateState()
-            const nextSubscriptionRecord =
-              billingEnabled && subscriptionRecord.referenceType === 'user'
-                ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
-                : subscriptionRecord
-
-            if (
-              nextSubscriptionRecord.referenceType === 'user' &&
-              nextSubscriptionRecord.tier?.isDefault &&
-              !nextSubscriptionRecord.stripeSubscriptionId
-            ) {
-              await resetUserDefaultUsageToOnboardingAllowanceBalance(
-                nextSubscriptionRecord.referenceId
-              )
-            }
-
-            await syncSubscriptionUsageLimits(nextSubscriptionRecord)
-
-            logger.info('[onSubscriptionDeleted] Reconciled subscription usage limits', {
-              subscriptionId: subscription.id,
-              referenceType: subscription.referenceType,
-              referenceId: subscription.referenceId,
-            })
-          } catch (error) {
-            logger.error('[onSubscriptionDeleted] Failed to handle subscription deletion', {
-              subscriptionId: subscription.id,
-              referenceType: subscription.referenceType,
-              referenceId: subscription.referenceId,
-              error,
-            })
-            throw error
-          }
-        },
       },
       onEvent: async (event: Stripe.Event) => {
         logger.info('[onEvent] Received Stripe webhook', {
@@ -1772,7 +1702,10 @@ export const auth = betterAuth({
               await handleManualEnterpriseSubscription(event)
               break
             }
-            // Note: customer.subscription.deleted is handled by better-auth's onSubscriptionDeleted callback above
+            case 'customer.subscription.deleted': {
+              await handleStripeSubscriptionDeleted(event)
+              break
+            }
             default:
               logger.info('[onEvent] Ignoring unsupported webhook event', {
                 eventId: event.id,
@@ -1871,6 +1804,7 @@ export const auth = betterAuth({
         },
       },
     }),
+    nextCookies(),
   ],
   onAPIError: {
     errorURL: '/error',
@@ -1883,15 +1817,11 @@ export const auth = betterAuth({
   },
 })
 
-export async function getSession(
-  headersOverride?: Headers,
-  options?: { disableCookieCache?: boolean }
-) {
+export async function getSession(headersOverride?: Headers) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
-      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })

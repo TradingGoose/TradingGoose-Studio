@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Wrench } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
 interface CustomToolListItemProps {
@@ -26,11 +26,11 @@ interface CustomToolListItemProps {
   onDelete: (customToolId: string) => Promise<void>
   onRename: (customToolId: string, title: string) => Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isDeleting?: boolean
 }
 
-const getCustomToolTitle = (tool: CustomToolDefinition, fallback = '') =>
-  tool.title || tool.schema?.function?.name || fallback
+const getCustomToolTitle = (tool: CustomToolDefinition) => tool.title.trim()
 
 export function CustomToolListItem({
   tool,
@@ -39,21 +39,23 @@ export function CustomToolListItem({
   onDelete,
   onRename,
   canEdit,
+  canDelete = true,
   isDeleting = false,
 }: CustomToolListItemProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(getCustomToolTitle(tool, copy.untitledCustomTool))
+  const [editValue, setEditValue] = useState(getCustomToolTitle(tool))
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = getCustomToolTitle(tool, copy.untitledCustomTool)
+  const nameLabel = getCustomToolTitle(tool)
+  const iconColor = getEntityIconColor(tool.id)
 
   useEffect(() => {
-    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
-  }, [copy.untitledCustomTool, tool.title, tool.schema?.function?.name])
+    setEditValue(getCustomToolTitle(tool))
+  }, [tool.title])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -65,7 +67,7 @@ export function CustomToolListItem({
   const handleStartEdit = () => {
     if (!canEdit) return
     setIsEditing(true)
-    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
+    setEditValue(getCustomToolTitle(tool))
   }
 
   const handleSaveEdit = async () => {
@@ -108,7 +110,7 @@ export function CustomToolListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting) return
+    if (isDeleting || !canDelete) return
     try {
       await onDelete(tool.id)
       setShowDeleteDialog(false)
@@ -182,10 +184,11 @@ export function CustomToolListItem({
           draggable={false}
         >
           <span
-            className='flex h-5 w-5 items-center justify-center rounded-xs bg-amber-500/15 p-0.5'
+            className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+            style={{ backgroundColor: `${iconColor}20` }}
             aria-hidden='true'
           >
-            <Wrench className='h-full text-amber-600' aria-hidden='true' />
+            <Wrench className='h-full' style={{ color: iconColor }} aria-hidden='true' />
           </span>
           {interactiveChildren}
         </button>
@@ -206,16 +209,18 @@ export function CustomToolListItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameCustomTool}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteCustomTool}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteCustomTool}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

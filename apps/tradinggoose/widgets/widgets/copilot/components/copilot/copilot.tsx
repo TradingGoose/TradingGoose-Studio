@@ -17,11 +17,10 @@ import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import {
   buildImplicitCopilotContexts,
   resolveCopilotWorkflowId,
@@ -45,7 +44,11 @@ export function shouldMarkUserScrolledDuringStream(params: {
 interface CopilotProps {
   workspaceId: string
   panelWidth: number
-  pairColor?: PairColor
+  effectiveParams?: Record<string, unknown> | null
+  layoutId?: string | null
+  ownerUserId?: string | null
+  layoutName?: string | null
+  authenticatedUserId?: string | null
   inputDisabled?: boolean
   reviewTarget: ReviewTargetDescriptor | null
 }
@@ -56,7 +59,20 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false, reviewTarget }, ref) => {
+  (
+    {
+      workspaceId,
+      panelWidth,
+      effectiveParams,
+      layoutId = null,
+      ownerUserId = null,
+      layoutName = null,
+      authenticatedUserId = null,
+      inputDisabled = false,
+      reviewTarget,
+    },
+    ref
+  ) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
@@ -73,16 +89,27 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const programmaticScrollResetTimerRef = useRef<number | null>(null)
     const programmaticScrollInFlightRef = useRef(false)
 
-    const pairContext = usePairColorContext(pairColor)
+    const entityLabels = useWorkspaceWidgetsMessages().workflowLabels
     const implicitContexts = useMemo(
       () =>
         buildImplicitCopilotContexts({
           workspaceId,
-          pairContext,
+          effectiveParams,
+          currentLayoutId: layoutId,
+          currentLayoutOwnerUserId: ownerUserId,
+          currentLabels: {
+            dashboard_layout: normalizeOptionalString(layoutName) ?? 'Current dashboard layout',
+            workflow: entityLabels.currentWorkflow,
+            skill: entityLabels.currentSkill,
+            custom_tool: entityLabels.currentTool,
+            indicator: entityLabels.currentIndicator,
+            mcp_server: entityLabels.currentMcpServer,
+            watchlist: entityLabels.currentWatchlist,
+          },
         }),
-      [pairContext, workspaceId]
+      [effectiveParams, entityLabels, layoutId, layoutName, ownerUserId, workspaceId]
     )
-    const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+    const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
     const liveContext = useMemo(
       () => ({
         workflowId,
@@ -95,8 +122,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       () => ({
         liveContext,
         implicitContexts,
+        authenticatedUserId: normalizeOptionalString(authenticatedUserId) ?? null,
       }),
-      [implicitContexts, liveContext]
+      [authenticatedUserId, implicitContexts, liveContext]
     )
     // Use the new copilot store
     const {

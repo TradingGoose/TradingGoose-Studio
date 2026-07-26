@@ -250,12 +250,7 @@ import { sendSMSTool } from '@/tools/twilio'
 import { typeformFilesTool, typeformInsightsTool, typeformResponsesTool } from '@/tools/typeform'
 import type { ToolConfig } from '@/tools/types'
 import { visionTool } from '@/tools/vision'
-import {
-  watchlistAddListingTool,
-  watchlistReadListItemsTool,
-  watchlistReadListsTool,
-  watchlistRemoveListingTool,
-} from '@/tools/watchlist'
+import { watchlistReadListItemsTool, watchlistReadListsTool } from '@/tools/watchlist'
 import {
   wealthboxReadContactTool,
   wealthboxReadNoteTool,
@@ -465,8 +460,6 @@ export const tools: Record<string, ToolConfig> = {
   trading_order_history: orderHistoryTool,
   watchlist_read_lists: watchlistReadListsTool,
   watchlist_read_list_items: watchlistReadListItemsTool,
-  watchlist_add_listing: watchlistAddListingTool,
-  watchlist_remove_listing: watchlistRemoveListingTool,
   stagehand_extract: stagehandExtractTool,
   stagehand_agent: stagehandAgentTool,
   mem0_add_memories: mem0AddMemoriesTool,

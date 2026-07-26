@@ -205,13 +205,21 @@ export async function calculateSubscriptionOverage(sub: {
       })
     }
   } else if (sub.tier) {
-    const usage = await getUserUsageData(sub.referenceId)
+    const [stats] = await db
+      .select({
+        currentPeriodCost: userStats.currentPeriodCost,
+        totalCost: userStats.totalCost,
+      })
+      .from(userStats)
+      .where(eq(userStats.userId, sub.referenceId))
+      .limit(1)
+    const currentUsage = parseDecimal(stats?.currentPeriodCost ?? stats?.totalCost)
     const { usageAllowance } = getBillingTierPricing(sub.tier)
-    totalOverage = Math.max(0, usage.currentUsage - usageAllowance)
+    totalOverage = Math.max(0, currentUsage - usageAllowance)
 
     logger.info('Calculated individual-tier overage', {
       subscriptionId: sub.id,
-      totalIndividualUsage: usage.currentUsage,
+      totalIndividualUsage: currentUsage,
       usageAllowance,
       totalOverage,
     })

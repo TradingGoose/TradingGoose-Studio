@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Wrench } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,20 +18,17 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useMessages } from 'next-intl'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
-const CUSTOM_TOOL_ICON_COLOR = '#d97706'
 
 interface CustomToolDropdownProps {
   workspaceId?: string | null
   value?: string | null
-  onChange?: (customToolId: string | null, tool?: CustomToolDefinition) => void
+  onChange?: (customToolId: string | null) => void
   disabled?: boolean
   placeholder?: string
   align?: 'start' | 'end'
@@ -38,8 +36,13 @@ interface CustomToolDropdownProps {
   menuClassName?: string
 }
 
-const getToolTitle = (tool?: CustomToolDefinition | null, fallback = '') =>
-  tool?.title || tool?.schema?.function?.name || fallback
+type CustomToolDropdownOption = {
+  id: string
+  title: string
+  description: string
+}
+
+const getToolTitle = (tool?: CustomToolDropdownOption | null) => tool?.title.trim() ?? ''
 
 export function CustomToolDropdown({
   workspaceId,
@@ -53,37 +56,23 @@ export function CustomToolDropdown({
 }: CustomToolDropdownProps) {
   const copy = useMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const {
-    data: queryTools = [],
-    error: toolsError,
-    isLoading: toolsLoading,
-    isFetching,
-    refetch,
-  } = useCustomTools(workspaceId ?? '')
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
+  const { members, error, isLoading: listLoading } = useEntityList('custom_tool', workspaceId)
 
   const workspaceTools = useMemo(() => {
-    const tools = queryTools.length > 0 ? queryTools : storedTools
-    return [...tools].sort((a, b) => {
-      const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-      const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-    })
-  }, [queryTools, storedTools])
+    if (!workspaceId) return []
+    return members.map((member) => ({
+      id: member.entityId,
+      title: member.entityName,
+      description: member.entityDescription ?? '',
+    }))
+  }, [members, workspaceId])
 
   const selectedToolId = value ?? null
   const selectedTool = workspaceTools.find((tool) => tool.id === selectedToolId) ?? null
   const hasTools = workspaceTools.length > 0
-  const isLoading = (toolsLoading || isFetching) && !hasTools
+  const isLoading = listLoading && !hasTools
   const isDropdownDisabled = disabled || !workspaceId
-  const errorMessage =
-    toolsError instanceof Error
-      ? toolsError.message
-      : toolsError
-        ? copy.unableToLoadCustomTools
-        : null
+  const errorMessage = error || null
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceToChooseCustomTools
     : errorMessage
@@ -109,21 +98,15 @@ export function CustomToolDropdown({
     if (!normalizedQuery) return workspaceTools
 
     return workspaceTools.filter((tool) => {
-      const title = getToolTitle(tool, copy.untitledCustomTool).toLowerCase()
-      const description = tool.schema?.function?.description?.toLowerCase() ?? ''
-      return title.includes(normalizedQuery) || description.includes(normalizedQuery)
+      const title = getToolTitle(tool).toLowerCase()
+      return (
+        title.includes(normalizedQuery) || tool.description.toLowerCase().includes(normalizedQuery)
+      )
     })
   }, [searchQuery, workspaceTools])
 
-  const handleRetry = () => {
-    if (!workspaceId) return
-    refetch().catch((error) => {
-      console.error('Failed to reload custom tools for custom tool dropdown', error)
-    })
-  }
-
-  const handleSelect = (tool: CustomToolDefinition) => {
-    onChange?.(tool.id, tool)
+  const handleSelect = (tool: CustomToolDropdownOption) => {
+    onChange?.(tool.id)
   }
 
   const renderMenuBody = () => {
@@ -139,13 +122,6 @@ export function CustomToolDropdown({
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
           <p className='text-destructive'>{errorMessage}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }
@@ -179,6 +155,7 @@ export function CustomToolDropdown({
       <div className='flex flex-col gap-1'>
         {filteredTools.map((tool) => {
           const isSelected = tool.id === selectedToolId
+          const iconColor = getEntityIconColor(tool.id)
           return (
             <DropdownMenuItem
               key={tool.id}
@@ -192,17 +169,13 @@ export function CustomToolDropdown({
               <div className='flex min-w-0 items-center gap-2'>
                 <span
                   className='h-5 w-5 rounded-xs p-0.5'
-                  style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+                  style={{ backgroundColor: `${iconColor}20` }}
                   aria-hidden='true'
                 >
-                  <Wrench
-                    className='h-4 w-4'
-                    aria-hidden='true'
-                    style={{ color: CUSTOM_TOOL_ICON_COLOR }}
-                  />
+                  <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getToolTitle(tool, copy.untitledCustomTool)}
+                  {getToolTitle(tool)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -215,20 +188,21 @@ export function CustomToolDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const selectedIconColor = getEntityIconColor(selectedToolId)
 
   const iconBadge = (
     <span
       className='h-5 w-5 rounded-xs p-0.5'
-      style={{ backgroundColor: `${CUSTOM_TOOL_ICON_COLOR}20` }}
+      style={{ backgroundColor: `${selectedIconColor}20` }}
       aria-hidden='true'
     >
-      <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: CUSTOM_TOOL_ICON_COLOR }} />
+      <Wrench className='h-4 w-4' aria-hidden='true' style={{ color: selectedIconColor }} />
     </span>
   )
 
   const labelContent = selectedTool ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getToolTitle(selectedTool, copy.untitledCustomTool)}
+      {getToolTitle(selectedTool)}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>

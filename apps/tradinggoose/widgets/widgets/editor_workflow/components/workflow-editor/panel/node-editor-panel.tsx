@@ -14,7 +14,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/use-workflow-doc'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
@@ -45,10 +45,14 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
 const panelClassName =
   'allow-scroll !m-2 max-h-[calc(100%-1rem)] min-w-0 w-[calc(100%-1rem)] max-w-96 overflow-y-auto rounded-lg border bg-card shadow-md'
 
+// React Flow's `.react-flow__panel` hard-codes `z-index: 5`; FloatingControls sits
+// at `z-10` in the same stacking context. An inline style is the reliable way to
+// lift the panel above it (beats the class rule, needs no Tailwind class generation).
+const panelStyle = { zIndex: 20 }
+
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
-  const { workflowEditorCopy, workflowInspectorCopy, getLocalizedDefaultBlockName } =
-    useWorkflowI18n()
-  const userPermissions = useUserPermissionsContext()
+  const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
+  const canEdit = useOptionalWorkflowSession()?.canEdit === true
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const selectedLoop = useLoop(selectedNodeId ?? '')
   const selectedParallel = useParallel(selectedNodeId ?? '')
@@ -81,7 +85,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return getSubflowBlockConfig(selectedBlock.type) ?? null
   }, [selectedBlock])
 
-  const shouldDisableWrite = !userPermissions.canEdit || isSelectedBlockProtected
+  const shouldDisableWrite = !canEdit || isSelectedBlockProtected
   const {
     collaborativeToggleBlockAdvancedMode,
     collaborativeUpdateBlockName,
@@ -111,7 +115,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const handleSaveRename = useCallback(() => {
     const blockId = renamingBlockIdRef.current
-    if (!blockId || !isRenaming) return
+    if (!blockId || !isRenaming || shouldDisableWrite) return
 
     const trimmedName = editedName.trim()
     const currentName = selectedBlock?.name ?? ''
@@ -127,7 +131,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     renamingBlockIdRef.current = null
     setIsRenaming(false)
     setEditedName('')
-  }, [collaborativeUpdateBlockName, editedName, isRenaming, selectedBlock])
+  }, [collaborativeUpdateBlockName, editedName, isRenaming, selectedBlock, shouldDisableWrite])
 
   const handleCancelRename = useCallback(() => {
     renamingBlockIdRef.current = null
@@ -140,10 +144,10 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const handleToggleAdvancedFields = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation()
-      if (!selectedBlock) return
+      if (!selectedBlock || shouldDisableWrite) return
       collaborativeToggleBlockAdvancedMode(selectedBlock.id)
     },
-    [collaborativeToggleBlockAdvancedMode, selectedBlock]
+    [collaborativeToggleBlockAdvancedMode, selectedBlock, shouldDisableWrite]
   )
 
   useEffect(() => {
@@ -241,9 +245,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const subflowIterationInputValue = tempIterationValue ?? String(subflowIterations)
   const subflowMaxIterations = selectedBlock?.type === 'loop' ? 100 : 20
-  const selectedBlockDisplayName = selectedBlock
-    ? getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
-    : ''
+  const selectedBlockDisplayName = selectedBlock ? selectedBlock.name : ''
 
   const handleSubflowTypeChange = useCallback(
     (newType: string) => {
@@ -362,6 +364,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
+        style={panelStyle}
         className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
@@ -380,6 +383,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
+        style={panelStyle}
         className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
@@ -399,6 +403,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   return (
     <Panel
       position='top-right'
+      style={panelStyle}
       className={`${panelClassName} px-4 pb-4`}
       onMouseDown={stopPanelEvent}
       onPointerDown={stopPanelEvent}

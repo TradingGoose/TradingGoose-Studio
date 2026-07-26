@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
 describe('Copilot Chat Review Session GET', () => {
+  let GET: typeof import('@/app/api/copilot/chat/route').GET
   const mockSelect = vi.fn()
   const mockFromSessions = vi.fn()
   const mockWhereSessions = vi.fn()
@@ -20,7 +21,7 @@ describe('Copilot Chat Review Session GET', () => {
 
   const mockMapReviewItemToApi = vi.fn()
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     setupCommonApiMocks()
 
@@ -177,6 +178,14 @@ describe('Copilot Chat Review Session GET', () => {
       getCopilotModel: vi.fn(),
     }))
 
+    vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
+      mirrorLocalCopilotCompletionUsageReports: vi.fn().mockResolvedValue(undefined),
+    }))
+
+    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
+      buildCopilotRuntimeProviderConfig: vi.fn(),
+    }))
+
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({
       buildAppendReviewTurn: vi.fn(),
       MESSAGE_ROLES: {
@@ -208,24 +217,39 @@ describe('Copilot Chat Review Session GET', () => {
         createdAt: 'createdAt',
         updatedAt: 'updatedAt',
       },
-      mapSessionToApiResponse: vi.fn((session: any, opts: { messageCount: number; messages?: any[] }) => ({
-        reviewSessionId: session.id,
-        workspaceId: session.workspaceId,
-        entityKind: session.entityKind,
-        entityId: session.entityId,
-        draftSessionId: session.draftSessionId,
-        title: session.title,
-        messages: opts.messages ?? [],
-        messageCount: opts.messageCount,
-        conversationId: session.conversationId,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-      })),
+      mapSessionToApiResponse: vi.fn(
+        (session: any, opts: { messageCount: number; messages?: any[] }) => ({
+          reviewSessionId: session.id,
+          workspaceId: session.workspaceId,
+          entityKind: session.entityKind,
+          entityId: session.entityId,
+          draftSessionId: session.draftSessionId,
+          title: session.title,
+          messages: opts.messages ?? [],
+          messageCount: opts.messageCount,
+          conversationId: session.conversationId,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        })
+      ),
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
+      ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
+      ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
+      ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_MCP_SERVER: 'mcp_server',
+      ENTITY_KIND_SKILL: 'skill',
+      ENTITY_KIND_WATCHLIST: 'watchlist',
       ENTITY_KIND_WORKFLOW: 'workflow',
-      REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
+      REVIEW_ENTITY_KINDS: [
+        'workflow',
+        'skill',
+        'custom_tool',
+        'mcp_server',
+        'indicator',
+        'knowledge_base',
+      ],
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -251,6 +275,7 @@ describe('Copilot Chat Review Session GET', () => {
       proxyCopilotRequest: vi.fn(),
     }))
 
+    ;({ GET } = await import('@/app/api/copilot/chat/route'))
   })
 
   afterEach(() => {
@@ -263,7 +288,6 @@ describe('Copilot Chat Review Session GET', () => {
       'http://localhost:3000/api/copilot/chat?reviewSessionId=review-session-1'
     )
 
-    const { GET } = await import('@/app/api/copilot/chat/route')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -325,7 +349,6 @@ describe('Copilot Chat Review Session GET', () => {
       'http://localhost:3000/api/copilot/chat?reviewSessionId=entity-review-session-1'
     )
 
-    const { GET } = await import('@/app/api/copilot/chat/route')
     const response = await GET(request)
 
     expect(response.status).toBe(404)
@@ -346,7 +369,6 @@ describe('Copilot Chat Review Session GET', () => {
       'http://localhost:3000/api/copilot/chat?workspaceId=workspace-1'
     )
 
-    const { GET } = await import('@/app/api/copilot/chat/route')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -385,5 +407,4 @@ describe('Copilot Chat Review Session GET', () => {
 
     expect(mockSelect).toHaveBeenCalledTimes(3)
   })
-
 })

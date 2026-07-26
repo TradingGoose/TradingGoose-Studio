@@ -1,12 +1,12 @@
 import { createHmac } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowLogWebhook } from '@tradinggoose/db/schema'
+import { workflowLogWebhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret } from '@/lib/utils-server'
+import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowLogWebhookTestAPI')
 
@@ -19,13 +19,7 @@ function generateSignature(secret: string, timestamp: number, body: string): str
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: workflowId } = await params
-    const userId = session.user.id
     const { searchParams } = new URL(request.url)
     const webhookId = searchParams.get('webhookId')
 
@@ -33,22 +27,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'webhookId is required' }, { status: 400 })
     }
 
-    const hasAccess = await db
-      .select({ id: workflow.id })
-      .from(workflow)
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflow.id, workflowId))
-      .limit(1)
-
-    if (hasAccess.length === 0) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    const { error } = await validateWorkflowPermissions(workflowId, workflowId, 'read')
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
     const [webhook] = await db

@@ -1,6 +1,6 @@
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import type * as Y from 'yjs'
 import {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
   type MonacoEditorHandle,
@@ -10,13 +10,18 @@ import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
+import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import {
+  CUSTOM_TOOL_EDITOR_ACTION_EVENT,
+  type CustomToolEditorActionEventDetail,
+} from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -25,36 +30,35 @@ const logger = createLogger('CustomToolEditor')
 
 export type CustomToolEditorSection = 'schema' | 'code'
 
-interface CustomToolInitialValues {
-  id: string
-  title: string
-  schema: any
-  code: string
-}
-
 interface CustomToolEditorProps {
   activeSection: CustomToolEditorSection
   blockId: string
-  initialValues: CustomToolInitialValues
-  onSave: () => void
+  toolId: string
+  toolTitle: string
+  doc: Y.Doc | null
+  save: () => Promise<void>
   onSectionChange: (section: CustomToolEditorSection) => void
-  exportRef: MutableRefObject<() => void>
-  saveRef: MutableRefObject<() => void>
+  panelId?: string
+  widgetKey?: string
+  readOnly?: boolean
 }
 
 export function CustomToolEditor({
   activeSection,
   blockId,
-  initialValues,
-  onSave,
+  toolId,
+  toolTitle,
+  doc,
+  save,
   onSectionChange,
-  exportRef,
-  saveRef,
+  panelId,
+  widgetKey,
+  readOnly = false,
 }: CustomToolEditorProps) {
   const copy = useWorkspaceWidgetsMessages().customToolEditor
   const workspaceId = useWorkspaceId()
-  const [jsonSchema, setJsonSchema] = useState('')
-  const [functionCode, setFunctionCode] = useState('')
+  const [jsonSchema, setJsonSchema] = useYjsStringField(doc, 'schemaText')
+  const [functionCode, setFunctionCode] = useYjsStringField(doc, 'codeText')
   const [schemaError, setSchemaError] = useState<string | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
   const codeEditorRef = useRef<HTMLDivElement>(null)
@@ -68,24 +72,21 @@ export function CustomToolEditor({
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
-
-  const updateToolMutation = useUpdateCustomTool()
+  const readOnlyRef = useLatestRef(readOnly)
 
   useEffect(() => {
-    try {
-      setJsonSchema(
-        typeof initialValues.schema === 'string'
-          ? initialValues.schema
-          : JSON.stringify(initialValues.schema, null, 2)
-      )
-      setFunctionCode(initialValues.code || '')
-      setSchemaError(null)
-      setCodeError(null)
-    } catch (error) {
-      logger.error('Error initializing custom tool editor:', { error })
-      setSchemaError(copy.validation.failedToLoadToolData)
-    }
-  }, [initialValues.code, initialValues.id, initialValues.schema])
+    setSchemaError(null)
+    setCodeError(null)
+  }, [toolId])
+
+  useEffect(() => {
+    if (!readOnly) return
+    setShowEnvVars(false)
+    setShowTags(false)
+    setShowSchemaParams(false)
+    setSearchTerm('')
+    setActiveSourceBlockId(null)
+  }, [readOnly])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -102,7 +103,7 @@ export function CustomToolEditor({
   }, [])
 
   const handleJsonSchemaChange = (value: string) => {
-    if (schemaGeneration.isLoading || schemaGeneration.isStreaming) return
+    if (readOnlyRef.current || schemaGeneration.isLoading || schemaGeneration.isStreaming) return
     setJsonSchema(value)
 
     if (!value.trim()) {
@@ -110,49 +111,54 @@ export function CustomToolEditor({
       return
     }
 
+    let parsed: any
     try {
-      const parsed = JSON.parse(value)
-
-      if (!parsed.type || parsed.type !== 'function') {
-        setSchemaError(copy.validation.missingTypeFunction)
-        return
-      }
-
-      if (!parsed.function || !parsed.function.name) {
-        setSchemaError(copy.validation.missingFunctionName)
-        return
-      }
-
-      if (!parsed.function.parameters) {
-        setSchemaError(copy.validation.missingFunctionParameters)
-        return
-      }
-
-      if (!parsed.function.parameters.type) {
-        setSchemaError(copy.validation.missingParametersType)
-        return
-      }
-
-      if (parsed.function.parameters.properties === undefined) {
-        setSchemaError(copy.validation.missingParametersProperties)
-        return
-      }
-
-      if (
-        typeof parsed.function.parameters.properties !== 'object' ||
-        parsed.function.parameters.properties === null
-      ) {
-        setSchemaError(copy.validation.parametersPropertiesMustBeObject)
-        return
-      }
-
-      setSchemaError(null)
+      parsed = JSON.parse(value)
     } catch {
       setSchemaError(copy.validation.invalidJsonFormat)
+      return
     }
+
+    if (!parsed.type || parsed.type !== 'function') {
+      setSchemaError(copy.validation.missingTypeFunction)
+      return
+    }
+
+    if (!parsed.function || !parsed.function.parameters) {
+      setSchemaError(copy.validation.missingFunctionParameters)
+      return
+    }
+
+    if (!parsed.function.parameters.type) {
+      setSchemaError(copy.validation.missingParametersType)
+      return
+    }
+
+    if (parsed.function.parameters.properties === undefined) {
+      setSchemaError(copy.validation.missingParametersProperties)
+      return
+    }
+
+    if (
+      typeof parsed.function.parameters.properties !== 'object' ||
+      parsed.function.parameters.properties === null
+    ) {
+      setSchemaError(copy.validation.parametersPropertiesMustBeObject)
+      return
+    }
+
+    try {
+      CustomToolOpenAiSchema.parse(parsed)
+    } catch {
+      setSchemaError(copy.validation.failedToValidateSchema)
+      return
+    }
+
+    setSchemaError(null)
   }
 
   const handleFunctionCodeChange = (value: string) => {
+    if (readOnlyRef.current) return
     setFunctionCode(value)
     if (codeError) {
       setCodeError(null)
@@ -161,7 +167,7 @@ export function CustomToolEditor({
 
   const schemaGeneration = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       prompt: `You are an expert programmer specializing in creating OpenAI function calling format JSON schemas for custom tools.
 Generate ONLY the JSON schema based on the user's request.
@@ -169,7 +175,6 @@ The output MUST be a single, valid JSON object, starting with { and ending with 
 The JSON schema MUST follow this specific format:
 1. Top-level property "type" must be set to "function"
 2. A "function" object containing:
-   - "name": A concise, camelCase name for the function
    - "description": A clear description of what the function does
    - "parameters": A JSON Schema object describing the function's parameters with:
      - "type": "object"
@@ -184,10 +189,12 @@ Do not include any explanations, markdown formatting, or other text outside the 
     },
     currentValue: jsonSchema,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       handleJsonSchemaChange(content)
       setSchemaError(null)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setJsonSchema((prev) => {
         const nextSchema = prev + chunk
         if (schemaError) {
@@ -200,7 +207,7 @@ Do not include any explanations, markdown formatting, or other text outside the 
 
   const codeGeneration = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       prompt: `You are an expert JavaScript programmer.
 Generate ONLY the raw body of a JavaScript function based on the user's request.
@@ -223,13 +230,14 @@ IMPORTANT FORMATTING RULES:
     },
     currentValue: functionCode,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       handleFunctionCodeChange(content)
       setCodeError(null)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setFunctionCode((prev) => {
         const nextCode = prev + chunk
-        handleFunctionCodeChange(nextCode)
         if (codeError) {
           setCodeError(null)
         }
@@ -275,12 +283,7 @@ IMPORTANT FORMATTING RULES:
 
     try {
       const parsed = JSON.parse(jsonSchema)
-      return Boolean(
-        parsed.type === 'function' &&
-          parsed.function?.name &&
-          parsed.function?.parameters?.type &&
-          parsed.function?.parameters?.properties !== undefined
-      )
+      return CustomToolOpenAiSchema.safeParse(parsed).success
     } catch {
       return false
     }
@@ -313,12 +316,6 @@ IMPORTANT FORMATTING RULES:
         return null
       }
 
-      if (!schema.function || !schema.function.name) {
-        setSchemaError(copy.validation.schemaMustHaveFunctionName)
-        onSectionChange('schema')
-        return null
-      }
-
       if (!schema.function.parameters) {
         setSchemaError(copy.validation.missingFunctionParameters)
         onSectionChange('schema')
@@ -346,7 +343,7 @@ IMPORTANT FORMATTING RULES:
         return null
       }
 
-      return schema
+      return CustomToolOpenAiSchema.parse(schema)
     } catch (error) {
       logger.error('Error validating custom tool schema:', { error })
       setSchemaError(copy.validation.failedToValidateSchema)
@@ -356,6 +353,8 @@ IMPORTANT FORMATTING RULES:
   }, [jsonSchema, onSectionChange])
 
   const handleSave = useCallback(async () => {
+    if (!doc || readOnlyRef.current) return
+
     setCodeError(null)
 
     try {
@@ -364,33 +363,19 @@ IMPORTANT FORMATTING RULES:
         return
       }
 
-      const nextToolName = schema.function.name
-      const existingTools = useCustomToolsStore.getState().getAllTools(workspaceId)
-      const isDuplicate = existingTools.some((tool) => {
-        if (tool.id === initialValues.id) {
-          return false
-        }
-
-        return tool.schema.function.name === nextToolName
-      })
-
-      if (isDuplicate) {
-        setSchemaError(formatTemplate(copy.validation.duplicateName, { name: nextToolName }))
+      const title = toolTitle.trim()
+      if (!title) {
+        setSchemaError(copy.validation.failedToSave)
         onSectionChange('schema')
         return
       }
 
-      await updateToolMutation.mutateAsync({
-        workspaceId,
-        toolId: initialValues.id,
-        updates: {
-          title: nextToolName,
-          schema,
-          code: functionCode || '',
-        },
-      })
+      const latestFunctionCode =
+        codeEditorHandleRef.current?.getEditor()?.getValue() ?? functionCode
 
-      onSave()
+      setFunctionCode(latestFunctionCode)
+
+      await save()
     } catch (error) {
       logger.error('Error saving custom tool:', { error })
       setSchemaError(copy.validation.failedToSave)
@@ -398,12 +383,15 @@ IMPORTANT FORMATTING RULES:
     }
   }, [
     parseCurrentSchema,
-    functionCode,
-    initialValues.id,
-    onSave,
+    doc,
     onSectionChange,
-    updateToolMutation,
+    save,
+    functionCode,
+    setFunctionCode,
+    toolTitle,
+    toolId,
     workspaceId,
+    readOnlyRef,
   ])
 
   const handleExport = useCallback(() => {
@@ -412,7 +400,13 @@ IMPORTANT FORMATTING RULES:
       return
     }
 
-    const title = initialValues.title.trim() || schema.function.name
+    const title = toolTitle.trim()
+    if (!title) {
+      setSchemaError(copy.validation.failedToSave)
+      onSectionChange('schema')
+      return
+    }
+
     const fileNameBase =
       title
         .trim()
@@ -438,24 +432,28 @@ IMPORTANT FORMATTING RULES:
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(blobUrl)
-  }, [functionCode, initialValues.title, parseCurrentSchema])
+  }, [copy.validation.failedToSave, functionCode, onSectionChange, parseCurrentSchema, toolTitle])
 
-  useEffect(() => {
-    saveRef.current = () => {
-      void handleSave()
-    }
-  }, [handleSave, saveRef])
-
-  useEffect(() => {
-    exportRef.current = () => {
-      handleExport()
-    }
-  }, [exportRef, handleExport])
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: toolId,
+    export: handleExport,
+    save: handleSave,
+  })
 
   const handleCursorChange = (
     offset: number,
     coords: { top: number; left: number; height: number } | null
   ) => {
+    if (readOnlyRef.current) {
+      setShowEnvVars(false)
+      setShowTags(false)
+      setShowSchemaParams(false)
+      setSearchTerm('')
+      setActiveSourceBlockId(null)
+      return
+    }
     const currentValue = codeEditorHandleRef.current?.getEditor()?.getValue() ?? functionCode
 
     setCursorPosition(offset)
@@ -509,6 +507,7 @@ IMPORTANT FORMATTING RULES:
   }
 
   const handleSchemaParamSelect = (paramName: string) => {
+    if (readOnlyRef.current) return
     const editorHandle = codeEditorHandleRef.current
     const currentValue = editorHandle?.getEditor()?.getValue() ?? functionCode
     const beforeCursor = currentValue.substring(0, cursorPosition)
@@ -518,7 +517,7 @@ IMPORTANT FORMATTING RULES:
     const wordStart = beforeCursor.lastIndexOf(currentWord)
     const nextValue = beforeCursor.substring(0, wordStart) + paramName + afterCursor
 
-    setFunctionCode(nextValue)
+    handleFunctionCodeChange(nextValue)
     setShowSchemaParams(false)
     setCursorPosition(wordStart + paramName.length)
 
@@ -592,7 +591,7 @@ IMPORTANT FORMATTING RULES:
     return (
       <div className='flex h-full w-full flex-col overflow-hidden p-3'>
         <WandPromptBar
-          isVisible={schemaGeneration.isPromptVisible}
+          isVisible={!readOnly && schemaGeneration.isPromptVisible}
           isLoading={schemaGeneration.isLoading}
           isStreaming={schemaGeneration.isStreaming}
           promptValue={schemaGeneration.promptInputValue}
@@ -632,7 +631,7 @@ IMPORTANT FORMATTING RULES:
               language='json'
               height='100%'
               minHeight='0'
-              showWandButton={true}
+              showWandButton={!readOnly}
               onWandClick={() => {
                 if (schemaGeneration.isPromptVisible) {
                   schemaGeneration.hidePromptInline()
@@ -640,11 +639,12 @@ IMPORTANT FORMATTING RULES:
                   schemaGeneration.showPromptInline()
                 }
               }}
-              wandButtonDisabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              wandButtonDisabled={
+                readOnly || schemaGeneration.isLoading || schemaGeneration.isStreaming
+              }
               placeholder={`{
   "type": "function",
   "function": {
-    "name": "addItemToOrder",
     "description": "",
     "parameters": {
       "type": "object",
@@ -657,7 +657,7 @@ IMPORTANT FORMATTING RULES:
                 (schemaGeneration.isLoading || schemaGeneration.isStreaming) &&
                   'cursor-not-allowed opacity-50'
               )}
-              disabled={schemaGeneration.isLoading || schemaGeneration.isStreaming}
+              disabled={readOnly || schemaGeneration.isLoading || schemaGeneration.isStreaming}
               onKeyDown={handleKeyDown}
             />
           </div>
@@ -669,7 +669,7 @@ IMPORTANT FORMATTING RULES:
   return (
     <div className='flex h-full w-full flex-col overflow-hidden p-3'>
       <WandPromptBar
-        isVisible={codeGeneration.isPromptVisible}
+        isVisible={!readOnly && codeGeneration.isPromptVisible}
         isLoading={codeGeneration.isLoading}
         isStreaming={codeGeneration.isStreaming}
         promptValue={codeGeneration.promptInputValue}
@@ -722,7 +722,7 @@ IMPORTANT FORMATTING RULES:
             language='javascript'
             editorHandleRef={codeEditorHandleRef}
             onCursorChange={handleCursorChange}
-            showWandButton={true}
+            showWandButton={!readOnly}
             onWandClick={() => {
               if (codeGeneration.isPromptVisible) {
                 codeGeneration.hidePromptInline()
@@ -730,7 +730,7 @@ IMPORTANT FORMATTING RULES:
                 codeGeneration.showPromptInline()
               }
             }}
-            wandButtonDisabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+            wandButtonDisabled={readOnly || codeGeneration.isLoading || codeGeneration.isStreaming}
             placeholder={copy.form.codeComment}
             height='100%'
             minHeight='0'
@@ -740,17 +740,17 @@ IMPORTANT FORMATTING RULES:
                 'cursor-not-allowed opacity-50'
             )}
             highlightVariables={true}
-            disabled={codeGeneration.isLoading || codeGeneration.isStreaming}
+            disabled={readOnly || codeGeneration.isLoading || codeGeneration.isStreaming}
             onKeyDown={handleKeyDown}
             schemaParameters={schemaParameters}
             diagnosticSourceBuilder={codeDiagnosticSourceBuilder}
           />
 
-          {showEnvVars ? (
+          {!readOnly && showEnvVars ? (
             <EnvVarDropdown
               visible={showEnvVars}
               onSelect={(nextValue: string) => {
-                setFunctionCode(nextValue)
+                handleFunctionCodeChange(nextValue)
                 setShowEnvVars(false)
               }}
               searchTerm={searchTerm}
@@ -770,11 +770,11 @@ IMPORTANT FORMATTING RULES:
             />
           ) : null}
 
-          {showTags ? (
+          {!readOnly && showTags ? (
             <TagDropdown
               visible={showTags}
               onSelect={(nextValue: string) => {
-                setFunctionCode(nextValue)
+                handleFunctionCodeChange(nextValue)
                 setShowTags(false)
                 setActiveSourceBlockId(null)
               }}
@@ -795,7 +795,7 @@ IMPORTANT FORMATTING RULES:
             />
           ) : null}
 
-          {showSchemaParams && schemaParameters.length > 0 ? (
+          {!readOnly && showSchemaParams && schemaParameters.length > 0 ? (
             <div
               ref={schemaParamsDropdownRef}
               className='absolute z-[9999] mt-1 w-64 overflow-visible rounded-md border bg-popover shadow-md'
@@ -805,7 +805,7 @@ IMPORTANT FORMATTING RULES:
               }}
             >
               <div className='py-1'>
-              <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
+                <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
                   {copy.form.availableParametersPanel}
                 </div>
                 <div>

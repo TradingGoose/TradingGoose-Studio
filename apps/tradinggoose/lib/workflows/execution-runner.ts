@@ -8,10 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
-import {
-  loadDeployedWorkflowState,
-  loadWorkflowFromNormalizedTables,
-} from '@/lib/workflows/db-helpers'
+import { loadDeployedWorkflowState, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -35,14 +32,14 @@ type ResolvedWorkflowExecutionContext = {
   variables: unknown
 }
 
-export type WorkflowStart =
+export type WorkflowTriggerTarget =
   | {
       kind: 'trigger'
       triggerType: 'api' | 'chat' | 'manual'
     }
   | {
       kind: 'block'
-      blockId?: string
+      blockId: string
     }
 
 export type WorkflowExecutionBlueprint = {
@@ -58,7 +55,7 @@ export type WorkflowExecutionBlueprint = {
 }
 
 export type WorkflowRunnerExecutionResult = ExecutionResult
-export type WorkflowDispatchFailureReason = 'usage_limit_exceeded' | 'missing_start_block'
+export type WorkflowDispatchFailureReason = 'usage_limit_exceeded' | 'missing_trigger_block'
 
 export type WorkflowRunnerResult = {
   executionId: string
@@ -78,7 +75,7 @@ export class WorkflowUsageLimitError extends Error {
   }
 }
 
-class WorkflowStartBlockError extends Error {}
+class WorkflowTriggerBlockError extends Error {}
 
 async function resolveRequiredWorkflowExecutionContext(
   workflowId: string,
@@ -92,19 +89,27 @@ async function resolveRequiredWorkflowExecutionContext(
   let workflowRecord:
     | {
         workspaceId: string | null
-        variables: unknown
+        variables?: unknown
       }
     | undefined
 
   if (needsWorkflowRecord) {
-    ;[workflowRecord] = await db
-      .select({
-        workspaceId: workflowTable.workspaceId,
-        variables: workflowTable.variables,
-      })
-      .from(workflowTable)
-      .where(eq(workflowTable.id, workflowId))
-      .limit(1)
+    if (workflowContext?.variables === undefined) {
+      ;[workflowRecord] = await db
+        .select({
+          workspaceId: workflowTable.workspaceId,
+          variables: workflowTable.variables,
+        })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    } else {
+      ;[workflowRecord] = await db
+        .select({ workspaceId: workflowTable.workspaceId })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    }
   }
 
   const workspaceId = providedWorkspaceId ?? workflowRecord?.workspaceId
@@ -191,70 +196,66 @@ function buildProcessedBlockStates(
   return processedBlockStates
 }
 
-function resolveStartBlockId(params: {
+function resolveTriggerBlockId(params: {
   mergedStates: Record<string, any>
   serializedWorkflow: { connections: Array<{ source: string }> }
-  start: WorkflowStart
+  target: WorkflowTriggerTarget
   isChildExecution: boolean
 }) {
-  if (params.start.kind === 'trigger') {
-    const startBlock = TriggerUtils.findStartBlock(
+  if (params.target.kind === 'trigger') {
+    const triggerBlock = TriggerUtils.findTriggerBlock(
       params.mergedStates,
-      params.start.triggerType,
+      params.target.triggerType,
       params.isChildExecution
     )
 
-    if (!startBlock) {
+    if (!triggerBlock) {
       const triggerName =
-        params.start.triggerType === 'api' && params.isChildExecution
+        params.target.triggerType === 'api' && params.isChildExecution
           ? 'Input'
-          : params.start.triggerType === 'api'
+          : params.target.triggerType === 'api'
             ? 'API'
-            : params.start.triggerType === 'chat'
+            : params.target.triggerType === 'chat'
               ? 'Chat'
               : 'Manual'
-      throw new WorkflowStartBlockError(
+      throw new WorkflowTriggerBlockError(
         `No ${triggerName} trigger block found. Add a ${triggerName} Trigger block to this workflow.`
       )
     }
 
     const outgoingConnections = params.serializedWorkflow.connections.filter(
-      (connection) => connection.source === startBlock.blockId
+      (connection) => connection.source === triggerBlock.blockId
     )
 
     if (outgoingConnections.length === 0) {
-      throw new WorkflowStartBlockError(
+      throw new WorkflowTriggerBlockError(
         'Trigger block must be connected to other blocks to execute'
       )
     }
 
-    return startBlock.blockId
+    return triggerBlock.blockId
   }
 
-  if (
-    params.start.kind === 'block' &&
-    params.start.blockId &&
-    !params.mergedStates[params.start.blockId]
-  ) {
-    throw new WorkflowStartBlockError(
-      `Workflow does not contain trigger block ${params.start.blockId}`
+  if (params.target.kind === 'block' && !params.mergedStates[params.target.blockId]) {
+    throw new WorkflowTriggerBlockError(
+      `Workflow does not contain trigger block ${params.target.blockId}`
     )
   }
 
-  if (params.start.kind === 'block' && params.start.blockId) {
-    const blockId = params.start.blockId
+  if (params.target.kind === 'block') {
+    const blockId = params.target.blockId
     const outgoingConnections = params.serializedWorkflow.connections.filter(
       (connection) => connection.source === blockId
     )
 
     if (outgoingConnections.length === 0) {
-      throw new WorkflowStartBlockError(
+      throw new WorkflowTriggerBlockError(
         `Trigger block ${blockId} must be connected to other blocks to execute`
       )
     }
   }
 
-  return params.start.blockId
+  return params.target.blockId
 }
 
 export async function loadWorkflowExecutionBlueprint(params: {
@@ -264,23 +265,44 @@ export async function loadWorkflowExecutionBlueprint(params: {
   workflowData?: WorkflowExecutionBlueprint['workflowData']
 }): Promise<WorkflowExecutionBlueprint> {
   const executionTarget = params.executionTarget ?? 'deployed'
+  const liveWorkflowState =
+    executionTarget === 'live' && !params.workflowData
+      ? await requireWorkflowRealtimeState(params.workflowId)
+      : null
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
     params.workflowId,
-    params.workflowContext
+    executionTarget === 'deployed'
+      ? { ...params.workflowContext, variables: {} }
+      : executionTarget === 'live' &&
+          liveWorkflowState &&
+          params.workflowContext?.variables === undefined
+        ? {
+            ...params.workflowContext,
+            variables: liveWorkflowState.variables,
+          }
+        : params.workflowContext
   )
   const workflowData =
     executionTarget === 'live'
-      ? (params.workflowData ?? (await loadWorkflowFromNormalizedTables(params.workflowId)))
+      ? (params.workflowData ?? liveWorkflowState)
       : await loadDeployedWorkflowState(params.workflowId)
 
   if (!workflowData) {
     throw new Error(`Workflow ${params.workflowId} has no ${executionTarget} state`)
   }
 
+  const deployedVariables =
+    executionTarget === 'deployed'
+      ? ((workflowData as { variables?: Record<string, any> }).variables ?? {})
+      : null
+
   return {
     workflowId: params.workflowId,
     executionTarget,
-    workflowContext,
+    workflowContext:
+      executionTarget === 'deployed'
+        ? { ...workflowContext, variables: deployedVariables }
+        : workflowContext,
     workflowData: {
       blocks: workflowData.blocks || {},
       edges: workflowData.edges || [],
@@ -295,7 +317,7 @@ export async function runPreparedWorkflowExecution(params: {
   actorUserId: string
   triggerType: TriggerType
   workflowInput: unknown
-  start: WorkflowStart
+  triggerTarget: WorkflowTriggerTarget
   requestId?: string
   executionId?: string
   triggerData?: Record<string, unknown>
@@ -388,14 +410,14 @@ export async function runPreparedWorkflowExecution(params: {
       contextExtensions,
     })
 
-    const startBlockId = resolveStartBlockId({
+    const triggerBlockId = resolveTriggerBlockId({
       mergedStates,
       serializedWorkflow,
-      start: params.start,
+      target: params.triggerTarget,
       isChildExecution: contextExtensions.isChildExecution === true,
     })
 
-    result = await executor.execute(params.blueprint.workflowId, startBlockId)
+    result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
 
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
@@ -407,8 +429,8 @@ export async function runPreparedWorkflowExecution(params: {
     const dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
-        : error instanceof WorkflowStartBlockError
-          ? 'missing_start_block'
+        : error instanceof WorkflowTriggerBlockError
+          ? 'missing_trigger_block'
           : undefined
     result = (error?.executionResult as ExecutionResult | undefined) || {
       success: false,
@@ -469,7 +491,7 @@ export async function runWorkflowExecution(params: {
   actorUserId: string
   triggerType: TriggerType
   workflowInput: unknown
-  start: WorkflowStart
+  triggerTarget: WorkflowTriggerTarget
   executionTarget?: WorkflowExecutionTarget
   workflowContext?: WorkflowContextHint
   workflowData?: WorkflowExecutionBlueprint['workflowData']
@@ -502,7 +524,7 @@ export async function runWorkflowExecution(params: {
     actorUserId: params.actorUserId,
     triggerType: params.triggerType,
     workflowInput: params.workflowInput,
-    start: params.start,
+    triggerTarget: params.triggerTarget,
     requestId: params.requestId,
     executionId: params.executionId,
     triggerData: params.triggerData,

@@ -1,25 +1,18 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
-import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useCallback, useState } from 'react'
 import { useMessages } from 'next-intl'
-import {
-  useCreateIndicator,
-  useDeleteIndicator,
-  useIndicators,
-  useUpdateIndicator,
-} from '@/hooks/queries/indicators'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
-import type { PairColor } from '@/widgets/pair-colors'
+import { LoadingAgent } from '@/components/ui/loading-agent'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
+import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitIndicatorSelectionChange,
-  useIndicatorSelectionPersistence,
-} from '@/widgets/utils/indicator-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'
 
@@ -32,84 +25,31 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 export function IndicatorList({
   context,
   params,
-  onWidgetParamsChange,
-  panelId,
-  pairColor = 'gray',
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
+  const { members, isLoading, error } = useEntityList('indicator', workspaceId)
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
-  const updateMutation = useUpdateIndicator()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
 
-  useIndicatorSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    onIndicatorSelect: (indicatorId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.indicatorId === indicatorId) return
-      setPairContext(resolvedPairColor, { indicatorId })
-    },
+  const requestedIndicatorId = getIndicatorIdFromParams(params)
+  const selectedIndicatorId = resolveEntityIdFromList({
+    requestedEntityId: requestedIndicatorId,
+    entityIds: members.map((member) => member.entityId),
+    useDefaultEntity: false,
   })
-
-  const storedIndicators = useIndicatorsStore((state) =>
-    state.getAllIndicators(workspaceId ?? undefined)
-  )
-
-  const listIndicators = indicators.length > 0 ? indicators : storedIndicators
-
-  const selectedIndicatorId = useMemo(() => {
-    if (isLinkedToColorPair) {
-      return pairContext?.indicatorId ?? null
-    }
-    return getIndicatorIdFromParams(params)
-  }, [isLinkedToColorPair, pairContext?.indicatorId, params])
-
   const handleSelect = useCallback(
     (indicatorId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.indicatorId !== indicatorId) {
-          setPairContext(resolvedPairColor, { indicatorId })
-        }
-        return
-      }
-
-      if (onWidgetParamsChange) {
-        const currentParams =
-          params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-        onWidgetParamsChange({
-          ...currentParams,
-          indicatorId,
-        })
-      }
-
-      emitIndicatorSelectionChange({
-        indicatorId,
-        panelId,
-        widgetKey: 'editor_indicator',
-      })
+      onWidgetLinkedParamsPatch?.({ indicatorId })
     },
-    [
-      isLinkedToColorPair,
-      pairContext?.indicatorId,
-      resolvedPairColor,
-      setPairContext,
-      onWidgetParamsChange,
-      params,
-      panelId,
-    ]
+    [onWidgetLinkedParamsPatch]
   )
+
+  const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)
 
   const handleDelete = useCallback(
     async (indicatorId: string) => {
@@ -120,9 +60,7 @@ export function IndicatorList({
 
       try {
         await deleteMutation.mutateAsync({ workspaceId, indicatorId })
-        if (selectedIndicatorId === indicatorId) {
-          handleSelect(null)
-        }
+        if (selectedIndicatorId === indicatorId) handleSelect(null)
       } finally {
         setDeletingIds((prev) => {
           const next = new Set(prev)
@@ -137,34 +75,42 @@ export function IndicatorList({
   const handleRename = useCallback(
     async (indicatorId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
-      await updateMutation.mutateAsync({
+      await renameSavedEntityAction({
+        entityKind: 'indicator',
+        entityId: indicatorId,
         workspaceId,
-        indicatorId,
-        updates: { name },
+        name,
       })
     },
-    [permissions.canEdit, updateMutation, workspaceId]
+    [permissions.canEdit, workspaceId]
   )
 
   const handleCopy = useCallback(
-    async (indicator: IndicatorDefinition) => {
+    async (indicator: EntityListMember) => {
       if (!workspaceId || !permissions.canEdit) return
-      if (!indicator.id) return
+      if (!indicator.entityId) return
 
-      setCopyingIds((prev) => new Set(prev).add(indicator.id))
+      setCopyingIds((prev) => new Set(prev).add(indicator.entityId))
 
       try {
-        const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
+        const copiedName = `${indicator.entityName || copy.listItem.untitledIndicator} (Copy)`
+        const sourceSession = await bootstrapYjsProvider(
+          buildSavedEntityDescriptor('indicator', indicator.entityId, workspaceId),
+          undefined,
+          'read'
+        )
+        let pineCode = ''
+        try {
+          pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
+        } finally {
+          sourceSession.dispose()
+        }
+
         const createdIndicators = await createMutation.mutateAsync({
           workspaceId,
           indicator: {
             name: copiedName,
-            color: indicator.color ?? '',
-            pineCode: indicator.pineCode ?? '',
-            inputMeta:
-              indicator.inputMeta && typeof indicator.inputMeta === 'object'
-                ? indicator.inputMeta
-                : null,
+            pineCode,
           },
         })
         const copiedIndicatorId =
@@ -176,18 +122,19 @@ export function IndicatorList({
           throw new Error('Created indicator copy is missing an id')
         }
 
-        handleSelect(copiedIndicatorId)
+        selectIndicatorWhenListed(copiedIndicatorId)
       } finally {
         setCopyingIds((prev) => {
           const next = new Set(prev)
-          next.delete(indicator.id)
+          next.delete(indicator.entityId)
           return next
         })
       }
     },
     [
+      copy.listItem.untitledIndicator,
       createMutation,
-      handleSelect,
+      selectIndicatorWhenListed,
       permissions.canEdit,
       workspaceId,
     ]
@@ -201,31 +148,29 @@ export function IndicatorList({
     )
   }
 
-  const errorMessage =
-    error instanceof Error ? error.message : error ? copy.body.failedToLoadIndicators : null
-
-  if (errorMessage) {
-    return <IndicatorListMessage message={errorMessage} />
+  if (error) {
+    return <IndicatorListMessage message={error} />
   }
 
   return (
     <div className='h-full w-full overflow-hidden p-2'>
-      {listIndicators.length === 0 ? (
+      {members.length === 0 ? (
         <IndicatorListMessage message={copy.body.noIndicatorsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
-          {listIndicators.map((indicator: IndicatorDefinition) => (
+          {members.map((indicator) => (
             <IndicatorListItem
-              key={indicator.id}
+              key={indicator.entityId}
               indicator={indicator}
-              isSelected={indicator.id === selectedIndicatorId}
+              isSelected={indicator.entityId === selectedIndicatorId}
               onSelect={handleSelect}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onRename={handleRename}
               canEdit={permissions.canEdit}
-              isCopying={copyingIds.has(indicator.id)}
-              isDeleting={deletingIds.has(indicator.id)}
+              canDelete={members.length > 1}
+              isCopying={copyingIds.has(indicator.entityId)}
+              isDeleting={deletingIds.has(indicator.entityId)}
             />
           ))}
         </div>

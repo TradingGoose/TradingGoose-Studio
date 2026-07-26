@@ -3,48 +3,31 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
-import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { requireUserId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
+import { listOAuthConnectionsForUser, listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 
-interface ReadCredentialsParams {
-  entityId?: string
-}
+type ReadCredentialsParams = { scope: 'personal' } | { scope: 'workspace'; workspaceId: string }
 
 export const readCredentialsServerTool: BaseServerTool<ReadCredentialsParams, any> = {
   name: CopilotTool.read_credentials,
   async execute(params: ReadCredentialsParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ReadCredentialsServerTool')
 
-    if (!context?.userId) {
-      logger.error('Unauthorized attempt to access credentials - no authenticated user context')
-      throw new Error('Authentication required')
-    }
-
-    const authenticatedUserId = context.userId
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createWorkflowPermissionError('access credentials in')
-      logger.error('Unauthorized attempt to access credentials', {
-        workflowId: workflowScope.workflowId,
-        authenticatedUserId,
-      })
-      throw new Error(errorMessage)
-    }
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
-
-    const userId = authenticatedUserId
+    const scopedContext =
+      params.scope === 'workspace' ? withWorkspaceArgContext(context, params) : context
+    const scope =
+      params.scope === 'workspace'
+        ? await verifyWorkspaceContext(scopedContext, 'read')
+        : { userId: requireUserId(context), workspaceId: undefined }
+    const { userId, workspaceId } = scope
 
     logger.info('Fetching credentials for authenticated user', {
       userId,
-      workflowId: workflowScope?.workflowId,
+      scope: params.scope,
       workspaceId,
     })
 
@@ -60,12 +43,15 @@ export const readCredentialsServerTool: BaseServerTool<ReadCredentialsParams, an
 
     // Track connected provider IDs
     const connectedProviderIds = new Set<string>()
-    const connectedCredentials = (
-      await listOAuthCredentialsForUser({
-        userId,
-        workspaceId,
-      })
-    ).map((credential) => {
+    const rawCredentials =
+      params.scope === 'workspace'
+        ? await listOAuthCredentialsForUser({
+            userId,
+            workspaceId,
+          })
+        : await listOAuthConnectionsForUser({ userId })
+
+    const connectedCredentials = rawCredentials.map((credential) => {
       connectedProviderIds.add(credential.provider)
       const service = allOAuthServices.find((entry) => entry.providerId === credential.provider)
       return {

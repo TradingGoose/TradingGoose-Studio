@@ -1,34 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Download, Save, SquareTerminal } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,
 } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import {
-  emitCustomToolSelectionChange,
-  useCustomToolSelectionPersistence,
-} from '@/widgets/utils/custom-tool-selection'
-import {
-  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-  resolveCustomToolId,
-} from '@/widgets/widgets/_shared/custom_tool/utils'
+import { emitEditorAction, useEditorActions } from '@/widgets/utils/editor-actions'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
+import { resolveCustomToolId } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
+import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
+import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import {
   CustomToolEditor,
   type CustomToolEditorSection,
@@ -36,206 +28,106 @@ import {
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
-const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-    const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-  })
-
-function emitCustomToolEditorAction(detail: CustomToolEditorActionEventDetail) {
-  window.dispatchEvent(
-    new CustomEvent<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
-      detail,
-    })
-  )
-}
-
-function useCustomToolEditorActions({
-  panelId,
-  widgetKey,
-  onExport,
-  onSave,
-  onSectionChange,
-}: {
-  panelId?: string
-  widgetKey?: string
-  onExport?: () => void
-  onSave?: () => void
-  onSectionChange?: (section: CustomToolEditorSection) => void
-}) {
-  const exportRef = useRef(onExport)
-  const saveRef = useRef(onSave)
-  const sectionChangeRef = useRef(onSectionChange)
-
-  exportRef.current = onExport
-  saveRef.current = onSave
-  sectionChangeRef.current = onSectionChange
-
-  useEffect(() => {
-    if (!panelId) return
-
-    const handleAction = (event: Event) => {
-      const detail = (event as CustomEvent<CustomToolEditorActionEventDetail>).detail
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-      if (widgetKey && detail.widgetKey && detail.widgetKey !== widgetKey) return
-
-      if (detail.action === 'export') {
-        exportRef.current?.()
-        return
-      }
-
-      if (detail.action === 'save') {
-        saveRef.current?.()
-        return
-      }
-
-      if (detail.action === 'set-section' && detail.section) {
-        sectionChangeRef.current?.(detail.section)
-      }
-    }
-
-    window.addEventListener(CUSTOM_TOOL_EDITOR_ACTION_EVENT, handleAction as EventListener)
-
-    return () => {
-      window.removeEventListener(CUSTOM_TOOL_EDITOR_ACTION_EVENT, handleAction as EventListener)
-    }
-  }, [panelId, widgetKey])
-}
-
 function EditorCustomToolWidgetBody({
   context,
   params,
   pairColor = 'gray',
-  onWidgetParamsChange,
   panelId,
   widget,
 }: WidgetComponentProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
-  const { data: queryTools = [], isLoading, error, refetch } = useCustomTools(workspaceId ?? '')
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
+  const { canEdit, isLoading: isPermissionsLoading } = useUserPermissionsContext()
+  const canEditEntity = !isPermissionsLoading && canEdit
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-  const exportRef = useRef<() => void>(() => {})
-  const saveRef = useRef<() => void>(() => {})
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
 
-  const tools = useMemo(
-    () => sortCustomTools(queryTools.length > 0 ? queryTools : storedTools),
-    [queryTools, storedTools]
-  )
-
   const paramsCustomToolId = resolveCustomToolId({ params })
-  const requestedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : paramsCustomToolId
+  const requestedCustomToolId = paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
-  const hasRequestedTool =
-    normalizedRequestedCustomToolId.length > 0 &&
-    tools.some((tool) => tool.id === normalizedRequestedCustomToolId)
-  const selectedToolId = hasRequestedTool
-    ? normalizedRequestedCustomToolId
-    : isLinkedToColorPair
-      ? null
-      : (tools[0]?.id ?? null)
-
-  useCustomToolSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-    onCustomToolSelect: (customToolId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
-    },
+  const hasRequestedCustomTool = normalizedRequestedCustomToolId.length > 0
+  const {
+    members: customToolMembers,
+    isLoading: isCustomToolListLoading,
+    error: customToolListError,
+  } = useEntityList('custom_tool', workspaceId)
+  const requestedCustomToolMember = hasRequestedCustomTool
+    ? customToolMembers.find((member) => member.entityId === normalizedRequestedCustomToolId)
+    : null
+  const selectedToolId = resolveEntityIdFromList({
+    requestedEntityId: requestedCustomToolId,
+    entityIds: customToolMembers.map((member) => member.entityId),
+    useDefaultEntity: false,
   })
+  const selectedToolMember =
+    customToolMembers.find((member) => member.entityId === selectedToolId) ?? null
 
   const syncActiveSection = useCallback(
     (section: CustomToolEditorSection) => {
       setActiveSection(section)
-      if (!panelId) return
+      if (!panelId || !selectedToolId) return
 
-      emitCustomToolEditorAction({
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
         action: 'set-section',
+        entityId: selectedToolId,
         section,
         panelId,
         widgetKey: widget?.key,
       })
     },
-    [panelId, widget?.key]
+    [panelId, selectedToolId, widget?.key]
   )
 
-  const selectedTool = selectedToolId
-    ? (tools.find((tool) => tool.id === selectedToolId) ?? null)
-    : null
+  const customToolSession = useSavedEntityYjsSession(
+    'custom_tool',
+    isPermissionsLoading ? null : selectedToolId,
+    isPermissionsLoading ? null : workspaceId,
+    null,
+    canEditEntity ? 'write' : 'read'
+  )
 
   useEffect(() => {
-    if (!selectedToolId) return
-    if (isLinkedToColorPair) {
-      if (pairContext?.customToolId === selectedToolId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { customToolId: selectedToolId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsCustomToolId === selectedToolId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      customToolId: selectedToolId,
-    })
-  }, [
-    isLinkedToColorPair,
-    onWidgetParamsChange,
-    pairContext?.customToolId,
-    params,
-    paramsCustomToolId,
-    resolvedPairColor,
-    selectedToolId,
-    setPairContext,
-  ])
-
-  useEffect(() => {
-    if (!selectedTool?.id) {
+    if (!selectedToolId) {
       return
     }
 
     syncActiveSection('schema')
-  }, [selectedTool?.id, syncActiveSection])
+  }, [selectedToolId, syncActiveSection])
 
-  useCustomToolEditorActions({
-    onExport: () => exportRef.current(),
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
     panelId,
     widgetKey: widget?.key,
-    onSave: () => saveRef.current(),
-    onSectionChange: setActiveSection,
+    entityId: selectedToolId ?? undefined,
+    'set-section': selectedToolId
+      ? (detail) => {
+          if (detail.section) setActiveSection(detail.section)
+        }
+      : undefined,
   })
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.body.selectWorkspace} />
   }
 
-  if (error && tools.length === 0) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.body.failedToLoadCustomTools}
-      />
-    )
+  if (customToolListError && customToolMembers.length === 0) {
+    return <WidgetStateMessage message={customToolListError} />
   }
 
-  if (isLoading && tools.length === 0) {
+  if (
+    hasRequestedCustomTool &&
+    !isCustomToolListLoading &&
+    !customToolListError &&
+    !requestedCustomToolMember &&
+    !selectedToolId
+  ) {
+    return <WidgetStateMessage message={copy.body.customToolNotFound} />
+  }
+
+  if (customToolSession.error) {
+    return <WidgetStateMessage message={customToolSession.error} />
+  }
+
+  if (isCustomToolListLoading || customToolSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -247,44 +139,28 @@ function EditorCustomToolWidgetBody({
     return (
       <WidgetStateMessage
         message={
-          isLinkedToColorPair
-            ? normalizedRequestedCustomToolId.length > 0
-              ? copy.body.customToolNotFound
-              : copy.body.noSharedCustomToolSelected
+          resolvedPairColor !== 'gray'
+            ? copy.body.noSharedCustomToolSelected
             : copy.body.noCustomToolsYet
         }
       />
     )
   }
 
-  if (!selectedTool) {
-    return <WidgetStateMessage message={copy.body.customToolNotFound} />
-  }
-
   return (
-    <WorkflowRouteProvider
-      workspaceId={workspaceId}
-      workflowId='dashboard-custom-tool-editor'
-      channelId={DEFAULT_WORKFLOW_CHANNEL_ID}
-    >
+    <WorkflowRouteProvider workspaceId={workspaceId} workflowId='dashboard-custom-tool-editor'>
       <div className='flex h-full w-full flex-col overflow-hidden'>
         <CustomToolEditor
           activeSection={activeSection}
+          doc={customToolSession.doc}
+          save={customToolSession.save}
+          toolId={selectedToolId}
+          toolTitle={selectedToolMember?.entityName ?? ''}
           onSectionChange={syncActiveSection}
-          onSave={() => {
-            refetch().catch((refetchError) => {
-              console.error('Failed to refresh custom tools after save', refetchError)
-            })
-          }}
-          exportRef={exportRef}
-          saveRef={saveRef}
+          panelId={panelId}
+          widgetKey={widget?.key}
           blockId='dashboard-custom-tool-editor'
-          initialValues={{
-            id: selectedTool.id,
-            title: selectedTool.title,
-            schema: selectedTool.schema,
-            code: selectedTool.code || '',
-          }}
+          readOnly={!canEditEntity}
         />
       </div>
     </WorkflowRouteProvider>
@@ -292,43 +168,18 @@ function EditorCustomToolWidgetBody({
 }
 
 type CustomToolEditorSelectorProps = {
-  panelId?: string
   workspaceId?: string
-  pairColor?: PairColor
   params?: Record<string, unknown> | null
-  widgetKey?: string
 }
 
-function CustomToolEditorSelector({
-  panelId,
-  workspaceId,
-  pairColor = 'gray',
-  params,
-  widgetKey,
-}: CustomToolEditorSelectorProps) {
-  const locale = useLocale() as LocaleCode
+function CustomToolEditorSelector({ workspaceId, params }: CustomToolEditorSelectorProps) {
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
+  const actions = useWidgetConfigRuntimeActions()
 
-  const selectedToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext })
-    : resolveCustomToolId({ params })
+  const selectedToolId = resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
-    if (isLinkedToColorPair) {
-      if (pairContext?.customToolId === customToolId) return
-      setPairContext(resolvedPairColor, { customToolId })
-      return
-    }
-
-    emitCustomToolSelectionChange({
-      customToolId,
-      panelId,
-      widgetKey: widgetKey ?? CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-    })
+    actions.patchWidgetLinkedParams?.({ customToolId })
   }
 
   return (
@@ -342,189 +193,98 @@ function CustomToolEditorSelector({
   )
 }
 
-const CUSTOM_TOOL_EDITOR_SECTIONS: Array<{ id: CustomToolEditorSection; label: string }> = [
-  { id: 'schema', label: 'Config' },
-  { id: 'code', label: 'Code' },
-]
+const CUSTOM_TOOL_EDITOR_SECTIONS: CustomToolEditorSection[] = ['schema', 'code']
 
-function CustomToolEditorSectionSwitch({
+function CustomToolEditorActionControls({
+  workspaceId,
+  requestedEntityId,
   panelId,
-  params,
-  pairColor = 'gray',
   widgetKey,
 }: {
+  workspaceId?: string
+  requestedEntityId: string | null
   panelId?: string
-  params?: Record<string, unknown> | null
-  pairColor?: PairColor
   widgetKey?: string
 }) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
+  const { canEdit } = useUserPermissionsContext()
+  const { members } = useEntityList('custom_tool', workspaceId)
+  const entityId = resolveEntityIdFromList({
+    requestedEntityId,
+    entityIds: members.map((member) => member.entityId),
+    useDefaultEntity: false,
+  })
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
-  const customToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext })
-    : resolveCustomToolId({ params })
-  const isDisabled = !customToolId || !panelId
+  const controlsDisabled = !entityId || !panelId
+  const exportDisabled = !workspaceId || controlsDisabled
 
-  useCustomToolEditorActions({
+  useEditorActions<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
     panelId,
     widgetKey,
-    onSectionChange: setActiveSection,
+    entityId: entityId ?? undefined,
+    'set-section': entityId
+      ? (detail) => {
+          if (detail.section) setActiveSection(detail.section)
+        }
+      : undefined,
   })
 
-  useEffect(() => {
-    setActiveSection('schema')
-  }, [customToolId])
+  useEffect(() => setActiveSection('schema'), [entityId])
 
-  const selectSection = (section: CustomToolEditorSection) => {
-    if (isDisabled) return
-
-    setActiveSection(section)
-    emitCustomToolEditorAction({
-      action: 'set-section',
-      section,
+  const emitAction = (detail: Pick<CustomToolEditorActionEventDetail, 'action' | 'section'>) => {
+    if (!entityId) return
+    emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+      ...detail,
+      entityId,
       panelId,
       widgetKey,
     })
   }
 
   return (
-    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
-      {CUSTOM_TOOL_EDITOR_SECTIONS.map((section) => {
-        const isSelected = section.id === activeSection
-
-        return (
+    <div className={widgetHeaderButtonGroupClassName()}>
+      <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
+        {CUSTOM_TOOL_EDITOR_SECTIONS.map((section) => (
           <Button
-            key={section.id}
+            key={section}
             type='button'
-            variant={isSelected ? 'default' : 'ghost'}
+            variant={section === activeSection ? 'default' : 'ghost'}
             size='sm'
             className='h-5 min-w-14 rounded-xs px-3 text-sm'
-            disabled={isDisabled}
-            onClick={() => selectSection(section.id)}
-            aria-pressed={isSelected}
+            disabled={controlsDisabled}
+            onClick={() => {
+              setActiveSection(section)
+              emitAction({ action: 'set-section', section })
+            }}
+            aria-pressed={section === activeSection}
           >
-            {section.id === 'schema' ? copy.config : copy.code}
+            {section === 'schema' ? copy.config : copy.code}
           </Button>
-        )
-      })}
+        ))}
+      </div>
+      <EntityEditorHeaderButton
+        tooltip={copy.exportCustomTool}
+        label={copy.exportCustomTool}
+        icon={Download}
+        disabled={exportDisabled}
+        variant='outline'
+        onClick={() => emitAction({ action: 'export' })}
+      />
+      <EntityEditorHeaderButton
+        tooltip={copy.saveCustomTool}
+        label={copy.saveCustomTool}
+        icon={Save}
+        disabled={!canEdit || exportDisabled}
+        variant='default'
+        onClick={() => emitAction({ action: 'save' })}
+      />
     </div>
   )
 }
 
-function CustomToolEditorSaveButton({
-  workspaceId,
-  customToolId,
-  panelId,
-  widgetKey,
-  pairColor = 'gray',
-}: {
-  workspaceId?: string
-  customToolId?: string | null
-  panelId?: string
-  widgetKey?: string
-  pairColor?: PairColor
-}) {
-  const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : (customToolId ?? null)
-  const saveDisabled = !workspaceId || !resolvedCustomToolId || !panelId
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='default'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={() => {
-              emitCustomToolEditorAction({
-                action: 'save',
-                panelId,
-                widgetKey,
-              })
-            }}
-            disabled={saveDisabled}
-          >
-            <Save className='h-4 w-4' />
-            <span className='sr-only'>{copy.saveCustomTool}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{copy.saveCustomTool}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function CustomToolEditorExportButton({
-  workspaceId,
-  customToolId,
-  panelId,
-  widgetKey,
-  pairColor = 'gray',
-}: {
-  workspaceId?: string
-  customToolId?: string | null
-  panelId?: string
-  widgetKey?: string
-  pairColor?: PairColor
-}) {
-  const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.customToolEditor.header
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-
-  const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? null)
-    : (customToolId ?? null)
-  const exportDisabled = !workspaceId || !resolvedCustomToolId || !panelId
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={() => {
-              emitCustomToolEditorAction({
-                action: 'export',
-                panelId,
-                widgetKey,
-              })
-            }}
-            disabled={exportDisabled}
-          >
-            <Download className='h-4 w-4' />
-            <span className='sr-only'>{copy.exportCustomTool}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{copy.exportCustomTool}</TooltipContent>
-    </Tooltip>
-  )
-}
-
 export const editorCustomToolWidget: DashboardWidgetDefinition = {
-  key: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-  title: 'Custom Tool Editor',
+  contract: customToolEditorWidgetContract,
   icon: SquareTerminal,
-  category: 'editor',
-  description: 'Edit workspace custom tools.',
   component: (props) => <EditorCustomToolWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
     const customToolId =
@@ -535,10 +295,7 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
     return {
       center: (
         <CustomToolEditorSelector
-          panelId={panelId}
           workspaceId={context?.workspaceId}
-          pairColor={widget?.pairColor}
-          widgetKey={widget?.key}
           params={
             widget?.params && typeof widget.params === 'object'
               ? (widget.params as Record<string, unknown>)
@@ -547,32 +304,12 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
         />
       ),
       right: (
-        <div className={widgetHeaderButtonGroupClassName()}>
-          <CustomToolEditorSectionSwitch
-            panelId={panelId}
-            params={
-              widget?.params && typeof widget.params === 'object'
-                ? (widget.params as Record<string, unknown>)
-                : null
-            }
-            pairColor={widget?.pairColor}
-            widgetKey={widget?.key}
-          />
-          <CustomToolEditorExportButton
-            workspaceId={context?.workspaceId}
-            customToolId={customToolId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-          <CustomToolEditorSaveButton
-            workspaceId={context?.workspaceId}
-            customToolId={customToolId}
-            panelId={panelId}
-            widgetKey={widget?.key}
-            pairColor={widget?.pairColor}
-          />
-        </div>
+        <CustomToolEditorActionControls
+          workspaceId={context?.workspaceId}
+          requestedEntityId={customToolId}
+          panelId={panelId}
+          widgetKey={widget?.key}
+        />
       ),
     }
   },

@@ -1,31 +1,31 @@
 'use client'
 
-import * as Y from 'yjs'
 import type { WebsocketProvider } from 'y-websocket'
+import * as Y from 'yjs'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
 import {
   bootstrapYjsProvider,
-  waitForYjsWriteSync,
+  waitForYjsSync,
+  type YjsPendingLocalEdits,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
+import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
-  getMetadataMap,
   getVariablesMap,
   readWorkflowMap,
   readWorkflowTextFieldsMap,
 } from '@/lib/yjs/workflow-session'
-import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
+  type RegisteredWorkflowSession,
   registerWorkflowSession,
   unregisterWorkflowSession,
-  type RegisteredWorkflowSession,
 } from '@/lib/yjs/workflow-session-registry'
 
 export interface SharedWorkflowSessionState {
   doc: Y.Doc | null
   provider: WebsocketProvider | null
-  awareness: any | null
+  awareness: WebsocketProvider['awareness'] | null
   canUndo: boolean
   canRedo: boolean
   isSynced: boolean
@@ -41,7 +41,6 @@ export interface SharedWorkflowSessionUser {
 
 interface SharedWorkflowSessionEntry {
   workflowId: string
-  entityName?: string
   workspaceId: string | null
   refCount: number
   destroyTimeout: ReturnType<typeof setTimeout> | null
@@ -49,9 +48,11 @@ interface SharedWorkflowSessionEntry {
   listeners: Set<() => void>
   initPromise: Promise<void> | null
   result: YjsProviderBootstrapResult | null
+  isTerminal: boolean
   undoManager: Y.UndoManager | null
   syncUndoState: (() => void) | null
   cleanup: (() => void) | null
+  pendingLocalEdits?: YjsPendingLocalEdits
 }
 
 declare global {
@@ -71,6 +72,7 @@ export const EMPTY_SHARED_WORKFLOW_SESSION_STATE: SharedWorkflowSessionState = {
 }
 
 const SHARED_SESSION_DESTROY_GRACE_MS = 2_500
+const SESSION_REOPEN_RETRY_MS = 1_000
 
 function getSharedSessionEntries(): Map<string, SharedWorkflowSessionEntry> {
   if (!globalThis.__workflowYjsSessionEntries) {
@@ -105,12 +107,6 @@ function setEntryState(
   emitChange(entry)
 }
 
-function destroyBootstrappedSession(result: YjsProviderBootstrapResult): void {
-  result.provider.disconnect()
-  result.provider.destroy()
-  result.doc.destroy()
-}
-
 function cancelPendingDestroy(entry: SharedWorkflowSessionEntry): void {
   if (!entry.destroyTimeout) {
     return
@@ -133,10 +129,23 @@ function createSessionEntry(args: {
     listeners: new Set(),
     initPromise: null,
     result: null,
+    isTerminal: false,
     undoManager: null,
     syncUndoState: null,
     cleanup: null,
   }
+}
+
+function disposeWorkflowSessionEntry(entry: SharedWorkflowSessionEntry): void {
+  const result = entry.result
+  entry.cleanup?.()
+  entry.cleanup = null
+  entry.undoManager?.destroy()
+  entry.undoManager = null
+  entry.syncUndoState = null
+  entry.result = null
+  unregisterWorkflowSession(entry.workflowId, result?.doc)
+  result?.dispose()
 }
 
 function ensureSessionEntry(args: {
@@ -169,15 +178,49 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
   }
 
   try {
-    const result = await bootstrapYjsProvider(descriptor)
+    const result = await bootstrapYjsProvider(
+      descriptor,
+      undefined,
+      'write',
+      entry.pendingLocalEdits
+    )
 
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
-      destroyBootstrappedSession(result)
+      result.dispose()
       return
     }
 
+    entry.pendingLocalEdits = undefined
+    entry.result = result
+    void result.lifecycle.then((event) => {
+      if (entry.result !== result) return
+      if (event.type === 'lineage-replaced') {
+        entry.pendingLocalEdits = event.pendingLocalEdits
+        disposeWorkflowSessionEntry(entry)
+        setEntryState(entry, { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })
+        if (entry.refCount > 0) entry.initPromise = initializeSharedSession(entry)
+        return
+      }
+      entry.isTerminal = true
+      disposeWorkflowSessionEntry(entry)
+      setEntryState(entry, {
+        doc: null,
+        provider: null,
+        awareness: null,
+        canUndo: false,
+        canRedo: false,
+        isSynced: false,
+        isLoading: false,
+        error: event.error.message,
+      })
+    })
+
     const undoManager = new Y.UndoManager(
-      [readWorkflowMap(result.doc), readWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
+      [
+        readWorkflowMap(result.doc),
+        readWorkflowTextFieldsMap(result.doc),
+        getVariablesMap(result.doc),
+      ],
       {
         trackedOrigins: createYjsUndoTrackedOrigins(),
       }
@@ -200,11 +243,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     undoManager.on('stack-cleared', syncUndoState)
     result.provider.on('sync', syncStatus)
 
-    entry.result = result
-    entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
-    const entityName = getMetadataMap(result.doc).get('entityName')
-    entry.entityName =
-      typeof entityName === 'string' && entityName.trim() ? entityName.trim() : undefined
     entry.undoManager = undoManager
     entry.syncUndoState = syncUndoState
     entry.cleanup = () => {
@@ -216,7 +254,6 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
 
     registerWorkflowSession({
       workflowId: entry.workflowId,
-      ...(entry.entityName ? { entityName: entry.entityName } : {}),
       workspaceId: entry.workspaceId,
       doc: result.doc,
     })
@@ -236,17 +273,27 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       return
     }
 
+    entry.isTerminal = (error as { retryable?: unknown } | null)?.retryable === false
     setEntryState(entry, {
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to initialize workflow session',
     })
+    if (!entry.isTerminal) scheduleWorkflowSessionReopen(entry)
   } finally {
     entry.initPromise = null
   }
 }
 
+function scheduleWorkflowSessionReopen(entry: SharedWorkflowSessionEntry): void {
+  setTimeout(() => {
+    if (getSharedSessionEntries().get(entry.workflowId) === entry && entry.refCount > 0) {
+      ensureSharedSessionInitialized(entry)
+    }
+  }, SESSION_REOPEN_RETRY_MS)
+}
+
 function ensureSharedSessionInitialized(entry: SharedWorkflowSessionEntry): void {
-  if (entry.initPromise || entry.result) {
+  if (entry.isTerminal || entry.initPromise || entry.result) {
     return
   }
 
@@ -275,18 +322,7 @@ function releaseSharedSession(workflowId: string): void {
     currentEntry.destroyTimeout = null
     entries.delete(workflowId)
 
-    currentEntry.cleanup?.()
-    currentEntry.cleanup = null
-    currentEntry.undoManager = null
-    currentEntry.syncUndoState = null
-
-    if (currentEntry.result) {
-      unregisterWorkflowSession(currentEntry.workflowId, currentEntry.result.doc)
-      destroyBootstrappedSession(currentEntry.result)
-      currentEntry.result = null
-    } else {
-      unregisterWorkflowSession(currentEntry.workflowId)
-    }
+    disposeWorkflowSessionEntry(currentEntry)
 
     currentEntry.listeners.clear()
     currentEntry.state = { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE }
@@ -333,13 +369,17 @@ export async function acquireWritableWorkflowSessionLease(args: {
     await entry.initPromise
   }
 
-  if (!entry.result?.doc) {
+  const result = entry.result
+  if (!result) {
     release()
     throw new Error(entry.state.error || 'Failed to initialize workflow Yjs session')
   }
 
   try {
-    await waitForYjsWriteSync(entry.result.provider)
+    await waitForYjsSync(result.provider)
+    if (entry.result !== result) {
+      throw new Error(entry.state.error || 'Workflow Yjs session ended during sync')
+    }
   } catch (error) {
     release()
     throw error
@@ -348,9 +388,8 @@ export async function acquireWritableWorkflowSessionLease(args: {
   return {
     session: {
       workflowId: entry.workflowId,
-      ...(entry.entityName ? { entityName: entry.entityName } : {}),
       workspaceId: entry.workspaceId,
-      doc: entry.result.doc,
+      doc: result.doc,
     },
     release,
   }

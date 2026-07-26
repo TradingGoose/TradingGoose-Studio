@@ -20,8 +20,16 @@ import {
   Users,
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale, useMessages, useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import {
   widgetHeaderControlClassName,
@@ -40,20 +48,11 @@ import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-m
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
-import { formatTemplate } from '@/i18n/utils'
 import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { getInitials } from '../utils'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './resizable-dropdown'
 
 type ThemeOption = {
   value: 'light' | 'system' | 'dark'
@@ -74,19 +73,9 @@ interface UserMenuProps {
   userAvatar?: string | null
   userAvatarVersion?: number | string | null
   userId?: string | null
-  onOpenSettings?: (section: SettingsSection) => void
-  systemNavigation?: {
-    href: string
-    label: string
-  } | null
-}
-
-type UserMenuMessages = {
-  workspace?: {
-    userMenu?: {
-      themeLabel?: string
-    }
-  }
+  onOpenSettings: (section: SettingsSection) => void
+  canAccessSystemAdmin?: boolean
+  sidebarTrigger?: boolean
 }
 
 export function UserMenu({
@@ -96,7 +85,8 @@ export function UserMenu({
   userAvatarVersion,
   userId,
   onOpenSettings,
-  systemNavigation,
+  canAccessSystemAdmin = false,
+  sidebarTrigger = false,
 }: UserMenuProps) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
@@ -104,9 +94,10 @@ export function UserMenu({
   const searchParams = useSearchParams()
   const search = searchParams.toString()
   const tUserMenu = useTranslations('workspace.userMenu')
-  const messages = useMessages() as UserMenuMessages
+  const tWorkspaceNav = useTranslations('workspace.nav')
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
+  const [nameOverride, setNameOverride] = useState<string | null>(null)
   const [avatarOverride, setAvatarOverride] = useState<{
     url: string | null
     version: number | string | null
@@ -146,8 +137,7 @@ export function UserMenu({
   const currentThemeOption =
     THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[0]
   const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
-  const themeLabelTemplate = messages.workspace?.userMenu?.themeLabel ?? 'Theme: {theme}'
-  const currentThemeAriaLabel = formatTemplate(themeLabelTemplate, { theme: currentThemeLabel })
+  const currentThemeAriaLabel = tUserMenu('themeLabel', { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
@@ -178,6 +168,39 @@ export function UserMenu({
   })
   const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
   const canManageSSOSettings = organizationAccess.canConfigureSso
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') {
+      setNameOverride(null)
+      return
+    }
+
+    const key = `user-name-${userId}`
+
+    const readStoredName = () => {
+      const storedName = window.localStorage.getItem(key)
+      setNameOverride(storedName !== null ? storedName || null : null)
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === key) {
+        readStoredName()
+      }
+    }
+
+    const handleNameEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ name?: string | null }>).detail
+      setNameOverride(detail && 'name' in detail ? (detail.name ?? null) : null)
+    }
+
+    readStoredName()
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('user-name-updated', handleNameEvent)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('user-name-updated', handleNameEvent)
+    }
+  }, [userId])
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -228,6 +251,7 @@ export function UserMenu({
     return () => window.removeEventListener('user-avatar-updated', handler)
   }, [])
 
+  const displayUserName = nameOverride ?? userName
   const effectiveAvatar = avatarOverride.url ?? userAvatar
   const effectiveVersion = avatarOverride.version ?? userAvatarVersion
 
@@ -308,305 +332,290 @@ export function UserMenu({
     }
   }
 
-  return (
-    <>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <DropdownMenu>
+  const avatar = (
+    <Avatar className='h-8 w-8 rounded-md'>
+      {avatarSrc ? (
+        <AvatarImage key={avatarSrc} src={avatarSrc} alt={displayUserName} />
+      ) : (
+        <AvatarImage src={DEFAULT_AVATAR_SRC} alt={userMenuCopy.defaultAvatarAlt} />
+      )}
+      <AvatarFallback className='rounded-lg'>{getInitials(displayUserName)}</AvatarFallback>
+    </Avatar>
+  )
+  const triggerLabel = `${displayUserName} ${userMenuCopy.accountDetail}`
+
+  const menuContent = (
+    <DropdownMenuContent
+      className={cn(
+        'max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto overflow-x-hidden',
+        sidebarTrigger
+          ? 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
+          : 'w-64 rounded-lg'
+      )}
+      sideOffset={6}
+    >
+      <DropdownMenuGroup>
+        <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton
-                variant='default'
-                size='lg'
-                className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              <button
+                type='button'
+                aria-haspopup='menu'
+                aria-label={currentThemeAriaLabel}
+                className={widgetHeaderControlClassName(
+                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
+                )}
+                disabled={isThemeLoading || isGeneralLoading}
+                title={currentThemeLabel}
               >
-                <Avatar className='h-8 w-8 rounded-md'>
-                  {avatarSrc ? (
-                    <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} />
-                  ) : (
-                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt={userMenuCopy.defaultAvatarAlt} />
-                  )}
-                  <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
-                </Avatar>
-                <div className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-semibold'>{userName}</span>
-                  <span className='truncate text-xs'>{userEmail}</span>
-                </div>
-                <ChevronsUpDown className='ml-auto size-4' />
-              </SidebarMenuButton>
+                <span className='flex min-w-0 items-center gap-1.5'>
+                  <currentThemeOption.Icon
+                    className='h-4 w-4 shrink-0 text-muted-foreground'
+                    aria-hidden='true'
+                  />
+                  <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
+                </span>
+                <ChevronDown
+                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                  aria-hidden='true'
+                />
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className='w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 rounded-lg'
-              sideOffset={4}
-              align='start'
+              sideOffset={6}
+              className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
             >
-              <DropdownMenuGroup>
-                <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type='button'
-                        aria-haspopup='menu'
-                        aria-label={currentThemeAriaLabel}
-                        className={widgetHeaderControlClassName(
-                          'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                        )}
-                        disabled={isThemeLoading || isGeneralLoading}
-                        title={currentThemeLabel}
-                      >
-                        <span className='flex min-w-0 items-center gap-1.5'>
-                          <currentThemeOption.Icon
-                            className='h-4 w-4 shrink-0 text-muted-foreground'
-                            aria-hidden='true'
-                          />
-                          <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
-                        </span>
-                        <ChevronDown
-                          className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-                          aria-hidden='true'
-                        />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      sideOffset={6}
-                      className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
-                    >
-                      {THEME_OPTIONS.map(({ value, Icon }) => {
-                        const label = themeOptionLabels[value]
-                        const isActive = theme === value
+              {THEME_OPTIONS.map(({ value, Icon }) => {
+                const label = themeOptionLabels[value]
+                const isActive = theme === value
 
-                        return (
-                          <DropdownMenuItem
-                            key={value}
-                            className={cn(widgetHeaderMenuItemClassName, 'items-center')}
-                            disabled={isThemeLoading || isGeneralLoading}
-                            onSelect={(event) => {
-                              if (isActive) {
-                                event.preventDefault()
-                                return
-                              }
-                              void handleThemeChange(value)
-                            }}
-                          >
-                            <Icon
-                              className={cn(
-                                'h-4 w-4 text-muted-foreground',
-                                isActive && 'text-foreground'
-                              )}
-                              aria-hidden='true'
-                            />
-                            <span className='min-w-0 truncate'>{label}</span>
-                            {isActive ? (
-                              <Check className='ml-auto h-3.5 w-3.5 text-primary' />
-                            ) : null}
-                          </DropdownMenuItem>
-                        )
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type='button'
-                        aria-haspopup='menu'
-                        aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
-                        className={widgetHeaderControlClassName(
-                          'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                        )}
-                        title={getLocaleDisplayName(locale)}
-                      >
-                        <span className='min-w-0 truncate text-left'>
-                          {getLocaleDisplayName(locale)}
-                        </span>
-                        <ChevronDown
-                          className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-                          aria-hidden='true'
-                        />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      sideOffset={6}
-                      className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
-                    >
-                      {locales.map((code) => {
-                        const isActive = code === locale
-
-                        return (
-                          <DropdownMenuItem
-                            key={code}
-                            className={cn(widgetHeaderMenuItemClassName, 'items-center')}
-                            onSelect={(event) => {
-                              if (isActive) {
-                                event.preventDefault()
-                                return
-                              }
-                              handleLocaleChange(code)
-                            }}
-                          >
-                            <span className='min-w-0 truncate'>{getLocaleDisplayName(code)}</span>
-                            {isActive ? (
-                              <Check className='ml-auto h-3.5 w-3.5 text-primary' />
-                            ) : null}
-                          </DropdownMenuItem>
-                        )
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('account')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'account' } })
-                      )
-                    }
-                  }}
-                >
-                  <User />
-                  {userMenuCopy.accountDetail}
-                </DropdownMenuItem>
-                {isHosted ? (
+                return (
                   <DropdownMenuItem
+                    key={value}
+                    className={cn(widgetHeaderMenuItemClassName, 'items-center')}
+                    disabled={isThemeLoading || isGeneralLoading}
                     onSelect={(event) => {
-                      event.preventDefault()
-                      if (onOpenSettings) {
-                        onOpenSettings('service')
-                      } else if (typeof window !== 'undefined') {
-                        window.dispatchEvent(
-                          new CustomEvent('open-settings', { detail: { tab: 'service' } })
-                        )
+                      if (isActive) {
+                        event.preventDefault()
+                        return
                       }
+                      void handleThemeChange(value)
                     }}
                   >
-                    <KeyRound />
-                    {userMenuCopy.serviceApiKeys}
+                    <Icon
+                      className={cn('h-4 w-4 text-muted-foreground', isActive && 'text-foreground')}
+                      aria-hidden='true'
+                    />
+                    <span className='min-w-0 truncate'>{label}</span>
+                    {isActive ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
                   </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuGroup>
-              {billingEnabled ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        if (onOpenSettings) {
-                          onOpenSettings('subscription')
-                        } else if (typeof window !== 'undefined') {
-                          window.dispatchEvent(
-                            new CustomEvent('open-settings', { detail: { tab: 'subscription' } })
-                          )
-                        }
-                      }}
-                    >
-                      <Star />
-                      {userMenuCopy.subscription}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isOpeningBillingPortal || isSubscriptionLoading}
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        void handleOpenBillingPortal()
-                      }}
-                    >
-                      <CreditCard />
-                      {isOpeningBillingPortal
-                        ? userMenuCopy.openingBilling
-                        : userMenuCopy.manageBilling}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </>
-              ) : null}
-              {canOpenTeamSettings || canManageSSOSettings ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    {canOpenTeamSettings ? (
-                      <DropdownMenuItem
-                        onSelect={(event) => {
-                          event.preventDefault()
-                          if (onOpenSettings) {
-                            onOpenSettings('team')
-                          } else if (typeof window !== 'undefined') {
-                            window.dispatchEvent(
-                              new CustomEvent('open-settings', { detail: { tab: 'team' } })
-                            )
-                          }
-                        }}
-                      >
-                        <Users />
-                        {userMenuCopy.teamManagement}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canManageSSOSettings ? (
-                      <DropdownMenuItem
-                        onSelect={(event) => {
-                          event.preventDefault()
-                          if (onOpenSettings) {
-                            onOpenSettings('sso')
-                          } else if (typeof window !== 'undefined') {
-                            window.dispatchEvent(
-                              new CustomEvent('open-settings', { detail: { tab: 'sso' } })
-                            )
-                          }
-                        }}
-                      >
-                        <LogIn />
-                        {userMenuCopy.singleSignOn}
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenuGroup>
-                </>
-              ) : null}
-              {systemNavigation ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        router.push(systemNavigation.href)
-                      }}
-                    >
-                      <ShieldCheck />
-                      {systemNavigation.label}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    setIsHelpModalOpen(true)
-                  }}
-                >
-                  <LifeBuoy />
-                  {userMenuCopy.helpSupport}
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={isSigningOut}
-                onSelect={(event) => {
-                  event.preventDefault()
-                  void handleSignOut()
-                }}
-                className='text-destructive focus:text-destructive'
-              >
-                <LogOut className='text-destructive ' />
-                {isSigningOut ? userMenuCopy.loggingOut : userMenuCopy.logOut}
-              </DropdownMenuItem>
+                )
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
-        </SidebarMenuItem>
-      </SidebarMenu>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-haspopup='menu'
+                aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
+                className={widgetHeaderControlClassName(
+                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
+                )}
+                title={getLocaleDisplayName(locale)}
+              >
+                <span className='min-w-0 truncate text-left'>{getLocaleDisplayName(locale)}</span>
+                <ChevronDown
+                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                  aria-hidden='true'
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              sideOffset={6}
+              className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
+            >
+              {locales.map((code) => {
+                const isActive = code === locale
+
+                return (
+                  <DropdownMenuItem
+                    key={code}
+                    className={cn(widgetHeaderMenuItemClassName, 'items-center')}
+                    onSelect={(event) => {
+                      if (isActive) {
+                        event.preventDefault()
+                        return
+                      }
+                      handleLocaleChange(code)
+                    }}
+                  >
+                    <span className='min-w-0 truncate'>{getLocaleDisplayName(code)}</span>
+                    {isActive ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            onOpenSettings('account')
+          }}
+        >
+          <User />
+          {userMenuCopy.accountDetail}
+        </DropdownMenuItem>
+        {isHosted ? (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              onOpenSettings('service')
+            }}
+          >
+            <KeyRound />
+            {userMenuCopy.serviceApiKeys}
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuGroup>
+      {billingEnabled ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault()
+                onOpenSettings('subscription')
+              }}
+            >
+              <Star />
+              {userMenuCopy.subscription}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isOpeningBillingPortal || isSubscriptionLoading}
+              onSelect={(event) => {
+                event.preventDefault()
+                void handleOpenBillingPortal()
+              }}
+            >
+              <CreditCard />
+              {isOpeningBillingPortal ? userMenuCopy.openingBilling : userMenuCopy.manageBilling}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </>
+      ) : null}
+      {canOpenTeamSettings || canManageSSOSettings ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            {canOpenTeamSettings ? (
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault()
+                  onOpenSettings('team')
+                }}
+              >
+                <Users />
+                {userMenuCopy.teamManagement}
+              </DropdownMenuItem>
+            ) : null}
+            {canManageSSOSettings ? (
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault()
+                  onOpenSettings('sso')
+                }}
+              >
+                <LogIn />
+                {userMenuCopy.singleSignOn}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
+        </>
+      ) : null}
+      {canAccessSystemAdmin ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault()
+                router.push('/admin')
+              }}
+            >
+              <ShieldCheck />
+              {tWorkspaceNav('systemAdmin')}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </>
+      ) : null}
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            setIsHelpModalOpen(true)
+          }}
+        >
+          <LifeBuoy />
+          {userMenuCopy.helpSupport}
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        disabled={isSigningOut}
+        onSelect={(event) => {
+          event.preventDefault()
+          void handleSignOut()
+        }}
+        className='text-destructive focus:text-destructive'
+      >
+        <LogOut className='text-destructive ' />
+        {isSigningOut ? userMenuCopy.loggingOut : userMenuCopy.logOut}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  )
+
+  return (
+    <>
+      <DropdownMenu>
+        {sidebarTrigger ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  variant='default'
+                  size='lg'
+                  aria-label={triggerLabel}
+                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                >
+                  {avatar}
+                  <div className='grid flex-1 text-left text-sm leading-tight'>
+                    <span className='truncate font-semibold'>{displayUserName}</span>
+                    <span className='truncate text-xs'>{userEmail}</span>
+                  </div>
+                  <ChevronsUpDown className='ml-auto size-4' />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : (
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              aria-label={triggerLabel}
+              className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+            >
+              {avatar}
+            </button>
+          </DropdownMenuTrigger>
+        )}
+        {menuContent}
+      </DropdownMenu>
       <HelpModal open={isHelpModalOpen} onOpenChange={setIsHelpModalOpen} />
     </>
   )

@@ -23,6 +23,7 @@ import {
   deleteMonitorRecord,
   listMonitorViews,
   loadMonitors,
+  MONITOR_DATA_CHANGED_EVENT,
   removeMonitorView,
   reorderMonitorViews,
   setActiveMonitorView,
@@ -64,15 +65,11 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-preferences'
 import { MonitorConfigWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-config-workspace'
 import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-execution-workspace'
+import { getMonitorModeLabel, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
-import { formatTemplate } from '@/i18n/utils'
 import { usePathname } from '@/i18n/navigation'
-import {
-  getMonitorModeLabel,
-  useMonitorCopy,
-} from '@/app/workspace/[workspaceId]/monitor/copy'
 
 type MonitorPageProps = {
   workspaceId: string
@@ -579,6 +576,16 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     void loadMonitorData()
   }, [loadMonitorData])
 
+  useEffect(() => {
+    const handleMonitorDataChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail
+      if (detail?.workspaceId === workspaceId) void loadMonitorData()
+    }
+
+    window.addEventListener(MONITOR_DATA_CHANGED_EVENT, handleMonitorDataChanged)
+    return () => window.removeEventListener(MONITOR_DATA_CHANGED_EVENT, handleMonitorDataChanged)
+  }, [loadMonitorData, workspaceId])
+
   const { executionItems, orderedVisibleLogIds, isSelectionResolved, isLoading, error, refresh } =
     useMonitorWorkspaceLogs({
       workspaceId,
@@ -682,7 +689,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     } finally {
       setIsRefreshingAll(false)
     }
-  }, [copy.errors.persistBeforeRefresh, loadMonitorData, persistDirtyModes, refresh, reloadViewState])
+  }, [
+    copy.errors.persistBeforeRefresh,
+    loadMonitorData,
+    persistDirtyModes,
+    refresh,
+    reloadViewState,
+  ])
 
   const handleExportExecutionLogs = useCallback(() => {
     const filters = buildMonitorExecutionLogFilters(executionViewConfig)
@@ -802,18 +815,21 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     [copy.errors.updateMonitorState, upsertMonitor, workspaceId]
   )
 
-  const handleDeleteMonitor = useCallback(async (monitorId: string) => {
-    setMonitorsError(null)
+  const handleDeleteMonitor = useCallback(
+    async (monitorId: string) => {
+      setMonitorsError(null)
 
-    try {
-      await deleteMonitorRecord(monitorId)
-      setMonitors((current) => current.filter((monitor) => monitor.monitorId !== monitorId))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : copy.errors.deleteMonitor
-      setMonitorsError(message)
-      throw error instanceof Error ? error : new Error(message)
-    }
-  }, [copy.errors.deleteMonitor])
+      try {
+        await deleteMonitorRecord(monitorId)
+        setMonitors((current) => current.filter((monitor) => monitor.monitorId !== monitorId))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : copy.errors.deleteMonitor
+        setMonitorsError(message)
+        throw error instanceof Error ? error : new Error(message)
+      }
+    },
+    [copy.errors.deleteMonitor]
+  )
 
   const handleReorderColumnCards = useCallback(
     (columnId: string, nextExecutionIds: string[]) => {
@@ -1051,28 +1067,22 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     nameDialogValue,
     persistDirtyModes,
     setActiveModeViewId,
-      updateWorkingState,
-      viewNameDialog,
-      workspaceId,
-      copy.errors.createView,
-      copy.errors.dialogStale,
-      copy.errors.nameEmpty,
-      copy.errors.renameView,
-    ])
+    updateWorkingState,
+    viewNameDialog,
+    workspaceId,
+    copy.errors.createView,
+    copy.errors.dialogStale,
+    copy.errors.nameEmpty,
+    copy.errors.renameView,
+  ])
 
   const handleReorderViews = useCallback(
-    async (nextLayouts: LayoutTab[]) => {
-      const nextRows = nextLayouts
-        .map((layout, index) => {
-          const current = activeModeRows.find((row) => row.id === layout.id)
-          return current
-            ? {
-                ...current,
-                sortOrder: layout.sortOrder ?? index,
-              }
-            : null
-        })
-        .filter((row): row is MonitorViewRow => Boolean(row))
+    async (viewOrder: string[]) => {
+      const rowsById = new Map(activeModeRows.map((row) => [row.id, row]))
+      const nextRows = viewOrder.map((id, index) => ({
+        ...rowsById.get(id)!,
+        sortOrder: index,
+      }))
       const previousRows = viewRows
 
       setViewRows((current) => replaceRowsInModeSlots(current, activeMode, nextRows))
@@ -1082,7 +1092,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       try {
         await reorderMonitorViews(workspaceId, {
           mode: activeMode,
-          viewOrder: nextRows.map((row) => row.id),
+          viewOrder,
           activeViewId: activeModeViewId ?? undefined,
         })
       } catch (errorValue) {
@@ -1173,7 +1183,9 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       if (nextMode === activeMode) return true
       if (!renderableModes.includes(nextMode)) {
         setViewsError(
-          nextMode === 'config' ? copy.errors.configViewsUnavailable : copy.errors.executionViewsUnavailable
+          nextMode === 'config'
+            ? copy.errors.configViewsUnavailable
+            : copy.errors.executionViewsUnavailable
         )
         return false
       }
@@ -1185,11 +1197,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       try {
         await persistDirtyModes()
       } catch (error) {
-        setViewsError(
-          error instanceof Error
-            ? error.message
-            : copy.errors.persistBeforeSwitching
-        )
+        setViewsError(error instanceof Error ? error.message : copy.errors.persistBeforeSwitching)
         return false
       }
 
@@ -1218,9 +1226,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const configHeaderCards = useMemo(
     () =>
-      buildConfigMonitorCards(monitors, referenceData, {}, {
-        unknownListingLabel: copy.execution.unknownListing,
-      }),
+      buildConfigMonitorCards(
+        monitors,
+        referenceData,
+        {},
+        {
+          unknownListingLabel: copy.execution.unknownListing,
+        }
+      ),
     [copy.execution.unknownListing, monitors, referenceData]
   )
   const viewControlsBusy =

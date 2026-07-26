@@ -12,8 +12,6 @@ const PREVIEW_RUNTIME_FILES = [
 
 const BANNED_IMPORT_PATTERNS = [
   'hooks/workflow/use-workflow-editor-actions',
-  'stores/workflows/workflow/store-client',
-  'stores/workflows/workflow/store',
   'stores/operation-queue/store',
   'contexts/socket-context',
 ]

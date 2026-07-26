@@ -110,6 +110,7 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
 
     await tool.handleAccept({
       entityId: 'wf-explicit-target',
+      triggerBlockId: 'schedule-trigger',
       workflow_input: { symbol: 'AAPL' },
     })
 
@@ -117,6 +118,7 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
       workflowInput: { symbol: 'AAPL' },
       executionId: toolCallId,
       workflowId: 'wf-explicit-target',
+      triggerBlockId: 'schedule-trigger',
     })
     expect(tool.getState()).toBe(ClientToolCallState.success)
   })

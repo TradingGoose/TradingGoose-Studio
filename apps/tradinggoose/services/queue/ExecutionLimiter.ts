@@ -9,10 +9,7 @@ import {
   getTierRateLimits,
 } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type RateLimitCounterType,
-  type TriggerType,
-} from '@/services/queue/types'
+import type { RateLimitCounterType, TriggerType } from '@/services/queue/types'
 
 const logger = createLogger('ExecutionLimiter')
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -115,10 +112,17 @@ export class ExecutionLimiter {
     subscription: SubscriptionInfo | null,
     triggerType: TriggerType = 'manual',
     isAsync = false,
-    billingScope?: BillingScope | null
-  ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+    billingScope?: BillingScope | null,
+    options: { enforceWithoutBilling?: boolean; failClosedOnError?: boolean } = {}
+  ): Promise<{
+    allowed: boolean
+    remaining: number
+    resetAt: Date
+    error?: string
+    failureKind?: 'dependency'
+  }> {
     try {
-      if (!(await isBillingEnabledForRuntime())) {
+      if (!options.enforceWithoutBilling && !(await isBillingEnabledForRuntime())) {
         return createPermissiveRateLimitResult()
       }
 
@@ -301,6 +305,16 @@ export class ExecutionLimiter {
         resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
       }
     } catch (error) {
+      if (options.failClosedOnError) {
+        logger.error('Error checking rate limit; denying request', error)
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+          error: 'Rate limit service unavailable',
+          failureKind: 'dependency',
+        }
+      }
       logger.error('Error checking rate limit; allowing request', error)
       return createPermissiveRateLimitResult()
     }

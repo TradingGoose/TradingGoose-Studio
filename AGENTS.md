@@ -6,8 +6,7 @@
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
 - We do not need any form of legacy support as the project is under fresh dev, do not add any form of legacy backfill path
 - This project does not support any legacy methods.
-- Ignore all license related issues.
-- Project uses `Bun` pacakge manager with turborepo.
+- Project uses `Bun` pacakge manager with turborepo, find project defined scripts in `/pacakge.json` for testing.
 - Prefer removing lines of code over adding more lines of code to reduce project complexity.
 
 ## Planning

@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import {
   Select,
   SelectContent,
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 
 type IndicatorInputFieldsProps = {
   inputMeta: InputMetaMap | undefined
@@ -91,7 +91,7 @@ const patchSparseInput = (
 
   const next = { ...sparseInputs }
   const coerced = coerceDraftValue(meta, rawValue)
-  const defaultValue = coerceDraftValue(meta, meta.value ?? meta.defval)
+  const defaultValue = coerceDraftValue(meta, meta.defval)
 
   if (typeof coerced === 'undefined' || valuesEqual(coerced, defaultValue)) {
     delete next[title]

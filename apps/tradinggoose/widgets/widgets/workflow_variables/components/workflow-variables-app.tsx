@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
-import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { useWorkflowSession, WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
@@ -34,7 +34,7 @@ const WorkflowVariablesApp = ({
     : undefined
 
   return (
-    <Providers workspaceId={workspaceId}>
+    <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
@@ -61,10 +61,11 @@ const WorkflowVariablesAppContent = ({
   channelId: string
   panelId?: string
 }) => {
+  const { canEdit } = useWorkflowSession()
   const { collaborativeAddVariable } = useWorkflowEditorActions()
 
   const handleAddVariable = useCallback(() => {
-    if (!workflowId) return
+    if (!canEdit) return
 
     collaborativeAddVariable({
       name: '',
@@ -72,7 +73,7 @@ const WorkflowVariablesAppContent = ({
       value: '',
       workflowId,
     })
-  }, [collaborativeAddVariable, workflowId])
+  }, [canEdit, collaborativeAddVariable, workflowId])
 
   useEffect(() => {
     const handleEvent = (event: Event) => {
@@ -91,7 +92,7 @@ const WorkflowVariablesAppContent = ({
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden px-3 py-2'>
-      <Variables workflowId={workflowId} hideAddButtons />
+      <Variables workflowId={workflowId} canEditEntity={canEdit} />
     </div>
   )
 }

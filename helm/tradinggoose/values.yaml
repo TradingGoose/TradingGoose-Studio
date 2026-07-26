@@ -22,7 +22,7 @@ app:
     repository: tradinggoose/tradinggoose
     tag: latest
     pullPolicy: Always
-  
+
   # Number of replicas
   replicaCount: 1
   
@@ -68,10 +68,11 @@ app:
     # Generate using: openssl rand -hex 32
     CRON_SECRET: ""         # OPTIONAL - required only if cronjobs.enabled=true, authenticates scheduled job requests
 
-    # Optional: API Key Encryption (RECOMMENDED for production)
+    # API Key Encryption
+    # Required only when API-key access or MCP token issuance is used.
     # Generate 64-character hex string using: openssl rand -hex 32 (outputs 64 hex chars = 32 bytes)
-    API_ENCRYPTION_KEY: ""  # OPTIONAL - encrypts API keys at rest, must be exactly 64 hex characters, if not set keys stored in plain text
-    
+    API_ENCRYPTION_KEY: ""
+
     # Email & Communication
     EMAIL_VERIFICATION_ENABLED: "false"                   # Enable email verification for user registration and login (defaults to false)
     RESEND_API_KEY: ""                                    # Resend API key for transactional emails
@@ -152,15 +153,13 @@ app:
 realtime:
   # Enable/disable the realtime service
   enabled: true
+  terminationGracePeriodSeconds: 300
   
   # Image configuration
   image:
     repository: tradinggoose/realtime
     tag: latest
     pullPolicy: Always
-  
-  # Number of replicas
-  replicaCount: 1
   
   # Resource limits and requests
   resources:
@@ -603,7 +602,7 @@ sharedStorage:
 extraVolumes: []
 extraVolumeMounts: []
 
-# Additional environment variables for custom integrations
+# Additional environment variables for the app and realtime containers
 extraEnvVars: []
 
 # Pod annotations for custom metadata
@@ -657,6 +656,15 @@ cronjobs:
       name: renew-subscriptions
       schedule: "0 */12 * * *"
       path: "/api/cron/renew-subscriptions"
+      concurrencyPolicy: Forbid
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+
+    idempotencyCleanup:
+      enabled: true
+      name: idempotency-cleanup
+      schedule: "0 3 * * *"
+      path: "/api/webhooks/cleanup/idempotency"
       concurrencyPolicy: Forbid
       successfulJobsHistoryLimit: 3
       failedJobsHistoryLimit: 1

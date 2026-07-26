@@ -1,12 +1,19 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { type ReactNode, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useMessages, useTranslations } from 'next-intl'
+import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
+import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
+import { parseEntityDocument } from '@/lib/copilot/entity-documents'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
+import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/identity'
+import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
+import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -15,6 +22,8 @@ import {
   isGatedTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
+import type { LayoutNode } from '@/widgets/layout'
+import { resolveDashboardLayout } from '@/widgets/layout-document'
 import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
 
 type WorkflowReviewPayload = {
@@ -32,6 +41,14 @@ type EntityReviewPayload = {
     before: string
     after: string
   }
+}
+type DashboardLayoutReviewDocument = {
+  name?: string
+  layout: LayoutNode
+}
+type VisualReviewPayload<T> = {
+  before: T | null
+  after: T
 }
 
 interface InlineToolCallProps {
@@ -115,6 +132,14 @@ const ACTION_VERBS = [
   'Slept',
   'Resumed',
 ] as const
+
+const REDACTED_VALUE = '[redacted]'
+
+function redactUrlQuery(value: unknown): string {
+  const url = String(value || '')
+  const queryStart = url.indexOf('?')
+  return queryStart === -1 ? url : `${url.slice(0, queryStart)}?${REDACTED_VALUE}`
+}
 
 function splitActionVerb(text: string): [string | null, string] {
   for (const verb of ACTION_VERBS) {
@@ -214,7 +239,11 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
     entityKind === 'skill' ||
     entityKind === 'custom_tool' ||
     entityKind === 'indicator' ||
-    entityKind === 'mcp_server'
+    entityKind === 'mcp_server' ||
+    entityKind === 'knowledge_base' ||
+    entityKind === 'watchlist' ||
+    entityKind === 'dashboard_layout' ||
+    entityKind === 'workflow'
   )
 }
 
@@ -239,15 +268,23 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
   }
 
   const entityLabel =
-    result?.entityKind === 'custom_tool'
-      ? 'Custom Tool'
-      : result?.entityKind === 'mcp_server'
-        ? 'MCP Server'
-        : result?.entityKind === 'indicator'
-          ? 'Indicator'
-          : result?.entityKind === 'skill'
-            ? 'Skill'
-            : 'Entity'
+    result?.entityKind === 'workflow' && toolCall.name === 'edit_workflow_variable'
+      ? 'Workflow Variable'
+      : result?.entityKind === 'custom_tool'
+        ? 'Custom Tool'
+        : result?.entityKind === 'mcp_server'
+          ? 'MCP Server'
+          : result?.entityKind === 'knowledge_base'
+            ? 'Knowledge Base'
+            : result?.entityKind === 'indicator'
+              ? 'Indicator'
+              : result?.entityKind === 'skill'
+                ? 'Skill'
+                : result?.entityKind === 'watchlist'
+                  ? 'Watchlist'
+                  : result?.entityKind === 'dashboard_layout'
+                    ? 'Dashboard Layout'
+                    : 'Entity'
   return {
     title:
       toolCall.state === ClientToolCallState.success
@@ -255,6 +292,79 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
         : `Proposed ${entityLabel} Changes`,
     documentDiff,
   }
+}
+
+function readDashboardLayoutReviewDocument(
+  value: string,
+  name: string
+): DashboardLayoutReviewDocument | null {
+  try {
+    const parsed = parseEntityDocument('dashboard_layout', value)
+    return {
+      layout: resolveDashboardLayout(parsed.layout, parsed.widgets),
+      name,
+    }
+  } catch {
+    return null
+  }
+}
+
+function readVisualReviewPayload<T>(
+  toolCall: CopilotToolCall,
+  toolNames: readonly string[],
+  entityKind: 'dashboard_layout' | 'watchlist',
+  readDocument: (value: string, name: string) => T | null
+): VisualReviewPayload<T> | null {
+  if (!toolNames.includes(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
+    return null
+  }
+
+  const result = toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : null
+  if (result?.entityKind !== entityKind) return null
+  const entityName = typeof result.entityName === 'string' ? result.entityName : ''
+  const documentDiff = result?.preview?.documentDiff
+  if (
+    !documentDiff ||
+    typeof documentDiff.before !== 'string' ||
+    typeof documentDiff.after !== 'string' ||
+    documentDiff.before === documentDiff.after
+  ) {
+    return null
+  }
+
+  const before = documentDiff.before ? readDocument(documentDiff.before, entityName) : null
+  const after = readDocument(documentDiff.after, entityName)
+  if (!after || (documentDiff.before && !before)) return null
+  return { before, after }
+}
+
+function readWatchlistReviewDocument(
+  value: string,
+  name: string
+): (WatchlistDocumentInputContent & { name: string }) | null {
+  try {
+    return { name, ...parseEntityDocument('watchlist', value) }
+  } catch {
+    return null
+  }
+}
+
+function readDashboardLayoutVisualReviewPayload(toolCall: CopilotToolCall) {
+  return readVisualReviewPayload(
+    toolCall,
+    ['create_layout', 'edit_layout'],
+    'dashboard_layout',
+    readDashboardLayoutReviewDocument
+  )
+}
+
+function readWatchlistVisualReviewPayload(toolCall: CopilotToolCall) {
+  return readVisualReviewPayload(
+    toolCall,
+    ['create_watchlist', 'edit_watchlist'],
+    'watchlist',
+    readWatchlistReviewDocument
+  )
 }
 
 function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPayload | null {
@@ -379,11 +489,159 @@ function ToolActionButtons({
   )
 }
 
+function VisualReviewPane({
+  children,
+  details,
+  label,
+  name,
+}: {
+  children: ReactNode
+  details?: string
+  label: string
+  name?: string
+}) {
+  return (
+    <div className='flex h-72 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background/70'>
+      <div className='flex min-h-9 items-center gap-2 border-border/60 border-b px-2 py-1.5'>
+        <span className='font-medium text-muted-foreground text-xs uppercase tracking-wide'>
+          {label}
+        </span>
+        {name ? <span className='min-w-0 flex-1 truncate font-medium text-sm'>{name}</span> : null}
+        {details ? <span className='text-[10px] text-muted-foreground'>{details}</span> : null}
+      </div>
+      <div className='min-h-0 flex-1'>{children}</div>
+    </div>
+  )
+}
+
+function VisualReview<T>({
+  currentLabel,
+  newDocument,
+  payload,
+  proposedLabel,
+  renderPane,
+  testId,
+  title,
+}: {
+  currentLabel: string
+  newDocument: string
+  payload: VisualReviewPayload<T>
+  proposedLabel: string
+  renderPane: (document: T, label: string) => ReactNode
+  testId: string
+  title: string
+}) {
+  return (
+    <div className='px-1'>
+      <div
+        className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'
+        data-testid={testId}
+      >
+        <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+          {title}
+        </div>
+        <div className='grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2'>
+          {payload.before ? (
+            renderPane(payload.before, currentLabel)
+          ) : (
+            <VisualReviewPane label={currentLabel}>
+              <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
+                {newDocument}
+              </div>
+            </VisualReviewPane>
+          )}
+          {renderPane(payload.after, proposedLabel)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WatchlistReview({
+  currentLabel,
+  emptyLabel,
+  newDocument,
+  payload,
+  proposedLabel,
+  settingLabel,
+  title,
+}: {
+  currentLabel: string
+  emptyLabel: string
+  newDocument: string
+  payload: VisualReviewPayload<WatchlistDocumentInputContent & { name: string }>
+  proposedLabel: string
+  settingLabel: (setting: keyof WatchlistSettings) => string
+  title: string
+}) {
+  const listings = useMemo(
+    () =>
+      [payload.before, payload.after]
+        .flatMap((document) => document?.items ?? [])
+        .flatMap((item) => (item.type === 'listing' ? [item.listing] : [])),
+    [payload]
+  )
+  const resolved = useResolvedListings({ listings }).data ?? {}
+  return (
+    <VisualReview
+      currentLabel={currentLabel}
+      newDocument={newDocument}
+      payload={payload}
+      proposedLabel={proposedLabel}
+      testId='watchlist-review-preview'
+      title={title}
+      renderPane={(document, label) => {
+        const settings = (Object.keys(document.settings) as Array<keyof WatchlistSettings>)
+          .filter((setting) => document.settings[setting])
+          .map(settingLabel)
+        return (
+          <VisualReviewPane details={settings.join(' · ')} label={label} name={document.name}>
+            <div className='h-full divide-y divide-border/50 overflow-y-auto'>
+              {document.items.length === 0 ? (
+                <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
+                  {emptyLabel}
+                </div>
+              ) : (
+                document.items.map((item, index) =>
+                  item.type === 'section' ? (
+                    <div
+                      className='bg-muted/30 px-3 py-2 font-medium text-muted-foreground text-xs'
+                      key={item.id ?? `section-${index}`}
+                    >
+                      {item.label}
+                    </div>
+                  ) : (
+                    <div
+                      className={item.parentId ? 'pl-5' : undefined}
+                      key={item.id ?? `${getListingIdentityKey(item.listing)}-${index}`}
+                    >
+                      <MarketListingRow
+                        listing={buildListingDisplayOption(
+                          item.listing,
+                          resolved?.[getListingIdentityKey(item.listing)] ?? null
+                        )}
+                        showAssetClass
+                        className='w-full'
+                      />
+                    </div>
+                  )
+                )
+              )}
+            </div>
+          </VisualReviewPane>
+        )
+      }}
+    />
+  )
+}
+
 export function InlineToolCall({
   toolCall: toolCallProp,
   toolCallId,
   onStateChange,
 }: InlineToolCallProps) {
+  const dashboardPreviewCopy = useMessages().workspace.dashboard.layoutPreview
+  const tReview = useTranslations('workspace.widgets.copilot.review')
   const [, forceUpdate] = useState({})
   const liveToolCall = useCopilotStore((s) =>
     toolCallId ? s.toolCallsById[toolCallId] : undefined
@@ -394,15 +652,11 @@ export function InlineToolCall({
 
   const isExpandablePending =
     toolState === 'pending' &&
-    (toolName === 'make_api_request' ||
-      toolName === 'set_environment_variables' ||
-      toolName === 'set_workflow_variables')
+    (toolName === 'make_api_request' || toolName === 'set_environment_variables')
 
   const [expanded, setExpanded] = useState(isExpandablePending)
   const isExpandableTool =
-    toolName === 'make_api_request' ||
-    toolName === 'set_environment_variables' ||
-    toolName === 'set_workflow_variables'
+    toolName === 'make_api_request' || toolName === 'set_environment_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
 
@@ -419,13 +673,22 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall)
   const params = toolCall.params ?? {}
-  const entityReviewPayload = readEntityReviewPayload(toolCall)
+  const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
+  const watchlistReviewPayload = readWatchlistVisualReviewPayload(toolCall)
+  const entityReviewPayload =
+    dashboardLayoutReviewPayload || watchlistReviewPayload
+      ? null
+      : readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)
+  const reviewState = toolCall.state === ClientToolCallState.success ? 'applied' : 'proposed'
+  const currentLabel = tReview('sideLabel', { side: 'current' })
+  const proposedLabel = tReview('sideLabel', { side: 'proposed' })
+  const newDocument = tReview('newDocument')
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
-      const url = params.url || ''
+      const url = redactUrlQuery(params.url)
       const method = (params.method || '').toUpperCase()
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -458,19 +721,10 @@ export function InlineToolCall({
 
     if (toolCall.name === 'set_environment_variables') {
       const variables =
-        params.variables && typeof params.variables === 'object' ? params.variables : {}
-
-      // Normalize variables - handle both direct key-value and nested {name, value} format
-      const normalizedEntries: Array<[string, string]> = []
-      Object.entries(variables).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null && 'name' in value && 'value' in value) {
-          // Handle {name: "key", value: "val"} format
-          normalizedEntries.push([String((value as any).name), String((value as any).value)])
-        } else {
-          // Handle direct key-value format
-          normalizedEntries.push([key, String(value)])
-        }
-      })
+        params.variables && typeof params.variables === 'object' && !Array.isArray(params.variables)
+          ? params.variables
+          : {}
+      const variableNames = Object.keys(variables)
 
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -482,11 +736,11 @@ export function InlineToolCall({
               Value
             </div>
           </div>
-          {normalizedEntries.length === 0 ? (
+          {variableNames.length === 0 ? (
             <div className='px-2 py-2 text-muted-foreground text-xs'>No variables provided</div>
           ) : (
             <div className='divide-y divide-muted/60'>
-              {normalizedEntries.map(([name, value]) => (
+              {variableNames.map((name) => (
                 <div
                   key={name}
                   className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
@@ -496,56 +750,8 @@ export function InlineToolCall({
                   </div>
                   <div className='min-w-0'>
                     <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
-                      {value}
+                      {REDACTED_VALUE}
                     </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    if (toolCall.name === 'set_workflow_variables') {
-      const ops = Array.isArray(params.operations) ? (params.operations as any[]) : []
-      return (
-        <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
-          <div className='grid grid-cols-3 gap-0 border-muted/60 border-b bg-muted/40 px-2 py-1.5'>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Name
-            </div>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Type
-            </div>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Value
-            </div>
-          </div>
-          {ops.length === 0 ? (
-            <div className='px-2 py-2 text-muted-foreground text-xs'>No operations provided</div>
-          ) : (
-            <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
-              {ops.map((op, idx) => (
-                <div key={idx} className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'>
-                  <div className='min-w-0'>
-                    <span className='truncate text-xs text-yellow-800 dark:text-yellow-200'>
-                      {String(op.name || '')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className='rounded border px-1 py-0.5 text-[10px] text-muted-foreground'>
-                      {String(op.type || '')}
-                    </span>
-                  </div>
-                  <div className='min-w-0'>
-                    {op.value !== undefined ? (
-                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
-                        {String(op.value)}
-                      </span>
-                    ) : (
-                      <span className='text-muted-foreground text-xs'>—</span>
-                    )}
                   </div>
                 </div>
               ))}
@@ -641,15 +847,48 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='px-1'>{renderPendingDetails()}</div>}
+      {dashboardLayoutReviewPayload ? (
+        <VisualReview
+          currentLabel={currentLabel}
+          newDocument={newDocument}
+          payload={dashboardLayoutReviewPayload}
+          proposedLabel={proposedLabel}
+          testId='dashboard-layout-review-preview'
+          title={tReview('dashboardLayoutTitle', { state: reviewState })}
+          renderPane={(document, label) => (
+            <VisualReviewPane label={label} name={document.name}>
+              <DashboardLayoutPreviewCanvas
+                copy={dashboardPreviewCopy}
+                layout={document.layout}
+                showDimensions={false}
+                showWidgetKeys
+              />
+            </VisualReviewPane>
+          )}
+        />
+      ) : null}
+      {watchlistReviewPayload ? (
+        <WatchlistReview
+          currentLabel={currentLabel}
+          emptyLabel={tReview('emptyWatchlist')}
+          newDocument={newDocument}
+          payload={watchlistReviewPayload}
+          proposedLabel={proposedLabel}
+          settingLabel={(setting) => tReview('watchlistSetting', { setting })}
+          title={tReview('watchlistTitle', { state: reviewState })}
+        />
+      ) : null}
       {entityReviewPayload ? (
         <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-              {entityReviewPayload.title}
+              {toolCall.name === 'edit_widget'
+                ? tReview('widgetTitle', { state: reviewState })
+                : entityReviewPayload.title}
             </div>
             <DiffViewer
-              oldFile={{ name: 'Current', content: entityReviewPayload.documentDiff.before }}
-              newFile={{ name: 'Proposed', content: entityReviewPayload.documentDiff.after }}
+              oldFile={{ name: currentLabel, content: entityReviewPayload.documentDiff.before }}
+              newFile={{ name: proposedLabel, content: entityReviewPayload.documentDiff.after }}
               viewMode='unified'
               showIcon={false}
               size='sm'

@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockPush = vi.fn()
+const mockReplace = vi.fn()
 let mockSwitchToWorkspace = vi.fn()
 let fetchMock: ReturnType<typeof vi.fn>
 let originalFetch: typeof globalThis.fetch
@@ -29,6 +30,7 @@ afterAll(() => {
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
+    replace: mockReplace,
   }),
 }))
 
@@ -44,6 +46,7 @@ vi.mock('@/stores/workflows/registry/store', () => ({
 describe('useWorkspaceSwitcher', () => {
   beforeEach(() => {
     mockPush.mockReset()
+    mockReplace.mockReset()
     mockSwitchToWorkspace = vi.fn()
     latestValue = null
 
@@ -100,6 +103,7 @@ describe('useWorkspaceSwitcher', () => {
     expect(latestValue.canManageWorkspaces).toBe(true)
     expect(latestValue.activeWorkspace?.id).toBe('ws-1')
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain('/api/workspaces')
+    expect(mockReplace).not.toHaveBeenCalled()
 
     await act(async () => {
       latestValue.setWorkspaceMenuOpen(true)
@@ -114,5 +118,27 @@ describe('useWorkspaceSwitcher', () => {
     expect(latestValue.editingWorkspaceId).toBe('ws-1')
     expect(latestValue.inviteDialogOpen).toBe(true)
     expect(latestValue.deleteDialogOpen).toBe(true)
+  })
+
+  it('does not redirect during the workspace bootstrap fetch (server owns the root redirect)', async () => {
+    const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
+
+    function Harness() {
+      latestValue = useWorkspaceSwitcher({
+        enabled: true,
+        section: 'dashboard',
+      })
+      return null
+    }
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+      await flush()
+    })
+
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain('/api/workspaces')
+    expect(latestValue.activeWorkspace?.id).toBe('ws-1')
+    expect(mockReplace).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
   })
 })

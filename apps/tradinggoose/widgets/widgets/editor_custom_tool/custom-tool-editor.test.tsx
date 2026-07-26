@@ -2,30 +2,47 @@
  * @vitest-environment jsdom
  */
 
-import type { MutableRefObject, ReactNode, TextareaHTMLAttributes } from 'react'
-import { act, createRef } from 'react'
+import type { ReactNode, TextareaHTMLAttributes } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import {
+  getEntityFields,
+  replaceEntityTextField,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
+import {
+  CUSTOM_TOOL_EDITOR_ACTION_EVENT,
+  type CustomToolEditorActionEventDetail,
+} from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
-const mockUseUpdateCustomTool = vi.fn()
 const mockUseWand = vi.fn()
-
-vi.mock('@/hooks/queries/custom-tools', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/custom-tools')
-  return {
-    ...actual,
-    useUpdateCustomTool: () => mockUseUpdateCustomTool(),
-  }
-})
+const editorMocks = vi.hoisted(() => ({
+  checkEnvVarTrigger: vi.fn((_text: string, _cursorPosition: number) => ({
+    show: false,
+    searchTerm: '',
+  })),
+  cursorChange: null as
+    | ((offset: number, coords: { top: number; left: number; height: number } | null) => void)
+    | null,
+  envVarOnSelect: null as ((value: string) => void) | null,
+  wandInputs: [] as Array<{ onStreamChunk?: (chunk: string) => void }>,
+}))
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
   useWand: (...args: unknown[]) => mockUseWand(...args),
 }))
 
 vi.mock('@/components/ui/env-var-dropdown', () => ({
-  checkEnvVarTrigger: () => ({ show: false, searchTerm: '' }),
-  EnvVarDropdown: () => null,
+  checkEnvVarTrigger: (text: string, cursorPosition: number) =>
+    editorMocks.checkEnvVarTrigger(text, cursorPosition),
+  EnvVarDropdown: ({ onSelect }: { onSelect: (value: string) => void }) => {
+    editorMocks.envVarOnSelect = onSelect
+    return <div data-testid='env-var-dropdown' />
+  },
 }))
 
 vi.mock('@/components/ui/tag-dropdown', () => ({
@@ -56,17 +73,27 @@ vi.mock(
       value,
       onChange,
       language,
+      onCursorChange,
+      disabled,
     }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
       value?: string
       onChange?: (value: string) => void
       language?: string
-    }) => (
-      <textarea
-        data-testid={`code-editor-${language}`}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-      />
-    ),
+      onCursorChange?: (
+        offset: number,
+        coords: { top: number; left: number; height: number } | null
+      ) => void
+    }) => {
+      editorMocks.cursorChange = onCursorChange ?? null
+      return (
+        <textarea
+          data-testid={`code-editor-${language}`}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange?.(event.target.value)}
+        />
+      )
+    },
   })
 )
 
@@ -98,7 +125,22 @@ const readBlobText = async (blob: Blob) =>
     reader.readAsText(blob)
   })
 
-describe('CustomToolEditor export', () => {
+const createCustomToolDoc = (initialValues: { schema: unknown; code: string }) => {
+  const doc = new Y.Doc()
+  seedEntitySession(doc, {
+    entityKind: 'custom_tool',
+    payload: {
+      schemaText:
+        typeof initialValues.schema === 'string'
+          ? initialValues.schema
+          : JSON.stringify(initialValues.schema, null, 2),
+      codeText: initialValues.code,
+    },
+  })
+  return doc
+}
+
+describe('CustomToolEditor', () => {
   let container: HTMLDivElement
   let root: Root
   let createObjectUrlSpy: ReturnType<typeof vi.fn>
@@ -107,17 +149,20 @@ describe('CustomToolEditor export', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    editorMocks.cursorChange = null
+    editorMocks.envVarOnSelect = null
+    editorMocks.wandInputs.length = 0
+    editorMocks.checkEnvVarTrigger.mockReturnValue({ show: false, searchTerm: '' })
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
     capturedDownloadName = ''
 
-    mockUseUpdateCustomTool.mockReturnValue({
-      isPending: false,
-      mutateAsync: vi.fn(),
+    mockUseWand.mockImplementation((input) => {
+      editorMocks.wandInputs.push(input)
+      return createWandState()
     })
-    mockUseWand.mockImplementation(() => createWandState())
 
     createObjectUrlSpy = vi.fn(() => 'blob:custom-tool-export')
     revokeObjectUrlSpy = vi.fn()
@@ -146,18 +191,11 @@ describe('CustomToolEditor export', () => {
   })
 
   it('exports the current schema and code buffer using the unified envelope', async () => {
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    exportRef.current = () => {}
-    saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
-      id: 'tool-1',
-      title: 'Fetch Top Movers',
       schema: {
         type: 'function',
         function: {
-          name: 'fetchTopMovers',
           description: 'Fetch top moving symbols.',
           parameters: {
             type: 'object',
@@ -167,38 +205,32 @@ describe('CustomToolEditor export', () => {
       },
       code: 'return { movers: [] }',
     }
+    const doc = createCustomToolDoc(initialValues)
 
     await act(async () => {
       root.render(
         <CustomToolEditor
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
-          onSave={vi.fn()}
+          toolId='tool-1'
+          toolTitle='Tool 1'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
+          doc={doc}
+          save={vi.fn()}
         />
       )
     })
 
-    const schemaEditor = container.querySelector(
-      '[data-testid="code-editor-json"]'
-    ) as HTMLTextAreaElement | null
-    expect(schemaEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(
-        schemaEditor,
+      replaceEntityTextField(
+        doc,
+        'schemaText',
         JSON.stringify(
           {
             type: 'function',
             function: {
-              name: 'fetchTopMoversCurrent',
               description: 'Fetch top moving symbols.',
               parameters: {
                 type: 'object',
@@ -215,8 +247,6 @@ describe('CustomToolEditor export', () => {
           2
         )
       )
-      schemaEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      schemaEditor!.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
     await act(async () => {
@@ -224,37 +254,33 @@ describe('CustomToolEditor export', () => {
         <CustomToolEditor
           activeSection='code'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
-          onSave={vi.fn()}
+          toolId='tool-1'
+          toolTitle='fetchTopMoversCurrent'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
+          doc={doc}
+          save={vi.fn()}
         />
       )
     })
 
-    const codeEditor = container.querySelector(
-      '[data-testid="code-editor-javascript"]'
-    ) as HTMLTextAreaElement | null
-    expect(codeEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(codeEditor, 'return { exported: true }')
-      codeEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      codeEditor!.dispatchEvent(new Event('change', { bubbles: true }))
+      replaceEntityTextField(doc, 'codeText', 'return { exported: true }')
     })
 
     await act(async () => {
-      exportRef.current?.()
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+        action: 'export',
+        entityId: 'tool-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_custom_tool',
+      })
     })
 
     expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:custom-tool-export')
-    expect(capturedDownloadName).toBe('Fetch-Top-Movers.json')
+    expect(capturedDownloadName).toBe('fetchTopMoversCurrent.json')
 
     const blob = createObjectUrlSpy.mock.calls[0]?.[0] as Blob
     const payload = JSON.parse(await readBlobText(blob))
@@ -269,11 +295,10 @@ describe('CustomToolEditor export', () => {
       workflows: [],
       customTools: [
         {
-          title: 'Fetch Top Movers',
+          title: 'fetchTopMoversCurrent',
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMoversCurrent',
               description: 'Fetch top moving symbols.',
               parameters: {
                 type: 'object',
@@ -292,21 +317,15 @@ describe('CustomToolEditor export', () => {
       watchlists: [],
       indicators: [],
     })
+    doc.destroy()
   })
 
   it('blocks export when the current schema is invalid', async () => {
-    const exportRef = createRef<() => void>()
-    const saveRef = createRef<() => void>()
-    exportRef.current = () => {}
-    saveRef.current = () => {}
     const onSectionChange = vi.fn()
     const initialValues = {
-      id: 'tool-1',
-      title: 'Fetch Top Movers',
       schema: {
         type: 'function',
         function: {
-          name: 'fetchTopMovers',
           parameters: {
             type: 'object',
             properties: {},
@@ -315,41 +334,86 @@ describe('CustomToolEditor export', () => {
       },
       code: 'return { movers: [] }',
     }
+    const doc = createCustomToolDoc(initialValues)
 
     await act(async () => {
       root.render(
         <CustomToolEditor
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
-          onSave={vi.fn()}
+          toolId='tool-1'
+          toolTitle='Tool 1'
           onSectionChange={onSectionChange}
-          exportRef={exportRef as MutableRefObject<() => void>}
-          saveRef={saveRef as MutableRefObject<() => void>}
+          panelId='panel-1'
+          widgetKey='editor_custom_tool'
+          doc={doc}
+          save={vi.fn()}
         />
       )
     })
 
-    const schemaEditor = container.querySelector(
-      '[data-testid="code-editor-json"]'
-    ) as HTMLTextAreaElement | null
-    expect(schemaEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(schemaEditor, '{')
-      schemaEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      schemaEditor!.dispatchEvent(new Event('change', { bubbles: true }))
+      replaceEntityTextField(doc, 'schemaText', '{')
     })
 
     await act(async () => {
-      exportRef.current?.()
+      emitEditorAction<CustomToolEditorActionEventDetail>(CUSTOM_TOOL_EDITOR_ACTION_EVENT, {
+        action: 'export',
+        entityId: 'tool-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_custom_tool',
+      })
     })
 
     expect(createObjectUrlSpy).not.toHaveBeenCalled()
     expect(onSectionChange).toHaveBeenCalledWith('schema')
+    doc.destroy()
+  })
+
+  it('closes autocomplete and blocks its retained callback after becoming read-only', async () => {
+    const doc = createCustomToolDoc({
+      schema: {
+        type: 'function',
+        function: {
+          description: 'Test tool',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      code: 'return 1',
+    })
+    const props = {
+      activeSection: 'code' as const,
+      blockId: 'dashboard-custom-tool-editor',
+      toolId: 'tool-1',
+      toolTitle: 'Tool 1',
+      onSectionChange: vi.fn(),
+      panelId: 'panel-1',
+      widgetKey: 'editor_custom_tool',
+      doc,
+      save: vi.fn(),
+    }
+    editorMocks.checkEnvVarTrigger.mockReturnValue({ show: true, searchTerm: 'TOKEN' })
+
+    await act(async () => {
+      root.render(<CustomToolEditor {...props} />)
+    })
+    act(() => {
+      editorMocks.cursorChange?.(8, { top: 0, left: 0, height: 16 })
+    })
+    expect(container.querySelector('[data-testid="env-var-dropdown"]')).not.toBeNull()
+    const retainedOnSelect = editorMocks.envVarOnSelect
+    const retainedStreamChunk = editorMocks.wandInputs[1]?.onStreamChunk
+
+    await act(async () => {
+      root.render(<CustomToolEditor {...props} readOnly={true} />)
+    })
+    expect(container.querySelector('[data-testid="env-var-dropdown"]')).toBeNull()
+
+    act(() => {
+      retainedOnSelect?.('return 2')
+      retainedStreamChunk?.('return 3')
+    })
+    expect(getEntityFields(doc, 'custom_tool').codeText).toBe('return 1')
+    doc.destroy()
   })
 })

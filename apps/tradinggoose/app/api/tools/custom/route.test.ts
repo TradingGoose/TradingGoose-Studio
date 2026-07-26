@@ -4,9 +4,13 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.setConfig({ testTimeout: 15000 })
+
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockUpsertCustomTools = vi.fn()
+const mockCreateCustomTools = vi.fn()
+const mockListCustomTools = vi.fn()
+const mockReadWorkflowAccessContext = vi.fn()
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: mockCheckHybridAuth,
@@ -17,27 +21,16 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/lib/custom-tools/operations', () => ({
-  upsertCustomTools: mockUpsertCustomTools,
+  createCustomTools: mockCreateCustomTools,
+  listCustomTools: mockListCustomTools,
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-    }),
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
+vi.mock('@/lib/workflows/utils', () => ({
+  readWorkflowAccessContext: mockReadWorkflowAccessContext,
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  customTools: {},
-  workflow: {},
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  deleteSavedEntity: vi.fn(),
 }))
 
 describe('Custom Tools API Routes', () => {
@@ -45,7 +38,9 @@ describe('Custom Tools API Routes', () => {
     vi.resetAllMocks()
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockUpsertCustomTools.mockResolvedValue([])
+    mockCreateCustomTools.mockResolvedValue([])
+    mockListCustomTools.mockResolvedValue([])
+    mockReadWorkflowAccessContext.mockResolvedValue(null)
   })
 
   afterEach(() => {
@@ -71,7 +66,24 @@ describe('Custom Tools API Routes', () => {
     const body = await res.json()
 
     expect(res.status).toBe(400)
-    expect(body.error).toBe('workspaceId is required')
+    expect(body.error).toBe('workspaceId or workflowId is required')
+  })
+
+  it('GET should resolve workspace from workflowId', async () => {
+    mockReadWorkflowAccessContext.mockResolvedValue({
+      workflow: { workspaceId: 'ws-1' },
+      isOwner: false,
+      isWorkspaceOwner: false,
+      workspacePermission: 'read',
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/tools/custom?workflowId=workflow-1')
+    const { GET } = await import('@/app/api/tools/custom/route')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockReadWorkflowAccessContext).toHaveBeenCalledWith('workflow-1', 'user-123')
+    expect(mockListCustomTools).toHaveBeenCalledWith({ workspaceId: 'ws-1' })
   })
 
   it('POST should require workspaceId in body', async () => {

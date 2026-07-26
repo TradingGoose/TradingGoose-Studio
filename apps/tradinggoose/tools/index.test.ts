@@ -43,10 +43,36 @@ vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
 }))
 
+const yjsMocks = vi.hoisted(() => ({
+  readSavedEntityFieldsForExecution: vi.fn(),
+}))
+const watchlistMocks = vi.hoisted(() => ({
+  getWatchlist: vi.fn(),
+  listWatchlists: vi.fn(),
+}))
+
+const permissionMocks = vi.hoisted(() => ({
+  checkWorkspaceAccess: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => yjsMocks)
+vi.mock('@/lib/watchlists/operations', () => watchlistMocks)
+vi.mock(import('@/lib/permissions/utils'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  checkWorkspaceAccess: permissionMocks.checkWorkspaceAccess,
+}))
+
+beforeEach(() => {
+  permissionMocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: true, canWrite: true })
+  watchlistMocks.getWatchlist.mockReset()
+  watchlistMocks.listWatchlists.mockReset()
+})
+
 // Helper function to create mock ExecutionContext
 const createMockExecutionContext = (overrides?: Partial<ExecutionContext>): ExecutionContext => ({
   workflowId: 'test-workflow',
   workspaceId: 'workspace-456',
+  userId: 'user-123',
   blockStates: new Map(),
   blockLogs: [],
   metadata: { startTime: new Date().toISOString(), duration: 0 },
@@ -90,6 +116,70 @@ describe('Tools Registry', () => {
   it('getTool should return undefined for non-existent tool', () => {
     const nonExistentTool = getTool('non_existent_tool')
     expect(nonExistentTool).toBeUndefined()
+  })
+
+  it('does not expose removed watchlist mutation tools', async () => {
+    for (const toolId of ['watchlist_add_listing', 'watchlist_remove_listing']) {
+      expect((tools as Record<string, unknown>)[toolId]).toBeUndefined()
+      expect(getTool(toolId)).toBeUndefined()
+
+      await expect(executeTool(toolId, {})).resolves.toMatchObject({
+        success: false,
+        error: `Tool not found: ${toolId}`,
+      })
+    }
+  })
+
+  it('forwards live watchlist execution mode', async () => {
+    const watchlist = {
+      id: 'watchlist-b',
+      workspaceId: 'workspace-456',
+      name: 'Second',
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      items: [],
+      createdAt: '',
+      updatedAt: '',
+    }
+    watchlistMocks.getWatchlist.mockResolvedValueOnce(watchlist)
+    watchlistMocks.listWatchlists.mockResolvedValueOnce([watchlist])
+    const context = {
+      userId: 'user-123',
+      workspaceId: 'workspace-456',
+      isDeployedContext: false,
+    }
+
+    await executeTool('watchlist_read_list_items', {
+      watchlistId: 'watchlist-b',
+      _context: context,
+    })
+    expect(watchlistMocks.getWatchlist).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-456' },
+      'watchlist-b',
+      false
+    )
+
+    await executeTool('watchlist_read_lists', { _context: context })
+    expect(watchlistMocks.listWatchlists).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-456' },
+      false
+    )
+  })
+
+  it('rejects direct watchlist reads when the authenticated user lacks workspace access', async () => {
+    permissionMocks.checkWorkspaceAccess.mockResolvedValueOnce({
+      hasAccess: false,
+      canWrite: false,
+    })
+
+    await expect(
+      executeTool('watchlist_read_lists', {
+        _context: { userId: 'user-123', workspaceId: 'workspace-other' },
+      })
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'watchlist_read_lists requires read access to the workspace',
+    })
+    expect(watchlistMocks.listWatchlists).not.toHaveBeenCalled()
   })
 })
 
@@ -180,6 +270,9 @@ describe('executeTool Function', () => {
         Promise.resolve([]).then(resolve, reject),
     }))
     dbMocks.limit.mockImplementation(() => Promise.resolve([]))
+    yjsMocks.readSavedEntityFieldsForExecution.mockRejectedValue(
+      new Error('Saved entity was not found')
+    )
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -500,20 +593,18 @@ describe('executeTool Function', () => {
 
   it('should load skill content from workspace storage', async () => {
     const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
-      'market-research',
-    ])
-    const skillRows = [
       {
+        id: 'skill-1',
         name: 'market-research',
-        content: 'Investigate the market and summarize the setup.',
+        description: 'Research the market before acting',
       },
-    ]
-    dbMocks.where.mockImplementationOnce(() => ({
-      orderBy: vi.fn().mockResolvedValueOnce(skillRows),
-      limit: vi.fn().mockResolvedValueOnce(skillRows),
-      then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
-        Promise.resolve(skillRows).then(resolve, reject),
-    }))
+    ])
+    yjsMocks.readSavedEntityFieldsForExecution.mockResolvedValueOnce({
+      id: 'skill-1',
+      name: 'market-research',
+      description: 'Research the market before acting',
+      content: 'Investigate the market and summarize the setup.',
+    })
 
     global.fetch = Object.assign(
       vi.fn().mockResolvedValue({
@@ -539,7 +630,7 @@ describe('executeTool Function', () => {
       skillLoaderTool.id,
       {
         ...skillLoaderTool.params,
-        skill_name: 'market-research',
+        skill_id: 'skill-1',
       },
       false,
       createMockExecutionContext()
@@ -549,6 +640,30 @@ describe('executeTool Function', () => {
     expect(result.output).toEqual({
       content: 'Investigate the market and summarize the setup.',
     })
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('should return a scoped error when selected skill content is missing', async () => {
+    const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
+      {
+        id: 'deleted-skill',
+        name: 'deleted',
+        description: 'Deleted skill',
+      },
+    ])
+
+    const result = await executeTool(
+      skillLoaderTool.id,
+      {
+        ...skillLoaderTool.params,
+        skill_id: 'deleted-skill',
+      },
+      false,
+      createMockExecutionContext()
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('was not found')
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
@@ -1190,7 +1305,7 @@ describe('MCP Tool Execution', () => {
     const result = await executeTool('mcp-123-test_tool', { param: 'value' })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Missing workspaceId in execution context for MCP tool')
+    expect(result.error).toContain('requires workspace execution context')
   })
 
   it('should handle invalid MCP tool ID format', async () => {

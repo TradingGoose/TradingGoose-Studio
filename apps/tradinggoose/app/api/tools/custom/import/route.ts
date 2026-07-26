@@ -6,6 +6,7 @@ import { importCustomTools } from '@/lib/custom-tools/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('CustomToolsImportAPI')
 
@@ -59,9 +60,11 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid custom tools import data`, { errors: error.errors })
-      const workspaceError = error.errors.find(
+      logger.warn(`[${requestId}] Invalid custom tools import data`, { errors: error.issues })
+      const workspaceError = error.issues.find(
         (validationError) =>
           validationError.path.length === 1 && validationError.path[0] === 'workspaceId'
       )
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

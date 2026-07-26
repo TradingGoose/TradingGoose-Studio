@@ -9,21 +9,25 @@ import {
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
-const ExecuteSchema = z.object({
-  toolName: z.string().min(1),
-  payload: z.unknown().optional(),
-  context: z
-    .object({
-      contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
-      contextEntityId: z.string().optional(),
-      workspaceId: z.string().optional(),
-    })
-    .optional(),
-})
+const ExecuteSchema = z
+  .object({
+    toolName: z.string().min(1),
+    payload: z.unknown().optional(),
+    accessLevel: z.enum(['limited', 'full']).optional(),
+    reviewAction: z.enum(['accept']).optional(),
+    reviewToken: z.string().optional(),
+    context: z
+      .object({
+        contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
+        contextEntityId: z.string().optional(),
+        workspaceId: z.string().optional(),
+      })
+      .optional(),
+  })
+  .strict()
 
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
@@ -35,11 +39,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    try {
-      const preview = JSON.stringify(body).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Incoming request body preview`, { preview })
-    } catch {}
-
     let parsedBody: z.infer<typeof ExecuteSchema>
     try {
       parsedBody = ExecuteSchema.parse(body)
@@ -53,38 +52,64 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload, context } = parsedBody
+    const { payload, context, reviewAction, reviewToken } = parsedBody
+    const contextEntityKind = context?.contextEntityKind
+    const contextEntityId =
+      typeof context?.contextEntityId === 'string' ? context.contextEntityId.trim() : undefined
+    const contextWorkspaceId =
+      typeof context?.workspaceId === 'string' ? context.workspaceId.trim() : undefined
 
-    const [{ isToolId }, { routeExecution }] = await Promise.all([
+    if (reviewAction === 'accept' && !reviewToken) {
+      return createBadRequestResponse('reviewToken is required to accept a server tool review')
+    }
+    if (contextEntityKind === 'dashboard_layout') {
+      if (contextEntityId?.includes('dashboard_layout:')) {
+        return createBadRequestResponse(
+          'dashboard_layout contextEntityId must be the raw layout id'
+        )
+      }
+      if (reviewAction !== 'accept' && (!contextEntityId || !contextWorkspaceId)) {
+        return createBadRequestResponse(
+          'dashboard_layout context requires contextEntityId and workspaceId'
+        )
+      }
+    }
+
+    const [
+      { isToolId },
+      { routeExecution },
+      { acceptServerManagedToolReview, stageServerManagedToolReview },
+    ] = await Promise.all([
       import('@/lib/copilot/registry'),
       import('@/lib/copilot/tools/server/router'),
+      import('@/lib/copilot/tools/server/review-acceptance'),
     ])
 
     if (!isToolId(toolName)) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
     }
+    const toolId = toolName
+    const normalizedContext = context
+      ? {
+          ...(contextEntityKind ? { contextEntityKind } : {}),
+          ...(contextEntityId ? { contextEntityId } : {}),
+          ...(contextWorkspaceId ? { workspaceId: contextWorkspaceId } : {}),
+        }
+      : undefined
 
-    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    if (context?.workspaceId) {
-      const workspaceAccess = await checkWorkspaceAccess(context.workspaceId, userId)
-      if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-        return NextResponse.json(
-          { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
-          { status: 403 }
-        )
-      }
-    }
-
-    const result = await routeExecution(toolName, payload, {
+    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
+    const executionContext = {
       userId,
-      ...context,
+      accessLevel:
+        reviewAction === 'accept' ? ('limited' as const) : (parsedBody.accessLevel ?? 'limited'),
+      ...normalizedContext,
       signal: req.signal,
-    })
-
-    try {
-      const resultPreview = JSON.stringify(result).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Server tool result preview`, { toolName, resultPreview })
-    } catch {}
+    }
+    const result = await (reviewAction === 'accept'
+      ? acceptServerManagedToolReview(toolId, reviewToken!, executionContext)
+      : routeExecution(toolId, payload, executionContext).then((toolResult) =>
+          stageServerManagedToolReview(toolId, payload, toolResult, executionContext)
+        ))
 
     return NextResponse.json({ success: true, result })
   } catch (error) {

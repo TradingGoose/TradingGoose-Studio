@@ -1,29 +1,29 @@
 // /src/model/LineToolCallout.ts
 
 import {
-	IChartApiBase,
-	ISeriesApi,
-	IHorzScaleBehavior,
-	SeriesType,
-	LineStyle,
-} from 'lightweight-charts';
-
+  type IChartApiBase,
+  type IHorzScaleBehavior,
+  type ISeriesApi,
+  LineStyle,
+  type SeriesType,
+} from 'lightweight-charts'
 import {
-	LineToolPoint,
-	LineToolOptionsInternal,
-	LineToolType,
-	DeepPartial,
-	LineToolsCorePlugin,
-	PriceAxisLabelStackingManager,
-	LineEnd,
-	TextOptions,
-	PaneCursorType
-} from '../../core';
-
+  type DeepPartial,
+  LineEnd,
+  type LineToolOptionsInternal,
+  type LineToolPoint,
+  type LineToolsCorePlugin,
+  type LineToolType,
+  PaneCursorType,
+  type PriceAxisLabelStackingManager,
+} from '../../core'
 // Import the base class model and its default options structure
-import { LineToolTrendLine, TrendLineOptionDefaults } from '../../shared/lines/model/LineToolTrendLine';
-import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options';
-import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView';
+import {
+  LineToolTrendLine,
+  TrendLineOptionDefaults,
+} from '../../shared/lines/model/LineToolTrendLine'
+import { buildLineToolOptions } from '../../shared/lines/model/line-tool-options'
+import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView'
 
 /**
  * Defines the specific configuration overrides that shape a Trend Line into a Callout tool.
@@ -39,63 +39,62 @@ import { LineToolCalloutPaneView } from '../views/LineToolCalloutPaneView';
  */
 
 const CalloutSpecificOverrides = {
+  defaultHoverCursor: PaneCursorType.Pointer,
+  defaultDragCursor: PaneCursorType.Grabbing,
+  defaultAnchorHoverCursor: PaneCursorType.Pointer,
+  defaultAnchorDragCursor: PaneCursorType.Grabbing,
+  notEditableCursor: PaneCursorType.NotAllowed,
+  showPriceAxisLabels: false,
+  showTimeAxisLabels: false,
+  priceAxisLabelAlwaysVisible: false,
+  timeAxisLabelAlwaysVisible: false,
 
-	defaultHoverCursor: PaneCursorType.Pointer,
-	defaultDragCursor: PaneCursorType.Grabbing,
-	defaultAnchorHoverCursor: PaneCursorType.Pointer,
-	defaultAnchorDragCursor: PaneCursorType.Grabbing,
-	notEditableCursor: PaneCursorType.NotAllowed,
-	showPriceAxisLabels: false,
-	showTimeAxisLabels: false,
-	priceAxisLabelAlwaysVisible: false,
-	timeAxisLabelAlwaysVisible: false,
-
-	line: {
-		color: '',
-		end: { left: LineEnd.Normal, right: LineEnd.Normal }, // Default to Normal ends
-		extend: { left: false, right: false }, // Callout is always a segment (the stem)
-	},
-	text: {
-		value: 'this is some text',
-		padding: 0,
-		wordWrapWidth: 150,
-		font: {
-			color: '',
-			size: 14,
-			bold: false,
-			italic: false,
-		},
-		box: {
-			shadow: {
-				blur: 0,
-				color: 'rgba(255,255,255,1)',
-				offset: {
-					x: 0,
-					y: 0,
-				},
-			},
-			border: {
-				color: '',
-				width: 1,
-				radius: 10,
-				highlight: false,
-				style: LineStyle.Solid,
-			},
-			background: {
-				color: '',
-				inflation: {
-					x: 0,
-					y: 3,
-				},
-			},
-			padding: { x: 0, y: 0 },
-			scale: 1,
-			angle: 0,
-			alignment: { vertical: 'top', horizontal: 'center' },
-			maxHeight: Infinity,
-		}
-	}
-};
+  line: {
+    color: '',
+    end: { left: LineEnd.Normal, right: LineEnd.Normal }, // Default to Normal ends
+    extend: { left: false, right: false }, // Callout is always a segment (the stem)
+  },
+  text: {
+    value: 'this is some text',
+    padding: 0,
+    wordWrapWidth: 150,
+    font: {
+      color: '',
+      size: 14,
+      bold: false,
+      italic: false,
+    },
+    box: {
+      shadow: {
+        blur: 0,
+        color: 'rgba(255,255,255,1)',
+        offset: {
+          x: 0,
+          y: 0,
+        },
+      },
+      border: {
+        color: '',
+        width: 1,
+        radius: 10,
+        highlight: false,
+        style: LineStyle.Solid,
+      },
+      background: {
+        color: '',
+        inflation: {
+          x: 0,
+          y: 3,
+        },
+      },
+      padding: { x: 0, y: 0 },
+      scale: 1,
+      angle: 0,
+      alignment: { vertical: 'top', horizontal: 'center' },
+      maxHeight: Number.POSITIVE_INFINITY,
+    },
+  },
+}
 
 /**
  * Concrete implementation of the Callout drawing tool.
@@ -111,93 +110,92 @@ const CalloutSpecificOverrides = {
  * the specific "Stem + Text Box" visual style.
  */
 export class LineToolCallout<HorzScaleItem> extends LineToolTrendLine<HorzScaleItem> {
-	/**
-	 * The unique identifier for this tool type ('Callout').
-	 *
-	 * @override
-	 */
-	public override readonly toolType: LineToolType = 'Callout';
+  /**
+   * The unique identifier for this tool type ('Callout').
+   *
+   * @override
+   */
+  public override readonly toolType: LineToolType = 'Callout'
 
-	/**
-	 * Defines the number of anchor points required to draw this tool.
-	 *
-	 * A Callout requires exactly **2 points**:
-	 * 1. The target point (where the arrow/line points to).
-	 * 2. The text box anchor point (where the label sits).
-	 *
-	 * @override
-	 */
-	public override readonly pointsCount: number = 2; // Inherits 2-point behavior
+  /**
+   * Defines the number of anchor points required to draw this tool.
+   *
+   * A Callout requires exactly **2 points**:
+   * 1. The target point (where the arrow/line points to).
+   * 2. The text box anchor point (where the label sits).
+   *
+   * @override
+   */
+  public override readonly pointsCount: number = 2 // Inherits 2-point behavior
 
-	/**
-	 * Initializes the Callout tool.
-	 *
-	 * **Tutorial Note on Construction:**
-	 * 1. We start with `TrendLineOptionDefaults` as a base.
-	 * 2. We apply `CalloutSpecificOverrides` to turn off axis labels and set up the text box styling.
-	 * 3. We apply user `options` last.
-	 * 4. Crucially, we assign `LineToolCalloutPaneView` instead of the standard Trend Line view.
-	 *    This swap is what actually makes the tool look like a Callout on the canvas.
-	 *
-	 * @param coreApi - The Core Plugin API.
-	 * @param chart - The Lightweight Charts Chart API.
-	 * @param series - The Series API this tool is attached to.
-	 * @param horzScaleBehavior - The horizontal scale behavior.
-	 * @param options - Configuration overrides.
-	 * @param points - Initial points.
-	 * @param priceAxisLabelStackingManager - The manager for label collision.
-	 */
-	public constructor(
-		coreApi: LineToolsCorePlugin<HorzScaleItem>,
-		chart: IChartApiBase<HorzScaleItem>,
-		series: ISeriesApi<SeriesType, HorzScaleItem>,
-		horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-		options: DeepPartial<LineToolOptionsInternal<'Callout'>> = {},
-		points: LineToolPoint[] = [],
-		priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
-	) {
-		const finalOptions = buildLineToolOptions<'Callout', 'TrendLine'>(
-			TrendLineOptionDefaults,
-			options,
-			CalloutSpecificOverrides
-		);
-		finalOptions.line.color = finalOptions.line.color?.trim() || TrendLineOptionDefaults.line.color;
+  /**
+   * Initializes the Callout tool.
+   *
+   * **Tutorial Note on Construction:**
+   * 1. We start with `TrendLineOptionDefaults` as a base.
+   * 2. We apply `CalloutSpecificOverrides` to turn off axis labels and set up the text box styling.
+   * 3. We apply user `options` last.
+   * 4. Crucially, we assign `LineToolCalloutPaneView` instead of the standard Trend Line view.
+   *    This swap is what actually makes the tool look like a Callout on the canvas.
+   *
+   * @param coreApi - The Core Plugin API.
+   * @param chart - The Lightweight Charts Chart API.
+   * @param series - The Series API this tool is attached to.
+   * @param horzScaleBehavior - The horizontal scale behavior.
+   * @param options - Configuration overrides.
+   * @param points - Initial points.
+   * @param priceAxisLabelStackingManager - The manager for label collision.
+   */
+  public constructor(
+    coreApi: LineToolsCorePlugin<HorzScaleItem>,
+    chart: IChartApiBase<HorzScaleItem>,
+    series: ISeriesApi<SeriesType, HorzScaleItem>,
+    horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
+    options: DeepPartial<LineToolOptionsInternal<'Callout'>> = {},
+    points: LineToolPoint[] = [],
+    priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
+  ) {
+    const finalOptions = buildLineToolOptions<'Callout', 'TrendLine'>(
+      TrendLineOptionDefaults,
+      options,
+      CalloutSpecificOverrides
+    )
+    finalOptions.line.color = finalOptions.line.color?.trim() || TrendLineOptionDefaults.line.color
 
-		// 4. Call the parent (LineToolTrendLine) constructor.
-		super(
-			coreApi,
-			chart,
-			series,
-			horzScaleBehavior,
-			finalOptions,
-			points,
-			priceAxisLabelStackingManager
-		);
+    // 4. Call the parent (LineToolTrendLine) constructor.
+    super(
+      coreApi,
+      chart,
+      series,
+      horzScaleBehavior,
+      finalOptions,
+      points,
+      priceAxisLabelStackingManager
+    )
 
-		// 5. Set the specific PaneView for this tool.
-		this._setPaneViews([new LineToolCalloutPaneView(this, this._chart, this._series)]);
+    // 5. Set the specific PaneView for this tool.
+    this._setPaneViews([new LineToolCalloutPaneView(this, this._chart, this._series)])
+  }
 
-	}
+  /**
+   * Overrides the base normalization logic to **prevent** point swapping.
+   *
+   * **Why override this?**
+   * In a standard Trend Line, the order of points doesn't matter visually, so we sort them by time
+   * to simplify math. However, a Callout has strict directionality:
+   * - Point 0 is *always* the Pointer (Target).
+   * - Point 1 is *always* the Text Box location.
+   *
+   * If we allowed normalization, dragging the text box to the left of the target would swap
+   * the points, causing the text box to suddenly jump to the target's position and the pointer
+   * to jump to the text's position. Overriding this with an empty function preserves the
+   * logical relationship between the two points.
+   *
+   * @override
+   */
+  public override normalize(): void {
+    // Do nothing. Prevent the callout points from being swapped based on time.
+  }
 
-	/**
-	 * Overrides the base normalization logic to **prevent** point swapping.
-	 *
-	 * **Why override this?**
-	 * In a standard Trend Line, the order of points doesn't matter visually, so we sort them by time
-	 * to simplify math. However, a Callout has strict directionality:
-	 * - Point 0 is *always* the Pointer (Target).
-	 * - Point 1 is *always* the Text Box location.
-	 *
-	 * If we allowed normalization, dragging the text box to the left of the target would swap
-	 * the points, causing the text box to suddenly jump to the target's position and the pointer
-	 * to jump to the text's position. Overriding this with an empty function preserves the
-	 * logical relationship between the two points.
-	 *
-	 * @override
-	 */
-	public override normalize(): void {
-		// Do nothing. Prevent the callout points from being swapped based on time.
-	}
-
-	// NOTE: All core logic (hitTest, shift constraints, normalize, etc.) is inherited from LineToolTrendLine.
+  // NOTE: All core logic (hitTest, shift constraints, normalize, etc.) is inherited from LineToolTrendLine.
 }

@@ -43,6 +43,7 @@
     "docs": "Documentación",
     "blog": "Blog",
     "login": "Iniciar sesión",
+    "goToDashboard": "Ir al panel",
     "menu": "Menú",
     "homeLabel": "Inicio",
     "languageLabel": "Idioma",
@@ -237,7 +238,6 @@
         "noAccount": "No se encontró ninguna cuenta con este correo electrónico. Regístrese primero.",
         "missingCredentials": "Por favor, ingrese tanto el correo electrónico como la contraseña.",
         "emailPasswordDisabled": "El inicio de sesión con correo electrónico y contraseña está deshabilitado.",
-        "failedToCreateSession": "Error al crear la sesión. Intente nuevamente más tarde.",
         "tooManyAttempts": "Demasiados intentos de inicio de sesión. Intente nuevamente más tarde o restablezca su contraseña.",
         "accountLocked": "Su cuenta ha sido bloqueada por seguridad. Restablezca su contraseña.",
         "network": "Error de red. Verifique su conexión e intente nuevamente.",
@@ -356,6 +356,32 @@
         "ssoDisabled": "La autenticación SSO está deshabilitada. Usa otro método de inicio de sesión.",
         "failed": "El inicio de sesión SSO falló. Inténtalo de nuevo."
       }
+    },
+    "mcp": {
+      "eyebrow": "Autorización MCP",
+      "confirm": {
+        "title": "Aprobar clave API personal",
+        "description": "Un comando local de configuración de TradingGoose MCP solicita una clave API personal para esta cuenta.",
+        "approve": "Aprobar clave",
+        "cancel": "Cancelar",
+        "terminalHint": "Aprueba esto solo si iniciaste el comando de configuración o inicio de sesión en tu propia terminal."
+      },
+      "invalid": {
+        "title": "Inicio de sesión MCP no válido",
+        "description": "El comando de configuración local no proporcionó un código de inicio de sesión válido."
+      },
+      "expired": {
+        "title": "El inicio de sesión MCP expiró",
+        "description": "Vuelve a la terminal y ejecuta de nuevo el comando de inicio de sesión de TradingGoose MCP."
+      },
+      "approved": {
+        "title": "Clave API personal aprobada",
+        "description": "Vuelve a la terminal para terminar de configurar tu agente local."
+      },
+      "cancelled": {
+        "title": "Inicio de sesión MCP cancelado",
+        "description": "No se creó ninguna clave API. Puedes cerrar esta página."
+      }
     }
   },
   "localeNames": {
@@ -427,12 +453,6 @@
       "shell": {
         "headerAriaLabel": "Encabezado del widget",
         "widgetLabel": "Widget"
-      },
-      "layout": {
-        "headerAriaLabel": "Encabezado del widget",
-        "sizeLabel": "Tamaño del widget",
-        "widthLabel": "ancho",
-        "heightLabel": "alto"
       },
       "indicatorDropdown": {
         "placeholder": "Seleccionar indicadores",
@@ -959,6 +979,12 @@
     "dashboard": {
       "title": "Panel de control",
       "searchPlaceholder": "Buscar contenido del espacio de trabajo...",
+      "layoutPreview": {
+        "headerAriaLabel": "Panel de control",
+        "sizeLabel": "Tamaño del widget",
+        "widthLabel": "ancho",
+        "heightLabel": "alto"
+      },
       "sections": {
         "workspaces": "Espacios de trabajo",
         "knowledgeBases": "Bases de conocimiento",
@@ -966,62 +992,25 @@
         "docs": "Documentos"
       },
       "emptySearch": "Sin contenido coincidente",
+      "layoutState": {
+        "loading": "Cargando el diseño del panel...",
+        "empty": "No hay ningún diseño de panel disponible.",
+        "error": "No se pudo cargar el diseño del panel."
+      },
       "pages": {
         "records": "Registros",
         "monitor": "Monitoreo",
         "logs": "Registros",
         "knowledge": "Conocimiento",
-        "templates": "Plantillas",
         "docs": "Documentos"
-      }
-    },
-    "templates": {
-      "title": "Plantillas",
-      "description": "Toma una plantilla y empieza a construir,\no crea una desde cero.",
-      "searchPlaceholder": "Buscar plantillas...",
-      "sections": {
-        "your": "Tus plantillas",
-        "recent": "Recientes"
-      },
-      "categories": {
-        "marketing": "Marketing",
-        "sales": "Ventas",
-        "finance": "Finanzas",
-        "support": "Soporte",
-        "artificial-intelligence": "Inteligencia artificial",
-        "other": "Otro"
-      },
-      "detail": {
-        "notFoundTitle": "Plantilla no encontrada",
-        "notFoundDescription": "La plantilla que buscas no existe.",
-        "noWorkflowDataTitle": "Sin datos del flujo de trabajo",
-        "noWorkflowDataDescription": "Esta plantilla no contiene datos del estado del flujo de trabajo.",
-        "previewErrorTitle": "Error de vista previa",
-        "previewErrorDescription": "No se pudo renderizar la vista previa del flujo de trabajo",
-        "goBack": "Volver",
-        "workflowPreview": "Vista previa del flujo de trabajo",
-        "useThisTemplate": "Usar esta plantilla",
-        "use": "Usar",
-        "by": "por"
-      },
-      "loginRequired": "Inicia sesión para ver las plantillas",
-      "errorPage": {
-        "title": "Error al cargar la plantilla",
-        "description": "Hubo un error al cargar esta plantilla.",
-        "templateIdLabel": "ID de plantilla:"
       }
     },
     "knowledge": {
       "title": "Conocimiento",
       "searchPlaceholder": "Buscar bases de conocimiento...",
       "sort": {
-        "lastUpdated": "Última actualización",
-        "newestFirst": "Más recientes primero",
-        "oldestFirst": "Más antiguos primero",
         "nameAsc": "Nombre (A-Z)",
-        "nameDesc": "Nombre (Z-A)",
-        "mostDocuments": "Más documentos",
-        "leastDocuments": "Menos documentos"
+        "nameDesc": "Nombre (Z-A)"
       },
       "actions": {
         "create": "Crear",
@@ -1057,14 +1046,10 @@
         "failedToCopy": "Error al copiar la base de conocimiento"
       },
       "baseOverview": {
-        "docsSingular": "doc",
-        "docsPlural": "docs",
-        "updated": "Actualizado",
-        "created": "Creado",
         "copyId": "Copiar ID de la base de conocimiento",
         "deleteButtonLabel": "Eliminar base de conocimiento",
         "deleteTitle": "Eliminar base de conocimiento",
-        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{title}\"? Esto eliminará la base de conocimiento y sus {count} documento{plural} de forma permanente.",
+        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{title}\"? Esto eliminará la base de conocimiento de forma permanente.",
         "cancel": "Cancelar",
         "deleteConfirm": "Eliminar",
         "deleting": "Eliminando..."
@@ -2200,7 +2185,7 @@
       "titles": {
         "empty": "Superficie vacía",
         "data_chart": "Datos de mercado",
-        "workflow_list": "Flujos de trabajo",
+        "list_workflow": "Flujos de trabajo",
         "editor_workflow": "Editor de flujos",
         "workflow_chat": "Chat de flujos",
         "workflow_console": "Consola de flujos",
@@ -2637,9 +2622,7 @@
       },
       "empty": {
         "noWidgetSelected": "No se ha seleccionado ningún widget",
-        "emptyWidget": "Widget vacío",
         "noWidgetDescription": "Elige un widget de la galería para empezar a usar este panel.",
-        "emptyWidgetDescription": "Este widget está vacío por ahora; elige otro para continuar.",
         "chooseWidget": "Elegir widget",
         "surfaceTitle": "Superficie vacía",
         "surfaceDescription": "Estado de marcador de posición cuando el panel no tiene un widget asignado."
@@ -2675,7 +2658,6 @@
         "selectWorkspace": "Selecciona un espacio de trabajo para cargar los flujos.",
         "noWorkflows": "No hay flujos de trabajo disponibles en este espacio.",
         "unableToLoadWorkflows": "No se pudieron cargar los flujos",
-        "authenticationRequiredToLoadWorkflows": "Se requiere autenticación para cargar los flujos",
         "filters": "Filtros",
         "status": "Estado",
         "error": "Error",
@@ -2723,7 +2705,6 @@
         "selectWorkspace": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
         "noWorkflows": "No hay flujos de trabajo disponibles en este espacio de trabajo.",
         "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo",
-        "authenticationRequiredToLoadWorkflows": "Se requiere autenticación para cargar los flujos de trabajo",
         "selectOutputs": "Seleccionar salidas",
         "selectWorkflowOutputs": "Seleccionar salidas del flujo de trabajo",
         "clearChat": "Limpiar chat",
@@ -2755,7 +2736,6 @@
         "selectWorkspace": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
         "noWorkflows": "No hay flujos de trabajo disponibles en este espacio de trabajo.",
         "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo",
-        "authenticationRequiredToLoadWorkflows": "Se requiere autenticación para cargar los flujos de trabajo",
         "addVariable": "Agregar variable",
         "selectWorkflowToAddVariables": "Selecciona un flujo de trabajo para agregar variables",
         "addWorkflowVariable": "Agregar variable del flujo de trabajo",
@@ -2945,10 +2925,12 @@
         "currentTool": "Herramienta actual",
         "currentIndicator": "Indicador actual",
         "currentMcpServer": "Servidor MCP actual",
+        "currentWatchlist": "Watchlist actual",
         "workflows": "Flujos de trabajo",
         "customTools": "Herramientas personalizadas",
         "indicators": "Indicadores",
         "mcpServers": "Servidores MCP",
+        "watchlists": "Watchlists",
         "allWorkflows": "Todos los flujos de trabajo",
         "operation": "Operación",
         "id": "Identificador",
@@ -3531,7 +3513,7 @@
           "zep": "Memoria a largo plazo para agentes de IA",
           "zoom": "Crear y gestionar reuniones y grabaciones de Zoom",
           "portfolio_detail": "Obtiene el detalle completo del portafolio desde una cuenta de broker seleccionada.",
-          "watchlist": "Lee listas de seguimiento y agrega o elimina elementos de listado."
+          "watchlist": "Lee listas de seguimiento, listados y secciones del espacio de trabajo."
         },
         "blockLongDescriptions": {
           "response": "Integra Response en el flujo de trabajo. Puede enviar, construir o editar respuestas estructuradas en una respuesta final del flujo de trabajo.",
@@ -18510,111 +18492,6 @@
           "duplicateDescription": "Un flujo solo puede tener un bloque disparador de {triggerName}. Elimina el existente antes de agregar uno nuevo.",
           "dismiss": "Entendido"
         },
-        "templateModal": {
-          "title": {
-            "loading": "Cargando...",
-            "update": "Actualizar plantilla",
-            "publish": "Publicar plantilla"
-          },
-          "fields": {
-            "icon": "Icono",
-            "color": "Color",
-            "name": "Nombre",
-            "author": "Autor",
-            "category": "Categoría",
-            "description": "Descripción"
-          },
-          "placeholders": {
-            "name": "Ingresa el nombre de la plantilla",
-            "author": "Ingresa el nombre del autor",
-            "category": "Selecciona una categoría",
-            "description": "Describe lo que hace esta plantilla..."
-          },
-          "actions": {
-            "close": "Cerrar",
-            "delete": "Eliminar"
-          },
-          "submit": {
-            "updating": "Actualizando...",
-            "publishing": "Publicando...",
-            "update": "Actualizar plantilla",
-            "publish": "Publicar plantilla"
-          },
-          "delete": {
-            "title": "¿Eliminar plantilla?",
-            "description": "Eliminar esta plantilla la quitará de la galería. Esta acción no se puede deshacer.",
-            "cancel": "Cancelar",
-            "confirm": "Eliminar",
-            "deleting": "Eliminando..."
-          },
-          "validation": {
-            "nameRequired": "El nombre es obligatorio",
-            "nameTooLong": "El nombre debe tener menos de 100 caracteres",
-            "descriptionRequired": "La descripción es obligatoria",
-            "descriptionTooLong": "La descripción debe tener menos de 500 caracteres",
-            "authorRequired": "El autor es obligatorio",
-            "authorTooLong": "El autor debe tener menos de 100 caracteres",
-            "categoryRequired": "La categoría es obligatoria",
-            "iconRequired": "El icono es obligatorio",
-            "colorInvalid": "El color debe ser un valor hexadecimal válido (por ejemplo, #3972F6)"
-          },
-          "errors": {
-            "workflowNotReady": "La sesión del flujo aún no está lista. Espera a que el editor termine de cargar.",
-            "create": "No se pudo crear la plantilla",
-            "update": "No se pudo actualizar la plantilla",
-            "delete": "No se pudo eliminar la plantilla"
-          },
-          "categories": {
-            "marketing": "Marketing",
-            "sales": "Ventas",
-            "finance": "Finanzas",
-            "support": "Soporte",
-            "artificialIntelligence": "Inteligencia artificial",
-            "other": "Otro"
-          },
-          "icons": {
-            "fileText": "Archivo de texto",
-            "notebook": "Cuaderno",
-            "book": "Libro",
-            "edit": "Editar",
-            "barChart": "Gráfico de barras",
-            "lineChart": "Gráfico de líneas",
-            "trendingUp": "Tendencia alcista",
-            "target": "Objetivo",
-            "database": "Base de datos",
-            "server": "Servidor",
-            "cloud": "Nube",
-            "folder": "Carpeta",
-            "megaphone": "Megáfono",
-            "mail": "Correo",
-            "message": "Mensaje",
-            "phone": "Teléfono",
-            "bell": "Campana",
-            "dollarSign": "Signo de dólar",
-            "creditCard": "Tarjeta de crédito",
-            "calculator": "Calculadora",
-            "shoppingCart": "Carrito de compras",
-            "briefcase": "Maletín",
-            "headphones": "Auriculares",
-            "user": "Usuario",
-            "users": "Usuarios",
-            "settings": "Configuración",
-            "wrench": "Llave",
-            "bot": "Bot",
-            "brain": "Cerebro",
-            "cpu": "CPU",
-            "code": "Código",
-            "zap": "Rayo",
-            "workflow": "Flujo de trabajo",
-            "search": "Buscar",
-            "play": "Reproducir",
-            "layers": "Capas",
-            "lightbulb": "Bombilla",
-            "star": "Estrella",
-            "globe": "Globo",
-            "award": "Premio"
-          }
-        },
         "webhookSettings": {
           "title": "Notificaciones por webhook",
           "searchPlaceholder": "Buscar webhooks...",
@@ -20415,7 +20292,6 @@
         "selectWorkspaceToLoadWorkflows": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
         "noWorkflowsAvailable": "No hay flujos de trabajo disponibles en este espacio de trabajo.",
         "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo",
-        "authenticationRequiredToLoadWorkflows": "Se requiere autenticación para cargar los flujos de trabajo",
         "noSharedWorkflowSelected": "Este color aún no tiene un flujo de trabajo compartido seleccionado.",
         "error": {
           "title": "Error del flujo de trabajo",
@@ -20687,31 +20563,26 @@
           "listActionsTooltip": "Acciones de lista",
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Sección",
-          "selectMarketProvider": "Seleccionar watchlist",
-          "createWatchlist": "Crear watchlist",
+          "createList": "Crear lista",
+          "renameList": "Renombrar lista",
+          "deleteList": "Eliminar lista",
+          "deleteListDialogTitle": "¿Eliminar lista?",
+          "deleteListDialogDescription": "Al eliminar esta lista, se eliminan sus secciones y listados.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar",
           "createSection": "Crear sección",
           "import": "Importar",
           "export": "Exportar",
-          "deleteWatchlist": "Eliminar watchlist",
           "refresh": "Actualizar datos"
         },
         "listSelector": {
-          "selectionUnavailable": "La selección de watchlist no está disponible",
-          "selectLabel": "Seleccionar watchlist",
-          "searchPlaceholder": "Buscar watchlists...",
-          "noWatchlistsFound": "No se encontraron watchlists.",
-          "renameAriaLabel": "Renombrar {name}",
-          "deleteAriaLabel": "Eliminar {name}",
-          "deleteDialogTitle": "¿Eliminar watchlist?",
-          "deleteDialogDescription": "Esta acción eliminará permanentemente \"{name}\".",
-          "deleteDialogDescriptionFallback": "Esta acción eliminará permanentemente esta watchlist.",
-          "cancel": "Cancelar",
-          "delete": "Eliminar"
+          "noWatchlistsFound": "No se encontraron watchlists."
         },
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
-          "createWatchlistToGetStarted": "Crea una watchlist para empezar.",
+          "createWatchlistToGetStarted": "Crea una watchlist para comenzar.",
+          "watchlistNotFound": "No se encontró la watchlist.",
           "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
           "symbol": "Símbolo",
           "asset": "Activo",
@@ -20873,7 +20744,7 @@
         "noSkillsAvailableYet": "Aún no hay skills disponibles.",
         "noSkillsFound": "No se encontraron skills.",
         "retry": "Reintentar",
-        "untitledSkill": "Skill sin título"
+        "untitledSkill": "Habilidad sin título"
       },
       "customToolDropdown": {
         "placeholder": "Seleccionar herramientas personalizadas",
@@ -20934,7 +20805,6 @@
         "validation": {
           "failedToLoadToolData": "No se pudieron cargar los datos de la herramienta. Inténtalo de nuevo.",
           "missingTypeFunction": "Falta \"type\": \"function\"",
-          "missingFunctionName": "Falta el campo function.name",
           "missingFunctionParameters": "Falta el objeto function.parameters",
           "missingParametersType": "Falta el campo parameters.type",
           "missingParametersProperties": "Falta el campo parameters.properties",
@@ -20942,9 +20812,7 @@
           "invalidJsonFormat": "Formato JSON inválido",
           "schemaCannotBeEmpty": "El esquema no puede estar vacío",
           "schemaMustBeFunctionType": "El esquema debe tener un campo \"type\" con valor \"function\"",
-          "schemaMustHaveFunctionName": "El esquema debe tener un objeto \"function\" con un campo \"name\"",
           "failedToValidateSchema": "No se pudo validar el esquema de la herramienta personalizada. Revisa tus datos e inténtalo de nuevo.",
-          "duplicateName": "Ya existe una herramienta llamada \"{name}\"",
           "failedToSave": "No se pudo guardar la herramienta personalizada. Revisa tus datos e inténtalo de nuevo."
         },
         "form": {
@@ -21374,7 +21242,7 @@
             }
           },
           "tipPrefix": "Consejo: usa",
-          "tipSuffix": "para hacer referencia a chats, flujos de trabajo, conocimiento, bloques o plantillas",
+          "tipSuffix": "para hacer referencia a chats, flujos de trabajo, conocimiento o bloques",
           "shiftEnter": "Shift+Enter para nueva línea"
         },
         "input": {
@@ -21390,6 +21258,15 @@
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
           "copy": "Copiar"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
+          "newDocument": "Documento nuevo",
+          "dashboardLayoutTitle": "{state, select, applied {Cambios aplicados al diseño del panel} proposed {Cambios propuestos al diseño del panel} other {Cambios propuestos al diseño del panel}}",
+          "widgetTitle": "{state, select, applied {Cambios aplicados al widget} proposed {Cambios propuestos al widget} other {Cambios propuestos al widget}}",
+          "watchlistTitle": "{state, select, applied {Cambios aplicados a la lista de seguimiento} proposed {Cambios propuestos a la lista de seguimiento} other {Cambios propuestos a la lista de seguimiento}}",
+          "emptyWatchlist": "Lista de seguimiento vacía",
+          "watchlistSetting": "{setting, select, showLogo {Logotipo} showTicker {Símbolo} showDescription {Descripción} other {Configuración}}"
         },
         "contextUsage": {
           "title": "Contexto usado en este chat: {percentage}%",
@@ -21422,6 +21299,15 @@
             "lastWeek": "La semana pasada",
             "older": "Anteriores"
           }
+        },
+        "mentions": {
+          "workflowBlocks": "Bloques del flujo de trabajo",
+          "matches": "Coincidencias",
+          "noMatches": "No hay coincidencias",
+          "noPastChats": "No hay chats anteriores",
+          "noBlocksFound": "No se encontraron bloques",
+          "noBlocksInWorkflow": "No hay bloques en este flujo de trabajo",
+          "noExecutionsFound": "No se encontraron ejecuciones"
         },
         "accessLevel": {
           "limited": {

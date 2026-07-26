@@ -1,23 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction } = vi.hoisted(() => ({
-  mockTransaction: vi.fn(),
-}))
+const mockDbTransaction = vi.hoisted(() => vi.fn())
+const mockDbSelect = vi.hoisted(() => vi.fn())
+const mockRefreshEntityList = vi.hoisted(() => vi.fn())
+const mockReadSavedEntityFieldsForExecution = vi.hoisted(() => vi.fn())
+const mockLockSavedEntityList = vi.hoisted(() =>
+  vi.fn((tx: { execute: () => Promise<unknown> }) => tx.execute())
+)
 
 vi.mock('@tradinggoose/db', () => ({
-  db: {
-    transaction: (...args: unknown[]) => mockTransaction(...args),
-  },
+  db: { select: mockDbSelect, transaction: mockDbTransaction },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
   watchlistItem: {
     id: 'watchlist_item.id',
+    workspaceId: 'watchlist_item.workspace_id',
+    userId: 'watchlist_item.user_id',
     watchlistId: 'watchlist_item.watchlist_id',
     containerId: 'watchlist_item.container_id',
     listing: 'watchlist_item.listing',
     sortOrder: 'watchlist_item.sort_order',
     createdAt: 'watchlist_item.created_at',
+    updatedAt: 'watchlist_item.updated_at',
   },
   watchlistTable: {
     id: 'watchlist_table.id',
@@ -26,7 +31,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     parentId: 'watchlist_table.parent_id',
     name: 'watchlist_table.name',
     sortOrder: 'watchlist_table.sort_order',
-    isSystem: 'watchlist_table.is_system',
     settings: 'watchlist_table.settings',
     createdAt: 'watchlist_table.created_at',
     updatedAt: 'watchlist_table.updated_at',
@@ -36,593 +40,323 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   asc: vi.fn((value: unknown) => ({ kind: 'asc', value })),
-  desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
   inArray: vi.fn((left: unknown, right: unknown) => ({ kind: 'inArray', left, right })),
   isNull: vi.fn((value: unknown) => ({ kind: 'isNull', value })),
+  or: vi.fn((...conditions: unknown[]) => ({ kind: 'or', conditions })),
 }))
 
-import { addListingToWatchlist, appendWatchlistItemsToWatchlist } from '@/lib/watchlists/operations'
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  lockSavedEntityList: mockLockSavedEntityList,
+}))
 
-const scope = {
-  workspaceId: 'workspace-1',
-  userId: 'user-1',
-}
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readSavedEntityFieldsForExecution: mockReadSavedEntityFieldsForExecution,
+}))
 
-const createWatchlistRow = () => ({
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  refreshEntityListSession: mockRefreshEntityList,
+}))
+
+import { eq, inArray } from 'drizzle-orm'
+import {
+  composeWatchlistDocumentFromRows,
+  materializeWatchlistDocumentInTx,
+} from '@/lib/watchlists/document'
+import {
+  createWatchlistFromDocument,
+  getWatchlist,
+  listWatchlists,
+} from '@/lib/watchlists/operations'
+import { normalizeWatchlistDocumentFields } from '@/lib/watchlists/validation'
+
+const rootRow = {
   id: 'watchlist-1',
   workspaceId: 'workspace-1',
-  userId: 'user-1',
+  userId: null,
   parentId: null,
-  name: 'Default',
+  name: 'Growth',
   sortOrder: 0,
-  isSystem: true,
-  settings: {},
+  settings: { showLogo: true, showTicker: true, showDescription: true },
   createdAt: new Date('2026-03-17T10:00:00.000Z'),
   updatedAt: new Date('2026-03-17T10:00:00.000Z'),
-})
+}
 
-const createSectionRow = (id: string, name: string, sortOrder: number) => ({
-  id,
-  workspaceId: 'workspace-1',
-  userId: 'user-1',
-  parentId: 'watchlist-1',
-  name,
-  sortOrder,
-  isSystem: false,
-  settings: {},
-  createdAt: new Date('2026-03-17T10:10:00.000Z'),
-  updatedAt: new Date('2026-03-17T10:10:00.000Z'),
-})
+const sectionId = '00000000-0000-4000-8000-000000000001'
+const rootListingId = '00000000-0000-4000-8000-000000000002'
+const nestedListingId = '00000000-0000-4000-8000-000000000003'
+const SPY = {
+  listing_id: 'SPY',
+  base_id: '',
+  quote_id: '',
+  listing_type: 'default' as const,
+}
+const NVDA = { ...SPY, listing_id: 'NVDA' }
 
-const createItemRow = ({
-  id,
-  listing,
-  containerId = null,
-  sortOrder,
-  createdAt,
-}: {
-  id: string
-  listing: {
-    listing_id: string
-    base_id: string
-    quote_id: string
-    listing_type: 'default' | 'crypto' | 'currency'
-  }
-  containerId?: string | null
-  sortOrder: number
-  createdAt: string
-}) => ({
-  id,
-  watchlistId: 'watchlist-1',
-  containerId,
-  listing,
-  sortOrder,
-  createdAt: new Date(createdAt),
-  updatedAt: new Date(createdAt),
-})
-
-const createQueryChain = (result: unknown) => {
+function queryChain(readResult: () => unknown[], executeSelect: () => void) {
   const chain: any = {}
-
-  chain.from = vi.fn().mockReturnValue(chain)
-  chain.where = vi.fn().mockReturnValue(chain)
-  chain.orderBy = vi.fn().mockReturnValue(chain)
-  chain.limit = vi.fn().mockReturnValue(chain)
-  chain.then = (resolve: (value: unknown) => unknown, reject?: (error: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve, reject)
-
+  chain.from = vi.fn(() => chain)
+  chain.where = vi.fn(() => chain)
+  chain.orderBy = vi.fn(() => chain)
+  chain.limit = vi.fn(() => chain)
+  chain.then = (resolve: (value: unknown[]) => unknown, reject?: (error: unknown) => unknown) => {
+    executeSelect()
+    return Promise.resolve(readResult()).then(resolve, reject)
+  }
   return chain
 }
 
-const setupTransaction = ({
-  selectResults,
-  updatedRow,
-  insertValues,
-}: {
-  selectResults: unknown[]
-  updatedRow: ReturnType<typeof createWatchlistRow>
-  insertValues: ReturnType<typeof vi.fn>
-}) => {
-  const pendingSelects = [...selectResults]
+function materializerTx(input: {
+  containers?: unknown[]
+  items?: unknown[]
+  updateResults: unknown[][]
+}) {
+  const selectResults = [[rootRow], input.containers ?? [], input.items ?? []]
+  const executeSelect = vi.fn()
+  const inserts: Array<{ table: any; values: Record<string, unknown> }> = []
+  const updateResults = [...input.updateResults]
   const tx: any = {
-    select: vi.fn(() => {
-      if (pendingSelects.length === 0) {
-        throw new Error('Unexpected select call')
-      }
-      return createQueryChain(pendingSelects.shift())
-    }),
-    insert: vi.fn(() => ({
-      values: insertValues,
+    execute: vi.fn(async () => undefined),
+    select: vi.fn(() => queryChain(() => selectResults.shift() ?? [], executeSelect)),
+    update: vi.fn((table: any) => ({
+      set: vi.fn((values: Record<string, unknown>) => ({
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => {
+            const result = updateResults.shift() ?? []
+            if (result instanceof Error) throw result
+            return result
+          }),
+        })),
+      })),
     })),
-    update: vi.fn(() => {
-      const chain: any = {}
-      chain.set = vi.fn().mockReturnValue(chain)
-      chain.where = vi.fn().mockReturnValue(chain)
-      chain.returning = vi.fn().mockResolvedValue([updatedRow])
-      return chain
-    }),
+    insert: vi.fn((table: any) => ({
+      values: vi.fn((values: Record<string, unknown>) => ({
+        returning: vi.fn(async () => {
+          inserts.push({ table, values })
+          return [{ ...values }]
+        }),
+      })),
+    })),
+    delete: vi.fn((table: any) => ({
+      where: vi.fn(async () => table),
+    })),
   }
-
-  mockTransaction.mockImplementation(async (callback: (innerTx: unknown) => unknown) => callback(tx))
+  return { tx, inserts, executeSelect }
 }
+
+const content = {
+  settings: { showLogo: true, showTicker: true, showDescription: false },
+  items: [
+    { id: rootListingId, type: 'listing' as const, parentId: null, listing: SPY },
+    { id: sectionId, type: 'section' as const, parentId: null, label: 'Semiconductors' },
+    { id: nestedListingId, type: 'listing' as const, parentId: sectionId, listing: NVDA },
+  ],
+}
+const updatedRoot = { ...rootRow, settings: content.settings }
+const sectionRow = {
+  ...rootRow,
+  id: sectionId,
+  parentId: rootRow.id,
+  name: 'Semiconductors',
+  settings: { kind: 'section' },
+}
+const rootItem = {
+  id: rootListingId,
+  workspaceId: rootRow.workspaceId,
+  userId: null,
+  watchlistId: rootRow.id,
+  containerId: rootRow.id,
+  listing: SPY,
+  sortOrder: 0,
+  createdAt: rootRow.createdAt,
+  updatedAt: rootRow.updatedAt,
+}
+const nestedItem = { ...rootItem, id: nestedListingId, containerId: sectionId, listing: NVDA }
+const materialize = (tx: any, fields: Record<string, unknown>) =>
+  materializeWatchlistDocumentInTx(tx, 'workspace-1', 'watchlist-1', fields)
 
 describe('watchlist operations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRefreshEntityList.mockResolvedValue(undefined)
   })
 
-  it('prepends new root listings before existing root rows', async () => {
-    const watchlistRow = createWatchlistRow()
-    const updatedRow = {
-      ...watchlistRow,
-      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
+  it('remaps source IDs and parent references on create and foreign edits', async () => {
+    const sourceIds = content.items.map((item) => item.id)
+    const foreignTargetItem = { ...rootItem, id: crypto.randomUUID() }
+    for (const currentItems of [[], [foreignTargetItem]]) {
+      const store = materializerTx({
+        items: currentItems,
+        updateResults: [[updatedRoot], [], [], []],
+      })
+      const result = await materialize(store.tx, content)
+      const [rootListing, section, nestedListing] = result.items
+      const resolvedIds = result.items.map((item) => item.id)
+
+      expect(new Set([...resolvedIds, ...sourceIds]).size).toBe(6)
+      expect(nestedListing.parentId).toBe(section.id)
+      expect(store.inserts.map(({ values }) => values.id)).toEqual([
+        section.id,
+        rootListing.id,
+        nestedListing.id,
+      ])
     }
-    const sectionRow = createSectionRow('section-1', 'Tech', 0)
-    const existingApple = createItemRow({
-      id: 'item-a',
-      listing: {
-        listing_id: 'aapl-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 2,
-      createdAt: '2026-03-17T10:15:00.000Z',
-    })
-    const existingMicrosoft = createItemRow({
-      id: 'item-b',
-      listing: {
-        listing_id: 'msft-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 5,
-      createdAt: '2026-03-17T10:20:00.000Z',
-    })
-    const sectionListing = createItemRow({
-      id: 'item-c',
-      listing: {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USDT',
-        listing_type: 'crypto',
-      },
-      containerId: 'section-1',
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:25:00.000Z',
-    })
-    const insertedListing = createItemRow({
-      id: 'item-new',
-      listing: {
-        listing_id: 'nvda-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 1,
-      createdAt: '2026-03-17T10:30:00.000Z',
-    })
-    const insertValues = vi.fn().mockResolvedValue(undefined)
-
-    setupTransaction({
-      updatedRow,
-      insertValues,
-      selectResults: [
-        [watchlistRow],
-        [sectionRow],
-        [existingApple, existingMicrosoft, sectionListing],
-        [{ sortOrder: 2 }],
-        [sectionRow],
-        [insertedListing, existingApple, existingMicrosoft, sectionListing],
-      ],
-    })
-
-    const result = await addListingToWatchlist(scope, 'watchlist-1', {
-      listing_id: 'nvda-id',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-
-    expect(insertValues).toHaveBeenCalledWith({
-      watchlistId: 'watchlist-1',
-      containerId: null,
-      listing: {
-        listing_id: 'nvda-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 1,
-    })
-    expect(result.items[0]).toMatchObject({
-      type: 'listing',
-      listing: {
-        listing_id: 'nvda-id',
-      },
-    })
-    expect(result.items[1]).toMatchObject({
-      type: 'listing',
-      listing: {
-        listing_id: 'aapl-id',
-      },
-    })
-    expect(result.items[2]).toMatchObject({
-      type: 'listing',
-      listing: {
-        listing_id: 'msft-id',
-      },
-    })
-    expect(result.items[3]).toMatchObject({
-      type: 'section',
-      label: 'Tech',
-    })
   })
 
-  it('uses sort order zero when prepending into an empty root list', async () => {
-    const watchlistRow = createWatchlistRow()
-    const updatedRow = {
-      ...watchlistRow,
-      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
-    }
-    const insertedListing = createItemRow({
-      id: 'item-new',
-      listing: {
-        listing_id: 'tsla-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:30:00.000Z',
+  it('preserves IDs already owned by the target and updates without inserts', async () => {
+    const store = materializerTx({
+      containers: [rootRow, sectionRow],
+      items: [rootItem, nestedItem],
+      updateResults: [[updatedRoot], [sectionRow], [rootItem], [nestedItem]],
     })
-    const insertValues = vi.fn().mockResolvedValue(undefined)
 
-    setupTransaction({
-      updatedRow,
-      insertValues,
-      selectResults: [
-        [watchlistRow],
-        [],
-        [],
-        [],
-        [],
-        [insertedListing],
+    await expect(materialize(store.tx, content)).resolves.toEqual(content)
+    expect(store.inserts).toEqual([])
+    expect(store.executeSelect).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(eq).mock.calls).toContainEqual(['watchlist_table.parent_id', rootRow.id])
+    expect(vi.mocked(inArray)).toHaveBeenCalledWith('watchlist_table.parent_id', expect.anything())
+  })
+
+  it('rejects target-owned IDs submitted as a different item type', async () => {
+    const store = materializerTx({ items: [rootItem], updateResults: [] })
+
+    await expect(
+      materialize(store.tx, {
+        settings: content.settings,
+        items: [
+          { id: rootListingId, type: 'section', parentId: null, label: 'Invalid type change' },
+        ],
+      })
+    ).rejects.toThrow('Watchlist item id cannot change type')
+  })
+
+  it('deletes stale listing identities before scoped upserts', async () => {
+    const collision = materializerTx({
+      containers: [rootRow, sectionRow],
+      items: [rootItem, { ...nestedItem, listing: SPY }],
+      updateResults: [[updatedRoot], [sectionRow], []],
+    })
+    await materialize(collision.tx, {
+      ...content,
+      items: [
+        { id: sectionId, type: 'section', parentId: null, label: 'Semiconductors' },
+        { id: nestedListingId, type: 'listing', parentId: null, listing: SPY },
       ],
     })
+    expect(collision.tx.delete).toHaveBeenCalledTimes(2)
+  })
 
-    const result = await addListingToWatchlist(scope, 'watchlist-1', {
-      listing_id: 'tsla-id',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
+  it('maps only the canonical root-name unique constraint to 409', async () => {
+    const driverConflict = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+      constraint_name: 'watchlist_table_workspace_user_name_unique',
+    })
+    mockDbTransaction.mockRejectedValueOnce(
+      Object.assign(new Error('Failed query'), { cause: driverConflict })
+    )
+
+    await expect(
+      createWatchlistFromDocument(
+        { workspaceId: 'workspace-1' },
+        { name: 'Growth', settings: rootRow.settings, items: [] }
+      )
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'A watchlist with the name "Growth" already exists',
     })
 
-    expect(insertValues).toHaveBeenCalledWith({
-      watchlistId: 'watchlist-1',
-      containerId: null,
-      listing: {
-        listing_id: 'tsla-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 0,
+    const other = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+      constraint_name: 'some_other_constraint',
     })
-    expect(result.items).toEqual([
-      {
-        id: 'item-new',
-        type: 'listing',
-        listing: {
-          listing_id: 'tsla-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
+    const wrappedOther = Object.assign(new Error('Failed query'), {
+      cause: Object.assign(new Error('transaction failed'), { cause: other }),
+    })
+    mockDbTransaction.mockRejectedValueOnce(wrappedOther)
+    await expect(
+      createWatchlistFromDocument(
+        { workspaceId: 'workspace-1' },
+        { name: 'Growth', settings: rootRow.settings, items: [] }
+      )
+    ).rejects.toBe(wrappedOther)
+  })
+
+  it('locks the root list before validating a reviewed create', async () => {
+    const store = materializerTx({ updateResults: [] })
+    const sequence: string[] = []
+    const staleReview = new Error('stale review')
+    store.tx.execute.mockImplementation(async () => {
+      sequence.push('lock')
+    })
+    mockDbTransaction.mockImplementationOnce((callback) => callback(store.tx))
+
+    await expect(
+      createWatchlistFromDocument(
+        { workspaceId: 'workspace-1' },
+        { name: 'Growth', settings: rootRow.settings, items: [] },
+        {
+          beforeInsert: async () => {
+            sequence.push('review')
+            throw staleReview
+          },
+        }
+      )
+    ).rejects.toBe(staleReview)
+
+    expect(sequence).toEqual(['lock', 'review'])
+  })
+
+  it('reads live record content through the execution reader', async () => {
+    mockDbSelect.mockImplementation(() => queryChain(() => [rootRow], vi.fn()))
+    mockReadSavedEntityFieldsForExecution.mockResolvedValue(content)
+
+    const scope = { workspaceId: rootRow.workspaceId }
+    await Promise.all([getWatchlist(scope, rootRow.id, false), listWatchlists(scope, false)])
+    expect(mockReadSavedEntityFieldsForExecution.mock.calls).toEqual([
+      ['watchlist', rootRow.id, rootRow.workspaceId, false],
+      ['watchlist', rootRow.id, rootRow.workspaceId, false],
     ])
   })
 
-  it('imports hierarchical file items into root and section containers', async () => {
-    const watchlistRow = createWatchlistRow()
-    const updatedRow = {
-      ...watchlistRow,
-      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
-    }
-    const existingSection = createSectionRow('section-1', 'Macro', 0)
-    const createdSection = createSectionRow('section-2', 'Tech', 1)
-    const existingApple = createItemRow({
-      id: 'item-a',
-      listing: {
-        listing_id: 'aapl-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:15:00.000Z',
-    })
-    const insertedTesla = createItemRow({
-      id: 'item-tsla',
-      listing: {
-        listing_id: 'tsla-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 1,
-      createdAt: '2026-03-17T10:25:00.000Z',
-    })
-    const insertedBitcoin = createItemRow({
-      id: 'item-btc',
-      listing: {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USDT',
-        listing_type: 'crypto',
-      },
-      containerId: 'section-2',
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:30:00.000Z',
+  it('enforces canonical parent ownership and persisted hierarchy', () => {
+    expect(normalizeWatchlistDocumentFields({ name: 'Growth', ...content })).toEqual({
+      name: 'Growth',
+      ...content,
     })
 
-    const pendingSelects = [
-      [watchlistRow],
-      [existingSection],
-      [existingApple],
-      [{ sortOrder: 0 }],
-      [{ sortOrder: 0 }],
-      [existingSection, createdSection],
-      [existingApple, insertedTesla, insertedBitcoin],
-    ]
-    const insertValues = vi.fn((value: Record<string, unknown>) => {
-      if ('parentId' in value) {
-        return {
-          returning: vi.fn().mockResolvedValue([createdSection]),
-        }
-      }
+    expect(() =>
+      normalizeWatchlistDocumentFields({
+        name: 'Growth',
+        settings: rootRow.settings,
+        items: [{ type: 'listing', containerId: null, listing: NVDA }],
+      })
+    ).toThrow('Invalid watchlist item')
+    expect(() =>
+      composeWatchlistDocumentFromRows(
+        [{ ...sectionRow, id: crypto.randomUUID(), parentId: sectionRow.id }, sectionRow],
+        [],
+        rootRow.id
+      )
+    ).toThrow('Persisted watchlist sections cannot be nested')
 
-      return Promise.resolve(undefined)
-    })
-    const tx: any = {
-      select: vi.fn(() => {
-        if (pendingSelects.length === 0) {
-          throw new Error('Unexpected select call')
-        }
-        return createQueryChain(pendingSelects.shift())
-      }),
-      insert: vi.fn(() => ({
-        values: insertValues,
-      })),
-      update: vi.fn(() => {
-        const chain: any = {}
-        chain.set = vi.fn().mockReturnValue(chain)
-        chain.where = vi.fn().mockReturnValue(chain)
-        chain.returning = vi.fn().mockResolvedValue([updatedRow])
-        return chain
-      }),
-    }
-
-    mockTransaction.mockImplementation(async (callback: (innerTx: unknown) => unknown) => callback(tx))
-
-    const result = await appendWatchlistItemsToWatchlist(scope, 'watchlist-1', [
-      {
-        type: 'listing',
-        listing: {
-          listing_id: 'tsla-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-      {
-        type: 'section',
-        label: 'Tech',
-        items: [
+    expect(() =>
+      composeWatchlistDocumentFromRows(
+        [sectionRow],
+        [
           {
-            type: 'listing',
-            listing: {
-              listing_id: 'aapl-id',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          },
-          {
-            type: 'listing',
-            listing: {
-              listing_id: '',
-              base_id: 'BTC',
-              quote_id: 'USDT',
-              listing_type: 'crypto',
-            },
+            id: rootListingId,
+            workspaceId: rootRow.workspaceId,
+            userId: null,
+            watchlistId: rootRow.id,
+            containerId: 'other-watchlist',
+            listing: NVDA,
+            sortOrder: 0,
+            createdAt: rootRow.createdAt,
+            updatedAt: rootRow.updatedAt,
           },
         ],
-      },
-    ])
-
-    expect(result.addedCount).toBe(2)
-    expect(result.skippedCount).toBe(1)
-    expect(insertValues).toHaveBeenNthCalledWith(1, {
-      watchlistId: 'watchlist-1',
-      containerId: null,
-      listing: {
-        listing_id: 'tsla-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 1,
-    })
-    expect(insertValues).toHaveBeenNthCalledWith(2, {
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      parentId: 'watchlist-1',
-      name: 'Tech',
-      sortOrder: 1,
-      isSystem: false,
-      settings: {},
-      updatedAt: expect.any(Date),
-    })
-    expect(insertValues).toHaveBeenNthCalledWith(3, {
-      watchlistId: 'watchlist-1',
-      containerId: 'section-2',
-      listing: {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USDT',
-        listing_type: 'crypto',
-      },
-      sortOrder: 0,
-    })
-    expect(result.watchlist.items).toEqual([
-      {
-        id: 'item-a',
-        type: 'listing',
-        listing: {
-          listing_id: 'aapl-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-      {
-        id: 'item-tsla',
-        type: 'listing',
-        listing: {
-          listing_id: 'tsla-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-      {
-        id: 'section-1',
-        type: 'section',
-        label: 'Macro',
-      },
-      {
-        id: 'section-2',
-        type: 'section',
-        label: 'Tech',
-      },
-      {
-        id: 'item-btc',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
-      },
-    ])
-  })
-
-  it('skips persisting imported sections when all section listings are duplicates', async () => {
-    const watchlistRow = createWatchlistRow()
-    const updatedRow = {
-      ...watchlistRow,
-      updatedAt: new Date('2026-03-17T11:00:00.000Z'),
-    }
-    const existingSection = createSectionRow('section-1', 'Macro', 0)
-    const existingApple = createItemRow({
-      id: 'item-a',
-      listing: {
-        listing_id: 'aapl-id',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:15:00.000Z',
-    })
-    const existingBitcoin = createItemRow({
-      id: 'item-b',
-      listing: {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USDT',
-        listing_type: 'crypto',
-      },
-      containerId: 'section-1',
-      sortOrder: 0,
-      createdAt: '2026-03-17T10:20:00.000Z',
-    })
-    const insertValues = vi.fn().mockResolvedValue(undefined)
-
-    setupTransaction({
-      updatedRow,
-      insertValues,
-      selectResults: [
-        [watchlistRow],
-        [existingSection],
-        [existingApple, existingBitcoin],
-        [{ sortOrder: 0 }],
-        [{ sortOrder: 0 }],
-        [existingSection],
-        [existingApple, existingBitcoin],
-      ],
-    })
-
-    const result = await appendWatchlistItemsToWatchlist(scope, 'watchlist-1', [
-      {
-        type: 'section',
-        label: 'Tech',
-        items: [
-          {
-            type: 'listing',
-            listing: {
-              listing_id: 'aapl-id',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          },
-          {
-            type: 'listing',
-            listing: {
-              listing_id: '',
-              base_id: 'BTC',
-              quote_id: 'USDT',
-              listing_type: 'crypto',
-            },
-          },
-        ],
-      },
-    ])
-
-    expect(result.addedCount).toBe(0)
-    expect(result.skippedCount).toBe(2)
-    expect(insertValues).not.toHaveBeenCalled()
-    expect(result.watchlist.items).toEqual([
-      {
-        id: 'item-a',
-        type: 'listing',
-        listing: {
-          listing_id: 'aapl-id',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-      },
-      {
-        id: 'section-1',
-        type: 'section',
-        label: 'Macro',
-      },
-      {
-        id: 'item-b',
-        type: 'listing',
-        listing: {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USDT',
-          listing_type: 'crypto',
-        },
-      },
-    ])
+        rootRow.id
+      )
+    ).toThrow('Persisted watchlist listing has an invalid container')
   })
 })

@@ -14,7 +14,6 @@ import { ChatFiles } from '@/lib/uploads'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
-import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import {
   addCorsHeaders,
   setChatAuthCookie,
@@ -22,6 +21,7 @@ import {
   validateChatAuth,
 } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 
 const logger = createLogger('ChatIdentifierAPI')
 
@@ -55,14 +55,14 @@ export async function POST(
 
     // Parse the request body once
     let parsedBody
-      try {
-        parsedBody = await request.json()
-      } catch (_error) {
-        return addCorsHeaders(
-          createErrorResponse('Invalid request body', 400, CHAT_ERROR_CODES.INVALID_REQUEST_BODY),
-          request
-        )
-      }
+    try {
+      parsedBody = await request.json()
+    } catch (_error) {
+      return addCorsHeaders(
+        createErrorResponse('Invalid request body', 400, CHAT_ERROR_CODES.INVALID_REQUEST_BODY),
+        request
+      )
+    }
 
     // Find the chat deployment for this identifier
     const deploymentResult = await db
@@ -143,7 +143,6 @@ export async function POST(
       .select({
         isDeployed: workflow.isDeployed,
         workspaceId: workflow.workspaceId,
-        variables: workflow.variables,
         pinnedApiKeyId: workflow.pinnedApiKeyId,
       })
       .from(workflow)
@@ -240,10 +239,6 @@ export async function POST(
           executionTarget: 'deployed',
           stream: true,
           selectedOutputs,
-          workflowVariables:
-            workflowResult[0].variables && typeof workflowResult[0].variables === 'object'
-              ? (workflowResult[0].variables as Record<string, unknown>)
-              : undefined,
           metadata: {
             source: 'published_chat',
             chatId: deployment.id,

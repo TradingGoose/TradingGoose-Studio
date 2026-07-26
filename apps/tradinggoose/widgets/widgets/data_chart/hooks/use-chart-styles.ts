@@ -2,12 +2,13 @@
 
 import { type MutableRefObject, useEffect, useRef } from 'react'
 import type { IChartApi, ISeriesApi, TickMarkType, Time } from 'lightweight-charts'
+import type { DataChartViewParams } from '@/widgets/widgets/data_chart/contract'
 import {
   findFirstInvalidSeriesDatum,
   mapBarsMsToSeriesData,
   sanitizeSeriesData,
 } from '@/widgets/widgets/data_chart/series-data'
-import type { DataChartDataContext, DataChartViewParams } from '@/widgets/widgets/data_chart/types'
+import type { DataChartDataContext } from '@/widgets/widgets/data_chart/types'
 import {
   buildSeriesOptions,
   buildTimeFormatterConfig,

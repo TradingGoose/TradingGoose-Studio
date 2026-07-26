@@ -1,9 +1,7 @@
-import { useEffect, useRef } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type ImportedSkillTransferRecord, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
-import { useSkillsStore } from '@/stores/skills/store'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 
 const logger = createLogger('SkillsQueries')
 const API_ENDPOINT = '/api/skills'
@@ -41,22 +39,14 @@ function normalizeSkill(
     name: rawSkill.name,
     description: rawSkill.description,
     content: rawSkill.content,
-    createdAt:
-      typeof rawSkill.createdAt === 'string'
-        ? rawSkill.createdAt
-        : rawSkill.updatedAt && typeof rawSkill.updatedAt === 'string'
-          ? rawSkill.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof rawSkill.createdAt === 'string' ? rawSkill.createdAt : undefined,
     updatedAt: typeof rawSkill.updatedAt === 'string' ? rawSkill.updatedAt : undefined,
   }
 }
 
-function syncSkillsToStore(workspaceId: string, skills: SkillDefinition[]) {
-  useSkillsStore.getState().setSkills(workspaceId, skills)
-}
-
-async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
-  const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
+export async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
+  const params = new URLSearchParams({ workspaceId })
+  const response = await fetch(`${API_ENDPOINT}?${params}`)
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
@@ -102,43 +92,6 @@ async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
   return normalizedSkills
 }
 
-export function useSkills(workspaceId: string) {
-  const query = useQuery<SkillDefinition[]>({
-    queryKey: skillsKeys.list(workspaceId),
-    queryFn: () => fetchSkills(workspaceId),
-    enabled: !!workspaceId,
-    staleTime: 60 * 1000,
-  })
-
-  const lastSyncRef = useRef<string>('')
-
-  useEffect(() => {
-    lastSyncRef.current = ''
-  }, [workspaceId])
-
-  useEffect(() => {
-    if (!workspaceId || !query.data) return
-
-    const signature = query.data
-      .map((skill) => {
-        const updatedAt =
-          typeof skill.updatedAt === 'string' ? skill.updatedAt : (skill.createdAt ?? '')
-        return `${skill.id}:${updatedAt}:${skill.name}:${skill.description}:${skill.content}`
-      })
-      .join('|')
-    const syncKey = `${workspaceId}:${signature}`
-
-    if (syncKey === lastSyncRef.current) {
-      return
-    }
-
-    lastSyncRef.current = syncKey
-    syncSkillsToStore(workspaceId, query.data)
-  }, [query.data, workspaceId])
-
-  return query
-}
-
 interface CreateSkillParams {
   workspaceId: string
   skill: {
@@ -182,16 +135,6 @@ export function useCreateSkill() {
   })
 }
 
-interface UpdateSkillParams {
-  workspaceId: string
-  skillId: string
-  updates: {
-    name?: string
-    description?: string
-    content?: string
-  }
-}
-
 interface ImportSkillsParams {
   workspaceId: string
   file: unknown
@@ -230,86 +173,6 @@ export function useImportSkills() {
   })
 }
 
-export function useUpdateSkill() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, skillId, updates }: UpdateSkillParams) => {
-      logger.info(`Updating skill: ${skillId} in workspace ${workspaceId}`)
-
-      const currentSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-      const currentSkill = currentSkills?.find((skill) => skill.id === skillId)
-
-      if (!currentSkill) {
-        throw new Error('Skill not found')
-      }
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skills: [
-            {
-              id: skillId,
-              name: updates.name ?? currentSkill.name,
-              description: updates.description ?? currentSkill.description,
-              content: updates.content ?? currentSkill.content,
-            },
-          ],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update skill')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing skills data')
-      }
-
-      return data.data
-    },
-    onMutate: async ({ workspaceId, skillId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: skillsKeys.list(workspaceId) })
-
-      const previousSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-
-      if (previousSkills) {
-        queryClient.setQueryData<SkillDefinition[]>(
-          skillsKeys.list(workspaceId),
-          previousSkills.map((skill) =>
-            skill.id === skillId
-              ? {
-                  ...skill,
-                  name: updates.name ?? skill.name,
-                  description: updates.description ?? skill.description,
-                  content: updates.content ?? skill.content,
-                }
-              : skill
-          )
-        )
-      }
-
-      return { previousSkills }
-    },
-    onError: (_err, variables, context) => {
-      if (context?.previousSkills) {
-        queryClient.setQueryData(skillsKeys.list(variables.workspaceId), context.previousSkills)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
-    },
-  })
-}
-
 interface DeleteSkillParams {
   workspaceId: string
   skillId: string
@@ -335,28 +198,7 @@ export function useDeleteSkill() {
 
       return data
     },
-    onMutate: async ({ workspaceId, skillId }) => {
-      await queryClient.cancelQueries({ queryKey: skillsKeys.list(workspaceId) })
-
-      const previousSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-
-      if (previousSkills) {
-        queryClient.setQueryData<SkillDefinition[]>(
-          skillsKeys.list(workspaceId),
-          previousSkills.filter((skill) => skill.id !== skillId)
-        )
-      }
-
-      return { previousSkills, workspaceId }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousSkills && context?.workspaceId) {
-        queryClient.setQueryData(skillsKeys.list(context.workspaceId), context.previousSkills)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
     },
   })

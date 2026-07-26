@@ -7,8 +7,8 @@ import {
   getOpenGraphLocale,
   type LocaleCode,
   localizeSiteUrl,
-  SITE_BASE_URL,
 } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode
@@ -36,6 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ChangelogPage() {
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
+  const siteBaseUrl = getBaseUrl()
   const changelogStructuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -46,10 +47,10 @@ export default async function ChangelogPage() {
         url: localizeSiteUrl(locale, '/changelog'),
         mainEntityOfPage: localizeSiteUrl(locale, '/changelog'),
         inLanguage: locale,
-        author: { '@id': `${SITE_BASE_URL}/#organization` },
-        publisher: { '@id': `${SITE_BASE_URL}/#organization` },
-        about: { '@id': `${SITE_BASE_URL}/#software` },
-        isPartOf: { '@id': `${SITE_BASE_URL}/#website` },
+        author: { '@id': `${siteBaseUrl}/#organization` },
+        publisher: { '@id': `${siteBaseUrl}/#organization` },
+        about: { '@id': `${siteBaseUrl}/#software` },
+        isPartOf: { '@id': `${siteBaseUrl}/#website` },
       },
       {
         '@type': 'BreadcrumbList',

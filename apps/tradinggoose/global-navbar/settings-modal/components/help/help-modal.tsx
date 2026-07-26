@@ -44,7 +44,7 @@ const createHelpFormSchema = (tHelp: HelpMessageResolver) =>
     subject: z.string().min(1, tHelp('errorMessages.subjectRequired')),
     message: z.string().min(1, tHelp('errorMessages.messageRequired')),
     type: z.enum(['bug', 'feedback', 'feature_request', 'other'], {
-      required_error: tHelp('errorMessages.requestTypeRequired'),
+      error: tHelp('errorMessages.requestTypeRequired'),
     }),
   })
 
@@ -129,12 +129,14 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
   useEffect(() => {
     if (images.length > 0 && scrollContainerRef.current) {
       const scrollContainer = scrollContainerRef.current
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
           behavior: 'smooth',
         })
       }, SCROLL_DELAY_MS)
+
+      return () => clearTimeout(timer)
     }
   }, [images.length])
 

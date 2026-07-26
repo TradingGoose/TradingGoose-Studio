@@ -32,12 +32,12 @@ describe('authenticateYjsConnection', () => {
     await expect(
       authenticateYjsConnection(
         new URL(
-          'http://localhost:3002/yjs/workflow-1?token=test-token&targetKind=workflow&sessionId=workflow-1&workflowId=workflow-1&entityKind=workflow&entityId=workflow-1'
+          'http://localhost:3002/yjs/workflow-1?token=test-token&targetKind=entity&sessionId=workflow-1&entityKind=workflow&entityId=workflow-1'
         )
       )
     ).rejects.toMatchObject({
       name: 'YjsAuthError',
-      code: 401,
+      status: 401,
       message: 'Invalid or expired token',
     })
   })

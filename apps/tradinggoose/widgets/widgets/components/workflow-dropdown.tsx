@@ -2,7 +2,6 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Workflow } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,12 +18,8 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
-import type { PairColor } from '@/widgets/pair-colors'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -32,14 +27,21 @@ const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 interface WorkflowDropdownProps {
   workspaceId?: string | null
   value?: string | null
-  onChange?: (workflowId: string, workflow?: WorkflowMetadata) => void
+  onChange?: (workflowId: string, workflow?: WorkflowDropdownOption) => void
   disabled?: boolean
   placeholder?: string
-  pairColor?: PairColor
   align?: 'start' | 'end'
   triggerClassName?: string
   menuClassName?: string
-  includeMarketplace?: boolean
+}
+
+type WorkflowDropdownOption = {
+  id: string
+  name: string
+  description: string
+  color: string
+  workspaceId: string
+  folderId?: string | null
 }
 
 export function WorkflowDropdown({
@@ -48,60 +50,36 @@ export function WorkflowDropdown({
   onChange,
   disabled = false,
   placeholder,
-  pairColor,
   align = 'start',
   triggerClassName,
   menuClassName,
-  includeMarketplace = true,
 }: WorkflowDropdownProps) {
   const copy = useWorkflowDropdownMessages()
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
-  const isPairContextActive = resolvedPairColor !== 'gray'
-  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
+  const { members, error, isLoading } = useEntityList('workflow', workspaceId)
 
-  const {
-    workflows: registryWorkflows,
-    metadataHydrationPhase,
-    loadWorkflows,
-  } = useWorkflowRegistry(
-    (state) => ({
-      workflows: state.workflows,
-      metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
-      loadWorkflows: state.loadWorkflows,
-    }),
-    shallow
-  )
-
-  const setPairContext = useSetPairColorContext()
-
-  const workspaceWorkflows = useMemo(() => {
+  const workspaceWorkflows = useMemo<WorkflowDropdownOption[]>(() => {
     if (!workspaceId) return []
 
-    const scoped = Object.values(registryWorkflows ?? {}).filter((workflow) => {
-      if (!workflow || workflow.workspaceId !== workspaceId) {
-        return false
-      }
-
-      if (includeMarketplace) {
-        return true
-      }
-
-      return !workflow.marketplaceData
-    })
-
-    return scoped.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-  }, [registryWorkflows, workspaceId, includeMarketplace])
+    return [...members]
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      .map((member) => ({
+        id: member.entityId,
+        name: member.entityName,
+        description: member.entityDescription ?? '',
+        color: member.color ?? '#64748b',
+        workspaceId,
+        folderId: member.folderId ?? null,
+      }))
+  }, [members, workspaceId])
 
   const selectedWorkflowId = value ?? null
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
-  const isLoading = metadataHydrationPhase === 'metadata-loading'
+  const hasWorkflows = workspaceWorkflows.length > 0
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceFirst
-    : loadError
+    : error && !hasWorkflows
       ? copy.unableToLoad
       : disabled
         ? copy.workflowSelectionUnavailable
@@ -109,55 +87,15 @@ export function WorkflowDropdown({
   const resolvedPlaceholder = placeholder ?? copy.selectWorkflow
 
   useEffect(() => {
-    setLoadError(null)
-    setHasRequestedLoad(false)
     setSearchQuery('')
   }, [workspaceId])
 
-  useEffect(() => {
-    if (!workspaceId || workspaceWorkflows.length > 0 || hasRequestedLoad) {
-      return
-    }
-
-    let cancelled = false
-    setHasRequestedLoad(true)
-    setLoadError(null)
-
-    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
-      if (!cancelled) {
-        console.error('Failed to load workflows for workflow dropdown', error)
-        setLoadError(copy.failedToLoad)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    workspaceId,
-    workspaceWorkflows.length,
-    hasRequestedLoad,
-    loadWorkflows,
-    metadataChannelId,
-    copy.failedToLoad,
-  ])
-
-  const handleSelect = (workflow: WorkflowMetadata) => {
+  const handleSelect = (workflow: WorkflowDropdownOption) => {
     if (!workflow) {
       return
     }
 
-    if (isPairContextActive) {
-      setPairContext(resolvedPairColor, { workflowId: workflow.id })
-    }
-
     onChange?.(workflow.id, workflow)
-  }
-
-  const handleRetry = () => {
-    if (!workspaceId) return
-    setLoadError(null)
-    setHasRequestedLoad(false)
   }
 
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
@@ -176,6 +114,7 @@ export function WorkflowDropdown({
       const name = workflow.name || copy.untitledWorkflow
       return (
         name.toLowerCase().includes(normalizedQuery) ||
+        workflow.description.toLowerCase().includes(normalizedQuery) ||
         workflow.id.toLowerCase().includes(normalizedQuery)
       )
     })
@@ -190,17 +129,10 @@ export function WorkflowDropdown({
       )
     }
 
-    if (loadError) {
+    if (error && !hasWorkflows) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>{loadError}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
+          <p className='text-destructive'>{error}</p>
         </div>
       )
     }

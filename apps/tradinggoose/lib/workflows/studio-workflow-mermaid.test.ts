@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import {
-  buildWorkflowDocumentPreviewDiff,
+  parseGraphOnlyWorkflowMermaid,
   parseTgMermaidToWorkflow,
+  serializeWorkflowToGraphMermaid,
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
@@ -143,8 +144,6 @@ describe('studio workflow Mermaid documents', () => {
     },
     parallels: {},
     lastSaved: '2026-04-11T00:00:00.000Z',
-    isDeployed: false,
-    deployedAt: '2026-04-10T18:00:00.000Z',
   }
 
   const parallelWorkflowState: WorkflowSnapshot = {
@@ -395,6 +394,77 @@ n3 --> n4
     ])
   })
 
+  it('parses ordinary graph-only Mermaid aliases without flattening containers', () => {
+    const parsed = parseGraphOnlyWorkflowMermaid(
+      [
+        'flowchart TD',
+        'sink["Send Alert"]',
+        'subgraph loop_parent["For Each Symbol"]',
+        '  loop_child["Generate Signal"]',
+        'end',
+        'sink --> loop_parent',
+      ].join('\n'),
+      workflowState.blocks
+    )
+
+    expect(parsed.blocks.find((block) => block.blockId === 'loop_child')?.parentId).toBe(
+      'loop_parent'
+    )
+    expect(parsed.edges).toContainEqual({
+      source: 'sink',
+      target: 'loop_parent',
+      targetHandle: 'target',
+    })
+  })
+
+  it('serializes empty graph-only containers with boundary nodes', () => {
+    const document = serializeWorkflowToGraphMermaid({
+      direction: 'TD',
+      blocks: {
+        loop1: {
+          id: 'loop1',
+          type: 'loop',
+          name: 'Loop',
+          position: { x: 0, y: 0 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+        sink: {
+          id: 'sink',
+          type: 'telegram',
+          name: 'Sink',
+          position: { x: 320, y: 0 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+      },
+      edges: [{ id: 'e1', source: 'loop1', target: 'sink', sourceHandle: 'loop-end-source' }],
+      loops: {},
+      parallels: {},
+    })
+
+    expect(document).toContain('n1__loop_start["Loop Start"]')
+    expect(document).toContain('n1__loop_end["Loop End"]')
+    expect(document).toContain('n1__loop_end --> n2')
+    expect(() => parseGraphOnlyWorkflowMermaid(document, {})).not.toThrow()
+  })
+
+  it('rejects shorthand graph-only condition edge handles', () => {
+    expect(() =>
+      parseGraphOnlyWorkflowMermaid(
+        [
+          'flowchart TD',
+          'gate["Market Hours?<br/>id: gate<br/>type: condition"]',
+          'sink["Send Alert<br/>id: sink<br/>type: telegram"]',
+          'gate -- "if -> target" --> sink',
+        ].join('\n'),
+        workflowState.blocks
+      )
+    ).toThrow('must use canonical sourceHandle "condition-gate-<branch>"')
+  })
+
   it('rejects visible external edges into container internal endpoint nodes', () => {
     for (const [endpoint, message] of [
       ['n2__parallel_end', 'end node only accepts edges from blocks inside that container'],
@@ -572,55 +642,5 @@ agentBlock(["Agent"])
     expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
       'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges. missing visible connection lines for inputTrigger:source->agentBlock:target; expected visible lines like `inputTrigger --> agentBlock`.'
     )
-  })
-
-  it('computes block and edge preview diffs from canonical workflow states', () => {
-    const nextState: WorkflowSnapshot = {
-      ...workflowState,
-      blocks: {
-        ...workflowState.blocks,
-        sink: {
-          ...workflowState.blocks.sink,
-          name: 'Send Alert v2',
-        },
-        sink_archive: {
-          id: 'sink_archive',
-          type: 'notion',
-          name: 'Archive Alert',
-          position: { x: 760, y: 24 },
-          enabled: true,
-          subBlocks: {},
-          outputs: {},
-        },
-      },
-      edges: [
-        ...workflowState.edges,
-        {
-          id: 'e-sink-archive',
-          source: 'sink',
-          target: 'sink_archive',
-        },
-      ],
-    }
-
-    expect(buildWorkflowDocumentPreviewDiff(workflowState, nextState)).toEqual({
-      blockDiff: {
-        added: ['sink_archive'],
-        removed: [],
-        updated: ['sink'],
-      },
-      edgeDiff: {
-        added: [
-          {
-            source: 'sink',
-            target: 'sink_archive',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-          },
-        ],
-        removed: [],
-      },
-      warnings: [],
-    })
   })
 })

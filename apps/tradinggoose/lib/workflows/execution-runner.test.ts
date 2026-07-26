@@ -66,12 +66,12 @@ vi.mock('@/lib/utils-server', () => ({
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
   loadDeployedWorkflowState: vi.fn(),
-  loadWorkflowFromNormalizedTables: vi.fn(),
+  requireWorkflowRealtimeState: vi.fn(),
 }))
 
 vi.mock('@/lib/workflows/triggers', () => ({
   TriggerUtils: {
-    findStartBlock: vi.fn(),
+    findTriggerBlock: vi.fn(),
   },
 }))
 
@@ -157,7 +157,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'webhook',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -219,7 +219,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -247,7 +247,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -271,14 +271,14 @@ describe('runPreparedWorkflowExecution', () => {
     expect(result.dispatchFailureReason).toBe('usage_limit_exceeded')
   })
 
-  it('reports missing start blocks as dispatch failures', async () => {
+  it('reports missing trigger blocks as dispatch failures', async () => {
     const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
       triggerType: 'webhook',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'missing',
       },
@@ -286,7 +286,7 @@ describe('runPreparedWorkflowExecution', () => {
 
     expect(mocks.execute).not.toHaveBeenCalled()
     expect(result.result.success).toBe(false)
-    expect(result.dispatchFailureReason).toBe('missing_start_block')
+    expect(result.dispatchFailureReason).toBe('missing_trigger_block')
   })
 
   it('does not rewrite successful executions as failed when terminal success logging fails', async () => {
@@ -299,7 +299,7 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
-        start: {
+        triggerTarget: {
           kind: 'block',
           blockId: 'trigger',
         },
@@ -310,8 +310,8 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
   })
 
-  it('resolves queued child API starts through the child input-trigger path', async () => {
-    vi.mocked(TriggerUtils.findStartBlock).mockReturnValue({
+  it('resolves queued child API triggers through the child input-trigger path', async () => {
+    vi.mocked(TriggerUtils.findTriggerBlock).mockReturnValue({
       blockId: 'trigger',
       block: { type: 'input_trigger' },
     })
@@ -322,7 +322,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'trigger',
         triggerType: 'api',
       },
@@ -331,7 +331,7 @@ describe('runPreparedWorkflowExecution', () => {
       },
     })
 
-    expect(TriggerUtils.findStartBlock).toHaveBeenCalledWith(
+    expect(TriggerUtils.findTriggerBlock).toHaveBeenCalledWith(
       blueprint.workflowData.blocks,
       'api',
       true
@@ -349,7 +349,7 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
-        start: {
+        triggerTarget: {
           kind: 'trigger',
           triggerType: 'manual',
         },
@@ -372,7 +372,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'trigger',
         triggerType: 'manual',
       },
@@ -400,5 +400,80 @@ describe('loadWorkflowExecutionBlueprint', () => {
     )
 
     expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
+  })
+
+  it('loads Yjs workflow state for live execution when no snapshot is supplied', async () => {
+    const { loadDeployedWorkflowState, requireWorkflowRealtimeState } = await import(
+      '@/lib/workflows/db-helpers'
+    )
+    vi.mocked(requireWorkflowRealtimeState).mockResolvedValueOnce({
+      blocks: { trigger: { subBlocks: {} } },
+      edges: [{ source: 'trigger', target: 'worker' }],
+      loops: {},
+      parallels: {},
+      variables: { risk: { value: 1 } },
+      lastSaved: Date.now(),
+    })
+
+    const result = await loadWorkflowExecutionBlueprint({
+      workflowId: 'workflow-1',
+      executionTarget: 'live',
+      workflowContext: {
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    expect(result.workflowData.blocks).toEqual({ trigger: { subBlocks: {} } })
+    expect(result.workflowContext.variables).toEqual({ risk: { value: 1 } })
+    expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
+    expect(requireWorkflowRealtimeState).toHaveBeenCalledWith('workflow-1')
+    expect(mocks.dbSelect).not.toHaveBeenCalled()
+  })
+
+  it('uses variables from the active deployment for deployed execution', async () => {
+    const { loadDeployedWorkflowState, requireWorkflowRealtimeState } = await import(
+      '@/lib/workflows/db-helpers'
+    )
+    const deployedVariables = {
+      risk: { id: 'var-deployed', name: 'risk', value: 'deployed' },
+    }
+    vi.mocked(loadDeployedWorkflowState).mockResolvedValueOnce({
+      blocks: {
+        trigger: {
+          id: 'trigger',
+          type: 'api_trigger',
+          name: 'Trigger',
+          position: { x: 0, y: 0 },
+          subBlocks: {},
+          outputs: {},
+          enabled: true,
+        },
+      },
+      edges: [{ id: 'edge-1', source: 'trigger', target: 'worker' }],
+      loops: {},
+      parallels: {},
+      variables: deployedVariables,
+      isFromNormalizedTables: false,
+    })
+    mocks.dbRowsQueue.push([
+      {
+        workspaceId: 'workspace-1',
+        variables: { risk: { id: 'var-live', name: 'risk', value: 'live' } },
+      },
+    ])
+
+    const result = await loadWorkflowExecutionBlueprint({
+      workflowId: 'workflow-1',
+      executionTarget: 'deployed',
+    })
+
+    expect(result.workflowContext.variables).toEqual(deployedVariables)
+    expect(result.workflowData.blocks.trigger?.subBlocks).toEqual({})
+    const selectShape = (mocks.dbSelect.mock.calls as unknown[][])[0]?.[0] as Record<
+      string,
+      unknown
+    >
+    expect(Object.keys(selectShape)).toEqual(['workspaceId'])
+    expect(requireWorkflowRealtimeState).not.toHaveBeenCalled()
   })
 })

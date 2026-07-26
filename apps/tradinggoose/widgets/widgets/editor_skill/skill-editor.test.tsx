@@ -2,27 +2,20 @@
  * @vitest-environment jsdom
  */
 
-import type { MutableRefObject } from 'react'
-import { act, createRef } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
+import { SKILL_EDITOR_ACTION_EVENT, type SkillEditorActionEventDetail } from '@/widgets/events'
+import { emitEditorAction } from '@/widgets/utils/editor-actions'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
-
-const mockUseUpdateSkill = vi.fn()
-
-vi.mock('@/hooks/queries/skills', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/skills')
-  return {
-    ...actual,
-    useUpdateSkill: () => mockUseUpdateSkill(),
-  }
-})
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-describe('SkillEditor dirty state', () => {
+describe('SkillEditor save', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -41,29 +34,24 @@ describe('SkillEditor dirty state', () => {
     container.remove()
   })
 
-  it('returns to a clean state after a successful save', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    const onDirtyChange = vi.fn()
-    const saveRef = createRef<() => void>()
-    saveRef.current = () => {}
-
-    mockUseUpdateSkill.mockReturnValue({
-      isPending: false,
-      mutateAsync,
-    })
+  it('saves identity and content through one session mutation', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    const doc = new Y.Doc()
+    const initialValues = {
+      description: 'Investigate the market.',
+      content: 'Use multiple trusted sources.',
+    }
+    seedEntitySession(doc, { entityKind: 'skill', payload: initialValues })
 
     await act(async () => {
       root.render(
         <SkillEditor
-          workspaceId='workspace-1'
-          saveRef={saveRef as MutableRefObject<() => void>}
-          onDirtyChange={onDirtyChange}
-          initialValues={{
-            id: 'skill-1',
-            name: 'Market Research',
-            description: 'Investigate the market.',
-            content: 'Use multiple trusted sources.',
-          }}
+          skillId='skill-1'
+          entityName='Market Research'
+          doc={doc}
+          save={save}
+          panelId='panel-1'
+          widgetKey='editor_skill'
         />
       )
     })
@@ -78,22 +66,66 @@ describe('SkillEditor dirty state', () => {
       nameInput!.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
-    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-
     await act(async () => {
-      saveRef.current?.()
-      await Promise.resolve()
+      emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+        action: 'save',
+        entityId: 'skill-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_skill',
+      })
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      skillId: 'skill-1',
-      updates: {
-        name: 'Market Research Updated',
-        description: 'Investigate the market.',
-        content: 'Use multiple trusted sources.',
-      },
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect(save).toHaveBeenCalledWith('Market Research Updated')
+    doc.destroy()
+  })
+
+  it('makes retained writer callbacks harmless after a read-only downgrade', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    const doc = new Y.Doc()
+    seedEntitySession(doc, {
+      entityKind: 'skill',
+      payload: { description: 'Original description', content: 'Original content' },
     })
-    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    const renderEditor = (readOnly: boolean) => (
+      <SkillEditor
+        skillId='skill-1'
+        entityName='Market Research'
+        doc={doc}
+        save={save}
+        panelId='panel-1'
+        widgetKey='editor_skill'
+        readOnly={readOnly}
+      />
+    )
+
+    await act(async () => root.render(renderEditor(false)))
+    const nameInput = container.querySelector('#skill-editor-name') as HTMLInputElement
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(nameInput, 'Forbidden Rename')
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+      nameInput.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () => root.render(renderEditor(true)))
+    const descriptionInput = container.querySelector(
+      '#skill-editor-description'
+    ) as HTMLInputElement
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(descriptionInput, 'Forbidden description')
+      descriptionInput.dispatchEvent(new Event('input', { bubbles: true }))
+      descriptionInput.dispatchEvent(new Event('change', { bubbles: true }))
+      emitEditorAction<SkillEditorActionEventDetail>(SKILL_EDITOR_ACTION_EVENT, {
+        action: 'save',
+        entityId: 'skill-1',
+        panelId: 'panel-1',
+        widgetKey: 'editor_skill',
+      })
+    })
+
+    expect(String(doc.getMap('fields').get('description'))).toBe('Original description')
+    expect(save).not.toHaveBeenCalled()
+    doc.destroy()
   })
 })

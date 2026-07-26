@@ -5,8 +5,12 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
-const mockUseCurrentWorkflow = vi.hoisted(() => vi.fn())
-const mockUseWorkflowVariables = vi.hoisted(() => vi.fn())
+const mockWorkflowDoc = vi.hoisted(() => ({}))
+const mockReadWorkflowSnapshot = vi.hoisted(() => vi.fn())
+const mockUseWorkflowSession = vi.hoisted(() => vi.fn())
+const mockGetVariablesSnapshot = vi.hoisted(() => vi.fn())
+
+vi.unmock('@/blocks/registry')
 
 const mockConsoleState = vi.hoisted(() => ({
   cancelRunningEntries: vi.fn(),
@@ -29,22 +33,12 @@ vi.mock('@/lib/workflows/queued-execution-client', () => ({
   runQueuedWorkflowExecution: mockRunQueuedWorkflowExecution,
 }))
 
-vi.mock('@/lib/workflows/triggers', () => ({
-  TriggerUtils: {
-    findStartBlock: vi.fn(() => ({ blockId: 'chat-trigger', block: {} })),
-    getTriggerValidationMessage: vi.fn(() => 'Missing chat trigger'),
-    findTriggersByType: vi.fn((blocks, type) =>
-      type === 'manual'
-        ? Object.values(blocks as Record<string, any>).filter(
-            (block: any) => block.type === 'manual_trigger'
-          )
-        : []
-    ),
-  },
+vi.mock('@/lib/yjs/workflow-session', () => ({
+  getVariablesSnapshot: mockGetVariablesSnapshot,
 }))
 
-vi.mock('@/lib/yjs/use-workflow-doc', () => ({
-  useWorkflowVariables: mockUseWorkflowVariables,
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  useWorkflowSession: mockUseWorkflowSession,
 }))
 
 vi.mock('@/stores/console/store', () => {
@@ -65,42 +59,52 @@ vi.mock('@/stores/execution/store', () => {
   }
 })
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: vi.fn((selector) =>
-    selector({
-      workflows: {
-        'workflow-1': {
-          workspaceId: 'workspace-1',
-        },
-      },
-      getActiveWorkflowId: () => null,
-    })
-  ),
-}))
-
-vi.mock('@/stores/workflows/workflow/utils', () => ({
-  generateLoopBlocks: vi.fn(() => ({})),
-  generateParallelBlocks: vi.fn(() => ({})),
-}))
-
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
   useWorkflowRoute: vi.fn(() => ({
     workflowId: 'workflow-1',
+    workspaceId: 'workspace-1',
     channelId: 'channel-1',
   })),
 }))
 
-vi.mock('./use-current-workflow', () => ({
-  useCurrentWorkflow: mockUseCurrentWorkflow,
-}))
+import { useWorkflowExecution } from './use-workflow-execution'
 
 describe('useWorkflowExecution', () => {
   let container: HTMLDivElement | null = null
   let root: Root | null = null
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
+  const agentBlock = {
+    id: 'agent-1',
+    type: 'agent',
+    name: 'Agent',
+    enabled: true,
+    subBlocks: {},
+    outputs: {},
+  }
+  const editableSession = {
+    canEdit: true,
+    doc: mockWorkflowDoc,
+    error: null,
+    isLoading: false,
+    readWorkflowSnapshot: mockReadWorkflowSnapshot,
+  }
+
+  function mockSingleTriggerSnapshot(
+    triggerId: string,
+    type: string,
+    name: string,
+    subBlocks: Record<string, unknown> = {}
+  ) {
+    mockReadWorkflowSnapshot.mockReturnValue({
+      blocks: {
+        [triggerId]: { id: triggerId, type, name, enabled: true, subBlocks, outputs: {} },
+        'agent-1': agentBlock,
+      },
+      edges: [{ id: 'edge-1', source: triggerId, target: 'agent-1' }],
+    })
+  }
 
   async function renderExecutionHook() {
-    const { useWorkflowExecution } = await import('./use-workflow-execution')
     const state: { execution: ReturnType<typeof useWorkflowExecution> | null } = {
       execution: null,
     }
@@ -133,8 +137,9 @@ describe('useWorkflowExecution', () => {
       output: {},
       logs: [],
     })
-    mockUseWorkflowVariables.mockReturnValue([])
-    mockUseCurrentWorkflow.mockReturnValue({
+    mockUseWorkflowSession.mockReturnValue(editableSession)
+    mockGetVariablesSnapshot.mockReturnValue({})
+    mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
         'chat-trigger': {
           id: 'chat-trigger',
@@ -152,14 +157,7 @@ describe('useWorkflowExecution', () => {
           subBlocks: {},
           outputs: {},
         },
-        'agent-1': {
-          id: 'agent-1',
-          type: 'agent',
-          name: 'Agent',
-          enabled: true,
-          subBlocks: {},
-          outputs: {},
-        },
+        'agent-1': agentBlock,
       },
       edges: [
         { id: 'edge-1', source: 'chat-trigger', target: 'agent-1' },
@@ -213,7 +211,31 @@ describe('useWorkflowExecution', () => {
     )
   })
 
+  it('does not run chat-only workflows through editor Run', async () => {
+    mockSingleTriggerSnapshot('chat-trigger', 'chat_trigger', 'Chat Trigger')
+
+    const execution = await renderExecutionHook()
+
+    await act(async () => {
+      await execution.handleRunWorkflow({ triggerBlockId: 'chat-trigger' })
+    })
+
+    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
+  })
+
+  it('blocks retained execution callbacks for readers before any execution mutation', async () => {
+    mockUseWorkflowSession.mockReturnValue({ ...editableSession, canEdit: false })
+    const execution = await renderExecutionHook()
+
+    await act(() => execution.handleRunWorkflow({ triggerBlockId: 'manual-trigger' }))
+
+    expect(execution.isWorkflowSessionReady).toBe(false)
+    expect(mockExecutionState.setIsExecuting).not.toHaveBeenCalled()
+    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
+  })
+
   it('forwards queued execution events to the workflow caller', async () => {
+    mockSingleTriggerSnapshot('schedule-trigger', 'schedule', 'Schedule')
     const streamEvent = {
       type: 'stream:chunk',
       executionId: 'execution-1',
@@ -237,7 +259,7 @@ describe('useWorkflowExecution', () => {
     const execution = await renderExecutionHook()
 
     await act(async () => {
-      await execution.handleRunWorkflow({ onEvent })
+      await execution.handleRunWorkflow({ triggerBlockId: 'schedule-trigger', onEvent })
     })
 
     expect(onEvent).toHaveBeenCalledWith(streamEvent)
@@ -245,7 +267,7 @@ describe('useWorkflowExecution', () => {
     expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerType: 'manual',
-        startBlockId: 'manual-trigger',
+        triggerBlockId: 'schedule-trigger',
         selectedOutputs: undefined,
         stream: true,
       }),

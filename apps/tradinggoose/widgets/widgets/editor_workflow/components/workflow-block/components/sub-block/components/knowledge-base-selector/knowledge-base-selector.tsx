@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { PackageSearchIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,9 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { SubBlockConfig } from '@/blocks/types'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -171,14 +170,6 @@ export function KnowledgeBaseSelector({
   }
 
   const getKnowledgeBaseDescription = (knowledgeBase: KnowledgeBaseData) => {
-    const docCount = (knowledgeBase as any).docCount
-    if (docCount !== undefined) {
-      const documentLabel =
-        docCount === 1
-          ? translateWorkflowLabel(locale, 'document')
-          : translateWorkflowLabel(locale, 'documents')
-      return `${docCount} ${documentLabel}`
-    }
     return knowledgeBase.description || translateWorkflowLabel(locale, 'noDescription')
   }
 

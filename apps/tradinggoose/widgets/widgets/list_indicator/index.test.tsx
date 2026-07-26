@@ -28,8 +28,11 @@ vi.mock('@/hooks/queries/indicators', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/indicator-selection', () => ({
-  emitIndicatorSelectionChange: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -140,7 +143,6 @@ describe('Indicator List header controls', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {},
         },
@@ -167,7 +169,15 @@ describe('Indicator List header controls', () => {
 
     expect(mutateAsync).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
-      file: filePayload,
+      file: {
+        ...filePayload,
+        indicators: [
+          {
+            name: 'RSI Export Example',
+            pineCode: "indicator('RSI Export Example')",
+          },
+        ],
+      },
     })
   })
 

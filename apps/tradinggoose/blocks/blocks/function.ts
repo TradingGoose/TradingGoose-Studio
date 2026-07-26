@@ -7,14 +7,14 @@ export const FunctionBlock: BlockConfig<CodeExecutionOutput> = {
   name: 'Function',
   description: 'Run custom logic',
   longDescription:
-    'This is a core workflow block. Execute custom TypeScript code within your workflow. Code transpiles to JavaScript at runtime and executes on E2B when enabled, otherwise local VM. Available indicators are executed through indicator.<ID>(marketSeries) with full Historical Data block output.',
+    'This is a core workflow block. Execute custom TypeScript code within your workflow. Code transpiles to JavaScript at runtime and executes on E2B when enabled, otherwise local VM. Available indicators are executed through indicator.<ID>(marketSeries) or indicator["<ID>"](marketSeries) with full Historical Data block output.',
   bestPractices: `
   - Write TypeScript statements only (no function wrapper).
   - If you need external imports, enable E2B at the environment level.
   - Do not define Pine indicators directly in this block (no indicator(...), PineTS, or pinets imports).
-  - To execute available indicators, call indicator.<ID>(marketSeries) with the full Historical Data output, not <historical_data.close>. Example: await indicator.RSI(<historical_data>).
+  - To execute available indicators, call indicator.<ID>(marketSeries) or indicator["<ID>"](marketSeries) with the full Historical Data output, not <historical_data.close>. Example: await indicator.RSI(<historical_data>).
   - Indicator params must be passed as an object. Use saved input titles as keys, for example: await indicator.RSI(<historical_data>, { Length: 7 }) or await indicator.RSI(<historical_data>, { inputs: { Length: 7 } }).
-  - Use indicator.list() if you need to inspect supported available indicator IDs before calling one.
+  - Use indicator.list() if you need to inspect available indicator IDs before calling one.
   - Reference upstream outputs by copying exact TradingGoose tags like <agent.content>, workflow variables like <variable.riskLimit>, and environment variables with {{ENV_VAR_NAME}}. These references are valid Function code and resolve before execution; avoid arbitrary XML/HTML tags.
   `,
   docsLink: 'https://docs.tradinggoose.ai/blocks/function',
@@ -47,7 +47,7 @@ IMPORTANT FORMATTING RULES:
 6. Output: Ensure the code returns a value if the function is expected to produce output. Use 'return'.
 7. Clarity: Write clean, readable code.
 8. No Explanations: Do NOT include markdown formatting, comments explaining the rules, or any text other than the raw TypeScript code for the function body.
-9. Available indicators only: Do NOT define indicators directly with indicator(...) or pinets imports. Use indicator.<ID>(marketSeries) with the full Historical Data output, not <historical_data.close>. The optional second argument must be an object, e.g. await indicator.RSI(<historical_data>, { Length: 7 }). Use indicator.list() if the available ID is unknown.
+9. Available indicators only: Do NOT define indicators directly with indicator(...) or pinets imports. Use indicator.<ID>(marketSeries) or indicator["<ID>"](marketSeries) with the full Historical Data output, not <historical_data.close>. The optional second argument must be an object, e.g. await indicator.RSI(<historical_data>, { Length: 7 }). Use indicator.list() if the available ID is unknown.
 
 Example Scenario:
 User Prompt: "Fetch user data from an API. Use the User ID passed in as 'userId' and an API Key stored as the 'SERVICE_API_KEY' environment variable."

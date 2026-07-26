@@ -5,6 +5,7 @@ import { copyKnowledgeBaseToWorkspace } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('KnowledgeBaseCopyAPI')
 
@@ -44,9 +45,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: copiedKnowledgeBase,
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

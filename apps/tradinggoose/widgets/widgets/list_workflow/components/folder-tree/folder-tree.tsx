@@ -4,26 +4,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
+import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import type { WorkflowMetadataSeed } from '@/stores/workflows/registry/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { FolderItem } from './components/folder-item'
 import { WorkflowItem } from './components/workflow-item'
-import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 
 const logger = createLogger('FolderTree')
+
+export type WorkflowListEntry = WorkflowMetadataSeed
 
 interface FolderSectionProps {
   folder: FolderTreeNode
   level: number
   onCreateWorkflow: (folderId?: string) => void
-  workspaceId: string | null
-  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
+  onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
-  workflowsByFolder: Record<string, WorkflowMetadata[]>
+  workflowsByFolder: Record<string, WorkflowListEntry[]>
   expandedFolders: Set<string>
   activeWorkflowId: string | null
-  updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>
+  updateWorkflow: (
+    id: string,
+    updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
+  ) => Promise<void>
   updateFolder: (id: string, updates: any) => Promise<any>
   canDeleteWorkflow: boolean
   renderFolderTree: (
@@ -37,7 +41,7 @@ interface FolderSectionProps {
 // Helper function to count visible items, excluding content of the last expanded folder
 const countVisibleItemsForLine = (
   folder: FolderTreeNode,
-  workflowsByFolder: Record<string, WorkflowMetadata[]>,
+  workflowsByFolder: Record<string, WorkflowListEntry[]>,
   expandedFolders: Set<string>
 ): number => {
   if (!expandedFolders.has(folder.id)) {
@@ -74,7 +78,6 @@ function FolderSection({
   folder,
   level,
   onCreateWorkflow,
-  workspaceId,
   onWorkflowSelect,
   disableNavigation = false,
   workflowsByFolder,
@@ -108,9 +111,9 @@ function FolderSection({
       className={clsx(
         'relative',
         isDragOver &&
-        (isInvalidDrop
-          ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
-          : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20')
+          (isInvalidDrop
+            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20')
       )}
     >
       {/* Render folder */}
@@ -147,7 +150,7 @@ function FolderSection({
           {/* Render workflows in this folder */}
           {workflowsInFolder.length > 0 && (
             <div>
-              {workflowsInFolder.map((workflow, index) => (
+              {workflowsInFolder.map((workflow) => (
                 <div key={workflow.id} className='relative'>
                   {/* Curved corner */}
                   <div
@@ -180,7 +183,6 @@ function FolderSection({
                     <WorkflowItem
                       workflow={workflow}
                       active={activeWorkflowId === workflow.id}
-                      level={level}
                       isDragOver={isAnyDragOver}
                       onSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
@@ -195,7 +197,7 @@ function FolderSection({
           {/* Render child folders */}
           {folder.children.length > 0 && (
             <div>
-              {folder.children.map((childFolder, index) => (
+              {folder.children.map((childFolder) => (
                 <div key={childFolder.id} className='relative'>
                   {/* Curved corner */}
                   <div
@@ -229,7 +231,6 @@ function FolderSection({
                       folder={childFolder}
                       level={level + 1}
                       onCreateWorkflow={onCreateWorkflow}
-                      workspaceId={workspaceId}
                       onWorkflowSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
                       workflowsByFolder={workflowsByFolder}
@@ -254,7 +255,10 @@ function FolderSection({
 
 // Custom hook for drag and drop handling
 function useDragHandlers(
-  updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>,
+  updateWorkflow: (
+    id: string,
+    updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
+  ) => Promise<void>,
   updateFolder: (id: string, updates: any) => Promise<any>,
   targetFolderId: string | null, // null for root
   logMessage?: string
@@ -376,19 +380,17 @@ function useDragHandlers(
 }
 
 interface FolderTreeProps {
-  regularWorkflows: WorkflowMetadata[]
-  marketplaceWorkflows: WorkflowMetadata[]
+  regularWorkflows: WorkflowListEntry[]
   isLoading?: boolean
   onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
   workflowIdOverride?: string | null
-  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
+  onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
 }
 
 export function FolderTree({
   regularWorkflows,
-  marketplaceWorkflows,
   isLoading = false,
   onCreateWorkflow,
   workspaceIdOverride = null,
@@ -407,10 +409,7 @@ export function FolderTree({
   const getFolderPath = useFolderStore((state) => state.getFolderPath)
   const setExpanded = useFolderStore((state) => state.setExpanded)
   const folderTree = useFolderStore(
-    useCallback(
-      (state) => (workspaceId ? state.getFolderTree(workspaceId) : []),
-      [workspaceId]
-    )
+    useCallback((state) => (workspaceId ? state.getFolderTree(workspaceId) : []), [workspaceId])
   )
   const hasLoadedFolders = useFolderStore((state) =>
     workspaceId ? Boolean(state.loadedWorkspaces[workspaceId]) : false
@@ -515,7 +514,7 @@ export function FolderTree({
       acc[folderId].push(workflow)
       return acc
     },
-    {} as Record<string, WorkflowMetadata[]>
+    {} as Record<string, WorkflowListEntry[]>
   )
   const canDeleteWorkflow = regularWorkflows.length > 1
 
@@ -532,13 +531,12 @@ export function FolderTree({
     level = 0,
     parentDragOver = false
   ): React.ReactNode[] => {
-    return nodes.map((folder, index) => (
+    return nodes.map((folder) => (
       <FolderSection
         key={folder.id}
         folder={folder}
         level={level}
         onCreateWorkflow={onCreateWorkflow}
-        workspaceId={workspaceId}
         onWorkflowSelect={onWorkflowSelect}
         disableNavigation={disableNavigation}
         workflowsByFolder={workflowsByFolder}
@@ -584,9 +582,9 @@ export function FolderTree({
         className={clsx(
           'relative flex-1 ',
           rootDragOver &&
-          (rootInvalidDrop
-            ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
-            : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20'),
+            (rootInvalidDrop
+              ? 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-destructive/50 before:bg-destructive/15'
+              : 'before:pointer-events-none before:absolute before:inset-0 before:rounded-sm before:border before:border-muted-foreground/50 before:bg-muted/20'),
           // Ensure minimum height for drag target when empty
           rootWorkflows.length === 0 ? 'min-h-8' : ''
         )}
@@ -595,12 +593,11 @@ export function FolderTree({
         onDrop={handleRootDrop}
       >
         <div className='space-y-1'>
-          {rootWorkflows.map((workflow, index) => (
+          {rootWorkflows.map((workflow) => (
             <WorkflowItem
               key={workflow.id}
               workflow={workflow}
               active={workflowId === workflow.id}
-              level={-1}
               isDragOver={rootDragOver}
               onSelect={onWorkflowSelect}
               disableNavigation={disableNavigation}
@@ -609,15 +606,12 @@ export function FolderTree({
           ))}
 
           {/* Empty state */}
-          {!showLoading &&
-            regularWorkflows.length === 0 &&
-            marketplaceWorkflows.length === 0 &&
-            folderTree.length === 0 && (
-              <div className='break-words px-2 py-1.5 pr-12 text-muted-foreground text-xs'>
-                No workflows or folders in {workspaceId ? 'this workspace' : 'your account'}. Create
-                one to get started.
-              </div>
-            )}
+          {!showLoading && regularWorkflows.length === 0 && folderTree.length === 0 && (
+            <div className='break-words px-2 py-1.5 pr-12 text-muted-foreground text-xs'>
+              No workflows or folders in {workspaceId ? 'this workspace' : 'your account'}. Create
+              one to get started.
+            </div>
+          )}
         </div>
       </div>
     </div>

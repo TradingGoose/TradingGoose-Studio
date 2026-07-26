@@ -25,6 +25,7 @@ export interface ToolInput {
   type?: string
   schema?: any
   title?: string
+  toolId?: string
   code?: string
   params?: Record<string, any>
   timeout?: number

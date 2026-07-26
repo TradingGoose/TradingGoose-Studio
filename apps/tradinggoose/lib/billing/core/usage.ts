@@ -20,8 +20,8 @@ import {
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
-import { sendEmail } from '@/lib/email/mailer'
 import { resolveEmailLocale } from '@/lib/email/locale'
+import { sendEmail } from '@/lib/email/mailer'
 import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -121,11 +121,12 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
 }
 
 export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
-  userId: string
+  userId: string,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
   const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
     getResolvedBillingSettings(),
-    db
+    dbClient
       .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
       .from(userStats)
       .where(eq(userStats.userId, userId))
@@ -141,7 +142,7 @@ export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
     parseNonNegativeBillingAmount(statsRecords[0].grantedOnboardingAllowanceUsd) ?? 0
   const usedOnboardingAllowance = Math.max(onboardingAllowance - grantedAllowance, 0)
 
-  await db
+  await dbClient
     .update(userStats)
     .set({
       customUsageLimit: onboardingAllowance.toString(),

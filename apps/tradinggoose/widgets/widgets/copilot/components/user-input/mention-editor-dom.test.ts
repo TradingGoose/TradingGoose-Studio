@@ -13,6 +13,7 @@ describe('mention-editor-dom', () => {
           start: 6,
           end: 20,
           label: 'default-agent',
+          contextKey: 'docs:default-agent',
         },
       ])
     ).toEqual([

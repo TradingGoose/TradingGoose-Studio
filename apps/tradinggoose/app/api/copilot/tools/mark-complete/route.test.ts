@@ -17,10 +17,11 @@ function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
 }
 
 describe('Copilot mark-complete API', () => {
+  let POST: typeof import('./route').POST
   const mockAuthenticateCopilotRequestSessionOnly = vi.fn()
   const mockProxyCopilotRequest = vi.fn()
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockAuthenticateCopilotRequestSessionOnly.mockReset()
     mockProxyCopilotRequest.mockReset()
@@ -56,10 +57,28 @@ describe('Copilot mark-complete API', () => {
       })),
     }))
 
+    vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
+      mirrorLocalCopilotCompletionUsageReports: vi.fn().mockResolvedValue(undefined),
+    }))
+
+    vi.doMock('@/lib/utils', () => ({
+      encodeSSE: vi.fn((event: unknown) =>
+        new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
+      ),
+      SSE_HEADERS: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      },
+    }))
+
     vi.doMock('@/app/api/copilot/proxy', () => ({
       getCopilotApiUrl: vi.fn(() => 'https://copilot.example.test/api/tools/mark-complete'),
       proxyCopilotRequest: (...args: any[]) => mockProxyCopilotRequest(...args),
     }))
+
+    ;({ POST } = await import('./route'))
   })
 
   it('passes through a continuation SSE stream from copilot', async () => {
@@ -97,8 +116,6 @@ describe('Copilot mark-complete API', () => {
         }
       )
     )
-
-    const { POST } = await import('./route')
 
     const response = await POST(
       new NextRequest('http://localhost:3000/api/copilot/tools/mark-complete', {

@@ -1,7 +1,7 @@
 'use client'
 
-import { useMessages } from 'next-intl'
 import type { Messages } from 'next-intl'
+import { useMessages } from 'next-intl'
 
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 
@@ -12,7 +12,6 @@ export type WorkflowInspectorMessages = Pick<
 export type WorkflowToolbarMessages = WorkspaceWidgetsMessages['workflowToolbar']
 export type WorkflowEditorMessages = WorkspaceWidgetsMessages['workflowEditor']
 export type WorkspaceBlockEditorMessages = WorkspaceWidgetsMessages['blockEditor']
-export type WorkflowLabelMessages = WorkspaceWidgetsMessages['workflowLabels']
 export type BlockEditorMessages = WorkspaceWidgetsMessages['blockEditor']
 export type WorkflowDropdownMessages = WorkspaceWidgetsMessages['workflowDropdown']
 export type SelectorMessages = WorkspaceWidgetsMessages['selector']
@@ -52,10 +51,6 @@ export function useWorkflowEditorMessages(): WorkflowEditorMessages {
 
 export function useWorkspaceBlockEditorMessages(): WorkspaceBlockEditorMessages {
   return useWorkspaceWidgetsMessages().blockEditor
-}
-
-export function useWorkflowLabelMessages(): WorkflowLabelMessages {
-  return useWorkspaceWidgetsMessages().workflowLabels
 }
 
 export function useBlockEditorMessages(): BlockEditorMessages {

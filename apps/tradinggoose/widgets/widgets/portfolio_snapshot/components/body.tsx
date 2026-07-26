@@ -1,7 +1,7 @@
 'use client'
 
-import { type ReactNode, useEffect, useMemo, useRef } from 'react'
-import { useLocale } from 'next-intl'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
@@ -13,17 +13,12 @@ import { cn } from '@/lib/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail, usePortfolioPerformance } from '@/hooks/queries/trading-portfolio'
+import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import type { LocaleCode } from '@/i18n/utils'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitPortfolioSnapshotParamsChange,
-  usePortfolioSnapshotParamsPersistence,
-} from '@/widgets/utils/portfolio-snapshot-params'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { PortfolioSnapshotPerformanceChart } from '@/widgets/widgets/portfolio_snapshot/components/performance-chart'
 import {
@@ -35,7 +30,7 @@ import {
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
-import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
+import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 
 const PortfolioMessage = ({ message }: { message: string }) => (
   <Empty className='h-full min-h-[180px] rounded-none border-0 bg-transparent p-4'>
@@ -176,7 +171,7 @@ export function PortfolioSnapshotWidgetBody({
   panelId,
   widget,
   params,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.portfolioSnapshot.body
@@ -200,13 +195,6 @@ export function PortfolioSnapshotWidgetBody({
   const marketProviderName =
     marketProviderOptions.find((option) => option.id === marketProviderId)?.name ?? marketProviderId
   const hasSelectedProvider = Boolean(providerId)
-  const hasValidPersistedProvider =
-    Boolean(widgetParams?.provider) && widgetParams?.provider === providerId
-  const hasInvalidPersistedProvider =
-    !providerAvailabilityQuery.isLoading &&
-    !providerAvailabilityQuery.error &&
-    Boolean(widgetParams?.provider) &&
-    !hasSelectedProvider
   const providerDefinition = hasSelectedProvider ? getTradingProviderDefinition(providerId) : null
   const supportedWindows = useMemo(
     () => (hasSelectedProvider ? getPortfolioSnapshotSupportedWindows(providerId) : []),
@@ -224,55 +212,17 @@ export function PortfolioSnapshotWidgetBody({
     ? widgetParams.runtime.refreshAt
     : null
   const lastRefreshAtRef = useRef<number | null>(null)
-
-  usePortfolioSnapshotParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params: params && typeof params === 'object' ? (params as Record<string, unknown>) : null,
-  })
-
-  useEffect(() => {
-    if (!hasInvalidPersistedProvider) return
-    emitPortfolioSnapshotParamsChange({
-      params: {
-        provider: null,
-        serviceId: null,
-        portfolioIdentity: null,
-        selectedWindow: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [hasInvalidPersistedProvider, panelId, widgetKey])
+  const patchWidgetParams = useCallback(
+    (nextParams: Record<string, unknown>) => {
+      onWidgetParamsPatch?.(nextParams)
+    },
+    [onWidgetParamsPatch]
+  )
 
   const selectedWindow =
     widgetParams?.selectedWindow && supportedWindows.includes(widgetParams.selectedWindow)
       ? widgetParams.selectedWindow
       : defaultWindow
-
-  useEffect(() => {
-    if (providerAvailabilityQuery.isLoading) return
-    if (providerAvailabilityQuery.error) return
-    if (!hasSelectedProvider) return
-    if (!hasValidPersistedProvider) return
-    if (!selectedWindow) return
-    if (widgetParams?.selectedWindow === selectedWindow) return
-    emitPortfolioSnapshotParamsChange({
-      params: { selectedWindow },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    hasSelectedProvider,
-    hasValidPersistedProvider,
-    panelId,
-    providerAvailabilityQuery.error,
-    providerAvailabilityQuery.isLoading,
-    selectedWindow,
-    widgetKey,
-    widgetParams?.selectedWindow,
-  ])
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
@@ -280,9 +230,6 @@ export function PortfolioSnapshotWidgetBody({
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,
       enabled: isProviderReady,
-      panelId,
-      widgetKey,
-      emitParamsChange: emitPortfolioSnapshotParamsChange,
     })
 
   const snapshotQuery = usePortfolioDetail({
@@ -375,9 +322,7 @@ export function PortfolioSnapshotWidgetBody({
     }
 
     if (!activeServiceId) {
-      return (
-        <PortfolioMessage message={copy.selectBrokerConnectionToLoadPortfolioSnapshot} />
-      )
+      return <PortfolioMessage message={copy.selectBrokerConnectionToLoadPortfolioSnapshot} />
     }
 
     if (accountsQuery.isLoading && portfolioIdentities.length === 0) {
@@ -496,8 +441,8 @@ export function PortfolioSnapshotWidgetBody({
         <div className='space-y-3'>
           <section className='overflow-hidden bg-card/30'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
-                <div className='min-w-0'>
-                  <div className='flex min-w-0 flex-wrap items-center gap-2'>
+              <div className='min-w-0'>
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
                   <h3 className='font-medium text-sm'>{copy.performance}</h3>
                   {selectedWindow ? (
                     <Badge
@@ -511,13 +456,13 @@ export function PortfolioSnapshotWidgetBody({
                 <div className='mt-1 truncate text-muted-foreground text-xs'>
                   {snapshot.accountName ?? snapshot.accountId}
                 </div>
-                </div>
+              </div>
 
-                <div
-                  role='tablist'
-                  aria-label={copy.performanceWindow}
-                  className='flex flex-wrap items-center gap-1'
-                >
+              <div
+                role='tablist'
+                aria-label={copy.performanceWindow}
+                className='flex flex-wrap items-center gap-1'
+              >
                 {activeWindows.map((window) => (
                   <Button
                     key={window}
@@ -533,11 +478,7 @@ export function PortfolioSnapshotWidgetBody({
                         : 'text-muted-foreground'
                     )}
                     onClick={() => {
-                      emitPortfolioSnapshotParamsChange({
-                        params: { selectedWindow: window },
-                        panelId,
-                        widgetKey,
-                      })
+                      patchWidgetParams({ selectedWindow: window })
                     }}
                   >
                     {window}
@@ -562,12 +503,22 @@ export function PortfolioSnapshotWidgetBody({
                   <MetricGroup>
                     <MetricTile
                       label={copy.return}
-                      value={formatSignedCurrency(performance.summary.absoluteReturn, currency, locale)}
+                      value={formatSignedCurrency(
+                        performance.summary.absoluteReturn,
+                        currency,
+                        locale
+                      )}
                       hint={formatPercent(performance.summary.percentReturn, locale)}
                       tone={performanceTone}
                     />
-                    <MetricTile label={copy.start} value={formatCurrency(performance.summary.startEquity, currency, locale)} />
-                    <MetricTile label={copy.current} value={formatCurrency(performance.summary.endEquity, currency, locale)} />
+                    <MetricTile
+                      label={copy.start}
+                      value={formatCurrency(performance.summary.startEquity, currency, locale)}
+                    />
+                    <MetricTile
+                      label={copy.current}
+                      value={formatCurrency(performance.summary.endEquity, currency, locale)}
+                    />
                     <MetricTile
                       label={copy.high}
                       value={formatCurrency(performance.summary.highEquity, currency, locale)}
@@ -576,7 +527,9 @@ export function PortfolioSnapshotWidgetBody({
                     <MetricTile
                       label={copy.low}
                       value={formatCurrency(performance.summary.lowEquity, currency, locale)}
-                      hint={formatTemplate(copy.asOf, { date: formatAsOf(performance.summary.asOf, locale) })}
+                      hint={formatTemplate(copy.asOf, {
+                        date: formatAsOf(performance.summary.asOf, locale),
+                      })}
                     />
                   </MetricGroup>
                   <div className='h-[230px] min-h-[210px] rounded-md border border-border/60 bg-background/70 p-2'>
@@ -588,10 +541,7 @@ export function PortfolioSnapshotWidgetBody({
                 </div>
               ) : (
                 <PortfolioMessage
-                  message={
-                    performance?.unavailableReason ??
-                    copy.performanceHistoryUnavailable
-                  }
+                  message={performance?.unavailableReason ?? copy.performanceHistoryUnavailable}
                 />
               )}
             </div>
@@ -639,7 +589,11 @@ export function PortfolioSnapshotWidgetBody({
                 />
                 <MetricTile
                   label={copy.unrealizedPnl}
-                  value={formatSignedCurrency(snapshot.summary.totalUnrealizedPnl, currency, locale)}
+                  value={formatSignedCurrency(
+                    snapshot.summary.totalUnrealizedPnl,
+                    currency,
+                    locale
+                  )}
                   tone={getNumberTone(snapshot.summary.totalUnrealizedPnl)}
                 />
                 <MetricTile
@@ -687,7 +641,11 @@ export function PortfolioSnapshotWidgetBody({
                 />
                 <MetricTile
                   label={copy.dayChange}
-                  value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency, locale)}
+                  value={
+                    quoteErrorMessage
+                      ? 'N/A'
+                      : formatSignedCurrency(quoteDayChange, currency, locale)
+                  }
                   hint={quoteSnapshotsQuery.isFetching ? copy.refreshingQuotes : undefined}
                   tone={quoteErrorMessage ? 'negative' : quoteDayTone}
                 />

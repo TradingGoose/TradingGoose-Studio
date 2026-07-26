@@ -1,11 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowLogWebhook } from '@tradinggoose/db/schema'
+import { workflowLogWebhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
+import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { cancelActiveWebhookDeliveries } from '../delivery-cancellation'
 
 const logger = createLogger('WorkflowLogWebhookUpdate')
@@ -39,32 +39,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; webhookId: string }> }
 ) {
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: workflowId, webhookId } = await params
-    const userId = session.user.id
-
-    // Check if user has access to the workflow
-    const hasAccess = await db
-      .select({ id: workflow.id })
-      .from(workflow)
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
-          eq(permissions.userId, userId)
-        )
+    const { error, session } = await validateWorkflowPermissions(workflowId, workflowId, 'read')
+    if (error || !session?.user?.id) {
+      return NextResponse.json(
+        { error: error?.message ?? 'Unauthorized' },
+        { status: error?.status ?? 401 }
       )
-      .where(eq(workflow.id, workflowId))
-      .limit(1)
-
-    if (hasAccess.length === 0) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const userId = session.user.id
 
     // Check if webhook exists and belongs to this workflow
     const existingWebhook = await db
@@ -84,7 +67,7 @@ export async function PUT(
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: validationResult.error.errors },
+        { error: 'Invalid request', details: validationResult.error.issues },
         { status: 400 }
       )
     }
@@ -169,32 +152,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; webhookId: string }> }
 ) {
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: workflowId, webhookId } = await params
-    const userId = session.user.id
-
-    // Check if user has access to the workflow
-    const hasAccess = await db
-      .select({ id: workflow.id })
-      .from(workflow)
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
-          eq(permissions.userId, userId)
-        )
+    const { error, session } = await validateWorkflowPermissions(workflowId, workflowId, 'read')
+    if (error || !session?.user?.id) {
+      return NextResponse.json(
+        { error: error?.message ?? 'Unauthorized' },
+        { status: error?.status ?? 401 }
       )
-      .where(eq(workflow.id, workflowId))
-      .limit(1)
-
-    if (hasAccess.length === 0) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const userId = session.user.id
 
     await cancelActiveWebhookDeliveries(workflowId, webhookId)
 

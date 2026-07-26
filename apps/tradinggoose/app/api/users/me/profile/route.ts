@@ -80,10 +80,10 @@ export async function PATCH(request: NextRequest) {
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid profile data`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid profile data', details: error.errors },
+        { error: 'Invalid profile data', details: error.issues },
         { status: 400 }
       )
     }

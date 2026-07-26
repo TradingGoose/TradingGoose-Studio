@@ -3,7 +3,7 @@ import {
   createTradingGooseExportFile,
   TradingGooseExportEnvelopeSchema,
 } from '@/lib/import-export/trading-goose'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 
 export const SKILL_NAME_MAX_LENGTH = 64
 export const SKILL_DESCRIPTION_MAX_LENGTH = 1024

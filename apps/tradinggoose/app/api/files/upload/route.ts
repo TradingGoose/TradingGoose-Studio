@@ -8,6 +8,7 @@ import {
 } from '@/lib/knowledge/documents/storage'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
+import { hasWorkflowWriteAccess, readWorkflowAccessContext } from '@/lib/workflows/utils'
 import {
   createErrorResponse,
   createOptionsResponse,
@@ -89,11 +90,45 @@ export async function POST(request: NextRequest) {
       throw new InvalidRequestError('No files provided')
     }
 
-    const workflowId = formData.get('workflowId') as string | null
-    const executionId = formData.get('executionId') as string | null
-    const workspaceId = formData.get('workspaceId') as string | null
-    const knowledgeBaseId = formData.get('knowledgeBaseId') as string | null
+    const workflowId = String(formData.get('workflowId') ?? '').trim()
+    const executionId = String(formData.get('executionId') ?? '').trim()
+    const workspaceId = String(formData.get('workspaceId') ?? '').trim()
+    const knowledgeBaseId = String(formData.get('knowledgeBaseId') ?? '').trim()
     const uploadContext = getUploadContext(request)
+    const isExecutionUpload = formData.has('workflowId') || formData.has('executionId')
+    let executionUploadContext:
+      | { workflowId: string; executionId: string; workspaceId: string }
+      | undefined
+
+    if (isExecutionUpload) {
+      if (uploadContext === 'knowledge-base' || formData.has('knowledgeBaseId')) {
+        throw new InvalidRequestError(
+          'Execution-scoped and knowledge-base upload contexts cannot be combined'
+        )
+      }
+      if (!workflowId || !executionId || !workspaceId) {
+        throw new InvalidRequestError(
+          'workspaceId, workflowId, and executionId are required for execution-scoped uploads'
+        )
+      }
+
+      const accessContext = await readWorkflowAccessContext(workflowId, session.user.id)
+      if (!accessContext) {
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+      if (!hasWorkflowWriteAccess(accessContext)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      if (accessContext.workflow.workspaceId !== workspaceId) {
+        throw new InvalidRequestError('workspaceId does not match workflowId')
+      }
+
+      executionUploadContext = {
+        workflowId,
+        executionId,
+        workspaceId: accessContext.workflow.workspaceId,
+      }
+    }
 
     if (uploadContext === 'knowledge-base') {
       if (!workspaceId) {
@@ -122,9 +157,9 @@ export async function POST(request: NextRequest) {
       `Using storage mode: ${usingCloudStorage ? 'Cloud' : 'Local'} for ${uploadContext} file upload`
     )
 
-    if (workflowId && executionId) {
+    if (executionUploadContext) {
       logger.info(
-        `Uploading files for execution-scoped storage: workflow=${workflowId}, execution=${executionId}`
+        `Uploading files for execution-scoped storage: workflow=${executionUploadContext.workflowId}, execution=${executionUploadContext.executionId}`
       )
     } else if (workspaceId) {
       logger.info(`Uploading files for workspace-scoped storage: workspace=${workspaceId}`)
@@ -153,17 +188,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Priority 1: Execution-scoped storage (temporary, 5 min expiry)
-      if (workflowId && executionId) {
-        if (!workspaceId) {
-          throw new InvalidRequestError('workspaceId is required for execution-scoped uploads')
-        }
+      if (executionUploadContext) {
         const { uploadExecutionFile } = await import('@/lib/uploads/contexts/execution')
         const userFile = await uploadExecutionFile(
-          {
-            workspaceId,
-            workflowId,
-            executionId,
-          },
+          executionUploadContext,
           buffer,
           originalName,
           file.type

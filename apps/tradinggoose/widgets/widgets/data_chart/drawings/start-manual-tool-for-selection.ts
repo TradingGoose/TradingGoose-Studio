@@ -1,7 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
+import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
-import type { DrawToolsRef, IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
+import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 import { makeUniqueDrawToolsId } from '@/widgets/widgets/data_chart/utils/draw-tools'
 import { resolveRuntimePaneIndex } from '@/widgets/widgets/data_chart/utils/indicator-runtime'
 

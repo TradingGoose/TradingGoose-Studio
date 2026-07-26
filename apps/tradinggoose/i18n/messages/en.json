@@ -43,6 +43,7 @@
     "docs": "Docs",
     "blog": "Blog",
     "login": "Login",
+    "goToDashboard": "Go to dashboard",
     "menu": "Menu",
     "homeLabel": "Home",
     "languageLabel": "Language",
@@ -237,7 +238,6 @@
         "noAccount": "No account found with this email. Please sign up first.",
         "missingCredentials": "Please enter both email and password.",
         "emailPasswordDisabled": "Email and password login is disabled.",
-        "failedToCreateSession": "Failed to create session. Please try again later.",
         "tooManyAttempts": "Too many login attempts. Please try again later or reset your password.",
         "accountLocked": "Your account has been locked for security. Please reset your password.",
         "network": "Network error. Please check your connection and try again.",
@@ -356,6 +356,32 @@
         "ssoDisabled": "SSO authentication is disabled. Please use another sign-in method.",
         "failed": "SSO sign-in failed. Please try again."
       }
+    },
+    "mcp": {
+      "eyebrow": "MCP authorization",
+      "confirm": {
+        "title": "Approve personal API key",
+        "description": "A local TradingGoose MCP setup command is requesting a personal API key for this account.",
+        "approve": "Approve key",
+        "cancel": "Cancel",
+        "terminalHint": "Only approve this if you started the setup or login command in your own terminal."
+      },
+      "invalid": {
+        "title": "Invalid MCP login",
+        "description": "The local setup command did not provide a valid login code."
+      },
+      "expired": {
+        "title": "MCP login expired",
+        "description": "Return to your terminal and run the TradingGoose MCP login command again."
+      },
+      "approved": {
+        "title": "Personal API key approved",
+        "description": "Return to your terminal to finish configuring your local agent."
+      },
+      "cancelled": {
+        "title": "MCP login cancelled",
+        "description": "No API key was created. You can close this page."
+      }
     }
   },
   "localeNames": {
@@ -370,16 +396,8 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": [
-        "Build",
-        "Test",
-        "Run"
-      ],
-      "highlightWords": [
-        "Trading Analysis",
-        "Signal Detection",
-        "Risk Assessment"
-      ],
+      "leadWords": ["Build", "Test", "Run"],
+      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -435,12 +453,6 @@
       "shell": {
         "headerAriaLabel": "Widget header",
         "widgetLabel": "Widget"
-      },
-      "layout": {
-        "headerAriaLabel": "Widget header",
-        "sizeLabel": "Widget Size",
-        "widthLabel": "width",
-        "heightLabel": "height"
       },
       "indicatorDropdown": {
         "placeholder": "Select indicators",
@@ -713,13 +725,7 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": [
-            "0-1 years",
-            "1-3 years",
-            "3-5 years",
-            "5-10 years",
-            "10+ years"
-          ]
+          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
         },
         "location": {
           "label": "Location *",
@@ -973,6 +979,12 @@
     "dashboard": {
       "title": "Dashboard",
       "searchPlaceholder": "Search workspace content...",
+      "layoutPreview": {
+        "headerAriaLabel": "Dashboard panel",
+        "sizeLabel": "Widget Size",
+        "widthLabel": "width",
+        "heightLabel": "height"
+      },
       "sections": {
         "workspaces": "Workspaces",
         "knowledgeBases": "Knowledge Bases",
@@ -980,62 +992,25 @@
         "docs": "Docs"
       },
       "emptySearch": "No matching content",
+      "layoutState": {
+        "loading": "Loading dashboard layout...",
+        "empty": "No dashboard layout is available.",
+        "error": "The dashboard layout could not be loaded."
+      },
       "pages": {
         "records": "Records",
         "monitor": "Monitor",
         "logs": "Logs",
         "knowledge": "Knowledge",
-        "templates": "Templates",
         "docs": "Docs"
-      }
-    },
-    "templates": {
-      "title": "Templates",
-      "description": "Grab a template and start building,\nor make one from scratch.",
-      "searchPlaceholder": "Search templates...",
-      "sections": {
-        "your": "Your templates",
-        "recent": "Recent"
-      },
-      "categories": {
-        "marketing": "Marketing",
-        "sales": "Sales",
-        "finance": "Finance",
-        "support": "Support",
-        "artificial-intelligence": "Artificial Intelligence",
-        "other": "Other"
-      },
-      "detail": {
-        "notFoundTitle": "Template Not Found",
-        "notFoundDescription": "The template you're looking for doesn't exist.",
-        "noWorkflowDataTitle": "No Workflow Data",
-        "noWorkflowDataDescription": "This template doesn't contain workflow state data.",
-        "previewErrorTitle": "Preview Error",
-        "previewErrorDescription": "Unable to render workflow preview",
-        "goBack": "Go back",
-        "workflowPreview": "Workflow Preview",
-        "useThisTemplate": "Use this template",
-        "use": "Use",
-        "by": "by"
-      },
-      "loginRequired": "Please log in to view templates",
-      "errorPage": {
-        "title": "Error Loading Template",
-        "description": "There was an error loading this template.",
-        "templateIdLabel": "Template ID:"
       }
     },
     "knowledge": {
       "title": "Knowledge",
       "searchPlaceholder": "Search knowledge bases...",
       "sort": {
-        "lastUpdated": "Last Updated",
-        "newestFirst": "Newest First",
-        "oldestFirst": "Oldest First",
         "nameAsc": "Name (A-Z)",
-        "nameDesc": "Name (Z-A)",
-        "mostDocuments": "Most Documents",
-        "leastDocuments": "Least Documents"
+        "nameDesc": "Name (Z-A)"
       },
       "actions": {
         "create": "Create",
@@ -1071,14 +1046,10 @@
         "failedToCopy": "Failed to copy knowledge base"
       },
       "baseOverview": {
-        "docsSingular": "doc",
-        "docsPlural": "docs",
-        "updated": "Updated",
-        "created": "Created",
         "copyId": "Copy knowledge base ID",
         "deleteButtonLabel": "Delete knowledge base",
         "deleteTitle": "Delete Knowledge Base",
-        "deleteDescription": "Are you sure you want to delete \"{title}\"? This will remove the knowledge base and its {count} document{plural} permanently.",
+        "deleteDescription": "Are you sure you want to delete \"{title}\"? This will permanently remove the knowledge base.",
         "cancel": "Cancel",
         "deleteConfirm": "Delete",
         "deleting": "Deleting..."
@@ -2214,7 +2185,7 @@
       "titles": {
         "empty": "Empty Surface",
         "data_chart": "Market Data",
-        "workflow_list": "Workflows",
+        "list_workflow": "Workflows",
         "editor_workflow": "Workflow Editor",
         "workflow_chat": "Workflow Chat",
         "workflow_console": "Workflow Console",
@@ -2651,9 +2622,7 @@
       },
       "empty": {
         "noWidgetSelected": "No widget selected",
-        "emptyWidget": "Empty Widget",
         "noWidgetDescription": "Pick a widget from the gallery to start using this panel.",
-        "emptyWidgetDescription": "This widget is currently empty, choose another widget to continue.",
         "chooseWidget": "Choose Widget",
         "surfaceTitle": "Empty Surface",
         "surfaceDescription": "Placeholder state shown when the panel does not have a widget assigned."
@@ -2689,7 +2658,6 @@
         "selectWorkspace": "Select a workspace to load workflows.",
         "noWorkflows": "No workflows available in this workspace.",
         "unableToLoadWorkflows": "Unable to load workflows",
-        "authenticationRequiredToLoadWorkflows": "Authentication required to load workflows",
         "filters": "Filters",
         "status": "Status",
         "error": "Error",
@@ -2737,7 +2705,6 @@
         "selectWorkspace": "Select a workspace to load workflows.",
         "noWorkflows": "No workflows available in this workspace.",
         "unableToLoadWorkflows": "Unable to load workflows",
-        "authenticationRequiredToLoadWorkflows": "Authentication required to load workflows",
         "selectOutputs": "Select outputs",
         "selectWorkflowOutputs": "Select workflow outputs",
         "clearChat": "Clear chat",
@@ -2769,7 +2736,6 @@
         "selectWorkspace": "Select a workspace to load workflows.",
         "noWorkflows": "No workflows available in this workspace.",
         "unableToLoadWorkflows": "Unable to load workflows",
-        "authenticationRequiredToLoadWorkflows": "Authentication required to load workflows",
         "addVariable": "Add variable",
         "selectWorkflowToAddVariables": "Select a workflow to add variables",
         "addWorkflowVariable": "Add workflow variable",
@@ -2959,10 +2925,12 @@
         "currentTool": "Current Tool",
         "currentIndicator": "Current Indicator",
         "currentMcpServer": "Current MCP Server",
+        "currentWatchlist": "Current Watchlist",
         "workflows": "Workflows",
         "customTools": "Custom Tools",
         "indicators": "Indicators",
         "mcpServers": "MCP Servers",
+        "watchlists": "Watchlists",
         "allWorkflows": "All workflows",
         "operation": "Operation",
         "id": "ID",
@@ -3545,7 +3513,7 @@
           "zep": "Long-term memory for AI agents",
           "zoom": "Create and manage Zoom meetings and recordings",
           "portfolio_detail": "Fetch full portfolio detail from a selected broker account.",
-          "watchlist": "Read watchlists and add or remove listing items."
+          "watchlist": "Read workspace watchlists, listings, and sections."
         },
         "blockLongDescriptions": {
           "response": "Integrate Response into the workflow. Can send build or edit structured responses into a final workflow response.",
@@ -3682,10 +3650,7 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": [
-                "Key",
-                "Value"
-              ],
+              "columns": ["Key", "Value"],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -17931,10 +17896,7 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": [
-                "Key",
-                "Value"
-              ]
+              "columns": ["Key", "Value"]
             },
             "apiKey": {
               "title": "Anthropic API Key",
@@ -18529,111 +18491,6 @@
           "duplicateTitle": "Only one {triggerName} trigger allowed",
           "duplicateDescription": "A workflow can only have one {triggerName} trigger block. Please remove the existing one before adding a new one.",
           "dismiss": "Got it"
-        },
-        "templateModal": {
-          "title": {
-            "loading": "Loading...",
-            "update": "Update Template",
-            "publish": "Publish Template"
-          },
-          "fields": {
-            "icon": "Icon",
-            "color": "Color",
-            "name": "Name",
-            "author": "Author",
-            "category": "Category",
-            "description": "Description"
-          },
-          "placeholders": {
-            "name": "Enter template name",
-            "author": "Enter author name",
-            "category": "Select a category",
-            "description": "Describe what this template does..."
-          },
-          "actions": {
-            "close": "Close",
-            "delete": "Delete"
-          },
-          "submit": {
-            "updating": "Updating...",
-            "publishing": "Publishing...",
-            "update": "Update Template",
-            "publish": "Publish Template"
-          },
-          "delete": {
-            "title": "Delete Template?",
-            "description": "Deleting this template will remove it from the gallery. This action cannot be undone.",
-            "cancel": "Cancel",
-            "confirm": "Delete",
-            "deleting": "Deleting..."
-          },
-          "validation": {
-            "nameRequired": "Name is required",
-            "nameTooLong": "Name must be less than 100 characters",
-            "descriptionRequired": "Description is required",
-            "descriptionTooLong": "Description must be less than 500 characters",
-            "authorRequired": "Author is required",
-            "authorTooLong": "Author must be less than 100 characters",
-            "categoryRequired": "Category is required",
-            "iconRequired": "Icon is required",
-            "colorInvalid": "Color must be a valid hex color (e.g., #3972F6)"
-          },
-          "errors": {
-            "workflowNotReady": "Workflow session is not ready yet. Wait for the editor to finish loading.",
-            "create": "Failed to create template",
-            "update": "Failed to update template",
-            "delete": "Failed to delete template"
-          },
-          "categories": {
-            "marketing": "Marketing",
-            "sales": "Sales",
-            "finance": "Finance",
-            "support": "Support",
-            "artificialIntelligence": "Artificial Intelligence",
-            "other": "Other"
-          },
-          "icons": {
-            "fileText": "File Text",
-            "notebook": "Notebook",
-            "book": "Book",
-            "edit": "Edit",
-            "barChart": "Bar Chart",
-            "lineChart": "Line Chart",
-            "trendingUp": "Trending Up",
-            "target": "Target",
-            "database": "Database",
-            "server": "Server",
-            "cloud": "Cloud",
-            "folder": "Folder",
-            "megaphone": "Megaphone",
-            "mail": "Mail",
-            "message": "Message",
-            "phone": "Phone",
-            "bell": "Bell",
-            "dollarSign": "Dollar Sign",
-            "creditCard": "Credit Card",
-            "calculator": "Calculator",
-            "shoppingCart": "Shopping Cart",
-            "briefcase": "Briefcase",
-            "headphones": "Headphones",
-            "user": "User",
-            "users": "Users",
-            "settings": "Settings",
-            "wrench": "Wrench",
-            "bot": "Bot",
-            "brain": "Brain",
-            "cpu": "CPU",
-            "code": "Code",
-            "zap": "Zap",
-            "workflow": "Workflow",
-            "search": "Search",
-            "play": "Play",
-            "layers": "Layers",
-            "lightbulb": "Lightbulb",
-            "star": "Star",
-            "globe": "Globe",
-            "award": "Award"
-          }
         },
         "webhookSettings": {
           "title": "Webhook Notifications",
@@ -20435,7 +20292,6 @@
         "selectWorkspaceToLoadWorkflows": "Select a workspace to load workflows.",
         "noWorkflowsAvailable": "No workflows available in this workspace.",
         "unableToLoadWorkflows": "Unable to load workflows",
-        "authenticationRequiredToLoadWorkflows": "Authentication required to load workflows",
         "noSharedWorkflowSelected": "This color has no shared workflow selected yet.",
         "error": {
           "title": "Workflow Error",
@@ -20707,31 +20563,26 @@
           "listActionsTooltip": "List actions",
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Section",
-          "selectMarketProvider": "Select watchlist",
-          "createWatchlist": "Create Watchlist",
+          "createList": "Create List",
+          "renameList": "Rename List",
+          "deleteList": "Delete List",
+          "deleteListDialogTitle": "Delete list?",
+          "deleteListDialogDescription": "Deleting this list removes its sections and listings.",
+          "cancel": "Cancel",
+          "delete": "Delete",
           "createSection": "Create Section",
           "import": "Import",
           "export": "Export",
-          "deleteWatchlist": "Delete watchlist",
           "refresh": "Refresh data"
         },
         "listSelector": {
-          "selectionUnavailable": "Watchlist selection unavailable",
-          "selectLabel": "Select watchlist",
-          "searchPlaceholder": "Search watchlists...",
-          "noWatchlistsFound": "No watchlists found.",
-          "renameAriaLabel": "Rename {name}",
-          "deleteAriaLabel": "Delete {name}",
-          "deleteDialogTitle": "Delete watchlist?",
-          "deleteDialogDescription": "This action will permanently delete \"{name}\".",
-          "deleteDialogDescriptionFallback": "This action will permanently delete this watchlist.",
-          "cancel": "Cancel",
-          "delete": "Delete"
+          "noWatchlistsFound": "No watchlists found."
         },
         "body": {
           "selectWorkspace": "Select a workspace to use watchlists.",
           "failedToLoadWatchlists": "Failed to load watchlists.",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
+          "watchlistNotFound": "Watchlist not found.",
           "noItemsInThisWatchlist": "No items in this watchlist.",
           "symbol": "Symbol",
           "asset": "Asset",
@@ -20954,7 +20805,6 @@
         "validation": {
           "failedToLoadToolData": "Failed to load tool data. Please try again.",
           "missingTypeFunction": "Missing \"type\": \"function\"",
-          "missingFunctionName": "Missing function.name field",
           "missingFunctionParameters": "Missing function.parameters object",
           "missingParametersType": "Missing parameters.type field",
           "missingParametersProperties": "Missing parameters.properties field",
@@ -20962,9 +20812,7 @@
           "invalidJsonFormat": "Invalid JSON format",
           "schemaCannotBeEmpty": "Schema cannot be empty",
           "schemaMustBeFunctionType": "Schema must have a \"type\" field set to \"function\"",
-          "schemaMustHaveFunctionName": "Schema must have a \"function\" object with a \"name\" field",
           "failedToValidateSchema": "Failed to validate custom tool schema. Please check your inputs and try again.",
-          "duplicateName": "A tool with the name \"{name}\" already exists",
           "failedToSave": "Failed to save custom tool. Please check your inputs and try again."
         },
         "form": {
@@ -21394,7 +21242,7 @@
             }
           },
           "tipPrefix": "Tip: Use",
-          "tipSuffix": "to reference chats, workflows, knowledge, blocks, or templates",
+          "tipSuffix": "to reference chats, workflows, knowledge, or blocks",
           "shiftEnter": "Shift+Enter for newline"
         },
         "input": {
@@ -21410,6 +21258,15 @@
           "stopGeneration": "Stop generation",
           "sources": "Sources:",
           "copy": "Copy"
+        },
+        "review": {
+          "sideLabel": "{side, select, current {Current} proposed {Proposed} other {Current}}",
+          "newDocument": "New document",
+          "dashboardLayoutTitle": "{state, select, applied {Applied Dashboard Layout Changes} proposed {Proposed Dashboard Layout Changes} other {Proposed Dashboard Layout Changes}}",
+          "widgetTitle": "{state, select, applied {Applied Widget Changes} proposed {Proposed Widget Changes} other {Proposed Widget Changes}}",
+          "watchlistTitle": "{state, select, applied {Applied Watchlist Changes} proposed {Proposed Watchlist Changes} other {Proposed Watchlist Changes}}",
+          "emptyWatchlist": "Empty watchlist",
+          "watchlistSetting": "{setting, select, showLogo {Logo} showTicker {Ticker} showDescription {Description} other {Setting}}"
         },
         "contextUsage": {
           "title": "Context used in this chat: {percentage}%",
@@ -21442,6 +21299,15 @@
             "lastWeek": "Last Week",
             "older": "Older"
           }
+        },
+        "mentions": {
+          "workflowBlocks": "Workflow Blocks",
+          "matches": "Matches",
+          "noMatches": "No matches",
+          "noPastChats": "No past chats",
+          "noBlocksFound": "No blocks found",
+          "noBlocksInWorkflow": "No blocks in this workflow",
+          "noExecutionsFound": "No executions found"
         },
         "accessLevel": {
           "limited": {

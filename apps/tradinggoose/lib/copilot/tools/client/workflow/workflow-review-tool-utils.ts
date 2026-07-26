@@ -63,6 +63,7 @@ export function buildWorkflowDocumentToolResult(options: {
   entityName?: string
   workspaceId?: string | null
   entityDocument: string
+  documentFormat?: string
 }) {
   const entityName = normalizeWorkflowTargetValue(options.entityName)
 
@@ -72,7 +73,7 @@ export function buildWorkflowDocumentToolResult(options: {
     ...(entityName ? { entityName } : {}),
     ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
     entityDocument: options.entityDocument,
-    documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+    documentFormat: options.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT,
   }
 }
 
@@ -202,10 +203,8 @@ export async function getReadableWorkflowState(
   const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
 
   if (liveSession) {
-    const entityName = normalizeWorkflowTargetValue(liveSession.entityName)
     return {
       workflowId: liveSession.workflowId,
-      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(liveSession.doc),
       workspaceId: liveSession.workspaceId ?? null,
       variables: getVariablesSnapshot(liveSession.doc),
@@ -217,10 +216,8 @@ export async function getReadableWorkflowState(
     workspaceId: executionContext.workspaceId ?? null,
   })
   try {
-    const entityName = normalizeWorkflowTargetValue(lease.session.entityName)
     return {
       workflowId: lease.session.workflowId,
-      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(lease.session.doc),
       workspaceId: lease.session.workspaceId ?? null,
       variables: getVariablesSnapshot(lease.session.doc),

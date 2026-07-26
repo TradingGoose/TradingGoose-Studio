@@ -1,5 +1,9 @@
 import type { NextRequest } from 'next/server'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyType,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('V1Auth')
@@ -8,7 +12,7 @@ export interface AuthResult {
   authenticated: boolean
   userId?: string
   workspaceId?: string
-  keyType?: 'personal' | 'workspace'
+  keyType?: ApiKeyType
   error?: string
 }
 

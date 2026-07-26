@@ -17,6 +17,8 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
   mapSessionToApiResponse,
@@ -46,6 +48,7 @@ import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import type { ProviderId } from '@/providers/ai/types'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotChatAPI')
 
@@ -264,6 +267,7 @@ async function persistChatMessages(
 function generateAndPersistTitle(params: {
   reviewSessionId: string
   message: string
+  userId: string
   model: string
   provider?: ProviderId
   requestId: string
@@ -271,6 +275,7 @@ function generateAndPersistTitle(params: {
 }): void {
   requestCopilotTitle({
     message: params.message,
+    userId: params.userId,
     model: params.model,
     provider: params.provider,
   })
@@ -624,6 +629,69 @@ const FileAttachmentSchema = z.object({
   size: z.number(),
 })
 
+const ChatContextSchema = z
+  .object({
+    kind: z.enum([
+      'past_chat',
+      'workflow',
+      'current_workflow',
+      'skill',
+      'current_skill',
+      'indicator',
+      'current_indicator',
+      'custom_tool',
+      'current_custom_tool',
+      'mcp_server',
+      'current_mcp_server',
+      'watchlist',
+      'current_watchlist',
+      'dashboard_layout',
+      'current_dashboard_layout',
+      'blocks',
+      'logs',
+      'workflow_block',
+      'knowledge',
+      'docs',
+    ]),
+    label: z.string(),
+    reviewSessionId: z.string().optional(),
+    workflowId: z.string().optional(),
+    skillId: z.string().optional(),
+    indicatorId: z.string().optional(),
+    customToolId: z.string().optional(),
+    mcpServerId: z.string().optional(),
+    watchlistId: z.string().optional(),
+    dashboardLayoutId: z.string().optional(),
+    ownerUserId: z.string().optional(),
+    workspaceId: z.string().optional(),
+    blockTypes: z.array(z.string()).optional(),
+    knowledgeId: z.string().optional(),
+    blockId: z.string().optional(),
+    executionId: z.string().optional(),
+    draftSessionId: z.string().optional(),
+  })
+  .superRefine((context, issue) => {
+    const isDashboardContext =
+      context.kind === 'dashboard_layout' || context.kind === 'current_dashboard_layout'
+    if (isDashboardContext) {
+      if (!context.dashboardLayoutId || !context.ownerUserId || !context.workspaceId) {
+        issue.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'dashboard_layout contexts require dashboardLayoutId, ownerUserId, and workspaceId',
+        })
+      }
+      return
+    }
+
+    if (context.ownerUserId) {
+      issue.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ownerUserId is only valid for dashboard_layout contexts',
+      })
+    }
+  })
+
 const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
@@ -635,46 +703,7 @@ const ChatMessageSchema = z.object({
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
   workspaceId: z.string().optional(),
-  contexts: z
-    .array(
-      z.object({
-        kind: z.enum([
-          'past_chat',
-          'workflow',
-          'current_workflow',
-          'skill',
-          'current_skill',
-          'indicator',
-          'current_indicator',
-          'custom_tool',
-          'current_custom_tool',
-          'mcp_server',
-          'current_mcp_server',
-          'blocks',
-          'logs',
-          'workflow_block',
-          'knowledge',
-          'templates',
-          'docs',
-        ]),
-        label: z.string(),
-        reviewSessionId: z.string().optional(),
-        workflowId: z.string().optional(),
-        skillId: z.string().optional(),
-        indicatorId: z.string().optional(),
-        customToolId: z.string().optional(),
-        mcpServerId: z.string().optional(),
-        workspaceId: z.string().optional(),
-        blockTypes: z.array(z.string()).optional(),
-        knowledgeId: z.string().optional(),
-        blockId: z.string().optional(),
-        templateId: z.string().optional(),
-        executionId: z.string().optional(),
-        draftSessionId: z.string().optional(),
-        // For workflow_block, provide both workflowId and blockId
-      })
-    )
-    .optional(),
+  contexts: z.array(ChatContextSchema).optional(),
 })
 
 /** POST /api/copilot/chat */
@@ -732,31 +761,31 @@ export async function POST(req: NextRequest) {
           : undefined,
       })
     } catch {}
-    let agentContexts: Array<{ type: string; content: string }> = []
+    let agentContexts: Array<{ type: string; tag?: string; content: string }> = []
     if (Array.isArray(contexts) && contexts.length > 0) {
-      try {
-        const { processContextsServer } = await import('@/lib/copilot/process-contents')
-        const processed = await processContextsServer(
-          contexts as any,
-          authenticatedUserId,
-          message,
-          incomingWorkspaceId
+      const { processContextsServer } = await import('@/lib/copilot/process-contents')
+      const processed = await processContextsServer(
+        contexts as any,
+        authenticatedUserId,
+        message,
+        incomingWorkspaceId
+      )
+      agentContexts = processed
+      logger.info(`[${tracker.requestId}] Contexts processed for request`, {
+        processedCount: agentContexts.length,
+        kinds: agentContexts.map((c) => c.type),
+        lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
+      })
+      if (agentContexts.length === 0) {
+        logger.warn(
+          `[${tracker.requestId}] Contexts provided but none processed. Check executionId for logs contexts.`
         )
-        agentContexts = processed
-        logger.info(`[${tracker.requestId}] Contexts processed for request`, {
-          processedCount: agentContexts.length,
-          kinds: agentContexts.map((c) => c.type),
-          lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
-        })
-        if (Array.isArray(contexts) && contexts.length > 0 && agentContexts.length === 0) {
-          logger.warn(
-            `[${tracker.requestId}] Contexts provided but none processed. Check executionId for logs contexts.`
-          )
-        }
-      } catch (e) {
-        logger.error(`[${tracker.requestId}] Failed to process contexts`, e)
       }
     }
+    const modelMessage = replaceCopilotWorkspaceEntityMentionsWithIds(
+      message,
+      contexts as ChatContext[]
+    )
 
     // Start file attachment processing early so it runs in parallel with session loading/creation
     const fileProcessingPromise =
@@ -836,7 +865,7 @@ export async function POST(req: NextRequest) {
     const { getCopilotRuntimeToolManifest } = await import('@/lib/copilot/runtime-tool-manifest')
 
     const requestPayload = {
-      message: message, // Just send the current user message text
+      message: modelMessage,
       userId: authenticatedUserId,
       stream: stream,
       streamToolCalls: true,
@@ -858,7 +887,7 @@ export async function POST(req: NextRequest) {
         contextCount: agentContexts.length,
         hasConversationId: !!effectiveConversationId,
         hasFileAttachments: processedFileContents.length > 0,
-        messageLength: message.length,
+        messageLength: modelMessage.length,
       })
     } catch {}
 
@@ -942,6 +971,10 @@ export async function POST(req: NextRequest) {
           enqueueTurnState('in_progress', 'streaming')
 
           const forwardClientEvent = (event: Record<string, unknown>) => {
+            if (event.type === 'billing.completion_usage') {
+              return
+            }
+
             if (event.type === 'awaiting_tools') {
               latestTurnStatus = 'in_progress'
               enqueueTurnState('in_progress', 'waiting_for_tools')
@@ -990,6 +1023,12 @@ export async function POST(req: NextRequest) {
                     }
 
                     const event = JSON.parse(jsonStr)
+                    if (event.type === 'billing.completion_usage') {
+                      await mirrorLocalCopilotCompletionUsageReports({
+                        userId: authenticatedUserId,
+                        reports: [event.report],
+                      })
+                    }
 
                     switch (event.type) {
                       case 'tool_result':
@@ -1022,7 +1061,8 @@ export async function POST(req: NextRequest) {
                           titleRequested = true
                           generateAndPersistTitle({
                             reviewSessionId: actualReviewSessionId!,
-                            message,
+                            message: modelMessage,
+                            userId: authenticatedUserId,
                             model,
                             provider: runtimeProvider,
                             requestId: tracker.requestId,
@@ -1127,6 +1167,12 @@ export async function POST(req: NextRequest) {
                 try {
                   const jsonStr = buffer.slice(6)
                   const event = JSON.parse(jsonStr)
+                  if (event.type === 'billing.completion_usage') {
+                    await mirrorLocalCopilotCompletionUsageReports({
+                      userId: authenticatedUserId,
+                      reports: [event.report],
+                    })
+                  }
                   if (event.type === 'tool_result') {
                     streamCapture.captureToolResult(event as Record<string, unknown>)
                   }
@@ -1304,6 +1350,13 @@ export async function POST(req: NextRequest) {
           }
         })
       : undefined
+    await mirrorLocalCopilotCompletionUsageReports({
+      userId: authenticatedUserId,
+      reports: Array.isArray(responseData.completionUsageReports)
+        ? responseData.completionUsageReports
+        : [],
+    })
+    responseData.completionUsageReports = undefined
 
     if (currentSession && (responseData.content || contentBlocks?.length)) {
       await persistChatMessages({
@@ -1323,7 +1376,8 @@ export async function POST(req: NextRequest) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
         generateAndPersistTitle({
           reviewSessionId: actualReviewSessionId,
-          message,
+          message: modelMessage,
+          userId: authenticatedUserId,
           model: providerConfig?.model ?? model,
           provider: providerConfig?.provider,
           requestId: tracker.requestId,
@@ -1360,10 +1414,10 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       logger.error(`[${tracker.requestId}] Validation error:`, {
         duration,
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

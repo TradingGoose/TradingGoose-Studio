@@ -126,16 +126,17 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       if (typeof window !== 'undefined') {
         const pathMatch = window.location.pathname.match(/\/workspace\/([^/]+)/)
         const workspaceId = pathMatch?.[1]
-        const callbackURL = workspaceId
-          ? `${window.location.origin}/workspace/${workspaceId}/integrations`
-          : window.location.href
+        if (!workspaceId) {
+          throw new Error('Missing workspace context for OAuth callback')
+        }
+        const callbackURL = `/workspace/${workspaceId}/integrations`
 
         try {
           localStorage.setItem(
             'pending_oauth_state',
             JSON.stringify({ serviceId, scopes: service.scopes })
           )
-        } catch { }
+        } catch {}
 
         this.setState(ClientToolCallState.success)
         await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)

@@ -22,13 +22,12 @@ function buildSourceMatcher(source: string) {
 
   switch (source) {
     case '/api/:path((?!workflows/[^/]+/execute$).*)':
-      return (path: string) => /^\/api\/.+$/.test(path) && !/^\/api\/workflows\/[^/]+\/execute$/.test(path)
+      return (path: string) =>
+        /^\/api\/.+$/.test(path) && !/^\/api\/workflows\/[^/]+\/execute$/.test(path)
     case '/api/workflows/:id/execute':
       return (path: string) => /^\/api\/workflows\/[^/]+\/execute$/.test(path)
-    case '/:app(w|workspace|chat)/:path*':
-      return (path: string) => /^\/(?:w|workspace|chat)(?:\/.*)?$/.test(path)
-    case '/:locale(es|zh)/:app(w|workspace|chat)/:path*':
-      return (path: string) => /^\/(?:es|zh)\/(?:w|workspace|chat)(?:\/.*)?$/.test(path)
+    case '/:locale(en|es|zh)/:app(workspace|chat)/:path*':
+      return (path: string) => /^\/(?:en|es|zh)\/(?:workspace|chat)(?:\/.*)?$/.test(path)
     case '/api/tools/drive/:path*':
       return (path: string) => /^\/api\/tools\/drive(?:\/.*)?$/.test(path)
     case '/_next/:path*':
@@ -47,7 +46,9 @@ function matchesSource(source: string, path: string) {
 function getHeaderValues(rules: HeaderRules, path: string, key: string) {
   return rules
     .filter((rule) => matchesSource(rule.source, path))
-    .flatMap((rule) => rule.headers.filter((header) => header.key === key).map((header) => header.value))
+    .flatMap((rule) =>
+      rule.headers.filter((header) => header.key === key).map((header) => header.value)
+    )
 }
 
 function expectHeaderValue(rules: HeaderRules, path: string, key: string, value: string) {
@@ -67,11 +68,10 @@ describe('next.config headers routing', () => {
     }
   })
 
-  it('applies permissive app headers to localized, unlocalized, and internal app resources', async () => {
+  it('applies permissive app headers to localized app and internal resource routes', async () => {
     const rules = await getHeaderRules()
     const appPaths = [
-      '/workspace/ws-1/dashboard',
-      '/chat/test-chat',
+      '/en/workspace/ws-1/dashboard',
       '/es/workspace/ws-1/dashboard',
       '/zh/chat/test-chat',
     ]
@@ -99,7 +99,7 @@ describe('next.config headers routing', () => {
 
   it('keeps strict cross-origin and public-page CSP headers on representative public routes', async () => {
     const rules = await getHeaderRules()
-    const publicPaths = ['/', '/privacy', '/es/privacy', '/blog/hello-world']
+    const publicPaths = ['/en/privacy', '/es/privacy', '/en/blog/hello-world']
     const infrastructurePaths = ['/ingest/e']
 
     for (const path of publicPaths) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -8,7 +8,6 @@ import {
   Maximize2,
   Minimize2,
   MoreVertical,
-  Plus,
   Trash,
 } from 'lucide-react'
 import { MonacoEditor } from '@/components/monaco-editor'
@@ -29,28 +28,21 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import type { Variable, VariableType } from '@/stores/variables/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
+import type { Variable, VariableType } from '@/stores/variables/types'
 
 const logger = createLogger('Variables')
 
 type VariablesProps = {
-  workflowId?: string
-  hideAddButtons?: boolean
+  workflowId: string
+  canEditEntity: boolean
 }
 
-export function Variables({
-  workflowId: workflowIdProp,
-  hideAddButtons = false,
-}: VariablesProps = {}) {
+export function Variables({ workflowId, canEditEntity }: VariablesProps) {
   const copy = useWorkflowVariablesMessages()
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
-  const workflowId = workflowIdProp ?? activeWorkflowId
   const yjsVariables = useWorkflowVariables()
   const {
     collaborativeUpdateVariable,
-    collaborativeAddVariable,
     collaborativeDeleteVariable,
     collaborativeDuplicateVariable,
   } = useWorkflowEditorActions()
@@ -58,15 +50,9 @@ export function Variables({
   // Get variables for the current workflow from the Yjs doc
   const workflowVariables: Variable[] = useMemo(() => {
     return Object.values(yjsVariables).filter(
-      (v: any) => v && (!workflowId || v.workflowId === workflowId)
+      (v: any) => v?.workflowId === workflowId
     ) as Variable[]
   }, [yjsVariables, workflowId])
-
-  // Track editor references
-  const editorRefs = useRef<Record<string, HTMLDivElement | null>>({})
-
-  // Track which variables are currently being edited
-  const [_activeEditors, setActiveEditors] = useState<Record<string, boolean>>({})
 
   // Collapsed state per variable
   const [collapsedById, setCollapsedById] = useState<Record<string, boolean>>({})
@@ -82,19 +68,6 @@ export function Variables({
   const handleVariableNameChange = (variableId: string, newName: string) => {
     const validatedName = validateName(newName)
     collaborativeUpdateVariable(variableId, 'name', validatedName)
-  }
-
-  const handleAddVariable = () => {
-    if (!workflowId) return
-
-    const id = collaborativeAddVariable({
-      name: '',
-      type: 'plain',
-      value: '',
-      workflowId,
-    })
-
-    return id
   }
 
   const getTypeIcon = (type: VariableType) => {
@@ -152,20 +125,6 @@ export function Variables({
 
   const handleEditorChange = (variable: Variable, newValue: string) => {
     collaborativeUpdateVariable(variable.id, 'value', newValue)
-  }
-
-  const handleEditorBlur = (variableId: string) => {
-    setActiveEditors((prev) => ({
-      ...prev,
-      [variableId]: false,
-    }))
-  }
-
-  const handleEditorFocus = (variableId: string) => {
-    setActiveEditors((prev) => ({
-      ...prev,
-      [variableId]: true,
-    }))
   }
 
   const formatValue = (variable: Variable) => {
@@ -227,33 +186,12 @@ export function Variables({
     }
   }
 
-  useEffect(() => {
-    Object.keys(editorRefs.current).forEach((id) => {
-      if (!workflowVariables.some((v) => v.id === id)) {
-        delete editorRefs.current[id]
-      }
-    })
-  }, [workflowVariables])
-
   return (
     <div className='h-full pt-2'>
       {workflowVariables.length === 0 ? (
-        hideAddButtons ? (
-          <div className='flex h-full items-center justify-center px-4 text-muted-foreground text-sm'>
-            No variables defined.
-          </div>
-        ) : (
-          <div className='flex h-full items-center justify-center'>
-            <Button
-              onClick={handleAddVariable}
-              className='h-9 rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
-              variant='outline'
-            >
-              <Plus className='h-4 w-4' />
-              Add variable
-            </Button>
-          </div>
-        )
+        <div className='flex h-full items-center justify-center px-4 text-muted-foreground text-sm'>
+          {copy.noVariablesDefined}
+        </div>
       ) : (
         <ScrollArea className='h-full' hideScrollbar={false}>
           <div className='space-y-4'>
@@ -266,15 +204,20 @@ export function Variables({
                     placeholder='Variable name'
                     value={variable.name}
                     onChange={(e) => handleVariableNameChange(variable.id, e.target.value)}
+                    readOnly={!canEditEntity}
                   />
 
                   {/* Type selector */}
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <div className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3'>
+                    <DropdownMenuTrigger asChild disabled={!canEditEntity}>
+                      <button
+                        type='button'
+                        disabled={!canEditEntity}
+                        className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3 disabled:cursor-default'
+                      >
                         <span className='font-normal text-sm'>{getTypeIcon(variable.type)}</span>
                         <ChevronDown className='ml-1 h-3 w-3 text-muted-foreground' />
-                      </div>
+                      </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
@@ -357,20 +300,24 @@ export function Variables({
                         )}
                         {(collapsedById[variable.id] ?? false) ? 'Expand' : 'Collapse'}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => collaborativeDuplicateVariable(variable.id)}
-                        className='cursor-pointer rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
-                      >
-                        <Copy className='mr-2 h-4 w-4 text-muted-foreground' />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => collaborativeDeleteVariable(variable.id)}
-                        className='cursor-pointer rounded-md px-3 py-2 font-[380] text-destructive text-sm hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive'
-                      >
-                        <Trash className='mr-2 h-4 w-4' />
-                        Delete
-                      </DropdownMenuItem>
+                      {canEditEntity && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => collaborativeDuplicateVariable(variable.id)}
+                            className='cursor-pointer rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
+                          >
+                            <Copy className='mr-2 h-4 w-4 text-muted-foreground' />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => collaborativeDeleteVariable(variable.id)}
+                            className='cursor-pointer rounded-md px-3 py-2 font-[380] text-destructive text-sm hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive'
+                          >
+                            <Trash className='mr-2 h-4 w-4' />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -396,13 +343,7 @@ export function Variables({
 
                     {/* Editor */}
                     <div className='relative overflow-hidden'>
-                      <div
-                        className='relative min-h-[36px] w-full max-w-full px-3 py-2 font-normal text-sm'
-                        ref={(el) => {
-                          editorRefs.current[variable.id] = el
-                        }}
-                        style={{ maxWidth: '100%' }}
-                      >
+                      <div className='relative min-h-[36px] w-full max-w-full px-3 py-2 font-normal text-sm'>
                         {variable.value === '' && (
                           <div className='pointer-events-none absolute inset-0 flex select-none items-start justify-start px-3 py-2 font-[380] text-muted-foreground text-sm leading-normal'>
                             <div style={{ lineHeight: '20px' }}>
@@ -414,8 +355,7 @@ export function Variables({
                           key={`editor-${variable.id}-${variable.type}`}
                           value={formatValue(variable)}
                           onChange={(nextValue) => handleEditorChange(variable, nextValue)}
-                          onBlur={() => handleEditorBlur(variable.id)}
-                          onFocus={() => handleEditorFocus(variable.id)}
+                          readOnly={!canEditEntity}
                           language={getEditorLanguage(variable.type)}
                           autoHeight
                           minHeight={20}
@@ -432,18 +372,6 @@ export function Variables({
                 )}
               </div>
             ))}
-
-            {/* Add Variable Button */}
-            {!hideAddButtons ? (
-              <Button
-                onClick={handleAddVariable}
-                className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
-                variant='outline'
-              >
-                <Plus className='h-4 w-4' />
-                Add variable
-              </Button>
-            ) : null}
           </div>
         </ScrollArea>
       )}

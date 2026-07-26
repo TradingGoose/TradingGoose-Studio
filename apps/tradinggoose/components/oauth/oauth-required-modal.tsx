@@ -19,6 +19,7 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
+import { usePathname } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
@@ -141,6 +142,7 @@ export function OAuthRequiredModal({
   serviceIds,
 }: OAuthRequiredModalProps) {
   const copy = useWorkflowBlockEditorCopy().oauthRequiredModal
+  const pathname = usePathname()
   const { baseProvider } = parseProvider(provider)
   const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
   const resolveExplicitServiceId = (candidate?: string) => {
@@ -216,7 +218,7 @@ export function OAuthRequiredModal({
 
       await startOAuthConnectFlow({
         providerId,
-        callbackURL: window.location.href,
+        callbackURL: `${pathname}${window.location.search}${window.location.hash}`,
       })
     } catch (error) {
       logger.error('Error initiating OAuth flow:', { error })

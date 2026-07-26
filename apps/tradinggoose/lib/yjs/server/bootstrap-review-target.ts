@@ -1,33 +1,63 @@
-import { db } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import {
+  buildDashboardColorPairDescriptor,
+  buildDashboardWidgetDescriptor,
+  buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
+  parseDashboardColorPairSessionId,
+  parseDashboardWidgetSessionId,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import {
-  loadCustomTool,
-  loadIndicator,
-  loadMcpServer,
-  loadSkill,
-} from '@/lib/yjs/server/entity-loaders'
+import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ResolvedReviewTarget,
+  ReviewEntityKind,
   ReviewTargetDescriptor,
-  ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
-  getMetadataMap as readWorkflowMetadataMap,
+  DashboardLayoutOperationError,
+  readPersistedDashboardColorPairDocument,
+  readPersistedDashboardWidgetBinding,
+} from '@/lib/dashboard-layouts/operations'
+import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
+import {
+  readDashboardColorPairDocument,
+  readDashboardLayoutDocument,
+  readDashboardWidgetDocument,
+  seedDashboardColorPairSession,
+  seedDashboardLayoutSession,
+  seedDashboardWidgetSession,
+} from '@/lib/yjs/dashboard-layout-session'
+import {
+  type EntityListMember,
+  getEntityFields,
+  replaceEntityListSessionMembers,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import {
+  type EntityListReadStore,
+  readEntityListMembersFromDb,
+  readSavedEntityFieldsFromDb,
+  resolveEntityWorkspaceId,
+} from '@/lib/yjs/server/entity-loaders'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createWorkflowSnapshot,
+  getMetadataMap,
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
-import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
+import {
+  collectDashboardTopologyReferences,
+  type DashboardLayoutDocument,
+  type DashboardLayoutProjectionContent,
+  DashboardLayoutValidationError,
+  normalizeDashboardLayoutDocument,
+  normalizeDashboardLayoutProjection,
+} from '@/widgets/layout-document'
+import { PAIR_COLORS } from '@/widgets/pair-colors'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -39,21 +69,24 @@ export class ReviewTargetBootstrapError extends Error {
   }
 }
 
-const ACTIVE_RESEEDED_RUNTIME: ReviewTargetRuntimeState = {
-  docState: 'active',
-  replaySafe: false,
-  reseededFromCanonical: true,
+function mapSavedEntitySnapshotError(error: unknown): never {
+  if (error instanceof SocketServerBridgeError && error.status < 500) {
+    throw new ReviewTargetBootstrapError(error.status, error.message)
+  }
+  throw new SavedEntityRealtimeRequiredError()
 }
 
-export function getRuntimeStateFromDoc(doc: Y.Doc): ReviewTargetRuntimeState {
-  return getReviewTargetRuntimeState(doc)
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { status?: number }).status === 404
+  )
 }
 
-export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRuntimeState {
+function readSnapshotDocument<T>(snapshotBase64: string, read: (doc: Y.Doc) => T): T {
   const doc = new Y.Doc()
   try {
-    Y.applyUpdate(doc, update)
-    return getRuntimeStateFromDoc(doc)
+    Y.applyUpdate(doc, Buffer.from(snapshotBase64, 'base64'))
+    return read(doc)
   } finally {
     doc.destroy()
   }
@@ -61,292 +94,307 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
 
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-  try {
-    return await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
-  } catch (error) {
-    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
-      throw error
-    }
-  }
-
-  const resolved = await bootstrapReviewTarget(descriptor)
-  if (!resolved.runtime) {
-    throw new ReviewTargetBootstrapError(500, 'Bootstrap runtime missing')
-  }
-
-  if (resolved.runtime.docState === 'expired') {
-    return {
-      snapshotBase64: '',
-      descriptor: resolved.descriptor,
-      runtime: resolved.runtime,
-    }
-  }
-
-  const state = await getPersistedYjsState(resolved.descriptor.yjsSessionId)
-  if (!state) {
-    throw new ReviewTargetBootstrapError(500, 'Snapshot not available after bootstrap')
-  }
-
-  return {
-    snapshotBase64: Buffer.from(state).toString('base64'),
-    descriptor: resolved.descriptor,
-    runtime: resolved.runtime,
-  }
+  return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-async function getExistingYjsState(sessionId: string): Promise<Uint8Array | null> {
-  const [{ getExistingDocument }, { getState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
-
-  const liveDoc = await getExistingDocument(sessionId)
-  if (liveDoc) {
-    return Y.encodeStateAsUpdate(liveDoc)
-  }
-
-  return getState(sessionId)
+export async function readSavedEntityFieldsForExecution(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string,
+  isDeployedContext: boolean,
+  ownerUserId?: string | null
+): Promise<Record<string, unknown>> {
+  return isDeployedContext
+    ? readSavedEntityFieldsFromDb(entityKind, entityId, workspaceId, ownerUserId)
+    : readBootstrappedSavedEntityFields(entityKind, entityId, workspaceId, ownerUserId)
 }
 
-async function getBootstrapDoc(sessionId: string): Promise<Y.Doc> {
-  const [{ getDocument, setPersistence }, { getState, storeState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
-
-  setPersistence(sessionId, { getState, storeState })
-  return getDocument(sessionId)
-}
-
-async function persistDoc(sessionId: string, doc: Y.Doc): Promise<void> {
-  const { storeState } = await import('@/socket-server/yjs/persistence')
-  await storeState(sessionId, Y.encodeStateAsUpdate(doc))
-}
-
-async function resolveExistingReviewTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget | null> {
-  const existingState = await getExistingYjsState(descriptor.yjsSessionId)
-  if (!existingState) {
-    return null
-  }
-
-  return {
-    descriptor,
-    runtime: getRuntimeStateFromUpdate(existingState),
-  }
-}
-
-/**
- * Ensures a review target has an active Yjs document. If an active blob already
- * exists it is reused; saved targets are reseeded from canonical data on loss;
- * unsaved drafts return the explicit expired state.
- */
-export async function bootstrapReviewTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  const existing = await resolveExistingReviewTarget(descriptor)
-  if (existing) {
-    return existing
-  }
-
-  if (descriptor.entityKind === 'workflow') {
-    return bootstrapWorkflowTarget(descriptor)
-  }
-
-  if (descriptor.entityId) {
-    return bootstrapSavedEntityTarget(descriptor)
-  }
-
-  return {
-    descriptor,
-    runtime: {
-      docState: 'expired',
-      replaySafe: false,
-      reseededFromCanonical: false,
-    },
-  }
-}
-
-async function bootstrapWorkflowTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  const workflowId = descriptor.entityId ?? descriptor.yjsSessionId
-  if (!workflowId) {
-    throw new ReviewTargetBootstrapError(404, 'Workflow target is missing a workflow id')
-  }
-
-  const [workflowRow] = await db
-    .select({
-      id: workflow.id,
-      name: workflow.name,
-      workspaceId: workflow.workspaceId,
-      updatedAt: workflow.updatedAt,
-      isDeployed: workflow.isDeployed,
-      deployedAt: workflow.deployedAt,
-      variables: workflow.variables,
+export async function readSavedEntityListFieldsForExecution(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  isDeployedContext: boolean,
+  ownerUserId?: string | null
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId)
+  const entries = await Promise.all(
+    members.map(async (member) => {
+      try {
+        return {
+          entityId: member.id,
+          entityName: member.name,
+          ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+          ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+          ...(typeof member.color === 'string' ? { color: member.color } : {}),
+          ...(typeof member.createdAt === 'string' ? { createdAt: member.createdAt } : {}),
+          ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
+          ...(typeof member.isActive === 'boolean' ? { isActive: member.isActive } : {}),
+          ...(typeof member.sortOrder === 'number' ? { sortOrder: member.sortOrder } : {}),
+          fields: await readSavedEntityFieldsForExecution(
+            entityKind,
+            member.id,
+            workspaceId,
+            isDeployedContext,
+            ownerUserId
+          ),
+        }
+      } catch (error) {
+        if (isNotFoundError(error)) return null
+        throw error
+      }
     })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
+  )
 
-  if (!workflowRow) {
-    throw new ReviewTargetBootstrapError(404, 'Workflow target no longer exists')
-  }
-
-  const normalizedState = await loadWorkflowFromNormalizedTables(workflowId)
-  const workflowSnapshot: WorkflowSnapshot = {
-    blocks: normalizedState?.blocks ?? {},
-    edges: normalizedState?.edges ?? [],
-    loops: normalizedState?.loops ?? {},
-    parallels: normalizedState?.parallels ?? {},
-    lastSaved: workflowRow.updatedAt?.toISOString(),
-    isDeployed: workflowRow.isDeployed,
-    deployedAt: workflowRow.deployedAt?.toISOString(),
-  }
-
-  const doc = await getBootstrapDoc(workflowId)
-  setWorkflowState(doc, workflowSnapshot, 'bootstrap')
-  setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
-
-  doc.transact(() => {
-    const metadata = readWorkflowMetadataMap(doc)
-    metadata.set('entityName', workflowRow.name)
-    metadata.set('reseededFromCanonical', true)
-  }, 'bootstrap')
-
-  await persistDoc(workflowId, doc)
-
-  return {
-    descriptor: {
-      ...descriptor,
-      workspaceId: workflowRow.workspaceId ?? descriptor.workspaceId,
-      entityId: workflowId,
-      yjsSessionId: workflowId,
-    },
-    runtime: ACTIVE_RESEEDED_RUNTIME,
-  }
+  return entries.filter(
+    (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
+  )
 }
 
-async function bootstrapSavedEntityTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  if (!descriptor.entityId) {
-    throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing entityId')
+export async function readBootstrappedSavedEntityFields(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string,
+  ownerUserId?: string | null
+): Promise<Record<string, unknown>> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildSavedEntityDescriptor(entityKind, entityId, workspaceId, { ownerUserId })
+  ).catch(mapSavedEntitySnapshotError)
+  if (!snapshot.snapshotBase64) {
+    throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
   }
 
-  if (!descriptor.workspaceId) {
-    throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing workspaceId')
-  }
-
-  const canonical = await loadCanonicalEntitySeed(descriptor)
-  const doc = await getBootstrapDoc(descriptor.entityId)
-
-  seedEntitySession(doc, {
-    entityKind: descriptor.entityKind,
-    payload: canonical.payload,
-  })
-
-  doc.transact(() => {
-    doc.getMap('metadata').set('reseededFromCanonical', true)
-  }, 'bootstrap')
-
-  await persistDoc(descriptor.entityId, doc)
-
-  return {
-    descriptor: {
-      ...descriptor,
-      workspaceId: canonical.workspaceId,
-      entityId: descriptor.entityId,
-      reviewSessionId: null,
-      yjsSessionId: descriptor.entityId,
-    },
-    runtime: ACTIVE_RESEEDED_RUNTIME,
-  }
+  return readSnapshotDocument(snapshot.snapshotBase64, (doc) =>
+    entityKind === 'dashboard_layout'
+      ? readDashboardLayoutDocument(doc)
+      : getEntityFields(doc, entityKind)
+  )
 }
 
-async function loadCanonicalEntitySeed(descriptor: ReviewTargetDescriptor): Promise<{
+export async function assembleDashboardLayoutProjection(input: {
+  document: DashboardLayoutDocument
+  layoutId: string
   workspaceId: string
-  payload: Record<string, unknown>
-}> {
-  switch (descriptor.entityKind) {
-    case 'skill': {
-      const row = await loadSkill(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Skill target no longer exists')
-      }
+  ownerUserId: string
+  readOwnerDocument: <T>(descriptor: ReviewTargetDescriptor, read: (doc: Y.Doc) => T) => Promise<T>
+}): Promise<DashboardLayoutProjectionContent> {
+  const widgets = Object.fromEntries(
+    await Promise.all(
+      [...collectDashboardTopologyReferences(input.document.layout)].map(
+        ([identityId, widgetKey]) =>
+          input.readOwnerDocument(
+            buildDashboardWidgetDescriptor({
+              layoutId: input.layoutId,
+              identityId,
+              workspaceId: input.workspaceId,
+              ownerUserId: input.ownerUserId,
+            }),
+            (doc) => [identityId, readDashboardWidgetDocument(doc, widgetKey)] as const
+          )
+      )
+    )
+  )
+  const pairs = (
+    await Promise.all(
+      PAIR_COLORS.filter((color) => color !== 'gray').map((color) =>
+        input.readOwnerDocument(
+          buildDashboardColorPairDescriptor({
+            layoutId: input.layoutId,
+            color,
+            workspaceId: input.workspaceId,
+            ownerUserId: input.ownerUserId,
+          }),
+          (doc) => {
+            const context = readDashboardColorPairDocument(doc)
+            return Object.keys(context).length > 0 ? { color, ...context } : null
+          }
+        )
+      )
+    )
+  ).filter((pair) => pair !== null)
+  return normalizeDashboardLayoutProjection({
+    ...input.document,
+    widgets,
+    colorPairs: { pairs },
+  })
+}
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          description: row.description,
-          content: row.content,
-        },
-      }
-    }
-    case 'custom_tool': {
-      const row = await loadCustomTool(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Custom tool target no longer exists')
-      }
+export async function readBootstrappedDashboardLayoutProjection(
+  layoutId: string,
+  workspaceId: string,
+  ownerUserId: string
+): Promise<DashboardLayoutProjectionContent> {
+  const document = normalizeDashboardLayoutDocument(
+    await readBootstrappedSavedEntityFields('dashboard_layout', layoutId, workspaceId, ownerUserId)
+  )
+  return assembleDashboardLayoutProjection({
+    document,
+    layoutId,
+    workspaceId,
+    ownerUserId,
+    readOwnerDocument: async (descriptor, read) => {
+      const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor).catch(
+        mapSavedEntitySnapshotError
+      )
+      return readSnapshotDocument(snapshot.snapshotBase64, read)
+    },
+  })
+}
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          title: row.title,
-          schemaText:
-            typeof row.schema === 'string' ? row.schema : JSON.stringify(row.schema ?? {}, null, 2),
-          codeText: row.code,
-        },
-      }
-    }
-    case 'indicator': {
-      const row = await loadIndicator(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Indicator target no longer exists')
-      }
-
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          color: row.color,
-          pineCode: row.pineCode,
-          inputMeta: row.inputMeta,
-        },
-      }
-    }
-    case 'mcp_server': {
-      const row = await loadMcpServer(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'MCP server target no longer exists')
-      }
-
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          description: row.description ?? '',
-          transport: row.transport,
-          url: row.url ?? '',
-          headers:
-            row.headers && typeof row.headers === 'object' && !Array.isArray(row.headers)
-              ? row.headers
-              : {},
-          command: row.command ?? '',
-          args: Array.isArray(row.args) ? row.args : [],
-          env:
-            row.env && typeof row.env === 'object' && !Array.isArray(row.env) ? row.env : {},
-          timeout: row.timeout ?? 30000,
-          retries: row.retries ?? 3,
-          enabled: row.enabled ?? true,
-        },
-      }
-    }
-    case 'workflow':
-      throw new ReviewTargetBootstrapError(409, 'Workflow targets must use workflow bootstrap')
-    default:
-      throw new ReviewTargetBootstrapError(409, 'Unsupported review target')
+export async function createSavedReviewTargetBootstrapUpdate(
+  descriptor: ReviewTargetDescriptor,
+  readStore?: EntityListReadStore
+): Promise<ResolvedReviewTarget & { state: Uint8Array; validateDocument?: (doc: Y.Doc) => void }> {
+  if (!descriptor.entityId) {
+    throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
   }
+
+  const doc = new Y.Doc()
+  try {
+    let resolvedWorkspaceId: string | null = descriptor.workspaceId
+    let validateDocument: ((doc: Y.Doc) => void) | undefined
+    if (descriptor.entityKind === 'workflow') {
+      const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId, readStore)
+      if (!workflowState) {
+        throw new ReviewTargetBootstrapError(404, 'Workflow not found')
+      }
+      resolvedWorkspaceId = descriptor.workspaceId ?? workflowState.workspaceId
+
+      setWorkflowState(
+        doc,
+        createWorkflowSnapshot({
+          direction: workflowState.direction,
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+          lastSaved: new Date(workflowState.lastSaved).toISOString(),
+        }),
+        YJS_ORIGINS.SYSTEM
+      )
+      setVariables(doc, workflowState.variables, YJS_ORIGINS.SYSTEM)
+    } else if (descriptor.entityKind === 'dashboard_widget') {
+      const target = parseDashboardWidgetSessionId(descriptor.yjsSessionId)
+      if (!target || target.identityId !== descriptor.entityId) {
+        throw new ReviewTargetBootstrapError(400, 'Invalid dashboard widget session')
+      }
+      if (!descriptor.workspaceId || !descriptor.ownerUserId) {
+        throw new ReviewTargetBootstrapError(400, 'Dashboard widget owner scope is required')
+      }
+      const binding = await readPersistedDashboardWidgetBinding(
+        { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+        target.layoutId,
+        target.identityId,
+        readStore
+      )
+      seedDashboardWidgetSession(doc, binding.document, YJS_ORIGINS.SYSTEM)
+      validateDocument = (candidate) =>
+        void readDashboardWidgetDocument(candidate, binding.widgetKey)
+    } else if (descriptor.entityKind === 'dashboard_color_pair') {
+      const target = parseDashboardColorPairSessionId(descriptor.yjsSessionId)
+      if (!target || target.color !== descriptor.entityId) {
+        throw new ReviewTargetBootstrapError(400, 'Invalid dashboard color-pair session')
+      }
+      if (!descriptor.workspaceId || !descriptor.ownerUserId) {
+        throw new ReviewTargetBootstrapError(400, 'Dashboard color-pair owner scope is required')
+      }
+      seedDashboardColorPairSession(
+        doc,
+        await readPersistedDashboardColorPairDocument(
+          { workspaceId: descriptor.workspaceId, ownerUserId: descriptor.ownerUserId },
+          target.layoutId,
+          target.color,
+          readStore
+        ),
+        YJS_ORIGINS.SYSTEM
+      )
+      validateDocument = (candidate) => void readDashboardColorPairDocument(candidate)
+    } else {
+      const entityKind = descriptor.entityKind as SavedEntityKind
+      const workspaceId =
+        descriptor.workspaceId ??
+        (await resolveEntityWorkspaceId(
+          entityKind,
+          descriptor.entityId,
+          descriptor.ownerUserId,
+          readStore
+        ))
+      if (!workspaceId) {
+        throw new ReviewTargetBootstrapError(404, 'Saved entity workspace is missing')
+      }
+      resolvedWorkspaceId = workspaceId
+
+      const payload = await readSavedEntityFieldsFromDb(
+        entityKind,
+        descriptor.entityId,
+        workspaceId,
+        descriptor.ownerUserId,
+        readStore
+      )
+      if (entityKind === 'dashboard_layout') {
+        seedDashboardLayoutSession(
+          doc,
+          normalizeDashboardLayoutDocument(payload),
+          YJS_ORIGINS.SYSTEM
+        )
+      } else {
+        seedEntitySession(doc, { entityKind, payload })
+        if (entityKind === 'watchlist') {
+          validateDocument = (candidate) => void getEntityFields(candidate, 'watchlist')
+        }
+      }
+    }
+
+    const metadata = getMetadataMap(doc)
+    metadata.set('bootstrap-touch', Date.now())
+    if (descriptor.entityKind === 'workflow') {
+      metadata.set('entityKind', descriptor.entityKind)
+      metadata.set('entityId', descriptor.entityId)
+      metadata.set('workspaceId', resolvedWorkspaceId)
+      metadata.set('draftSessionId', descriptor.draftSessionId)
+      metadata.set('reviewSessionId', descriptor.reviewSessionId)
+    }
+    const state = Y.encodeStateAsUpdate(doc)
+
+    return {
+      descriptor: { ...descriptor, workspaceId: resolvedWorkspaceId },
+      runtime: getReviewTargetRuntimeState(doc),
+      state,
+      ...(validateDocument ? { validateDocument } : {}),
+    }
+  } catch (error) {
+    if (error instanceof DashboardLayoutOperationError) {
+      throw new ReviewTargetBootstrapError(error.status, error.message)
+    }
+    if (error instanceof DashboardLayoutValidationError) {
+      throw new ReviewTargetBootstrapError(409, error.message)
+    }
+    throw error
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function initializeSavedReviewTargetDocument(
+  descriptor: ReviewTargetDescriptor,
+  readStore?: EntityListReadStore
+) {
+  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor, readStore)
+  if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+    throw new ReviewTargetBootstrapError(410, 'Review target expired')
+  }
+  return {
+    state: bootstrapped.state,
+    workspaceId: bootstrapped.descriptor.workspaceId,
+    validateDocument: bootstrapped.validateDocument,
+  }
+}
+
+export async function reseedEntityListSessionFromDb(
+  doc: Y.Doc,
+  entityKind: ReviewEntityKind,
+  workspaceId: string,
+  ownerUserId?: string | null,
+  readStore?: EntityListReadStore
+): Promise<void> {
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId, ownerUserId, readStore)
+  replaceEntityListSessionMembers(doc, members)
 }

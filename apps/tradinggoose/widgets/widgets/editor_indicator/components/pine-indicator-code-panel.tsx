@@ -1,6 +1,7 @@
 'use client'
 
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type * as Y from 'yjs'
 import {
   buildMonacoIndicatorDiagnosticSource,
   type MonacoEditorHandle,
@@ -16,16 +17,22 @@ import {
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
+import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/lib/indicators/pine-cheat-sheet'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
-import { useUpdateIndicator } from '@/hooks/queries/indicators'
+import { getEntityFields } from '@/lib/yjs/entity-session'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useWand } from '@/hooks/workflow/use-wand'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
-import { emitIndicatorEditorState } from '@/widgets/utils/indicator-editor-actions'
+import {
+  INDICATOR_EDITOR_ACTION_EVENT,
+  type IndicatorEditorActionEventDetail,
+} from '@/widgets/events'
+import { useEditorActions } from '@/widgets/utils/editor-actions'
 import {
   CHEAT_SHEET_GROUPS,
   type CheatSheetGroup,
@@ -34,13 +41,14 @@ import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 
 type IndicatorCodePanelProps = {
-  indicator: IndicatorDefinition
   indicatorId: string
+  indicatorName: string
   workspaceId: string
-  saveRef: MutableRefObject<() => void>
-  verifyRef: MutableRefObject<() => void>
+  doc: Y.Doc | null
+  save: () => Promise<void>
   panelId?: string
   widgetKey?: string
+  readOnly?: boolean
 }
 
 const PINE_WAND_PROMPT = `# Role
@@ -159,17 +167,17 @@ const verifyIndicatorInBrowser = async ({
 }
 
 export function IndicatorCodePanel({
-  indicator,
   indicatorId,
+  indicatorName,
   workspaceId,
-  saveRef,
-  verifyRef,
+  doc,
+  save,
   panelId,
   widgetKey,
+  readOnly = false,
 }: IndicatorCodePanelProps) {
-  const updateMutation = useUpdateIndicator()
-
-  const [pineCode, setPineCode] = useState('')
+  const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
+  const readOnlyRef = useLatestRef(readOnly)
 
   const [verifyStatus, setVerifyStatus] = useState<
     | { state: 'idle' }
@@ -178,6 +186,7 @@ export function IndicatorCodePanel({
     | { state: 'warning'; message: string; warnings: string[] }
     | { state: 'error'; message: string }
   >({ state: 'idle' })
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [envVarSearchTerm, setEnvVarSearchTerm] = useState('')
@@ -187,21 +196,15 @@ export function IndicatorCodePanel({
 
   const codeEditorRef = useRef<HTMLDivElement>(null)
   const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
-  const indicatorSignatureRef = useRef('')
   const disallowedGlobalMessage =
     'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
-  const monacoModelPath = useMemo(
-    () =>
-      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(indicatorId)}.ts`,
-    [workspaceId, indicatorId]
-  )
 
   const validateNoDollarGlobals = (code: string) =>
     /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
 
   const calcWand = useWand({
     wandConfig: {
-      enabled: true,
+      enabled: !readOnly,
       maintainHistory: true,
       generationType: 'javascript-function-body',
       prompt: PINE_WAND_PROMPT,
@@ -209,30 +212,19 @@ export function IndicatorCodePanel({
     },
     currentValue: pineCode,
     onGeneratedContent: (content) => {
+      if (readOnlyRef.current) return
       setPineCode(content)
     },
     onStreamChunk: (chunk) => {
+      if (readOnlyRef.current) return
       setPineCode((prev) => prev + chunk)
     },
   })
 
   useEffect(() => {
-    if (!indicator) return
-    const signature = `${indicator.id}:${indicator.updatedAt ?? indicator.createdAt ?? ''}`
-    if (indicatorSignatureRef.current === signature) return
-    indicatorSignatureRef.current = signature
-
-    setPineCode(indicator.pineCode ?? '')
     setVerifyStatus({ state: 'idle' })
-  }, [indicator])
-
-  useEffect(() => {
-    emitIndicatorEditorState({
-      isDirty: pineCode !== (indicator.pineCode ?? ''),
-      panelId,
-      widgetKey,
-    })
-  }, [indicator.id, indicator.pineCode, panelId, pineCode, widgetKey])
+    setSaveError(null)
+  }, [doc, indicatorId])
 
   const updateCursorState = (
     value: string,
@@ -259,6 +251,7 @@ export function IndicatorCodePanel({
   }
 
   const handleCodeChange = (value: string) => {
+    if (readOnlyRef.current) return
     setPineCode(value)
     const offset = codeEditorHandleRef.current?.getCursorOffset() ?? value.length
     const coords = codeEditorHandleRef.current?.getCursorCoords() ?? null
@@ -274,27 +267,52 @@ export function IndicatorCodePanel({
   }
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !indicatorId) return
-    const disallowedMessage = validateNoDollarGlobals(pineCode)
+    if (readOnlyRef.current || !workspaceId || !indicatorId || !doc) return
+    const currentPineCode = getEntityFields(doc, 'indicator').pineCode
+    const disallowedMessage = validateNoDollarGlobals(currentPineCode)
     if (disallowedMessage) {
+      setSaveError(null)
       setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
-    const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
+
+    setSaveError(null)
 
     try {
-      await updateMutation.mutateAsync({
-        workspaceId,
-        indicatorId,
-        updates: {
-          pineCode,
-          inputMeta: inferredInputMeta ?? null,
-        },
-      })
+      await save()
     } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save indicator.')
       console.error('Failed to update indicator', err)
     }
-  }, [workspaceId, indicatorId, updateMutation, pineCode])
+  }, [workspaceId, indicatorId, doc, readOnlyRef, save])
+
+  const handleExport = useCallback(() => {
+    if (!doc) return
+    const json = exportIndicatorsAsJson({
+      exportedFrom: 'indicatorEditor',
+      indicators: [
+        {
+          name: indicatorName,
+          pineCode,
+        },
+      ],
+    })
+    const fileNameBase =
+      indicatorName
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+        .replace(/\s+/g, '-') || 'indicator'
+    const blobUrl = URL.createObjectURL(
+      new Blob([json], { type: 'application/json;charset=utf-8' })
+    )
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = `${fileNameBase}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(blobUrl)
+  }, [doc, indicatorName, pineCode])
 
   const handleVerify = useCallback(async () => {
     if (!workspaceId) return
@@ -337,13 +355,14 @@ export function IndicatorCodePanel({
     }
   }, [workspaceId, pineCode, verifyStatus.state])
 
-  useEffect(() => {
-    saveRef.current = handleSave
-  }, [handleSave, saveRef])
-
-  useEffect(() => {
-    verifyRef.current = handleVerify
-  }, [handleVerify, verifyRef])
+  useEditorActions<IndicatorEditorActionEventDetail>(INDICATOR_EDITOR_ACTION_EVENT, {
+    panelId,
+    widgetKey,
+    entityId: indicatorId,
+    export: handleExport,
+    save: handleSave,
+    verify: handleVerify,
+  })
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden p-2'>
@@ -444,11 +463,16 @@ export function IndicatorCodePanel({
             )}
           </Notice>
         )}
+        {saveError ? (
+          <Notice variant='error' title='Save failed'>
+            {saveError}
+          </Notice>
+        ) : null}
       </div>
 
       <div ref={codeEditorRef} className='relative mt-2 flex min-h-0 flex-1 flex-col rounded-md'>
         <WandPromptBar
-          isVisible={calcWand.isPromptVisible}
+          isVisible={!readOnly && calcWand.isPromptVisible}
           isLoading={calcWand.isLoading}
           isStreaming={calcWand.isStreaming}
           promptValue={calcWand.promptInputValue}
@@ -462,7 +486,6 @@ export function IndicatorCodePanel({
           value={pineCode}
           onChange={handleCodeChange}
           language='typescript'
-          path={monacoModelPath}
           placeholder='Write PineTS code here...'
           minHeight='0px'
           className='min-h-0 flex-1'
@@ -473,17 +496,20 @@ export function IndicatorCodePanel({
           editorOptions={{
             scrollbar: { alwaysConsumeMouseWheel: true },
           }}
-          showWandButton
+          showWandButton={!readOnly}
           onWandClick={() => {
             calcWand.isPromptVisible ? calcWand.hidePromptInline() : calcWand.showPromptInline()
           }}
-          wandButtonDisabled={calcWand.isLoading || calcWand.isStreaming}
+          wandButtonDisabled={readOnly || calcWand.isLoading || calcWand.isStreaming}
           onCursorChange={handleCursorChange}
+          disabled={readOnly}
         />
-        {showEnvVars && (
+        {!readOnly && showEnvVars && (
           <EnvVarDropdown
             visible={showEnvVars}
-            onSelect={setPineCode}
+            onSelect={(value) => {
+              if (!readOnlyRef.current) setPineCode(value)
+            }}
             searchTerm={envVarSearchTerm}
             inputValue={pineCode}
             cursorPosition={cursorPosition}

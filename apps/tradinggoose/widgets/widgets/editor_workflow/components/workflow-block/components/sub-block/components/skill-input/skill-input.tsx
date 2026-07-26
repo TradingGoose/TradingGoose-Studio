@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { ToolCase, XIcon } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { useSkills } from '@/hooks/queries/skills'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
@@ -29,7 +29,7 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
   const locale = useLocale() as LocaleCode
   const workspaceId = useWorkspaceId()
   const [storedValue, setStoredValue] = useSubBlockValue<StoredSkill[]>(blockId, subBlockId)
-  const { data: workspaceSkills = [] } = useSkills(workspaceId)
+  const { members: skillMembers } = useEntityList('skill', workspaceId)
   const [selectorValue, setSelectorValue] = useState('')
 
   const selectedSkills = useMemo(
@@ -43,23 +43,23 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
   )
 
   const dropdownOptions = useMemo(() => {
-    return workspaceSkills
-      .filter((skill) => !selectedSkillIds.has(skill.id))
+    return skillMembers
+      .filter((skill) => !selectedSkillIds.has(skill.entityId))
       .map((skill) => ({
-        label: skill.name,
-        id: skill.id,
+        label: skill.entityName,
+        id: skill.entityId,
         icon: ToolCase,
         group: translateWorkflowLabel(locale, 'skills'),
       }))
-  }, [locale, selectedSkillIds, workspaceSkills])
+  }, [locale, selectedSkillIds, skillMembers])
 
   const handleSkillSelection = (skillId: string) => {
     if (disabled || !skillId) return
 
-    const skill = workspaceSkills.find((s) => s.id === skillId)
+    const skill = skillMembers.find((s) => s.entityId === skillId)
     if (!skill || selectedSkillIds.has(skillId)) return
 
-    setStoredValue([...selectedSkills, { skillId, name: skill.name }])
+    setStoredValue([...selectedSkills, { skillId, name: skill.entityName }])
     setSelectorValue('')
   }
 
@@ -88,7 +88,7 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
         <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedSkills.map((storedSkill) => {
             const resolvedName =
-              workspaceSkills.find((skill) => skill.id === storedSkill.skillId)?.name ??
+              skillMembers.find((skill) => skill.entityId === storedSkill.skillId)?.entityName ??
               storedSkill.name ??
               storedSkill.skillId
 

@@ -6,7 +6,6 @@ import type { McpApiResponse } from '@/lib/mcp/types'
  */
 export const MCP_CONSTANTS = {
   EXECUTION_TIMEOUT: 60000,
-  CACHE_TIMEOUT: 5 * 60 * 1000,
   DEFAULT_RETRIES: 3,
   DEFAULT_CONNECTION_TIMEOUT: 30000,
 } as const
@@ -18,6 +17,8 @@ export const MCP_CLIENT_CONSTANTS = {
   CLIENT_TIMEOUT: 60000,
   AUTO_REFRESH_INTERVAL: 5 * 60 * 1000,
 } as const
+
+export const MCP_TOOLS_CHANGED_EVENT = 'tradinggoose:mcp-tools-changed'
 
 /**
  * Create standardized MCP error response
@@ -32,6 +33,9 @@ export function createMcpErrorResponse(
   const response: McpApiResponse = {
     success: false,
     error: errorMessage,
+    ...((error as { code?: unknown })?.code
+      ? { code: String((error as { code: unknown }).code) }
+      : {}),
   }
 
   return NextResponse.json(response, { status })

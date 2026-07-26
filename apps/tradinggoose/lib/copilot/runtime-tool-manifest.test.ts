@@ -5,9 +5,11 @@ describe('copilot runtime tool manifest', () => {
   it('exposes the Studio tool surface and workflow document validators', async () => {
     const manifest = await getCopilotRuntimeToolManifest()
     const toolNames = manifest.tools.map((tool) => tool.name)
+    const workflowLogsTool = manifest.tools.find((tool) => tool.name === 'read_workflow_logs')
 
-    expect(manifest.version).toBe('v1')
+    expect(manifest.version).toBe('v2')
     expect(manifest).not.toHaveProperty('instructions')
+    expect(workflowLogsTool?.parameters?.properties).not.toHaveProperty('workspaceId')
     expect(manifest.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -60,9 +62,9 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'environment',
         }),
         expect.objectContaining({
-          name: 'read_workflow_variables',
-          description: expect.stringContaining('<variable.name>'),
-          kind: 'read',
+          name: 'edit_workflow_variable',
+          description: expect.stringContaining('workflow-variable document'),
+          kind: 'edit',
           entityKind: 'workflow',
         }),
         expect.objectContaining({
@@ -123,13 +125,13 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'read_indicator',
-          description: expect.stringContaining('pass `runtimeId` from `list_indicators`'),
+          description: expect.stringContaining('Pass `runtimeId` from `list_indicators`'),
           kind: 'read',
           entityKind: 'indicator',
           parameters: expect.objectContaining({
             properties: expect.objectContaining({
               runtimeId: expect.objectContaining({
-                description: expect.stringContaining('Built-in default indicator runtime id'),
+                description: expect.stringContaining('Indicator runtime id'),
               }),
             }),
           }),
@@ -142,30 +144,19 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'edit_workflow',
-          description: expect.stringContaining(
-            'Do not use this for a single existing block `name`, `enabled`, or `subBlocks` change'
-          ),
+          description: expect.stringContaining('minimal Mermaid `entityDocument`'),
           kind: 'edit',
           entityKind: 'workflow',
-          semanticValidators: expect.arrayContaining([
-            expect.objectContaining({
-              path: 'entityDocument',
-              kind: 'string_requires_real_newlines',
-              description: expect.stringContaining('Studio validates workflow graph semantics'),
-            }),
-            expect.objectContaining({
-              path: 'entityDocument',
-              kind: 'string_starts_with',
-              args: { prefix: 'flowchart ' },
-            }),
-          ]),
           parameters: expect.objectContaining({
             type: 'object',
             required: expect.arrayContaining(['entityId', 'entityDocument']),
             properties: expect.objectContaining({
               entityId: expect.any(Object),
               entityDocument: expect.objectContaining({
-                description: expect.stringContaining('%% TG_WORKFLOW'),
+                description: expect.stringContaining('Minimal Mermaid flowchart'),
+              }),
+              removedBlockIds: expect.objectContaining({
+                description: expect.stringContaining('intentionally removed'),
               }),
             }),
           }),
@@ -207,7 +198,7 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'create_skill',
-          description: expect.stringContaining('Create a new skill'),
+          description: expect.stringContaining('separate `name` identity'),
           kind: 'create',
           entityKind: 'skill',
           semanticValidators: expect.arrayContaining([
@@ -268,6 +259,18 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'mcp_server',
         }),
         expect.objectContaining({
+          name: 'edit_watchlist',
+          kind: 'edit',
+          entityKind: 'watchlist',
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
           name: 'edit_monitor',
           kind: 'edit',
           surfaceKind: 'monitor',
@@ -283,39 +286,30 @@ describe('copilot runtime tool manifest', () => {
     )
     const editWorkflowValidators =
       manifest.tools.find((tool) => tool.name === 'edit_workflow')?.semanticValidators ?? []
-    const workflowValidatorKinds = editWorkflowValidators.map((validator) => validator.kind)
-    expect(workflowValidatorKinds).toEqual(
-      expect.arrayContaining([
-        'string_requires_real_newlines',
-        'string_starts_with',
-        'string_requires_line_prefix',
-        'string_line_prefix_json_schema',
-        'string_forbids_substring',
-      ])
-    )
-    expect(workflowValidatorKinds).not.toContain('string_document_contract')
-    expect(editWorkflowValidators).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_WORKFLOW ', minMatches: 1 },
-        }),
-        expect.objectContaining({
-          kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_BLOCK ', minMatches: 1 },
-        }),
-        expect.objectContaining({
-          kind: 'string_line_prefix_json_schema',
-          args: expect.objectContaining({ prefix: '%% TG_EDGE ', schema: expect.any(Object) }),
-        }),
-      ])
-    )
+    expect(editWorkflowValidators.map((validator) => validator.kind)).toEqual([
+      'string_requires_real_newlines',
+      'string_starts_with',
+      'string_forbids_substring',
+    ])
     const editWorkflowProperties =
       (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
         | Record<string, unknown>
         | undefined) ?? {}
+    const createWorkflowProperties =
+      (manifest.tools.find((tool) => tool.name === 'create_workflow')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    const createIndicatorSchema = manifest.tools
+      .find((tool) => tool.name === 'create_indicator')
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
+      ?.schema as { properties?: Record<string, unknown>; required?: string[] } | undefined
+    expect(createWorkflowProperties).not.toHaveProperty('color')
+    expect(createIndicatorSchema?.properties ?? {}).toHaveProperty('color')
+    expect(createIndicatorSchema?.required ?? []).toContain('color')
     expect(editWorkflowProperties).toHaveProperty('entityId')
     expect(editWorkflowProperties).toHaveProperty('entityDocument')
+    expect(editWorkflowProperties).toHaveProperty('removedBlockIds')
+    expect(editWorkflowProperties).not.toHaveProperty('documentFormat')
     expect(editWorkflowProperties).not.toHaveProperty('workflowId')
     expect(editWorkflowProperties).not.toHaveProperty('workflowDocument')
     expect(
@@ -324,6 +318,64 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
+    const editLayoutProperties =
+      (manifest.tools.find((tool) => tool.name === 'edit_layout')?.parameters?.properties as
+        | Record<string, any>
+        | undefined) ?? {}
+    expect(editLayoutProperties).toHaveProperty('removedPanelIds')
+    expect(editLayoutProperties.documentFormat?.const).toBe('tg-dashboard-layout-structure-v3')
+    const editLayoutSemanticValidator = manifest.tools
+      .find((tool) => tool.name === 'edit_layout')
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')
+    const editLayoutSchema = editLayoutSemanticValidator?.args?.schema as
+      | {
+          properties?: Record<string, unknown>
+          required?: string[]
+        }
+      | undefined
+    const editLayoutSchemaText = JSON.stringify(editLayoutSchema)
+    expect(editLayoutSemanticValidator?.message).toContain('tg-dashboard-layout-structure-v3')
+    expect(editLayoutSchema?.required).toEqual(['layout'])
+    expect(editLayoutSchema?.properties).not.toHaveProperty('colorPairs')
+    expect(editLayoutSchemaText).not.toContain('pairColor')
+    expect(editLayoutSchemaText).not.toContain('params')
+    const editWidgetProperties =
+      (manifest.tools.find((tool) => tool.name === 'edit_widget')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    expect(editWidgetProperties).not.toHaveProperty('widgetKey')
+    expect(editWidgetProperties).toHaveProperty('panelId')
+    expect(editWidgetProperties).toHaveProperty('params')
+    expect(manifest.tools.find((tool) => tool.name === 'read_layout')?.description).toContain(
+      "owns that widget's local `params`"
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_layout')?.description).toContain(
+      'same complete layout document shape as `read_layout`'
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
+      'same non-gray `pairColor`'
+    )
+    expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
+      'drawing state is user-managed'
+    )
+    const editWidgetDescription = manifest.tools.find(
+      (tool) => tool.name === 'edit_widget'
+    )?.description
+    expect(editWidgetDescription).toContain('`[redacted]` preserve')
+    expect(editWidgetDescription).toContain('concrete value to replace')
+    expect(editWidgetDescription).toContain('omit it from a submitted credential object to delete')
+    expect(manifest.tools.find((tool) => tool.name === 'create_layout')?.description).toContain(
+      'first layout is active automatically; later layouts are inactive'
+    )
+    const mcpServerDescriptions = ['read_mcp_server', 'edit_mcp_server']
+      .map((name) => manifest.tools.find((tool) => tool.name === name)?.description)
+      .join(' ')
+    expect(mcpServerDescriptions).toContain('Header/env values are redacted as `[redacted]`')
+    const editWidgetSchemaText = JSON.stringify(editWidgetProperties)
+    expect(editWidgetSchemaText).toContain('layout-scoped color-store channel')
+    expect(editWidgetSchemaText).toContain('get_widgets_metadata.linkedParamFields')
+    expect(editWidgetSchemaText).toContain('clear the whole selected color channel')
+    expect(editWidgetSchemaText).toContain('drawing fields are user-managed')
     expect(toolNames).toEqual(
       expect.arrayContaining([
         'edit_workflow',
@@ -336,12 +388,27 @@ describe('copilot runtime tool manifest', () => {
         'edit_indicator',
         'create_mcp_server',
         'edit_mcp_server',
+        'create_watchlist',
+        'rename_watchlist',
         'create_workflow',
+        'list_layout',
+        'read_layout',
+        'edit_layout',
+        'edit_widget',
+        'get_available_widgets',
+        'get_widgets_metadata',
         'get_agent_accessory_catalog',
         'get_indicator_catalog',
         'get_indicator_metadata',
         'rename_skill',
       ])
     )
+    const editWatchlist = manifest.tools.find((tool) => tool.name === 'edit_watchlist')
+    const createWatchlist = manifest.tools.find((tool) => tool.name === 'create_watchlist')
+    const renameWatchlist = manifest.tools.find((tool) => tool.name === 'rename_watchlist')
+    expect(createWatchlist).toMatchObject({ kind: 'create', entityKind: 'watchlist' })
+    expect(renameWatchlist).toMatchObject({ kind: 'rename', entityKind: 'watchlist' })
+    expect(editWatchlist?.description).not.toContain('listingIdentity')
+    expect(editWatchlist?.description).toContain('`listing`')
   })
 })

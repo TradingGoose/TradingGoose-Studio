@@ -1,9 +1,5 @@
 import { useMemo } from 'react'
-import { useSession } from '@/lib/auth-client'
-import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType, WorkspacePermissions } from '@/hooks/use-workspace-permissions'
-
-const logger = createLogger('useUserPermissions')
 
 export interface WorkspaceUserPermissions {
   // Core permission checks
@@ -31,78 +27,53 @@ export function useUserPermissions(
   permissionsLoading = false,
   permissionsError: string | null = null
 ): WorkspaceUserPermissions {
-  const {
-    data: session,
-    isPending: isSessionPending,
-    error: sessionError,
-  } = useSession()
-
   const userPermissions = useMemo((): WorkspaceUserPermissions => {
-    const sessionEmail = session?.user?.email
-    const sessionErrorMessage = sessionError?.message ?? null
-    const resolvedError = permissionsError ?? sessionErrorMessage
-
-    if (permissionsLoading || isSessionPending) {
+    if (permissionsLoading) {
       return {
         canRead: false,
         canEdit: false,
         canAdmin: false,
         userPermissions: 'read',
         isLoading: true,
-        error: resolvedError,
+        error: permissionsError,
       }
     }
 
-    if (!sessionEmail) {
+    if (permissionsError) {
       return {
         canRead: false,
         canEdit: false,
         canAdmin: false,
         userPermissions: 'read',
         isLoading: false,
-        error: sessionErrorMessage ?? 'Authentication required',
+        error: permissionsError,
       }
     }
 
-    // Find current user in workspace permissions (case-insensitive)
-    const currentUser = workspacePermissions?.users?.find(
-      (user) => user.email.toLowerCase() === sessionEmail.toLowerCase()
-    )
-
-    // If user not found in workspace, they have no permissions
-    if (!currentUser) {
-      logger.warn('User not found in workspace permissions', {
-        userEmail: sessionEmail,
-        hasPermissions: !!workspacePermissions,
-        userCount: workspacePermissions?.users?.length || 0,
-      })
-
+    const userPerms = workspacePermissions?.currentUserPermission
+    if (!userPerms) {
       return {
         canRead: false,
         canEdit: false,
         canAdmin: false,
         userPermissions: 'read',
         isLoading: false,
-        error: resolvedError || 'User not found in workspace',
+        error: 'User not found in workspace',
       }
     }
 
-    const userPerms = currentUser.permissionType || 'read'
-
-    // Core permission checks
     const canAdmin = userPerms === 'admin'
     const canEdit = userPerms === 'write' || userPerms === 'admin'
-    const canRead = true // If user is found in workspace permissions, they have read access
 
     return {
-      canRead,
+      canRead: true,
       canEdit,
       canAdmin,
       userPermissions: userPerms,
       isLoading: false,
-      error: resolvedError,
+      error: null,
     }
-  }, [session, workspacePermissions, permissionsLoading, permissionsError, isSessionPending, sessionError])
+  }, [workspacePermissions?.currentUserPermission, permissionsLoading, permissionsError])
 
   return userPermissions
 }

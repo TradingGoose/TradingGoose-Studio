@@ -12,10 +12,10 @@ export interface KnowledgeBaseWithCounts {
   embeddingModel: string
   embeddingDimension: number
   chunkingConfig: ChunkingConfig
-  createdAt: Date
-  updatedAt: Date
+  createdAt?: Date
+  updatedAt?: Date
   workspaceId: string
-  docCount: number
+  docCount?: number
 }
 
 export interface CreateKnowledgeBaseData {

@@ -35,8 +35,6 @@ const WORKFLOW_BASE_SELECTION = {
   runCount: workflowTable.runCount,
   lastRunAt: workflowTable.lastRunAt,
   variables: workflowTable.variables,
-  isPublished: workflowTable.isPublished,
-  marketplaceData: workflowTable.marketplaceData,
   pinnedApiKeyKey: apiKey.key,
   pinnedApiKeyName: apiKey.name,
   pinnedApiKeyType: apiKey.type,
@@ -121,11 +119,22 @@ export interface WorkflowAccessContext {
   isWorkspaceOwner: boolean
 }
 
+type WorkflowAccessReadStore = Pick<typeof db, 'select'>
+
+export function hasWorkflowWriteAccess(context: WorkflowAccessContext) {
+  return (
+    context.isWorkspaceOwner ||
+    context.workspacePermission === 'write' ||
+    context.workspacePermission === 'admin'
+  )
+}
+
 export async function readWorkflowAccessContext(
   workflowId: string,
-  userId?: string
+  userId?: string,
+  readStore: WorkflowAccessReadStore = db
 ): Promise<WorkflowAccessContext | null> {
-  const rows = await db
+  const rows = await readStore
     .select({
       ...WORKFLOW_BASE_SELECTION,
       workspaceOwnerId: workspace.ownerId,
@@ -510,10 +519,6 @@ export function hasWorkflowChanged(
   return false
 }
 
-export function stripCustomToolPrefix(name: string) {
-  return name.startsWith('custom_') ? name.replace('custom_', '') : name
-}
-
 export const workflowHasResponseBlock = (executionResult: ExecutionResult): boolean => {
   const hasResponseBlockLog =
     executionResult.logs?.some((log) => log.success && log.blockType === 'response') === true
@@ -569,9 +574,9 @@ export async function validateWorkflowPermissions(
     }
   }
 
-  const { workflow, workspacePermission, isOwner } = accessContext
+  const { workflow, workspacePermission, isWorkspaceOwner } = accessContext
 
-  if (isOwner) {
+  if (isWorkspaceOwner) {
     return {
       error: null,
       session,
@@ -586,8 +591,7 @@ export async function validateWorkflowPermissions(
       // Any workspace permission allows read
       hasPermission = workspacePermission !== null
     } else if (action === 'write') {
-      // Write or admin permission allows write
-      hasPermission = workspacePermission === 'write' || workspacePermission === 'admin'
+      hasPermission = hasWorkflowWriteAccess(accessContext)
     } else if (action === 'admin') {
       // Only admin permission allows admin actions
       hasPermission = workspacePermission === 'admin'

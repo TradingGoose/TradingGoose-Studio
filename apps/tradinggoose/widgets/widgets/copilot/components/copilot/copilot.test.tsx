@@ -48,6 +48,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
+vi.mock('@/i18n/workspace-widget-hooks', () => ({
+  useWorkspaceWidgetsMessages: () => ({ workflowLabels: {} }),
+}))
+
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
@@ -64,10 +68,6 @@ vi.mock('@/stores/copilot/store', () => ({
 
 vi.mock('@/stores/copilot/store-state', () => ({
   hasUiActiveToolCalls: () => false,
-}))
-
-vi.mock('@/stores/dashboard/pair-store', () => ({
-  usePairColorContext: () => null,
 }))
 
 vi.mock('@/widgets/widgets/copilot/live-contexts', () => ({

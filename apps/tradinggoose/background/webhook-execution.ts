@@ -63,7 +63,7 @@ export type WebhookExecutionPayload = {
   provider: string
   body: any
   headers: Record<string, string>
-  blockId?: string
+  blockId: string
   testMode?: boolean
   executionTarget?: 'deployed' | 'live'
 }
@@ -78,7 +78,8 @@ export function isWebhookExecutionPayload(value: unknown): value is WebhookExecu
     typeof candidate.webhookId === 'string' &&
     typeof candidate.workflowId === 'string' &&
     typeof candidate.userId === 'string' &&
-    typeof candidate.provider === 'string'
+    typeof candidate.provider === 'string' &&
+    typeof candidate.blockId === 'string'
   )
 }
 
@@ -257,7 +258,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         executionId,
         triggerType: 'webhook',
         workflowInput: airtableInput,
-        start: {
+        triggerTarget: {
           kind: 'block',
           blockId: payload.blockId,
         },
@@ -348,7 +349,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       executionId,
       triggerType: 'webhook',
       workflowInput: input || {},
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: payload.blockId,
       },

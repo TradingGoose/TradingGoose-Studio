@@ -4,7 +4,7 @@ import type {
   MarketRangeUnit,
   MarketSeries,
 } from '@/providers/market/types'
-import type { DataChartCandleType } from '@/widgets/widgets/data_chart/types'
+import type { DataChartCandleType } from '@/widgets/widgets/data_chart/contract'
 
 export const DEFAULT_BAR_COUNT = 500
 

@@ -15,6 +15,7 @@ const mockRefresh = vi.fn()
 const mockReplaceLocaleDocument = vi.fn()
 const mockSetTheme = vi.fn()
 const mockUpdateSetting = vi.fn()
+const mockOpenSettings = vi.fn()
 let mockPathname = '/workspace/ws-1/dashboard'
 let mockSearchParams = ''
 
@@ -91,12 +92,25 @@ vi.mock('@/global-navbar/settings-modal/components/help/help-modal', () => ({
   HelpModal: () => null,
 }))
 
-function renderUserMenu(root: Root, locale: LocaleCode) {
+function renderUserMenu(
+  root: Root,
+  locale: LocaleCode,
+  options: { canAccessSystemAdmin?: boolean; sidebarTrigger?: boolean } = {}
+) {
+  const userMenu = (
+    <UserMenu
+      userName='Ada Lovelace'
+      userEmail='ada@example.com'
+      userId='user-1'
+      onOpenSettings={mockOpenSettings}
+      canAccessSystemAdmin={options.canAccessSystemAdmin}
+      sidebarTrigger={options.sidebarTrigger}
+    />
+  )
+
   root.render(
     <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-      <SidebarProvider>
-        <UserMenu userName='Ada Lovelace' userEmail='ada@example.com' userId='user-1' />
-      </SidebarProvider>
+      {options.sidebarTrigger ? <SidebarProvider>{userMenu}</SidebarProvider> : userMenu}
     </NextIntlClientProvider>
   )
 }
@@ -109,7 +123,9 @@ async function openMenu(button: HTMLButtonElement) {
 }
 
 function getUserMenuButton(container: HTMLElement) {
-  const button = container.querySelector('button[data-sidebar="menu-button"]')
+  const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+    candidate.getAttribute('aria-label')?.startsWith('Ada Lovelace ')
+  )
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error('Expected user menu trigger to render')
   }
@@ -179,6 +195,7 @@ describe('UserMenu language selector', () => {
     mockReplaceLocaleDocument.mockReset()
     mockSetTheme.mockReset()
     mockUpdateSetting.mockReset()
+    mockOpenSettings.mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
     mockPathname = '/workspace/ws-1/dashboard'
     mockSearchParams = ''
@@ -210,6 +227,62 @@ describe('UserMenu language selector', () => {
     })
 
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
+  })
+
+  it('renders the compact avatar trigger outside a sidebar context', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en')
+      await flush()
+    })
+
+    const button = getUserMenuButton(container)
+    expect(button.textContent).toBe('AL')
+    expect(container.querySelector('[data-sidebar="menu"]')).toBeNull()
+    expect(container.querySelector('button[data-sidebar="menu-button"]')).toBeNull()
+  })
+
+  it('renders the sidebar trigger with user details inside the global navbar sidebar', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en', { sidebarTrigger: true })
+      await flush()
+    })
+
+    const button = getUserMenuButton(container)
+    expect(button.getAttribute('data-sidebar')).toBe('menu-button')
+    expect(button.textContent).toContain('Ada Lovelace')
+    expect(button.textContent).toContain('ada@example.com')
+
+    await act(async () => {
+      await openMenu(button)
+    })
+
+    const menu = document.body.querySelector('[role="menu"]')
+    expect(menu?.className).toContain('w-[var(--radix-dropdown-menu-trigger-width)]')
+  })
+
+  it('owns the system admin menu item for authorized users', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en', { canAccessSystemAdmin: true })
+      await flush()
+    })
+
+    await act(async () => {
+      await openMenu(getUserMenuButton(container))
+    })
+
+    const systemAdminItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+      (item) => item.textContent?.includes(getPublicCopy('en').workspace.nav.systemAdmin)
+    )
+    if (!(systemAdminItem instanceof HTMLElement)) {
+      throw new Error('Expected system admin menu item to render')
+    }
+
+    await act(async () => {
+      systemAdminItem.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await flush()
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/admin')
   })
 
   it('switches to zh without dropping the workspace path or query string', async () => {

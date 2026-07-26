@@ -10,6 +10,8 @@ describe('Workspace Invitations API Route', () => {
   let mockGetSession: any
   let mockInsertValues: any
   let mockSendEmail: any
+  let mockHasWorkspaceAdminAccess: any
+  let mockCheckWorkspaceAccess: any
 
   beforeEach(() => {
     vi.resetModules()
@@ -29,11 +31,14 @@ describe('Workspace Invitations API Route', () => {
     }))
 
     mockInsertValues = vi.fn().mockResolvedValue(undefined)
+    mockHasWorkspaceAdminAccess = vi.fn().mockResolvedValue(true)
+    mockCheckWorkspaceAccess = vi.fn().mockResolvedValue({ hasAccess: false })
     const mockDbChain = {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
+      leftJoin: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       then: vi.fn().mockImplementation((callback: any) => {
         const result = mockDbResults.shift() || []
@@ -91,6 +96,15 @@ describe('Workspace Invitations API Route', () => {
 
     vi.doMock('@/lib/urls/utils', () => ({
       getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
+    }))
+
+    vi.doMock('@/lib/permissions/utils', () => ({
+      buildWorkspaceAccessScope: vi.fn(() => ({
+        permissionJoin: 'permission-join',
+        accessFilter: 'access-filter',
+      })),
+      checkWorkspaceAccess: mockCheckWorkspaceAccess,
+      hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -205,7 +219,7 @@ describe('Workspace Invitations API Route', () => {
 
     it('should return 403 when user does not have admin permissions', async () => {
       mockGetSession.mockResolvedValue({ user: { id: 'user-123' } })
-      mockDbResults = [[]] // No admin permissions found
+      mockHasWorkspaceAdminAccess.mockResolvedValue(false)
 
       const { POST } = await import('@/app/api/workspaces/invitations/route')
       const req = createMockRequest('POST', {
@@ -222,7 +236,6 @@ describe('Workspace Invitations API Route', () => {
     it('should return 404 when workspace is not found', async () => {
       mockGetSession.mockResolvedValue({ user: { id: 'user-123' } })
       mockDbResults = [
-        [{ permissionType: 'admin' }], // User has admin permissions
         [], // Workspace not found
       ]
 
@@ -240,11 +253,10 @@ describe('Workspace Invitations API Route', () => {
 
     it('should return 400 when user already has workspace access', async () => {
       mockGetSession.mockResolvedValue({ user: { id: 'user-123' } })
+      mockCheckWorkspaceAccess.mockResolvedValue({ hasAccess: true })
       mockDbResults = [
-        [{ permissionType: 'admin' }], // User has admin permissions
         [mockWorkspace], // Workspace exists
         [mockUser], // User exists
-        [{ permissionType: 'read' }], // User already has access
       ]
 
       const { POST } = await import('@/app/api/workspaces/invitations/route')
@@ -265,7 +277,6 @@ describe('Workspace Invitations API Route', () => {
     it('should return 400 when invitation already exists', async () => {
       mockGetSession.mockResolvedValue({ user: { id: 'user-123' } })
       mockDbResults = [
-        [{ permissionType: 'admin' }], // User has admin permissions
         [mockWorkspace], // Workspace exists
         [], // User doesn't exist
         [mockInvitation], // Invitation exists
@@ -291,7 +302,6 @@ describe('Workspace Invitations API Route', () => {
         user: { id: 'user-123', name: 'Test User', email: 'sender@example.com' },
       })
       mockDbResults = [
-        [{ permissionType: 'admin' }], // User has admin permissions
         [mockWorkspace], // Workspace exists
         [], // User doesn't exist
         [], // No existing invitation

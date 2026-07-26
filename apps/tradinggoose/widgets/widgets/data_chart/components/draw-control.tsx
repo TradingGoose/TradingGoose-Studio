@@ -1,13 +1,8 @@
 'use client'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  DRAW_ACTION_ICONS,
-} from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
-import {
-  getDataChartDrawActionLabel,
-  useDataChartCopy,
-} from '@/widgets/widgets/data_chart/copy'
+import { DRAW_ACTION_ICONS } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
+import { getDataChartDrawActionLabel, useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 
 type DrawControlProps = {
   onHideSelected: () => void
@@ -18,7 +13,11 @@ type DrawControlProps = {
 const buttonClass =
   'inline-flex p-0.5 items-center hover:bg-secondary justify-center rounded-xs bg-background text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:opacity-50'
 
-export const DrawControl = ({ onHideSelected, onRemoveSelected, disabled = false }: DrawControlProps) => {
+export const DrawControl = ({
+  onHideSelected,
+  onRemoveSelected,
+  disabled = false,
+}: DrawControlProps) => {
   const copy = useDataChartCopy()
   const HideIcon = DRAW_ACTION_ICONS.hideSelected
   const RemoveIcon = DRAW_ACTION_ICONS.removeSelected

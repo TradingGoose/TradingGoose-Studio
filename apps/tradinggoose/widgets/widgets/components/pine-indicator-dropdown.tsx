@@ -11,14 +11,11 @@ import {
 } from '@/components/ui/sidebar-dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
-import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { useIndicators } from '@/hooks/queries/indicators'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { useIndicatorsStore } from '@/stores/indicators/store'
-
-const FALLBACK_COLOR = '#3972F6'
 
 type IndicatorFilterId = 'default' | 'custom'
 
@@ -30,13 +27,7 @@ type IndicatorOption = {
 }
 
 const resolveIndicatorColor = (indicator?: IndicatorOption | null): string => {
-  if (!indicator) return FALLBACK_COLOR
-
-  const directColor = indicator.color?.trim() ?? ''
-
-  if (directColor) return directColor
-
-  return FALLBACK_COLOR
+  return getEntityIconColor(indicator?.id, indicator?.color)
 }
 
 interface IndicatorDropdownProps {
@@ -65,7 +56,6 @@ export function IndicatorDropdown({
   const widgetsCopy = useWorkspaceWidgetsMessages()
   const copy = widgetsCopy.indicatorDropdown
   const [internalValue, setInternalValue] = useState<string[]>([])
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [activeFilterId, setActiveFilterId] = useState<IndicatorFilterId>(
@@ -76,35 +66,30 @@ export function IndicatorDropdown({
   const isMultiSelect = selectionMode === 'multiple'
 
   const {
-    isLoading: queryLoading,
-    error: queryError,
-    refetch,
-    isFetching,
-  } = useIndicators(workspaceId ?? '')
-
-  const indicators = useIndicatorsStore((state) =>
-    workspaceId ? state.getAllIndicators(workspaceId) : []
-  )
+    members,
+    isLoading: listLoading,
+    error: listError,
+  } = useEntityList('indicator', workspaceId)
 
   const workspaceIndicators = useMemo(() => {
     if (!workspaceId) return []
-    const scoped = [...indicators]
-    return scoped.sort((a, b) => {
-      const aTime = Date.parse(a.createdAt)
-      const bTime = Date.parse(b.createdAt)
-      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-    })
-  }, [indicators, workspaceId])
+    const scoped = members.map((member) => ({
+      id: member.entityId,
+      name: member.entityName,
+      color: member.color,
+    }))
+    return scoped.sort((a, b) => a.name.localeCompare(b.name))
+  }, [members, workspaceId])
 
   const defaultIndicatorOptions = useMemo<IndicatorOption[]>(
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-            id: indicator.id,
-            name: indicator.name,
-            source: 'default' as const,
-            color: getStableVibrantColor(indicator.id),
-          }))
+          id: indicator.id,
+          name: indicator.name,
+          source: 'default' as const,
+          color: getEntityIconColor(indicator.id),
+        }))
         : [],
     [includeDefaults]
   )
@@ -145,8 +130,9 @@ export function IndicatorDropdown({
   }, [isMultiSelect, selectedIndicatorIds, selectedIndicator, indicatorOptions])
 
   const hasIndicators = indicatorOptions.length > 0
-  const isLoading = queryLoading && !hasIndicators
+  const isLoading = listLoading && !hasIndicators
   const isDropdownDisabled = disabled || !workspaceId
+  const loadError = listError || null
 
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceFirst
@@ -157,7 +143,6 @@ export function IndicatorDropdown({
         : copy.tooltip
 
   useEffect(() => {
-    setLoadError(null)
     setSearchQuery('')
     setDropdownOpen(false)
     setActiveFilterId(includeDefaults ? 'default' : 'custom')
@@ -165,18 +150,6 @@ export function IndicatorDropdown({
       setInternalValue([])
     }
   }, [workspaceId, isControlled, includeDefaults])
-
-  useEffect(() => {
-    if (queryError) {
-      setLoadError(copy.failedToLoadIndicators)
-    }
-  }, [copy.failedToLoadIndicators, queryError])
-
-  useEffect(() => {
-    if (indicatorOptions.length > 0 && loadError) {
-      setLoadError(null)
-    }
-  }, [indicatorOptions.length, loadError])
 
   const selectedFilterId = useMemo<IndicatorFilterId>(() => {
     if (!includeDefaults) return 'custom'
@@ -193,15 +166,6 @@ export function IndicatorDropdown({
       setInternalValue(nextIds)
       onChange?.(nextIds)
     }
-  }
-
-  const handleRetry = () => {
-    if (!workspaceId) return
-    setLoadError(null)
-    refetch().catch((error) => {
-      console.error('Failed to load indicators for indicator dropdown', error)
-      setLoadError(copy.failedToLoadIndicators)
-    })
   }
 
   const handleToggleIndicator = (id: string) => {
@@ -229,14 +193,14 @@ export function IndicatorDropdown({
     <div
       className='h-5 w-5 rounded-xs p-0.5'
       style={{
-        backgroundColor: `${selectedIndicatorColor ?? FALLBACK_COLOR}20`,
+        backgroundColor: `${selectedIndicatorColor ?? getEntityIconColor(null)}20`,
       }}
       aria-hidden='true'
     >
       <Activity
         className='h-4 w-4'
         aria-hidden='true'
-        style={{ color: selectedIndicatorColor ?? FALLBACK_COLOR }}
+        style={{ color: selectedIndicatorColor ?? getEntityIconColor(null) }}
       />
     </div>
   )
@@ -258,7 +222,7 @@ export function IndicatorDropdown({
     return groups
   }, [copy.customIndicators, copy.defaultIndicators, includeDefaults])
 
-  const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
+  const shouldShowLoadingState = isLoading && !hasIndicators
   const emptyContent = (() => {
     if (!workspaceId) return copy.selectWorkspaceFirst
 
@@ -266,13 +230,6 @@ export function IndicatorDropdown({
       return (
         <div className='space-y-2 text-xs'>
           <p className='text-destructive'>{loadError}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }
@@ -305,14 +262,14 @@ export function IndicatorDropdown({
             <div
               className='h-5 w-5 rounded-xs p-0.5'
               style={{
-                backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
+                backgroundColor: `${resolveIndicatorColor(option)}20`,
               }}
               aria-hidden='true'
             >
               <Activity
                 className='h-4 w-4 text-muted-foreground'
                 aria-hidden='true'
-                style={{ color: option.color ?? FALLBACK_COLOR }}
+                style={{ color: resolveIndicatorColor(option) }}
               />
             </div>
           ),
@@ -382,7 +339,7 @@ export function IndicatorDropdown({
             </TooltipTrigger>
             <TooltipContent side='top'>{tooltipText}</TooltipContent>
           </Tooltip>
-          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 flex'>
+          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-1.5 flex'>
             {isLoading ? (
               <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
             ) : (

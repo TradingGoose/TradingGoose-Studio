@@ -1,10 +1,9 @@
 'use client'
 
-import { loader } from '@monaco-editor/react'
-import dynamic from 'next/dynamic'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { editor as MonacoEditorTypes, IDisposable } from 'monaco-editor'
-import { cn } from '@/lib/utils'
+import { loader } from '@monaco-editor/react'
+import type { IDisposable, editor as MonacoEditorTypes } from 'monaco-editor'
+import dynamic from 'next/dynamic'
 import {
   buildMonacoScriptDiagnosticSource,
   isMonacoDiagnosticLanguage,
@@ -17,6 +16,7 @@ import type {
   MonacoInjectedText,
   MonacoModule,
 } from '@/components/monaco-editor/monaco-editor-types'
+import { cn } from '@/lib/utils'
 
 const MonacoReactEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 const VIRTUAL_DIAGNOSTICS_OWNER = 'tradinggoose-virtual-diagnostics'
@@ -35,6 +35,14 @@ type MonacoTypeScriptNamespace = {
   JsxEmit?: { None?: unknown }
   ModuleKind?: { ESNext?: unknown }
 }
+
+type SharedExtraLib = {
+  content: string
+  disposable: IDisposable
+  refCount: number
+}
+
+const sharedExtraLibs = new WeakMap<MonacoTypeScriptDefaults, Map<string, SharedExtraLib>>()
 
 const parsePx = (value?: string | number): number | undefined => {
   if (typeof value === 'number') return value
@@ -56,6 +64,48 @@ const getTypeScriptNamespace = (monaco: MonacoModule): MonacoTypeScriptNamespace
   }
 
   return monacoWithTypeScript.typescript ?? monacoWithTypeScript.languages?.typescript
+}
+
+const acquireSharedExtraLib = (
+  defaults: MonacoTypeScriptDefaults,
+  content: string,
+  filePath: string
+): IDisposable => {
+  let registry = sharedExtraLibs.get(defaults)
+  if (!registry) {
+    registry = new Map()
+    sharedExtraLibs.set(defaults, registry)
+  }
+
+  const existing = registry.get(filePath)
+  if (existing) {
+    if (existing.content !== content) {
+      existing.disposable.dispose()
+      existing.content = content
+      existing.disposable = defaults.addExtraLib(content, filePath)
+    }
+    existing.refCount += 1
+  } else {
+    registry.set(filePath, {
+      content,
+      disposable: defaults.addExtraLib(content, filePath),
+      refCount: 1,
+    })
+  }
+
+  let disposed = false
+  return {
+    dispose() {
+      if (disposed) return
+      disposed = true
+      const current = registry.get(filePath)
+      if (!current) return
+      current.refCount -= 1
+      if (current.refCount > 0) return
+      current.disposable.dispose()
+      registry.delete(filePath)
+    },
+  }
 }
 
 export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
@@ -81,7 +131,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       onFocus,
       autoHeight = false,
       extraLibs = [],
-      path,
       yText,
       awareness,
       diagnosticSourceBuilder,
@@ -109,7 +158,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     const minHeightPx = parsePx(minHeight)
     const maxHeightPx = parsePx(maxHeight)
     const resolvedPath = useMemo(() => {
-      if (path) return path
       const extension =
         language === 'typescript'
           ? 'ts'
@@ -123,7 +171,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                   ? 'html'
                   : language === 'plaintext'
                     ? 'txt'
-              : 'js'
+                    : 'js'
       const current = modelPathRef.current
       if (current && current.endsWith(`.${extension}`)) return current
       const id =
@@ -133,7 +181,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const nextPath = `inmemory://model/monaco-${id}.${extension}`
       modelPathRef.current = nextPath
       return nextPath
-    }, [language, path])
+    }, [language])
 
     const resolvedHeight = useMemo(() => {
       if (autoHeight) {
@@ -201,7 +249,6 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                 return injectedCursorStops.Right
               case 'none':
                 return injectedCursorStops.None
-              case 'both':
               default:
                 return injectedCursorStops.Both
             }
@@ -215,25 +262,24 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             ),
             options: {
               inlineClassName: decoration.className,
-              inlineClassNameAffectsLetterSpacing:
-                decoration.inlineClassNameAffectsLetterSpacing,
+              inlineClassNameAffectsLetterSpacing: decoration.inlineClassNameAffectsLetterSpacing,
               before: decoration.before
                 ? {
-                  content: decoration.before.content,
-                  inlineClassName: decoration.before.className ?? null,
-                  inlineClassNameAffectsLetterSpacing:
-                    decoration.before.inlineClassNameAffectsLetterSpacing,
-                  cursorStops: resolveCursorStops(decoration.before.cursorStops),
-                }
+                    content: decoration.before.content,
+                    inlineClassName: decoration.before.className ?? null,
+                    inlineClassNameAffectsLetterSpacing:
+                      decoration.before.inlineClassNameAffectsLetterSpacing,
+                    cursorStops: resolveCursorStops(decoration.before.cursorStops),
+                  }
                 : null,
               after: decoration.after
                 ? {
-                  content: decoration.after.content,
-                  inlineClassName: decoration.after.className ?? null,
-                  inlineClassNameAffectsLetterSpacing:
-                    decoration.after.inlineClassNameAffectsLetterSpacing,
-                  cursorStops: resolveCursorStops(decoration.after.cursorStops),
-                }
+                    content: decoration.after.content,
+                    inlineClassName: decoration.after.className ?? null,
+                    inlineClassNameAffectsLetterSpacing:
+                      decoration.after.inlineClassNameAffectsLetterSpacing,
+                    cursorStops: resolveCursorStops(decoration.after.cursorStops),
+                  }
                 : null,
             },
           }
@@ -457,7 +503,8 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const targets = [tsDefaults, jsDefaults].filter(Boolean)
       extraLibsRef.current = targets.flatMap((target) =>
         extraLibs.map((lib, index) =>
-          target!.addExtraLib(
+          acquireSharedExtraLib(
+            target!,
             lib.content,
             lib.filePath ?? `inmemory://model/extra-lib-${index}.d.ts`
           )
@@ -516,10 +563,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             column: marker.endColumn,
           })
           const clampedStart = Math.max(userCodeStartOffset, markerStart)
-          const clampedEnd = Math.min(
-            userCodeEndOffset,
-            Math.max(clampedStart + 1, markerEnd)
-          )
+          const clampedEnd = Math.min(userCodeEndOffset, Math.max(clampedStart + 1, markerEnd))
 
           if (clampedStart >= userCodeEndOffset || clampedEnd <= userCodeStartOffset) {
             return []
@@ -657,19 +701,8 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
         subscriptionsRef.current = []
         clearModelDiagnostics(editorRef.current?.getModel())
         disposeDiagnosticsModel()
-
-        // Dispose auto-generated models on unmount to avoid stale script files
-        // piling up in Monaco's TS project and triggering duplicate identifier diagnostics.
-        if (!path) {
-          const monaco = monacoRef.current
-          const currentPath = modelPathRef.current
-          if (monaco && currentPath) {
-            const model = monaco.editor.getModel(monaco.Uri.parse(currentPath))
-            model?.dispose()
-          }
-        }
       }
-    }, [path])
+    }, [])
 
     useEffect(() => {
       applyDecorations()
@@ -696,8 +729,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
       const resizeObserver = new ResizeObserver((entries) => {
         updatePlaceholderOffset()
         const layout = editor.getLayoutInfo()
-        const measuredWidth =
-          entries?.[0]?.contentRect?.width ?? containerRef.current?.clientWidth
+        const measuredWidth = entries?.[0]?.contentRect?.width ?? containerRef.current?.clientWidth
         const measuredHeight =
           entries?.[0]?.contentRect?.height ?? containerRef.current?.clientHeight
         const nextWidth =
@@ -705,7 +737,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
             ? (measuredWidth as number)
             : layout.width
         const nextHeight = autoHeight
-          ? autoHeightPx ?? editor.getContentHeight()
+          ? (autoHeightPx ?? editor.getContentHeight())
           : Number.isFinite(measuredHeight) && (measuredHeight as number) > 0
             ? (measuredHeight as number)
             : layout.height
@@ -716,7 +748,9 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
     }, [autoHeight, autoHeightPx, editorReady])
 
     const safePlaceholderTop = Number.isFinite(placeholderOffset.top) ? placeholderOffset.top : 8
-    const safePlaceholderLeft = Number.isFinite(placeholderOffset.left) ? placeholderOffset.left : 12
+    const safePlaceholderLeft = Number.isFinite(placeholderOffset.left)
+      ? placeholderOffset.left
+      : 12
     const baseOptions = useMemo<MonacoEditorTypes.IStandaloneEditorConstructionOptions>(
       () => ({
         allowOverflow: false,

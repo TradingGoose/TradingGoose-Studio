@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Server, Trash2 } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
+import { useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -29,27 +29,54 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useMessages } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
-import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
-import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
+import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import { mcpListWidgetContract } from '@/widgets/widgets/list_mcp/contract'
 
 const buildDefaultMcpServer = (name: string) => ({
   ...MCP_SERVER_DEFAULTS,
+  enabled: false,
   name,
   transport: 'streamable-http' as const,
 })
+
+async function createMcpServer(
+  workspaceId: string,
+  config: ReturnType<typeof buildDefaultMcpServer>
+) {
+  const response = await fetch('/api/mcp/servers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...config, workspaceId }),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || 'Failed to create MCP server')
+  const serverId = typeof data?.data?.serverId === 'string' ? data.data.serverId : null
+  if (!serverId) throw new Error('Created MCP server is missing an id')
+  return serverId
+}
+
+async function deleteMcpServer(workspaceId: string, serverId: string) {
+  const response = await fetch(
+    `/api/mcp/servers?serverId=${encodeURIComponent(serverId)}&workspaceId=${encodeURIComponent(workspaceId)}`,
+    { method: 'DELETE' }
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || 'Failed to delete MCP server')
+}
 
 const WidgetMessage = ({ message }: { message: string }) => (
   <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
@@ -57,19 +84,15 @@ const WidgetMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-const getServerName = (server: McpServerWithStatus, fallback: string) => server.name || fallback
-
-const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) => {
-  if (status === 'connected') {
-    return '#10b981'
-  }
-
-  if (status === 'error') {
-    return '#ef4444'
-  }
-
-  return '#64748b'
+type McpServerListEntry = {
+  id: string
+  workspaceId: string
+  name: string
+  enabled: boolean
+  connectionStatus?: string
 }
+
+const getServerName = (server: McpServerListEntry, fallback: string) => server.name || fallback
 
 const McpCreateMenu = ({
   disabled = false,
@@ -110,61 +133,32 @@ const McpCreateMenu = ({
 const ListMcpHeaderRightContent = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
-  const createServer = useMcpServersStore((state) => state.createServer)
+  const actions = useWidgetConfigRuntimeActions()
+  const { members } = useEntityList('mcp_server', workspaceId)
+
+  const selectServer = useCallback(
+    (serverId: string) => {
+      actions.patchWidgetLinkedParams?.({ mcpServerId: serverId })
+    },
+    [actions]
+  )
+  const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
   const handleCreateServer = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
-    void createServer(workspaceId, buildDefaultMcpServer(copy.defaults.newMcpServerName))
-      .then((createdServer) => {
-        const createdServerId =
-          createdServer && typeof createdServer.id === 'string' ? createdServer.id : null
-
-        if (!createdServerId) {
-          throw new Error('Created MCP server is missing an id')
-        }
-
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { mcpServerId: createdServerId })
-          return
-        }
-
-        emitMcpSelectionChange({
-          serverId: createdServerId,
-          panelId,
-          widgetKey: 'list_mcp',
-        })
-        emitMcpSelectionChange({
-          serverId: createdServerId,
-          panelId,
-          widgetKey: 'editor_mcp',
-        })
-      })
+    void createMcpServer(workspaceId, buildDefaultMcpServer(copy.defaults.newMcpServerName))
+      .then(selectServerWhenListed)
       .catch((error) => {
         console.error('Failed to create MCP server from list widget', error)
       })
-  }, [
-    createServer,
-    copy.defaults.newMcpServerName,
-    isLinkedToColorPair,
-    panelId,
-    permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
-    workspaceId,
-  ])
+  }, [copy.defaults.newMcpServerName, permissions.canEdit, selectServerWhenListed, workspaceId])
 
   return (
     <McpCreateMenu
@@ -178,11 +172,9 @@ const ListMcpHeaderRightContent = ({
 const ListMcpHeaderRight = ({
   workspaceId,
   panelId,
-  pairColor,
 }: {
   workspaceId?: string | null
   panelId?: string
-  pairColor?: PairColor
 }) => {
   const copy = useMessages().workspace.widgets.mcpList
   if (!workspaceId) {
@@ -190,13 +182,9 @@ const ListMcpHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <ListMcpHeaderRightContent
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <ListMcpHeaderRightContent workspaceId={workspaceId} panelId={panelId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -205,160 +193,60 @@ const ListMcpHeaderRight = ({
 const ListMcpWidgetContent = ({
   context,
   params,
-  pairColor = 'gray',
-  onWidgetParamsChange,
+  onWidgetLinkedParamsPatch,
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { servers, isLoading, error, fetchServers, deleteServer, updateServer } =
-    useMcpServersStore(
-      (state) => ({
-        servers: state.servers,
-        isLoading: state.isLoading,
-        error: state.error,
-        fetchServers: state.fetchServers,
-        deleteServer: state.deleteServer,
-        updateServer: state.updateServer,
-      }),
-      shallow
-    )
+  const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
   const { refreshTools } = useMcpTools(workspaceId ?? '')
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const pairContext = usePairColorContext(resolvedPairColor)
-  const setPairContext = useSetPairColorContext()
 
-  const workspaceServers = useMemo(
+  const workspaceServers = useMemo<McpServerListEntry[]>(
     () =>
       workspaceId
-        ? servers
-            .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-            .sort((a, b) => {
-              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-            })
+        ? members
+            .map((member) => ({
+              id: member.entityId,
+              workspaceId,
+              name: member.entityName,
+              enabled: member.enabled !== false,
+              connectionStatus: member.connectionStatus,
+            }))
+            .sort((a, b) => getServerName(a, '').localeCompare(getServerName(b, '')))
         : [],
-    [servers, workspaceId]
+    [members, workspaceId]
   )
 
-  const selectedServerId = resolveMcpServerId({
+  const requestedServerId = resolveMcpServerId({
     params,
-    pairContext: isLinkedToColorPair ? pairContext : null,
   })
-  const selectedServer = selectedServerId
-    ? (workspaceServers.find((server) => server.id === selectedServerId) ?? null)
-    : null
-
-  useEffect(() => {
-    if (!workspaceId || workspaceServers.length > 0) {
-      return
-    }
-
-    setHasRequestedLoad(true)
-    fetchServers(workspaceId).catch((fetchError) => {
-      console.error('Failed to load MCP servers for list widget', fetchError)
-    })
-  }, [fetchServers, workspaceId, workspaceServers.length])
-
-  useMcpSelectionPersistence({
-    onWidgetParamsChange,
-    panelId,
-    params,
-    pairColor: resolvedPairColor,
-    scopeKey: 'list_mcp',
-    onServerSelect: (serverId) => {
-      if (!isLinkedToColorPair) return
-      if (pairContext?.mcpServerId === serverId) return
-      setPairContext(resolvedPairColor, { mcpServerId: serverId })
-    },
+  const selectedServerId = resolveEntityIdFromList({
+    requestedEntityId: requestedServerId,
+    entityIds: workspaceServers.map((server) => server.id),
+    useDefaultEntity: false,
   })
-
-  useEffect(() => {
-    if (!selectedServerId || selectedServer || !hasRequestedLoad) {
-      return
-    }
-
-    const currentParams =
-      params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.mcpServerId !== null) {
-        setPairContext(resolvedPairColor, { mcpServerId: null })
-      }
-      return
-    }
-
-    onWidgetParamsChange?.({
-      ...currentParams,
-      mcpServerId: null,
-    })
-    emitMcpSelectionChange({
-      serverId: null,
-      panelId,
-      widgetKey: 'editor_mcp',
-    })
-  }, [
-    hasRequestedLoad,
-    isLinkedToColorPair,
-    onWidgetParamsChange,
-    panelId,
-    pairContext?.mcpServerId,
-    params,
-    resolvedPairColor,
-    selectedServer,
-    selectedServerId,
-    setPairContext,
-  ])
-
   const handleSelectServer = useCallback(
     (serverId: string | null) => {
-      if (isLinkedToColorPair) {
-        if (pairContext?.mcpServerId !== serverId) {
-          setPairContext(resolvedPairColor, { mcpServerId: serverId })
-        }
-        return
-      }
-
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-      onWidgetParamsChange?.({
-        ...currentParams,
-        mcpServerId: serverId,
-      })
-
-      emitMcpSelectionChange({
-        serverId,
-        panelId,
-        widgetKey: 'editor_mcp',
-      })
+      onWidgetLinkedParamsPatch?.({ mcpServerId: serverId })
     },
-    [
-      isLinkedToColorPair,
-      onWidgetParamsChange,
-      panelId,
-      pairContext?.mcpServerId,
-      pairContext,
-      params,
-      resolvedPairColor,
-      setPairContext,
-    ]
+    [onWidgetLinkedParamsPatch]
   )
 
   const handleRenameServer = useCallback(
     async (serverId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await updateServer(workspaceId, serverId, {
+      await renameSavedEntityAction({
+        entityKind: 'mcp_server',
+        entityId: serverId,
+        workspaceId,
         name,
       })
+      await refreshTools()
     },
-    [permissions.canEdit, updateServer, workspaceId]
+    [permissions.canEdit, refreshTools, workspaceId]
   )
 
   const handleDeleteServer = useCallback(
@@ -368,11 +256,9 @@ const ListMcpWidgetContent = ({
 
       setDeletingIds((prev) => new Set(prev).add(serverId))
       try {
-        await deleteServer(workspaceId, serverId)
-        await refreshTools(true)
-        if (selectedServerId === serverId) {
-          handleSelectServer(null)
-        }
+        await deleteMcpServer(workspaceId, serverId)
+        if (selectedServerId === serverId) handleSelectServer(null)
+        await refreshTools()
       } catch (deleteError) {
         console.error('Failed to delete MCP server', deleteError)
       } finally {
@@ -384,7 +270,6 @@ const ListMcpWidgetContent = ({
       }
     },
     [
-      deleteServer,
       deletingIds,
       handleSelectServer,
       permissions.canEdit,
@@ -394,10 +279,6 @@ const ListMcpWidgetContent = ({
     ]
   )
 
-  useEffect(() => {
-    setHasRequestedLoad(false)
-  }, [workspaceId])
-
   if (!workspaceId) {
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
@@ -406,7 +287,7 @@ const ListMcpWidgetContent = ({
     return <WidgetMessage message={error} />
   }
 
-  if ((isLoading || !hasRequestedLoad) && workspaceServers.length === 0) {
+  if (isLoading && workspaceServers.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -429,6 +310,7 @@ const ListMcpWidgetContent = ({
               onRename={handleRenameServer}
               onDelete={handleDeleteServer}
               canEdit={permissions.canEdit}
+              canDelete={workspaceServers.length > 1}
               isDeleting={deletingIds.has(server.id)}
             />
           ))}
@@ -445,14 +327,16 @@ const McpServerListItem = ({
   onRename,
   onDelete,
   canEdit,
+  canDelete = true,
   isDeleting,
 }: {
-  server: McpServerWithStatus
+  server: McpServerListEntry
   isSelected: boolean
   onSelect: (serverId: string | null) => void
   onRename: (serverId: string, name: string) => Promise<void>
   onDelete: (serverId: string) => void | Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isDeleting: boolean
 }) => {
   const copy = useMessages().workspace.widgets.mcpList.listItem
@@ -463,7 +347,7 @@ const McpServerListItem = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const displayName = getServerName(server, copy.unnamedMcpServer)
-  const iconColor = getServerIconColor(server.connectionStatus)
+  const iconColor = getEntityIconColor(server.id)
 
   useEffect(() => {
     setEditValue(server.name ?? '')
@@ -522,13 +406,14 @@ const McpServerListItem = ({
   }
 
   const handleConfirmDelete = useCallback(async () => {
+    if (!canDelete) return
     try {
       await Promise.resolve(onDelete(server.id))
       setShowDeleteDialog(false)
     } catch (error) {
       console.error('Failed to delete MCP server', error)
     }
-  }, [onDelete, server.id])
+  }, [canDelete, onDelete, server.id])
 
   return (
     <div className='mb-1'>
@@ -619,16 +504,18 @@ const McpServerListItem = ({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameMcpServer}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteMcpServer}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteMcpServer}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -674,11 +561,8 @@ const McpServerListItem = ({
 }
 
 export const listMcpWidget: DashboardWidgetDefinition = {
-  key: 'list_mcp',
-  title: 'MCP List',
+  contract: mcpListWidgetContract,
   icon: Server,
-  category: 'list',
-  description: 'Browse and manage MCP servers for the workspace.',
   component: (props: WidgetComponentProps) => {
     const copy = useMessages().workspace.widgets.mcpList
     const workspaceId = props.context?.workspaceId ?? null
@@ -688,18 +572,12 @@ export const listMcpWidget: DashboardWidgetDefinition = {
     }
 
     return (
-      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
         <ListMcpWidgetContent {...props} />
       </WorkspacePermissionsProvider>
     )
   },
-  renderHeader: ({ widget, context, panelId }) => ({
-    right: (
-      <ListMcpHeaderRight
-        workspaceId={context?.workspaceId}
-        panelId={panelId}
-        pairColor={widget?.pairColor}
-      />
-    ),
+  renderHeader: ({ context, panelId }) => ({
+    right: <ListMcpHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
   }),
 }

@@ -1,1 +1,1 @@
-export { WorkflowWidgetControlBar, readWorkflowWidgetChannelId } from './controlbar'
+export { WorkflowWidgetControlBar } from './controlbar'

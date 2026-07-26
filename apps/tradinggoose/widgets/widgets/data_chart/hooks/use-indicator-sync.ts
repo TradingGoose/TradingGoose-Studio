@@ -29,14 +29,14 @@ import type {
   NormalizedPineOutput,
 } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
+import type { IndicatorRef } from '@/widgets/widgets/data_chart/contract'
 import {
-  formatDataChartIndicatorPlotFallback,
   type DataChartCopy,
+  formatDataChartIndicatorPlotFallback,
 } from '@/widgets/widgets/data_chart/copy'
 import type {
   DataChartDataContext,
-  IndicatorRef,
+  IndicatorDocumentRuntimeSource,
   IndicatorRuntimeEntry,
   IndicatorRuntimePlot,
 } from '@/widgets/widgets/data_chart/types'
@@ -716,7 +716,7 @@ export const useIndicatorSync = ({
   dataContext: DataChartDataContext
   workspaceId: string | null
   indicatorRefs: IndicatorRef[]
-  indicators: IndicatorDefinition[]
+  indicators: IndicatorDocumentRuntimeSource[]
   listing?: ListingIdentity | null
   interval?: string | null
   chartReady?: number
@@ -891,26 +891,34 @@ export const useIndicatorSync = ({
     indicatorIds.forEach((id) => {
       const indicator = indicatorMap.get(id)
       const defaultIndicator = DEFAULT_INDICATOR_MAP.get(id)
-      if (!indicator && !defaultIndicator) return
+      if (!indicator && !defaultIndicator) {
+        cleanupIndicator(id)
+        return
+      }
       const inputMeta = indicator?.inputMeta ?? defaultIndicator?.inputMeta
       const pineCode = indicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
-      if (!pineCode.trim()) return
+      if (!pineCode.trim()) {
+        cleanupIndicator(id)
+        return
+      }
       const inputsMap = buildInputsMapFromMeta(
         inputMeta ?? undefined,
         indicatorRefMap.get(id)?.inputs
       )
       const inputsHash = buildInputsHash(inputsMap)
-      const indicatorVersion = indicator?.updatedAt ?? indicator?.createdAt ?? 'default'
       indicatorInputs.push({
         id,
         pineCode,
         inputMeta,
         inputsMap,
-        accumulationBase: `${id}:${indicatorVersion}:${inputsHash}`,
+        accumulationBase: `${id}:${pineCode}:${inputsHash}`,
       })
     })
 
-    if (indicatorInputs.length === 0) return
+    if (indicatorInputs.length === 0) {
+      clearIndicatorRuntime()
+      return
+    }
 
     indicatorInputs.forEach((entry) => {
       const previousBase = accumulationBaseRef.current.get(entry.id)

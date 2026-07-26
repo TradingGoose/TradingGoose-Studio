@@ -1,19 +1,19 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import {
-  permissions,
   user,
   type WorkspaceInvitationStatus,
   workspace,
   workspaceInvitation,
 } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { grantWorkspaceAccessInTx } from '@/lib/workspaces/service'
 import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
 
 function getRedirectLocale(req: NextRequest) {
@@ -115,39 +115,11 @@ export async function GET(
         return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=email-mismatch`))
       }
 
-      const existingPermission = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityId, invitation.workspaceId),
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.userId, session.user.id)
-          )
-        )
-        .then((rows) => rows[0])
-
-      if (existingPermission) {
-        await db
-          .update(workspaceInvitation)
-          .set({
-            status: 'accepted' as WorkspaceInvitationStatus,
-            updatedAt: new Date(),
-          })
-          .where(eq(workspaceInvitation.id, invitation.id))
-
-        return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
-      }
-
       await db.transaction(async (tx) => {
-        await tx.insert(permissions).values({
-          id: randomUUID(),
-          entityType: 'workspace' as const,
-          entityId: invitation.workspaceId,
+        await grantWorkspaceAccessInTx(tx, {
+          workspaceId: invitation.workspaceId,
           userId: session.user.id,
           permissionType: invitation.permissions || 'read',
-          createdAt: new Date(),
-          updatedAt: new Date(),
         })
 
         await tx

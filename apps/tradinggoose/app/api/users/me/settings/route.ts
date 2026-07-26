@@ -8,10 +8,15 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { defaultLocale, isLocaleCode, locales } from '@/i18n/utils'
+import {
+  defaultLocale,
+  isLocaleCode,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  locales,
+} from '@/i18n/utils'
 
 const logger = createLogger('UserSettingsAPI')
-const LOCALE_COOKIE = 'NEXT_LOCALE'
 
 const SettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
@@ -40,7 +45,7 @@ function withPreferredLocaleCookie(response: NextResponse, locale: string | null
   if (locale && isLocaleCode(locale)) {
     response.cookies.set(LOCALE_COOKIE, locale, {
       path: '/',
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: LOCALE_COOKIE_MAX_AGE,
       sameSite: 'lax',
     })
   }
@@ -60,8 +65,9 @@ export async function GET() {
     const session = await getSession()
 
     if (!session?.user?.id) {
-      logger.info(`[${requestId}] Returning default settings for unauthenticated user`)
-      return NextResponse.json({ data: defaultSettings }, { status: 200 })
+      const preferredLocale = await getRuntimeLocale()
+      logger.info(`[${requestId}] Returning runtime settings for unauthenticated user`)
+      return NextResponse.json({ data: { ...defaultSettings, preferredLocale } }, { status: 200 })
     }
 
     const userId = session.user.id
@@ -136,10 +142,10 @@ export async function PATCH(request: Request) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid settings data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
         return NextResponse.json(
-          { error: 'Invalid settings data', details: validationError.errors },
+          { error: 'Invalid settings data', details: validationError.issues },
           { status: 400 }
         )
       }

@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react'
+import type { Variable } from '@/stores/variables/types'
 import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
 
 /**
@@ -49,6 +50,7 @@ export interface ExportWorkflowState {
     edges: Edge[]
     loops: Record<string, Loop>
     parallels: Record<string, Parallel>
+    variables: Record<string, Variable>
   }
 }
 
@@ -368,7 +370,9 @@ export function sanitizeForCopilot(state: WorkflowState): CopilotWorkflowState {
  * Sanitize workflow state for export by removing secrets but keeping positions
  * Users need positions to restore the visual layout when importing
  */
-export function sanitizeForExport(state: WorkflowState): ExportWorkflowState {
+export function sanitizeForExport(
+  state: WorkflowState & { variables?: Record<string, Variable> }
+): ExportWorkflowState {
   // Deep clone to avoid mutating original state
   const clonedState = JSON.parse(
     JSON.stringify({
@@ -376,6 +380,7 @@ export function sanitizeForExport(state: WorkflowState): ExportWorkflowState {
       edges: state.edges,
       loops: state.loops || {},
       parallels: state.parallels || {},
+      variables: state.variables || {},
     })
   )
 

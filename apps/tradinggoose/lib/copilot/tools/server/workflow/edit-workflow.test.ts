@@ -1,4 +1,32 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
+import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+
+const mockLoadWorkflowState = vi.hoisted(() => vi.fn())
+const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/copilot/tools/server/entities/workflow', () => ({
+  loadWorkflowSnapshotForCopilot: async (...args: any[]) => ({
+    workflowId: 'wf-1',
+    entityName: 'Strategy Workflow',
+    workspaceId: 'workspace-1',
+    workflowState: await mockLoadWorkflowState(...args),
+    variables: {},
+  }),
+}))
+
+vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
+  verifySavedEntityContext: vi.fn(async () => ({
+    userId: 'user-1',
+    workspaceId: 'workspace-1',
+    ownerUserId: null,
+  })),
+}))
+
+vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
+  applyWorkflowState: (...args: any[]) => mockApplyWorkflowState(...args),
+}))
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -9,7 +37,8 @@ vi.mock('@/lib/workflows/validation', () => ({
   }),
 }))
 
-const INPUT_TRIGGER_CURRENT_WORKFLOW_STATE = JSON.stringify({
+const BASE_WORKFLOW_STATE = {
+  direction: 'TD',
   blocks: {
     input1: {
       id: 'input1',
@@ -26,305 +55,381 @@ const INPUT_TRIGGER_CURRENT_WORKFLOW_STATE = JSON.stringify({
       },
       outputs: {},
     },
+    fn1: {
+      id: 'fn1',
+      type: 'function',
+      name: 'Compute Indicators',
+      position: { x: 0, y: 240 },
+      enabled: true,
+      subBlocks: {
+        code: {
+          id: 'code',
+          type: 'code',
+          value: 'return { ok: true }',
+        },
+      },
+      outputs: {},
+    },
   },
   edges: [],
   loops: {},
   parallels: {},
-})
+}
 
-function buildInputTriggerWorkflowDocument(subBlocks: Record<string, unknown>): string {
-  return [
-    'flowchart TD',
-    '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-    [
-      '%% TG_BLOCK ',
-      JSON.stringify({
-        id: 'input1',
-        type: 'input_trigger',
-        name: 'Input Form',
-        position: { x: 0, y: 0 },
-        enabled: true,
-        subBlocks,
-        outputs: {},
-      }),
-    ].join(''),
-  ].join('\n')
+function graph(lines: string[]): string {
+  return lines.join('\n')
 }
 
 describe('editWorkflowServerTool', () => {
-  it(
-    'does not persist canonical side effects while preparing a workflow edit proposal',
-    { timeout: 10_000 },
-    async () => {
-      const { editWorkflowServerTool } = await import(
-        '@/lib/copilot/tools/server/workflow/edit-workflow'
-      )
+  beforeEach(() => {
+    mockLoadWorkflowState.mockReset()
+    mockApplyWorkflowState.mockReset()
+    mockLoadWorkflowState.mockResolvedValue(BASE_WORKFLOW_STATE)
+  })
 
-      const result = await editWorkflowServerTool.execute(
-        {
-          entityId: 'wf-1',
-          entityDocument: [
-            'flowchart TD',
-            '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            '%% TG_BLOCK {"id":"block-1","type":"input_trigger","name":"Edited Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
-          ].join('\n'),
-          currentWorkflowState: JSON.stringify({
-            blocks: {
-              'block-1': {
-                id: 'block-1',
-                type: 'input_trigger',
-                name: 'Trigger',
-                position: { x: 0, y: 0 },
-                subBlocks: {},
-                outputs: {},
-                enabled: true,
-              },
-            },
-            edges: [],
-            loops: {},
-            parallels: {},
-          }),
-        },
-        { userId: 'user-1' }
-      )
-
-      expect(result.entityKind).toBe('workflow')
-      expect(result.entityId).toBe('wf-1')
-      expect(result.workflowState.blocks['block-1'].name).toBe('Edited Trigger')
-      expect(result.documentFormat).toBe('tg-mermaid-v1')
-      expect(result.entityDocument).toContain('TG_BLOCK')
-    }
-  )
-
-  it('rejects non-canonical TG_BLOCK metadata aliases', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
+  it('connects existing blocks without rewriting block internals', async () => {
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
-    await expect(
-      editWorkflowServerTool.execute(
-        {
-          entityId: 'wf-1',
-          entityDocument: [
-            'flowchart TD',
-            '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            '%% TG_BLOCK {"id":"block-1","blockType":"input_trigger","blockName":"Edited Trigger","blockDescription":"ignored","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
-          ].join('\n'),
-          currentWorkflowState: JSON.stringify({
-            blocks: {
-              'block-1': {
-                id: 'block-1',
-                type: 'input_trigger',
-                name: 'Trigger',
-                position: { x: 0, y: 0 },
-                subBlocks: {},
-                outputs: {},
-                enabled: true,
-              },
-            },
-            edges: [],
-            loops: {},
-            parallels: {},
-          }),
-        },
-        { userId: 'user-1' }
-      )
-    ).rejects.toThrow(
-      'Invalid TG_BLOCK payload: expected object with string id and string type. Workflow documents use `type`, not `blockType`.'
+    expect(result.workflowState.blocks.fn1.name).toBe('Compute Indicators')
+    expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { ok: true }')
+    expect(result.workflowState.edges).toEqual([
+      expect.objectContaining({
+        id: 'input1-source-fn1-target',
+        source: 'input1',
+        target: 'fn1',
+      }),
+    ])
+    expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityName).toBe('Strategy Workflow')
+    expect(result.entityDocument).not.toContain('%% TG_')
+    expect(result.entityDocument).toContain('Compute Indicators')
+    expect(ToolResultSchemas.edit_workflow.parse(result)).toMatchObject({
+      entityName: 'Strategy Workflow',
+    })
+    expect(mockLoadWorkflowState).toHaveBeenCalledWith(
+      'wf-1',
+      { userId: 'user-1', accessLevel: 'limited' },
+      'write'
     )
   })
 
-  it('rejects external TG_EDGE metadata that targets a parallel end handle', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
+  it('returns a valid applied result after full-access execution', async () => {
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'full' }
     )
 
-    await expect(
-      editWorkflowServerTool.execute(
-        {
-          entityId: 'wf-1',
-          entityDocument: [
-            'flowchart TD',
-            '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            'inputTrigger["Input Form<br/>id: inputTrigger<br/>type: input_trigger<br/>enabled: true"]',
-            'subgraph sg_parallel1["Parallel Research<br/>id: parallel1<br/>type: parallel<br/>enabled: true"]',
-            '  parallel1__parallel_start["Parallel Start"]',
-            '  parallel1__parallel_end["Parallel End"]',
-            'end',
-            'inputTrigger --> parallel1',
-            '%% TG_BLOCK {"id":"inputTrigger","type":"input_trigger","name":"Input Form","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
-            '%% TG_BLOCK {"id":"parallel1","type":"parallel","name":"Parallel Research","position":{"x":240,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
-            '%% TG_EDGE {"source":"inputTrigger","target":"parallel1","targetHandle":"parallel-end-target"}',
-            '%% TG_PARALLEL {"id":"parallel1","nodes":[],"count":2,"parallelType":"count"}',
-          ].join('\n'),
-          currentWorkflowState: JSON.stringify({
-            direction: 'TD',
-            blocks: {
-              inputTrigger: {
-                id: 'inputTrigger',
-                type: 'input_trigger',
-                name: 'Input Form',
-                position: { x: 0, y: 0 },
-                subBlocks: {},
-                outputs: {},
-                enabled: true,
-              },
-              parallel1: {
-                id: 'parallel1',
-                type: 'parallel',
-                name: 'Parallel Research',
-                position: { x: 240, y: 0 },
-                subBlocks: {},
-                outputs: {},
-                enabled: true,
-              },
-            },
-            edges: [],
-            loops: {},
-            parallels: {
-              parallel1: {
-                id: 'parallel1',
-                nodes: [],
-                count: 2,
-                parallelType: 'count',
-              },
-            },
-          }),
-        },
-        { userId: 'user-1' }
-      )
-    ).rejects.toThrow(
-      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
-    )
+    expect(result.requiresReview).toBeUndefined()
+    expect(result.preview).toBeUndefined()
+    expect(result.entityName).toBe('Strategy Workflow')
+    expect(ToolResultSchemas.edit_workflow.parse(result)).toMatchObject({
+      entityName: 'Strategy Workflow',
+    })
+    expect(mockApplyWorkflowState).toHaveBeenCalledTimes(1)
   })
 
-  it('re-lays out staged workflow state to match LR Mermaid direction before review', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
+  it('re-lays out existing blocks when the graph direction changes', async () => {
+    mockLoadWorkflowState.mockResolvedValueOnce({
+      ...BASE_WORKFLOW_STATE,
+      direction: 'LR',
+      blocks: {
+        input1: {
+          ...BASE_WORKFLOW_STATE.blocks.input1,
+          horizontalHandles: true,
+          position: { x: 0, y: 0 },
+        },
+        fn1: {
+          ...BASE_WORKFLOW_STATE.blocks.fn1,
+          horizontalHandles: true,
+          position: { x: 550, y: 0 },
+        },
+      },
+    })
 
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
-        entityDocument: [
-          'flowchart LR',
-          '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"LR"}',
-          'inputTrigger(["Input Trigger"])',
-          '%% TG_BLOCK {"id":"inputTrigger","type":"input_trigger","name":"Input Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
-          'agentBlock(["Agent"])',
-          '%% TG_BLOCK {"id":"agentBlock","type":"agent","name":"Agent","position":{"x":0,"y":280},"subBlocks":{},"outputs":{},"enabled":true}',
-          'inputTrigger --> agentBlock',
-          '%% TG_EDGE {"source":"inputTrigger","target":"agentBlock"}',
-        ].join('\n'),
-        currentWorkflowState: JSON.stringify({
-          direction: 'TD',
-          blocks: {
-            inputTrigger: {
-              id: 'inputTrigger',
-              type: 'input_trigger',
-              name: 'Input Trigger',
-              position: { x: 0, y: 0 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-            agentBlock: {
-              id: 'agentBlock',
-              type: 'agent',
-              name: 'Agent',
-              position: { x: 0, y: 280 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-          },
-          edges: [
-            {
-              id: 'inputTrigger-source-agentBlock-target',
-              source: 'inputTrigger',
-              target: 'agentBlock',
-            },
-          ],
-          loops: {},
-          parallels: {},
-        }),
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
-    expect(result.workflowState.direction).toBe('LR')
-    expect(result.workflowState.blocks.agentBlock.position.x).toBeGreaterThan(
-      result.workflowState.blocks.inputTrigger.position.x
-    )
-    expect(result.entityDocument).toContain('flowchart LR')
-    expect(result.preview.warnings).toContain(
-      'Re-laid out workflow blocks to match Mermaid direction LR.'
+    expect(result.workflowState.direction).toBe('TD')
+    expect(result.workflowState.blocks.input1.horizontalHandles).toBe(false)
+    expect(result.workflowState.blocks.fn1.horizontalHandles).toBe(false)
+    expect(result.workflowState.blocks.fn1.position.y).toBeGreaterThan(
+      result.workflowState.blocks.input1.position.y
     )
   })
 
-  it('rejects input-trigger edits that invent inputSchema instead of inputFormat', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
+  it('rejects existing block label renames instead of ignoring them', async () => {
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+            '  n2["Compute<br/>id: fn1<br/>type: function"]',
+            '  n1 --> n2',
+          ]),
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
 
     await expect(
       editWorkflowServerTool.execute(
         {
           entityId: 'wf-1',
-          entityDocument: buildInputTriggerWorkflowDocument({
-            inputSchema: {
-              id: 'inputSchema',
-              type: 'short_text',
-              value: JSON.stringify({
-                type: 'object',
-                properties: {
-                  ticker: { type: 'string' },
-                  trade_date: { type: 'string' },
-                },
-              }),
-            },
-            ticker: {
-              id: 'ticker',
-              type: 'short_text',
-              value: 'AAPL',
-            },
-            trade_date: {
-              id: 'trade_date',
-              type: 'short_text',
-              value: '2026-04-17',
-            },
-          }),
-          currentWorkflowState: INPUT_TRIGGER_CURRENT_WORKFLOW_STATE,
+          entityDocument: graph([
+            'flowchart TD',
+            '  input1["Input Form"]',
+            '  fn1["Compute"]',
+            '  input1 --> fn1',
+          ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
-    ).rejects.toThrow(
-      'Block Input Form: non-canonical sub-block "inputSchema" is not part of the input_trigger block config.'
-    )
+    ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
   })
 
-  it('rejects newly introduced non-canonical sub-block ids for known block configs', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
+  it('rejects existing block type changes instead of treating them as replacements', async () => {
     await expect(
       editWorkflowServerTool.execute(
         {
           entityId: 'wf-1',
-          entityDocument: buildInputTriggerWorkflowDocument({
-            ticker: {
-              id: 'ticker',
-              type: 'short_text',
-              value: 'AAPL',
-            },
-          }),
-          currentWorkflowState: INPUT_TRIGGER_CURRENT_WORKFLOW_STATE,
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+            '  n2["Compute<br/>id: fn1<br/>type: agent"]',
+            '  n1 --> n2',
+          ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow(
-      'Block Input Form: non-canonical sub-block "ticker" is not part of the input_trigger block config.'
+      'Existing block ids are immutable identities in edit_workflow; this tool cannot replace an existing block or change its type.'
     )
+  })
+
+  it('adds new blocks with canonical block defaults from metadata-only labels', async () => {
+    mockLoadWorkflowState.mockResolvedValueOnce({
+      ...BASE_WORKFLOW_STATE,
+      blocks: { input1: BASE_WORKFLOW_STATE.blocks.input1 },
+    })
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["id: fn2<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.blocks.fn2).toMatchObject({
+      id: 'fn2',
+      type: 'function',
+      name: 'Mock Function',
+      enabled: true,
+    })
+    expect(result.workflowState.blocks.fn2.subBlocks.code).toMatchObject({
+      id: 'code',
+      type: 'code',
+      value: '',
+    })
+    expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityDocument).toContain('Mock Function')
+    expect(result.entityDocument).not.toContain('["id: fn2')
+    expect(result.preview.blockDiff.added).toEqual(['fn2'])
+  })
+
+  it('places new blocks after existing siblings regardless of Mermaid order', async () => {
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n2["id: fn2<br/>type: function"]',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n3["Compute Indicators<br/>id: fn1<br/>type: function"]',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.blocks.fn2.position).toEqual({ x: 0, y: 360 })
+  })
+
+  it('preserves existing block absolute position when moving into a container', async () => {
+    mockLoadWorkflowState.mockResolvedValueOnce({
+      ...BASE_WORKFLOW_STATE,
+      blocks: {
+        fn1: {
+          ...BASE_WORKFLOW_STATE.blocks.fn1,
+          position: { x: 420, y: 260 },
+        },
+        loop1: {
+          id: 'loop1',
+          type: 'loop',
+          name: 'Loop',
+          position: { x: 100, y: 100 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+      },
+    })
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  subgraph sg_loop1["Loop<br/>id: loop1<br/>type: loop"]',
+          '    n1["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  end',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.blocks.fn1.data).toMatchObject({
+      parentId: 'loop1',
+      extent: 'parent',
+    })
+    expect(result.workflowState.blocks.fn1.position).toEqual({ x: 320, y: 160 })
+  })
+
+  it('rejects block-internal fields in graph-only workflow edits', async () => {
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger<br/>enabled: false<br/>outputs: {}<br/>data.foo: bar<br/>subBlocks.code: return 1"]',
+          ]),
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toThrow(
+      'Workflow graph Mermaid block "input1" includes block-internal fields (enabled, outputs, data.foo, subBlocks.code).'
+    )
+  })
+
+  it('rejects omitted existing blocks without explicit removedBlockIds', async () => {
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          ]),
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toThrow(
+      'Existing block ids omitted from edit_workflow entityDocument without removedBlockIds: fn1'
+    )
+  })
+
+  it('removes omitted blocks only when removedBlockIds declares intent', async () => {
+    mockLoadWorkflowState.mockResolvedValueOnce({
+      ...BASE_WORKFLOW_STATE,
+      blocks: {
+        input1: BASE_WORKFLOW_STATE.blocks.input1,
+        loop1: {
+          id: 'loop1',
+          type: 'loop',
+          name: 'Loop',
+          position: { x: 100, y: 100 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+        fn1: {
+          ...BASE_WORKFLOW_STATE.blocks.fn1,
+          data: { parentId: 'loop1', extent: 'parent' },
+        },
+      },
+    })
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph(['flowchart TD', 'input1["Input Form"]']),
+        removedBlockIds: ['loop1'],
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.blocks).toHaveProperty('input1')
+    expect(result.workflowState.blocks).not.toHaveProperty('loop1')
+    expect(result.workflowState.blocks).not.toHaveProperty('fn1')
+    expect(result.workflowState.edges).toEqual([])
+  })
+
+  it('rejects removedBlockIds that still appear in the graph', async () => {
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+            '  n2["Compute<br/>id: fn1<br/>type: function"]',
+          ]),
+          removedBlockIds: ['fn1'],
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toThrow('removedBlockIds still appear in edit_workflow entityDocument: fn1')
+  })
+
+  it('rejects old TG metadata comments in mutation input', async () => {
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+            '%% TG_BLOCK {"id":"input1","type":"input_trigger","name":"Input Form","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
+          ]),
+        },
+        { userId: 'user-1', accessLevel: 'limited' }
+      )
+    ).rejects.toThrow('Workflow graph Mermaid must not include TG_* metadata comments')
   })
 })

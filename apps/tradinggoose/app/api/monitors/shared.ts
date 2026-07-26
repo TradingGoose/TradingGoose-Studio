@@ -7,7 +7,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import {
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
@@ -35,7 +35,6 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
 import { isTradingServiceError } from '@/lib/trading/errors'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 
 type WebhookRow = typeof webhook.$inferSelect
 
@@ -272,7 +271,6 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
-    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
 
   const customIndicator = customRows[0]
   if (!customIndicator) {
@@ -301,19 +299,18 @@ export const loadIndicatorInputMetadata = async (
     .select({
       id: pineIndicators.id,
       workspaceId: pineIndicators.workspaceId,
-      inputMeta: pineIndicators.inputMeta,
+      pineCode: pineIndicators.pineCode,
     })
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
-    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
 
   const row = rows[0]
   if (!row) {
     throw new Error(`Indicator ${indicatorId} not found.`)
   }
 
-  const inputMeta = normalizeInputMetaMap(row.inputMeta)
+  const inputMeta = inferInputMetaFromPineCode(row.pineCode)
   return {
     id: row.id,
     ...(inputMeta && Object.keys(inputMeta).length > 0 ? { inputMeta } : {}),

@@ -1,4 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
+
+const mockLoadWorkflowSnapshotForCopilot = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/copilot/tools/server/entities/workflow', () => ({
+  loadWorkflowSnapshotForCopilot: (...args: any[]) => mockLoadWorkflowSnapshotForCopilot(...args),
+}))
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -9,7 +17,18 @@ vi.mock('@/lib/workflows/validation', () => ({
   }),
 }))
 
-const CURRENT_WORKFLOW_STATE = JSON.stringify({
+vi.mock('@/blocks', () => ({
+  getBlock: (blockType: string) =>
+    blockType === 'function'
+      ? {
+          type: 'function',
+          name: 'Function',
+          subBlocks: [{ id: 'code', type: 'code' }],
+        }
+      : undefined,
+}))
+
+const CURRENT_WORKFLOW_STATE = {
   direction: 'TD',
   blocks: {
     fn1: {
@@ -31,14 +50,21 @@ const CURRENT_WORKFLOW_STATE = JSON.stringify({
   edges: [],
   loops: {},
   parallels: {},
-})
+}
 
 describe('editWorkflowBlockServerTool', () => {
-  it('patches only the selected block config and preserves the workflow document envelope', async () => {
-    const { editWorkflowBlockServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-    )
+  beforeEach(() => {
+    mockLoadWorkflowSnapshotForCopilot.mockReset()
+    mockLoadWorkflowSnapshotForCopilot.mockResolvedValue({
+      workflowId: 'wf-1',
+      entityName: 'Strategy Workflow',
+      workspaceId: 'workspace-1',
+      workflowState: CURRENT_WORKFLOW_STATE,
+      variables: {},
+    })
+  })
 
+  it('patches only the selected block config and preserves the workflow document envelope', async () => {
     const result = await editWorkflowBlockServerTool.execute(
       {
         entityId: 'wf-1',
@@ -48,22 +74,26 @@ describe('editWorkflowBlockServerTool', () => {
         subBlocks: {
           code: 'return { rsi: 50 }',
         },
-        currentWorkflowState: CURRENT_WORKFLOW_STATE,
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
     expect(result.workflowState.edges).toEqual([])
+    expect(result.entityName).toBe('Strategy Workflow')
     expect(result.entityDocument).toContain('Compute Market Indicators')
+    expect(ToolResultSchemas.edit_workflow_block.parse(result)).toMatchObject({
+      entityName: 'Strategy Workflow',
+    })
+    expect(mockLoadWorkflowSnapshotForCopilot).toHaveBeenCalledWith(
+      'wf-1',
+      { userId: 'user-1', accessLevel: 'limited' },
+      'write'
+    )
   })
 
   it('rejects non-canonical sub-block ids with structured issues', async () => {
-    const { editWorkflowBlockServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-    )
-
     await expect(
       editWorkflowBlockServerTool.execute(
         {
@@ -73,9 +103,8 @@ describe('editWorkflowBlockServerTool', () => {
           subBlocks: {
             madeUpField: 'bad',
           },
-          currentWorkflowState: CURRENT_WORKFLOW_STATE,
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toMatchObject({
       code: 'invalid_workflow_block_edit',

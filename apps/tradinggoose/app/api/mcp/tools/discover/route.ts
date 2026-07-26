@@ -17,19 +17,23 @@ export const GET = withMcpAuth('read')(
     try {
       const { searchParams } = new URL(request.url)
       const serverId = searchParams.get('serverId')
-      const forceRefresh = searchParams.get('refresh') === 'true'
+      const isDeployedContext = searchParams.get('isDeployedContext') !== 'false'
 
       logger.info(`[${requestId}] Discovering MCP tools for user ${userId}`, {
         serverId,
         workspaceId,
-        forceRefresh,
       })
 
       let tools
       if (serverId) {
-        tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+        tools = await mcpService.discoverServerTools(
+          userId,
+          serverId,
+          workspaceId,
+          isDeployedContext
+        )
       } else {
-        tools = await mcpService.discoverTools(userId, workspaceId, forceRefresh)
+        tools = await mcpService.discoverTools(userId, workspaceId, isDeployedContext)
       }
 
       const byServer: Record<string, number> = {}
@@ -63,6 +67,7 @@ export const POST = withMcpAuth('read')(
     try {
       const body = getParsedBody(request) || (await request.json())
       const { serverIds } = body
+      const isDeployedContext = body.isDeployedContext !== false
 
       if (!Array.isArray(serverIds)) {
         return createMcpErrorResponse(
@@ -79,7 +84,12 @@ export const POST = withMcpAuth('read')(
 
       const results = await Promise.allSettled(
         serverIds.map(async (serverId: string) => {
-          const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+          const tools = await mcpService.discoverServerTools(
+            userId,
+            serverId,
+            workspaceId,
+            isDeployedContext
+          )
           return { serverId, toolCount: tools.length }
         })
       )

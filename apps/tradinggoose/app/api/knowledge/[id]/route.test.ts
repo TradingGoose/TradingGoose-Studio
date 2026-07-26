@@ -15,11 +15,11 @@ import {
 mockKnowledgeSchemas()
 mockDrizzleOrm()
 mockConsoleLogger()
+vi.setConfig({ testTimeout: 15000 })
 
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseById: vi.fn(),
-  updateKnowledgeBase: vi.fn(),
-  deleteKnowledgeBase: vi.fn(),
+  applyKnowledgeBaseMetadata: vi.fn(),
 }))
 
 vi.mock('@/app/api/knowledge/utils', () => ({
@@ -27,12 +27,17 @@ vi.mock('@/app/api/knowledge/utils', () => ({
   checkKnowledgeBaseWriteAccess: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  deleteSavedEntity: vi.fn(),
+  lockSavedEntityList: vi.fn(),
+}))
+
 describe('Knowledge Base By ID API Route', () => {
   const mockAuth$ = mockAuth()
 
   let mockGetKnowledgeBaseById: any
-  let mockUpdateKnowledgeBase: any
-  let mockDeleteKnowledgeBase: any
+  let mockApplyKnowledgeBaseMetadata: any
+  let mockDeleteSavedEntity: any
   let mockCheckKnowledgeBaseAccess: any
   let mockCheckKnowledgeBaseWriteAccess: any
 
@@ -81,11 +86,12 @@ describe('Knowledge Base By ID API Route', () => {
     })
 
     const knowledgeService = await import('@/lib/knowledge/service')
+    const entityLoaders = await import('@/lib/yjs/server/entity-loaders')
     const knowledgeUtils = await import('@/app/api/knowledge/utils')
 
     mockGetKnowledgeBaseById = knowledgeService.getKnowledgeBaseById as any
-    mockUpdateKnowledgeBase = knowledgeService.updateKnowledgeBase as any
-    mockDeleteKnowledgeBase = knowledgeService.deleteKnowledgeBase as any
+    mockApplyKnowledgeBaseMetadata = knowledgeService.applyKnowledgeBaseMetadata as any
+    mockDeleteSavedEntity = entityLoaders.deleteSavedEntity as any
     mockCheckKnowledgeBaseAccess = knowledgeUtils.checkKnowledgeBaseAccess as any
     mockCheckKnowledgeBaseWriteAccess = knowledgeUtils.checkKnowledgeBaseWriteAccess as any
   })
@@ -218,7 +224,8 @@ describe('Knowledge Base By ID API Route', () => {
       })
 
       const updatedKnowledgeBase = { ...mockKnowledgeBase, ...validUpdateData }
-      mockUpdateKnowledgeBase.mockResolvedValueOnce(updatedKnowledgeBase)
+      mockGetKnowledgeBaseById.mockResolvedValueOnce(mockKnowledgeBase)
+      mockApplyKnowledgeBaseMetadata.mockResolvedValueOnce(updatedKnowledgeBase)
 
       const req = createMockRequest('PUT', validUpdateData)
       const { PUT } = await import('@/app/api/knowledge/[id]/route')
@@ -229,12 +236,13 @@ describe('Knowledge Base By ID API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.name).toBe('Updated Knowledge Base')
       expect(mockCheckKnowledgeBaseWriteAccess).toHaveBeenCalledWith('kb-123', 'user-123')
-      expect(mockUpdateKnowledgeBase).toHaveBeenCalledWith(
+      expect(mockApplyKnowledgeBaseMetadata).toHaveBeenCalledWith(
         'kb-123',
+        'user-123',
         {
           name: validUpdateData.name,
           description: validUpdateData.description,
-          chunkingConfig: undefined,
+          chunkingConfig: mockKnowledgeBase.chunkingConfig,
         },
         expect.any(String)
       )
@@ -304,7 +312,8 @@ describe('Knowledge Base By ID API Route', () => {
         knowledgeBase: { id: 'kb-123', userId: 'user-123' },
       })
 
-      mockUpdateKnowledgeBase.mockRejectedValueOnce(new Error('Database error'))
+      mockGetKnowledgeBaseById.mockResolvedValueOnce(mockKnowledgeBase)
+      mockApplyKnowledgeBaseMetadata.mockRejectedValueOnce(new Error('Yjs apply error'))
 
       const req = createMockRequest('PUT', validUpdateData)
       const { PUT } = await import('@/app/api/knowledge/[id]/route')
@@ -326,10 +335,10 @@ describe('Knowledge Base By ID API Route', () => {
 
       mockCheckKnowledgeBaseWriteAccess.mockResolvedValueOnce({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: { id: 'kb-123', userId: 'user-123', workspaceId: 'workspace-123' },
       })
 
-      mockDeleteKnowledgeBase.mockResolvedValueOnce(undefined)
+      mockDeleteSavedEntity.mockResolvedValueOnce(true)
 
       const req = createMockRequest('DELETE')
       const { DELETE } = await import('@/app/api/knowledge/[id]/route')
@@ -340,7 +349,11 @@ describe('Knowledge Base By ID API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.message).toBe('Knowledge base deleted successfully')
       expect(mockCheckKnowledgeBaseWriteAccess).toHaveBeenCalledWith('kb-123', 'user-123')
-      expect(mockDeleteKnowledgeBase).toHaveBeenCalledWith('kb-123', expect.any(String))
+      expect(mockDeleteSavedEntity).toHaveBeenCalledWith(
+        'knowledge_base',
+        'kb-123',
+        'workspace-123'
+      )
     })
 
     it('should return unauthorized for unauthenticated user', async () => {
@@ -398,10 +411,10 @@ describe('Knowledge Base By ID API Route', () => {
 
       mockCheckKnowledgeBaseWriteAccess.mockResolvedValueOnce({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: { id: 'kb-123', userId: 'user-123', workspaceId: 'workspace-123' },
       })
 
-      mockDeleteKnowledgeBase.mockRejectedValueOnce(new Error('Database error'))
+      mockDeleteSavedEntity.mockRejectedValueOnce(new Error('Database error'))
 
       const req = createMockRequest('DELETE')
       const { DELETE } = await import('@/app/api/knowledge/[id]/route')

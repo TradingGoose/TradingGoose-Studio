@@ -3,12 +3,15 @@
  */
 
 import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
+import { LocalWidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
 import { DataChartCandleTypeDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
@@ -25,18 +28,22 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 describe('data chart localized component copy', () => {
   let container: HTMLDivElement
   let root: Root
+  let doc: Y.Doc
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    doc = new Y.Doc()
+    seedDashboardWidgetSession(doc, { pairColor: 'gray', params: null })
   })
 
   afterEach(() => {
     act(() => {
       root.unmount()
     })
+    doc.destroy()
     container.remove()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -44,7 +51,11 @@ describe('data chart localized component copy', () => {
   const renderWithLocale = (element: React.ReactNode, locale: LocaleCode = 'es') => {
     root.render(
       <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-        <TooltipProvider>{element}</TooltipProvider>
+        <TooltipProvider>
+          <LocalWidgetConfigRuntimeProvider doc={doc} widgetKey='data_chart'>
+            {element}
+          </LocalWidgetConfigRuntimeProvider>
+        </TooltipProvider>
       </NextIntlClientProvider>
     )
   }
@@ -52,10 +63,7 @@ describe('data chart localized component copy', () => {
   it('renders chart control labels in the active locale', async () => {
     await act(async () => {
       renderWithLocale(
-        <DataChartCandleTypeDropdown
-          params={{ view: { candleType: 'area' } }}
-          candleType='area'
-        />
+        <DataChartCandleTypeDropdown params={{ view: { candleType: 'area' } }} candleType='area' />
       )
     })
 

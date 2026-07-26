@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { client, useSession } from '@/lib/auth-client'
+import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -90,7 +90,6 @@ function SignupFormContent({
   const signupCopy = copy.auth.signup
   const defaultCallbackPath = '/workspace'
   const searchParams = useSearchParams()
-  const { refetch: refetchSession } = useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [, setMounted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -346,21 +345,6 @@ function SignupFormContent({
       if (!response || response.error) {
         setIsLoading(false)
         return
-      }
-
-      try {
-        await refetchSession()
-        const localeResponse = await fetch('/api/users/me/settings', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ preferredLocale: locale }),
-        })
-        if (!localeResponse.ok) {
-          throw new Error('Failed to persist preferred locale after signup')
-        }
-        logger.info('Session refreshed after successful signup')
-      } catch (sessionError) {
-        logger.error('Failed to refresh session or persist locale after signup:', sessionError)
       }
 
       if (typeof window !== 'undefined') {

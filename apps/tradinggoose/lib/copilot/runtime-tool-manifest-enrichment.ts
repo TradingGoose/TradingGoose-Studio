@@ -1,18 +1,21 @@
-import type { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   getEntityDocumentSchema,
   INDICATOR_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
+  WATCHLIST_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import {
   MONITOR_DOCUMENT_FORMAT,
   MonitorDocumentSchema,
 } from '@/lib/copilot/monitor/monitor-documents'
 import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import {
+  DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+  DashboardLayoutStructureDocumentSchema,
+} from '@/widgets/layout-document'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 
@@ -23,9 +26,13 @@ type DocumentSemanticSpecDefinition = {
 }
 
 function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
-  const jsonSchema = zodToJsonSchema(schema, {
-    $refStrategy: 'none',
-    target: 'jsonSchema7',
+  // zod-to-json-schema only understands Zod 3 internals, so Zod 4 schemas are
+  // converted with Zod's own emitter. `io: 'input'` keeps these describing what
+  // callers may send, matching the previous behaviour.
+  const jsonSchema = z.toJSONSchema(schema, {
+    target: 'draft-7',
+    io: 'input',
+    unrepresentable: 'any',
   })
 
   if (!jsonSchema || typeof jsonSchema !== 'object' || Array.isArray(jsonSchema)) {
@@ -36,7 +43,7 @@ function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
     }
   }
 
-  const { $schema, definitions, ...parameters } = jsonSchema as Record<string, unknown>
+  const { $schema, ...parameters } = jsonSchema as Record<string, unknown>
   return parameters
 }
 
@@ -68,63 +75,21 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
     schema: toJsonSchemaRecord(getEntityDocumentSchema('mcp_server')),
   },
   {
+    documentFormat: WATCHLIST_DOCUMENT_FORMAT,
+    documentLabel: 'watchlist',
+    schema: toJsonSchemaRecord(getEntityDocumentSchema('watchlist')),
+  },
+  {
     documentFormat: MONITOR_DOCUMENT_FORMAT,
     documentLabel: 'monitor',
     schema: toJsonSchemaRecord(MonitorDocumentSchema),
   },
+  {
+    documentFormat: DASHBOARD_LAYOUT_STRUCTURE_DOCUMENT_FORMAT,
+    documentLabel: 'dashboard layout structure',
+    schema: toJsonSchemaRecord(DashboardLayoutStructureDocumentSchema),
+  },
 ]
-
-const TG_WORKFLOW_LINE_PREFIX = '%% TG_WORKFLOW '
-const TG_BLOCK_LINE_PREFIX = '%% TG_BLOCK '
-const TG_EDGE_LINE_PREFIX = '%% TG_EDGE '
-
-const TG_WORKFLOW_METADATA_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  required: ['version', 'direction'],
-  additionalProperties: true,
-  properties: {
-    version: { const: TG_MERMAID_DOCUMENT_FORMAT },
-    direction: { enum: ['TD', 'LR'] },
-  },
-}
-
-const TG_POSITION_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  required: ['x', 'y'],
-  additionalProperties: true,
-  properties: {
-    x: { type: 'number' },
-    y: { type: 'number' },
-  },
-}
-
-const TG_BLOCK_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  required: ['id', 'type', 'name', 'position', 'subBlocks', 'outputs', 'enabled'],
-  additionalProperties: true,
-  properties: {
-    id: { type: 'string' },
-    type: { type: 'string' },
-    name: { type: 'string' },
-    position: TG_POSITION_SCHEMA,
-    subBlocks: { type: 'object' },
-    outputs: { type: 'object' },
-    enabled: { type: 'boolean' },
-  },
-}
-
-const TG_EDGE_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  required: ['source', 'target'],
-  additionalProperties: true,
-  properties: {
-    id: { type: 'string' },
-    source: { type: 'string' },
-    target: { type: 'string' },
-    sourceHandle: { type: 'string' },
-    targetHandle: { type: 'string' },
-  },
-}
 
 function getObjectPropertySchema(
   parameters: Record<string, unknown>,
@@ -151,87 +116,6 @@ function getConstStringValue(propertySchema: Record<string, unknown> | null): st
   return null
 }
 
-function buildWorkflowDocumentSemanticValidators(
-  documentField: string
-): RuntimeToolManifestSemanticValidator[] {
-  return [
-    {
-      path: documentField,
-      kind: 'string_requires_real_newlines',
-      description:
-        'Use raw Mermaid text with real newlines; Studio validates workflow graph semantics.',
-      message:
-        'Expected raw Mermaid text with real newline characters, not JSON-escaped `\\n` sequences.',
-    },
-    {
-      path: documentField,
-      kind: 'string_starts_with',
-      args: { prefix: 'flowchart ' },
-      description:
-        'Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
-      message: 'Expected raw Mermaid text that starts with a `flowchart` declaration.',
-    },
-    {
-      path: documentField,
-      kind: 'string_requires_line_prefix',
-      args: { prefix: TG_WORKFLOW_LINE_PREFIX, minMatches: 1 },
-      description: 'Include a standalone canonical `%% TG_WORKFLOW {...}` metadata line.',
-      message: 'Workflow documents must include a standalone `%% TG_WORKFLOW {...}` metadata line.',
-    },
-    {
-      path: documentField,
-      kind: 'string_requires_line_prefix',
-      args: { prefix: TG_BLOCK_LINE_PREFIX, minMatches: 1 },
-      description: 'Include standalone canonical `%% TG_BLOCK {...}` metadata lines.',
-      message: 'Workflow documents must include standalone `%% TG_BLOCK {...}` metadata lines.',
-    },
-    {
-      path: documentField,
-      kind: 'string_line_prefix_json_schema',
-      args: { prefix: TG_WORKFLOW_LINE_PREFIX, schema: TG_WORKFLOW_METADATA_SCHEMA },
-      description: 'Validate each `TG_WORKFLOW` metadata JSON payload.',
-      message:
-        '`TG_WORKFLOW` metadata must be canonical JSON with `version: "tg-mermaid-v1"` and `direction` of `TD` or `LR`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_line_prefix_json_schema',
-      args: { prefix: TG_BLOCK_LINE_PREFIX, schema: TG_BLOCK_SCHEMA },
-      description: 'Validate each `TG_BLOCK` metadata JSON payload.',
-      message:
-        '`TG_BLOCK` metadata must be canonical block state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_line_prefix_json_schema',
-      args: { prefix: TG_EDGE_LINE_PREFIX, schema: TG_EDGE_SCHEMA },
-      description: 'Validate each `TG_EDGE` metadata JSON payload when edge lines are present.',
-      message: '`TG_EDGE` metadata must be canonical edge state with string `source` and `target`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '"blockType"' },
-      description: 'Use canonical `TG_BLOCK.type`, not simplified block metadata aliases.',
-      message: 'Use `type` in `TG_BLOCK` metadata, not `blockType`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '"blockName"' },
-      description: 'Use canonical `TG_BLOCK.name`, not simplified block metadata aliases.',
-      message: 'Use `name` in `TG_BLOCK` metadata, not `blockName`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '"blockDescription"' },
-      description: 'Use canonical `TG_BLOCK` state, not simplified block metadata aliases.',
-      message: '`TG_BLOCK` metadata must not include `blockDescription`.',
-    },
-  ]
-}
-
 function buildJsonDocumentSemanticValidators(
   documentField: string,
   spec: JsonDocumentSemanticSpec
@@ -255,11 +139,6 @@ function buildJsonDocumentSemanticValidators(
 }
 
 const DOCUMENT_SEMANTIC_SPECS = [
-  {
-    documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-    preferredDocumentField: 'entityDocument',
-    buildSemanticValidators: buildWorkflowDocumentSemanticValidators,
-  },
   ...JSON_DOCUMENT_SPECS.map((spec) => ({
     documentFormat: spec.documentFormat,
     preferredDocumentField: 'entityDocument',

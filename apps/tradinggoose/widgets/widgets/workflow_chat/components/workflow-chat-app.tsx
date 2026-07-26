@@ -37,7 +37,7 @@ const WorkflowChatSessionProviders = ({
     : undefined
 
   return (
-    <Providers workspaceId={workspaceId}>
+    <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider
         workspaceId={workspaceId}
         workflowId={workflowId}

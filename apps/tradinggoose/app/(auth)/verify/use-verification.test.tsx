@@ -13,6 +13,7 @@ const mockPush = vi.hoisted(() => vi.fn())
 const mockEmailOtpSignIn = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
+const mockFetch = vi.hoisted(() => vi.fn())
 const testState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }))
@@ -122,8 +123,11 @@ describe('useVerification', () => {
     mockEmailOtpSignIn.mockReset()
     mockSendVerificationOtp.mockReset()
     mockRefetchSession.mockReset()
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
     testState.searchParams = new URLSearchParams()
     window.history.replaceState({}, '', '/')
+    global.fetch = mockFetch as typeof fetch
   })
 
   afterEach(() => {
@@ -172,6 +176,15 @@ describe('useVerification', () => {
       email: 'ada@example.com',
       otp: '123456',
     })
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/users/me/settings',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferredLocale: 'zh' }),
+      })
+    )
     expect(mockPush).toHaveBeenCalledWith('/workspace')
   })
 
@@ -197,5 +210,35 @@ describe('useVerification', () => {
     })
 
     expect(mockPush).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
+  })
+
+  it('persists locale before redirecting when verification is disabled', async () => {
+    mockRefetchSession.mockResolvedValue(undefined)
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+          <VerificationHarness
+            locale='es'
+            hasEmailService={false}
+            isEmailVerificationEnabled={false}
+            onReady={() => {}}
+          />
+        </NextIntlClientProvider>
+      )
+    })
+
+    await act(async () => {})
+
+    expect(mockRefetchSession).toHaveBeenCalled()
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/users/me/settings',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        body: JSON.stringify({ preferredLocale: 'es' }),
+      })
+    )
+    expect(mockPush).toHaveBeenCalledWith('/workspace')
   })
 })

@@ -3,7 +3,7 @@
 import { type KeyboardEvent, type MouseEvent, type SyntheticEvent, useState } from 'react'
 import { Check, Copy, LibraryBig, Loader2, Trash2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,77 +15,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CopyToWorkspace } from '@/app/workspace/[workspaceId]/knowledge/components/copy-to-workspace/copy-to-workspace'
-import { useKnowledgeStore } from '@/stores/knowledge/store'
 import { Link } from '@/i18n/navigation'
+import { useKnowledgeStore } from '@/stores/knowledge/store'
 
 interface BaseOverviewProps {
   id?: string
   title: string
-  docCount: number
   description: string
-  createdAt?: string
-  updatedAt?: string
   canEdit?: boolean
 }
 
-function formatRelativeTime(dateString: string, locale: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-
-  if (diffInSeconds < 60) {
-    return rtf.format(0, 'second')
-  }
-  if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60)
-    return rtf.format(-minutes, 'minute')
-  }
-  if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600)
-    return rtf.format(-hours, 'hour')
-  }
-  if (diffInSeconds < 604800) {
-    const days = Math.floor(diffInSeconds / 86400)
-    return rtf.format(-days, 'day')
-  }
-  if (diffInSeconds < 2592000) {
-    const weeks = Math.floor(diffInSeconds / 604800)
-    return rtf.format(-weeks, 'week')
-  }
-  if (diffInSeconds < 31536000) {
-    const months = Math.floor(diffInSeconds / 2592000)
-    return rtf.format(-months, 'month')
-  }
-  const years = Math.floor(diffInSeconds / 31536000)
-  return rtf.format(-years, 'year')
-}
-
-function formatAbsoluteDate(dateString: string, locale: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-export function BaseOverview({
-  id,
-  title,
-  docCount,
-  description,
-  createdAt,
-  updatedAt,
-  canEdit = true,
-}: BaseOverviewProps) {
+export function BaseOverview({ id, title, description, canEdit = true }: BaseOverviewProps) {
   const [isCopied, setIsCopied] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const params = useParams()
-  const locale = useLocale()
   const t = useTranslations('workspace.knowledge.baseOverview')
   const workspaceSlug = params?.workspaceId as string
   const { removeKnowledgeBase } = useKnowledgeStore()
@@ -190,10 +134,6 @@ export function BaseOverview({
 
           <div className='flex flex-col gap-2'>
             <div className='flex items-center gap-2 text-muted-foreground text-xs'>
-              <span>
-                {docCount} {docCount === 1 ? t('docsSingular') : t('docsPlural')}
-              </span>
-              <span>•</span>
               <div className='flex items-center gap-2'>
                 <span className='truncate font-mono'>{id?.slice(0, 8)}</span>
                 <button
@@ -204,23 +144,6 @@ export function BaseOverview({
                 </button>
               </div>
             </div>
-
-            {/* Timestamps */}
-            {(createdAt || updatedAt) && (
-              <div className='flex items-center gap-2 text-muted-foreground text-xs'>
-                {updatedAt && (
-                  <span title={`${t('updated')}: ${formatAbsoluteDate(updatedAt, locale)}`}>
-                    {t('updated')} {formatRelativeTime(updatedAt, locale)}
-                  </span>
-                )}
-                {updatedAt && createdAt && <span>•</span>}
-                {createdAt && (
-                  <span title={`${t('created')}: ${formatAbsoluteDate(createdAt, locale)}`}>
-                    {t('created')} {formatRelativeTime(createdAt, locale)}
-                  </span>
-                )}
-              </div>
-            )}
 
             <p className='line-clamp-2 overflow-hidden text-muted-foreground text-xs'>
               {description}
@@ -240,13 +163,7 @@ export function BaseOverview({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('deleteDescription', {
-                title,
-                count: docCount,
-                plural: docCount === 1 ? '' : 's',
-              })}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('deleteDescription', { title })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>{t('cancel')}</AlertDialogCancel>

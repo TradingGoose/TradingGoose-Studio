@@ -10,6 +10,8 @@ import {
   getLocalVmSaturationLimitMessage,
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
+import { listCustomIndicatorRuntimeEntries } from '@/lib/indicators/custom/operations'
+import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { resolveCodeVariables } from '@/app/api/function/code-resolution'
@@ -35,9 +37,10 @@ export type FunctionExecutionPayload = {
   blockData?: Record<string, unknown>
   blockNameMapping?: Record<string, string>
   workflowVariables?: Record<string, unknown>
-  workflowId?: string
-  workspaceId?: string
+  workflowId?: string | null
+  workspaceId: string
   isCustomTool?: boolean
+  isDeployedContext?: boolean
 }
 
 type FunctionExecutionResponseBody = {
@@ -121,6 +124,7 @@ export async function executeFunctionRequest(
       workflowId,
       workspaceId,
       isCustomTool = false,
+      isDeployedContext = true,
     } = payload
     const e2bUserScope = payload.userId
 
@@ -146,6 +150,16 @@ export async function executeFunctionRequest(
 
     const executionParams = { ...params }
     executionParams._context = undefined
+    const indicatorRuntimeManifest = {
+      indicators: [
+        ...DEFAULT_INDICATOR_RUNTIME_ENTRIES.map(({ id, pineCode, inputMeta }) => ({
+          id,
+          pineCode,
+          inputMeta,
+        })),
+        ...(await listCustomIndicatorRuntimeEntries(workspaceId, isDeployedContext)),
+      ],
+    }
 
     logger.info(`[${requestId}] Function execution request`, {
       hasCode: !!code,
@@ -182,6 +196,7 @@ export async function executeFunctionRequest(
       executionParams,
       envVars,
       contextVariables,
+      indicatorRuntimeManifest,
       onImportExtractionError: (error) => {
         logger.error('Failed to extract JavaScript imports', { error })
       },

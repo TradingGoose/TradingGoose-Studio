@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (error: any) {
     logger.error(`[${requestId}] Error encrypting workflow chat password: ${id}`, error)
     if (error instanceof z.ZodError) {
-      return createErrorResponse(error.errors[0]?.message || 'Invalid password', 400)
+      return createErrorResponse(error.issues[0]?.message || 'Invalid password', 400)
     }
     return createErrorResponse(error.message || 'Failed to encrypt chat password', 500)
   }

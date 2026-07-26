@@ -8,6 +8,20 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool'
 
+const entityListState = vi.hoisted(() => ({ ids: ['tool-1'] }))
+
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: entityListState.ids.map((entityId) => ({ entityId })),
+    isLoading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  useUserPermissionsContext: () => ({ canEdit: true }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -18,12 +32,14 @@ vi.mock('@/widgets/widgets/components/custom-tool-dropdown', () => ({
   CustomToolDropdown: () => <div>custom-tool-dropdown</div>,
 }))
 
-vi.mock('@/stores/dashboard/pair-store', async () => {
-  const actual = await vi.importActual<any>('@/stores/dashboard/pair-store')
+vi.mock('@/widgets/widget-config-runtime', async () => {
+  const actual = await vi.importActual<any>('@/widgets/widget-config-runtime')
   return {
     ...actual,
-    usePairColorContext: () => null,
-    useSetPairColorContext: () => vi.fn(),
+    useWidgetConfigRuntimeActions: () => ({
+      patchWidgetParams: vi.fn(),
+      patchWidgetLinkedParams: vi.fn(),
+    }),
   }
 })
 
@@ -37,6 +53,7 @@ describe('Custom Tool Editor header controls', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    entityListState.ids = ['tool-1']
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -93,6 +110,32 @@ describe('Custom Tool Editor header controls', () => {
     })
 
     const exportButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Export custom tool')
+    )
+    expect(exportButton).toBeDisabled()
+  })
+
+  it('disables actions when the selected custom tool leaves the shared list', async () => {
+    const renderActions = () =>
+      editorCustomToolWidget.renderHeader?.({
+        context: { workspaceId: 'workspace-1' } as any,
+        panelId: 'panel-1',
+        widget: {
+          key: 'editor_custom_tool',
+          params: { customToolId: 'tool-1' },
+          pairColor: 'gray',
+        } as any,
+      } as any)?.right as ReactNode
+
+    await act(async () => root.render(renderActions()))
+    let exportButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Export custom tool')
+    )
+    expect(exportButton).not.toBeDisabled()
+
+    entityListState.ids = []
+    await act(async () => root.render(renderActions()))
+    exportButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Export custom tool')
     )
     expect(exportButton).toBeDisabled()

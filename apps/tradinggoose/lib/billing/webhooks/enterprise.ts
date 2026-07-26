@@ -12,8 +12,8 @@ import {
   requireBillingTierById,
 } from '@/lib/billing/tiers'
 import { resolveBillingTierForPersistence } from '@/lib/billing/tiers/persistence'
-import { sendEmail } from '@/lib/email/mailer'
 import { resolveEmailLocale } from '@/lib/email/locale'
+import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { EnterpriseSubscriptionMetadata } from '../types'
 
@@ -137,16 +137,12 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     metadata: metadataJson,
   }
 
-  const existing = await db
-    .select({ id: subscription.id })
-    .from(subscription)
-    .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
-    .limit(1)
-
-  if (existing.length > 0) {
-    await db
-      .update(subscription)
-      .set({
+  const [persistedSubscription] = await db
+    .insert(subscription)
+    .values(subscriptionRow)
+    .onConflictDoUpdate({
+      target: subscription.stripeSubscriptionId,
+      set: {
         plan: subscriptionRow.plan,
         billingTierId: subscriptionRow.billingTierId,
         referenceType: subscriptionRow.referenceType,
@@ -160,11 +156,10 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         trialStart: subscriptionRow.trialStart,
         trialEnd: subscriptionRow.trialEnd,
         metadata: subscriptionRow.metadata,
-      })
-      .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
-  } else {
-    await db.insert(subscription).values(subscriptionRow)
-  }
+      },
+    })
+    .returning({ id: subscription.id })
+  const subscriptionId = persistedSubscription?.id || subscriptionRow.id
 
   if (billingTierRecord.usageScope === 'pooled') {
     const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
@@ -193,7 +188,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   }
 
   logger.info('[subscription.created] Upserted enterprise subscription', {
-    subscriptionId: existing[0]?.id || subscriptionRow.id,
+    subscriptionId,
     referenceType: subscriptionRow.referenceType,
     referenceId: subscriptionRow.referenceId,
     subscriptionKey: subscriptionRow.plan,
@@ -230,7 +225,11 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
       const org = orgDetails[0]
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
 
-      const html = await renderEnterpriseSubscriptionEmail(user.name || user.email, user.email, locale)
+      const html = await renderEnterpriseSubscriptionEmail(
+        user.name || user.email,
+        user.email,
+        locale
+      )
 
       const emailResult = await sendEmail({
         to: user.email,

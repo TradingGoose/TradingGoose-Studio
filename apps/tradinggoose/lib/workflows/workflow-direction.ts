@@ -1,10 +1,9 @@
-import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { BlockState, WorkflowDirection } from '@/stores/workflows/workflow/types'
 
 type WorkflowGraphState = Pick<WorkflowSnapshot, 'blocks' | 'edges'>
 
-function getAbsoluteBlockPosition(
+export function getAbsoluteBlockPosition(
   blockId: string,
   blocks: Record<string, BlockState>,
   visiting = new Set<string>()
@@ -29,7 +28,7 @@ function getAbsoluteBlockPosition(
   }
 }
 
-export function inferMermaidDirectionFromWorkflowState(
+export function inferWorkflowDirectionFromState(
   workflowState: WorkflowGraphState
 ): WorkflowDirection {
   const blocks = workflowState.blocks ?? {}
@@ -70,7 +69,9 @@ export function inferMermaidDirectionFromWorkflowState(
     return horizontalDistance > verticalDistance ? 'LR' : 'TD'
   }
 
-  const positions = Object.keys(blocks).map((blockId) => getPosition(blockId)).filter(Boolean) as Array<{
+  const positions = Object.keys(blocks)
+    .map((blockId) => getPosition(blockId))
+    .filter(Boolean) as Array<{
     x: number
     y: number
   }>
@@ -85,39 +86,4 @@ export function inferMermaidDirectionFromWorkflowState(
   const verticalSpread = Math.max(...ys) - Math.min(...ys)
 
   return horizontalSpread > verticalSpread ? 'LR' : 'TD'
-}
-
-export function normalizeWorkflowStateToMermaidDirection(
-  workflowState: WorkflowSnapshot,
-  direction: WorkflowDirection
-): {
-  workflowState: WorkflowSnapshot
-  didRelayout: boolean
-} {
-  const inferredDirection = inferMermaidDirectionFromWorkflowState(workflowState)
-
-  if (direction === inferredDirection) {
-    return {
-      workflowState: {
-        ...workflowState,
-        direction,
-      },
-      didRelayout: false,
-    }
-  }
-
-  const relayoutResult = applyAutoLayout(workflowState.blocks, workflowState.edges)
-
-  if (!relayoutResult.success || !relayoutResult.blocks) {
-    throw new Error(relayoutResult.error || 'Failed to re-layout workflow for Mermaid direction')
-  }
-
-  return {
-    workflowState: {
-      ...workflowState,
-      direction,
-      blocks: relayoutResult.blocks,
-    },
-    didRelayout: true,
-  }
 }

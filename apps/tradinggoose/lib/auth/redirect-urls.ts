@@ -1,6 +1,7 @@
 'use client'
 
 import { useLocale } from 'next-intl'
+import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl, normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -12,8 +13,8 @@ export function useAuthRedirectUrls() {
       const canonicalFallbackPath = normalizeCallbackUrl(fallbackPath) ?? '/workspace'
       return normalizeCallbackUrl(callbackPath) ?? canonicalFallbackPath
     },
-    providerErrorPath(path: string) {
-      return normalizeCallbackUrl(path) ?? '/sso'
+    providerErrorPath(callbackPath: string | null | undefined) {
+      return getAuthErrorCallbackPath(callbackPath) ?? '/error'
     },
     passwordResetUrl() {
       return localizeUrl(getBaseUrl(), locale, '/reset-password')

@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, ToolCase } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,19 +18,17 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { useSkills } from '@/hooks/queries/skills'
-import { useMessages } from 'next-intl'
-import type { SkillDefinition } from '@/stores/skills/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
-const SKILL_ICON_COLOR = '#059669'
 
 interface SkillDropdownProps {
   workspaceId?: string | null
   value?: string | null
-  onChange?: (skillId: string | null, skill?: SkillDefinition) => void
+  onChange?: (skillId: string | null) => void
   disabled?: boolean
   placeholder?: string
   align?: 'start' | 'end'
@@ -37,7 +36,13 @@ interface SkillDropdownProps {
   menuClassName?: string
 }
 
-const getSkillTitle = (skill?: SkillDefinition | null, fallback = '') => skill?.name || fallback
+type SkillDropdownOption = {
+  id: string
+  name: string
+  description: string
+}
+
+const getSkillTitle = (skill?: SkillDropdownOption | null, fallback = '') => skill?.name || fallback
 
 export function SkillDropdown({
   workspaceId,
@@ -51,21 +56,25 @@ export function SkillDropdown({
 }: SkillDropdownProps) {
   const copy = useMessages().workspace.widgets.skillDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const {
-    data: skills = [],
-    error: queryError,
-    isLoading: queryLoading,
-    isFetching,
-    refetch,
-  } = useSkills(workspaceId ?? '')
+  const { members, error, isLoading: listLoading } = useEntityList('skill', workspaceId)
+  const skills = useMemo<SkillDropdownOption[]>(
+    () =>
+      workspaceId
+        ? members.map((member) => ({
+            id: member.entityId,
+            name: member.entityName,
+            description: member.entityDescription ?? '',
+          }))
+        : [],
+    [members, workspaceId]
+  )
 
   const selectedSkillId = value ?? null
   const selectedSkill = skills.find((skill) => skill.id === selectedSkillId) ?? null
   const hasSkills = skills.length > 0
-  const isLoading = (queryLoading || isFetching) && !hasSkills
+  const isLoading = listLoading && !hasSkills
   const isDropdownDisabled = disabled || !workspaceId
-  const errorMessage =
-    queryError instanceof Error ? queryError.message : queryError ? copy.unableToLoadSkills : null
+  const errorMessage = error || null
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceToChooseSkills
     : errorMessage
@@ -94,20 +103,14 @@ export function SkillDropdown({
 
     return skills.filter((skill) => {
       const name = skill.name.toLowerCase()
-      const description = skill.description.toLowerCase()
-      return name.includes(normalizedQuery) || description.includes(normalizedQuery)
+      return (
+        name.includes(normalizedQuery) || skill.description.toLowerCase().includes(normalizedQuery)
+      )
     })
   }, [searchQuery, skills])
 
-  const handleRetry = () => {
-    if (!workspaceId) return
-    refetch().catch((error) => {
-      console.error('Failed to reload skills for skill dropdown', error)
-    })
-  }
-
-  const handleSelect = (skill: SkillDefinition) => {
-    onChange?.(skill.id, skill)
+  const handleSelect = (skill: SkillDropdownOption) => {
+    onChange?.(skill.id)
   }
 
   const renderMenuBody = () => {
@@ -123,13 +126,6 @@ export function SkillDropdown({
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
           <p className='text-destructive'>{errorMessage}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }
@@ -163,6 +159,7 @@ export function SkillDropdown({
       <div className='flex flex-col gap-1'>
         {filteredSkills.map((skill) => {
           const isSelected = skill.id === selectedSkillId
+          const iconColor = getEntityIconColor(skill.id)
 
           return (
             <DropdownMenuItem
@@ -177,14 +174,10 @@ export function SkillDropdown({
               <div className='flex min-w-0 items-center gap-2'>
                 <span
                   className='h-5 w-5 rounded-xs p-0.5'
-                  style={{ backgroundColor: `${SKILL_ICON_COLOR}20` }}
+                  style={{ backgroundColor: `${iconColor}20` }}
                   aria-hidden='true'
                 >
-                  <ToolCase
-                    className='h-4 w-4'
-                    aria-hidden='true'
-                    style={{ color: SKILL_ICON_COLOR }}
-                  />
+                  <ToolCase className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {getSkillTitle(skill, copy.untitledSkill)}
@@ -200,13 +193,14 @@ export function SkillDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const selectedIconColor = getEntityIconColor(selectedSkillId)
   const iconBadge = (
     <span
       className='h-5 w-5 rounded-xs p-0.5'
-      style={{ backgroundColor: `${SKILL_ICON_COLOR}20` }}
+      style={{ backgroundColor: `${selectedIconColor}20` }}
       aria-hidden='true'
     >
-      <ToolCase className='h-4 w-4' aria-hidden='true' style={{ color: SKILL_ICON_COLOR }} />
+      <ToolCase className='h-4 w-4' aria-hidden='true' style={{ color: selectedIconColor }} />
     </span>
   )
   const labelContent = selectedSkill ? (

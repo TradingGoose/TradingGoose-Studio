@@ -1,13 +1,10 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators, workflow } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { upsertIndicators } from '@/lib/indicators/custom/operations'
+import { createIndicators, listIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { deleteSavedEntity } from '@/lib/yjs/server/entity-loaders'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -27,19 +24,20 @@ const logWorkspacePermissionDenied = ({
     logger.warn(`[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`)
     return
   }
-  logger.warn(`[${requestId}] User ${userId} does not have write permission for workspace ${workspaceId}`)
+  logger.warn(
+    `[${requestId}] User ${userId} does not have write permission for workspace ${workspaceId}`
+  )
 }
 
 const IndicatorSchema = z.object({
   workspaceId: z.string().min(1, 'workspaceId is required'),
   indicators: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().min(1, 'Indicator name is required'),
-      color: z.string().optional(),
-      pineCode: z.string().default(''),
-      inputMeta: z.record(z.any()).optional(),
-    })
+    z
+      .object({
+        name: z.string().min(1, 'Indicator name is required'),
+        pineCode: z.string().default(''),
+      })
+      .strict()
   ),
 })
 
@@ -47,7 +45,6 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
   const workspaceId = searchParams.get('workspaceId')
-  const workflowId = searchParams.get('workflowId')
 
   try {
     const auth = await authenticateIndicatorRequest({
@@ -60,54 +57,30 @@ export async function GET(request: NextRequest) {
     if ('response' in auth) return auth.response
 
     const userId = auth.userId
-    let resolvedWorkspaceId: string | null = workspaceId
-
-    if (!resolvedWorkspaceId && workflowId) {
-      const [workflowData] = await db
-        .select({ workspaceId: workflow.workspaceId })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-
-      if (!workflowData?.workspaceId) {
-        logger.warn(`[${requestId}] Workflow not found: ${workflowId}`)
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-
-      resolvedWorkspaceId = workflowData.workspaceId
-    }
-
-    if (!resolvedWorkspaceId) {
+    if (!workspaceId) {
       logger.warn(`[${requestId}] Missing workspaceId for indicators fetch`)
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
-    if (!(auth.authType === 'internal_jwt' && workflowId)) {
-      const permissionCheck = await checkWorkspacePermission({
+    const permissionCheck = await checkWorkspacePermission({
+      userId,
+      workspaceId,
+      responseShape: 'errorOnly',
+    })
+    if (!permissionCheck.ok) {
+      logWorkspacePermissionDenied({
+        requestId,
         userId,
-        workspaceId: resolvedWorkspaceId,
-        responseShape: 'errorOnly',
+        workspaceId,
+        code: permissionCheck.code,
       })
-      if (!permissionCheck.ok) {
-        logWorkspacePermissionDenied({
-          requestId,
-          userId,
-          workspaceId: resolvedWorkspaceId,
-          code: permissionCheck.code,
-        })
-        return permissionCheck.response
-      }
+      return permissionCheck.response
     }
 
-    const rows = await db
-      .select()
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
-      .orderBy(desc(pineIndicators.createdAt))
-    const result = await applySavedEntityYjsStateToRows('indicator', rows)
-
-    return NextResponse.json({ data: result }, { status: 200 })
+    return NextResponse.json({ data: await listIndicators({ workspaceId }) }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error fetching indicators:`, error)
     return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })
   }
@@ -121,7 +94,7 @@ export async function POST(request: NextRequest) {
       request,
       requestId,
       logger,
-      action: 'update',
+      action: 'creation',
       responseShape: 'errorOnly',
     })
     if ('response' in auth) return auth.response
@@ -147,7 +120,7 @@ export async function POST(request: NextRequest) {
         return permissionCheck.response
       }
 
-      const resultIndicators = await upsertIndicators({
+      const resultIndicators = await createIndicators({
         indicators,
         workspaceId,
         userId: auth.userId,
@@ -158,10 +131,10 @@ export async function POST(request: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid indicators data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
 
-        const workspaceError = validationError.errors.find(
+        const workspaceError = validationError.issues.find(
           (err) => err.path.length === 1 && err.path[0] === 'workspaceId'
         )
         if (workspaceError) {
@@ -169,15 +142,17 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }
       throw validationError
     }
   } catch (error) {
-    logger.error(`[${requestId}] Error updating indicators`, error)
-    return NextResponse.json({ error: 'Failed to update indicators' }, { status: 500 })
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
+    logger.error(`[${requestId}] Error creating indicators`, error)
+    return NextResponse.json({ error: 'Failed to create indicators' }, { status: 500 })
   }
 }
 
@@ -222,25 +197,17 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const [existingIndicator] = await db
-      .select({ id: pineIndicators.id })
-      .from(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      .limit(1)
-
-    if (!existingIndicator) {
+    const deleted = await deleteSavedEntity('indicator', indicatorId, workspaceId)
+    if (!deleted) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await deleteYjsSessionInSocketServer(indicatorId)
-    await db
-      .delete(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error deleting indicator`, error)
     return NextResponse.json({ error: 'Failed to delete indicator' }, { status: 500 })
   }

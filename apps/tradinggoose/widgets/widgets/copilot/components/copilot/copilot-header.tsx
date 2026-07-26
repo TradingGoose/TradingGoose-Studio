@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
-import { useLocale } from 'next-intl'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,9 +24,9 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
-import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { getCopilotStore } from '@/stores/copilot/store'
 import type { CopilotChat } from '@/stores/copilot/types'
 

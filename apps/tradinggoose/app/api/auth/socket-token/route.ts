@@ -5,7 +5,7 @@ import { auth, getSession } from '@/lib/auth'
 export async function POST() {
   try {
     const hdrs = await headers()
-    const session = await getSession(hdrs, { disableCookieCache: true })
+    const session = await getSession(hdrs)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })

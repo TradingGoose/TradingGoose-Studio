@@ -1,30 +1,22 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { LayoutList } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { shallow } from 'zustand/shallow'
+import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
-import type { PairColor } from '@/widgets/pair-colors'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
+import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DashboardWorkflowCreateMenu } from '@/widgets/widgets/list_workflow/components/workflow-create-menu'
-import { FolderTree } from './components/folder-tree/folder-tree'
-
-const WORKFLOW_LIST_WORKFLOW_CREATED_EVENT = 'dashboard-workflow-list:workflow-created'
-
-type WorkflowListWorkflowCreatedDetail = {
-  workspaceId: string
-  workflowId: string
-}
+import { workflowListWidgetContract } from '@/widgets/widgets/list_workflow/contract'
+import { FolderTree, type WorkflowListEntry } from './components/folder-tree/folder-tree'
 
 const WidgetMessage = ({ message }: { message: string }) => (
   <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
@@ -33,186 +25,49 @@ const WidgetMessage = ({ message }: { message: string }) => (
 )
 
 const WorkflowListWidgetBody = ({
+  channelId,
   context,
-  pairColor = 'gray',
-  widget,
-  onWidgetParamsChange,
+  params,
+  onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowList
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
-  const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
-  const selectionChannelId = isLinkedToColorPair
-    ? `pair-${resolvedPairColor}`
-    : WORKSPACE_BOOTSTRAP_CHANNEL
-  const { workflows, metadataHydrationPhase, loadWorkflows, createWorkflow, activeWorkflowId } =
-    useWorkflowRegistry(
-      (state) => ({
-        workflows: state.workflows,
-        metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
-        loadWorkflows: state.loadWorkflows,
-        createWorkflow: state.createWorkflow,
-        activeWorkflowId: state.getActiveWorkflowId(selectionChannelId),
-      }),
-      shallow
-    )
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { resolvedWorkflowId: selectedWorkflowId } = useWorkflowWidgetState({
+    workspaceId: workspaceId ?? undefined,
+    params,
+  })
+  const { members, isLoading, error } = useEntityList('workflow', workspaceId)
+  const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
-  const setPairContext = useSetPairColorContext()
-  const isLoading = metadataHydrationPhase === 'metadata-loading'
-  const paramsWorkflowId = useMemo(() => {
-    if (isLinkedToColorPair) return null
-    if (!widget || !widget.params || typeof widget.params !== 'object') return null
-    if (!('workflowId' in widget.params)) return null
-    const value = widget.params.workflowId
-    return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [isLinkedToColorPair, widget?.params])
 
-  useEffect(() => {
-    if (!paramsWorkflowId) return
-    if (paramsWorkflowId === selectedWorkflowId) return
-    setSelectedWorkflowId(paramsWorkflowId)
-  }, [paramsWorkflowId, selectedWorkflowId])
+  // Workflows list newest-first; the projection's canonical name order is a
+  // deterministic base, not the workflow list's presentation order.
+  const regularWorkflows = useMemo<WorkflowListEntry[]>(
+    () =>
+      workspaceId
+        ? [...members]
+            .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+            .map((member) => {
+              return {
+                id: member.entityId,
+                name: member.entityName,
+                description: member.entityDescription ?? '',
+                color: getEntityIconColor(member.entityId, member.color),
+                workspaceId,
+                folderId: member.folderId ?? null,
+              }
+            })
+        : [],
+    [members, workspaceId]
+  )
 
-  const workspaceHasWorkflows = useMemo(() => {
-    if (!workspaceId) {
-      return false
-    }
-    return Object.values(workflows ?? {}).some((workflow) => workflow?.workspaceId === workspaceId)
-  }, [workflows, workspaceId])
-
-  useEffect(() => {
-    if (!workspaceId) {
-      setLoadError(null)
-      setHasRequestedLoad(false)
-      return
-    }
-
-    if (workspaceHasWorkflows) {
-      setLoadError(null)
-      return
-    }
-
-    let cancelled = false
-    setLoadError(null)
-    setHasRequestedLoad(true)
-
-    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
-      if (!cancelled) {
-        console.error('Failed to load workflows for dashboard workflow list widget', error)
-        setLoadError(copy.body.unableToLoadWorkflows)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [workspaceId, workspaceHasWorkflows, loadWorkflows, metadataChannelId])
-
-  const hasInitialized = useMemo(() => {
-    if (!workspaceId) {
-      return true
-    }
-    if (workspaceHasWorkflows || Boolean(loadError)) {
-      return true
-    }
-    return hasRequestedLoad && !isLoading
-  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, isLoading])
-
-  const { regularWorkflows, marketplaceWorkflows } = useMemo(() => {
-    const regular: WorkflowMetadata[] = []
-    const marketplace: WorkflowMetadata[] = []
-
-    if (!workspaceId) {
-      return { regularWorkflows: regular, marketplaceWorkflows: marketplace }
-    }
-
-    const sortByCreatedAt = (a: WorkflowMetadata, b: WorkflowMetadata) =>
-      b.createdAt.getTime() - a.createdAt.getTime()
-
-    Object.values(workflows ?? {}).forEach((workflow) => {
-      if (!workflow || workflow.workspaceId !== workspaceId) {
-        return
-      }
-
-      if (workflow.marketplaceData?.status === 'temp') {
-        marketplace.push(workflow)
-      } else {
-        regular.push(workflow)
-      }
-    })
-
-    regular.sort(sortByCreatedAt)
-    marketplace.sort(sortByCreatedAt)
-
-    return { regularWorkflows: regular, marketplaceWorkflows: marketplace }
-  }, [workflows, workspaceId])
-
-  useEffect(() => {
-    if (!selectedWorkflowId) {
-      return
-    }
-
-    if (paramsWorkflowId && selectedWorkflowId === paramsWorkflowId) {
-      return
-    }
-
-    if (!regularWorkflows.some((w) => w.id === selectedWorkflowId)) {
-      setSelectedWorkflowId(null)
-    }
-  }, [selectedWorkflowId, regularWorkflows, paramsWorkflowId])
-
-  useEffect(() => {
-    if (!workspaceId) {
-      return
-    }
-
-    const handler = (event: Event) => {
-      const customEvent = event as CustomEvent<WorkflowListWorkflowCreatedDetail>
-      const detail = customEvent.detail
-      if (!detail || detail.workspaceId !== workspaceId || !detail.workflowId) {
-        return
-      }
-      setSelectedWorkflowId(detail.workflowId)
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { workflowId: detail.workflowId })
-      } else {
-        onWidgetParamsChange?.({ workflowId: detail.workflowId })
-      }
-    }
-
-    window.addEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
-    return () => {
-      window.removeEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
-    }
-  }, [
-    workspaceId,
-    resolvedPairColor,
-    isLinkedToColorPair,
-    setPairContext,
-    setSelectedWorkflowId,
-    onWidgetParamsChange,
-  ])
-
-  const effectiveActiveWorkflowId = useMemo(() => {
-    if (selectedWorkflowId) {
-      return selectedWorkflowId
-    }
-
-    if (!workspaceId) {
-      return null
-    }
-
-    if (activeWorkflowId && workflows?.[activeWorkflowId]?.workspaceId === workspaceId) {
-      return activeWorkflowId
-    }
-
-    return regularWorkflows[0]?.id ?? null
-  }, [selectedWorkflowId, activeWorkflowId, regularWorkflows, workspaceId, workflows])
+  const selectWorkflowId = useCallback(
+    (workflowId: string) => {
+      onWidgetLinkedParamsPatch?.({ workflowId })
+    },
+    [onWidgetLinkedParamsPatch]
+  )
+  const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
@@ -231,49 +86,33 @@ const WorkflowListWidgetBody = ({
           folderId: folderId ?? undefined,
         })
         const createdId = newWorkflowId ?? null
-        setSelectedWorkflowId(createdId)
-        if (createdId && isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { workflowId: createdId })
-        } else if (createdId) {
-          onWidgetParamsChange?.({ workflowId: createdId })
+        if (createdId) {
+          selectWorkflowIdWhenListed(createdId)
         }
         return createdId
       } finally {
         setIsCreatingWorkflow(false)
       }
     },
-    [
-      workspaceId,
-      createWorkflow,
-      isCreatingWorkflow,
-      resolvedPairColor,
-      isLinkedToColorPair,
-      setPairContext,
-      onWidgetParamsChange,
-    ]
+    [workspaceId, createWorkflow, isCreatingWorkflow, selectWorkflowIdWhenListed]
   )
 
   const handleWorkflowSelect = useCallback(
-    (workflow: WorkflowMetadata) => {
-      setSelectedWorkflowId(workflow.id)
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { workflowId: workflow.id })
-      } else {
-        onWidgetParamsChange?.({ workflowId: workflow.id })
-      }
+    (workflow: WorkflowListEntry) => {
+      selectWorkflowIdWhenListed(workflow.id)
     },
-    [resolvedPairColor, isLinkedToColorPair, setPairContext, onWidgetParamsChange]
+    [selectWorkflowIdWhenListed]
   )
 
   if (!workspaceId) {
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
-  if (loadError) {
-    return <WidgetMessage message={loadError} />
+  if (error && regularWorkflows.length === 0) {
+    return <WidgetMessage message={error} />
   }
 
-  if (!hasInitialized) {
+  if (isLoading && regularWorkflows.length === 0) {
     return (
       <div className='flex h-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -282,20 +121,19 @@ const WorkflowListWidgetBody = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <WorkflowRouteProvider
         workspaceId={workspaceId}
-        workflowId={effectiveActiveWorkflowId ?? 'dashboard-workflow-list'}
-        channelId='dashboard-workflow-list'
+        workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
+        channelId={channelId}
       >
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree
             regularWorkflows={regularWorkflows}
-            marketplaceWorkflows={marketplaceWorkflows}
-            isLoading={isLoading || !hasInitialized}
+            isLoading={isLoading}
             onCreateWorkflow={handleCreateWorkflow}
             workspaceIdOverride={workspaceId}
-            workflowIdOverride={effectiveActiveWorkflowId}
+            workflowIdOverride={selectedWorkflowId}
             onWorkflowSelect={handleWorkflowSelect}
             disableNavigation
           />
@@ -306,11 +144,8 @@ const WorkflowListWidgetBody = ({
 }
 
 export const workflowListWidget: DashboardWidgetDefinition = {
-  key: 'workflow_list',
-  title: 'Workflow List',
+  contract: workflowListWidgetContract,
   icon: LayoutList,
-  category: 'list',
-  description: 'Full folder tree with drag-and-drop, identical to the workspace sidebar.',
   component: (props) => <WorkflowListWidgetBody {...props} />,
   renderHeader: ({ context }) => ({
     right: <WorkflowListHeaderRight workspaceId={context?.workspaceId} />,
@@ -318,32 +153,31 @@ export const workflowListWidget: DashboardWidgetDefinition = {
 }
 
 const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowList
-  const handleWorkflowCreated = useCallback(
+  const { members } = useEntityList('workflow', workspaceId)
+  const actions = useWidgetConfigRuntimeActions()
+  const selectWorkflowId = useCallback(
     (workflowId: string) => {
-      if (!workspaceId || !workflowId) {
+      if (!workflowId) {
         return
       }
-      window.dispatchEvent(
-        new CustomEvent<WorkflowListWorkflowCreatedDetail>(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, {
-          detail: { workspaceId, workflowId },
-        })
-      )
+      actions.patchWidgetLinkedParams?.({ workflowId })
     },
-    [workspaceId]
+    [actions]
   )
+  const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}
-          onWorkflowCreated={handleWorkflowCreated}
+          existingWorkflowNames={members.map((member) => member.entityName)}
+          onWorkflowCreated={selectWorkflowIdWhenListed}
         />
       </div>
     </WorkspacePermissionsProvider>

@@ -2,18 +2,17 @@
 
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
   type WorkspacePermissions,
 } from '@/hooks/use-workspace-permissions'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('WorkspacePermissionsProvider')
 const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
-const AUTH_ERROR_PATTERNS = ['authentication required', 'failed to get session']
 
 interface WorkspacePermissionsContextType {
   workspacePermissions: WorkspacePermissions | null
@@ -25,43 +24,47 @@ interface WorkspacePermissionsContextType {
   setOfflineMode: (isOffline: boolean) => void
 }
 
-const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextType>({
-  workspacePermissions: null,
-  permissionsLoading: false,
-  permissionsError: null,
-  updatePermissions: () => {},
-  refetchPermissions: async () => {},
-  userPermissions: {
-    canRead: false,
-    canEdit: false,
-    canAdmin: false,
-    userPermissions: 'read',
-    isLoading: false,
-    error: null,
-  },
-  setOfflineMode: () => {},
-})
+const WorkspaceAuthenticatedUserContext = createContext<string | null>(null)
+const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextType | null>(null)
 
-interface WorkspacePermissionsProviderProps {
+type WorkspacePermissionsProviderProps = {
   children: React.ReactNode
-  workspaceId?: string
+  workspaceId: string
+} & ({ userId: string; inheritUser?: never } | { inheritUser: true; userId?: never })
+
+export function WorkspacePermissionsProvider(props: WorkspacePermissionsProviderProps) {
+  const { children, workspaceId } = props
+  const inheritedUserId = useContext(WorkspaceAuthenticatedUserContext)
+  const workspaceUserId = props.userId ?? inheritedUserId
+
+  if (!workspaceUserId) {
+    throw new Error(
+      'WorkspacePermissionsProvider requires userId or inheritUser inside an existing WorkspacePermissionsProvider'
+    )
+  }
+
+  return (
+    <WorkspacePermissionsProviderInner workspaceId={workspaceId} userId={workspaceUserId}>
+      {children}
+    </WorkspacePermissionsProviderInner>
+  )
 }
 
-export function WorkspacePermissionsProvider({
+function WorkspacePermissionsProviderInner({
   children,
-  workspaceId: workspaceIdProp,
-}: WorkspacePermissionsProviderProps) {
-  const params = useParams()
+  workspaceId,
+  userId,
+}: {
+  children: React.ReactNode
+  workspaceId: string
+  userId: string
+}) {
   const router = useRouter()
-  const pathname = usePathname()
-  const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
-  const [hasRedirected, setHasRedirected] = useState(false)
-
-  useEffect(() => {
-    setHasRedirected(false)
-  }, [workspaceId])
+  const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
+  const accessKey = `${userId}:${workspaceId}`
+  const hasRedirected = redirectedAccessKey === accessKey
 
   const {
     permissions: workspacePermissions,
@@ -69,7 +72,7 @@ export function WorkspacePermissionsProvider({
     error: permissionsError,
     updatePermissions,
     refetch: refetchPermissions,
-  } = useWorkspacePermissions(workspaceId)
+  } = useWorkspacePermissions(workspaceId, userId)
 
   const baseUserPermissions = useUserPermissions(
     workspacePermissions,
@@ -115,18 +118,17 @@ export function WorkspacePermissionsProvider({
   )
 
   const combinedError = userPermissions.error || permissionsError
+  const isAuthRecoveryError = isSessionRecoveryAuthError(permissionsError)
   const normalizedError = combinedError?.toLowerCase() ?? ''
   const isAccessDeniedError = normalizedError
     ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
     : false
-  const isAuthError = normalizedError
-    ? AUTH_ERROR_PATTERNS.some((pattern) => normalizedError.includes(pattern))
-    : false
   const shouldTriggerRedirect = Boolean(
     workspaceId &&
+      !isAuthRecoveryError &&
       !permissionsLoading &&
       !userPermissions.isLoading &&
-      (isAuthError || isAccessDeniedError || !userPermissions.canRead)
+      (isAccessDeniedError || !userPermissions.canRead)
   )
 
   useEffect(() => {
@@ -134,35 +136,22 @@ export function WorkspacePermissionsProvider({
       return
     }
 
-    if (isAuthError) {
-      const callbackTarget =
-        typeof window === 'undefined'
-          ? `/workspace/${workspaceId}/dashboard`
-          : `${pathname ?? `/workspace/${workspaceId}/dashboard`}${window.location.search}`
-
-      setHasRedirected(true)
-      logger.warn('Redirecting unauthenticated user from protected workspace route', {
-        workspaceId,
-        error: combinedError ?? 'missing session',
-      })
-      router.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
-      return
-    }
-
-    setHasRedirected(true)
+    setRedirectedAccessKey(accessKey)
     logger.warn('Redirecting user without workspace access', {
       workspaceId,
       error: combinedError ?? 'missing read permissions',
     })
     router.replace('/workspace')
-  }, [combinedError, hasRedirected, isAuthError, pathname, router, shouldTriggerRedirect, workspaceId])
+  }, [accessKey, combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
 
-  const shouldBlockRender = hasRedirected || shouldTriggerRedirect
+  const shouldBlockRender = isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
 
   return (
-    <WorkspacePermissionsContext.Provider value={contextValue}>
-      {shouldBlockRender ? null : children}
-    </WorkspacePermissionsContext.Provider>
+    <WorkspaceAuthenticatedUserContext.Provider value={userId}>
+      <WorkspacePermissionsContext.Provider value={contextValue}>
+        {shouldBlockRender ? null : children}
+      </WorkspacePermissionsContext.Provider>
+    </WorkspaceAuthenticatedUserContext.Provider>
   )
 }
 

@@ -1,25 +1,37 @@
 import type { ChatContext } from '@/stores/copilot/types'
-import {
-  COPILOT_WORKSPACE_ENTITY_CONFIGS,
-  readCopilotWorkspaceEntityContext,
-} from '@/widgets/widgets/copilot/workspace-entities'
+import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>(
-  COPILOT_WORKSPACE_ENTITY_CONFIGS.map(
-    (config) => `current_${config.entityKind}` as ChatContext['kind']
-  )
-)
+const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>([
+  'current_workflow',
+  'current_skill',
+  'current_custom_tool',
+  'current_indicator',
+  'current_mcp_server',
+  'current_watchlist',
+  'current_dashboard_layout',
+])
 
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
 ): boolean => Boolean(context && HIDDEN_COPILOT_CONTEXT_KINDS.has(context.kind))
 
-export const extractExplicitCopilotContexts = (
+const extractExplicitCopilotContexts = (
   contexts: ChatContext[] | null | undefined
 ): ChatContext[] =>
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
 
-const buildContextIdentityKey = (context: ChatContext): string => {
+export type CopilotContextMentionRange = {
+  start: number
+  end: number
+  label: string
+  contextKey: string
+  context: ChatContext
+}
+
+export const isCopilotMentionBoundary = (char: string | undefined): boolean =>
+  !char || /\s/u.test(char) || (/[\p{P}\p{S}]/u.test(char) && !/[-_@]/u.test(char))
+
+export const buildCopilotContextIdentityKey = (context: ChatContext): string => {
   const getContextReviewIdentity = () =>
     ('reviewSessionId' in context ? context.reviewSessionId : undefined) ??
     ('draftSessionId' in context ? context.draftSessionId : undefined) ??
@@ -27,6 +39,12 @@ const buildContextIdentityKey = (context: ChatContext): string => {
 
   const entityContext = readCopilotWorkspaceEntityContext(context)
   if (entityContext) {
+    if (entityContext.entityKind === 'dashboard_layout') {
+      if (!entityContext.ownerUserId || !entityContext.entityId) {
+        throw new Error('Dashboard layout context requires ownerUserId and dashboardLayoutId')
+      }
+      return `dashboard_layout:${entityContext.ownerUserId}:${entityContext.entityId}`
+    }
     return `${entityContext.entityKind}:${entityContext.entityId ?? getContextReviewIdentity()}`
   }
 
@@ -39,10 +57,8 @@ const buildContextIdentityKey = (context: ChatContext): string => {
       return `blocks:${[...(context.blockTypes ?? [])].sort().join(',')}`
     case 'knowledge':
       return `knowledge:${context.knowledgeId ?? context.label}`
-    case 'templates':
-      return `templates:${context.templateId ?? context.label}`
     case 'docs':
-      return `docs:${context.label}`
+      return 'docs'
     case 'logs':
       return `logs:${context.executionId ?? context.label}`
   }
@@ -50,10 +66,84 @@ const buildContextIdentityKey = (context: ChatContext): string => {
   return context.label
 }
 
+export function buildCopilotContextMentionRanges(
+  text: string,
+  contexts: ChatContext[] | null | undefined
+): CopilotContextMentionRange[] {
+  if (!text) return []
+
+  const contextsByLabel = new Map<string, { firstContextIndex: number; contexts: ChatContext[] }>()
+
+  for (const [contextIndex, context] of extractExplicitCopilotContexts(contexts).entries()) {
+    const label = context.label?.trim()
+    if (!label) continue
+
+    const group = contextsByLabel.get(label)
+    if (group) {
+      group.contexts.push(context)
+    } else {
+      contextsByLabel.set(label, { firstContextIndex: contextIndex, contexts: [context] })
+    }
+  }
+
+  const ranges: CopilotContextMentionRange[] = []
+  const labelGroups = [...contextsByLabel.entries()].sort(
+    ([leftLabel, left], [rightLabel, right]) =>
+      rightLabel.length - leftLabel.length || left.firstContextIndex - right.firstContextIndex
+  )
+
+  for (const [label, group] of labelGroups) {
+    const token = `@${label}`
+    let fromIndex = 0
+    let contextIndex = 0
+
+    while (fromIndex <= text.length) {
+      const start = text.indexOf(token, fromIndex)
+      if (start === -1) break
+
+      const end = start + token.length
+      const hasBoundary =
+        isCopilotMentionBoundary(text[start - 1]) && isCopilotMentionBoundary(text[end])
+      const overlapsLongerToken = ranges.some((range) => start < range.end && end > range.start)
+
+      if (hasBoundary && !overlapsLongerToken) {
+        const context = group.contexts[Math.min(contextIndex, group.contexts.length - 1)]
+        ranges.push({
+          start,
+          end,
+          label,
+          contextKey: buildCopilotContextIdentityKey(context),
+          context,
+        })
+        contextIndex = Math.min(contextIndex + 1, group.contexts.length - 1)
+      }
+
+      fromIndex = end
+    }
+  }
+
+  return ranges.sort((left, right) => left.start - right.start)
+}
+
+export function replaceCopilotWorkspaceEntityMentionsWithIds(
+  message: string,
+  contexts: ChatContext[] | null | undefined
+): string {
+  const ranges = buildCopilotContextMentionRanges(message, contexts).filter(
+    (range) => readCopilotWorkspaceEntityContext(range.context)?.entityId
+  )
+  if (ranges.length === 0) return message
+
+  return [...ranges].reverse().reduce((text, range) => {
+    const entityId = readCopilotWorkspaceEntityContext(range.context)?.entityId
+    return entityId ? `${text.slice(0, range.start)}@${entityId}${text.slice(range.end)}` : text
+  }, message)
+}
+
 const dedupeCopilotContexts = (contexts: ChatContext[]): ChatContext[] => {
   const seen = new Set<string>()
   return contexts.filter((context) => {
-    const key = buildContextIdentityKey(context)
+    const key = buildCopilotContextIdentityKey(context)
     if (seen.has(key)) {
       return false
     }
@@ -70,28 +160,14 @@ export const mergeCopilotContexts = ({
   implicitContexts?: ChatContext[] | null
 }): ChatContext[] => {
   const explicit = dedupeCopilotContexts(extractExplicitCopilotContexts(explicitContexts))
-  const explicitKeys = new Set(explicit.map(buildContextIdentityKey))
+  const explicitKeys = new Set(explicit.map(buildCopilotContextIdentityKey))
   const implicit = dedupeCopilotContexts(
     Array.isArray(implicitContexts)
-      ? implicitContexts.filter((context) => !explicitKeys.has(buildContextIdentityKey(context)))
+      ? implicitContexts.filter(
+          (context) => !explicitKeys.has(buildCopilotContextIdentityKey(context))
+        )
       : []
   )
 
   return [...explicit, ...implicit]
-}
-
-export const areCopilotContextsEqual = (
-  left: ChatContext[] | null | undefined,
-  right: ChatContext[] | null | undefined
-): boolean => {
-  const leftContexts = Array.isArray(left) ? left : []
-  const rightContexts = Array.isArray(right) ? right : []
-
-  if (leftContexts.length !== rightContexts.length) {
-    return false
-  }
-
-  return leftContexts.every(
-    (context, index) => JSON.stringify(context) === JSON.stringify(rightContexts[index])
-  )
 }

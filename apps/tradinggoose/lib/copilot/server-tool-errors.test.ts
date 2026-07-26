@@ -1,47 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import {
-  buildCopilotServerToolErrorResponse,
-  StructuredServerToolError,
-} from '@/lib/copilot/server-tool-errors'
+import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
+import { WatchlistDocumentError } from '@/lib/watchlists/validation'
+import { createDashboardLayoutValidationError } from '@/widgets/layout-document'
+import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 describe('copilot server tool errors', () => {
-  it('maps malformed workflow document errors to repairable 422 responses', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'edit_workflow',
-      new Error('Workflow document did not contain any TG_BLOCK entries')
-    )
-
-    expect(response).toEqual({
-      status: 422,
-      body: expect.objectContaining({
-        code: 'invalid_workflow_document_missing_blocks',
-        retryable: true,
-      }),
-    })
-    expect(response.body.error).toContain('standalone `%% TG_BLOCK')
-    expect(response.body.hint).toContain('Do not embed `TG_BLOCK` JSON inside node labels')
-  })
-
-  it('returns container and condition repair guidance for workflow edge mismatches', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'edit_workflow',
-      new Error(
-        'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges.'
-      )
-    )
-
-    expect(response).toEqual({
-      status: 422,
-      body: expect.objectContaining({
-        code: 'invalid_workflow_document_edge_mismatch',
-        retryable: true,
-      }),
-    })
-    expect(response.body.hint).toContain('container subgraphs')
-    expect(response.body.hint).toContain('condition blocks')
-  })
-
   it('returns container repair guidance for invalid canonical container edge handles', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_workflow',
@@ -64,7 +28,7 @@ describe('copilot server tool errors', () => {
         ],
       }),
     })
-    expect(response.body.hint).toContain('targetHandle "target"')
+    expect(response.body.hint).toContain('connect outer edges')
   })
 
   it('preserves embedded workflow sub-block paths in structured edit errors', () => {
@@ -90,38 +54,87 @@ describe('copilot server tool errors', () => {
     })
   })
 
-  it('falls back to a generic 500 payload for unknown tool failures', () => {
+  it('returns explicit removal guidance for omitted workflow blocks', () => {
     const response = buildCopilotServerToolErrorResponse(
-      'make_api_request',
-      new Error('socket hang up')
+      'edit_workflow',
+      new Error(
+        'Invalid edited workflow: Existing block ids omitted from edit_workflow entityDocument without removedBlockIds: fn1.'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_state',
+        retryable: true,
+      }),
+    })
+    expect(response.body.hint).toContain('removedBlockIds')
+  })
+
+  it('returns retryable graph-document guidance for malformed edit workflow Mermaid', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error('Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.')
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_graph_document',
+        retryable: true,
+        issues: [
+          {
+            path: 'entityDocument',
+            message: 'Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.',
+          },
+        ],
+      }),
+    })
+    expect(response.body.hint).toContain('minimal Mermaid graph')
+  })
+
+  it('falls back to a generic 500 payload for non-structured failures', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_watchlist',
+      new WatchlistDocumentError('Persisted watchlist is corrupt')
+    )
+    const variableResponse = buildCopilotServerToolErrorResponse(
+      'edit_workflow_variable',
+      new Error('Invalid edited workflow variables: Missing removedVariableIds.')
     )
 
     expect(response).toEqual({
       status: 500,
       body: {
         code: 'server_tool_execution_failed',
-        error: 'socket hang up',
+        error: 'Server tool execution failed',
         retryable: false,
       },
     })
+    expect(response.body.error).not.toContain('corrupt')
+    expect(variableResponse.status).toBe(422)
+    expect(variableResponse.body.error).toContain('removedVariableIds')
   })
 
   it('returns a structured 422 payload for tool argument schema failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',
+      // Zod 4 issue shapes: `invalid_type` dropped `received`, and
+      // `invalid_enum_value` became `invalid_value` carrying `values`.
       new z.ZodError([
         {
-          code: z.ZodIssueCode.invalid_type,
+          code: 'invalid_type',
           expected: 'string',
-          received: 'undefined',
+          input: undefined,
           path: ['url'],
           message: 'Required',
         },
         {
-          code: z.ZodIssueCode.invalid_enum_value,
-          options: ['GET', 'POST', 'PUT'],
+          code: 'invalid_value',
+          values: ['GET', 'POST', 'PUT'],
+          input: 'get',
           path: ['method'],
-          received: 'get',
           message: "Invalid enum value. Expected 'GET' | 'POST' | 'PUT', received 'get'",
         },
       ])
@@ -144,28 +157,31 @@ describe('copilot server tool errors', () => {
     )
   })
 
-  it('passes through structured server tool errors without collapsing them to 500', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'search_documentation',
-      new StructuredServerToolError({
-        status: 503,
-        body: {
-          code: 'search_documentation_unavailable',
-          error: 'Documentation search is unavailable because no embedding provider is configured.',
-          hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
-          retryable: false,
-        },
-      })
-    )
+  it.each([
+    [
+      'dashboard layout',
+      'edit_layout',
+      createDashboardLayoutValidationError(
+        'entityDocument.layout',
+        'edit_layout entityDocument requires layout'
+      ),
+      'invalid_dashboard_layout_edit',
+      'tg-dashboard-layout-structure-v3',
+    ],
+    [
+      'widget config',
+      'edit_widget',
+      createWidgetConfigValidationError('colorPair.watchlistId', 'Unknown watchlist id'),
+      'invalid_widget_config',
+      'get_widgets_metadata',
+    ],
+  ])('returns a structured 422 payload for %s failures', (_, toolName, error, code, hint) => {
+    const response = buildCopilotServerToolErrorResponse(toolName, error)
 
     expect(response).toEqual({
-      status: 503,
-      body: {
-        code: 'search_documentation_unavailable',
-        error: 'Documentation search is unavailable because no embedding provider is configured.',
-        hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
-        retryable: false,
-      },
+      status: 422,
+      body: expect.objectContaining({ code, retryable: true, issues: error.issues }),
     })
+    expect(response.body.hint).toContain(hint)
   })
 })

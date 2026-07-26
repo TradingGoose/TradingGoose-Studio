@@ -208,16 +208,17 @@ const renderBody = async (
   container: HTMLDivElement,
   root: Root,
   params: Record<string, unknown>,
-  onWidgetParamsChange = vi.fn()
+  onWidgetParamsPatch = vi.fn()
 ) => {
   await act(async () => {
     root.render(
       <QuickOrderWidgetBody
+        channelId='quick-order-panel-1'
         context={{ workspaceId: 'workspace-1' } as any}
         widget={{ key: 'quick_order' } as any}
         panelId='panel-1'
         params={params}
-        onWidgetParamsChange={onWidgetParamsChange}
+        onWidgetParamsPatch={onWidgetParamsPatch}
       />
     )
   })
@@ -481,7 +482,7 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
-  it('clears invalid providers and stale portfolio identities', async () => {
+  it('normalizes invalid providers and stale portfolio identities for reads', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
       container,
@@ -493,7 +494,13 @@ describe('QuickOrderWidgetBody', () => {
       },
       onInvalidProviderChange
     )
-    expect(onInvalidProviderChange).toHaveBeenCalledWith({ side: 'buy' })
+    expect(onInvalidProviderChange).not.toHaveBeenCalled()
+    expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
+      provider: undefined,
+      serviceId: undefined,
+      portfolioIdentity: undefined,
+    })
 
     await act(async () => {
       root.unmount()
@@ -518,11 +525,7 @@ describe('QuickOrderWidgetBody', () => {
       },
       onIncompleteAccountOptionsChange
     )
-    expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
-      serviceId: 'alpaca-live',
-      provider: 'alpaca',
-      side: 'buy',
-    })
+    expect(onIncompleteAccountOptionsChange).not.toHaveBeenCalled()
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
@@ -662,11 +665,12 @@ describe('QuickOrderWidgetBody', () => {
     await act(async () => {
       root.render(
         <QuickOrderWidgetBody
+          channelId='quick-order-panel-1'
           context={{ workspaceId: 'workspace-1' } as any}
           widget={{ key: 'quick_order' } as any}
           panelId='panel-1'
           params={{ provider: 'alpaca', portfolioIdentity, side: 'buy' }}
-          onWidgetParamsChange={vi.fn()}
+          onWidgetParamsPatch={vi.fn()}
         />
       )
     })

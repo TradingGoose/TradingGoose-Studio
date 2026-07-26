@@ -12,12 +12,12 @@ import {
   type MarketSeriesWindowMode,
   type NormalizationMode,
 } from '@/providers/market/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/contract'
 import {
   DEFAULT_BAR_COUNT,
   DEFAULT_RANGE_PRESETS,
   intervalToMs,
 } from '@/widgets/widgets/data_chart/series-data'
-import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 export const rangeToMs = (range?: MarketSeriesRange) => resolveRangeMs(range)
 

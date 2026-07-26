@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { IChartApi } from 'lightweight-charts'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import { createManualLineToolsAdapterActions } from '@/widgets/widgets/data_chart/drawings/adapter-actions'
 import { createManualLineToolsAttachmentController } from '@/widgets/widgets/data_chart/drawings/adapter-attachment-controller'
 import type {
@@ -19,7 +20,6 @@ import {
 } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
 import { createInlineTextEditorController } from '@/widgets/widgets/data_chart/drawings/inline-text-editor'
 import { createOwnerStateHelpers } from '@/widgets/widgets/data_chart/drawings/owner-state'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 
 export type {

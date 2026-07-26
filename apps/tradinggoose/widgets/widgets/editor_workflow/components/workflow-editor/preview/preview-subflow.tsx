@@ -101,15 +101,10 @@ function PreviewSubflowCard({
 }
 
 function LocalizedPreviewSubflow({ data }: NodeProps<PreviewCanvasSubflowNode>) {
-  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
+  const { workflowEditorCopy: copy } = useWorkflowI18n()
 
   return (
-    <PreviewSubflowCard
-      data={data}
-      title={getLocalizedDefaultBlockName(data.kind, data.name)}
-      startLabel={copy.start}
-      endLabel={copy.end}
-    />
+    <PreviewSubflowCard data={data} title={data.name} startLabel={copy.start} endLabel={copy.end} />
   )
 }
 
@@ -124,7 +119,9 @@ function PrecomputedPreviewSubflow({ data }: NodeProps<PreviewCanvasSubflowNode>
   )
 }
 
-export const PreviewSubflow = memo(function PreviewSubflow(props: NodeProps<PreviewCanvasSubflowNode>) {
+export const PreviewSubflow = memo(function PreviewSubflow(
+  props: NodeProps<PreviewCanvasSubflowNode>
+) {
   return hasPrecomputedPreviewContent(props.data) ? (
     <PrecomputedPreviewSubflow {...props} />
   ) : (

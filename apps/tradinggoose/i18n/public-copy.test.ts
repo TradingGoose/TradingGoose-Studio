@@ -48,6 +48,10 @@ describe('public copy', () => {
     )
     expect(getClientMessages('zh', 'admin')).toHaveProperty('admin.home.badge', '管理员')
     expect(getClientMessages('en', 'admin')).toHaveProperty('registration.open.primary')
+    expect(getClientMessages('es')).toHaveProperty(
+      'workspace.dashboard.layoutPreview.headerAriaLabel',
+      'Panel de control'
+    )
   })
 
   it('keeps zh auth copy translated', () => {
@@ -87,6 +91,15 @@ describe('public copy', () => {
     )
   })
 
+  it('preserves public landing array shapes', () => {
+    const landingCopy = getPublicCopy('en').landing
+
+    expect(Array.isArray(landingCopy.hero.leadWords)).toBe(true)
+    expect(Array.isArray(landingCopy.hero.featureBadges)).toBe(true)
+    expect(Array.isArray(landingCopy.features.rows)).toBe(true)
+    expect(Array.isArray(landingCopy.howItWorks.processes)).toBe(true)
+  })
+
   it('includes localized blog and not found copy', () => {
     expect(getPublicCopy('en').blog.shareTitle).toBe('Share This Article')
     expect(getPublicCopy('es').blog.tableOfContents).toBe('En esta página')
@@ -116,9 +129,7 @@ describe('public copy', () => {
     const zhCopilot = getPublicCopy('zh').workspace.widgets.copilot
 
     expect(enCopilot.welcome.cards.reviewChangesSafely.title).toBe('Review changes safely')
-    expect(esCopilot.welcome.cards.reviewChangesSafely.title).toBe(
-      'Revisar cambios con seguridad'
-    )
+    expect(esCopilot.welcome.cards.reviewChangesSafely.title).toBe('Revisar cambios con seguridad')
     expect(zhCopilot.input.attachFile).toBe('附加文件')
     expect(esCopilot.message.copy).toBe('Copiar')
     expect(zhCopilot.message.sources).toBe('来源：')
@@ -153,6 +164,9 @@ describe('public copy', () => {
       getPublicCopy('en').auth.common.verifyEmail
     )
     expect(getPublicCopy('en').auth.common.loading).toBe('Loading...')
+    expect(getPublicCopy('en').auth.mcp.approved.title).toBe('Personal API key approved')
+    expect(getPublicCopy('es').auth.mcp.approved.title).toBe('Clave API personal aprobada')
+    expect(getPublicCopy('zh').auth.mcp.approved.title).toBe('个人 API 密钥已批准')
   })
 
   it('includes localized verification screen copy', () => {
@@ -208,8 +222,6 @@ describe('public copy', () => {
       getPublicCopy('zh').workspace.widgets.blockEditor.blockLongDescriptions.stagehand_agent
     ).toContain('浏览网页并执行任务')
     expect(getPublicCopy('en').workspace.knowledge.title).toBe('Knowledge')
-    expect(getPublicCopy('en').workspace.templates.title).toBe('Templates')
-    expect(getPublicCopy('es').workspace.templates.sections.your).toBe('Tus plantillas')
     expect(getPublicCopy('zh').workspace.layoutTabs.renameAriaLabel).toContain('{name}')
     expect(getPublicCopy('zh').workspace.logs.title.logs).toBe('日志')
     expect(getPublicCopy('en').workspace.widgets.selector.selectWidget).toBe('Select widget')
@@ -253,9 +265,6 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.widgets.workflowVariables.unableToLoadWorkflows).toBe(
       'Unable to load workflows'
     )
-    expect(
-      getPublicCopy('es').workspace.widgets.workflowVariables.authenticationRequiredToLoadWorkflows
-    ).toContain('autenticación')
     expect(getPublicCopy('zh').workspace.widgets.workflowEditor.whileConditionPlaceholder).toBe(
       '<counter.value> < 10'
     )
@@ -275,9 +284,6 @@ describe('public copy', () => {
       '{used} of {total} tag slots used'
     )
     expect(getPublicCopy('zh').workspace.widgets.workflowVariables.addVariable).toBe('添加变量')
-    expect(getPublicCopy('en').workspace.widgets.blockEditor.templateModal.title.publish).toBe(
-      'Publish Template'
-    )
     expect(getPublicCopy('en').workspace.widgets.blockEditor.dropdown.failedToFetchOptions).toBe(
       'Failed to fetch options'
     )
@@ -586,6 +592,15 @@ describe('public copy', () => {
 
       expect(Object.keys(widgets.workflowLabels).every((key) => !key.includes('.'))).toBe(true)
     }
+  })
+
+  it('keeps locale catalog shapes aligned after catalog additions or removals', () => {
+    const enCopy = getPublicCopy('en')
+    const esCopy = getPublicCopy('es')
+    const zhCopy = getPublicCopy('zh')
+
+    expect(normalizeShape(esCopy)).toEqual(normalizeShape(enCopy))
+    expect(normalizeShape(zhCopy)).toEqual(normalizeShape(enCopy))
   })
 
   it('formats template placeholders', () => {

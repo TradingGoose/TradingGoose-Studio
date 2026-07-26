@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, ToolCase, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
+import type { SkillDefinition } from '@/lib/skills/types'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import type { SkillDefinition } from '@/stores/skills/types'
 
 interface SkillListItemProps {
   skill: SkillDefinition
@@ -25,6 +25,7 @@ interface SkillListItemProps {
   onDelete: (skillId: string) => Promise<void>
   onRename: (skillId: string, name: string) => Promise<void>
   canEdit: boolean
+  canDelete?: boolean
   isDeleting?: boolean
 }
 
@@ -35,6 +36,7 @@ export function SkillListItem({
   onDelete,
   onRename,
   canEdit,
+  canDelete = true,
   isDeleting = false,
 }: SkillListItemProps) {
   const locale = useLocale()
@@ -46,6 +48,7 @@ export function SkillListItem({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const nameLabel = skill.name || copy.untitledSkill
+  const iconColor = getEntityIconColor(skill.id)
 
   useEffect(() => {
     setEditValue(skill.name)
@@ -104,7 +107,7 @@ export function SkillListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting) return
+    if (isDeleting || !canDelete) return
     try {
       await onDelete(skill.id)
       setShowDeleteDialog(false)
@@ -178,10 +181,11 @@ export function SkillListItem({
           draggable={false}
         >
           <span
-            className='flex h-5 w-5 items-center justify-center rounded-xs bg-emerald-500/15 p-0.5'
+            className='flex h-5 w-5 items-center justify-center rounded-xs p-0.5'
+            style={{ backgroundColor: `${iconColor}20` }}
             aria-hidden='true'
           >
-            <ToolCase className='h-full text-emerald-600' aria-hidden='true' />
+            <ToolCase className='h-full' style={{ color: iconColor }} aria-hidden='true' />
           </span>
           {interactiveChildren}
         </button>
@@ -202,16 +206,18 @@ export function SkillListItem({
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameSkill}</span>
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={isDeleting}
-              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
-            >
-              <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>{copy.deleteSkill}</span>
-            </Button>
+            {canDelete && (
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
+              >
+                <Trash2 className='!h-3.5 !w-3.5' />
+                <span className='sr-only'>{copy.deleteSkill}</span>
+              </Button>
+            )}
           </div>
         )}
       </div>

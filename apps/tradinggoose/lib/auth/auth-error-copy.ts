@@ -3,6 +3,7 @@ import {
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
 import type { PublicCopy } from '@/i18n/public-copy'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 export interface AuthErrorAction {
   href: string
@@ -18,11 +19,14 @@ export interface AuthErrorContent {
 
 type AuthErrorGroupKey = keyof PublicCopy['auth']['error']['groups']
 
-const LOGIN_HREF = '/login?reauth=1'
+const LOGIN_HREF = '/login'
+const REAUTH_LOGIN_HREF = '/login?reauth=1'
 const SIGNUP_HREF = '/signup'
 const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'
 const WAITLIST_HREF = '/waitlist'
+const AUTH_ERROR_CALLBACK_SEGMENT = 'callback'
+type SsoErrorCopyKey = keyof PublicCopy['auth']['sso']['errors']
 
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
@@ -37,11 +41,16 @@ const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   CALLBACK_URL_REQUIRED: 'invalidCallback',
   INVALID_TOKEN: 'invalidToken',
   TOKEN_EXPIRED: 'expiredToken',
+  UNABLE_TO_CREATE_SESSION: 'sessionCreation',
   FAILED_TO_CREATE_SESSION: 'sessionCreation',
   FAILED_TO_GET_SESSION: 'sessionRestore',
   SESSION_EXPIRED: 'sessionExpired',
+  ACCOUNT_NOT_FOUND: 'userInfo',
+  SSO_FAILED: 'userInfo',
   FAILED_TO_GET_USER_INFO: 'userInfo',
   USER_EMAIL_NOT_FOUND: 'userInfo',
+  INVALID_PROVIDER: 'providerUnavailable',
+  NO_PROVIDER_FOUND: 'providerUnavailable',
   PROVIDER_NOT_FOUND: 'providerUnavailable',
   SOCIAL_ACCOUNT_ALREADY_LINKED: 'linkedAccount',
   LINKED_ACCOUNT_ALREADY_EXISTS: 'linkedAccount',
@@ -50,6 +59,18 @@ const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   EMAIL_AND_PASSWORD_SIGN_IN_IS_NOT_ENABLED: 'providerUnavailable',
   EMAIL_AND_PASSWORD_SIGN_UP_IS_NOT_ENABLED: 'accountCreation',
   EMAIL_PASSWORD_DISABLED: 'providerUnavailable',
+}
+
+const SSO_ERROR_COPY_BY_CODE: Partial<Record<string, SsoErrorCopyKey>> = {
+  ACCOUNT_NOT_FOUND: 'accountNotFound',
+  SSO_FAILED: 'ssoFailed',
+  INVALID_PROVIDER: 'providerNotConfigured',
+  NO_PROVIDER_FOUND: 'providerNotConfigured',
+  INVALID_EMAIL_DOMAIN: 'invalidEmailDomain',
+  NETWORK_ERROR: 'network',
+  RATE_LIMIT: 'rateLimit',
+  TOO_MANY_REQUESTS: 'rateLimit',
+  SSO_DISABLED: 'ssoDisabled',
 }
 
 export function normalizeAuthErrorCode(error: string | null | undefined) {
@@ -66,14 +87,55 @@ export function normalizeAuthErrorCode(error: string | null | undefined) {
   return normalized || null
 }
 
-function getAuthErrorActionCopy(localeCopy: PublicCopy) {
+export function getAuthErrorCallbackPath(value: string | null | undefined) {
+  const callback = normalizeCallbackUrl(value)
+  if (!callback) {
+    return null
+  }
+
+  const encoded = btoa(encodeURIComponent(callback))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/g, '')
+  return `/error/${AUTH_ERROR_CALLBACK_SEGMENT}/${encoded}`
+}
+
+export function normalizeAuthErrorCallbackSegments(value: string[] | undefined) {
+  if (!value || value.length !== 2 || value[0] !== AUTH_ERROR_CALLBACK_SEGMENT) {
+    return null
+  }
+
+  try {
+    const base64 = value[1].replaceAll('-', '+').replaceAll('_', '/')
+    const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+
+    return normalizeCallbackUrl(decodeURIComponent(atob(paddedBase64)))
+  } catch {
+    return null
+  }
+}
+
+function appendCallbackUrl(href: string, callbackUrl: string | null | undefined) {
+  if (!callbackUrl) {
+    return href
+  }
+
+  const separator = href.includes('?') ? '&' : '?'
+  return `${href}${separator}callbackUrl=${encodeURIComponent(callbackUrl)}`
+}
+
+function getAuthErrorActionCopy(localeCopy: PublicCopy, callbackUrl?: string | null) {
   return {
     login: {
-      href: LOGIN_HREF,
+      href: appendCallbackUrl(LOGIN_HREF, callbackUrl),
+      label: localeCopy.auth.common.backToLogin,
+    },
+    reauthLogin: {
+      href: appendCallbackUrl(REAUTH_LOGIN_HREF, callbackUrl),
       label: localeCopy.auth.common.backToLogin,
     },
     signup: {
-      href: SIGNUP_HREF,
+      href: appendCallbackUrl(SIGNUP_HREF, callbackUrl),
       label: localeCopy.auth.common.backToSignup,
     },
     home: {
@@ -99,16 +161,40 @@ function resolveAuthErrorGroupKey(errorCode: string | null): AuthErrorGroupKey |
   return AUTH_ERROR_GROUP_BY_CODE[errorCode] ?? null
 }
 
+function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
+  return (
+    groupKey === 'sessionCreation' || groupKey === 'sessionRestore' || groupKey === 'sessionExpired'
+  )
+}
+
+export function isSessionRecoveryAuthError(
+  error: string | null | undefined,
+  errorDescription?: string | null
+) {
+  const groupKey = resolveAuthErrorGroup(error, errorDescription)
+  return Boolean(groupKey && isSessionRecoveryGroup(groupKey))
+}
+
+export function resolveSsoAuthErrorMessage(copy: PublicCopy, error: string | null | undefined) {
+  const code = normalizeAuthErrorCode(error)
+  const copyKey = code ? SSO_ERROR_COPY_BY_CODE[code] : null
+
+  return copyKey ? copy.auth.sso.errors[copyKey] : null
+}
+
 export function getAuthErrorContent(
   copy: PublicCopy,
   error: string | null | undefined,
-  errorDescription?: string | null
+  errorDescription?: string | null,
+  callbackUrl?: string | null
 ) {
   const code = normalizeAuthErrorCode(error)
   const descriptionCode = normalizeAuthErrorCode(errorDescription)
   const groupKey = resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
-  const actionCopy = getAuthErrorActionCopy(copy)
+  const actionCopy = getAuthErrorActionCopy(copy, callbackUrl)
   const normalizedDescription = errorDescription?.trim() || null
+  const ssoErrorDescription =
+    resolveSsoAuthErrorMessage(copy, code) ?? resolveSsoAuthErrorMessage(copy, descriptionCode)
 
   if (groupKey) {
     const group = copy.auth.error.groups[groupKey]
@@ -119,7 +205,9 @@ export function getAuthErrorContent(
           ? actionCopy.verify
           : groupKey === 'waitlistLimited'
             ? actionCopy.waitlist
-            : actionCopy.login
+            : isSessionRecoveryGroup(groupKey)
+              ? actionCopy.reauthLogin
+              : actionCopy.login
     const secondaryAction =
       groupKey === 'accountCreation' ||
       groupKey === 'emailVerification' ||
@@ -131,9 +219,10 @@ export function getAuthErrorContent(
     const content: AuthErrorContent = {
       title: group.title,
       description:
-        normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
+        ssoErrorDescription ??
+        (normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
           ? normalizedDescription
-          : group.description,
+          : group.description),
       primaryAction,
       secondaryAction,
     }
@@ -148,7 +237,8 @@ export function getAuthErrorContent(
     code,
     content: {
       title: copy.auth.error.default.title,
-      description: normalizedDescription ?? copy.auth.error.default.description,
+      description:
+        ssoErrorDescription ?? normalizedDescription ?? copy.auth.error.default.description,
       primaryAction: actionCopy.login,
       secondaryAction: actionCopy.home,
     },

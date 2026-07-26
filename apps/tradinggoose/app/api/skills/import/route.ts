@@ -6,6 +6,7 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { parseImportedSkillsFile } from '@/lib/skills/import-export'
 import { importSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('SkillsImportAPI')
 
@@ -60,9 +61,11 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid skills import data`, { errors: error.errors })
-      const workspaceError = error.errors.find(
+      logger.warn(`[${requestId}] Invalid skills import data`, { errors: error.issues })
+      const workspaceError = error.issues.find(
         (validationError) =>
           validationError.path.length === 1 && validationError.path[0] === 'workspaceId'
       )
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

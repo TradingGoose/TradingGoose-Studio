@@ -9,61 +9,61 @@ export type WatchlistSettings = {
 export type WatchlistListingItem = {
   id: string
   type: 'listing'
+  parentId: string | null
   listing: ListingIdentity
 }
 
 export type WatchlistSectionItem = {
   id: string
   type: 'section'
+  parentId: null
   label: string
 }
 
-export type WatchlistItem = WatchlistListingItem | WatchlistSectionItem
+export type WatchlistContainerItem = WatchlistSectionItem
 
-export type WatchlistImportFileListingItem = {
+export type WatchlistItem = WatchlistListingItem | WatchlistContainerItem
+
+export type WatchlistDocumentListingInputItem = {
+  id?: string
   type: 'listing'
+  parentId?: string | null
   listing: ListingIdentity
 }
 
-export type WatchlistImportFileSection = {
+export type WatchlistDocumentSectionInputItem = {
+  id?: string
   type: 'section'
+  parentId?: null
   label: string
-  items: WatchlistImportFileListingItem[]
 }
 
-export type WatchlistImportFileItem = WatchlistImportFileListingItem | WatchlistImportFileSection
+export type WatchlistDocumentInputItem =
+  | WatchlistDocumentListingInputItem
+  | WatchlistDocumentSectionInputItem
 
-export type WatchlistTransferRecord = {
+export type WatchlistDocumentInputFields = {
   name: string
-  items: WatchlistImportFileItem[]
+  settings: WatchlistSettings
+  items: WatchlistDocumentInputItem[]
 }
 
-export type WatchlistImportFile = {
-  version: '1'
-  fileType: 'tradingGooseExport'
-  exportedAt: string
-  exportedFrom: string
-  resourceTypes: string[]
-  watchlists: [WatchlistTransferRecord]
-  skills?: unknown[]
-  workflows?: unknown[]
-  customTools?: unknown[]
-  indicators?: unknown[]
+export type WatchlistDocumentInputContent = Omit<WatchlistDocumentInputFields, 'name'>
+
+export type WatchlistDocumentFields = {
+  name: string
+  settings: WatchlistSettings
+  items: WatchlistItem[]
 }
+
+export type WatchlistDocumentContent = Omit<WatchlistDocumentFields, 'name'>
 
 export type WatchlistRecord = {
   id: string
   workspaceId: string
-  userId: string
   name: string
-  isSystem: boolean
   items: WatchlistItem[]
   settings: WatchlistSettings
   createdAt: string
   updatedAt: string
-}
-
-export type WatchlistImportOutcome = {
-  addedCount: number
-  skippedCount: number
 }

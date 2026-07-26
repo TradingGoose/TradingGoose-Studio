@@ -29,9 +29,11 @@ vi.mock('@/hooks/queries/custom-tools', async () => {
   }
 })
 
-vi.mock('@/widgets/utils/custom-tool-selection', () => ({
-  emitCustomToolSelectionChange: vi.fn(),
-  useCustomToolSelectionPersistence: vi.fn(),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: vi.fn(),
+    patchWidgetLinkedParams: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -145,7 +147,6 @@ describe('Custom Tool List header controls', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMovers',
               parameters: {
                 type: 'object',
                 properties: {},
@@ -211,7 +212,6 @@ describe('Custom Tool List header controls', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMovers',
               parameters: {
                 type: 'object',
                 properties: {},

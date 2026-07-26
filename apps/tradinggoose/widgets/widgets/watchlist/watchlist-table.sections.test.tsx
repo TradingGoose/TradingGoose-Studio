@@ -15,15 +15,26 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
+import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
+import {
+  createWatchlistContainerSortableId,
+  createWatchlistListingSortableId,
+  WATCHLIST_ROOT_SORTABLE_ID,
+} from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 
 const mockDragActivation = vi.fn()
+const mockSortableRender = vi.fn()
 const mockResolveListing = vi.fn()
 const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
 const mockResetListingSelectorInstance = vi.fn()
 const mockStockSelectorRender = vi.fn()
+
+type SortableDragEvent = {
+  active: { id: string; rect: { current: { translated: { top: number } } } }
+  over: { id: string; rect: { top: number } }
+}
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
   getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
@@ -103,7 +114,10 @@ vi.mock('@/stores/market/selector/store', () => ({
 }))
 
 vi.mock('@/components/ui/sortable', () => ({
-  Sortable: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Sortable: ({ children, ...props }: { children: ReactNode } & Record<string, unknown>) => {
+    mockSortableRender(props)
+    return <div>{children}</div>
+  },
   SortableContent: ({ children, withoutSlot }: { children: ReactNode; withoutSlot?: boolean }) =>
     withoutSlot ? <>{children}</> : <div>{children}</div>,
   SortableItem: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
@@ -167,28 +181,36 @@ const createDeferred = () => {
   return { promise, resolve }
 }
 
+const btcListing = {
+  listing_id: 'BTC',
+  base_id: '',
+  quote_id: '',
+  listing_type: 'default' as const,
+}
+
+const listing = (
+  id: string,
+  parentId: string | null = null,
+  listingId = id
+): WatchlistListingItem => ({
+  id,
+  type: 'listing',
+  parentId,
+  listing: { ...btcListing, listing_id: listingId },
+})
+
 const watchlist: WatchlistRecord = {
   id: 'watchlist-1',
   workspaceId: 'workspace-1',
-  userId: 'user-1',
-  name: 'Default',
-  isSystem: true,
+  name: 'Growth',
   items: [
     {
       id: 'section-1',
       type: 'section' as const,
+      parentId: null,
       label: 'Section 1',
     },
-    {
-      id: 'listing-1',
-      type: 'listing' as const,
-      listing: {
-        listing_id: 'BTC',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-    },
+    listing('listing-1', 'section-1', 'BTC'),
   ],
   settings: { showLogo: true, showTicker: true, showDescription: true },
   createdAt: '2026-03-13T00:00:00.000Z',
@@ -212,12 +234,11 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
   quotes: {},
   providerId: 'alpaca',
   onUpdateItemListing: vi.fn().mockResolvedValue(true),
-  onReorderItems: vi.fn(),
+  onMoveItem: vi.fn(),
   onRemoveItem: vi.fn(),
-  onRenameSection: vi.fn(),
-  onRemoveSection: vi.fn(),
+  onRenameContainer: vi.fn(),
+  onRemoveContainer: vi.fn(),
   selectedListing: null,
-  isLinkedSelection: false,
   onSelectListing: vi.fn(),
   ...overrides,
 })
@@ -225,6 +246,12 @@ const createTableProps = (overrides: Record<string, unknown> = {}) => ({
 describe('WatchlistTable section interactions', () => {
   let container: HTMLDivElement
   let root: Root
+
+  async function renderTable(overrides: Record<string, unknown> = {}) {
+    await act(async () => {
+      root.render(<WatchlistTable {...(createTableProps(overrides) as any)} />)
+    })
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -243,9 +270,7 @@ describe('WatchlistTable section interactions', () => {
   })
 
   it('lets the rename button open inline editing without triggering sortable drag activation', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
+    await renderTable()
 
     const renameButton = findButtonByText(container, 'Rename section')
 
@@ -273,9 +298,53 @@ describe('WatchlistTable section interactions', () => {
     expect(mockDragActivation).not.toHaveBeenCalled()
   })
 
+  it.each([
+    [watchlist, createWatchlistContainerSortableId('section-1'), WATCHLIST_ROOT_SORTABLE_ID, null],
+    [
+      {
+        ...watchlist,
+        items: [listing('root-a'), listing('root-b'), ...watchlist.items],
+      },
+      createWatchlistListingSortableId('root-a'),
+      createWatchlistListingSortableId('root-a'),
+      'root-a',
+    ],
+  ])(
+    'resolves a nested listing at the top edge without losing its exact target',
+    async (record, overId, expectedId, highlightedListing) => {
+      const onMoveItem = vi.fn().mockResolvedValue(undefined)
+
+      await renderTable({ watchlist: record, onMoveItem })
+
+      const sortableProps = mockSortableRender.mock.lastCall?.[0] as {
+        onDragOver: (event: SortableDragEvent) => void
+        onMove: (event: SortableDragEvent) => void
+      }
+      const nestedId = createWatchlistListingSortableId('listing-1')
+      const event = {
+        active: { id: nestedId, rect: { current: { translated: { top: 100 } } } },
+        over: { id: overId, rect: { top: 100 } },
+      }
+
+      act(() => sortableProps.onDragOver(event))
+      if (highlightedListing) {
+        expect(findRowByText(container, highlightedListing)?.className).toContain('bg-primary/10')
+      }
+
+      act(() => sortableProps.onMove(event))
+      expect(onMoveItem).toHaveBeenCalledWith(nestedId, expectedId)
+    }
+  )
+
   it('renders watchlist rows with the requested surfaces and no outer chrome', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
+    await renderTable({
+      watchlist: {
+        ...watchlist,
+        items: [
+          { id: 'section-1', type: 'section', parentId: null, label: 'Section 1' },
+          listing('root-listing', null, 'ROOT'),
+        ],
+      },
     })
 
     const wrapper = container.firstElementChild as HTMLElement | null
@@ -284,9 +353,12 @@ describe('WatchlistTable section interactions', () => {
       row.textContent?.includes('Section 1')
     )
     const listingRow = Array.from(container.querySelectorAll('tr')).find((row) =>
-      row.textContent?.includes('BTC')
+      row.textContent?.includes('ROOT')
     )
     const marketListingRow = container.querySelector('[data-testid="market-listing-row"]')
+    const bodyRows = Array.from(container.querySelectorAll('tbody tr')).map(
+      (row) => row.textContent ?? ''
+    )
 
     expect(container.textContent).toContain('Symbol')
     expect(container.textContent).toContain('Asset')
@@ -302,23 +374,20 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
+    expect(bodyRows.findIndex((row) => row.includes('Section 1'))).toBeLessThan(
+      bodyRows.findIndex((row) => row.includes('ROOT'))
+    )
   })
 
   it('formats watchlist item numbers with two decimal digits', async () => {
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            quotes: {
-              'listing-1': {
-                lastPrice: 123.4567,
-                change: -0.9876,
-                changePercent: 4.3219,
-              },
-            },
-          }) as any)}
-        />
-      )
+    await renderTable({
+      quotes: {
+        'listing-1': {
+          lastPrice: 123.4567,
+          change: -0.9876,
+          changePercent: 4.3219,
+        },
+      },
     })
 
     const listingRow = findRowByText(container, 'BTC')
@@ -332,19 +401,10 @@ describe('WatchlistTable section interactions', () => {
     expect(listingRow?.textContent).not.toContain('4.3219%')
   })
 
-  it('selects a listing when the row itself is clicked in linked mode', async () => {
+  it('selects a listing through the controlled callback', async () => {
     const onSelectListing = vi.fn()
 
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            isLinkedSelection: true,
-            onSelectListing,
-          }) as any)}
-        />
-      )
-    })
+    await renderTable({ onSelectListing })
 
     const listingRow = findRowByText(container, 'BTC')
 
@@ -354,18 +414,12 @@ describe('WatchlistTable section interactions', () => {
       listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onSelectListing).toHaveBeenCalledWith({
-      listing_id: 'BTC',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
+    expect(onSelectListing).toHaveBeenCalledWith(btcListing)
   })
 
-  it('selects a listing through a row click in unlinked mode', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
+  it('lets a reader select a listing while entity mutations are disabled', async () => {
+    const onSelectListing = vi.fn()
+    await renderTable({ isMutating: true, onSelectListing })
 
     const listingRow = findRowByText(container, 'BTC')
 
@@ -375,46 +429,12 @@ describe('WatchlistTable section interactions', () => {
       listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(listingRow?.className).toContain('bg-accent')
-    expect(findButtonByText(container, 'Select symbol')).toBeFalsy()
-    expect(findButtonByText(container, 'Deselect symbol')).toBeFalsy()
+    expect(onSelectListing).toHaveBeenCalledWith(btcListing)
   })
 
-  it('toggles the selected row off when the same row is clicked again in unlinked mode', async () => {
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
-
-    const listingRow = findRowByText(container, 'BTC')
-
-    expect(listingRow).toBeTruthy()
-
-    await act(async () => {
-      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    await act(async () => {
-      listingRow?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(listingRow?.className.split(/\s+/)).not.toContain('bg-accent')
-  })
-
-  it('keeps the linked-selected row highlighted', async () => {
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            isLinkedSelection: true,
-            selectedListing: {
-              listing_id: 'BTC',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          }) as any)}
-        />
-      )
+  it('keeps the controlled selected row highlighted', async () => {
+    await renderTable({
+      selectedListing: btcListing,
     })
 
     const listingRow = findRowByText(container, 'BTC')
@@ -426,21 +446,9 @@ describe('WatchlistTable section interactions', () => {
   it('calls the listing selection callback with null when the selected row is clicked again', async () => {
     const onSelectListing = vi.fn()
 
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            isLinkedSelection: true,
-            onSelectListing,
-            selectedListing: {
-              listing_id: 'BTC',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          }) as any)}
-        />
-      )
+    await renderTable({
+      onSelectListing,
+      selectedListing: btcListing,
     })
 
     const listingRow = findRowByText(container, 'BTC')
@@ -456,11 +464,9 @@ describe('WatchlistTable section interactions', () => {
 
   it('opens delete confirmation from the section action and waits for delete success before closing', async () => {
     const deferred = createDeferred()
-    const onRemoveSection = vi.fn().mockReturnValue(deferred.promise)
+    const onRemoveContainer = vi.fn().mockReturnValue(deferred.promise)
 
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps({ onRemoveSection }) as any)} />)
-    })
+    await renderTable({ onRemoveContainer })
 
     const deleteButton = findButtonByText(container, 'Delete section')
 
@@ -486,7 +492,7 @@ describe('WatchlistTable section interactions', () => {
       )
     })
 
-    expect(onRemoveSection).toHaveBeenCalledWith('section-1')
+    expect(onRemoveContainer).toHaveBeenCalledWith('section-1')
     expect(container.textContent).toContain('Delete section?')
 
     await act(async () => {
@@ -501,9 +507,7 @@ describe('WatchlistTable section interactions', () => {
     const deferred = createDeferred()
     const onRemoveItem = vi.fn().mockReturnValue(deferred.promise)
 
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps({ onRemoveItem }) as any)} />)
-    })
+    await renderTable({ onRemoveItem })
 
     const deleteButton = findButtonByText(container, 'Remove symbol')
 
@@ -546,17 +550,7 @@ describe('WatchlistTable section interactions', () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
     const onSelectListing = vi.fn()
 
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            onUpdateItemListing,
-            onSelectListing,
-            isLinkedSelection: true,
-          }) as any)}
-        />
-      )
-    })
+    await renderTable({ onUpdateItemListing, onSelectListing })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Edit symbol')
@@ -595,26 +589,14 @@ describe('WatchlistTable section interactions', () => {
     expect(onSelectListing).not.toHaveBeenCalled()
   })
 
-  it('updates linked selection when the selected listing is edited', async () => {
+  it('updates controlled selection when the selected listing is edited', async () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
     const onSelectListing = vi.fn()
 
-    await act(async () => {
-      root.render(
-        <WatchlistTable
-          {...(createTableProps({
-            onUpdateItemListing,
-            onSelectListing,
-            isLinkedSelection: true,
-            selectedListing: {
-              listing_id: 'BTC',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            },
-          }) as any)}
-        />
-      )
+    await renderTable({
+      onUpdateItemListing,
+      onSelectListing,
+      selectedListing: btcListing,
     })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -666,9 +648,7 @@ describe('WatchlistTable section interactions', () => {
         name: 'Apple',
       })
 
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps() as any)} />)
-    })
+    await renderTable()
 
     await act(async () => {
       await Promise.resolve()
@@ -681,26 +661,10 @@ describe('WatchlistTable section interactions', () => {
 
     const updatedWatchlist: WatchlistRecord = {
       ...watchlist,
-      items: [
-        watchlist.items[0],
-        {
-          ...watchlist.items[1],
-          type: 'listing',
-          listing: {
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
-          },
-        },
-      ],
+      items: [watchlist.items[0], listing('listing-1', 'section-1', 'AAPL')],
     }
 
-    await act(async () => {
-      root.render(
-        <WatchlistTable {...(createTableProps({ watchlist: updatedWatchlist }) as any)} />
-      )
-    })
+    await renderTable({ watchlist: updatedWatchlist })
 
     await act(async () => {
       await Promise.resolve()
@@ -717,9 +681,7 @@ describe('WatchlistTable section interactions', () => {
   it('keeps symbol edit mode active for internal clicks and cancels it on outside clicks without saving', async () => {
     const onUpdateItemListing = vi.fn().mockResolvedValue(true)
 
-    await act(async () => {
-      root.render(<WatchlistTable {...(createTableProps({ onUpdateItemListing }) as any)} />)
-    })
+    await renderTable({ onUpdateItemListing })
 
     const editButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Edit symbol')

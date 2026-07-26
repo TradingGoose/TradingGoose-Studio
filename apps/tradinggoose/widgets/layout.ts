@@ -3,17 +3,12 @@ import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 
-export type WidgetInstance = {
-  key: string
-  pairColor?: PairColor
-  params?: Record<string, unknown> | null
-} | null
-
 export type LinkedPairColor = Exclude<PairColor, 'gray'>
 
 export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
+  watchlistId?: string | null
   listing?: ListingIdentity | null
   indicatorId?: string | null
   mcpServerId?: string | null
@@ -24,6 +19,88 @@ export type PersistedColorPair = {
 export type PersistedColorPairsState = {
   pairs: PersistedColorPair[]
 }
+
+export const PERSISTED_COLOR_PAIR_FIELDS = [
+  'workflowId',
+  'watchlistId',
+  'listing',
+  'indicatorId',
+  'mcpServerId',
+  'customToolId',
+  'skillId',
+] as const
+
+type PersistedColorPairSource = PersistedColorPair | Record<string, unknown> | null | undefined
+
+export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
+  pairs: [],
+})
+
+export function normalizeListingIdentity(value: unknown): ListingIdentity | null {
+  if (!value || typeof value !== 'object') return null
+  return toListingValueObject(value as any) ?? null
+}
+
+export function normalizePersistedColorPairFields(
+  source: PersistedColorPairSource
+): Omit<PersistedColorPair, 'color'> {
+  const next: Omit<PersistedColorPair, 'color'> = {}
+  if (!source || typeof source !== 'object') {
+    return next
+  }
+
+  for (const key of PERSISTED_COLOR_PAIR_FIELDS) {
+    if (key === 'listing') {
+      const listing = normalizeListingIdentity((source as { listing?: unknown }).listing)
+      if (listing) next.listing = listing
+      continue
+    }
+
+    const value = normalizeOptionalString((source as Record<string, unknown>)[key])
+    if (value) {
+      next[key] = value
+    }
+  }
+
+  return next
+}
+
+export function normalizeColorPairsState(state?: unknown): PersistedColorPairsState {
+  if (!state || typeof state !== 'object') {
+    return createDefaultColorPairsState()
+  }
+
+  const rawPairs = Array.isArray((state as { pairs?: unknown }).pairs)
+    ? ((state as { pairs?: unknown }).pairs as unknown[])
+    : []
+  const seen = new Set<LinkedPairColor>()
+  const pairs: PersistedColorPair[] = []
+
+  for (const raw of rawPairs) {
+    if (!raw || typeof raw !== 'object') {
+      continue
+    }
+
+    const color = (raw as { color?: unknown }).color
+    if (!isPairColor(color) || color === 'gray' || seen.has(color)) {
+      continue
+    }
+
+    const context = normalizePersistedColorPairFields(raw as Record<string, unknown>)
+    if (Object.keys(context).length === 0) continue
+
+    pairs.push({ color, ...context })
+    seen.add(color)
+  }
+
+  return { pairs: pairs.sort((left, right) => left.color.localeCompare(right.color)) }
+}
+
+export type WidgetInstance = {
+  key: string
+  pairColor?: PairColor
+  params?: Record<string, unknown> | null
+} | null
 
 export type LayoutNode =
   | {
@@ -37,20 +114,6 @@ export type LayoutNode =
       direction: 'horizontal' | 'vertical'
       sizes: number[]
       children: LayoutNode[]
-    }
-
-export type PersistedLayoutNode =
-  | {
-      id?: string
-      type: 'panel'
-      widget: WidgetInstance
-    }
-  | {
-      id?: string
-      type: 'group'
-      direction: 'horizontal' | 'vertical'
-      sizes: number[]
-      children: PersistedLayoutNode[]
     }
 
 const randomHexString = (length = 32) => {
@@ -71,90 +134,6 @@ const randomHexString = (length = 32) => {
 
 export const createLayoutNodeId = () => randomHexString(32)
 
-export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
-  pairs: [],
-})
-
-export function resolveWidgetParamsForPairColorChange(
-  widget: WidgetInstance,
-  nextColor: PairColor
-): Record<string, unknown> | null {
-  const currentParams = widget?.params ?? null
-  if (nextColor === 'gray') {
-    return currentParams
-  }
-
-  // Data-provider configuration stays widget-local even when listing selection is linked.
-  if (widget?.key === 'data_chart' || widget?.key === 'heatmap') {
-    return currentParams
-  }
-
-  return null
-}
-
-const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
-  if (!value || typeof value !== 'object') return null
-  const listing = toListingValueObject(value as any)
-  if (!listing) return null
-  return listing
-}
-
-const normalizeListingParamsForStorage = (
-  params?: Record<string, unknown> | null
-): Record<string, unknown> | null | undefined => {
-  if (!params || typeof params !== 'object') return params
-  if (!('listing' in params)) return params
-  const listing = normalizeListingIdentity((params as { listing?: unknown }).listing)
-  return { ...params, listing }
-}
-
-export function normalizeColorPairsState(state?: unknown): PersistedColorPairsState {
-  if (!state || typeof state !== 'object') {
-    return createDefaultColorPairsState()
-  }
-
-  const rawPairs = Array.isArray((state as { pairs?: unknown }).pairs)
-    ? ((state as { pairs?: unknown }).pairs as unknown[])
-    : []
-
-  const seen = new Set<LinkedPairColor>()
-  const normalized: PersistedColorPair[] = []
-
-  for (const raw of rawPairs) {
-    if (!raw || typeof raw !== 'object') {
-      continue
-    }
-
-    const rawColor = (raw as { color?: unknown }).color
-    if (!isPairColor(rawColor) || rawColor === 'gray') {
-      continue
-    }
-
-    if (seen.has(rawColor)) {
-      continue
-    }
-
-    const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
-    const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
-    const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
-    const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
-    const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
-    const skillId = normalizeOptionalString((raw as { skillId?: unknown }).skillId)
-    normalized.push({
-      color: rawColor,
-      workflowId,
-      listing,
-      indicatorId,
-      mcpServerId,
-      customToolId,
-      skillId,
-    })
-    seen.add(rawColor)
-  }
-
-  return { pairs: normalized }
-}
-
 export function createDefaultLayoutState(): LayoutNode {
   return {
     id: createLayoutNodeId(),
@@ -165,7 +144,7 @@ export function createDefaultLayoutState(): LayoutNode {
       {
         id: createLayoutNodeId(),
         type: 'panel',
-        widget: { key: 'empty', pairColor: 'gray', params: null },
+        widget: null,
       },
       {
         id: createLayoutNodeId(),
@@ -176,108 +155,20 @@ export function createDefaultLayoutState(): LayoutNode {
           {
             id: createLayoutNodeId(),
             type: 'panel',
-            widget: { key: 'empty', pairColor: 'gray', params: { workflowId: 'default' } },
+            widget: null,
           },
           {
             id: createLayoutNodeId(),
             type: 'panel',
-            widget: { key: 'empty', pairColor: 'gray', params: null },
+            widget: null,
           },
         ],
       },
       {
         id: createLayoutNodeId(),
         type: 'panel',
-        widget: { key: 'empty', pairColor: 'gray', params: null },
+        widget: null,
       },
     ],
-  }
-}
-
-export const DEFAULT_LAYOUT_STATE = createDefaultLayoutState()
-
-export function normalizeDashboardLayout(state?: unknown): LayoutNode {
-  if (!state || typeof state !== 'object') {
-    return createDefaultLayoutState()
-  }
-
-  const node = state as Partial<LayoutNode>
-  const persistedId =
-    normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
-
-  if (node.type === 'panel') {
-    return {
-      id: persistedId,
-      type: 'panel',
-      widget: normalizeWidgetInstance(node.widget ?? null),
-    }
-  }
-
-  if (node.type === 'group' && Array.isArray(node.children)) {
-    const sizes =
-      Array.isArray(node.sizes) && node.sizes.length === node.children.length
-        ? node.sizes
-        : new Array(node.children.length).fill(100 / Math.max(node.children.length, 1))
-
-    return {
-      id: persistedId,
-      type: 'group',
-      direction: node.direction === 'vertical' ? 'vertical' : 'horizontal',
-      sizes,
-      children: node.children.map((child) => normalizeDashboardLayout(child)),
-    }
-  }
-
-  return createDefaultLayoutState()
-}
-
-function normalizeWidgetInstance(widget: WidgetInstance): WidgetInstance {
-  if (!widget) return null
-
-  const pairColor = isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-
-  return {
-    ...widget,
-    pairColor,
-    params: widget.key === 'copilot' ? null : (widget.params ?? null),
-  }
-}
-
-export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
-  if (node.type === 'panel') {
-    const widget = node.widget
-    if (!widget) {
-      return {
-        id: node.id,
-        type: 'panel',
-        widget,
-      }
-    }
-    const normalizedParams = normalizeListingParamsForStorage(widget.params ?? null)
-    const nextWidget =
-      widget.key === 'copilot'
-        ? {
-            ...widget,
-            params: null,
-          }
-        : normalizedParams === widget.params
-          ? widget
-          : {
-              ...widget,
-              params: normalizedParams ?? null,
-            }
-    return {
-      id: node.id,
-      type: 'panel',
-      widget: nextWidget,
-    }
-  }
-
-  return {
-    id: node.id,
-    type: 'group',
-    direction: node.direction,
-    sizes: node.sizes,
-    children: node.children.map((child) => serializeLayout(child)),
   }
 }

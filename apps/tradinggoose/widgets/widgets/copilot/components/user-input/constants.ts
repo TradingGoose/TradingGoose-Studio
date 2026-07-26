@@ -14,17 +14,17 @@ export const ANTHROPIC_MODELS: readonly CopilotRuntimeModel[] = [
 export const OPENAI_MODELS: readonly CopilotRuntimeModel[] = ['gpt-5.4', 'gpt-5.4-mini']
 
 export const MENTION_OPTIONS: readonly MentionOption[] = [
-  'Chats',
+  'chats',
   ...COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
-  'Workflow Blocks',
-  'Blocks',
-  'Knowledge',
-  'Docs',
-  'Logs',
+  'workflow_blocks',
+  'blocks',
+  'knowledge',
+  'docs',
+  'logs',
 ]
 
 export const MENTION_SUBMENUS: readonly MentionSubmenu[] = MENTION_OPTIONS.filter(
-  (option): option is MentionSubmenu => option !== 'Docs'
+  (option): option is MentionSubmenu => option !== 'docs'
 )
 
 export const MAX_TEXTAREA_HEIGHT = 120

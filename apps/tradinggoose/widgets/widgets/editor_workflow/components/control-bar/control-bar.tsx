@@ -1,31 +1,45 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
+import { listWorkflowRunTriggers } from '@/lib/workflows/triggers'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import {
   getKeyboardShortcutText,
   useKeyboardShortcuts,
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { formatTemplate } from '@/i18n/utils'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
   DeploymentControls,
   ExportControls,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
-import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ControlBar')
 
@@ -85,18 +99,21 @@ export function ControlBar({
   const copy = useWorkflowEditorCopy()
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
-  const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
-  const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
+  const activeWorkflowIdRef = useRef(activeWorkflowId)
+  activeWorkflowIdRef.current = activeWorkflowId
+  const { isExecuting, isWorkflowSessionReady, handleRunWorkflow, handleCancelExecution } =
+    useWorkflowExecution()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
+  const { canEdit } = useWorkflowSession()
 
-  // Local state
-  const [, forceUpdate] = useState({})
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
+  const [autoLayoutError, setAutoLayoutError] = useState<string | null>(null)
 
   // Deployed state management
+  const [isDeployed, setIsDeployed] = useState(false)
   const [deployedState, setDeployedState] = useState<WorkflowState | null>(null)
   const [isLoadingDeployedState, setIsLoadingDeployedState] = useState<boolean>(false)
 
@@ -113,34 +130,71 @@ export function ControlBar({
     limit: number
   } | null>(null)
 
+  const currentBlocks = useWorkflowBlocks()
+  const currentEdges = useWorkflowEdges()
+  const runTriggers = useMemo(
+    () => listWorkflowRunTriggers(currentBlocks, currentEdges),
+    [currentBlocks, currentEdges]
+  )
+
   // Shared condition for keyboard shortcut and button disabled state
-  const isWorkflowBlocked = isExecuting || hasValidationErrors
+  const isWorkflowBlocked =
+    isExecuting || hasValidationErrors || !isWorkflowSessionReady || runTriggers.length === 0
+  const canRunWithShortcut = runTriggers.length === 1
 
   // Register keyboard shortcut for running workflow
-  useKeyboardShortcuts(() => {
-    if (!isWorkflowBlocked && userPermissions.canEdit) {
-      handleRunWorkflow()
-    }
-  }, isWorkflowBlocked || !userPermissions.canEdit)
-
-  // Get deployment status from registry
-  const deploymentStatus = useWorkflowRegistry((state) =>
-    state.readWorkflowDeploymentStatus(activeWorkflowId)
+  useKeyboardShortcuts(
+    () => {
+      if (!isWorkflowBlocked && canEdit && canRunWithShortcut) {
+        handleRunWorkflow({ triggerBlockId: runTriggers[0].blockId })
+      }
+    },
+    isWorkflowBlocked || !canEdit || !canRunWithShortcut
   )
-  const isDeployed = deploymentStatus?.isDeployed || false
 
-  // Update the time display every minute
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate({}), 60000)
-    return () => clearInterval(interval)
-  }, [])
+  const fetchDeploymentStatus = useCallback(async () => {
+    if (!activeWorkflowId) {
+      setIsDeployed(false)
+      setChangeDetected(false)
+      return false
+    }
+
+    const requestWorkflowId = activeWorkflowId
+
+    try {
+      const response = await fetch(`/api/workflows/${requestWorkflowId}/status`)
+      if (requestWorkflowId !== activeWorkflowIdRef.current) {
+        return false
+      }
+
+      if (!response.ok) {
+        logger.error('Failed to fetch workflow status:', response.status, response.statusText)
+        setIsDeployed(false)
+        setChangeDetected(false)
+        return false
+      }
+
+      const data = await response.json()
+      const nextIsDeployed = Boolean(data.isDeployed)
+      setIsDeployed(nextIsDeployed)
+      setChangeDetected(Boolean(data.needsRedeployment))
+      return nextIsDeployed
+    } catch (error) {
+      logger.error('Error fetching workflow status:', error)
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
+        setIsDeployed(false)
+        setChangeDetected(false)
+      }
+      return false
+    }
+  }, [activeWorkflowId])
 
   /**
    * Fetches the deployed state of the workflow from the server
    * This is the single source of truth for deployed workflow state
    */
-  const fetchDeployedState = async () => {
-    if (!activeWorkflowId || !isDeployed) {
+  const fetchDeployedState = useCallback(async () => {
+    if (!activeWorkflowId) {
       setDeployedState(null)
       return
     }
@@ -148,17 +202,13 @@ export function ControlBar({
     // Store the workflow ID at the start of the request to prevent race conditions
     const requestWorkflowId = activeWorkflowId
 
-    // Helper to get current active workflow ID for race condition checks
-    const getCurrentActiveWorkflowId = () =>
-      useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
-
     try {
       setIsLoadingDeployedState(true)
 
       const response = await fetch(`/api/workflows/${requestWorkflowId}/deployed`)
 
       // Check if the workflow ID changed during the request (user navigated away)
-      if (requestWorkflowId !== getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId !== activeWorkflowIdRef.current) {
         logger.debug('Workflow changed during deployed state fetch, ignoring response')
         return
       }
@@ -173,22 +223,26 @@ export function ControlBar({
 
       const data = await response.json()
 
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setDeployedState(data.deployedState || null)
       } else {
         logger.debug('Workflow changed after deployed state response, ignoring result')
       }
     } catch (error) {
       logger.error('Error fetching deployed state:', { error })
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setDeployedState(null)
       }
     } finally {
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setIsLoadingDeployedState(false)
       }
     }
-  }
+  }, [activeWorkflowId])
+
+  useEffect(() => {
+    void fetchDeploymentStatus()
+  }, [fetchDeploymentStatus, currentBlocks, currentEdges])
 
   useEffect(() => {
     if (!activeWorkflowId) {
@@ -197,56 +251,16 @@ export function ControlBar({
       return
     }
 
-    if (isRegistryLoading) {
-      setDeployedState(null)
-      setIsLoadingDeployedState(false)
-      return
-    }
-
     if (isDeployed) {
-      fetchDeployedState()
+      void fetchDeployedState()
     } else {
       setDeployedState(null)
       setIsLoadingDeployedState(false)
     }
-  }, [activeWorkflowId, isDeployed, isRegistryLoading])
-
-  // Get current state for change detection (from Yjs doc)
-  const currentBlocks = useWorkflowBlocks()
-  const currentEdges = useWorkflowEdges()
+  }, [activeWorkflowId, fetchDeployedState, isDeployed])
 
   useEffect(() => {
-    if (!activeWorkflowId || !deployedState) {
-      setChangeDetected(false)
-      return
-    }
-
-    if (isLoadingDeployedState) {
-      return
-    }
-
-    // Check if the live workflow state differs from the deployed state
-    const checkForChanges = async () => {
-      try {
-        const response = await fetch(`/api/workflows/${activeWorkflowId}/status`)
-        if (response.ok) {
-          const data = await response.json()
-          setChangeDetected(data.needsRedeployment || false)
-        } else {
-          logger.error('Failed to fetch workflow status:', response.status, response.statusText)
-          setChangeDetected(false)
-        }
-      } catch (error) {
-        logger.error('Error fetching workflow status:', error)
-        setChangeDetected(false)
-      }
-    }
-
-    checkForChanges()
-  }, [activeWorkflowId, deployedState, currentBlocks, currentEdges, isLoadingDeployedState])
-
-  useEffect(() => {
-    if (session?.user?.id && !isRegistryLoading) {
+    if (session?.user?.id) {
       checkUserUsage().then((usage) => {
         if (usage) {
           setUsageExceeded(usage.isExceeded)
@@ -254,7 +268,7 @@ export function ControlBar({
         }
       })
     }
-  }, [session?.user?.id, isRegistryLoading])
+  }, [session?.user?.id])
 
   /**
    * Check user usage limits and cache results
@@ -306,12 +320,15 @@ export function ControlBar({
   const renderDeployButton = () => (
     <DeploymentControls
       activeWorkflowId={activeWorkflowId}
+      isDeployed={isDeployed}
       needsRedeployment={changeDetected}
       setNeedsRedeployment={setChangeDetected}
       deployedState={deployedState}
       isLoadingDeployedState={isLoadingDeployedState}
       refetchDeployedState={fetchDeployedState}
+      refetchDeploymentStatus={fetchDeploymentStatus}
       userPermissions={userPermissions}
+      canEdit={canEdit}
       variant={variant}
     />
   )
@@ -321,37 +338,35 @@ export function ControlBar({
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (isExecuting || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
+      if (isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks) {
         return
       }
 
       setIsAutoLayouting(true)
+      setAutoLayoutError(null)
       try {
-        // Use the shared auto layout utility for immediate frontend updates
-        const { applyAutoLayoutAndUpdateStore } = await import(
+        const { applyAutoLayoutToActiveWorkflow } = await import(
           '@/widgets/widgets/editor_workflow/components/control-bar/auto-layout'
         )
 
-        const result = await applyAutoLayoutAndUpdateStore({
+        const result = await applyAutoLayoutToActiveWorkflow({
           workflowId: activeWorkflowId!,
-          channelId,
         })
 
         if (result.success) {
           logger.info('Auto layout completed successfully')
         } else {
           logger.error('Auto layout failed:', result.error)
-          // You could add a toast notification here if available
+          setAutoLayoutError(result.error ?? 'Auto layout failed')
         }
       } catch (error) {
         logger.error('Auto layout error:', error)
-        // You could add a toast notification here if available
+        setAutoLayoutError(error instanceof Error ? error.message : 'Auto layout failed')
       } finally {
         setIsAutoLayouting(false)
       }
     }
 
-    const canEdit = userPermissions.canEdit
     const isDisabled = isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
@@ -398,7 +413,7 @@ export function ControlBar({
    * Render run workflow button or cancel button when executing
    */
   const renderRunButton = () => {
-    const isButtonDisabled = !isExecuting && (isWorkflowBlocked || !userPermissions.canEdit)
+    const isButtonDisabled = !isExecuting && (isWorkflowBlocked || !canEdit)
 
     // If currently executing, show cancel button
     if (isExecuting) {
@@ -428,8 +443,12 @@ export function ControlBar({
         return copy.controlBar.checkingWorkflowPermissions
       }
 
-      if (!userPermissions.canEdit) {
+      if (!canEdit) {
         return copy.controlBar.writePermissionRequiredToRunWorkflows
+      }
+
+      if (runTriggers.length === 0) {
+        return 'Run requires a configured trigger block'
       }
 
       if (usageExceeded) {
@@ -449,12 +468,67 @@ export function ControlBar({
       return copy.controlBar.run
     }
 
-    const handleRunClick = () => {
+    const handleRunClick = (triggerBlockId: string) => {
+      if (!canEdit) return
       if (usageExceeded) {
-        openSubscriptionSettings()
-      } else {
-        handleRunWorkflow()
+        return openSubscriptionSettings()
       }
+      handleRunWorkflow({ triggerBlockId })
+    }
+
+    if (runTriggers.length > 1) {
+      return (
+        <DropdownMenu modal={false}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className='inline-flex'>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className={getPrimaryButtonClass('w-10 gap-0.5 px-1')}
+                    disabled={isButtonDisabled}
+                  >
+                    <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
+                    <ChevronDown className='h-3 w-3' />
+                  </Button>
+                </DropdownMenuTrigger>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent command={getKeyboardShortcutText('Enter', true)}>
+              {getTooltipContent()}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align='end'
+            sideOffset={6}
+            className={cn(widgetHeaderMenuContentClassName, 'w-56 p-1')}
+          >
+            {runTriggers.map((trigger) => {
+              const TriggerIcon = trigger.icon ?? Play
+              return (
+                <DropdownMenuItem
+                  key={trigger.id}
+                  className={widgetHeaderMenuItemClassName}
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    handleRunClick(trigger.blockId)
+                  }}
+                >
+                  <span
+                    className='relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm'
+                    style={getIconTileStyle(trigger.color, '30')}
+                    aria-hidden='true'
+                  >
+                    <TriggerIcon className='!h-3.5 !w-3.5' />
+                  </span>
+                  <span className={cn(widgetHeaderMenuTextClassName, 'min-w-0 flex-1 truncate')}>
+                    {trigger.name}
+                  </span>
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
     }
 
     return (
@@ -462,7 +536,7 @@ export function ControlBar({
         <TooltipTrigger asChild>
           <Button
             className={getPrimaryButtonClass()}
-            onClick={handleRunClick}
+            onClick={() => handleRunClick(runTriggers[0].blockId)}
             disabled={isButtonDisabled}
           >
             <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
@@ -481,6 +555,19 @@ export function ControlBar({
 
   return (
     <div className={containerClass}>
+      {autoLayoutError ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className='flex h-7 max-w-48 items-center gap-1 rounded-sm border border-destructive/30 bg-destructive/10 px-2 text-destructive'>
+              <AlertTriangle className='h-3.5 w-3.5 shrink-0' />
+              <span className='truncate text-xs'>Auto layout failed</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side='bottom' className='max-w-xs'>
+            {autoLayoutError}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
       {renderDeployButton()}

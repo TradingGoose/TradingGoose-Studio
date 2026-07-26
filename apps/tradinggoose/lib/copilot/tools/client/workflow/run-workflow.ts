@@ -13,6 +13,7 @@ import { useExecutionStore } from '@/stores/execution/store'
 interface RunWorkflowArgs {
   entityId: string
   description?: string
+  triggerBlockId: string
   workflow_input?: Record<string, any> | string
 }
 
@@ -79,6 +80,13 @@ export class RunWorkflowClientTool extends BaseClientTool {
       }
       logger.debug('Using target workflow', { workflowId: activeWorkflowId })
 
+      if (typeof params.triggerBlockId !== 'string' || params.triggerBlockId.length === 0) {
+        logger.debug('Execution prevented: no trigger block selected')
+        this.setState(ClientToolCallState.error)
+        await this.markToolComplete(400, 'triggerBlockId is required')
+        return
+      }
+
       let workflowInput: Record<string, any> | undefined
       if (params.workflow_input !== undefined) {
         if (typeof params.workflow_input === 'string') {
@@ -116,6 +124,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
           workflowInput,
           executionId: this.toolCallId,
           workflowId: activeWorkflowId,
+          triggerBlockId: params.triggerBlockId,
         })
 
         // Determine success for both non-streaming and streaming executions

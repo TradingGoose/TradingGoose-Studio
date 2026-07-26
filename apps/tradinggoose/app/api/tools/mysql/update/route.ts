@@ -16,7 +16,7 @@ const UpdateSchema = z.object({
   table: z.string().min(1, 'Table name is required'),
   data: z.union([
     z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .refine((obj) => Object.keys(obj).length > 0, 'Data object cannot be empty'),
     z
       .string()
@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid request data`, { errors: error.errors })
+      logger.warn(`[${requestId}] Invalid request data`, { errors: error.issues })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

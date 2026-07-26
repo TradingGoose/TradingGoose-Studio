@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderQuickOrderHeader } from '@/widgets/widgets/quick_order/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockEmitQuickOrderParamsChange = vi.fn()
+const mockPatchWidgetParams = vi.fn()
 type MockMarketProviderControlsProps = {
   value?: string | null
   workspaceId?: string
@@ -84,8 +84,10 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/widgets/utils/quick-order-params', () => ({
-  emitQuickOrderParamsChange: (...args: unknown[]) => mockEmitQuickOrderParamsChange(...args),
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: unknown[]) => mockPatchWidgetParams(...args),
+  }),
 }))
 
 vi.mock('@/components/market-selector/provider-controls', () => ({
@@ -160,6 +162,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('renders provider/account controls in left slot and BUY/SELL tabs in center slot', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       context: { workspaceId: 'workspace-1' } as any,
       widget: {
@@ -204,6 +207,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('emits scoped provider resets and side changes', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -230,33 +234,24 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProvider: 'finnhub',
-        marketProviderParams: null,
-        marketAuth: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      marketProvider: 'finnhub',
+      marketProviderParams: null,
+      marketAuth: null,
     })
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        provider: 'tradier',
-        portfolioIdentity: null,
-        serviceId: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      provider: 'tradier',
+      portfolioIdentity: null,
+      serviceId: null,
     })
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: { side: 'sell' },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      side: 'sell',
     })
   })
 
   it('emits scoped market provider settings independently from trading account settings', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -274,18 +269,15 @@ describe('QuickOrderHeaderControls', () => {
         ?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProviderParams: { region: 'US' },
-        marketAuth: { apiKey: 'market-key' },
-      },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      marketProviderParams: { region: 'US' },
+      marketAuth: { apiKey: 'market-key' },
     })
   })
 
   it('does not infer market provider settings from the trading provider', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -304,17 +296,16 @@ describe('QuickOrderHeaderControls', () => {
         authParams: undefined,
       })
     )
-    expect(mockEmitQuickOrderParamsChange).not.toHaveBeenCalledWith(
+    expect(mockPatchWidgetParams).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.objectContaining({
-          marketProvider: expect.any(String),
-        }),
+        marketProvider: expect.any(String),
       })
     )
   })
 
   it('shows the account selector after a trading provider is selected', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -333,6 +324,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('hides account selection before a trading provider is selected', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -354,6 +346,7 @@ describe('QuickOrderHeaderControls', () => {
 
   it('updates the account id from account selection', () => {
     const header = renderHeader({
+      channelId: 'quick-order-panel-1',
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
@@ -369,17 +362,13 @@ describe('QuickOrderHeaderControls', () => {
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
     })
 
-    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
-      params: {
-        portfolioIdentity: {
-          providerId: 'alpaca',
-          credentialId: 'oauth-account-1',
-          serviceId: 'alpaca-live',
-          accountId: 'acct-1',
-        },
+    expect(mockPatchWidgetParams).toHaveBeenCalledWith({
+      portfolioIdentity: {
+        providerId: 'alpaca',
+        credentialId: 'oauth-account-1',
+        serviceId: 'alpaca-live',
+        accountId: 'acct-1',
       },
-      panelId: 'panel-1',
-      widgetKey: 'quick_order',
     })
   })
 })

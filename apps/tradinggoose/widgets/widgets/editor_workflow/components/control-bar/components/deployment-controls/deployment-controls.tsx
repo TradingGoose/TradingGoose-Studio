@@ -1,59 +1,51 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Rocket } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
-import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 type ControlVariant = 'workspace' | 'widget'
 
 interface DeploymentControlsProps {
   activeWorkflowId: string | null
+  isDeployed: boolean
   needsRedeployment: boolean
   setNeedsRedeployment: (value: boolean) => void
   deployedState: WorkflowState | null
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
+  refetchDeploymentStatus: () => Promise<boolean>
   userPermissions: WorkspaceUserPermissions
+  canEdit: boolean
   variant?: ControlVariant
 }
 
 export function DeploymentControls({
   activeWorkflowId,
+  isDeployed,
   needsRedeployment,
   setNeedsRedeployment,
   deployedState,
   isLoadingDeployedState,
   refetchDeployedState,
+  refetchDeploymentStatus,
   userPermissions,
+  canEdit,
   variant = 'workspace',
 }: DeploymentControlsProps) {
   const copy = useDeploymentCopy()
-  const deploymentStatus = useWorkflowRegistry((state) =>
-    state.readWorkflowDeploymentStatus(activeWorkflowId)
-  )
-  const isDeployed = deploymentStatus?.isDeployed || false
 
   const workflowNeedsRedeployment = needsRedeployment
   const isPreviousVersionActive = isDeployed && workflowNeedsRedeployment
 
-  const [isDeploying, _setIsDeploying] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-
-  const lastWorkflowIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (activeWorkflowId !== lastWorkflowIdRef.current) {
-      lastWorkflowIdRef.current = activeWorkflowId
-    }
-  }, [activeWorkflowId])
 
   const refetchWithErrorHandling = async () => {
     if (!activeWorkflowId) return
@@ -63,8 +55,12 @@ export function DeploymentControls({
     } catch {}
   }
 
-  const canDeploy = userPermissions.canAdmin
-  const isDisabled = isDeploying || !canDeploy
+  const canDeploy = canEdit && userPermissions.canAdmin
+  const isDisabled = !canDeploy
+
+  useEffect(() => {
+    if (!canDeploy) setIsModalOpen(false)
+  }, [canDeploy])
 
   const handleDeployClick = useCallback(() => {
     if (canDeploy) {
@@ -75,9 +71,6 @@ export function DeploymentControls({
   const getTooltipText = () => {
     if (!canDeploy) {
       return copy.adminPermissionsRequiredToDeployWorkflows
-    }
-    if (isDeploying) {
-      return copy.deploying
     }
     if (isDeployed && workflowNeedsRedeployment) {
       return copy.workflowChangesDetected
@@ -112,20 +105,16 @@ export function DeploymentControls({
                   'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
             >
-              {isDeploying ? (
-                <Loader2 className='h-5 w-5 animate-spin' />
-              ) : (
-                <Rocket className='h-5 w-5' />
-              )}
+              <Rocket className='h-5 w-5' />
               <span className='sr-only'>{copy.deployApi}</span>
             </Button>
 
             {isDeployed && workflowNeedsRedeployment && (
               <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
                 <div className='relative'>
-                <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
-                <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
-              </div>
+                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
+                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
+                </div>
                 <span className='sr-only'>{copy.needsRedeployment}</span>
               </div>
             )}
@@ -135,14 +124,16 @@ export function DeploymentControls({
       </Tooltip>
 
       <DeployModal
-        open={isModalOpen}
+        open={isModalOpen && canDeploy}
         onOpenChange={setIsModalOpen}
         workflowId={activeWorkflowId}
+        isDeployed={isDeployed}
         needsRedeployment={workflowNeedsRedeployment}
         setNeedsRedeployment={setNeedsRedeployment}
         deployedState={deployedState as WorkflowState}
         isLoadingDeployedState={isLoadingDeployedState}
         refetchDeployedState={refetchWithErrorHandling}
+        refetchDeploymentStatus={refetchDeploymentStatus}
       />
     </>
   )

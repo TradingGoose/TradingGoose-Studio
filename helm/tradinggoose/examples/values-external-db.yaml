@@ -31,9 +31,9 @@ app:
     INTERNAL_API_SECRET: "" # Set via --set flag or external secret manager
     CRON_SECRET: ""         # Set via --set flag or external secret manager
 
-    # Optional: API Key Encryption (RECOMMENDED for production)
+    # API Key Encryption
     # Generate 64-character hex string using: openssl rand -hex 32
-    API_ENCRYPTION_KEY: ""  # Optional but recommended - encrypts API keys at rest
+    API_ENCRYPTION_KEY: ""  # Optional unless API-key access or MCP token issuance is used
     
     NODE_ENV: "production"
     NEXT_TELEMETRY_DISABLED: "1"
@@ -41,7 +41,6 @@ app:
 # Realtime service
 realtime:
   enabled: true
-  replicaCount: 2
   
   resources:
     limits:

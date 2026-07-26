@@ -17,7 +17,6 @@ interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
   language: 'javascript' | 'json' | 'typescript' | 'sql' | 'html' | 'plaintext'
-  path?: string
   placeholder?: string
   className?: string
   minHeight?: string
@@ -59,7 +58,6 @@ export function CodeEditor({
   value,
   onChange,
   language,
-  path,
   placeholder = '',
   className = '',
   minHeight = '360px',
@@ -351,7 +349,6 @@ export function CodeEditor({
           onClick={onClick}
           onBlur={onBlur}
           language={language}
-          path={path}
           placeholder={isCollapsed ? '' : placeholder}
           decorations={decorations}
           autoHeight={resolvedAutoHeight}

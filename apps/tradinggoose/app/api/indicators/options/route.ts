@@ -1,15 +1,12 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { listIndicators } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
-import type { InputMetaMap } from '@/lib/indicators/types'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorOptionsAPI')
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
     const parsed = QuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0]?.message ?? 'workspaceId is required' },
+        { error: parsed.error.issues[0]?.message ?? 'workspaceId is required' },
         { status: 400 }
       )
     }
@@ -86,23 +83,12 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const customRows = await db
-      .select({
-        id: pineIndicators.id,
-        workspaceId: pineIndicators.workspaceId,
-        name: pineIndicators.name,
-        color: pineIndicators.color,
-        pineCode: pineIndicators.pineCode,
-        inputMeta: pineIndicators.inputMeta,
-      })
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, workspaceId))
-      .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
+    const customRows = await listIndicators({ workspaceId })
 
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))
       .map((row) => {
-        const inputMeta = normalizeInputMetaMap(row.inputMeta)
+        const inputMeta = row.inputMeta ?? undefined
         const inputTitles = Object.keys(inputMeta ?? {})
 
         return {
@@ -111,10 +97,11 @@ export async function GET(request: NextRequest) {
           source: 'custom',
           color: row.color?.trim() || '#3972F6',
           editable: true,
-          callableInFunctionBlock: false,
+          callableInFunctionBlock: true,
           inputTitles,
           ...(inputMeta && inputTitles.length > 0 ? { inputMeta } : {}),
           entityId: row.id,
+          runtimeId: row.id,
         }
       })
 
@@ -124,6 +111,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: merged }, { status: 200 })
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Failed to list indicator options`, { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

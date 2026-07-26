@@ -14,10 +14,17 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const fetchListingsMock = vi.fn()
-
-vi.mock('@/components/listing-selector/fetchers', () => ({
-  fetchListings: (...args: Parameters<typeof fetchListingsMock>) => fetchListingsMock(...args),
+const listingInputState = vi.hoisted(() => ({
+  onListingChange: null as ((listing: ListingOption | null) => void) | null,
 }))
+
+vi.mock('@/lib/listing/search', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/listing/search')>()
+  return {
+    ...actual,
+    fetchListings: (...args: Parameters<typeof fetchListingsMock>) => fetchListingsMock(...args),
+  }
+})
 
 vi.mock('@/hooks/workflow/use-accessible-reference-prefixes', () => ({
   useAccessibleReferencePrefixes: () => undefined,
@@ -53,8 +60,29 @@ vi.mock('@/components/widget-header-control', () => ({
     ['trigger', className].filter(Boolean).join(' '),
 }))
 
-vi.mock('@/widgets/utils/chart-params', () => ({
-  emitDataChartParamsChange: vi.fn(),
+vi.mock('@/components/listing-selector/selector/input', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/components/listing-selector/selector/input')>()
+  return {
+    ...actual,
+    ListingSearchInput: (props: React.ComponentProps<typeof actual.ListingSearchInput>) => {
+      listingInputState.onListingChange = props.onListingChange ?? null
+      const Component = actual.ListingSearchInput
+      return <Component {...props} />
+    },
+  }
+})
+
+const patchWidgetParamsMock = vi.fn()
+const patchWidgetLinkedParamsMock = vi.fn()
+
+vi.mock('@/widgets/widget-config-runtime', () => ({
+  useWidgetConfigRuntimeActions: () => ({
+    patchWidgetParams: (...args: Parameters<typeof patchWidgetParamsMock>) =>
+      patchWidgetParamsMock(...args),
+    patchWidgetLinkedParams: (...args: Parameters<typeof patchWidgetLinkedParamsMock>) =>
+      patchWidgetLinkedParamsMock(...args),
+  }),
 }))
 
 describe('DataChartListingControl', () => {
@@ -66,6 +94,9 @@ describe('DataChartListingControl', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     fetchListingsMock.mockReset()
     fetchListingsMock.mockResolvedValue([])
+    patchWidgetParamsMock.mockReset()
+    patchWidgetLinkedParamsMock.mockReset()
+    listingInputState.onListingChange = null
     useListingSelectorStore.setState({ instances: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -105,7 +136,6 @@ describe('DataChartListingControl', () => {
               provider: 'alpaca',
             },
           }}
-          pairColor='gray'
         />
       )
     })
@@ -130,5 +160,61 @@ describe('DataChartListingControl', () => {
     expect(instance?.query).toBe('M')
     expect(instance?.selectedListingValue).toBeNull()
     expect(instance?.selectedListing).toBeNull()
+  })
+
+  it('does not emit patches for non-identity listing values', async () => {
+    await act(async () => {
+      root.render(
+        <DataChartListingControl
+          widgetKey='listing-control-test'
+          panelId='panel-1'
+          params={{
+            listing: 'AAPL' as never,
+            data: {
+              provider: 'alpaca',
+            },
+          }}
+        />
+      )
+    })
+
+    expect(patchWidgetParamsMock).not.toHaveBeenCalled()
+  })
+
+  it('routes listing changes through the linked-parameter owner', async () => {
+    const selectedListing: ListingOption = {
+      listing_id: 'TG_LSTG_AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+      base: 'AAPL',
+      quote: 'USD',
+      name: 'Apple Inc.',
+      iconUrl: '',
+      assetClass: 'stock',
+    }
+
+    await act(async () => {
+      root.render(
+        <DataChartListingControl
+          widgetKey='listing-control-test'
+          panelId='panel-1'
+          params={{ data: { provider: 'alpaca' } }}
+        />
+      )
+    })
+    await act(async () => {
+      listingInputState.onListingChange?.(selectedListing)
+    })
+
+    expect(patchWidgetLinkedParamsMock).toHaveBeenCalledWith({
+      listing: {
+        listing_id: 'TG_LSTG_AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+    })
+    expect(patchWidgetParamsMock).not.toHaveBeenCalled()
   })
 })

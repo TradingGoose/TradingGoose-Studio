@@ -2,18 +2,15 @@ import {
   type BaseServerTool,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
+import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeTool } from '@/tools'
 
 interface ListGDriveFilesParams {
-  entityId?: string
+  workspaceId?: string
   credentialId?: string
   search_query?: string
   num_results?: number
@@ -23,18 +20,11 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
   name: 'list_gdrive_files',
   async execute(params: ListGDriveFilesParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ListGDriveFilesServerTool')
+    const scopedContext = withWorkspaceArgContext(context, params)
     const { credentialId, search_query, num_results } = params || {}
-    const uid = context?.userId
-    if (!uid || typeof uid !== 'string' || uid.trim().length === 0 || !credentialId) {
-      throw new Error('Authentication and credentialId are required')
-    }
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      throw new Error(createWorkflowPermissionError('access Google Drive files in'))
-    }
-    throwIfServerToolAborted(context)
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
+    const { userId: uid, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
+    if (!credentialId) throw new Error('credentialId is required')
+    throwIfServerToolAborted(scopedContext)
 
     const query = search_query
     const pageSize = num_results
@@ -60,9 +50,9 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       },
       false,
       undefined,
-      { signal: context?.signal }
+      { signal: scopedContext?.signal }
     )
-    throwIfServerToolAborted(context)
+    throwIfServerToolAborted(scopedContext)
     if (!result.success) {
       throw new Error(result.error || 'Failed to list Google Drive files')
     }
@@ -71,7 +61,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
     const nextPageToken = output?.nextPageToken || output?.output?.nextPageToken
     logger.info('Listed Google Drive files', {
       count: files.length,
-      workflowId: workflowScope?.workflowId,
+      workspaceId,
     })
     return { files, total: files.length, nextPageToken }
   },

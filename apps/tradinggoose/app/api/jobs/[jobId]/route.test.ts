@@ -185,7 +185,7 @@ describe('GET /api/jobs/[jobId]', () => {
     })
   })
 
-  it('returns public workflow output for completed workflow jobs', async () => {
+  it('returns workflow execution output for completed workflow jobs', async () => {
     mockCompletedWorkflowJob({ source: 'workflow_execute_api' })
 
     const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {

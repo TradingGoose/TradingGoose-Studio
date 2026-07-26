@@ -253,6 +253,34 @@
       "when": 1780432066925,
       "tag": "0035_marvelous_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1781647170895,
+      "tag": "0036_fast_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783044372927,
+      "tag": "0037_familiar_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783295069442,
+      "tag": "0038_bizarre_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1783709918711,
+      "tag": "0039_aromatic_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

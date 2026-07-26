@@ -114,9 +114,9 @@ describe('AgentBlock', () => {
           {
             type: 'custom-tool',
             title: 'Custom Tool',
+            toolId: 'custom_custom-tool-1',
             schema: {
               function: {
-                name: 'custom_function',
                 description: 'A custom function',
                 parameters: { type: 'object', properties: {} },
               },
@@ -169,9 +169,9 @@ describe('AgentBlock', () => {
           {
             type: 'custom-tool',
             title: 'Custom Tool',
+            toolId: 'custom_custom-tool-1',
             schema: {
               function: {
-                name: 'custom_function',
                 description: 'A custom function description',
                 parameters: {
                   type: 'object',
@@ -190,7 +190,7 @@ describe('AgentBlock', () => {
 
       // Verify custom tool transformation
       expect(result.tools[0]).toEqual({
-        id: 'custom_function',
+        id: 'custom_custom-tool-1',
         name: 'Custom Tool',
         description: 'A custom function description',
         params: {},

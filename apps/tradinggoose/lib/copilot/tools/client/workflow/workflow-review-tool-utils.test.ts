@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  buildWorkflowDocumentToolResult,
+  buildWorkflowSummary,
+  getReadableWorkflowState,
+} from './workflow-review-tool-utils'
 
-const mockGetRegisteredWorkflowSession = vi.fn()
-const mockAcquireWritableWorkflowSessionLease = vi.fn()
+const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
+const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: unknown[]) => mockGetRegisteredWorkflowSession(...args),
@@ -50,12 +55,10 @@ describe('workflow-review-tool-utils', () => {
 
     mockGetRegisteredWorkflowSession.mockReturnValue({
       workflowId: 'workflow-live',
-      entityName: 'Live Workflow',
       workspaceId: 'workspace-live',
       doc,
     })
 
-    const { getReadableWorkflowState } = await import('./workflow-review-tool-utils')
     const result = await getReadableWorkflowState(
       {
         toolCallId: 'tool-1',
@@ -66,7 +69,6 @@ describe('workflow-review-tool-utils', () => {
       'workflow-live'
     )
     expect(result.workflowId).toBe('workflow-live')
-    expect(result.entityName).toBe('Live Workflow')
     expect(result.workspaceId).toBe('workspace-live')
     expect(result.workflowState.blocks['block-1']).toMatchObject({
       type: 'agent',
@@ -88,14 +90,12 @@ describe('workflow-review-tool-utils', () => {
     mockAcquireWritableWorkflowSessionLease.mockResolvedValue({
       session: {
         workflowId: 'workflow-db',
-        entityName: 'Background Workflow',
         workspaceId: 'workspace-db',
         doc,
       },
       release,
     })
 
-    const { getReadableWorkflowState } = await import('./workflow-review-tool-utils')
     const result = await getReadableWorkflowState(
       {
         toolCallId: 'tool-1',
@@ -106,7 +106,6 @@ describe('workflow-review-tool-utils', () => {
       'workflow-db'
     )
     expect(result.workflowId).toBe('workflow-db')
-    expect(result.entityName).toBe('Background Workflow')
     expect(result.workspaceId).toBe('workspace-db')
     expect(mockAcquireWritableWorkflowSessionLease).toHaveBeenCalledWith({
       workflowId: 'workflow-db',
@@ -130,7 +129,6 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('fails fast when workflow execution context is missing a workflow target', async () => {
-    const { getReadableWorkflowState } = await import('./workflow-review-tool-utils')
     await expect(
       getReadableWorkflowState({
         toolCallId: 'tool-1',
@@ -142,8 +140,6 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('builds workflow document payloads with canonical workflow identity', async () => {
-    const { buildWorkflowDocumentToolResult } = await import('./workflow-review-tool-utils')
-
     expect(
       buildWorkflowDocumentToolResult({
         workflowId: 'workflow-entity',
@@ -160,8 +156,6 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('surfaces invalid external edges into container end handles', async () => {
-    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
-
     expect(
       buildWorkflowSummary({
         blocks: {
@@ -192,8 +186,6 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('surfaces missing outer input handles on incoming container edges', async () => {
-    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
-
     const summary = buildWorkflowSummary({
       blocks: {
         input: block('input', 'input_trigger', 'Input'),
@@ -230,8 +222,6 @@ describe('workflow-review-tool-utils', () => {
   })
 
   it('marks container branch edges as internal so missing outer edges stay visible', async () => {
-    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
-
     const child = {
       ...block('child', 'function', 'Child'),
       data: { parentId: 'parallel', extent: 'parent' as const },

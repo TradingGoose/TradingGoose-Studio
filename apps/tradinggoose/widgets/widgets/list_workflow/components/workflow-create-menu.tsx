@@ -31,11 +31,13 @@ const logger = createLogger('DashboardWorkflowCreateMenu')
 
 export interface DashboardWorkflowCreateMenuProps {
   workspaceId?: string | null
+  existingWorkflowNames: string[]
   onWorkflowCreated?: (workflowId: string) => void
 }
 
 export function DashboardWorkflowCreateMenu({
   workspaceId,
+  existingWorkflowNames,
   onWorkflowCreated,
 }: DashboardWorkflowCreateMenuProps) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
@@ -110,9 +112,10 @@ export function DashboardWorkflowCreateMenu({
         }
 
         const parsedFile = JSON.parse(content) as unknown
-        const existingWorkflowNames = Object.values(useWorkflowRegistry.getState().workflows)
-          .filter((workflow) => workflow.workspaceId === workspaceId)
-          .map((workflow) => workflow.name)
+
+        let importedSkillsBySourceName:
+          | ReturnType<typeof buildImportedWorkflowSkillsLookup>
+          | undefined
 
         if (parsedWorkflow.data.skills.length > 0) {
           const importResult = await importSkillsMutation.mutateAsync({
@@ -120,61 +123,18 @@ export function DashboardWorkflowCreateMenu({
             file: parsedFile,
           })
 
-          const importedSkillsBySourceName = buildImportedWorkflowSkillsLookup({
+          importedSkillsBySourceName = buildImportedWorkflowSkillsLookup({
             expectedSkills: parsedWorkflow.data.skills,
             importedSkills: importResult?.importedSkills,
           })
-
-          const newWorkflowId = await importWorkflowFromJsonContent({
-            content,
-            workspaceId,
-            existingWorkflowNames,
-            importedSkillsBySourceName,
-            createWorkflow,
-            persistWorkflowState: async (workflowId, state) => {
-              const response = await fetch(`/api/workflows/${workflowId}/state`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(state),
-              })
-
-              if (!response.ok) {
-                logger.error('Failed to persist imported workflow to database')
-                throw new Error('Failed to save workflow')
-              }
-            },
-          })
-
-          logger.info('Workflow imported successfully from dashboard widget')
-
-          if (newWorkflowId) {
-            onWorkflowCreated?.(newWorkflowId)
-          }
-
-          return
         }
 
         const newWorkflowId = await importWorkflowFromJsonContent({
           content,
           workspaceId,
           existingWorkflowNames,
+          importedSkillsBySourceName,
           createWorkflow,
-          persistWorkflowState: async (workflowId, state) => {
-            const response = await fetch(`/api/workflows/${workflowId}/state`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(state),
-            })
-
-            if (!response.ok) {
-              logger.error('Failed to persist imported workflow to database')
-              throw new Error('Failed to save workflow')
-            }
-          },
         })
 
         logger.info('Workflow imported successfully from dashboard widget')
@@ -188,7 +148,7 @@ export function DashboardWorkflowCreateMenu({
         setIsImporting(false)
       }
     },
-    [workspaceId, createWorkflow, importSkillsMutation, onWorkflowCreated]
+    [workspaceId, existingWorkflowNames, createWorkflow, importSkillsMutation, onWorkflowCreated]
   )
 
   const handleImportWorkflow = useCallback(() => {

@@ -3,17 +3,14 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
-import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { requireUserId, verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
+import { listOAuthConnectionsForUser, listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 
-interface ReadOAuthCredentialsParams {
-  entityId?: string
-}
+type ReadOAuthCredentialsParams =
+  | { scope: 'personal' }
+  | { scope: 'workspace'; workspaceId: string }
 
 export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentialsParams, any> = {
   name: CopilotTool.read_oauth_credentials,
@@ -23,31 +20,18 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
   ): Promise<any> {
     const logger = createLogger('ReadOAuthCredentialsServerTool')
 
-    if (!context?.userId) {
-      logger.error(
-        'Unauthorized attempt to access OAuth credentials - no authenticated user context'
-      )
-      throw new Error('Authentication required')
+    const userId = requireUserId(context)
+    if (params.scope === 'personal') {
+      const credentials = await listOAuthConnectionsForUser({ userId })
+      logger.info('Fetched personal OAuth credentials', { userId, count: credentials.length })
+      return { credentials, total: credentials.length }
     }
 
-    const authenticatedUserId = context.userId
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createWorkflowPermissionError('access credentials in')
-      logger.error('Unauthorized attempt to access OAuth credentials', {
-        workflowId: workflowScope.workflowId,
-        authenticatedUserId,
-      })
-      throw new Error(errorMessage)
-    }
-
-    const userId = authenticatedUserId
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
+    const scopedContext = withWorkspaceArgContext(context, params)
+    const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
 
     logger.info('Reading OAuth credentials for authenticated user', {
       userId,
-      workflowId: workflowScope?.workflowId,
       workspaceId,
     })
     const credentials = await listOAuthCredentialsForUser({

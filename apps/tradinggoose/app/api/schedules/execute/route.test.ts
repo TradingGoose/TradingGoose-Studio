@@ -89,7 +89,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
@@ -151,7 +151,7 @@ describe('Scheduled Workflow Execution API Route', () => {
     expect(data.error).toContain('Trigger.dev is required for scheduled executions')
   })
 
-  it('should queue schedules through pending execution when enabled', async () => {
+  it('should queue configured schedules and remove orphan schedule rows', async () => {
     vi.doMock('@/lib/auth/internal', () => ({
       verifyCronAuth: vi.fn().mockReturnValue(null),
     }))
@@ -189,15 +189,26 @@ describe('Scheduled Workflow Execution API Route', () => {
       isPendingExecutionLimitError: vi.fn(() => false),
     }))
 
+    let deletedScheduleWhere: Record<string, unknown> | undefined
     vi.doMock('@tradinggoose/db', () => {
       const scheduleRows = [
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
+          timezone: 'UTC',
+          nextRunAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+        {
+          id: 'schedule-missing-trigger',
+          workflowId: 'workflow-2',
+          blockId: null,
+          cronExpression: null,
+          lastRanAt: null,
+          failedCount: 1,
           timezone: 'UTC',
           nextRunAt: new Date('2024-01-01T00:00:00.000Z'),
         },
@@ -231,6 +242,12 @@ describe('Scheduled Workflow Execution API Route', () => {
             }),
           }
         }),
+        delete: vi.fn().mockImplementation(() => ({
+          where: vi.fn().mockImplementation((condition) => {
+            deletedScheduleWhere = condition
+            return Promise.resolve([])
+          }),
+        })),
       }
 
       return {
@@ -247,6 +264,12 @@ describe('Scheduled Workflow Execution API Route', () => {
     expect(response.status).toBe(200)
     const data = await response.json()
     expect(data).toHaveProperty('executedCount', 1)
+    expect(deletedScheduleWhere).toEqual(
+      expect.objectContaining({
+        type: 'eq',
+        value: 'schedule-missing-trigger',
+      })
+    )
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionType: 'schedule',
@@ -349,7 +372,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
@@ -359,7 +382,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-2',
           workflowId: 'workflow-2',
-          blockId: null,
+          blockId: 'schedule-trigger-2',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,

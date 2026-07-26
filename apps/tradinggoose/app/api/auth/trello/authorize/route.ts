@@ -8,50 +8,43 @@ import {
   TRELLO_OAUTH_STATE_COOKIE,
 } from '@/lib/trello/auth'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('TrelloAuthorizeAPI')
 
-function getSafeCallbackURL(request: NextRequest) {
+function getCallbackPath(request: NextRequest) {
   const appUrl = new URL(getBaseUrl())
-  const rawCallbackURL = request.nextUrl.searchParams.get('callbackURL') || '/'
-
-  try {
-    const callbackURL = new URL(rawCallbackURL, appUrl.origin)
-    if (callbackURL.origin !== appUrl.origin) {
-      return appUrl.origin
-    }
-
-    return callbackURL.toString()
-  } catch {
-    return appUrl.origin
-  }
+  return normalizeCallbackUrl(request.nextUrl.searchParams.get('callbackURL'), appUrl.origin)
 }
 
-function redirectWithError(callbackURL: string, error: string) {
-  const redirectURL = new URL(callbackURL)
+function redirectWithError(callbackPath: string, error: string) {
+  const redirectURL = new URL(callbackPath, getBaseUrl())
   redirectURL.searchParams.set('error', error)
   return NextResponse.redirect(redirectURL)
 }
 
 export async function GET(request: NextRequest) {
-  const callbackURL = getSafeCallbackURL(request)
+  const callbackPath = getCallbackPath(request)
+  if (!callbackPath) {
+    return NextResponse.json({ error: 'invalid_callback_url' }, { status: 400 })
+  }
 
   try {
     const session = await getSession(request.headers)
     if (!session?.user?.id) {
-      return redirectWithError(callbackURL, 'user_not_authenticated')
+      return redirectWithError(callbackPath, 'user_not_authenticated')
     }
 
     const apiKey = await getTrelloApiKey()
     if (!apiKey) {
-      return redirectWithError(callbackURL, 'trello_not_configured')
+      return redirectWithError(callbackPath, 'trello_not_configured')
     }
 
     const state = createTrelloOAuthState()
     const returnURL = new URL('/api/auth/trello/callback', getBaseUrl())
-    returnURL.searchParams.set('callbackURL', callbackURL)
+    returnURL.searchParams.set('callbackURL', callbackPath)
     returnURL.searchParams.set('state', state)
 
     const authorizeURL = new URL('https://trello.com/1/authorize')
@@ -68,6 +61,6 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     logger.error('Failed to start Trello authorization', { error })
-    return redirectWithError(callbackURL, 'trello_authorization_failed')
+    return redirectWithError(callbackPath, 'trello_authorization_failed')
   }
 }

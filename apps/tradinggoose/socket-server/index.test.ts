@@ -3,25 +3,49 @@
  *
  * @vitest-environment node
  */
+import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'http'
+import * as syncProtocol from '@y/protocols/sync'
+import * as encoding from 'lib0/encoding'
 import { io as createClient } from 'socket.io-client'
-import * as Y from 'yjs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import {
+  buildEntityListDescriptor,
+  buildSavedEntityDescriptor,
+} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  extractPersistedStateFromDoc,
-  setVariables,
-  setWorkflowState,
-} from '@/lib/yjs/workflow-session'
+  getEntityFields,
+  getEntityListMembers,
+  replaceEntityListSessionMembers,
+} from '@/lib/yjs/entity-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
-import { cleanupPersistence, getState, storeState } from '@/socket-server/yjs/persistence'
 import {
+  acquireDocument,
   cleanupAllDocuments,
-  getDocument,
-  getExistingDocument,
-  setPersistence,
+  peekDocument,
+  setupWSConnection,
 } from '@/socket-server/yjs/upstream-utils'
+
+const {
+  mockSaveSavedEntityYjsDocToDb,
+  mockSaveWorkflowYjsDocToDb,
+  savedEntityStates,
+  savedWorkflowStates,
+} = vi.hoisted(() => ({
+  mockSaveSavedEntityYjsDocToDb: vi.fn(),
+  mockSaveWorkflowYjsDocToDb: vi.fn(),
+  savedEntityStates: [] as Array<{
+    entityKind: string
+    entityId: string
+    fields: Record<string, unknown>
+  }>,
+  savedWorkflowStates: [] as Array<ReturnType<typeof extractPersistedStateFromDoc>>,
+}))
 
 vi.mock(import('@/lib/env'), async (importOriginal) => {
   const actual = await importOriginal()
@@ -35,23 +59,36 @@ vi.mock(import('@/lib/env'), async (importOriginal) => {
 })
 
 const INTERNAL_SECRET = '12345678901234567890123456789012'
+const INTERNAL_MUTATION_HEADERS = {
+  'content-type': 'application/json',
+  'x-internal-secret': INTERNAL_SECRET,
+  'x-yjs-actor-user-id': 'test-user-id',
+  'x-yjs-request-id': '00000000-0000-4000-8000-000000000001',
+  'x-yjs-deadline': String(Date.now() + 65_000),
+}
 
 vi.mock('@/lib/redis', () => ({
   getRedisClient: vi.fn(() => null),
   getRedisStorageMode: vi.fn(() => 'local'),
 }))
 
-vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  getRuntimeStateFromDoc: vi.fn(() => ({
-    docState: 'active',
-    replaySafe: false,
-    reseededFromCanonical: false,
-  })),
-  getRuntimeStateFromUpdate: vi.fn(() => ({
-    docState: 'active',
-    replaySafe: false,
-    reseededFromCanonical: false,
-  })),
+vi.mock('@/lib/workflows/db-helpers', () => ({
+  saveWorkflowYjsDocToDb: mockSaveWorkflowYjsDocToDb,
+}))
+
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  saveSavedEntityYjsDocToDb: mockSaveSavedEntityYjsDocToDb,
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', async (importOriginal) => ({
+  ...(await importOriginal()),
+  initializeSavedReviewTargetDocument: vi.fn(async (descriptor) => {
+    const Y = await import('yjs')
+    const doc = new Y.Doc()
+    const state = Y.encodeStateAsUpdate(doc)
+    doc.destroy()
+    return { state, workspaceId: descriptor.workspaceId }
+  }),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -62,26 +99,26 @@ vi.mock('@/lib/auth', () => ({
   },
 }))
 
+vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
+  verifyReviewTargetAccess: vi.fn(async (_userId, descriptor) => ({
+    hasAccess: true,
+    workspaceId: descriptor.workspaceId ?? 'workspace-1',
+  })),
+}))
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    transaction: vi.fn(),
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflowBlocks: {
-    id: 'workflowBlocks.id',
-    workflowId: 'workflowBlocks.workflowId',
-  },
-  workflowEdges: {
-    id: 'workflowEdges.id',
-    sourceBlockId: 'workflowEdges.sourceBlockId',
-    targetBlockId: 'workflowEdges.targetBlockId',
-    workflowId: 'workflowEdges.workflowId',
+    transaction: vi.fn((use) => use({ execute: vi.fn().mockResolvedValue([{ acquired: true }]) })),
   },
 }))
 
@@ -174,6 +211,38 @@ function sendHttpRequestWithOptions(
   })
 }
 
+function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, 0)
+  syncProtocol.writeUpdate(encoder, update)
+  return encoding.toUint8Array(encoder)
+}
+
+function connectTestDocument(docId: string) {
+  const conn = new EventEmitter() as any
+  conn.readyState = 1
+  conn.send = vi.fn((_message, _options, callback) => callback?.())
+  conn.ping = vi.fn()
+  conn.close = vi.fn()
+  const listMatch = /^list:([^:]+):(.+)$/.exec(docId)
+  const descriptor = listMatch
+    ? buildEntityListDescriptor(listMatch[1] as any, listMatch[2])
+    : buildSavedEntityDescriptor('skill', docId, 'workspace-1')
+  return acquireDocument(
+    docId,
+    { workspaceId: descriptor.workspaceId, initialize: () => undefined },
+    (doc) => {
+      setupWSConnection(conn, {} as any, {
+        doc,
+        userId: 'user-1',
+        accessMode: listMatch ? 'read' : 'write',
+        descriptor,
+      })
+      return { conn, doc }
+    }
+  )
+}
+
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
@@ -186,7 +255,18 @@ describe('Socket Server Index Integration', () => {
 
   beforeEach(async () => {
     cleanupAllDocuments()
-    cleanupPersistence()
+    savedWorkflowStates.length = 0
+    savedEntityStates.length = 0
+    mockSaveWorkflowYjsDocToDb.mockImplementation(async (_workflowId, doc) => {
+      savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
+    })
+    mockSaveSavedEntityYjsDocToDb.mockImplementation(
+      async (entityKind, entityId, _workspaceId, doc) => {
+        const fields = getEntityFields(doc, entityKind)
+        savedEntityStates.push({ entityKind, entityId, fields })
+        return fields
+      }
+    )
 
     // Create HTTP server
     httpServer = createServer()
@@ -224,7 +304,6 @@ describe('Socket Server Index Integration', () => {
 
   afterEach(async () => {
     cleanupAllDocuments()
-    cleanupPersistence()
 
     // Properly close servers and wait for them to fully close
     if (io) {
@@ -273,86 +352,191 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should apply workflow state through the internal Yjs route', async () => {
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/workflows/workflow-1/apply-state',
-        {
+      const applyWorkflowPatch = (body: unknown) =>
+        sendHttpRequestWithOptions(PORT, '/internal/yjs/workflows/workflow-1/apply-state', {
           method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-          body: JSON.stringify({
-            workflowState: {
-              blocks: {
-                'block-1': {
-                  id: 'block-1',
-                  type: 'agent',
-                  name: 'Applied Agent',
-                  position: { x: 10, y: 20 },
-                  subBlocks: {},
-                  outputs: {},
-                  enabled: true,
+          headers: INTERNAL_MUTATION_HEADERS,
+          body: JSON.stringify(body),
+        })
+
+      const response = await applyWorkflowPatch({
+        workflowState: {
+          blocks: {
+            'block-1': {
+              id: 'block-1',
+              type: 'agent',
+              name: 'Applied Agent',
+              position: { x: 10, y: 20 },
+              subBlocks: {
+                prompt: {
+                  id: 'prompt',
+                  type: 'long-input',
+                  value: 'Use <variable.token> in this prompt',
                 },
               },
-              edges: [],
-              loops: {},
-              parallels: {},
-              lastSaved: '2026-04-06T00:00:00.000Z',
-              isDeployed: false,
+              outputs: {},
+              enabled: true,
             },
-            variables: {
-              var1: {
-                id: 'var1',
-                workflowId: 'workflow-1',
-                name: 'token',
-                type: 'plain',
-                value: 'secret',
-              },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-06T00:00:00.000Z',
+          isDeployed: false,
+        },
+        variables: {
+          var1: {
+            id: 'var1',
+            workflowId: 'workflow-1',
+            name: 'token',
+            type: 'plain',
+            value: 'secret',
+          },
+        },
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
+      expect(savedWorkflowStates[0]?.blocks['block-1']).toEqual(
+        expect.objectContaining({
+          id: 'block-1',
+          name: 'Applied Agent',
+        })
+      )
+      expect(savedWorkflowStates[0]?.variables.var1).toEqual(
+        expect.objectContaining({
+          id: 'var1',
+          name: 'token',
+          value: 'secret',
+        })
+      )
+      expect(peekDocument('workflow-1')).toBeNull()
+    })
+
+    it('applies watchlist content without changing its list identity', async () => {
+      const { conn, doc: listDoc } = await connectTestDocument('list:watchlist:workspace-1')
+      replaceEntityListSessionMembers(listDoc, [{ id: 'watchlist-1', name: 'Old Watchlist' }])
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/entities/watchlist-1/apply-state',
+        {
+          method: 'POST',
+          headers: INTERNAL_MUTATION_HEADERS,
+          body: JSON.stringify({
+            entityKind: 'watchlist',
+            workspaceId: 'workspace-1',
+            fields: {
+              settings: { showLogo: true, showTicker: true, showDescription: false },
+              items: [],
             },
           }),
         }
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('workflow-1')).toBeNull()
+      expect(JSON.parse(response.body)).toEqual({
+        success: true,
+        fields: {
+          settings: { showLogo: true, showTicker: true, showDescription: false },
+          items: [],
+        },
+      })
+      expect(savedEntityStates).toEqual([
+        {
+          entityKind: 'watchlist',
+          entityId: 'watchlist-1',
+          fields: {
+            settings: { showLogo: true, showTicker: true, showDescription: false },
+            items: [],
+          },
+        },
+      ])
+      expect(peekDocument('watchlist-1')).toBeNull()
+      expect(getEntityListMembers(listDoc, 'watchlist')).toEqual([
+        {
+          entityId: 'watchlist-1',
+          entityName: 'Old Watchlist',
+        },
+      ])
 
-      const persisted = await getState('workflow-1')
-      expect(persisted).toBeTruthy()
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
+    })
 
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, persisted!)
-        const state = extractPersistedStateFromDoc(doc)
-        expect(state.blocks['block-1']).toEqual(
-          expect.objectContaining({
-            id: 'block-1',
-            name: 'Applied Agent',
-          })
-        )
-        expect(state.variables.var1).toEqual(
-          expect.objectContaining({
-            id: 'var1',
-            name: 'token',
-            value: 'secret',
-          })
-        )
-      } finally {
-        doc.destroy()
-      }
+    it('releases an idle workflow document when materialization fails', async () => {
+      mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-failed/apply-state',
+        {
+          method: 'POST',
+          headers: INTERNAL_MUTATION_HEADERS,
+          body: JSON.stringify({
+            workflowState: {
+              blocks: {},
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(500)
+      expect(peekDocument('workflow-failed')).toBeNull()
+    })
+
+    it('does not mutate a connected live workflow session when persistence fails', async () => {
+      const { conn, doc: liveDoc } = await connectTestDocument('workflow-connected')
+      setWorkflowState(
+        liveDoc,
+        { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
+        'test'
+      )
+
+      mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-connected/apply-state',
+        {
+          method: 'POST',
+          headers: INTERNAL_MUTATION_HEADERS,
+          body: JSON.stringify({
+            workflowState: {
+              blocks: { replaced: { id: 'replaced' } },
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+          }),
+        }
+      )
+
+      // A failed write must never leave connected clients ahead of the database:
+      // the live session still holds the pre-command block.
+      expect(response.statusCode).toBe(500)
+      const liveBlocks = extractPersistedStateFromDoc(peekDocument('workflow-connected')!).blocks
+      expect(liveBlocks).toHaveProperty('keep')
+      expect(liveBlocks).not.toHaveProperty('replaced')
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
-      const { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } = await import(
-        '@/lib/yjs/server/bootstrap-review-target'
-      )
+      const { getReviewTargetRuntimeState } = await import('@/lib/copilot/review-sessions/runtime')
 
-      setPersistence('workflow-state-update', { getState, storeState })
-      getDocument('workflow-state-update')
-      const liveDoc = await getExistingDocument('workflow-state-update')
+      const { conn, doc: liveDoc } = await connectTestDocument('workflow-state-update')
 
       setWorkflowState(
-        liveDoc!,
+        liveDoc,
         {
           blocks: {
             current: {
@@ -369,14 +553,13 @@ describe('Socket Server Index Integration', () => {
           loops: {},
           parallels: {},
           lastSaved: '2026-04-06T00:00:00.000Z',
-          isDeployed: false,
         },
         'test'
       )
 
       const response = await sendHttpRequestWithOptions(
         PORT,
-        '/internal/yjs/sessions/workflow-state-update/snapshot?targetKind=workflow&sessionId=workflow-state-update&workflowId=workflow-state-update&entityKind=workflow&entityId=workflow-state-update',
+        '/internal/yjs/sessions/workflow-state-update/snapshot?targetKind=entity&sessionId=workflow-state-update&entityKind=workflow&entityId=workflow-state-update',
         {
           method: 'GET',
           headers: {
@@ -394,11 +577,13 @@ describe('Socket Server Index Integration', () => {
           workspaceId: null,
           entityKind: 'workflow',
           entityId: 'workflow-state-update',
+          ownerUserId: null,
           draftSessionId: null,
           reviewSessionId: null,
           yjsSessionId: 'workflow-state-update',
         },
-        runtime: getRuntimeStateFromDoc(liveDoc!),
+        runtime: getReviewTargetRuntimeState(liveDoc),
+        touchedAt: null,
       })
 
       const doc = new Y.Doc()
@@ -413,16 +598,14 @@ describe('Socket Server Index Integration', () => {
         )
       } finally {
         doc.destroy()
+        conn.emit('close')
       }
-
-      expect(getRuntimeStateFromDoc).toHaveBeenCalled()
-      expect(getRuntimeStateFromUpdate).not.toHaveBeenCalled()
     })
 
-    it('should return 404 from the internal Yjs snapshot route when no workflow state exists', async () => {
+    it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
-        '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=workflow&sessionId=missing-workflow&workflowId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
+        '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=entity&sessionId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
         {
           method: 'GET',
           headers: {
@@ -431,29 +614,16 @@ describe('Socket Server Index Integration', () => {
         }
       )
 
-      expect(response.statusCode).toBe(404)
-      expect(JSON.parse(response.body)).toEqual({
-        error: 'Session not found',
-        sessionId: 'missing-workflow',
-      })
+      expect(response.statusCode).toBe(200)
+      expect(peekDocument('missing-workflow')).toBeNull()
     })
 
-    it('should clear reseededFromCanonical on the live Yjs session doc', async () => {
-      setPersistence('review-session-live', { getState, storeState })
-      getDocument('review-session-live')
-      const liveDoc = await getExistingDocument('review-session-live')
-
-      liveDoc!.transact(() => {
-        liveDoc!.getMap('fields').set('title', 'Shared Tool')
-        liveDoc!.getMap('metadata').set('reseededFromCanonical', true)
-      }, 'test')
-      await storeState('review-session-live', Y.encodeStateAsUpdate(liveDoc!))
-
+    it('should bootstrap a saved entity snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
-        '/internal/yjs/sessions/review-session-live/clear-reseeded',
+        '/internal/yjs/sessions/skill-stale/snapshot?targetKind=entity&sessionId=skill-stale&workspaceId=workspace-1&entityKind=skill&entityId=skill-stale',
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'x-internal-secret': INTERNAL_SECRET,
           },
@@ -461,117 +631,31 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
-      expect(await getExistingDocument('review-session-live')).toBe(liveDoc)
-      expect(liveDoc!.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-
-      const persisted = await getState('review-session-live')
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, persisted!)
-        expect(doc.getMap('fields').get('title')).toBe('Shared Tool')
-        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-      } finally {
-        doc.destroy()
-      }
+      expect(peekDocument('skill-stale')).toBeNull()
     })
+  })
 
-    it('should clear reseededFromCanonical from persisted session state without overwriting fields', async () => {
-      const persistedDoc = new Y.Doc()
-      try {
-        persistedDoc.transact(() => {
-          persistedDoc.getMap('fields').set('title', 'Persisted Tool')
-          persistedDoc.getMap('metadata').set('reseededFromCanonical', true)
-        }, 'test')
-        await storeState('review-session-cold', Y.encodeStateAsUpdate(persistedDoc))
-      } finally {
-        persistedDoc.destroy()
-      }
+  describe('Yjs document cleanup', () => {
+    it('does not apply client updates from read-only Yjs connections', async () => {
+      const bootstrapDoc = new Y.Doc()
+      replaceEntityListSessionMembers(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
+      const bootstrapUpdate = Y.encodeStateAsUpdate(bootstrapDoc)
+      bootstrapDoc.destroy()
 
-      expect(await getExistingDocument('review-session-cold')).toBeNull()
+      const { conn, doc } = await connectTestDocument('list:skill:workspace-1')
+      Y.applyUpdate(doc, bootstrapUpdate, YJS_ORIGINS.SYSTEM)
 
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/review-session-cold/clear-reseeded',
-        {
-          method: 'POST',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
+      const updateDoc = new Y.Doc()
+      replaceEntityListSessionMembers(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
+      conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))
+      updateDoc.destroy()
 
-      expect(response.statusCode).toBe(200)
-      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
-      expect(await getExistingDocument('review-session-cold')).toBeNull()
+      await new Promise((resolve) => setImmediate(resolve))
 
-      const persisted = await getState('review-session-cold')
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, persisted!)
-        expect(doc.getMap('fields').get('title')).toBe('Persisted Tool')
-        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-      } finally {
-        doc.destroy()
-      }
-    })
-
-    it('should delete the live workflow doc and persisted session through the internal Yjs route', async () => {
-      setPersistence('workflow-2', { getState, storeState })
-      getDocument('workflow-2')
-      const liveDoc = await getExistingDocument('workflow-2')
-
-      setWorkflowState(
-        liveDoc!,
-        {
-          blocks: {
-            old: {
-              id: 'old',
-              type: 'agent',
-              name: 'Old Agent',
-              position: { x: 0, y: 0 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-          },
-          edges: [],
-          loops: {},
-          parallels: {},
-          lastSaved: '2026-04-05T00:00:00.000Z',
-          isDeployed: false,
-        },
-        'test'
-      )
-      setVariables(
-        liveDoc!,
-        {
-          oldVar: {
-            id: 'oldVar',
-            workflowId: 'workflow-2',
-            name: 'old',
-            type: 'plain',
-            value: 'old',
-          },
-        },
-        'test'
-      )
-      await storeState('workflow-2', Y.encodeStateAsUpdate(liveDoc!))
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/workflow-2',
-        {
-          method: 'DELETE',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
-
-      expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('workflow-2')).toBeNull()
-      expect(await getState('workflow-2')).toBeNull()
+      expect(getEntityListMembers(doc, 'skill').map((member) => member.entityId)).toEqual([
+        'skill-1',
+      ])
+      expect(conn.close).toHaveBeenCalled()
     })
   })
 

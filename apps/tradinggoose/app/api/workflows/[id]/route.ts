@@ -1,32 +1,48 @@
 import { db } from '@tradinggoose/db'
-import { templates, workflow } from '@tradinggoose/db/schema'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
-import { createLogger } from '@/lib/logs/console/logger'
-import { generateRequestId } from '@/lib/utils'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
-import { loadWorkflowState } from '@/lib/workflows/db-helpers'
-import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { createLogger } from '@/lib/logs/console/logger'
+import {
+  renameSavedEntityIdentityInTx,
+  SavedEntityIdentityError,
+} from '@/lib/saved-entities/identity'
+import { generateRequestId } from '@/lib/utils'
+import {
+  refreshWorkflowList,
+  refreshWorkflowListForWorkflow,
+  requireWorkflowRealtimeState,
+} from '@/lib/workflows/db-helpers'
+import {
+  hasWorkflowWriteAccess,
+  readWorkflowAccessContext,
+  readWorkflowById,
+} from '@/lib/workflows/utils'
+import { lockSavedEntityList } from '@/lib/yjs/server/entity-loaders'
+import { runYjsDrainFencedTransaction } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowByIdAPI')
 
-const UpdateWorkflowSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
-  description: z.string().optional(),
-  color: z.string().optional(),
-  folderId: z.string().nullable().optional(),
-})
+const UpdateWorkflowSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required').optional(),
+    description: z.string().optional(),
+    folderId: z.string().nullable().optional(),
+  })
+  .strict()
 
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the authoritative Yjs-first workflow state loader.
+ * Reads through the editable Yjs session; saved DB tables only seed that session.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -92,29 +108,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       // Internal calls have full access
       hasAccess = true
     } else {
-      // Case 1: User owns the workflow
-      if (workflowData) {
-        accessContext = await readWorkflowAccessContext(workflowId, userId ?? undefined)
+      accessContext = await readWorkflowAccessContext(workflowId, userId ?? undefined)
 
-        if (!accessContext) {
-          logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
-          return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-        }
-
-        workflowData = accessContext.workflow
-
-        if (accessContext.isOwner) {
-          hasAccess = true
-        }
-
-        if (
-          !hasAccess &&
-          workflowData.workspaceId &&
-          (accessContext.isWorkspaceOwner || accessContext.workspacePermission)
-        ) {
-          hasAccess = true
-        }
+      if (!accessContext) {
+        logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
       }
+
+      workflowData = accessContext.workflow
+      hasAccess = Boolean(
+        workflowData.workspaceId &&
+          (accessContext.isWorkspaceOwner || accessContext.workspacePermission)
+      )
 
       if (!hasAccess) {
         logger.warn(`[${requestId}] User ${userId} denied access to workflow ${workflowId}`)
@@ -122,32 +127,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
-    const workflowState = await loadWorkflowState(workflowId, workflowData.lastSynced)
+    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from Yjs session`)
+    const workflowState = await requireWorkflowRealtimeState(workflowId)
 
     if (!workflowState) {
-      logger.warn(
-        `[${requestId}] Workflow ${workflowId} has no stored state, returning empty state`
-      )
-    } else {
-      logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
-        blocksCount: Object.keys(workflowState.blocks).length,
-        edgesCount: workflowState.edges.length,
-        loopsCount: Object.keys(workflowState.loops).length,
-        parallelsCount: Object.keys(workflowState.parallels).length,
-        loops: workflowState.loops,
-      })
+      logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)
+      return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
 
-    const resolvedState = workflowState
-      ? createWorkflowSnapshot({
-          direction: workflowState.direction,
-          blocks: workflowState.blocks,
-          edges: workflowState.edges,
-          loops: workflowState.loops,
-          parallels: workflowState.parallels,
-        })
-      : createWorkflowSnapshot()
+    logger.debug(`[${requestId}] Found editable Yjs workflow state for ${workflowId}:`, {
+      blocksCount: Object.keys(workflowState.blocks).length,
+      edgesCount: workflowState.edges.length,
+      loopsCount: Object.keys(workflowState.loops).length,
+      parallelsCount: Object.keys(workflowState.parallels).length,
+      loops: workflowState.loops,
+    })
+
+    const resolvedState = createWorkflowSnapshot({
+      direction: workflowState.direction,
+      blocks: workflowState.blocks,
+      edges: workflowState.edges,
+      loops: workflowState.loops,
+      parallels: workflowState.parallels,
+    })
 
     let resolvedBlocks = resolvedState.blocks
     if (!isInternalCall && resolvedState.blocks) {
@@ -172,13 +174,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
-        variables: workflowState?.variables ?? {},
+        variables: workflowState.variables,
       },
     }
 
-    logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${workflowState?.source ?? 'empty state'}`
-    )
+    logger.info(`[${requestId}] Loaded editable workflow ${workflowId} from Yjs`)
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
 
@@ -186,14 +186,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error fetching workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-/**
- * DELETE /api/workflows/[id]
- * Delete a workflow by ID
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -212,91 +210,41 @@ export async function DELETE(
     const userId = session.user.id
 
     const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
-
-    if (!workflowData) {
+    if (!accessContext) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for deletion`)
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const workflowData = accessContext.workflow
 
-    // Check if user has permission to delete this workflow
-    let canDelete = false
-
-    // Case 1: User owns the workflow
-    if (workflowData.userId === userId) {
-      canDelete = true
+    if (
+      !workflowData.workspaceId ||
+      (!accessContext.isWorkspaceOwner && accessContext.workspacePermission === null)
+    ) {
+      logger.warn(`[${requestId}] User ${userId} has no workspace access to workflow ${workflowId}`)
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Case 2: Workflow belongs to a workspace and user has admin permission
-    if (!canDelete && workflowData.workspaceId) {
-      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
-      if (context?.isWorkspaceOwner || context?.workspacePermission === 'admin') {
-        canDelete = true
-      }
-    }
-
-    if (!canDelete) {
+    if (
+      !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
+      accessContext.workspacePermission !== 'admin'
+    ) {
       logger.warn(
         `[${requestId}] User ${userId} denied permission to delete workflow ${workflowId}`
       )
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Check if workflow has published templates before deletion
-    const { searchParams } = new URL(request.url)
-    const checkTemplates = searchParams.get('check-templates') === 'true'
-    const deleteTemplatesParam = searchParams.get('deleteTemplates')
-
-    if (checkTemplates) {
-      // Return template information for frontend to handle
-      const publishedTemplates = await db
-        .select()
-        .from(templates)
-        .where(eq(templates.workflowId, workflowId))
-
-      return NextResponse.json({
-        hasPublishedTemplates: publishedTemplates.length > 0,
-        count: publishedTemplates.length,
-        publishedTemplates: publishedTemplates.map((t) => ({
-          id: t.id,
-          name: t.name,
-          views: t.views,
-          stars: t.stars,
-        })),
-      })
-    }
-
-    // Handle template deletion based on user choice
-    if (deleteTemplatesParam !== null) {
-      const deleteTemplates = deleteTemplatesParam === 'delete'
-
-      if (deleteTemplates) {
-        // Delete all templates associated with this workflow
-        await db.delete(templates).where(eq(templates.workflowId, workflowId))
-        logger.info(`[${requestId}] Deleted templates for workflow ${workflowId}`)
-      } else {
-        // Orphan the templates (set workflowId to null)
-        await db
-          .update(templates)
-          .set({ workflowId: null })
-          .where(eq(templates.workflowId, workflowId))
-        logger.info(`[${requestId}] Orphaned templates for workflow ${workflowId}`)
+    await runYjsDrainFencedTransaction({ sessionIds: [workflowId] }, async (tx) => {
+      if (workflowData.workspaceId) {
+        await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
       }
+      await tx.delete(workflow).where(eq(workflow.id, workflowId))
+    })
+
+    if (workflowData.workspaceId) {
+      await refreshWorkflowList(workflowData.workspaceId)
     }
-
-    await db.delete(workflow).where(eq(workflow.id, workflowId))
-
-    // Best-effort cleanup of the authoritative socket/Yjs session.
-    // Do not block workflow deletion if the bridge is unavailable.
-    try {
-      await deleteYjsSessionInSocketServer(workflowId)
-    } catch (error) {
-      logger.warn(
-        `[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`,
-        { error, workflowId }
-      )
-    }
-
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
 
@@ -304,13 +252,17 @@ export async function DELETE(
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+    const savedEntityResponse = createSavedEntityErrorResponse(error)
+    if (savedEntityResponse) return savedEntityResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
  * PUT /api/workflows/[id]
- * Update workflow metadata (name, description, color, folderId)
+ * Update workflow row metadata (name, description, folderId)
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -333,57 +285,65 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Fetch the workflow to check ownership/access
     const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
-
-    if (!workflowData) {
+    if (!accessContext) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for update`)
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+    const workflowData = accessContext.workflow
 
-    // Check if user has permission to update this workflow
-    let canUpdate = false
-
-    // Case 1: User owns the workflow
-    if (workflowData.userId === userId) {
-      canUpdate = true
-    }
-
-    // Case 2: Workflow belongs to a workspace and user has write or admin permission
-    if (!canUpdate && workflowData.workspaceId) {
-      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
-      if (
-        context?.isWorkspaceOwner ||
-        context?.workspacePermission === 'write' ||
-        context?.workspacePermission === 'admin'
-      ) {
-        canUpdate = true
-      }
-    }
-
-    if (!canUpdate) {
+    if (!hasWorkflowWriteAccess(accessContext)) {
       logger.warn(
         `[${requestId}] User ${userId} denied permission to update workflow ${workflowId}`
       )
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Build update object
-    const updateData: any = { updatedAt: new Date() }
-    if (updates.name !== undefined) updateData.name = updates.name
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.color !== undefined) updateData.color = updates.color
-    if (updates.folderId !== undefined) updateData.folderId = updates.folderId
+    const hasRowUpdates = updates.description !== undefined || updates.folderId !== undefined
+    if (updates.name && !workflowData.workspaceId) {
+      throw new SavedEntityIdentityError(400, 'Workflow workspace is required')
+    }
+    const updatedWorkflow =
+      hasRowUpdates || updates.name
+        ? await db.transaction(async (tx) => {
+            if (updates.name) {
+              await lockSavedEntityList(tx, 'workflow', workflowData.workspaceId as string)
+            }
+            let row = workflowData
+            if (hasRowUpdates) {
+              const [updated] = await tx
+                .update(workflow)
+                .set({
+                  ...(updates.description !== undefined
+                    ? { description: updates.description }
+                    : {}),
+                  ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+                  updatedAt: new Date(),
+                })
+                .where(eq(workflow.id, workflowId))
+                .returning()
+              if (!updated) {
+                throw new SavedEntityIdentityError(404, 'Workflow not found')
+              }
+              row = { ...row, ...updated }
+            }
 
-    // Update the workflow
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set(updateData)
-      .where(eq(workflow.id, workflowId))
-      .returning()
+            if (!updates.name) return row
+            const identity = await renameSavedEntityIdentityInTx(tx, {
+              entityKind: 'workflow',
+              entityId: workflowId,
+              workspaceId: workflowData.workspaceId as string,
+              name: updates.name,
+            })
+            return { ...row, ...identity }
+          })
+        : workflowData
+    if (hasRowUpdates || updates.name) {
+      await refreshWorkflowListForWorkflow(workflowId)
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {
-      updates: updateData,
+      updates,
     })
 
     return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
@@ -391,15 +351,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const elapsed = Date.now() - startTime
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid workflow update data for ${workflowId}`, {
-        errors: error.errors,
+        errors: error.issues,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }
+    if (error instanceof SavedEntityIdentityError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
 
     logger.error(`[${requestId}] Error updating workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

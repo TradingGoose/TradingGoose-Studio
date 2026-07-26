@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { permissions, type permissionTypeEnum, user, workspace } from '@tradinggoose/db/schema'
 import { and, eq, or, type SQLWrapper } from 'drizzle-orm'
+import { cache } from 'react'
 
 export type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
@@ -13,25 +14,23 @@ export interface WorkspaceAccess {
   workspace: WorkspaceRecord | null
 }
 
-export interface WorkspaceMemberProfile {
-  userId: string
-  name: string
-  image: string | null
+const permissionOrder: Record<PermissionType, number> = { admin: 3, write: 2, read: 1 }
+
+function resolveHighestPermission(
+  rows: Array<{ permissionType: PermissionType }>
+): PermissionType | null {
+  if (rows.length === 0) return null
+
+  return rows.reduce((highest, current) =>
+    permissionOrder[current.permissionType] > permissionOrder[highest.permissionType]
+      ? current
+      : highest
+  ).permissionType
 }
 
 async function selectWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
   const [row] = await db.select().from(workspace).where(eq(workspace.id, workspaceId)).limit(1)
   return row ?? null
-}
-
-export async function workspaceExists(workspaceId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: workspace.id })
-    .from(workspace)
-    .where(eq(workspace.id, workspaceId))
-    .limit(1)
-
-  return !!row
 }
 
 export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
@@ -52,7 +51,7 @@ export async function checkWorkspaceAccess(
     return { exists: true, hasAccess: true, canWrite: true, workspace: ws }
   }
 
-  const [permissionRow] = await db
+  const permissionRows = await db
     .select({ permissionType: permissions.permissionType })
     .from(permissions)
     .where(
@@ -62,17 +61,22 @@ export async function checkWorkspaceAccess(
         eq(permissions.entityId, workspaceId)
       )
     )
-    .limit(1)
 
-  if (!permissionRow) {
+  const permission = resolveHighestPermission(permissionRows)
+
+  if (!permission) {
     return { exists: true, hasAccess: false, canWrite: false, workspace: ws }
   }
 
-  const canWrite =
-    permissionRow.permissionType === 'write' || permissionRow.permissionType === 'admin'
+  const canWrite = permission === 'write' || permission === 'admin'
 
   return { exists: true, hasAccess: true, canWrite, workspace: ws }
 }
+
+export const getCachedWorkspaceAccess = cache(
+  async (workspaceId: string, userId: string): Promise<WorkspaceAccess> =>
+    checkWorkspaceAccess(workspaceId, userId)
+)
 
 export function buildWorkspaceAccessScope(userId: string, workspaceIdColumn: SQLWrapper) {
   return {
@@ -111,9 +115,13 @@ export async function getUserEntityPermissions(
   entityId: string
 ): Promise<PermissionType | null> {
   if (entityType === 'workspace') {
-    const activeWorkspace = await workspaceExists(entityId)
+    const activeWorkspace = await selectWorkspaceById(entityId)
     if (!activeWorkspace) {
       return null
+    }
+
+    if (activeWorkspace.ownerId === userId) {
+      return 'admin'
     }
   }
 
@@ -132,38 +140,7 @@ export async function getUserEntityPermissions(
     return null
   }
 
-  const permissionOrder: Record<PermissionType, number> = { admin: 3, write: 2, read: 1 }
-  const highestPermission = result.reduce((highest, current) => {
-    return permissionOrder[current.permissionType] > permissionOrder[highest.permissionType]
-      ? current
-      : highest
-  })
-
-  return highestPermission.permissionType
-}
-
-/**
- * Check if a user has admin permission for a specific workspace
- *
- * @param userId - The ID of the user to check
- * @param workspaceId - The ID of the workspace to check
- * @returns Promise<boolean> - True if the user has admin permission for the workspace, false otherwise
- */
-export async function hasAdminPermission(userId: string, workspaceId: string): Promise<boolean> {
-  const result = await db
-    .select({ id: permissions.id })
-    .from(permissions)
-    .where(
-      and(
-        eq(permissions.userId, userId),
-        eq(permissions.entityType, 'workspace'),
-        eq(permissions.entityId, workspaceId),
-        eq(permissions.permissionType, 'admin')
-      )
-    )
-    .limit(1)
-
-  return result.length > 0
+  return resolveHighestPermission(result)
 }
 
 /**
@@ -180,6 +157,17 @@ export async function getUsersWithPermissions(workspaceId: string): Promise<
     permissionType: PermissionType
   }>
 > {
+  const [owner] = await db
+    .select({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    })
+    .from(workspace)
+    .innerJoin(user, eq(workspace.ownerId, user.id))
+    .where(eq(workspace.id, workspaceId))
+    .limit(1)
+
   const usersWithPermissions = await db
     .select({
       userId: user.id,
@@ -193,12 +181,35 @@ export async function getUsersWithPermissions(workspaceId: string): Promise<
     .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
     .orderBy(user.email)
 
-  return usersWithPermissions.map((row) => ({
-    userId: row.userId,
-    email: row.email,
-    name: row.name,
-    permissionType: row.permissionType,
-  }))
+  const usersById = new Map<
+    string,
+    {
+      userId: string
+      email: string
+      name: string
+      permissionType: PermissionType
+    }
+  >()
+
+  if (owner) {
+    usersById.set(owner.userId, {
+      ...owner,
+      permissionType: 'admin',
+    })
+  }
+
+  for (const row of usersWithPermissions) {
+    if (!usersById.has(row.userId)) {
+      usersById.set(row.userId, {
+        userId: row.userId,
+        email: row.email,
+        name: row.name,
+        permissionType: row.permissionType,
+      })
+    }
+  }
+
+  return [...usersById.values()].sort((a, b) => a.email.localeCompare(b.email))
 }
 
 /**
@@ -212,17 +223,7 @@ export async function hasWorkspaceAdminAccess(
   userId: string,
   workspaceId: string
 ): Promise<boolean> {
-  const ws = await selectWorkspaceById(workspaceId)
-
-  if (!ws) {
-    return false
-  }
-
-  if (ws.ownerId === userId) {
-    return true
-  }
-
-  return await hasAdminPermission(userId, workspaceId)
+  return (await getUserEntityPermissions(userId, 'workspace', workspaceId)) === 'admin'
 }
 
 /**
@@ -278,21 +279,4 @@ export async function getManageableWorkspaces(userId: string): Promise<
   ]
 
   return combined
-}
-
-export async function getWorkspaceMemberProfiles(
-  workspaceId: string
-): Promise<WorkspaceMemberProfile[]> {
-  const rows = await db
-    .select({
-      userId: user.id,
-      name: user.name,
-      image: user.image,
-    })
-    .from(permissions)
-    .innerJoin(user, eq(permissions.userId, user.id))
-    .innerJoin(workspace, eq(permissions.entityId, workspace.id))
-    .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
-
-  return rows
 }

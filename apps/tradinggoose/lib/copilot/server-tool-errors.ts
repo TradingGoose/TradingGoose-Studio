@@ -1,6 +1,11 @@
 import { z } from 'zod'
+import { DashboardLayoutValidationError } from '@/widgets/layout-document'
+import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
-export interface CopilotServerToolErrorPayload {
+// Declared as a type alias rather than an interface so it keeps an implicit
+// index signature: the MCP SDK types `structuredContent` as
+// `{ [x: string]: unknown }`, which interfaces are not assignable to.
+type CopilotServerToolErrorPayload = {
   error: string
   code: string
   hint?: string
@@ -11,10 +16,12 @@ export interface CopilotServerToolErrorPayload {
   }>
 }
 
-export interface CopilotServerToolErrorResponse {
+interface CopilotServerToolErrorResponse {
   status: number
   body: CopilotServerToolErrorPayload
 }
+
+const GENERIC_SERVER_TOOL_ERROR = 'Server tool execution failed'
 
 export class StructuredServerToolError extends Error {
   public readonly status: number
@@ -42,10 +49,14 @@ function formatZodIssuePath(issue: z.ZodIssue): string {
     return '$'
   }
 
+  // Zod 4 widens path segments to PropertyKey, so a segment can be a symbol
+  // that would throw on implicit string conversion.
   return issue.path
-    .map((segment, index) =>
-      typeof segment === 'number' ? `[${segment}]` : index === 0 ? segment : `.${segment}`
-    )
+    .map((segment, index) => {
+      if (typeof segment === 'number') return `[${segment}]`
+      const key = String(segment)
+      return index === 0 ? key : `.${key}`
+    })
     .join('')
 }
 
@@ -76,78 +87,21 @@ function buildInvalidToolPayloadError(
 }
 
 function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse | null {
-  if (message === 'Missing TG_WORKFLOW metadata') {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_missing_metadata',
-        error: 'Workflow document is missing a standalone `%% TG_WORKFLOW {...}` metadata line.',
-        hint: 'Send raw `tg-mermaid-v1` Mermaid text with real newlines, and keep `%% TG_WORKFLOW {...}` on its own line near the top of the document.',
-        retryable: true,
-      },
-    }
-  }
+  const isGraphDocumentError =
+    message.startsWith('Workflow graph Mermaid ') ||
+    /^New workflow block ".+" is missing a type label\.$/.test(message) ||
+    /^Unknown workflow block type ".+" for new block ".+"\.$/.test(message) ||
+    message === 'entityDocument is required'
 
-  if (message === 'Workflow document did not contain any TG_BLOCK entries') {
+  if (isGraphDocumentError) {
     return {
       status: 422,
       body: {
-        code: 'invalid_workflow_document_missing_blocks',
-        error:
-          'Workflow document did not contain any standalone `%% TG_BLOCK {...}` block entries.',
-        hint: 'Emit canonical `%% TG_BLOCK {...}` comment lines for each block. Do not embed `TG_BLOCK` JSON inside node labels or send simplified block metadata.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Invalid TG_BLOCK payload:')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_block_payload',
+        code: 'invalid_workflow_graph_document',
         error: message,
-        hint: 'Each `TG_BLOCK` payload must be canonical workflow state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
+        hint: 'Send a complete minimal Mermaid graph starting with `flowchart TD` or `flowchart LR`. Do not include TG_* metadata or block internals. Every new block needs `id:` and canonical `type:` labels from `get_available_blocks` or `get_blocks_metadata`.',
         retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Invalid TG_EDGE payload')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_edge_payload',
-        error: message,
-        hint: 'Each `TG_EDGE` payload must be a standalone JSON object with string `source` and `target` fields that matches the visible Mermaid connection.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (
-    message ===
-    'Workflow document contains Mermaid connection lines but no TG_EDGE entries. Every visible workflow connection must have a matching TG_EDGE payload.'
-  ) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_missing_edge_metadata',
-        error: message,
-        hint: 'When the diagram shows visible Mermaid connections, include matching standalone `%% TG_EDGE {...}` lines for each connection.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Workflow document edge metadata is inconsistent.')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_edge_mismatch',
-        error: message,
-        hint: 'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in logical sync. Loop and parallel child blocks must stay inside their container subgraphs and cross container boundaries through the container handles, while condition blocks keep their diamond-and-branch structure.',
-        retryable: true,
+        issues: [{ path: 'entityDocument', message }],
       },
     }
   }
@@ -158,7 +112,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_container_edge',
         error: message,
-        hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself with targetHandle "target". Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
+        hint: 'For loop and parallel containers, connect outer edges to the container node and internal edges to the generated start/end nodes.',
         retryable: true,
         issues: [{ path: 'entityDocument.edges', message }],
       },
@@ -184,11 +138,15 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
 
     const hint = details.includes('non-canonical sub-block')
       ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
-      : details.includes('unknown block type')
-        ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`. Keep `TG_BLOCK.type` unchanged unless you are intentionally replacing the block with another valid type.'
-        : details.includes('Edge references non-existent')
-          ? 'Every `TG_EDGE` source and target must match an existing `TG_BLOCK`, `TG_LOOP`, or `TG_PARALLEL` id in the same document.'
-          : 'Return a complete canonical workflow document that validates as workflow state. Preserve required block fields, canonical ids, and valid edge references.'
+      : details.includes('removedBlockIds')
+        ? 'Keep every existing block id in the Mermaid graph unless the user explicitly asked to remove it; list intentional removals in `removedBlockIds`.'
+        : details.includes('immutable identities')
+          ? 'Keep the existing block id/type pair unchanged. `edit_workflow` rewrites topology only; it cannot replace an existing block or change its type.'
+          : details.includes('unknown block type')
+            ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`.'
+            : details.includes('Edge references non-existent')
+              ? 'Every edge source and target must match a block id in the same document.'
+              : 'Return a complete workflow graph that validates as workflow state. Preserve block ids and valid edge references.'
 
     return {
       status: 422,
@@ -226,12 +184,52 @@ export function buildCopilotServerToolErrorResponse(
     return buildInvalidToolPayloadError(toolName, error)
   }
 
-  const message = error instanceof Error ? error.message : 'Failed to execute server tool'
+  if (error instanceof DashboardLayoutValidationError) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_dashboard_layout_edit',
+        error: error.message,
+        hint: 'Send one complete tg-dashboard-layout-structure-v3 layout document. Retain existing panels by id, add or replace their widget with widget.key, add new panels with widget.key, and list intentionally omitted existing panels in removedPanelIds.',
+        retryable: true,
+        issues: error.issues,
+      },
+    }
+  }
 
+  if (error instanceof WidgetConfigValidationError) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_widget_config',
+        error: error.message,
+        hint: 'Use get_widgets_metadata for editable params, pair colors, and linked color-pair fields. Use edit_layout with a key from get_available_widgets to add, replace, or remove widget bindings.',
+        retryable: true,
+        issues: error.issues,
+      },
+    }
+  }
+
+  const message = error instanceof Error ? error.message : 'Failed to execute server tool'
   if (toolName === 'edit_workflow') {
     const structuredError = buildEditWorkflowError(message)
     if (structuredError) {
       return structuredError
+    }
+  }
+  if (
+    toolName === 'edit_workflow_variable' &&
+    /^(Invalid edited workflow variables:|Duplicate workflow variable|Unsupported workflow variable|Unsupported documentFormat ")/.test(
+      message
+    )
+  ) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_workflow_variable_document',
+        error: message,
+        retryable: true,
+      },
     }
   }
 
@@ -239,7 +237,7 @@ export function buildCopilotServerToolErrorResponse(
     status: 500,
     body: {
       code: 'server_tool_execution_failed',
-      error: message,
+      error: GENERIC_SERVER_TOOL_ERROR,
       retryable: false,
     },
   }

@@ -77,7 +77,6 @@ def status_example():
         status = client.get_workflow_status("your-workflow-id")
         print(f"Status: {{\n"
               f"  deployed: {status.is_deployed},\n"
-              f"  published: {status.is_published},\n"
               f"  needs_redeployment: {status.needs_redeployment},\n"
               f"  deployed_at: {status.deployed_at}\n"
               f"}}")
@@ -258,4 +257,4 @@ if __name__ == "__main__":
         print(f"\n💥 Example failed: {e}")
         exit(1)
 
-    print("🎉 All examples completed successfully!") 
+    print("🎉 All examples completed successfully!")

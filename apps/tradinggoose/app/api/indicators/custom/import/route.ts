@@ -5,6 +5,7 @@ import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
+import { createSavedEntityErrorResponse } from '@/app/api/saved-entity-error-response'
 
 const logger = createLogger('IndicatorsImportAPI')
 
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid indicators import data`, {
-          errors: validationError.errors,
+          errors: validationError.issues,
         })
 
-        const workspaceError = validationError.errors.find(
+        const workspaceError = validationError.issues.find(
           (error) => error.path.length === 1 && error.path[0] === 'workspaceId'
         )
         if (workspaceError) {
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.errors },
+          { error: 'Invalid request data', details: validationError.issues },
           { status: 400 }
         )
       }
@@ -79,6 +80,8 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
+    const realtimeResponse = createSavedEntityErrorResponse(error)
+    if (realtimeResponse) return realtimeResponse
     logger.error(`[${requestId}] Error importing indicators`, { error })
     return NextResponse.json({ error: 'Failed to import indicators' }, { status: 500 })
   }

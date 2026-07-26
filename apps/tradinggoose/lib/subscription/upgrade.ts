@@ -40,7 +40,7 @@ export function useSubscriptionUpgrade() {
         throw new Error('User not authenticated')
       }
 
-      let currentPersonalSubscriptionId: string | undefined
+      let currentPersonalStripeSubscriptionId: string | undefined
       let allSubscriptions: any[] = []
       try {
         const listResult = await client.subscription.list()
@@ -51,9 +51,10 @@ export function useSubscriptionUpgrade() {
               sub.status as (typeof ENTITLED_SUBSCRIPTION_STATUSES)[number]
             ) && sub.referenceId === userId
         )
-        currentPersonalSubscriptionId = activePersonalSubscription?.id
+        currentPersonalStripeSubscriptionId =
+          activePersonalSubscription?.stripeSubscriptionId || undefined
       } catch (_e) {
-        currentPersonalSubscriptionId = undefined
+        currentPersonalStripeSubscriptionId = undefined
       }
 
       let referenceId = userId
@@ -127,18 +128,19 @@ export function useSubscriptionUpgrade() {
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 
-        const finalParams = currentPersonalSubscriptionId
-          ? { ...upgradeParams, subscriptionId: currentPersonalSubscriptionId }
-          : upgradeParams
+        const finalParams =
+          targetTier.ownerType === 'user' && currentPersonalStripeSubscriptionId
+            ? { ...upgradeParams, subscriptionId: currentPersonalStripeSubscriptionId }
+            : upgradeParams
 
         logger.info(
-          currentPersonalSubscriptionId
+          targetTier.ownerType === 'user' && currentPersonalStripeSubscriptionId
             ? 'Upgrading existing subscription'
             : 'Creating new subscription',
           {
             billingTierId: targetTier.billingTierId,
             billingTier: targetTier.displayName,
-            subscriptionId: currentPersonalSubscriptionId,
+            stripeSubscriptionId: currentPersonalStripeSubscriptionId,
             usageScope: targetTier.usageScope,
             seatMode: targetTier.seatMode,
             referenceId,

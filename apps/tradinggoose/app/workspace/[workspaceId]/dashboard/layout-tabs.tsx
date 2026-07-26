@@ -4,25 +4,23 @@ import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Check, Pencil, Plus, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
 import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
+import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
 import { cn } from '@/lib/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 export type LayoutTab = {
   id: string
   name: string
-  sortOrder: number
   isActive: boolean
-  hasDraft?: boolean
 }
 
 interface LayoutTabsProps {
   layouts: LayoutTab[]
   isBusy?: boolean
+  canMutate?: boolean
   onSelect: (layoutId: string) => void
-  onReorder: (nextLayouts: LayoutTab[]) => void
+  onReorder: (layoutOrder: string[]) => void
   onCreate: () => void
   onRename?: (layoutId: string, name: string) => void
   onRequestRename?: (layoutId: string) => void
@@ -32,6 +30,7 @@ interface LayoutTabsProps {
 export function LayoutTabs({
   layouts,
   isBusy = false,
+  canMutate = true,
   onSelect,
   onReorder,
   onCreate,
@@ -39,20 +38,13 @@ export function LayoutTabs({
   onRequestRename,
   onDelete,
 }: LayoutTabsProps) {
-  const locale = useLocale()
   const copy = useMessages()
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const controlsDisabled = isBusy || !canMutate
 
-  const handleValueChange = (items: LayoutTab[]) => {
-    const ordered = items.map((item, index) => ({
-      ...item,
-      sortOrder: index,
-    }))
-    onReorder(ordered)
-  }
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
@@ -85,6 +77,7 @@ export function LayoutTabs({
   }, [editingId])
 
   const startEdit = (layout: LayoutTab) => {
+    if (controlsDisabled) return
     if (onRequestRename) {
       onRequestRename(layout.id)
       return
@@ -102,7 +95,7 @@ export function LayoutTabs({
   }
 
   const commitEdit = (layout: LayoutTab) => {
-    if (!onRename) {
+    if (controlsDisabled || !onRename) {
       cancelEdit()
       return
     }
@@ -121,7 +114,9 @@ export function LayoutTabs({
       orientation='horizontal'
       value={layouts}
       getItemValue={(item) => item.id}
-      onValueChange={handleValueChange}
+      onValueChange={(nextLayouts) => {
+        if (!controlsDisabled) onReorder(nextLayouts.map((layout) => layout.id))
+      }}
       sensors={sensors}
       flatCursor
     >
@@ -138,6 +133,7 @@ export function LayoutTabs({
                   key={layout.id}
                   value={layout.id}
                   asHandle
+                  disabled={controlsDisabled}
                   className={cn(
                     'group relative inline-flex h-7 min-w-0 max-w-[200px] items-stretch gap-1 overflow-hidden rounded-sm bg-muted px-2 hover:bg-background hover:text-secondary-foreground',
                     layout.isActive ? 'bg-background text-foreground' : 'text-muted-foreground'
@@ -160,7 +156,7 @@ export function LayoutTabs({
                           }
                         }}
                         className='h-6 w-full rounded-sm border border-border bg-muted/40 px-2 text-sm outline-none'
-                        disabled={isBusy}
+                        disabled={controlsDisabled}
                         onPointerDownCapture={(event) => event.stopPropagation()}
                         autoComplete='off'
                         autoCorrect='off'
@@ -173,15 +169,12 @@ export function LayoutTabs({
                       type='button'
                       className='inline-flex h-full min-w-0 flex-1 items-center pl-1 font-medium text-sm outline-none transition-colors'
                       onClick={() => onSelect(layout.id)}
-                      disabled={isBusy}
+                      disabled={controlsDisabled}
                       tabIndex={-1}
                     >
                       <span className='min-w-0 flex-1 truncate pb-1 font-md text-md'>
                         {layout.name}
                       </span>
-                      {layout.isActive && layout.hasDraft ? (
-                        <span className='ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-amber-500' />
-                      ) : null}
                     </button>
                   )}
                   {editingId === layout.id ? (
@@ -189,7 +182,7 @@ export function LayoutTabs({
                       type='button'
                       className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-foreground'
                       onClick={() => commitEdit(layout)}
-                      disabled={isBusy}
+                      disabled={controlsDisabled}
                       onPointerDownCapture={(event) => event.stopPropagation()}
                     >
                       <Check className='h-3.5 w-3.5' />
@@ -202,7 +195,7 @@ export function LayoutTabs({
                       })}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-foreground focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => startEdit(layout)}
-                      disabled={isBusy}
+                      disabled={controlsDisabled}
                       onPointerDownCapture={(event) => event.stopPropagation()}
                     >
                       <Pencil className='h-3.5 w-3.5' />
@@ -215,7 +208,7 @@ export function LayoutTabs({
                       })}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-destructive focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => onDelete(layout.id)}
-                      disabled={isBusy}
+                      disabled={controlsDisabled}
                       onPointerDownCapture={(event) => event.stopPropagation()}
                     >
                       <X className='h-4 w-4' />
@@ -232,10 +225,10 @@ export function LayoutTabs({
           type='button'
           className={cn(
             'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-            isBusy ? 'cursor-progress' : 'cursor-pointer'
+            isBusy ? 'cursor-progress' : controlsDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
           )}
           onClick={onCreate}
-          disabled={isBusy}
+          disabled={controlsDisabled}
         >
           <Plus className='h-3.5 w-3.5' />
           <span className='sr-only'>{copy.workspace.layoutTabs.createNewLayout}</span>

@@ -6,11 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useSkills } from '@/hooks/queries/skills'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ExportControls')
 
@@ -24,15 +23,11 @@ interface ExportControlsProps {
 export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
   const copy = useWorkflowEditorCopy()
   const [isExporting, setIsExporting] = useState(false)
-  const { workflows } = useWorkflowRegistry()
-  const { workflowId, channelId } = useWorkflowRoute()
+  const { workspaceId, workflowId } = useWorkflowRoute()
+  const { members } = useEntityList('workflow', workspaceId)
   const { getJson: readWorkflowExportJson } = useWorkflowJsonStore()
 
-  const currentWorkflow = workflowId ? workflows[workflowId] : null
-  const workflowWorkspaceId = currentWorkflow?.workspaceId ?? null
-  const { data: workspaceSkills = [], refetch: refetchWorkspaceSkills } = useSkills(
-    workflowWorkspaceId ?? ''
-  )
+  const currentWorkflow = members.find((member) => member.entityId === workflowId) ?? null
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
     try {
@@ -58,20 +53,18 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
 
     setIsExporting(true)
     try {
-      const refreshedSkills = workflowWorkspaceId ? await refetchWorkspaceSkills() : null
-      const exportWorkspaceSkills = refreshedSkills?.data ?? workspaceSkills
-
       const jsonContent = await readWorkflowExportJson({
         workflowId,
-        channelId,
-        workspaceSkills: exportWorkspaceSkills,
+        name: currentWorkflow.entityName,
+        description: currentWorkflow.entityDescription,
+        workspaceId,
       })
 
       if (!jsonContent) {
         throw new Error('Failed to generate JSON')
       }
 
-      const filename = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '-')}.json`
+      const filename = `${currentWorkflow.entityName.replace(/[^a-z0-9]/gi, '-')}.json`
       downloadFile(jsonContent, filename, 'application/json')
       logger.info('Workflow exported as JSON')
     } catch (error) {

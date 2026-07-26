@@ -1,7 +1,7 @@
 'use client'
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,12 +18,11 @@ import {
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import type { LocaleCode } from '@/i18n/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
+import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import {
   getTradingOrderTimeInForceOptions,
   resolveTradingOrderTimeInForce,
@@ -39,10 +38,6 @@ import {
 } from '@/providers/trading/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetComponentProps } from '@/widgets/types'
-import {
-  emitQuickOrderParamsChange,
-  useQuickOrderParamsPersistence,
-} from '@/widgets/utils/quick-order-params'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import {
   getQuickOrderOrderTypeDefinitions,
@@ -55,7 +50,7 @@ import {
   resolveQuickOrderOrderType,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
-import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
+import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/contract'
 
 type QuickOrderBodyParams = QuickOrderWidgetParams | null
 type OrderAttemptIdempotency = { fingerprint: string; key: string }
@@ -67,11 +62,7 @@ function CenterState({ children }: { children: string }) {
   return <div className={centerStateClassName}>{children}</div>
 }
 
-const formatCurrency = (
-  value: number | null | undefined,
-  currency = 'USD',
-  locale = 'en-US'
-) => {
+const formatCurrency = (value: number | null | undefined, currency = 'USD', locale = 'en-US') => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '$ -'
   return new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -150,7 +141,8 @@ const getValidationMessage = ({
 
   const resolvedAssetClass = resolveTradingListingAssetClass(listing)
   if (!resolvedAssetClass) return copy.resolvedListingAssetClassRequired
-  if (!isTradingOrderListingSupported(providerId, listing)) return copy.listingIsNotSupportedByThisProvider
+  if (!isTradingOrderListingSupported(providerId, listing))
+    return copy.listingIsNotSupportedByThisProvider
   if (orderTypeMessage) return orderTypeMessage
   if (!orderType) return copy.selectOrderType
   if (!timeInForce) return copy.selectTimeInForce
@@ -181,7 +173,9 @@ const getValidationMessage = ({
   for (const field of orderTypeDefinition?.excludes ?? []) {
     const result = { limitPrice, stopPrice, trailPrice, trailPercent }[field]
     if (isPositiveNumber(getParsedNumberValue(result))) {
-      return formatTemplate(copy.fieldNotSupportedForThisOrderType, { field: orderFieldLabels[field] })
+      return formatTemplate(copy.fieldNotSupportedForThisOrderType, {
+        field: orderFieldLabels[field],
+      })
     }
   }
 
@@ -189,7 +183,8 @@ const getValidationMessage = ({
   if (oneOfFields.length) {
     const values = { limitPrice, stopPrice, trailPrice, trailPercent }
     const invalidField = oneOfFields.find((field) => !values[field].ok)
-    if (invalidField) return formatTemplate(copy.enterValid, { field: orderFieldLabels[invalidField] })
+    if (invalidField)
+      return formatTemplate(copy.enterValid, { field: orderFieldLabels[invalidField] })
     const providedCount = oneOfFields.filter((field) =>
       isPositiveNumber(getParsedNumberValue(values[field]))
     ).length
@@ -214,7 +209,7 @@ export function QuickOrderWidgetBody({
   panelId,
   widget,
   params,
-  onWidgetParamsChange,
+  onWidgetParamsPatch,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.quickOrder
@@ -231,12 +226,12 @@ export function QuickOrderWidgetBody({
     trailPercent: copy.body.trailPercent,
   } as const
 
-  useQuickOrderParamsPersistence({
-    onWidgetParamsChange,
-    panelId,
-    widget,
-    params,
-  })
+  const patchWidgetParams = useCallback(
+    (nextParams: Record<string, unknown>) => {
+      onWidgetParamsPatch?.(nextParams)
+    },
+    [onWidgetParamsPatch]
+  )
 
   const listingInstanceId = `quick-order-${panelId ?? 'panel'}-${widgetKey}`
   const updateListingSelector = useListingSelectorStore((state) => state.updateInstance)
@@ -279,9 +274,6 @@ export function QuickOrderWidgetBody({
       serviceId: quickOrderParams?.serviceId,
       portfolioIdentity: quickOrderParams?.portfolioIdentity,
       enabled: areProviderOptionsReady && hasSelectedProvider,
-      panelId,
-      widgetKey,
-      emitParamsChange: emitQuickOrderParamsChange,
     })
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
@@ -444,19 +436,6 @@ export function QuickOrderWidgetBody({
     copy: copy.body,
     orderFieldLabels,
   })
-
-  useEffect(() => {
-    if (!areProviderOptionsReady || !quickOrderParams?.provider || providerId) return
-    emitQuickOrderParamsChange({
-      params: {
-        provider: null,
-        serviceId: null,
-        portfolioIdentity: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [areProviderOptionsReady, panelId, providerId, quickOrderParams?.provider, widgetKey])
 
   useEffect(() => {
     if (previousProviderRef.current === providerId) return

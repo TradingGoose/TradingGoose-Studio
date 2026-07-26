@@ -1,54 +1,67 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { listSkills } from '@/lib/skills/operations'
+import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
-const logger = createLogger('SkillsResolver')
+const logger = createLogger('AgentSkillsResolver')
 
 export async function resolveSkillMetadata(
   skillInputs: SkillInput[],
-  workspaceId: string
+  workspaceId: string,
+  isDeployedContext: boolean
 ): Promise<SkillMetadata[]> {
-  const skillIds = skillInputs
-    .map((skillInput) => skillInput.skillId)
-    .filter((skillId): skillId is string => typeof skillId === 'string' && skillId.length > 0)
+  const selectedSkills = skillInputs.filter(
+    (skillInput) => typeof skillInput.skillId === 'string' && skillInput.skillId.length > 0
+  )
 
-  if (skillIds.length === 0 || !workspaceId) {
+  if (selectedSkills.length === 0 || !workspaceId) {
     return []
   }
 
-  try {
-    const skills = await listSkills({ workspaceId })
-    const selectedSkillIds = new Set(skillIds)
-    return skills
-      .filter((skill) => selectedSkillIds.has(skill.id))
-      .map((skill) => ({ name: skill.name, description: skill.description }))
-  } catch (error) {
-    logger.error('Failed to resolve skill metadata', { error, skillIds, workspaceId })
+  const namesByIdPromise = readEntityListMembersFromDb('skill', workspaceId).then(
+    (members) => new Map(members.map(({ id, name }) => [id, name]))
+  )
+
+  const results = await Promise.allSettled(
+    selectedSkills.map(async (skillInput) => {
+      const [fields, namesById] = await Promise.all([
+        readSavedEntityFieldsForExecution(
+          'skill',
+          skillInput.skillId,
+          workspaceId,
+          isDeployedContext
+        ),
+        namesByIdPromise,
+      ])
+      const name = namesById.get(skillInput.skillId)
+      if (name === undefined) throw new Error('Canonical skill identity is missing')
+      return {
+        id: skillInput.skillId,
+        name,
+        description: String(fields.description ?? ''),
+      }
+    })
+  )
+
+  return results.flatMap((result, index) => {
+    const skillInput = selectedSkills[index]
+    if (result.status === 'fulfilled') return [result.value]
+    logger.warn(`Skipping unavailable agent skill ${skillInput.skillId}:`, result.reason)
     return []
-  }
+  })
 }
 
 export async function resolveSkillContent(
-  skillName: string,
-  workspaceId: string
-): Promise<string | null> {
-  if (!skillName || !workspaceId) {
-    return null
-  }
-
-  try {
-    const rows = await listSkills({ workspaceId })
-    const skill = rows.find((row) => row.name === skillName)
-
-    if (!skill) {
-      logger.warn('Skill not found', { skillName, workspaceId })
-      return null
-    }
-
-    return skill.content
-  } catch (error) {
-    logger.error('Failed to resolve skill content', { error, skillName, workspaceId })
-    return null
-  }
+  skillId: string,
+  workspaceId: string,
+  isDeployedContext: boolean
+): Promise<string> {
+  const fields = await readSavedEntityFieldsForExecution(
+    'skill',
+    skillId,
+    workspaceId,
+    isDeployedContext
+  )
+  return String(fields.content ?? '')
 }

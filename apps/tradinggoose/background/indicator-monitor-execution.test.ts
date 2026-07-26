@@ -125,7 +125,7 @@ describe('executeIndicatorMonitorJob', () => {
           workspaceId: 'workspace-1',
           triggerType: 'webhook',
           executionTarget: 'deployed',
-          startBlockId: 'trigger-block',
+          triggerBlockId: 'trigger-block',
         }),
       })
     )

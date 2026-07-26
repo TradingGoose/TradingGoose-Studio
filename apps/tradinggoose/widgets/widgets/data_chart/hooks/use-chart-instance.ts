@@ -9,10 +9,7 @@ export const useChartInstance = (resetKey?: string | number) => {
   const chartRef = useRef<IChartApi | null>(null)
   const beforeDestroyRef = useRef<(() => void) | null>(null)
   const [containerVersion, setContainerVersion] = useState(0)
-  type MainSeries =
-    | ISeriesApi<'Candlestick'>
-    | ISeriesApi<'Bar'>
-    | ISeriesApi<'Area'>
+  type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
   const mainSeriesRef = useRef<MainSeries | null>(null)
   const [chartReady, setChartReady] = useState(0)
   const chartContainerCallbackRef = useCallback((container: HTMLDivElement | null) => {
@@ -43,7 +40,9 @@ export const useChartInstance = (resetKey?: string | number) => {
         ...(fontFamily ? { fontFamily } : {}),
         ...(textColor ? { textColor } : {}),
         attributionLogo: false,
-        ...(backgroundColor && backgroundColor !== 'transparent' && backgroundColor !== 'rgba(0, 0, 0, 0)'
+        ...(backgroundColor &&
+        backgroundColor !== 'transparent' &&
+        backgroundColor !== 'rgba(0, 0, 0, 0)'
           ? { background: { color: backgroundColor } }
           : {}),
       },

@@ -1,11 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
-import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
+import { validateWorkflowPermissions } from '@/lib/workflows/utils'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +27,7 @@ const AutoLayoutRequestSchema = z.object({
       y: z.number().min(50).max(500).optional(),
     })
     .optional(),
-  blocks: z.record(z.any()).optional(),
+  blocks: z.record(z.string(), z.any()).optional(),
   edges: z.array(z.any()).optional(),
 })
 
@@ -35,10 +37,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id: workflowId } = await params
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthorized autolayout attempt for workflow ${workflowId}`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { error, session } = await validateWorkflowPermissions(workflowId, requestId, 'write')
+    if (error || !session?.user?.id) {
+      return NextResponse.json(
+        { error: error?.message ?? 'Unauthorized' },
+        { status: error?.status ?? 401 }
+      )
     }
 
     const userId = session.user.id
@@ -50,44 +54,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId,
     })
 
-    const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow
+    const currentWorkflowState = await requireWorkflowRealtimeState(workflowId)
 
-    if (!workflowData) {
-      logger.warn(`[${requestId}] Workflow ${workflowId} not found for autolayout`)
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    if (!currentWorkflowState) {
+      logger.error(`[${requestId}] Could not load workflow ${workflowId} for autolayout`)
+      return NextResponse.json({ error: 'Could not load workflow data' }, { status: 500 })
     }
 
-    const canUpdate =
-      accessContext?.isOwner ||
-      (workflowData.workspaceId
-        ? accessContext?.workspacePermission === 'write' ||
-          accessContext?.workspacePermission === 'admin'
-        : false)
-
-    if (!canUpdate) {
-      logger.warn(
-        `[${requestId}] User ${userId} denied permission to autolayout workflow ${workflowId}`
-      )
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
-
-    let currentWorkflowData: { blocks: Record<string, any>; edges: any[] } | null
+    const layoutInput =
+      layoutOptions.blocks && layoutOptions.edges
+        ? { blocks: layoutOptions.blocks, edges: layoutOptions.edges }
+        : { blocks: currentWorkflowState.blocks, edges: currentWorkflowState.edges }
 
     if (layoutOptions.blocks && layoutOptions.edges) {
       logger.info(`[${requestId}] Using provided blocks with live measurements`)
-      currentWorkflowData = {
-        blocks: layoutOptions.blocks,
-        edges: layoutOptions.edges,
-      }
     } else {
-      logger.info(`[${requestId}] Loading blocks from database`)
-      currentWorkflowData = await loadWorkflowFromNormalizedTables(workflowId)
-    }
-
-    if (!currentWorkflowData) {
-      logger.error(`[${requestId}] Could not load workflow ${workflowId} for autolayout`)
-      return NextResponse.json({ error: 'Could not load workflow data' }, { status: 500 })
+      logger.info(`[${requestId}] Loading blocks from current workflow state`)
     }
 
     const autoLayoutOptions = {
@@ -100,11 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       alignment: layoutOptions.alignment ?? 'center',
     }
 
-    const layoutResult = applyAutoLayout(
-      currentWorkflowData.blocks,
-      currentWorkflowData.edges,
-      autoLayoutOptions
-    )
+    const layoutResult = applyAutoLayout(layoutInput.blocks, layoutInput.edges, autoLayoutOptions)
 
     if (!layoutResult.success || !layoutResult.blocks) {
       logger.error(`[${requestId}] Auto layout failed:`, {
@@ -118,6 +96,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 500 }
       )
     }
+
+    await applyWorkflowState(
+      workflowId,
+      userId,
+      createWorkflowSnapshot({
+        direction: currentWorkflowState.direction,
+        blocks: layoutResult.blocks,
+        edges: layoutInput.edges,
+        loops: currentWorkflowState.loops,
+        parallels: currentWorkflowState.parallels,
+      })
+    )
 
     const elapsed = Date.now() - startTime
     const blockCount = Object.keys(layoutResult.blocks).length
@@ -133,16 +123,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: {
         blockCount,
         elapsed: `${elapsed}ms`,
-        layoutedBlocks: layoutResult.blocks,
       },
     })
   } catch (error) {
     const elapsed = Date.now() - startTime
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
 
     if (error instanceof z.ZodError) {
-      logger.warn(`[${requestId}] Invalid autolayout request data`, { errors: error.errors })
+      logger.warn(`[${requestId}] Invalid autolayout request data`, { errors: error.issues })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }

@@ -3,8 +3,6 @@ import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/rev
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
-export type ToolState = ClientToolCallState
-
 export interface CopilotToolCall {
   id: string
   name: string
@@ -54,10 +52,13 @@ type WorkspaceEntityContextIdFieldByKind = {
   indicator: 'indicatorId'
   custom_tool: 'customToolId'
   mcp_server: 'mcpServerId'
+  watchlist: 'watchlistId'
+  dashboard_layout: 'dashboardLayoutId'
 }
 
 type WorkspaceEntityContextBase = {
   workspaceId?: string
+  ownerUserId?: string
   label: string
 }
 
@@ -88,8 +89,7 @@ export type ChatContext =
   | { kind: 'blocks'; blockTypes?: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
-  | { kind: 'knowledge'; knowledgeId?: string; label: string }
-  | { kind: 'templates'; templateId?: string; label: string }
+  | { kind: 'knowledge'; knowledgeId?: string; workspaceId?: string; label: string }
   | { kind: 'docs'; label: string }
 
 export interface CopilotChat {
@@ -116,12 +116,23 @@ export interface CopilotLiveContext {
 export interface CopilotSendRuntimeContext {
   liveContext: CopilotLiveContext
   implicitContexts: ChatContext[]
+  authenticatedUserId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
+  /**
+   * Owner-scoped dashboard layout context candidate. Carried per turn and
+   * used only to pin the canonical layout identity for dashboard tools; the
+   * authenticated server session owns layout scope.
+   */
+  dashboardLayoutContext?: {
+    entityId: string
+    workspaceId: string
+    ownerUserId: string
+  }
 }
 
 export interface CopilotState {
@@ -162,7 +173,7 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
+  fetchContextUsage: () => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

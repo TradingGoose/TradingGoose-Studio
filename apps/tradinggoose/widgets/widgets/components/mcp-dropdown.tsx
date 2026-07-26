@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Server } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,10 +18,9 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -36,19 +35,14 @@ interface McpDropdownProps {
   triggerClassName?: string
 }
 
-const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) => {
-  if (status === 'connected') {
-    return '#10b981'
-  }
-
-  if (status === 'error') {
-    return '#ef4444'
-  }
-
-  return '#64748b'
+type McpDropdownOption = {
+  id: string
+  name: string
+  workspaceId: string
+  enabled?: boolean
 }
 
-const getServerLabel = (server?: McpServerWithStatus | null, fallbackLabel?: string) =>
+const getServerLabel = (server?: McpDropdownOption | null, fallbackLabel?: string) =>
   server?.name || server?.id || fallbackLabel || ''
 
 export function McpDropdown({
@@ -62,27 +56,21 @@ export function McpDropdown({
 }: McpDropdownProps) {
   const copy = useMessages().workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { servers, isLoading, error, fetchServers } = useMcpServersStore(
-    (state) => ({
-      servers: state.servers,
-      isLoading: state.isLoading,
-      error: state.error,
-      fetchServers: state.fetchServers,
-    }),
-    shallow
-  )
+  const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
 
   const workspaceServers = useMemo(() => {
     if (!workspaceId) return []
 
-    return servers
-      .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-      .sort((a, b) => {
-        const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-        const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-      })
-  }, [servers, workspaceId])
+    return members
+      .filter((member) => member.enabled !== false)
+      .map((member) => ({
+        id: member.entityId,
+        name: member.entityName,
+        workspaceId,
+        enabled: member.enabled,
+      }))
+      .sort((a, b) => getServerLabel(a).localeCompare(getServerLabel(b)))
+  }, [members, workspaceId])
 
   const selectedServerId = value ?? null
   const selectedServer = workspaceServers.find((server) => server.id === selectedServerId) ?? null
@@ -101,16 +89,6 @@ export function McpDropdown({
     setSearchQuery('')
   }, [workspaceId])
 
-  useEffect(() => {
-    if (!workspaceId || hasServers) {
-      return
-    }
-
-    fetchServers(workspaceId).catch((fetchError) => {
-      console.error('Failed to load MCP servers for dropdown', fetchError)
-    })
-  }, [fetchServers, hasServers, workspaceId])
-
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') return
 
@@ -128,23 +106,11 @@ export function McpDropdown({
     return workspaceServers.filter((server) => {
       const name = server.name?.toLowerCase() ?? ''
       const id = server.id.toLowerCase()
-      const url = server.url?.toLowerCase() ?? ''
-      return (
-        name.includes(normalizedQuery) ||
-        id.includes(normalizedQuery) ||
-        url.includes(normalizedQuery)
-      )
+      return name.includes(normalizedQuery) || id.includes(normalizedQuery)
     })
   }, [searchQuery, workspaceServers])
 
-  const handleRetry = () => {
-    if (!workspaceId) return
-    fetchServers(workspaceId).catch((fetchError) => {
-      console.error('Failed to reload MCP servers for dropdown', fetchError)
-    })
-  }
-
-  const handleSelect = (server: McpServerWithStatus) => {
+  const handleSelect = (server: McpDropdownOption) => {
     onChange?.(server.id)
   }
 
@@ -161,13 +127,6 @@ export function McpDropdown({
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
           <p className='text-destructive'>{error}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }
@@ -201,7 +160,7 @@ export function McpDropdown({
       <div className='flex flex-col gap-1'>
         {filteredServers.map((server) => {
           const isSelected = server.id === selectedServerId
-          const iconColor = getServerIconColor(server.connectionStatus)
+          const iconColor = getEntityIconColor(server.id)
 
           return (
             <DropdownMenuItem
@@ -239,7 +198,7 @@ export function McpDropdown({
 
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-  const selectedIconColor = getServerIconColor(selectedServer?.connectionStatus)
+  const selectedIconColor = getEntityIconColor(selectedServerId)
   const iconBadge = (
     <span
       className='h-5 w-5 rounded-xs p-0.5'
