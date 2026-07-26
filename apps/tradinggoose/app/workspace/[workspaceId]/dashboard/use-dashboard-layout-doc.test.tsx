@@ -184,29 +184,37 @@ describe('useDashboardLayoutDocument live fields', () => {
     expect(latest.resizeReconcileVersion).toBe(0)
   })
 
-  it('projects list mutations until Yjs converges', async () => {
+  it('unlocks acknowledged list projections before Yjs converges', async () => {
     let resolveMutation!: (result: unknown) => void
     setLiveList()
     const committed = layoutTabs(['layout-b', 'layout-a'], 1)
-    mockFetch.mockReturnValueOnce(new Promise((resolve) => (resolveMutation = resolve)))
+    mockFetch.mockImplementation(() => new Promise((resolve) => (resolveMutation = resolve)))
 
     act(() => {
       void latestList.reorderLayouts(['layout-b', 'layout-a'])
       void latestList.reorderLayouts(['layout-a', 'layout-b'])
     })
-    expect(mockFetch).toHaveBeenCalledOnce()
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
       type: 'reorder',
       layoutOrder: ['layout-b', 'layout-a'],
     })
     expect(mockFetch.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' })
-    expect(latestList.layouts).toEqual([initialLayouts[1], initialLayouts[0]])
-    expect(latestList.isBusy).toBe(true)
     await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))
+    expect(latestList.isBusy).toBe(false)
+
+    act(() => void latestList.reorderLayouts(['layout-a', 'layout-b']))
+    expect(latestList.isBusy && latestList.layouts).toEqual([committed[1], committed[0]])
+    await act(async () => resolveMutation({ ok: false, status: 409 }))
+
+    act(() => void latestList.createLayout())
     expect(latestList.layouts).toEqual(committed)
-    expect(latestList.isBusy).toBe(true)
+    await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))
     setLiveList(layoutTabs(['layout-b'], 2, 'layout-b'))
     expect(latestList.layouts).toHaveLength(1)
-    expect(latestList.isBusy).toBe(false)
+
+    act(() => void latestList.createLayout())
+    renderList('workspace-2', 'user-2')
+    await act(async () => resolveMutation({ ok: true, json: () => Promise.resolve(committed) }))
+    expect(latestList.layouts).toHaveLength(1)
   })
 })

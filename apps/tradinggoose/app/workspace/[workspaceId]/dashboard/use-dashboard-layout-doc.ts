@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   DashboardLayoutListMutation,
   DashboardLayoutTab,
@@ -40,11 +40,6 @@ function toLayoutListEntry(member: EntityListMember) {
   }
 }
 
-type DashboardLayoutListAttempt = {
-  scopeKey: string
-  layouts?: DashboardLayoutTab[]
-}
-
 export function useDashboardLayoutList(
   workspaceId: string,
   ownerUserId: string,
@@ -52,26 +47,26 @@ export function useDashboardLayoutList(
 ) {
   const { members, ...session } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
   const liveLayouts = useMemo(() => members.map(toLayoutListEntry), [members])
-  const layouts = session.hasLiveSnapshot ? liveLayouts : initialLayouts
-  const scopeKey = `${workspaceId}:${ownerUserId}`
-  const [mutation, setMutation] = useState<DashboardLayoutListAttempt | null>(null)
-  const mutationRef = useRef<DashboardLayoutListAttempt | null>(null)
-  if (mutationRef.current?.scopeKey !== scopeKey) mutationRef.current = null
-  const currentMutation = mutation?.scopeKey === scopeKey && mutationRef.current ? mutation : null
+  const state = useMemo(
+    () => ({ projection: null as DashboardLayoutTab[] | null, pending: false }),
+    [workspaceId, ownerUserId]
+  )
+  const [, rerender] = useState(0)
   const hasConverged =
-    currentMutation !== mutationRef.current &&
-    currentMutation?.layouts &&
+    !state.pending &&
+    state.projection &&
     Math.max(...liveLayouts.map(({ updatedAt }) => Date.parse(updatedAt))) >=
-      Math.max(...currentMutation.layouts.map(({ updatedAt }) => Date.parse(updatedAt)))
-  if (hasConverged) mutationRef.current = null
+      Math.max(...state.projection.map(({ updatedAt }) => Date.parse(updatedAt)))
+  if (hasConverged) state.projection = null
+  const view = state.projection ?? (session.hasLiveSnapshot ? liveLayouts : initialLayouts)
 
   const submit = async (listMutation: DashboardLayoutListMutation) => {
-    if (mutationRef.current?.scopeKey === scopeKey) return
-    const attempt: DashboardLayoutListAttempt = { scopeKey }
+    if (state.pending) return
+    const rollback = state.projection
     if (listMutation.type === 'reorder')
-      attempt.layouts = listMutation.layoutOrder.map((id) => layouts.find((tab) => tab.id === id)!)
-    mutationRef.current = attempt
-    setMutation(attempt)
+      state.projection = listMutation.layoutOrder.map((id) => view.find((tab) => tab.id === id)!)
+    state.pending = true
+    rerender((version) => version + 1)
     try {
       const response = await fetch(
         `/api/workspaces/${encodeURIComponent(workspaceId)}/dashboard-layouts`,
@@ -82,21 +77,19 @@ export function useDashboardLayoutList(
         }
       )
       if (!response.ok) throw new Error(`Failed to update dashboard layouts (${response.status})`)
-      attempt.layouts = (await response.json()) as DashboardLayoutTab[]
-      if (mutationRef.current !== attempt) return
-      setMutation({ ...attempt })
+      state.projection = (await response.json()) as DashboardLayoutTab[]
     } catch (error) {
       console.error('Failed to update dashboard layouts:', error)
-      if (mutationRef.current !== attempt) return
-      mutationRef.current = null
-      setMutation(null)
+      state.projection = rollback
     }
+    state.pending = false
+    rerender((version) => version + 1)
   }
 
   return {
-    layouts: !hasConverged && currentMutation?.layouts ? currentMutation.layouts : layouts,
+    layouts: view,
     canMutate: session.hasLiveSnapshot && !session.isLoading && !session.error,
-    isBusy: currentMutation !== null && !hasConverged,
+    isBusy: state.pending,
     createLayout: () => submit({ type: 'create' }),
     activateLayout: (layoutId: string) => submit({ type: 'activate', layoutId }),
     renameLayout: (layoutId: string, name: string) => submit({ type: 'rename', layoutId, name }),
