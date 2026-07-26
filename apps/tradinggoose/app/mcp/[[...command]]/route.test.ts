@@ -62,10 +62,10 @@ describe('MCP install route', () => {
     expect(script).not.toContain('confirm: true')
     expect(script).toContain("baseUrl + '/api/copilot/mcp'")
     expect(script).not.toContain("method: 'ping'")
-    expect(script).not.toContain('async function isTokenValid(token)')
-    expect(script).not.toContain('async function resolveAuthToken()')
-    expect(script).toContain("Authorization: Bearer ' + login.token")
+    expect(script).toContain("Authorization: Bearer ' + apiKey")
     expect(script).toContain('setup   Write MCP config, authenticating when needed.')
+    // Credentials come from our own store, never scraped back out of an agent's
+    // MCP config file.
     expect(script).not.toContain('read-tokens')
     // The installer runs from a temp file, not `node -`, so node's stdin stays
     // attached to the terminal for the interactive target picker.
@@ -74,7 +74,7 @@ describe('MCP install route', () => {
       'node "$tmp_dir/installer.js" "$BASE_URL" "$COMMAND" "$TARGETS" </dev/tty'
     )
     expect(script).not.toContain('node - "$BASE_URL"')
-    expect(script).toContain('runConfigWriter([target, mcpUrl, login.token])')
+    expect(script).toContain('runConfigWriter([target, mcpUrl, apiKey])')
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("'[mcp_servers.' + mcpServerName + '.http_headers]'")
     expect(script).not.toContain('TRADINGGOOSE_BEARER_TOKEN')
@@ -89,25 +89,56 @@ describe('MCP install route', () => {
     expect(script).not.toContain('workspaceId')
     expect(script).not.toContain('entityId')
 
-    const printedTokenIndex = script.indexOf("pc.dim('Authorization: Bearer ' + login.token)")
+    const printedTokenIndex = script.indexOf("pc.dim('Authorization: Bearer ' + apiKey)")
     const firstReturnTokenIndex = script.indexOf('return { code, verificationKey, token }')
     expect(printedTokenIndex).toBeGreaterThan(firstReturnTokenIndex)
 
-    // Within the setup branch the token must be minted and acknowledged before
-    // any config file is written.
+    // Setup resolves credentials first and only then prompts for targets, so an
+    // abandoned login never costs the user a selection.
     const setupIndex = script.indexOf("if (command === 'setup')")
     expect(setupIndex).toBeGreaterThan(-1)
+    const guardIndex = script.indexOf('assertSetupIsPossible()', setupIndex)
+    const resolveIndex = script.indexOf('await resolveApiKey()', setupIndex)
     const chooseIndex = script.indexOf('await chooseTargets()', setupIndex)
-    const authenticateIndex = script.indexOf('await authenticate()', setupIndex)
-    const acknowledgeIndex = script.indexOf('await acknowledge(login)', setupIndex)
-    const configWriteIndex = script.indexOf('configureTarget(target, login)', setupIndex)
+    const configWriteIndex = script.indexOf('configureTarget(target, apiKey)', setupIndex)
 
-    for (const index of [chooseIndex, authenticateIndex, acknowledgeIndex, configWriteIndex]) {
+    for (const index of [guardIndex, resolveIndex, chooseIndex, configWriteIndex]) {
       expect(index).toBeGreaterThan(setupIndex)
     }
-    expect(chooseIndex).toBeLessThan(authenticateIndex)
-    expect(authenticateIndex).toBeLessThan(acknowledgeIndex)
-    expect(acknowledgeIndex).toBeLessThan(configWriteIndex)
+    expect(guardIndex).toBeLessThan(resolveIndex)
+    expect(resolveIndex).toBeLessThan(chooseIndex)
+    expect(chooseIndex).toBeLessThan(configWriteIndex)
+
+    // Inside resolveApiKey the device login only runs when no saved key works.
+    const resolveFnIndex = script.indexOf('async function resolveApiKey()')
+    const storedReadIndex = script.indexOf('readStoredApiKey()', resolveFnIndex)
+    const validateIndex = script.indexOf('isStoredApiKeyValid(stored)', resolveFnIndex)
+    const loginIndex = script.indexOf('await authenticate()', resolveFnIndex)
+    const saveIndex = script.indexOf('saveApiKey(login.token)', resolveFnIndex)
+    expect(storedReadIndex).toBeGreaterThan(resolveFnIndex)
+    expect(validateIndex).toBeGreaterThan(storedReadIndex)
+    expect(loginIndex).toBeGreaterThan(validateIndex)
+    expect(saveIndex).toBeGreaterThan(loginIndex)
+  })
+
+  it('reuses a valid saved key instead of minting a duplicate', async () => {
+    const response = await callInstaller('/mcp')
+    const script = await response.text()
+
+    // Stored under our own config dir at 0600.
+    expect(script).toContain("path.join(os.homedir(), '.tradinggoose')")
+    expect(script).toContain("path.join(credentialsDir(), 'credentials.json')")
+    expect(script).toContain('TRADINGGOOSE_CONFIG_DIR')
+    expect(script).toContain('0o600')
+    expect(script).toContain('fs.chmodSync(credentialsFile(), 0o600)')
+    // The key is not pinned to an issuing Studio; a foreign key just fails
+    // validation and falls through to a fresh login.
+    expect(script).toContain('JSON.stringify({ apiKey: token }, null, 2)')
+    expect(script).not.toContain('parsed.baseUrl')
+
+    // Validation reuses the MCP endpoint's own auth rather than a new route.
+    expect(script).toContain('return response.status !== 401')
+    expect(script).toContain("method: 'tools/list'")
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {

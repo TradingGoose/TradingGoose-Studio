@@ -46,6 +46,9 @@ function getInitialPowerShellTargets(target: McpInstallTarget | undefined) {
 }
 
 const MCP_INSTALLER_MAIN_SCRIPT = String.raw`const { spawnSync } = require('child_process')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 
 const baseUrl = process.argv[2].replace(/\/+$/, '')
 const command = process.argv[3]
@@ -110,13 +113,116 @@ function runConfigWriter(args) {
   return JSON.parse(result.stdout.trim())
 }
 
+function credentialsDir() {
+  return process.env.TRADINGGOOSE_CONFIG_DIR || path.join(os.homedir(), '.tradinggoose')
+}
+
+function credentialsFile() {
+  return path.join(credentialsDir(), 'credentials.json')
+}
+
+/**
+ * Returns the saved key, or null when nothing usable is on disk. No attempt is
+ * made to tie the key to the Studio that issued it: a key from another
+ * deployment simply fails validation and falls through to a fresh login.
+ */
+function readStoredApiKey() {
+  try {
+    const raw = fs.readFileSync(credentialsFile(), 'utf8').trim()
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+    const stored = parsed && typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : ''
+    return stored || null
+  } catch {
+    return null
+  }
+}
+
+function saveApiKey(token) {
+  try {
+    fs.mkdirSync(credentialsDir(), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(credentialsFile(), JSON.stringify({ apiKey: token }, null, 2) + '\n', {
+      encoding: 'utf8',
+      mode: 0o600,
+    })
+    // writeFileSync only applies the mode when creating the file, so an
+    // existing credentials file keeps its old permissions without this.
+    fs.chmodSync(credentialsFile(), 0o600)
+  } catch (error) {
+    log.warn(
+      'Could not save credentials to ' +
+        credentialsFile() +
+        ': ' +
+        (error instanceof Error ? error.message : String(error))
+    )
+  }
+}
+
+/**
+ * The MCP endpoint authenticates the bearer token on every request, so it
+ * doubles as the validity check: only a rejected key answers 401.
+ */
+async function isStoredApiKeyValid(token) {
+  try {
+    const response = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        authorization: 'Bearer ' + token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    })
+    return response.status !== 401
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Reuses a still-valid saved key so repeat installs on the same machine do not
+ * mint duplicate personal API keys, and only falls back to a browser login when
+ * there is nothing usable on disk.
+ */
+async function resolveApiKey() {
+  const stored = readStoredApiKey()
+
+  if (stored) {
+    const checking = spinner('Checking saved credentials...').start()
+    if (await isStoredApiKeyValid(stored)) {
+      checking.succeed(pc.brand('Using saved TradingGoose credentials'))
+      return stored
+    }
+    checking.stop()
+    log.warn('Saved credentials are no longer valid, signing in again.')
+  }
+
+  const login = await authenticate()
+  await acknowledge(login)
+  saveApiKey(login.token)
+  return login.token
+}
+
+/**
+ * Rejects anything we can detect up front, so an unusable run fails before the
+ * user is sent through a browser login rather than after it.
+ */
+function assertSetupIsPossible() {
+  for (const target of targets) {
+    if (!AGENT_NAMES[target]) {
+      fail('Unsupported setup target: ' + target)
+    }
+  }
+
+  if (targets.length === 0 && !process.stdin.isTTY) {
+    fail('setup requires an interactive terminal or a target URL such as /mcp/setup/codex.')
+  }
+}
+
 async function chooseTargets() {
   if (targets.length > 0) {
     return targets
-  }
-
-  if (!process.stdin.isTTY) {
-    fail('setup requires an interactive terminal or a target URL such as /mcp/setup/codex.')
   }
 
   log.blank()
@@ -215,9 +321,9 @@ async function acknowledge(login) {
   }
 }
 
-function configureTarget(target, login) {
+function configureTarget(target, apiKey) {
   try {
-    const written = runConfigWriter([target, mcpUrl, login.token])
+    const written = runConfigWriter([target, mcpUrl, apiKey])
     return {
       agent: AGENT_NAMES[target],
       path: written.path,
@@ -252,40 +358,37 @@ async function main() {
   requireFetch()
 
   if (command === 'login') {
-    const login = await authenticate()
-    await acknowledge(login)
+    const apiKey = await resolveApiKey()
 
     log.blank()
     log.plain('  ' + pc.bold('MCP endpoint'))
     log.plain('    ' + pc.dim(mcpUrl))
     log.plain('  ' + pc.bold('MCP authorization header'))
-    log.plain('    ' + pc.dim('Authorization: Bearer ' + login.token))
+    log.plain('    ' + pc.dim('Authorization: Bearer ' + apiKey))
     log.blank()
     return
   }
 
   if (command === 'setup') {
+    assertSetupIsPossible()
+
+    // Resolve credentials before prompting: the key is what the whole run
+    // depends on, so a failed or abandoned login should not cost the user a
+    // selection, and every target in this run shares the one key.
+    const apiKey = await resolveApiKey()
+
     const selected = await chooseTargets()
     if (!selected || selected.length === 0) {
       log.warn('Setup cancelled')
       return
     }
 
-    for (const target of selected) {
-      if (!AGENT_NAMES[target]) {
-        fail('Unsupported setup target: ' + target)
-      }
-    }
-
-    const login = await authenticate()
-    await acknowledge(login)
-
     log.blank()
     const setupSpinner = spinner('Setting up TradingGoose...').start()
     const results = []
     for (const target of selected) {
       setupSpinner.setText('Setting up ' + AGENT_NAMES[target] + '...')
-      results.push(configureTarget(target, login))
+      results.push(configureTarget(target, apiKey))
     }
     setupSpinner.succeed('TradingGoose setup complete')
 

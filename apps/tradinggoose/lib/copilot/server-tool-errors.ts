@@ -2,7 +2,10 @@ import { z } from 'zod'
 import { DashboardLayoutValidationError } from '@/widgets/layout-document'
 import { WidgetConfigValidationError } from '@/widgets/widget-mutations'
 
-interface CopilotServerToolErrorPayload {
+// Declared as a type alias rather than an interface so it keeps an implicit
+// index signature: the MCP SDK types `structuredContent` as
+// `{ [x: string]: unknown }`, which interfaces are not assignable to.
+type CopilotServerToolErrorPayload = {
   error: string
   code: string
   hint?: string

@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+import type { AnySchema } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import {
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
@@ -120,6 +121,18 @@ async function buildInstructions(userId: string) {
   ].join('\n')
 }
 
+/**
+ * This app resolves `zod` to 3.25.x, while the MCP SDK resolves the `zod/v3`
+ * types its schema constraints are built from to its own nested zod 4.x copy.
+ * Both describe the same runtime objects, but they are distinct and deeply
+ * self-referential TypeScript types, so structurally comparing one against the
+ * other inside `registerTool`'s generics exceeds the instantiation depth limit
+ * (TS2589). Casting through `unknown` onto the SDK's own schema type skips that
+ * comparison. Nothing changes at runtime: each tool is still registered with,
+ * and validated against, its own schema.
+ */
+const MCP_TOOL_INPUT_SCHEMAS = ToolArgSchemas as unknown as Record<string, AnySchema>
+
 async function createMcpServer(auth: AuthenticatedMcpUser) {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -133,9 +146,9 @@ async function createMcpServer(auth: AuthenticatedMcpUser) {
       toolName,
       {
         description: TOOL_PROMPT_METADATA[toolName].description,
-        inputSchema: ToolArgSchemas[toolName],
+        inputSchema: MCP_TOOL_INPUT_SCHEMAS[toolName],
       },
-      async (args) => {
+      async (args: unknown) => {
         try {
           const result = await routeExecution(toolName, args, {
             userId: auth.userId,
