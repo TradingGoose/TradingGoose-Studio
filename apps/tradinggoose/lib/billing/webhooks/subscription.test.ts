@@ -390,6 +390,29 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
+  it('restores default entitlement even when settlement fails, then rethrows', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const defaultSubscription = createDefaultSubscription()
+    mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
+    mockCalculateSubscriptionOverage.mockRejectedValue(new Error('Stripe invoice failed'))
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('Stripe invoice failed')
+
+    // Leaving the user with no entitled subscription is what breaks every billing read -
+    // a failed final invoice must not cost them their default tier.
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(defaultSubscription)
+  })
+
   it('does not reset onboarding usage when another personal subscription remains entitled', async () => {
     const canceledSubscription = createDefaultSubscription({
       status: 'canceled',
