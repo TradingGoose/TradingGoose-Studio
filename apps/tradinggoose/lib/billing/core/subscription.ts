@@ -85,6 +85,41 @@ export function getConfiguredPersonalUsageLimit(
  */
 
 /**
+ * Give a billed user back the default tier when they hold no entitled subscription.
+ *
+ * Personal Stripe subscriptions reuse the user's default subscription row, so a cancellation
+ * that Stripe reported but we failed to finish (a dropped `customer.subscription.deleted`,
+ * or a settlement error part-way through one) leaves that single row non-entitled and every
+ * billing read throwing. The local status is enough to act on: the row is not entitling
+ * anyone, and the default tier is the floor rather than a revocation.
+ *
+ * Never throws - callers use it behind a normal read, so a repair failure must surface as
+ * the original billing error rather than a new one.
+ */
+async function restorePersonalEntitlement(userId: string): Promise<SubscriptionWithTier | null> {
+  try {
+    // With billing disabled there is no default tier to grant, and callers already treat a
+    // missing subscription as unlimited.
+    const { billingEnabled } = await getResolvedBillingSettings()
+    if (!billingEnabled) {
+      return null
+    }
+
+    const restoredSubscription = await ensureDefaultUserSubscription(userId)
+
+    logger.warn('Restored default personal subscription for a user left without one', {
+      userId,
+      subscriptionId: restoredSubscription.id,
+    })
+
+    return restoredSubscription
+  } catch (error) {
+    logger.error('Failed to restore default personal subscription', { userId, error })
+    return null
+  }
+}
+
+/**
  * Get the active subscription that currently governs a billing reference.
  */
 export async function getActiveSubscriptionForReference(
@@ -102,7 +137,13 @@ export async function getActiveSubscriptionForReference(
     )
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
-  return selectEffectiveSubscription(hydratedSubscriptions)
+  const effectiveSubscription = selectEffectiveSubscription(hydratedSubscriptions)
+
+  if (effectiveSubscription || reference.referenceType !== 'user') {
+    return effectiveSubscription
+  }
+
+  return restorePersonalEntitlement(reference.referenceId)
 }
 
 export async function requireActiveSubscriptionForReference(
@@ -135,7 +176,8 @@ export async function getSubscriptionByStripeSubscriptionId(
 export async function getEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {
-  return getPersonalEffectiveSubscription(userId)
+  const personalSubscription = await getPersonalEffectiveSubscription(userId)
+  return personalSubscription ?? restorePersonalEntitlement(userId)
 }
 
 async function getActivePersonalSubscriptions(
@@ -287,7 +329,8 @@ export async function getPersonalBillingSnapshot(userId: string): Promise<Person
   try {
     const [{ billingEnabled }, subscription, statsRecords] = await Promise.all([
       getResolvedBillingSettings(),
-      getPersonalEffectiveSubscription(userId),
+      // Not the raw personal read: this one repairs a user left without an entitled row.
+      getEffectiveSubscription(userId),
       db
         .select({
           currentPeriodCost: userStats.currentPeriodCost,
