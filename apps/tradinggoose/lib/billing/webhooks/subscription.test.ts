@@ -463,6 +463,32 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
   })
 
+  it('keeps the Stripe id on the restored row when settlement could not complete', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const defaultSubscription = createDefaultSubscription()
+    mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
+    mockSyncSubscriptionBillingTierFromStripeSubscription.mockRejectedValue(
+      new Error('Billing tier could not be resolved')
+    )
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('Billing tier could not be resolved')
+
+    // Without this the retry cannot resolve the row and the final overage is lost for good,
+    // even though the usage ledger was already reset.
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(updateCalls).toContainEqual({ stripeSubscriptionId: 'sub_stripe_123' })
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+  })
+
   it('syncs usage limits for organization members after deleting an organization subscription', async () => {
     const organizationSubscription = createDefaultSubscription({
       id: 'sub_org',

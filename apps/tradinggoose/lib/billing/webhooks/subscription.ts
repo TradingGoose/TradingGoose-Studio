@@ -355,6 +355,17 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
         )
       }
 
+      if (settlementError) {
+        // The restore just cleared stripe_subscription_id, the only key the retry resolves
+        // rows by - and for a personal subscription the paid row IS this default row. Put it
+        // back while settlement is still owed, or the retry finds nothing and the final
+        // overage is lost even though the usage ledger was already reset.
+        await tx
+          .update(subscription)
+          .set({ stripeSubscriptionId })
+          .where(eq(subscription.id, nextSubscription.id))
+      }
+
       return nextSubscription
     })
   }
