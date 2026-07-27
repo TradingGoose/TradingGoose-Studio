@@ -12,7 +12,6 @@ const {
   mockEnsureDefaultUserSubscription,
   mockEq,
   mockGetBilledOverageForSubscription,
-  mockGetResolvedBillingSettings,
   mockGetSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
@@ -33,7 +32,6 @@ const {
   mockEnsureDefaultUserSubscription: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
-  mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
@@ -77,10 +75,6 @@ vi.mock('@/lib/billing/core/usage', () => ({
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
   getSubscriptionByStripeSubscriptionId: mockGetSubscriptionByStripeSubscriptionId,
-}))
-
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: mockGetResolvedBillingSettings,
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -211,7 +205,6 @@ describe('handleSubscriptionCreated', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockRequireStripeClient.mockReturnValue({})
     mockIsPaidBillingTier.mockReturnValue(false)
   })
@@ -289,7 +282,6 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
@@ -390,6 +382,57 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
+  it('restores default entitlement even when settlement fails, then rethrows', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const defaultSubscription = createDefaultSubscription()
+    mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
+    mockCalculateSubscriptionOverage.mockRejectedValue(new Error('Stripe invoice failed'))
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('Stripe invoice failed')
+
+    // Leaving the user with no entitled subscription is what breaks every billing read -
+    // a failed final invoice must not cost them their default tier.
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(defaultSubscription)
+  })
+
+  it('skips final settlement when the billing tier sync fails, but still restores entitlement', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const defaultSubscription = createDefaultSubscription()
+    mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
+    mockSyncSubscriptionBillingTierFromStripeSubscription.mockRejectedValue(
+      new Error('No billing tier matched the provided tier or Stripe identifiers')
+    )
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('No billing tier matched')
+
+    // Overage is priced off the tier the sync writes, and the final invoice is created under a
+    // fixed idempotency key - billing against an unverified tier would be locked in for good.
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
+    // Entitlement still has to come back; that never depended on settlement.
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(defaultSubscription)
+  })
+
   it('does not reset onboarding usage when another personal subscription remains entitled', async () => {
     const canceledSubscription = createDefaultSubscription({
       status: 'canceled',
@@ -418,6 +461,32 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]).toBeLessThan(
       mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
     )
+  })
+
+  it('keeps the Stripe id on the restored row when settlement could not complete', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const defaultSubscription = createDefaultSubscription()
+    mockGetSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
+    mockSyncSubscriptionBillingTierFromStripeSubscription.mockRejectedValue(
+      new Error('Billing tier could not be resolved')
+    )
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('Billing tier could not be resolved')
+
+    // Without this the retry cannot resolve the row and the final overage is lost for good,
+    // even though the usage ledger was already reset.
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(updateCalls).toContainEqual({ stripeSubscriptionId: 'sub_stripe_123' })
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
   })
 
   it('syncs usage limits for organization members after deleting an organization subscription', async () => {

@@ -164,10 +164,53 @@ describe('subscription billing helpers', () => {
     expect(snapshot.currentPeriodCost).toBe(12.5)
   })
 
-  it('throws when billing is enabled but no active subscription exists', async () => {
+  it('restores the default subscription when a billed user has no entitled row', async () => {
+    // The reported failure: a missed Stripe cancellation leaves the user's only personal row
+    // non-entitled, so every billing read used to throw.
+    const restoredSubscription = {
+      id: 'sub_default_user_123',
+      referenceType: 'user',
+      referenceId: 'user_123',
+      status: 'active',
+      tier: { id: 'tier_default', isDefault: true },
+    }
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    const selectResults: unknown[] = [[], [], [restoredSubscription]]
+    mockDb.select.mockImplementation(() =>
+      createSelectQueryMock(selectResults.shift() ?? [], 'where')
+    )
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
+
+    const { getEffectiveSubscription } = await import('./subscription')
+
+    await expect(getEffectiveSubscription('user_123')).resolves.toBe(restoredSubscription)
+    expect(mockDb.insert).toHaveBeenCalled()
+  })
+
+  it('does not restore a subscription when billing is disabled', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: false })
+    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'where'))
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
+
+    const { getEffectiveSubscription } = await import('./subscription')
+
+    await expect(getEffectiveSubscription('user_123')).resolves.toBeNull()
+    expect(mockDb.insert).not.toHaveBeenCalled()
+  })
+
+  it('throws when billing is enabled and entitlement cannot be restored', async () => {
     mockGetResolvedBillingSettings.mockResolvedValue({
       billingEnabled: true,
     })
+    // Recovery runs, fails to provision a default subscription, and the original billing
+    // error surfaces rather than a new one.
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn(() => ({ onConflictDoUpdate: vi.fn(() => Promise.resolve()) })),
+    }))
     mockDb.select
       .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
       .mockImplementationOnce(() =>
