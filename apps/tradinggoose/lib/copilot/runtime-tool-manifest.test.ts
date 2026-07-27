@@ -7,7 +7,7 @@ describe('copilot runtime tool manifest', () => {
     const toolNames = manifest.tools.map((tool) => tool.name)
     const workflowLogsTool = manifest.tools.find((tool) => tool.name === 'read_workflow_logs')
 
-    expect(manifest.version).toBe('v2')
+    expect(manifest.version).toBe('v1')
     expect(manifest).not.toHaveProperty('instructions')
     expect(workflowLogsTool?.parameters?.properties).not.toHaveProperty('workspaceId')
     expect(manifest.tools).toEqual(
