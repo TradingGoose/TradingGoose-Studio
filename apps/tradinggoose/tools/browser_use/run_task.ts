@@ -1,7 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BrowserUseRunTaskParams, BrowserUseRunTaskResponse } from '@/tools/browser_use/types'
-import { waitForToolDelay } from '@/tools/runtime'
-import type { ToolConfig, ToolResponse } from '@/tools/types'
+import { dispatchToolRemote, waitForToolDelay } from '@/tools/runtime'
+import type { ToolConfig, ToolExecutionRuntime, ToolResponse } from '@/tools/types'
 
 const logger = createLogger('BrowserUseTool')
 
@@ -12,20 +12,20 @@ const MAX_CONSECUTIVE_ERRORS = 3
 async function createSessionWithProfile(
   profileId: string,
   apiKey: string,
-  signal?: AbortSignal
+  runtime?: ToolExecutionRuntime
 ): Promise<{ sessionId: string } | { error: string }> {
   try {
-    const response = await fetch('https://api.browser-use.com/api/v2/sessions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Browser-Use-API-Key': apiKey,
-      },
-      body: JSON.stringify({
-        profileId: profileId.trim(),
-      }),
-      signal,
-    })
+    const response = await dispatchToolRemote(runtime, () =>
+      fetch('https://api.browser-use.com/api/v2/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Browser-Use-API-Key': apiKey,
+        },
+        body: JSON.stringify({ profileId: profileId.trim() }),
+        signal: runtime?.signal,
+      })
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -37,13 +37,13 @@ async function createSessionWithProfile(
     logger.info(`Created session ${data.id} with profile ${profileId}`)
     return { sessionId: data.id }
   } catch (error: any) {
-    if (error === signal?.reason) throw error
+    if (error === runtime?.signal?.reason) throw error
     logger.error('Error creating session with profile:', error)
     return { error: `Error creating session: ${error.message}` }
   }
 }
 
-async function stopSession(sessionId: string, apiKey: string): Promise<void> {
+async function stopSession(sessionId: string, apiKey: string): Promise<boolean> {
   try {
     const response = await fetch(`https://api.browser-use.com/api/v2/sessions/${sessionId}`, {
       method: 'PATCH',
@@ -56,12 +56,13 @@ async function stopSession(sessionId: string, apiKey: string): Promise<void> {
 
     if (response.ok) {
       logger.info(`Stopped session ${sessionId}`)
-    } else {
-      logger.warn(`Failed to stop session ${sessionId}: ${response.statusText}`)
+      return true
     }
+    logger.warn(`Failed to stop session ${sessionId}: ${response.statusText}`)
   } catch (error: any) {
     logger.warn(`Error stopping session ${sessionId}:`, error)
   }
+  return false
 }
 
 function buildRequestBody(
@@ -121,16 +122,16 @@ function buildRequestBody(
 async function fetchTaskStatus(
   taskId: string,
   apiKey: string,
-  signal?: AbortSignal
+  runtime?: ToolExecutionRuntime
 ): Promise<{ ok: true; data: any } | { ok: false; error: string }> {
   try {
-    const response = await fetch(`https://api.browser-use.com/api/v2/tasks/${taskId}`, {
-      method: 'GET',
-      headers: {
-        'X-Browser-Use-API-Key': apiKey,
-      },
-      signal,
-    })
+    const response = await dispatchToolRemote(runtime, () =>
+      fetch(`https://api.browser-use.com/api/v2/tasks/${taskId}`, {
+        method: 'GET',
+        headers: { 'X-Browser-Use-API-Key': apiKey },
+        signal: runtime?.signal,
+      })
+    )
 
     if (!response.ok) {
       return { ok: false, error: `HTTP ${response.status}: ${response.statusText}` }
@@ -139,7 +140,7 @@ async function fetchTaskStatus(
     const data = await response.json()
     return { ok: true, data }
   } catch (error: any) {
-    if (error === signal?.reason) throw error
+    if (error === runtime?.signal?.reason) throw error
     return { ok: false, error: error.message || 'Network error' }
   }
 }
@@ -147,7 +148,7 @@ async function fetchTaskStatus(
 async function pollForCompletion(
   taskId: string,
   apiKey: string,
-  signal?: AbortSignal
+  runtime?: ToolExecutionRuntime
 ): Promise<{
   success: boolean
   output: any
@@ -157,13 +158,13 @@ async function pollForCompletion(
 }> {
   let liveUrlLogged = false
   while (true) {
-    signal?.throwIfAborted()
-    const result = await fetchTaskStatus(taskId, apiKey, signal)
+    runtime?.signal?.throwIfAborted()
+    const result = await fetchTaskStatus(taskId, apiKey, runtime)
 
     if (!result.ok) {
       logger.warn(`Error polling task ${taskId}: ${result.error}`)
 
-      await waitForToolDelay(POLL_INTERVAL_MS, signal)
+      await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
       continue
     }
 
@@ -186,7 +187,7 @@ async function pollForCompletion(
       liveUrlLogged = true
     }
 
-    await waitForToolDelay(POLL_INTERVAL_MS, signal)
+    await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
   }
 }
 
@@ -254,7 +255,11 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
 
     if (params.profile_id) {
       logger.info(`Creating session with profile ID: ${params.profile_id}`)
-      const sessionResult = await createSessionWithProfile(params.profile_id, params.apiKey, signal)
+      const sessionResult = await createSessionWithProfile(
+        params.profile_id,
+        params.apiKey,
+        runtime
+      )
       if ('error' in sessionResult) {
         return {
           success: false,
@@ -268,21 +273,29 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
         }
       }
       sessionId = sessionResult.sessionId
+      await runtime?.publishOperationIdentity?.({
+        adapterKind: 'browser_use_profile_session',
+        capability: 'uncancelable',
+        remoteOperationId: sessionId,
+        observation: { phase: 'session_created' },
+      })
     }
 
     const requestBody = buildRequestBody(params, sessionId)
     logger.info('Creating BrowserUse task', { hasSession: !!sessionId })
 
     try {
-      const response = await fetch('https://api.browser-use.com/api/v2/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Browser-Use-API-Key': params.apiKey,
-        },
-        body: JSON.stringify(requestBody),
-        signal,
-      })
+      const response = await dispatchToolRemote(runtime, () =>
+        fetch('https://api.browser-use.com/api/v2/tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Browser-Use-API-Key': params.apiKey,
+          },
+          body: JSON.stringify(requestBody),
+          signal,
+        })
+      )
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -302,13 +315,16 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
       const data = (await response.json()) as { id: string }
       taskId = data.id
       await runtime?.publishOperationIdentity?.({
-        adapterKind: 'browser_use_task',
+        adapterKind: sessionId ? 'browser_use_task_with_profile_session' : 'browser_use_task',
         capability: 'uncancelable',
         remoteOperationId: taskId,
+        observation: sessionId ? { phase: 'task_created', sessionId } : undefined,
+        expectedAdapterKind: sessionId ? 'browser_use_profile_session' : undefined,
+        expectedRemoteOperationId: sessionId,
       })
       logger.info(`Created BrowserUse task: ${taskId}`)
 
-      const result = await pollForCompletion(taskId, params.apiKey, signal)
+      const result = await pollForCompletion(taskId, params.apiKey, runtime)
       pendingTerminal = {
         state:
           result.status === 'finished'
@@ -379,7 +395,12 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
       }
     } finally {
       if (sessionId) {
-        await stopSession(sessionId, params.apiKey)
+        const sessionStopped = await stopSession(sessionId, params.apiKey)
+        if (!taskId && sessionStopped) {
+          pendingTerminal = { state: 'canceled', providerStatus: 'session_stopped' }
+        } else if (!sessionStopped) {
+          pendingTerminal = undefined
+        }
       }
       if (pendingTerminal) {
         await runtime?.recordTerminalObservation?.(pendingTerminal.state, {

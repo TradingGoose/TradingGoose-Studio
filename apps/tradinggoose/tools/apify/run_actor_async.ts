@@ -1,4 +1,4 @@
-import { waitForToolDelay } from '@/tools/runtime'
+import { dispatchToolRemote, waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 import type { RunActorParams, RunActorResult } from './types'
 
@@ -135,14 +135,14 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
         elapsedTime += POLL_INTERVAL_MS
 
         const encodedActorId = encodeURIComponent(params.actorId)
-        const statusResponse = await fetch(
-          `https://api.apify.com/v2/acts/${encodedActorId}/runs/${runId}?token=${params.apiKey}`,
-          {
-            headers: {
-              Authorization: `Bearer ${params.apiKey}`,
-            },
-            signal: runtime?.signal,
-          }
+        const statusResponse = await dispatchToolRemote(runtime, () =>
+          fetch(
+            `https://api.apify.com/v2/acts/${encodedActorId}/runs/${runId}?token=${params.apiKey}`,
+            {
+              headers: { Authorization: `Bearer ${params.apiKey}` },
+              signal: runtime?.signal,
+            }
+          )
         )
 
         if (!statusResponse.ok) continue
@@ -182,14 +182,14 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
 
     try {
       const limit = Math.max(1, Math.min(params.itemLimit || 100, 250000))
-      const itemsResponse = await fetch(
-        `https://api.apify.com/v2/datasets/${terminalRun.defaultDatasetId}/items?token=${params.apiKey}&limit=${limit}`,
-        {
-          headers: {
-            Authorization: `Bearer ${params.apiKey}`,
-          },
-          signal: runtime?.signal,
-        }
+      const itemsResponse = await dispatchToolRemote(runtime, () =>
+        fetch(
+          `https://api.apify.com/v2/datasets/${terminalRun.defaultDatasetId}/items?token=${params.apiKey}&limit=${limit}`,
+          {
+            headers: { Authorization: `Bearer ${params.apiKey}` },
+            signal: runtime?.signal,
+          }
+        )
       )
       const items = itemsResponse.ok ? await itemsResponse.json() : undefined
       const terminalResult = {

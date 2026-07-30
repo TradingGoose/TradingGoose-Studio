@@ -35,12 +35,14 @@ export interface ToolResponse {
 
 export interface ToolExecutionRuntime {
   signal?: AbortSignal
-  publishRemoteExposure?: () => Promise<void>
+  claimRemoteDispatch?: () => Promise<boolean>
   publishOperationIdentity?: (identity: {
     adapterKind: string
     capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
     remoteOperationId: string
     observation?: Record<string, unknown>
+    expectedAdapterKind?: string
+    expectedRemoteOperationId?: string
   }) => Promise<void>
   recordTerminalObservation?: (
     state: 'canceled' | 'completed' | 'failed',
@@ -135,7 +137,7 @@ export interface ToolConfig<P = any, R = any> {
   ) => Promise<R extends ToolResponse ? R : ToolResponse>
 
   // Response handling
-  transformResponse?: (response: Response, params?: P) => Promise<R>
+  transformResponse?: (response: Response, params?: P, runtime?: ToolExecutionRuntime) => Promise<R>
 
   /**
    * Direct execution function for tools that don't need HTTP requests.

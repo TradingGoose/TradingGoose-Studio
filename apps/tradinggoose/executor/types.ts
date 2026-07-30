@@ -203,9 +203,11 @@ export interface ExecutionContext {
       capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
       remoteOperationId: string
       observation?: Record<string, unknown>
+      expectedAdapterKind?: string
+      expectedRemoteOperationId?: string
     }
   ) => Promise<void>
-  publishWorkflowOperationExposure?: (operationId: string) => Promise<void>
+  claimWorkflowOperationRemoteDispatch?: (operationId: string) => Promise<boolean>
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',
@@ -227,7 +229,7 @@ export interface ExecutionContextExtensions {
   workflowDeadlineSignal?: AbortSignal
   registerWorkflowOperation?: (blockId: string, handlerType: string) => Promise<string>
   publishWorkflowOperationIdentity?: ExecutionContext['publishWorkflowOperationIdentity']
-  publishWorkflowOperationExposure?: ExecutionContext['publishWorkflowOperationExposure']
+  claimWorkflowOperationRemoteDispatch?: ExecutionContext['claimWorkflowOperationRemoteDispatch']
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',

@@ -14,6 +14,7 @@ import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
+import { dispatchToolRemote } from '@/tools/runtime'
 import type { ToolConfig, ToolExecutionRuntime, ToolResponse } from '@/tools/types'
 import {
   createToolConfig,
@@ -541,12 +542,14 @@ async function executeToolCore(
 
         const tokenRequestSignal = createToolRequestSignal(undefined, options?.signal)
         try {
-          const response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
-            method: 'POST',
-            headers: tokenHeaders,
-            body: JSON.stringify(tokenPayload),
-            signal: tokenRequestSignal.signal,
-          })
+          const response = await dispatchToolRemote(options, () =>
+            fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
+              method: 'POST',
+              headers: tokenHeaders,
+              body: JSON.stringify(tokenPayload),
+              signal: tokenRequestSignal.signal,
+            })
+          )
 
           if (!response.ok) {
             const errorText = await response.text()
@@ -585,8 +588,10 @@ async function executeToolCore(
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
       options?.signal?.throwIfAborted()
-      await options?.publishRemoteExposure?.()
-      options?.signal?.throwIfAborted()
+      if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
+        options.signal?.throwIfAborted()
+        throw new Error('Tool dispatch is closed')
+      }
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams, options)
 
@@ -625,8 +630,10 @@ async function executeToolCore(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
-    await options?.publishRemoteExposure?.()
-    options?.signal?.throwIfAborted()
+    if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
+      options.signal?.throwIfAborted()
+      throw new Error('Tool dispatch is closed')
+    }
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
 
     // Apply post-processing if available and not skipped
@@ -886,12 +893,14 @@ async function executeToolRequest(
       requestSignal = createToolRequestSignal(timeout, options?.signal)
 
       try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
+        response = await dispatchToolRemote(options, () =>
+          fetch(fullUrl, {
+            method: requestParams.method,
+            headers: headers,
+            body: requestParams.body,
+            signal: requestSignal!.signal,
+          })
+        )
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${timeout}ms`)
@@ -907,12 +916,14 @@ async function executeToolRequest(
       requestTimeout = requestParams.timeout
       requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
       try {
-        response = await fetch(fullUrl, {
-          method: requestParams.method,
-          headers: headers,
-          body: requestParams.body,
-          signal: requestSignal.signal,
-        })
+        response = await dispatchToolRemote(options, () =>
+          fetch(fullUrl, {
+            method: requestParams.method,
+            headers: headers,
+            body: requestParams.body,
+            signal: requestSignal!.signal,
+          })
+        )
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${requestParams.timeout}ms`)
@@ -1003,7 +1014,7 @@ async function executeToolRequest(
           blob: () => response.blob(),
         } as Response
 
-        const data = await tool.transformResponse(mockResponse, params)
+        const data = await tool.transformResponse(mockResponse, params, options)
         return data
       } catch (transformError) {
         logger.error(`[${requestId}] Transform response error for ${toolId}:`, {
@@ -1197,6 +1208,11 @@ async function executeMcpTool(
       hasWorkflowId: !!workflowId,
     })
 
+    options?.signal?.throwIfAborted()
+    if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
+      options.signal?.throwIfAborted()
+      throw new Error('Tool dispatch is closed')
+    }
     const response = await fetch(`${baseUrl}/api/mcp/tools/execute`, {
       method: 'POST',
       headers,

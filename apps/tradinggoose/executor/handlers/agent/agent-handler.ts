@@ -690,6 +690,10 @@ export class AgentBlockHandler implements BlockHandler {
       apiKey,
       userId: context.userId,
       abortSignal: context.workflowDeadlineSignal,
+      claimRemoteDispatch:
+        context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
+          ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)
+          : undefined,
       onOperationIdentity:
         context.workflowOperationId && context.publishWorkflowOperationIdentity
           ? (identity: {
@@ -706,8 +710,8 @@ export class AgentBlockHandler implements BlockHandler {
               return {
                 runtime: {
                   signal: context.workflowDeadlineSignal,
-                  publishRemoteExposure: context.publishWorkflowOperationExposure
-                    ? () => context.publishWorkflowOperationExposure!(operationId)
+                  claimRemoteDispatch: context.claimWorkflowOperationRemoteDispatch
+                    ? () => context.claimWorkflowOperationRemoteDispatch!(operationId)
                     : undefined,
                   publishOperationIdentity: context.publishWorkflowOperationIdentity
                     ? (identity) => context.publishWorkflowOperationIdentity!(operationId, identity)

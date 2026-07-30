@@ -3,6 +3,7 @@ import {
   type GoogleCalendarToolResponse,
   type GoogleCalendarUpdateParams,
 } from '@/tools/google_calendar/types'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const updateTool: ToolConfig<GoogleCalendarUpdateParams, GoogleCalendarToolResponse> = {
@@ -98,7 +99,7 @@ export const updateTool: ToolConfig<GoogleCalendarUpdateParams, GoogleCalendarTo
     }),
   },
 
-  transformResponse: async (response: Response, params) => {
+  transformResponse: async (response: Response, params, runtime) => {
     const existingEvent = await response.json()
 
     // Start with the complete existing event to preserve all fields
@@ -208,7 +209,7 @@ export const updateTool: ToolConfig<GoogleCalendarUpdateParams, GoogleCalendarTo
     const putUrl = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(params?.eventId || '')}${queryString ? `?${queryString}` : ''}`
 
     // Send PUT request to update the event
-    const putResponse = await fetch(putUrl, {
+    const putResponse = await dispatchToolFetch(runtime, putUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${params?.accessToken}`,

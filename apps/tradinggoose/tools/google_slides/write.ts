@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { GoogleSlidesToolParams, GoogleSlidesWriteResponse } from '@/tools/google_slides/types'
+import { dispatchToolRemote } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GoogleSlidesWriteTool')
@@ -79,15 +80,12 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
 
     try {
       // Get the presentation data from the initial read
-      const presentationData = await fetch(
-        `https://slides.googleapis.com/v1/presentations/${presentationId}`,
-        {
+      const presentationData = await dispatchToolRemote(runtime, () =>
+        fetch(`https://slides.googleapis.com/v1/presentations/${presentationId}`, {
           method: 'GET',
           signal: runtime?.signal,
-          headers: {
-            Authorization: `Bearer ${params.accessToken}`,
-          },
-        }
+          headers: { Authorization: `Bearer ${params.accessToken}` },
+        })
       ).then((res) => res.json())
 
       const slideIndex = params.slideIndex || 0
@@ -136,9 +134,8 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
       ]
 
       // Make the batchUpdate request
-      const updateResponse = await fetch(
-        `https://slides.googleapis.com/v1/presentations/${presentationId}:batchUpdate`,
-        {
+      const updateResponse = await dispatchToolRemote(runtime, () =>
+        fetch(`https://slides.googleapis.com/v1/presentations/${presentationId}:batchUpdate`, {
           method: 'POST',
           signal: runtime?.signal,
           headers: {
@@ -146,7 +143,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ requests }),
-        }
+        })
       )
 
       if (!updateResponse.ok) {

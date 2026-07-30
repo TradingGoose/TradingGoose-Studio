@@ -187,6 +187,7 @@ export interface ProviderRequest {
   callChain?: string[]
   previousInteractionId?: string
   abortSignal?: AbortSignal
+  claimRemoteDispatch?: () => Promise<boolean>
   onOperationIdentity?: (identity: {
     adapterKind: string
     capability: 'status_only' | 'uncancelable'

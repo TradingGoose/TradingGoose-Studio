@@ -230,7 +230,11 @@ export function getWorkflowOperationCapability(
     return 'native_cancel_status'
   }
   if (
+    handlerType === 'agent' ||
     handlerType === 'agent_tool' ||
+    handlerType === 'api' ||
+    handlerType === 'function' ||
+    handlerType.startsWith('tool:') ||
     handlerType === 'wait' ||
     handlerType === 'condition' ||
     handlerType === 'loop' ||
@@ -612,6 +616,8 @@ export async function publishWorkflowOperationIdentity(params: {
   capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
   remoteOperationId: string
   observation?: Record<string, unknown>
+  expectedAdapterKind?: string
+  expectedRemoteOperationId?: string
 }) {
   await db
     .update(workflowExecutionOperation)
@@ -625,27 +631,33 @@ export async function publishWorkflowOperationIdentity(params: {
     .where(
       and(
         eq(workflowExecutionOperation.id, params.id),
-        isNull(workflowExecutionOperation.remoteOperationId),
+        params.expectedAdapterKind && params.expectedRemoteOperationId
+          ? and(
+              eq(workflowExecutionOperation.adapterKind, params.expectedAdapterKind),
+              eq(workflowExecutionOperation.remoteOperationId, params.expectedRemoteOperationId)
+            )
+          : isNull(workflowExecutionOperation.remoteOperationId),
         inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
       )
     )
 }
 
-export async function publishWorkflowOperationExposure(id: string) {
-  await db
+export async function claimWorkflowOperationRemoteDispatch(id: string): Promise<boolean> {
+  const [operation] = await db
     .update(workflowExecutionOperation)
     .set({
-      adapterKind: 'tool',
-      capability: 'uncancelable',
+      adapterKind: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'tool' else ${workflowExecutionOperation.adapterKind} end`,
+      capability: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'uncancelable' else ${workflowExecutionOperation.capability} end`,
       updatedAt: sql`clock_timestamp()`,
     })
     .where(
       and(
         eq(workflowExecutionOperation.id, id),
-        eq(workflowExecutionOperation.capability, 'local'),
-        inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+        inArray(workflowExecutionOperation.state, ['registered', 'running'])
       )
     )
+    .returning({ id: workflowExecutionOperation.id })
+  return operation !== undefined
 }
 
 export async function cancelWorkflowExecutionAtomically(params: {

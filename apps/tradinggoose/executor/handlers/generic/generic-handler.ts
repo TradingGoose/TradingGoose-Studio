@@ -62,6 +62,10 @@ export class GenericBlockHandler implements BlockHandler {
         context, // execution context for file processing
         {
           signal: context.workflowDeadlineSignal,
+          claimRemoteDispatch:
+            context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
+              ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)
+              : undefined,
           publishOperationIdentity:
             context.workflowOperationId && context.publishWorkflowOperationIdentity
               ? (identity) =>

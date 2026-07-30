@@ -4,6 +4,7 @@ import type {
   SharePostParams,
   SharePostResponse,
 } from '@/tools/linkedin/types'
+import { dispatchToolRemote } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 // Helper function to extract profile ID from various response formats
@@ -101,16 +102,18 @@ export const linkedInSharePostTool: ToolConfig<SharePostParams, SharePostRespons
         },
       }
 
-      const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-        method: 'POST',
-        signal: runtime?.signal,
-        headers: {
-          Authorization: `Bearer ${params.accessToken}`,
-          'Content-Type': 'application/json',
-          'X-Restli-Protocol-Version': '2.0.0',
-        },
-        body: JSON.stringify(postData),
-      })
+      const response = await dispatchToolRemote(runtime, () =>
+        fetch('https://api.linkedin.com/v2/ugcPosts', {
+          method: 'POST',
+          signal: runtime?.signal,
+          headers: {
+            Authorization: `Bearer ${params.accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Restli-Protocol-Version': '2.0.0',
+          },
+          body: JSON.stringify(postData),
+        })
+      )
 
       if (!response.ok) {
         const error = await response.text()

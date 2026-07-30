@@ -636,7 +636,8 @@ export class Executor {
       workflowDeadlineSignal: this.contextExtensions.workflowDeadlineSignal,
       registerWorkflowOperation: this.contextExtensions.registerWorkflowOperation,
       publishWorkflowOperationIdentity: this.contextExtensions.publishWorkflowOperationIdentity,
-      publishWorkflowOperationExposure: this.contextExtensions.publishWorkflowOperationExposure,
+      claimWorkflowOperationRemoteDispatch:
+        this.contextExtensions.claimWorkflowOperationRemoteDispatch,
       completeWorkflowOperation: this.contextExtensions.completeWorkflowOperation,
       setWorkflowParticipantWaiting: this.contextExtensions.setWorkflowParticipantWaiting,
     }
@@ -1890,7 +1891,9 @@ export class Executor {
       }
 
       // Execute the block
-      operationId = await context.registerWorkflowOperation?.(consoleBlockId, blockType)
+      const operationHandlerType =
+        handler instanceof GenericBlockHandler ? `tool:${blockType}` : blockType
+      operationId = await context.registerWorkflowOperation?.(consoleBlockId, operationHandlerType)
       const startTime = performance.now()
       const rawOutput = await handler.execute(block, inputs, {
         ...context,

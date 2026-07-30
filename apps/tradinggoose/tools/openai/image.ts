@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { BaseImageRequestBody } from '@/tools/openai/types'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('ImageTool')
@@ -89,7 +90,7 @@ export const imageTool: ToolConfig = {
     },
   },
 
-  transformResponse: async (response, params) => {
+  transformResponse: async (response, params, runtime) => {
     try {
       const data = await response.json()
 
@@ -142,7 +143,7 @@ export const imageTool: ToolConfig = {
             }
           }
 
-          const imageResponse = await fetch(proxyUrl.toString(), {
+          const imageResponse = await dispatchToolFetch(runtime, proxyUrl.toString(), {
             headers,
             cache: 'no-store',
           })
@@ -167,7 +168,7 @@ export const imageTool: ToolConfig = {
 
           try {
             logger.info('Attempting fallback with direct browser fetch...')
-            const directImageResponse = await fetch(imageUrl, {
+            const directImageResponse = await dispatchToolFetch(runtime, imageUrl, {
               cache: 'no-store',
               headers: {
                 Accept: 'image/*, */*',

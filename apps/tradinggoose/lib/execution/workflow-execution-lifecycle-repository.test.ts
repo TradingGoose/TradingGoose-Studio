@@ -299,10 +299,11 @@ describe('workflow operation capabilities', () => {
   it.each([
     ['workflow', 'native_cancel_status'],
     ['workflow_input', 'native_cancel_status'],
-    ['agent', 'uncancelable'],
-    ['api', 'uncancelable'],
-    ['function', 'uncancelable'],
-    ['tool:mcp-example', 'uncancelable'],
+    ['agent', 'local'],
+    ['agent_tool', 'local'],
+    ['api', 'local'],
+    ['function', 'local'],
+    ['tool:mcp-example', 'local'],
   ] as const)('classifies %s as %s', (handlerType, capability) => {
     expect(getWorkflowOperationCapability(handlerType)).toBe(capability)
   })

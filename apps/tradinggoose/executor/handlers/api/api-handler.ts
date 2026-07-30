@@ -99,7 +99,27 @@ export class ApiBlockHandler implements BlockHandler {
         withBlockToolExecutionContext(processedInputs, block, context),
         false, // skipPostProcess
         context, // execution context for file processing
-        { signal: context.workflowDeadlineSignal }
+        {
+          signal: context.workflowDeadlineSignal,
+          claimRemoteDispatch:
+            context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
+              ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)
+              : undefined,
+          publishOperationIdentity:
+            context.workflowOperationId && context.publishWorkflowOperationIdentity
+              ? (identity) =>
+                  context.publishWorkflowOperationIdentity!(context.workflowOperationId!, identity)
+              : undefined,
+          recordTerminalObservation:
+            context.workflowOperationId && context.completeWorkflowOperation
+              ? (state, observation) =>
+                  context.completeWorkflowOperation!(
+                    context.workflowOperationId!,
+                    state,
+                    observation
+                  )
+              : undefined,
+        }
       )
 
       if (!result.success) {

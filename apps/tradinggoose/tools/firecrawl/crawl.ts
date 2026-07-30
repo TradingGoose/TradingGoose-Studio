@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { FirecrawlCrawlParams, FirecrawlCrawlResponse } from '@/tools/firecrawl/types'
-import { waitForToolDelay } from '@/tools/runtime'
+import { dispatchToolRemote, waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('FirecrawlCrawlTool')
@@ -86,13 +86,13 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
 
     while (true) {
       try {
-        const statusResponse = await fetch(`/api/tools/firecrawl/crawl/${jobId}`, {
-          method: 'GET',
-          signal: runtime?.signal,
-          headers: {
-            Authorization: `Bearer ${params.apiKey}`,
-          },
-        })
+        const statusResponse = await dispatchToolRemote(runtime, () =>
+          fetch(`/api/tools/firecrawl/crawl/${jobId}`, {
+            method: 'GET',
+            signal: runtime?.signal,
+            headers: { Authorization: `Bearer ${params.apiKey}` },
+          })
+        )
 
         if (!statusResponse.ok) {
           throw new Error(`Failed to get crawl status: ${statusResponse.statusText}`)

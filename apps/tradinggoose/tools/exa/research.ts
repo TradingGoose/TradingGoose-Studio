@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExaResearchParams, ExaResearchResponse } from '@/tools/exa/types'
-import { waitForToolDelay } from '@/tools/runtime'
+import { dispatchToolRemote, waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('ExaResearchTool')
@@ -104,13 +104,13 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
 
     while (true) {
       try {
-        const statusResponse = await fetch(`https://api.exa.ai/research/v0/tasks/${taskId}`, {
-          method: 'GET',
-          signal: runtime?.signal,
-          headers: {
-            'x-api-key': params.apiKey,
-          },
-        })
+        const statusResponse = await dispatchToolRemote(runtime, () =>
+          fetch(`https://api.exa.ai/research/v0/tasks/${taskId}`, {
+            method: 'GET',
+            signal: runtime?.signal,
+            headers: { 'x-api-key': params.apiKey },
+          })
+        )
 
         if (!statusResponse.ok) {
           throw new Error(`Failed to get task status: ${statusResponse.statusText}`)

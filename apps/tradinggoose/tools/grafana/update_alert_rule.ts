@@ -1,4 +1,5 @@
 import type { GrafanaUpdateAlertRuleParams } from '@/tools/grafana/types'
+import { dispatchToolRemote } from '@/tools/runtime'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 // Using ToolResponse for intermediate state since this tool fetches existing data first
@@ -189,14 +190,16 @@ export const updateAlertRuleTool: ToolConfig<GrafanaUpdateAlertRuleParams, ToolR
       headers['X-Grafana-Org-Id'] = params.organizationId
     }
 
-    const updateResponse = await fetch(
-      `${params.baseUrl.replace(/\/$/, '')}/api/v1/provisioning/alert-rules/${params.alertRuleUid}`,
-      {
-        method: 'PUT',
-        signal: runtime?.signal,
-        headers,
-        body: JSON.stringify(updatedRule),
-      }
+    const updateResponse = await dispatchToolRemote(runtime, () =>
+      fetch(
+        `${params.baseUrl.replace(/\/$/, '')}/api/v1/provisioning/alert-rules/${params.alertRuleUid}`,
+        {
+          method: 'PUT',
+          signal: runtime?.signal,
+          headers,
+          body: JSON.stringify(updatedRule),
+        }
+      )
     )
 
     if (!updateResponse.ok) {

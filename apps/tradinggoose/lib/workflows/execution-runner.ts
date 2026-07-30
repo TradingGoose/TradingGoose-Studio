@@ -10,11 +10,11 @@ import {
   setWorkflowExecutionParticipantState,
 } from '@/lib/execution/workflow-execution-deadline-repository'
 import {
+  claimWorkflowOperationRemoteDispatch,
   completeWorkflowExecutionAttempt,
   completeWorkflowOperation,
   finalizeWorkflowExecution,
   getWorkflowOperationCapability,
-  publishWorkflowOperationExposure,
   publishWorkflowOperationIdentity,
   registerWorkflowOperation,
   type WorkflowExecutionLifecycle,
@@ -465,7 +465,7 @@ export async function runPreparedWorkflowExecution(params: {
       publishWorkflowOperationIdentity: async (id, identity) => {
         await publishWorkflowOperationIdentity({ id, ...identity })
       },
-      publishWorkflowOperationExposure,
+      claimWorkflowOperationRemoteDispatch,
       setWorkflowParticipantWaiting: lifecycle.participantId
         ? async (operationId, waiting) => {
             if (!operationWaitStates.has(operationId)) {
