@@ -34,6 +34,13 @@ export type WorkflowExecutionLifecycle = {
 
 type LifecycleTransaction = Pick<typeof db, 'execute' | 'select' | 'insert' | 'update'>
 
+function terminalWorkflowOperationObservation(incoming?: Record<string, unknown>) {
+  return sql`(
+    coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+    || ${incoming ?? {}}::jsonb
+  ) - '_credentialLease'`
+}
+
 async function selectWorkflowTerminalWinner(
   tx: Pick<typeof db, 'execute'>,
   rootExecutionId: string
@@ -598,7 +605,7 @@ export async function completeWorkflowOperation(params: {
     .update(workflowExecutionOperation)
     .set({
       state: params.state === 'local_abort' ? 'canceled' : params.state,
-      observation: params.observation,
+      observation: terminalWorkflowOperationObservation(params.observation),
       terminalAt: sql`clock_timestamp()`,
       updatedAt: sql`clock_timestamp()`,
     })
@@ -625,7 +632,9 @@ export async function publishWorkflowOperationIdentity(params: {
       adapterKind: params.adapterKind,
       capability: params.capability,
       remoteOperationId: params.remoteOperationId,
-      observation: params.observation,
+      observation: params.observation
+        ? sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb) || ${params.observation}::jsonb`
+        : workflowExecutionOperation.observation,
       updatedAt: sql`clock_timestamp()`,
     })
     .where(
@@ -638,6 +647,22 @@ export async function publishWorkflowOperationIdentity(params: {
             )
           : isNull(workflowExecutionOperation.remoteOperationId),
         inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+      )
+    )
+}
+
+export async function sealWorkflowOperationCredential(id: string, encrypted: string) {
+  await db
+    .update(workflowExecutionOperation)
+    .set({
+      observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+        || ${{ _credentialLease: encrypted }}::jsonb`,
+      updatedAt: sql`clock_timestamp()`,
+    })
+    .where(
+      and(
+        eq(workflowExecutionOperation.id, id),
+        inArray(workflowExecutionOperation.state, ['registered', 'running'])
       )
     )
 }
@@ -1145,7 +1170,10 @@ export async function listWorkflowExecutionsAwaitingTermination(limit = 100, aft
     .limit(limit)
 }
 
-export async function scheduleWorkflowTerminationReconcile(rootExecutionId: string) {
+export async function scheduleWorkflowTerminationReconcile(
+  rootExecutionId: string,
+  immediately = false
+) {
   await db.transaction(async (tx) => {
     await tx.execute(
       sql`select ${workflowExecutionTerminal.rootExecutionId}
@@ -1175,13 +1203,15 @@ export async function scheduleWorkflowTerminationReconcile(rootExecutionId: stri
         kind: 'termination_reconcile',
         version: terminal.barrierVersion,
         payload: { rootExecutionId, barrierVersion: terminal.barrierVersion },
-        availableAt: sql`clock_timestamp() + interval '10 seconds'`,
+        availableAt: immediately
+          ? sql`clock_timestamp()`
+          : sql`clock_timestamp() + interval '10 seconds'`,
       })
       .onConflictDoNothing()
   })
 }
 
-export async function claimWorkflowOperationsForTermination(rootExecutionId: string, limit = 100) {
+export async function claimWorkflowOperationsForTermination(rootExecutionId: string) {
   const rows = await db.execute<{
     id: string
     capability: 'local' | 'native_cancel_status' | 'status_only' | 'uncancelable'
@@ -1205,7 +1235,7 @@ export async function claimWorkflowOperationsForTermination(rootExecutionId: str
         )
       order by ${workflowExecutionOperation.createdAt}, ${workflowExecutionOperation.id}
       for update skip locked
-      limit ${limit}
+      limit 1
     )
     update ${workflowExecutionOperation} operation
     set fencing_token = gen_random_uuid()::text,
@@ -1238,15 +1268,18 @@ export async function recordWorkflowOperationObservation(params: {
       params.state
         ? {
             state: params.state,
-            observation: params.observation,
+            observation: terminalWorkflowOperationObservation(params.observation),
             terminalAt: sql`clock_timestamp()`,
             leaseExpiresAt: null,
+            fencingToken: null,
             nextReconcileAt: null,
             updatedAt: sql`clock_timestamp()`,
           }
         : {
-            observation: params.observation,
+            observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+              || ${params.observation ?? {}}::jsonb`,
             leaseExpiresAt: null,
+            fencingToken: null,
             nextReconcileAt: sql`clock_timestamp() + interval '10 seconds'`,
             updatedAt: sql`clock_timestamp()`,
           }
@@ -1346,6 +1379,7 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
       .update(workflowExecutionOperation)
       .set({
         state: attemptState,
+        observation: terminalWorkflowOperationObservation(),
         terminalAt: params.finishedAt,
         updatedAt: params.finishedAt,
       })

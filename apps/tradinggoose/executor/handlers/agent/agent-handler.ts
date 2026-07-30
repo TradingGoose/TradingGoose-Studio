@@ -710,6 +710,9 @@ export class AgentBlockHandler implements BlockHandler {
               return {
                 runtime: {
                   signal: context.workflowDeadlineSignal,
+                  prepareDurableCredential: context.prepareWorkflowOperationCredential
+                    ? (secret) => context.prepareWorkflowOperationCredential!(operationId, secret)
+                    : undefined,
                   claimRemoteDispatch: context.claimWorkflowOperationRemoteDispatch
                     ? () => context.claimWorkflowOperationRemoteDispatch!(operationId)
                     : undefined,

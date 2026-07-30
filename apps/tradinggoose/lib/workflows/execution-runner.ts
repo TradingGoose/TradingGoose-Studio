@@ -17,6 +17,7 @@ import {
   getWorkflowOperationCapability,
   publishWorkflowOperationIdentity,
   registerWorkflowOperation,
+  sealWorkflowOperationCredential,
   type WorkflowExecutionLifecycle,
 } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -466,6 +467,11 @@ export async function runPreparedWorkflowExecution(params: {
         await publishWorkflowOperationIdentity({ id, ...identity })
       },
       claimWorkflowOperationRemoteDispatch,
+      prepareWorkflowOperationCredential: async (id, secret) => {
+        const { encryptSecret } = await import('@/lib/utils-server')
+        const { encrypted } = await encryptSecret(secret)
+        await sealWorkflowOperationCredential(id, encrypted)
+      },
       setWorkflowParticipantWaiting: lifecycle.participantId
         ? async (operationId, waiting) => {
             if (!operationWaitStates.has(operationId)) {

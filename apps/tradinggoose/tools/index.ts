@@ -512,6 +512,13 @@ async function executeToolCore(
     }
 
     validateRequiredParametersAfterMerge(toolId, tool, contextParams)
+    if (tool.durableCredentialParam && options?.prepareDurableCredential) {
+      const credential = contextParams[tool.durableCredentialParam]
+      if (typeof credential !== 'string' || !credential) {
+        throw new Error(`Missing durable credential for ${toolId}`)
+      }
+      await options.prepareDurableCredential(credential)
+    }
 
     const selectedCredentialId =
       typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
@@ -635,6 +642,7 @@ async function executeToolCore(
       throw new Error('Tool dispatch is closed')
     }
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
+    options?.signal?.throwIfAborted()
 
     // Apply post-processing if available and not skipped
     let finalResult = result
@@ -888,9 +896,12 @@ async function executeToolRequest(
 
     let response: Response
     if (isInternalRoute) {
-      const timeout = requestParams.timeout || 300000
+      const timeout = tool.durableCredentialParam ? 30_000 : requestParams.timeout || 300000
       requestTimeout = timeout
-      requestSignal = createToolRequestSignal(timeout, options?.signal)
+      requestSignal = createToolRequestSignal(
+        timeout,
+        tool.durableCredentialParam ? undefined : options?.signal
+      )
 
       try {
         response = await dispatchToolRemote(options, () =>
@@ -913,8 +924,11 @@ async function executeToolRequest(
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
 
-      requestTimeout = requestParams.timeout
-      requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
+      requestTimeout = tool.durableCredentialParam ? 30_000 : requestParams.timeout
+      requestSignal = createToolRequestSignal(
+        requestTimeout,
+        tool.durableCredentialParam ? undefined : options?.signal
+      )
       try {
         response = await dispatchToolRemote(options, () =>
           fetch(fullUrl, {

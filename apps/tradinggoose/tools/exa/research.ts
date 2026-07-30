@@ -14,6 +14,7 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
   description:
     'Perform comprehensive research using AI to generate detailed reports with citations',
   version: '1.0.0',
+  durableCredentialParam: 'apiKey',
   params: {
     query: {
       type: 'string',
@@ -75,8 +76,13 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
     },
   },
 
-  transformResponse: async (response: Response) => {
+  transformResponse: async (response: Response, _params, runtime) => {
     const data = await response.json()
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'exa_research',
+      capability: 'status_only',
+      remoteOperationId: data.id,
+    })
 
     return {
       success: true,
@@ -95,7 +101,7 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
     if (!taskId) return { ...result, success: false, error: 'Missing Exa task ID' }
     await runtime?.publishOperationIdentity?.({
       adapterKind: 'exa_research',
-      capability: 'uncancelable',
+      capability: 'status_only',
       remoteOperationId: taskId,
     })
     logger.info(`Exa research task ${taskId} created, polling for completion...`)

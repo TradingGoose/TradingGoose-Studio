@@ -23,7 +23,7 @@ async function createSessionWithProfile(
           'X-Browser-Use-API-Key': apiKey,
         },
         body: JSON.stringify({ profileId: profileId.trim() }),
-        signal: runtime?.signal,
+        signal: AbortSignal.timeout(30_000),
       })
     )
 
@@ -47,6 +47,7 @@ async function stopSession(sessionId: string, apiKey: string): Promise<boolean> 
   try {
     const response = await fetch(`https://api.browser-use.com/api/v2/sessions/${sessionId}`, {
       method: 'PATCH',
+      signal: AbortSignal.timeout(10_000),
       headers: {
         'Content-Type': 'application/json',
         'X-Browser-Use-API-Key': apiKey,
@@ -54,7 +55,7 @@ async function stopSession(sessionId: string, apiKey: string): Promise<boolean> 
       body: JSON.stringify({ action: 'stop' }),
     })
 
-    if (response.ok) {
+    if (response.ok || response.status === 404 || response.status === 410) {
       logger.info(`Stopped session ${sessionId}`)
       return true
     }
@@ -196,6 +197,7 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
   name: 'Browser Use',
   description: 'Runs a browser automation task using BrowserUse',
   version: '1.0.0',
+  durableCredentialParam: 'apiKey',
 
   params: {
     task: {
@@ -275,10 +277,11 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
       sessionId = sessionResult.sessionId
       await runtime?.publishOperationIdentity?.({
         adapterKind: 'browser_use_profile_session',
-        capability: 'uncancelable',
+        capability: 'native_cancel_status',
         remoteOperationId: sessionId,
         observation: { phase: 'session_created' },
       })
+      signal?.throwIfAborted()
     }
 
     const requestBody = buildRequestBody(params, sessionId)
@@ -293,7 +296,7 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
             'X-Browser-Use-API-Key': params.apiKey,
           },
           body: JSON.stringify(requestBody),
-          signal,
+          signal: AbortSignal.timeout(30_000),
         })
       )
 
@@ -316,12 +319,13 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
       taskId = data.id
       await runtime?.publishOperationIdentity?.({
         adapterKind: sessionId ? 'browser_use_task_with_profile_session' : 'browser_use_task',
-        capability: 'uncancelable',
+        capability: 'native_cancel_status',
         remoteOperationId: taskId,
         observation: sessionId ? { phase: 'task_created', sessionId } : undefined,
         expectedAdapterKind: sessionId ? 'browser_use_profile_session' : undefined,
         expectedRemoteOperationId: sessionId,
       })
+      signal?.throwIfAborted()
       logger.info(`Created BrowserUse task: ${taskId}`)
 
       const result = await pollForCompletion(taskId, params.apiKey, runtime)
@@ -350,6 +354,7 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
         try {
           const stopResponse = await fetch(`https://api.browser-use.com/api/v2/tasks/${taskId}`, {
             method: 'PATCH',
+            signal: AbortSignal.timeout(10_000),
             headers: {
               'Content-Type': 'application/json',
               'X-Browser-Use-API-Key': params.apiKey,
@@ -365,15 +370,26 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
             stopError
           )
         }
-        const terminal = await pollForCompletion(taskId, params.apiKey)
-        if (!terminal.status) signal.throwIfAborted()
+        let providerStatus: string | undefined
+        try {
+          const statusResponse = await fetch(`https://api.browser-use.com/api/v2/tasks/${taskId}`, {
+            signal: AbortSignal.timeout(10_000),
+            headers: { 'X-Browser-Use-API-Key': params.apiKey },
+          })
+          if (statusResponse.ok) providerStatus = (await statusResponse.json()).status
+        } catch {
+          // Durable reconciliation owns any unconfirmed terminal state.
+        }
+        if (!providerStatus || !['stopped', 'finished', 'failed'].includes(providerStatus)) {
+          signal.throwIfAborted()
+        }
         const terminalState =
-          terminal.status === 'stopped'
+          providerStatus === 'stopped'
             ? 'canceled'
-            : terminal.status === 'finished'
+            : providerStatus === 'finished'
               ? 'completed'
               : 'failed'
-        pendingTerminal = { state: terminalState, providerStatus: terminal.status! }
+        pendingTerminal = { state: terminalState, providerStatus: providerStatus! }
         return {
           success: false,
           output: { id: taskId, success: false, output: null, steps: [] },
@@ -400,6 +416,7 @@ export const runTaskTool: ToolConfig<BrowserUseRunTaskParams, BrowserUseRunTaskR
           pendingTerminal = { state: 'canceled', providerStatus: 'session_stopped' }
         } else if (!sessionStopped) {
           pendingTerminal = undefined
+          signal?.throwIfAborted()
         }
       }
       if (pendingTerminal) {

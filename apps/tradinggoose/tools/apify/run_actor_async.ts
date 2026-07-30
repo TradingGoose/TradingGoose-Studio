@@ -10,6 +10,7 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
   name: 'APIFY Run Actor (Async)',
   description: 'Run an APIFY actor asynchronously with polling for long-running tasks',
   version: '1.0.0',
+  durableCredentialParam: 'apiKey',
 
   params: {
     apiKey: {
@@ -96,7 +97,7 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
     },
   },
 
-  transformResponse: async (response) => {
+  transformResponse: async (response, _params, runtime) => {
     if (!response.ok) {
       const errorText = await response.text()
       return {
@@ -107,6 +108,11 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
     }
 
     const data = await response.json()
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'apify_run',
+      capability: 'native_cancel_status',
+      remoteOperationId: data.data.id,
+    })
     return {
       success: true,
       output: data.data,
@@ -122,7 +128,7 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
     const runId = runData.id
     await runtime?.publishOperationIdentity?.({
       adapterKind: 'apify_run',
-      capability: 'uncancelable',
+      capability: 'native_cancel_status',
       remoteOperationId: runId,
     })
 

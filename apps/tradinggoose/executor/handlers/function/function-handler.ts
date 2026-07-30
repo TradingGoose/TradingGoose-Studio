@@ -69,6 +69,11 @@ export class FunctionBlockHandler implements BlockHandler {
       context, // execution context for file processing
       {
         signal: context.workflowDeadlineSignal,
+        prepareDurableCredential:
+          context.workflowOperationId && context.prepareWorkflowOperationCredential
+            ? (secret) =>
+                context.prepareWorkflowOperationCredential!(context.workflowOperationId!, secret)
+            : undefined,
         claimRemoteDispatch:
           context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
             ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)

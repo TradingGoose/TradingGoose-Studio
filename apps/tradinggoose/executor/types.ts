@@ -208,6 +208,7 @@ export interface ExecutionContext {
     }
   ) => Promise<void>
   claimWorkflowOperationRemoteDispatch?: (operationId: string) => Promise<boolean>
+  prepareWorkflowOperationCredential?: (operationId: string, secret: string) => Promise<void>
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',
@@ -230,6 +231,7 @@ export interface ExecutionContextExtensions {
   registerWorkflowOperation?: (blockId: string, handlerType: string) => Promise<string>
   publishWorkflowOperationIdentity?: ExecutionContext['publishWorkflowOperationIdentity']
   claimWorkflowOperationRemoteDispatch?: ExecutionContext['claimWorkflowOperationRemoteDispatch']
+  prepareWorkflowOperationCredential?: ExecutionContext['prepareWorkflowOperationCredential']
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',

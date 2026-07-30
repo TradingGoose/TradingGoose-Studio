@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   refreshAttempt: vi.fn(),
   infrastructure: vi.fn(),
   terminalAttempt: vi.fn(),
+  decrypt: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -38,6 +39,10 @@ vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: mocks.cancel,
 }))
 
+vi.mock('@/lib/utils-server', () => ({
+  decryptSecret: mocks.decrypt,
+}))
+
 import { reconcileWorkflowTermination } from './workflow-execution-termination-reconcile'
 
 describe('reconcileWorkflowTermination', () => {
@@ -47,7 +52,98 @@ describe('reconcileWorkflowTermination', () => {
     mocks.arbitrate.mockResolvedValue(null)
     mocks.schedule.mockResolvedValue(undefined)
     mocks.attempts.mockResolvedValue([])
+    mocks.decrypt.mockResolvedValue({ decrypted: 'secret-key' })
   })
+
+  it.each([
+    {
+      adapterKind: 'apify_run',
+      responses: [{}, { data: { status: 'ABORTED' } }],
+      state: 'canceled',
+    },
+    {
+      adapterKind: 'exa_research',
+      responses: [{ status: 'completed' }],
+      state: 'completed',
+    },
+    {
+      adapterKind: 'firecrawl_crawl',
+      responses: [{ status: 'accepted' }, { status: 'failed' }],
+      state: 'failed',
+    },
+    {
+      adapterKind: 'browser_use_task_with_profile_session',
+      responses: [{}, { status: 'stopped' }, {}],
+      state: 'canceled',
+      sessionId: 'session-1',
+    },
+  ])('durably reconciles $adapterKind terminal state', async (testCase) => {
+    mocks.claim.mockResolvedValue([
+      {
+        id: 'operation-remote',
+        capability: 'native_cancel_status',
+        adapterKind: testCase.adapterKind,
+        remoteOperationId: 'remote-1',
+        observation: {
+          _credentialLease: 'ciphertext',
+          ...(testCase.sessionId ? { sessionId: testCase.sessionId } : {}),
+        },
+        fencingToken: 'fence-remote',
+      },
+    ])
+    const responses = [...testCase.responses]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => {
+        const body = responses.shift() ?? {}
+        return {
+          ok: true,
+          status: 200,
+          json: async () => body,
+        }
+      })
+    )
+
+    await reconcileWorkflowTermination('root-1')
+
+    expect(mocks.observe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'operation-remote',
+        fencingToken: 'fence-remote',
+        state: testCase.state,
+      })
+    )
+  })
+
+  it.each(['credential', 'provider'])(
+    'keeps durable work nonterminal on %s failure',
+    async (failure) => {
+      mocks.claim.mockResolvedValue([
+        {
+          id: 'operation-retry',
+          capability: 'status_only',
+          adapterKind: 'exa_research',
+          remoteOperationId: 'remote-1',
+          observation: { _credentialLease: 'ciphertext' },
+          fencingToken: 'fence-retry',
+        },
+      ])
+      if (failure === 'credential') mocks.decrypt.mockRejectedValue(new Error('decrypt failed'))
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('provider failed')))
+
+      await reconcileWorkflowTermination('root-1')
+
+      expect(mocks.observe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'operation-retry',
+          observation: { adapter: 'exa_research', outcome: 'unknown' },
+        })
+      )
+      expect(mocks.observe).toHaveBeenCalledWith(
+        expect.not.objectContaining({ state: expect.anything() })
+      )
+    }
+  )
 
   it('requests native child cancellation and crosses the barrier only after terminal status', async () => {
     mocks.claim.mockResolvedValue([
@@ -93,7 +189,7 @@ describe('reconcileWorkflowTermination', () => {
     expect(mocks.observe).toHaveBeenCalledWith(
       expect.not.objectContaining({ state: expect.anything() })
     )
-    expect(mocks.schedule).toHaveBeenCalledWith('root-1')
+    expect(mocks.schedule).toHaveBeenCalledWith('root-1', true)
   })
 
   it('observes the claimed Trigger attempt before terminal arbitration', async () => {

@@ -16,7 +16,161 @@ import {
   failWorkflowExecutionOutbox,
   type WorkflowExecutionOutboxClaim,
 } from '@/lib/execution/workflow-execution-outbox'
+import { decryptSecret } from '@/lib/utils-server'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
+
+type RemoteTerminalState = 'canceled' | 'completed' | 'failed'
+
+function reconcileProviderFetch(input: string | URL | Request, init?: RequestInit) {
+  return globalThis.fetch(input, { ...init, signal: AbortSignal.timeout(10_000) })
+}
+
+async function reconcileDurableToolOperation(operation: {
+  adapterKind: string
+  remoteOperationId: string | null
+  observation: Record<string, unknown> | null
+}): Promise<{ state?: RemoteTerminalState; observation: Record<string, unknown> } | null> {
+  if (!operation.remoteOperationId) return null
+  const encrypted = operation.observation?._credentialLease
+  if (typeof encrypted !== 'string') return null
+  const { decrypted: apiKey } = await decryptSecret(encrypted)
+  const id = operation.remoteOperationId
+
+  if (operation.adapterKind === 'apify_run') {
+    await reconcileProviderFetch(`https://api.apify.com/v2/actor-runs/${id}/abort`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    const response = await reconcileProviderFetch(`https://api.apify.com/v2/actor-runs/${id}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!response.ok) return { observation: { providerStatus: response.status } }
+    const status = (await response.json()).data?.status
+    return {
+      state:
+        status === 'SUCCEEDED'
+          ? 'completed'
+          : status === 'ABORTED'
+            ? 'canceled'
+            : status === 'FAILED' || status === 'TIMED-OUT'
+              ? 'failed'
+              : undefined,
+      observation: { providerStatus: status },
+    }
+  }
+
+  if (operation.adapterKind === 'exa_research') {
+    const response = await reconcileProviderFetch(`https://api.exa.ai/research/v0/tasks/${id}`, {
+      headers: { 'x-api-key': apiKey },
+    })
+    if (!response.ok) return { observation: { providerStatus: response.status } }
+    const status = (await response.json()).status
+    return {
+      state:
+        status === 'completed'
+          ? 'completed'
+          : status === 'failed'
+            ? 'failed'
+            : status === 'canceled' || status === 'cancelled'
+              ? 'canceled'
+              : undefined,
+      observation: { providerStatus: status },
+    }
+  }
+
+  if (operation.adapterKind === 'firecrawl_crawl') {
+    const cancellation = await reconcileProviderFetch(`https://api.firecrawl.dev/v1/crawl/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (cancellation.ok) {
+      try {
+        const status = (await cancellation.json()).status
+        if (status === 'canceled' || status === 'cancelled') {
+          return { state: 'canceled', observation: { providerStatus: status } }
+        }
+      } catch {
+        // A malformed cancellation response falls back to status observation.
+      }
+    }
+    const response = await reconcileProviderFetch(`https://api.firecrawl.dev/v1/crawl/${id}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!response.ok) return { observation: { providerStatus: response.status } }
+    const status = (await response.json()).status
+    return {
+      state:
+        status === 'completed'
+          ? 'completed'
+          : status === 'failed'
+            ? 'failed'
+            : status === 'canceled' || status === 'cancelled'
+              ? 'canceled'
+              : undefined,
+      observation: { providerStatus: status },
+    }
+  }
+
+  if (operation.adapterKind.startsWith('browser_use_')) {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Browser-Use-API-Key': apiKey,
+    }
+    if (operation.adapterKind === 'browser_use_profile_session') {
+      const response = await reconcileProviderFetch(
+        `https://api.browser-use.com/api/v2/sessions/${id}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ action: 'stop' }),
+        }
+      )
+      return {
+        state:
+          response.ok || response.status === 404 || response.status === 410
+            ? 'canceled'
+            : undefined,
+        observation: { providerStatus: response.status },
+      }
+    }
+    await reconcileProviderFetch(`https://api.browser-use.com/api/v2/tasks/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ action: 'stop_task_and_session' }),
+    })
+    const response = await reconcileProviderFetch(
+      `https://api.browser-use.com/api/v2/tasks/${id}`,
+      { headers }
+    )
+    if (!response.ok) return { observation: { providerStatus: response.status } }
+    const status = (await response.json()).status
+    const taskState =
+      status === 'finished'
+        ? 'completed'
+        : status === 'stopped'
+          ? 'canceled'
+          : status === 'failed'
+            ? 'failed'
+            : undefined
+    if (!taskState) return { observation: { providerStatus: status } }
+    const sessionId = operation.observation?.sessionId
+    if (typeof sessionId === 'string') {
+      const stopped = await reconcileProviderFetch(
+        `https://api.browser-use.com/api/v2/sessions/${sessionId}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ action: 'stop' }),
+        }
+      )
+      if (!stopped.ok && stopped.status !== 404 && stopped.status !== 410) {
+        return { observation: { providerStatus: status, sessionId } }
+      }
+    }
+    return { state: taskState, observation: { providerStatus: status, sessionId } }
+  }
+  return null
+}
 
 export async function reconcileWorkflowTermination(rootExecutionId: string) {
   const terminal = await getWorkflowExecutionProjection(rootExecutionId)
@@ -57,6 +211,35 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
   }
   const operations = await claimWorkflowOperationsForTermination(rootExecutionId)
   for (const operation of operations) {
+    const isDurableTool = [
+      'apify_run',
+      'exa_research',
+      'firecrawl_crawl',
+      'browser_use_profile_session',
+      'browser_use_task',
+      'browser_use_task_with_profile_session',
+    ].includes(operation.adapterKind)
+    try {
+      const durableTool = await reconcileDurableToolOperation(operation)
+      if (durableTool) {
+        await recordWorkflowOperationObservation({
+          id: operation.id,
+          fencingToken: operation.fencingToken,
+          ...durableTool,
+        })
+        continue
+      }
+    } catch {
+      // Credential and provider failures remain unresolved and retry.
+    }
+    if (isDurableTool) {
+      await recordWorkflowOperationObservation({
+        id: operation.id,
+        fencingToken: operation.fencingToken,
+        observation: { adapter: operation.adapterKind, outcome: 'unknown' },
+      })
+      continue
+    }
     if (operation.adapterKind === 'gemini_interaction_status' && operation.remoteOperationId) {
       const observation =
         operation.observation && typeof operation.observation === 'object'
@@ -124,7 +307,9 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
     })
   }
   const result = await reconcileWorkflowDeadlineTermination(rootExecutionId)
-  if (!result) await scheduleWorkflowTerminationReconcile(rootExecutionId)
+  if (!result) {
+    await scheduleWorkflowTerminationReconcile(rootExecutionId, operations.length > 0)
+  }
   return result
 }
 

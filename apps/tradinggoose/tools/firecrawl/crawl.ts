@@ -13,6 +13,7 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
   name: 'Firecrawl Crawl',
   description: 'Crawl entire websites and extract structured content from all accessible pages',
   version: '1.0.0',
+  durableCredentialParam: 'apiKey',
   params: {
     url: {
       type: 'string',
@@ -55,13 +56,19 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
       },
     }),
   },
-  transformResponse: async (response: Response) => {
+  transformResponse: async (response: Response, _params, runtime) => {
     const data = await response.json()
+    const jobId = data.jobId || data.id
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'firecrawl_crawl',
+      capability: 'native_cancel_status',
+      remoteOperationId: jobId,
+    })
 
     return {
       success: true,
       output: {
-        jobId: data.jobId || data.id,
+        jobId,
         pages: [],
         total: 0,
         creditsUsed: 0,
@@ -77,7 +84,7 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
     if (!jobId) return { ...result, success: false, error: 'Missing Firecrawl job ID' }
     await runtime?.publishOperationIdentity?.({
       adapterKind: 'firecrawl_crawl',
-      capability: 'uncancelable',
+      capability: 'native_cancel_status',
       remoteOperationId: jobId,
     })
     logger.info(`Firecrawl crawl job ${jobId} created, polling for completion...`)

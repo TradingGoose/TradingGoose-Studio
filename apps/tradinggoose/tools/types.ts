@@ -35,6 +35,7 @@ export interface ToolResponse {
 
 export interface ToolExecutionRuntime {
   signal?: AbortSignal
+  prepareDurableCredential?: (secret: string) => Promise<void>
   claimRemoteDispatch?: () => Promise<boolean>
   publishOperationIdentity?: (identity: {
     adapterKind: string
@@ -71,6 +72,7 @@ export interface ToolConfig<P = any, R = any> {
   name: string
   description: string
   version: string
+  durableCredentialParam?: keyof P & string
 
   // Parameter schema - what this tool accepts
   params: Record<

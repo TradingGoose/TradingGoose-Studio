@@ -638,6 +638,7 @@ export class Executor {
       publishWorkflowOperationIdentity: this.contextExtensions.publishWorkflowOperationIdentity,
       claimWorkflowOperationRemoteDispatch:
         this.contextExtensions.claimWorkflowOperationRemoteDispatch,
+      prepareWorkflowOperationCredential: this.contextExtensions.prepareWorkflowOperationCredential,
       completeWorkflowOperation: this.contextExtensions.completeWorkflowOperation,
       setWorkflowParticipantWaiting: this.contextExtensions.setWorkflowParticipantWaiting,
     }
