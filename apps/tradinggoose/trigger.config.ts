@@ -13,6 +13,7 @@ export default defineConfig({
   project: triggerProjectId!,
   runtime: 'node',
   logLevel: 'log',
+  maxDuration: 600,
   retries: {
     enabledInDev: false,
     default: {
