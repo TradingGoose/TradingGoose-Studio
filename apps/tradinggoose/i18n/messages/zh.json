@@ -1447,6 +1447,12 @@
         "unknownLevel": "未知",
         "unknownValue": "未知",
         "runningMs": "{value} 毫秒",
+        "deadline": {
+          "title": "工作流执行时间已超出限制",
+          "reason": "此执行因达到其计费层级配置的时间限制而停止。",
+          "limit": "已应用限制：{seconds} 秒",
+          "tier": "已应用层级：{tierId}"
+        },
         "traceSpans": {
           "workflowExecution": "工作流执行",
           "collapseAll": "全部折叠",

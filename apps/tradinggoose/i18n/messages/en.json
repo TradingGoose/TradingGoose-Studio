@@ -1460,6 +1460,12 @@
         "unknownLevel": "unknown",
         "unknownValue": "Unknown",
         "runningMs": "{value} ms",
+        "deadline": {
+          "title": "Workflow execution time limit exceeded",
+          "reason": "This execution was stopped because it reached the time limit configured for its billing tier.",
+          "limit": "Applied limit: {seconds} seconds",
+          "tier": "Applied tier: {tierId}"
+        },
         "traceSpans": {
           "workflowExecution": "Workflow execution",
           "collapseAll": "Collapse all",

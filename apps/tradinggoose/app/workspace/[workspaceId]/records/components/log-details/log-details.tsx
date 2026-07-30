@@ -83,6 +83,7 @@ export function LogDetails({
   }, [log])
 
   const hasCostInfo = useMemo(() => Boolean(log?.cost), [log])
+  const deadlineResult = log?.executionData?.canonicalResult
   const baseExecutionCharge = Number(log?.cost?.baseExecutionCharge || 0)
   const traceSpanCostMultiplier = useMemo(() => {
     if (!log?.executionData?.traceSpans) {
@@ -284,6 +285,28 @@ export function LogDetails({
                   )}
                 </div>
               </div>
+
+              {deadlineResult?.code === 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' && (
+                <div className='flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-3'>
+                  <div className='flex items-center justify-between gap-3'>
+                    <span className='font-medium text-destructive text-sm'>
+                      {t('deadline.title')}
+                    </span>
+                    <Badge variant='destructive' className='font-mono text-[10px]'>
+                      {deadlineResult.code}
+                    </Badge>
+                  </div>
+                  <p className='text-foreground text-sm'>{t('deadline.reason')}</p>
+                  <div className='grid gap-1 text-xs sm:grid-cols-2'>
+                    <span className='text-muted-foreground'>
+                      {t('deadline.limit', { seconds: deadlineResult.deadline.limitSeconds })}
+                    </span>
+                    <span className='break-all text-muted-foreground'>
+                      {t('deadline.tier', { tierId: deadlineResult.deadline.appliedTierId })}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Workflow State */}
               {isWorkflowExecutionLog && log.executionId && (

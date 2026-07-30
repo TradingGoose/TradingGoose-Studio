@@ -133,6 +133,71 @@ describe('serializeWorkflowLog executionData', () => {
     ).toEqual(expect.objectContaining({ executionData: undefined }))
   })
 
+  it('exposes only the safe canonical deadline diagnostic in full details', () => {
+    const canonicalResult = {
+      success: false,
+      error: 'Workflow execution time limit exceeded',
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      output: { secret: 'do-not-expose' },
+      logs: [{ output: { token: 'do-not-expose' } }],
+      deadline: {
+        appliedTierId: 'tier-1',
+        limitSeconds: '10',
+        processingStartedAt: '2026-05-05T00:00:00.000Z',
+        terminatedAt: '2026-05-05T00:00:10.000Z',
+        internal: 'do-not-expose',
+      },
+    }
+    const full = serializeWorkflowLog(buildRow({ executionData: { canonicalResult } }), 'full')
+    const basic = serializeWorkflowLog(buildRow({ executionData: { canonicalResult } }), 'basic')
+
+    expect(full.executionData?.canonicalResult).toEqual({
+      success: false,
+      error: 'Workflow execution time limit exceeded',
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: {
+        appliedTierId: 'tier-1',
+        limitSeconds: '10',
+        processingStartedAt: '2026-05-05T00:00:00.000Z',
+        terminatedAt: '2026-05-05T00:00:10.000Z',
+      },
+    })
+    expect(full.executionData?.canonicalResult).not.toHaveProperty('output')
+    expect(full.executionData?.canonicalResult?.deadline).not.toHaveProperty('internal')
+    expect(basic.executionData).toBeUndefined()
+  })
+
+  it('omits malformed and non-deadline canonical results', () => {
+    const malformed = serializeWorkflowLog(
+      buildRow({
+        executionData: {
+          canonicalResult: {
+            success: false,
+            error: 'Workflow execution time limit exceeded',
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: { appliedTierId: 'tier-1', limitSeconds: '10' },
+          },
+        },
+      }),
+      'full'
+    )
+    const cancellation = serializeWorkflowLog(
+      buildRow({
+        executionData: {
+          canonicalResult: {
+            success: false,
+            error: 'Workflow execution was cancelled',
+            code: 'WORKFLOW_EXECUTION_CANCELLED',
+          },
+        },
+      }),
+      'full'
+    )
+
+    expect(malformed.executionData?.canonicalResult).toBeUndefined()
+    expect(cancellation.executionData?.canonicalResult).toBeUndefined()
+  })
+
   it('derives error outcome from nested trace span children', () => {
     const log = serializeWorkflowLog(
       buildRow({

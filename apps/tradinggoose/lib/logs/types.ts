@@ -1,5 +1,9 @@
 import type { Edge } from '@xyflow/react'
 import type { BlockLog, NormalizedBlockOutput } from '@/executor/types'
+import type {
+  WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+  WorkflowDeadlineMetadata,
+} from '@/lib/execution/workflow-execution-time-policy'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 import type { Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -305,6 +309,13 @@ export interface WorkflowExecutionFilters {
 
 export type WorkflowLogOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
 
+export interface WorkflowDeadlineLogResult {
+  success: false
+  error: string
+  code: typeof WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED
+  deadline: WorkflowDeadlineMetadata
+}
+
 export interface WorkflowLogWorkflowSummary {
   id: string
   name: string
@@ -349,6 +360,7 @@ export interface WorkflowLog {
   cost?: CostMetadata
   executionData?: ToolCallMetadata & {
     traceSpans?: TraceSpan[]
+    canonicalResult?: WorkflowDeadlineLogResult
     blockInput?: Record<string, unknown>
     blockExecutions?: Array<{
       id: string

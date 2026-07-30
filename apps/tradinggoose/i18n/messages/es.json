@@ -1460,6 +1460,12 @@
         "unknownLevel": "desconocido",
         "unknownValue": "Desconocido",
         "runningMs": "{value} ms",
+        "deadline": {
+          "title": "Se excedió el límite de tiempo de ejecución",
+          "reason": "Esta ejecución se detuvo porque alcanzó el límite de tiempo configurado para su nivel de facturación.",
+          "limit": "Límite aplicado: {seconds} segundos",
+          "tier": "Nivel aplicado: {tierId}"
+        },
         "traceSpans": {
           "workflowExecution": "Ejecución del flujo de trabajo",
           "collapseAll": "Contraer todo",

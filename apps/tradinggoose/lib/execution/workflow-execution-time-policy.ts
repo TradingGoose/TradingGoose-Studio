@@ -110,6 +110,17 @@ export type WorkflowDeadlineMetadata = {
   terminatedAt: string
 }
 
+export function isWorkflowDeadlineMetadata(value: unknown): value is WorkflowDeadlineMetadata {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  return [
+    candidate.appliedTierId,
+    candidate.limitSeconds,
+    candidate.processingStartedAt,
+    candidate.terminatedAt,
+  ].every((field) => typeof field === 'string' && field.trim().length > 0)
+}
+
 export function createWorkflowDeadlineResult(params: {
   policy: Extract<WorkflowExecutionTimePolicy, { kind: 'bounded' }>
   terminatedAt: string
