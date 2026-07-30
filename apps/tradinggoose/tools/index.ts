@@ -585,6 +585,8 @@ async function executeToolCore(
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
       options?.signal?.throwIfAborted()
+      await options?.publishRemoteExposure?.()
+      options?.signal?.throwIfAborted()
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams, options)
 
@@ -623,6 +625,8 @@ async function executeToolCore(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
+    await options?.publishRemoteExposure?.()
+    options?.signal?.throwIfAborted()
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
 
     // Apply post-processing if available and not skipped

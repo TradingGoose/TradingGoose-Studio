@@ -65,6 +65,7 @@ vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
   finalizeWorkflowExecution: mocks.finalizeWorkflowExecution,
   getWorkflowOperationCapability: vi.fn().mockReturnValue('uncancelable'),
   joinWorkflowExecution: vi.fn(),
+  publishWorkflowOperationExposure: vi.fn(),
   registerWorkflowOperation: mocks.registerWorkflowOperation,
   completeWorkflowOperation: vi.fn(),
 }))

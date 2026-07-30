@@ -706,6 +706,9 @@ export class AgentBlockHandler implements BlockHandler {
               return {
                 runtime: {
                   signal: context.workflowDeadlineSignal,
+                  publishRemoteExposure: context.publishWorkflowOperationExposure
+                    ? () => context.publishWorkflowOperationExposure!(operationId)
+                    : undefined,
                   publishOperationIdentity: context.publishWorkflowOperationIdentity
                     ? (identity) => context.publishWorkflowOperationIdentity!(operationId, identity)
                     : undefined,

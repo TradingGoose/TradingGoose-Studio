@@ -205,6 +205,7 @@ export interface ExecutionContext {
       observation?: Record<string, unknown>
     }
   ) => Promise<void>
+  publishWorkflowOperationExposure?: (operationId: string) => Promise<void>
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',
@@ -226,6 +227,7 @@ export interface ExecutionContextExtensions {
   workflowDeadlineSignal?: AbortSignal
   registerWorkflowOperation?: (blockId: string, handlerType: string) => Promise<string>
   publishWorkflowOperationIdentity?: ExecutionContext['publishWorkflowOperationIdentity']
+  publishWorkflowOperationExposure?: ExecutionContext['publishWorkflowOperationExposure']
   completeWorkflowOperation?: (
     operationId: string,
     state: 'canceled' | 'completed' | 'failed' | 'local_abort',

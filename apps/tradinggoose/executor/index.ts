@@ -636,6 +636,7 @@ export class Executor {
       workflowDeadlineSignal: this.contextExtensions.workflowDeadlineSignal,
       registerWorkflowOperation: this.contextExtensions.registerWorkflowOperation,
       publishWorkflowOperationIdentity: this.contextExtensions.publishWorkflowOperationIdentity,
+      publishWorkflowOperationExposure: this.contextExtensions.publishWorkflowOperationExposure,
       completeWorkflowOperation: this.contextExtensions.completeWorkflowOperation,
       setWorkflowParticipantWaiting: this.contextExtensions.setWorkflowParticipantWaiting,
     }

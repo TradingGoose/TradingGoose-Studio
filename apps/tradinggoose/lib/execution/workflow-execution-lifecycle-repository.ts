@@ -230,6 +230,7 @@ export function getWorkflowOperationCapability(
     return 'native_cancel_status'
   }
   if (
+    handlerType === 'agent_tool' ||
     handlerType === 'wait' ||
     handlerType === 'condition' ||
     handlerType === 'loop' ||
@@ -625,6 +626,23 @@ export async function publishWorkflowOperationIdentity(params: {
       and(
         eq(workflowExecutionOperation.id, params.id),
         isNull(workflowExecutionOperation.remoteOperationId),
+        inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+      )
+    )
+}
+
+export async function publishWorkflowOperationExposure(id: string) {
+  await db
+    .update(workflowExecutionOperation)
+    .set({
+      adapterKind: 'tool',
+      capability: 'uncancelable',
+      updatedAt: sql`clock_timestamp()`,
+    })
+    .where(
+      and(
+        eq(workflowExecutionOperation.id, id),
+        eq(workflowExecutionOperation.capability, 'local'),
         inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
       )
     )

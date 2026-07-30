@@ -35,6 +35,7 @@ export interface ToolResponse {
 
 export interface ToolExecutionRuntime {
   signal?: AbortSignal
+  publishRemoteExposure?: () => Promise<void>
   publishOperationIdentity?: (identity: {
     adapterKind: string
     capability: 'native_cancel_status' | 'status_only' | 'uncancelable'

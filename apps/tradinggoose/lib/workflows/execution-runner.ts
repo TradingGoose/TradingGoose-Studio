@@ -14,6 +14,7 @@ import {
   completeWorkflowOperation,
   finalizeWorkflowExecution,
   getWorkflowOperationCapability,
+  publishWorkflowOperationExposure,
   publishWorkflowOperationIdentity,
   registerWorkflowOperation,
   type WorkflowExecutionLifecycle,
@@ -464,6 +465,7 @@ export async function runPreparedWorkflowExecution(params: {
       publishWorkflowOperationIdentity: async (id, identity) => {
         await publishWorkflowOperationIdentity({ id, ...identity })
       },
+      publishWorkflowOperationExposure,
       setWorkflowParticipantWaiting: lifecycle.participantId
         ? async (operationId, waiting) => {
             if (!operationWaitStates.has(operationId)) {
