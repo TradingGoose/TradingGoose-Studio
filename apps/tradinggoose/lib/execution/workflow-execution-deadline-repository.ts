@@ -21,7 +21,10 @@ type DeadlineTransaction = Pick<typeof db, 'execute' | 'select' | 'update' | 'in
 
 export async function reconcileWorkflowExecutionDeadlineInTransaction(
   tx: DeadlineTransaction,
-  rootExecutionId: string
+  rootExecutionId: string,
+  options?: {
+    terminalCauseAt?: Date
+  }
 ): Promise<WorkflowDeadlineReconcileResult> {
   await tx.execute(
     sql`select ${workflowExecutionTerminal.rootExecutionId}
@@ -41,6 +44,9 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
     return { state: 'inactive' }
   }
 
+  const observationTime = options?.terminalCauseAt
+    ? sql`${options.terminalCauseAt}::timestamptz`
+    : sql`clock_timestamp()`
   const rows = await tx.execute<{
     counted_microseconds: string
     limit_microseconds: string
@@ -50,7 +56,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
     next_reconcile_at: unknown
   }>(sql`
       with clock as (
-        select clock_timestamp() as now
+        select ${observationTime} as now
       ), locked_deadline as (
         select deadline.*
         from ${workflowExecutionDeadline} deadline
@@ -66,7 +72,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
         where participant.root_execution_id = ${rootExecutionId}
       ), accounting as (
         select locked_deadline.*,
-          clock.now,
+          greatest(clock.now, locked_deadline.last_accounted_at) as now,
           activity.active_until,
           activity.live_until,
           case
@@ -74,11 +80,11 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
             when ${NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE}
               then greatest(
                 locked_deadline.last_accounted_at,
-                least(clock.now, activity.live_until)
+                least(greatest(clock.now, locked_deadline.last_accounted_at), activity.live_until)
               )
             when activity.active_until is not null then greatest(
               locked_deadline.last_accounted_at,
-              least(clock.now, activity.active_until)
+              least(greatest(clock.now, locked_deadline.last_accounted_at), activity.active_until)
             )
             else locked_deadline.last_accounted_at
           end as counted_until
@@ -193,6 +199,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       .onConflictDoNothing()
     return { state: 'exhausted', exhaustedAt }
   }
+  if (options?.terminalCauseAt) return { state: 'inactive' }
   await tx
     .insert(workflowExecutionOutbox)
     .values({

@@ -44,7 +44,10 @@ vi.mock('drizzle-orm', () => ({
   sql: vi.fn(),
 }))
 
-import { reconcileWorkflowExecutionDeadline } from './workflow-execution-deadline-repository'
+import {
+  reconcileWorkflowExecutionDeadline,
+  reconcileWorkflowExecutionDeadlineInTransaction,
+} from './workflow-execution-deadline-repository'
 
 describe('workflow deadline reconciliation', () => {
   beforeEach(() => {
@@ -130,5 +133,37 @@ describe('workflow deadline reconciliation', () => {
     expect(mocks.insertValues).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'termination_reconcile' })
     )
+  })
+
+  it('returns inactive without another wake after accounting through a terminal cause', async () => {
+    mocks.selectLimit.mockResolvedValueOnce([{ state: 'running', dispatchOpen: true }])
+    mocks.execute.mockResolvedValueOnce(undefined).mockResolvedValueOnce([
+      {
+        counted_microseconds: '1',
+        limit_microseconds: '100',
+        exhausted_at: null,
+        wake_milliseconds: 1,
+        schedule_version: 10,
+        next_reconcile_at: '2026-01-01T00:01:00.000Z',
+      },
+    ])
+
+    await expect(
+      reconcileWorkflowExecutionDeadlineInTransaction(
+        {
+          execute: mocks.execute,
+          select: mocks.select,
+          update: mocks.update,
+          insert: mocks.insert,
+        } as any,
+        'root-1',
+        {
+          terminalCauseAt: new Date('2026-01-01T00:00:30.000Z'),
+        }
+      )
+    ).resolves.toEqual({
+      state: 'inactive',
+    })
+    expect(mocks.insertValues).not.toHaveBeenCalled()
   })
 })

@@ -679,6 +679,9 @@ export async function cancelWorkflowExecutionAtomically(params: {
       })
       .where(eq(pendingExecution.id, pending.id))
     if (attempt && params.descendantOnly) return true
+    await reconcileWorkflowExecutionDeadlineInTransaction(tx, rootExecutionId, {
+      terminalCauseAt: requestedAt,
+    })
 
     const processing = pending.status === 'processing' || Boolean(attempt)
     const result: ExecutionResult = {
@@ -1312,6 +1315,9 @@ export async function recordWorkflowInfrastructureCandidate(params: {
           where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
           for update`
     )
+    await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
+      terminalCauseAt: params.failedAt,
+    })
     await tx
       .update(workflowExecutionAttempt)
       .set({

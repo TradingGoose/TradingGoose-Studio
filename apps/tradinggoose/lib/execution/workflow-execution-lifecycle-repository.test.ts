@@ -57,6 +57,7 @@ import {
   captureRootWorkflowExecution,
   finalizeWorkflowExecution,
   reconcileWorkflowDeadlineTermination,
+  recordWorkflowInfrastructureCandidate,
 } from './workflow-execution-lifecycle-repository'
 
 const rawTimestamp = '2026-07-29T15:47:39.061Z'
@@ -141,6 +142,95 @@ describe('workflow lifecycle raw database clocks', () => {
     )
   })
 
+  it('accounts a deadline through cancellation before closing dispatch', async () => {
+    const requestedAt = new Date(rawTimestamp)
+    const updateChain = {
+      set: vi.fn(),
+      where: vi.fn().mockResolvedValue(undefined),
+    }
+    updateChain.set.mockReturnValue(updateChain)
+    mocks.requireDatabaseDate.mockReturnValueOnce(requestedAt)
+    mocks.selectRows = [
+      [
+        {
+          id: 'pending-1',
+          userId: 'user-1',
+          executionType: 'workflow',
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          status: 'pending',
+          payload: {},
+        },
+      ],
+      [],
+    ]
+    mocks.execute
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ now: rawTimestamp }])
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        execute: mocks.execute,
+        select: mocks.select,
+        update: vi.fn(() => updateChain),
+      })
+    )
+
+    await expect(
+      cancelWorkflowExecutionAtomically({
+        pendingExecutionId: 'pending-1',
+        actorUserId: 'user-1',
+      })
+    ).rejects.toThrow()
+    expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'pending-1', {
+      terminalCauseAt: requestedAt,
+    })
+  })
+
+  it('does not terminal-account the root for descendant-only cancellation', async () => {
+    const requestedAt = new Date(rawTimestamp)
+    const updateChain = {
+      set: vi.fn(),
+      where: vi.fn().mockResolvedValue(undefined),
+    }
+    updateChain.set.mockReturnValue(updateChain)
+    mocks.requireDatabaseDate.mockReturnValueOnce(requestedAt)
+    mocks.selectRows = [
+      [
+        {
+          id: 'pending-1',
+          userId: 'user-1',
+          executionType: 'workflow',
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          status: 'processing',
+          payload: {},
+        },
+      ],
+      [{ rootExecutionId: 'root-1' }],
+    ]
+    mocks.execute
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ now: rawTimestamp }])
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        execute: mocks.execute,
+        select: mocks.select,
+        update: vi.fn(() => updateChain),
+      })
+    )
+
+    await expect(
+      cancelWorkflowExecutionAtomically({
+        pendingExecutionId: 'pending-1',
+        actorUserId: 'user-1',
+        descendantOnly: true,
+      })
+    ).resolves.toBe(true)
+    expect(mocks.reconcileDeadline).not.toHaveBeenCalled()
+  })
+
   it('normalizes the completion clock before participant and attempt writes', async () => {
     mocks.execute.mockResolvedValueOnce(undefined).mockResolvedValueOnce([{ now: rawTimestamp }])
 
@@ -176,5 +266,21 @@ describe('workflow lifecycle raw database clocks', () => {
       rawTimestamp,
       'terminal-reconciliation timestamp'
     )
+  })
+
+  it('accounts a deadline through infrastructure failure before closing dispatch', async () => {
+    const failedAt = new Date(rawTimestamp)
+    mocks.execute.mockResolvedValueOnce(undefined)
+
+    await expect(
+      recordWorkflowInfrastructureCandidate({
+        attemptId: 'attempt-1',
+        rootExecutionId: 'execution-1',
+        failedAt,
+      })
+    ).rejects.toThrow()
+    expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'execution-1', {
+      terminalCauseAt: failedAt,
+    })
   })
 })
