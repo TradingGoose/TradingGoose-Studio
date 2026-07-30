@@ -189,13 +189,17 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
   let participantId: string | undefined
   if (policy.kind === 'bounded') {
     participantId = uuidv4()
+    const processingStartedAt = sql.param(
+      params.processingStartedAt,
+      workflowExecutionParticipant.leaseExpiresAt
+    )
     await params.tx.insert(workflowExecutionParticipant).values({
       id: participantId,
       rootExecutionId,
       attemptId,
       pendingExecutionId: params.pending.id,
       state: 'active',
-      leaseExpiresAt: sql`${params.processingStartedAt} + interval '60 seconds'`,
+      leaseExpiresAt: sql`${processingStartedAt}::timestamptz + interval '60 seconds'`,
       lastHeartbeatAt: params.processingStartedAt,
     })
     if (!inherited) {
@@ -703,6 +707,10 @@ export async function cancelWorkflowExecutionAtomically(params: {
       .onConflictDoNothing()
       .returning({ resultVersion: workflowExecutionTerminal.resultVersion })
     if (!inserted) {
+      const cancellationCandidateAt = sql.param(
+        requestedAt,
+        workflowExecutionTerminal.cancellationCandidateAt
+      )
       await tx
         .update(workflowExecutionTerminal)
         .set({
@@ -710,7 +718,10 @@ export async function cancelWorkflowExecutionAtomically(params: {
           dispatchOpen: false,
           barrierVersion: sql`${workflowExecutionTerminal.barrierVersion} + 1`,
           terminationRequestedAt: requestedAt,
-          cancellationCandidateAt: sql`coalesce(${workflowExecutionTerminal.cancellationCandidateAt}, ${requestedAt})`,
+          cancellationCandidateAt: sql`coalesce(
+            ${workflowExecutionTerminal.cancellationCandidateAt},
+            ${cancellationCandidateAt}::timestamptz
+          )`,
           updatedAt: requestedAt,
         })
         .where(
@@ -1340,6 +1351,11 @@ export async function recordWorkflowInfrastructureCandidate(params: {
     await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
       terminalCauseAt: params.failedAt,
     })
+    const infrastructureCandidateAt = sql.param(
+      params.failedAt,
+      workflowExecutionTerminal.infrastructureCandidateAt
+    )
+    const failedAt = sql`${infrastructureCandidateAt}::timestamptz`
     await tx
       .update(workflowExecutionTerminal)
       .set({
@@ -1348,15 +1364,15 @@ export async function recordWorkflowInfrastructureCandidate(params: {
         infrastructureCandidateAt: sql`
           case
             when ${workflowExecutionTerminal.infrastructureCandidateAt} is null
-              or ${params.failedAt} < ${workflowExecutionTerminal.infrastructureCandidateAt}
-            then ${params.failedAt}
+              or ${failedAt} < ${workflowExecutionTerminal.infrastructureCandidateAt}
+            then ${failedAt}
             else ${workflowExecutionTerminal.infrastructureCandidateAt}
           end
         `,
         infrastructureDiagnostics: sql`
           case
             when ${workflowExecutionTerminal.infrastructureCandidateAt} is null
-              or ${params.failedAt} < ${workflowExecutionTerminal.infrastructureCandidateAt}
+              or ${failedAt} < ${workflowExecutionTerminal.infrastructureCandidateAt}
             then ${params.diagnostics ?? null}
             else ${workflowExecutionTerminal.infrastructureDiagnostics}
           end

@@ -41,7 +41,9 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions) => conditions),
   eq: vi.fn((left, right) => [left, right]),
   inArray: vi.fn((left, right) => [left, right]),
-  sql: vi.fn(),
+  sql: Object.assign(vi.fn(), {
+    param: vi.fn((value, encoder) => ({ encoder, value })),
+  }),
 }))
 
 import {

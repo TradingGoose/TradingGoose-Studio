@@ -40,7 +40,9 @@ vi.mock('drizzle-orm', () => ({
   inArray: vi.fn((...values) => values),
   isNull: vi.fn((value) => value),
   ne: vi.fn((...values) => values),
-  sql: vi.fn(),
+  sql: Object.assign(vi.fn(), {
+    param: vi.fn((value, encoder) => ({ encoder, value })),
+  }),
 }))
 
 vi.mock('./database-date', () => ({

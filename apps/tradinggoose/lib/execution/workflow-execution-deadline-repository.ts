@@ -45,7 +45,10 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
   }
 
   const observationTime = options?.terminalCauseAt
-    ? sql`${options.terminalCauseAt}::timestamptz`
+    ? sql`${sql.param(
+        options.terminalCauseAt,
+        workflowExecutionTerminal.deadlineCandidateAt
+      )}::timestamptz`
     : sql`clock_timestamp()`
   const rows = await tx.execute<{
     counted_microseconds: string
