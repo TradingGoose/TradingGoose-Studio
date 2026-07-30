@@ -1,3 +1,4 @@
+import { waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 import type { RunActorParams, RunActorResult } from './types'
 
@@ -112,94 +113,101 @@ export const apifyRunActorAsyncTool: ToolConfig<RunActorParams, RunActorResult> 
     }
   },
 
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
     if (!result.success) {
       return result
     }
 
     const runData = result.output as any
     const runId = runData.id
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'apify_run',
+      capability: 'uncancelable',
+      remoteOperationId: runId,
+    })
 
     let elapsedTime = 0
+    let terminalRun: any
 
-    while (elapsedTime < MAX_POLL_TIME_MS) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
-      elapsedTime += POLL_INTERVAL_MS
+    while (!terminalRun) {
+      try {
+        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
+        elapsedTime += POLL_INTERVAL_MS
 
-      const encodedActorId = encodeURIComponent(params.actorId)
-      const statusResponse = await fetch(
-        `https://api.apify.com/v2/acts/${encodedActorId}/runs/${runId}?token=${params.apiKey}`,
+        const encodedActorId = encodeURIComponent(params.actorId)
+        const statusResponse = await fetch(
+          `https://api.apify.com/v2/acts/${encodedActorId}/runs/${runId}?token=${params.apiKey}`,
+          {
+            headers: {
+              Authorization: `Bearer ${params.apiKey}`,
+            },
+            signal: runtime?.signal,
+          }
+        )
+
+        if (!statusResponse.ok) continue
+
+        const statusData = await statusResponse.json()
+        const run = statusData.data
+
+        if (
+          run.status === 'SUCCEEDED' ||
+          run.status === 'FAILED' ||
+          run.status === 'ABORTED' ||
+          run.status === 'TIMED-OUT'
+        ) {
+          terminalRun = run
+        }
+      } catch {
+        runtime?.signal?.throwIfAborted()
+      }
+    }
+
+    const providerStatus = terminalRun.status
+    if (providerStatus !== 'SUCCEEDED') {
+      const terminalState = providerStatus === 'ABORTED' ? 'canceled' : 'failed'
+      const terminalResult = {
+        success: false,
+        output: {
+          success: false,
+          runId,
+          status: providerStatus,
+          datasetId: terminalRun.defaultDatasetId,
+        },
+        error: `Actor run ${providerStatus}`,
+      }
+      await runtime?.recordTerminalObservation?.(terminalState, { providerStatus })
+      return terminalResult
+    }
+
+    try {
+      const limit = Math.max(1, Math.min(params.itemLimit || 100, 250000))
+      const itemsResponse = await fetch(
+        `https://api.apify.com/v2/datasets/${terminalRun.defaultDatasetId}/items?token=${params.apiKey}&limit=${limit}`,
         {
           headers: {
             Authorization: `Bearer ${params.apiKey}`,
           },
+          signal: runtime?.signal,
         }
       )
-
-      if (!statusResponse.ok) {
-        return {
-          success: false,
-          output: { success: false, runId, status: 'UNKNOWN' },
-          error: 'Failed to fetch run status',
-        }
+      const items = itemsResponse.ok ? await itemsResponse.json() : undefined
+      const terminalResult = {
+        success: true,
+        output: {
+          success: true,
+          runId,
+          status: providerStatus,
+          datasetId: terminalRun.defaultDatasetId,
+          ...(items === undefined ? {} : { items }),
+        },
       }
-
-      const statusData = await statusResponse.json()
-      const run = statusData.data
-
-      if (
-        run.status === 'SUCCEEDED' ||
-        run.status === 'FAILED' ||
-        run.status === 'ABORTED' ||
-        run.status === 'TIMED-OUT'
-      ) {
-        if (run.status === 'SUCCEEDED') {
-          const limit = Math.max(1, Math.min(params.itemLimit || 100, 250000))
-          const itemsResponse = await fetch(
-            `https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?token=${params.apiKey}&limit=${limit}`,
-            {
-              headers: {
-                Authorization: `Bearer ${params.apiKey}`,
-              },
-            }
-          )
-
-          if (itemsResponse.ok) {
-            const items = await itemsResponse.json()
-            return {
-              success: true,
-              output: {
-                success: true,
-                runId,
-                status: run.status,
-                datasetId: run.defaultDatasetId,
-                items,
-              },
-            }
-          }
-        }
-
-        return {
-          success: run.status === 'SUCCEEDED',
-          output: {
-            success: run.status === 'SUCCEEDED',
-            runId,
-            status: run.status,
-            datasetId: run.defaultDatasetId,
-          },
-          error: run.status !== 'SUCCEEDED' ? `Actor run ${run.status}` : undefined,
-        }
-      }
-    }
-
-    return {
-      success: false,
-      output: {
-        success: false,
-        runId,
-        status: 'TIMEOUT',
-      },
-      error: 'Actor run timed out after 5 minutes of polling',
+      await runtime?.recordTerminalObservation?.('completed', { providerStatus })
+      return terminalResult
+    } catch (error) {
+      await runtime?.recordTerminalObservation?.('completed', { providerStatus })
+      runtime?.signal?.throwIfAborted()
+      throw error
     }
   },
 

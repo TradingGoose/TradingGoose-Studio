@@ -29,13 +29,13 @@ import {
 import type { FunctionCallResponse, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
+  executeProviderTool,
   isDeepResearchModel,
   isGemini3Model,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
 import type { ExecutionState, GeminiProviderType, GeminiUsage } from './types'
 
 /**
@@ -123,7 +123,7 @@ async function executeToolCallsBatch(
 
     try {
       const { toolParams, executionParams } = prepareToolExecution(tool, args, request)
-      const result = await executeTool(toolName, executionParams)
+      const result = await executeProviderTool(request, toolName, executionParams, false)
       const toolCallEndTime = Date.now()
       const duration = toolCallEndTime - toolCallStartTime
 
@@ -144,6 +144,7 @@ async function executeToolCallsBatch(
         duration,
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       const toolCallEndTime = Date.now()
       logger.error('Error processing function call:', {
         error: toError(error).message,
@@ -884,6 +885,7 @@ export async function executeDeepResearchRequest(
       interactionId
     )
   } catch (error) {
+    request.abortSignal?.throwIfAborted()
     const providerEndTime = Date.now()
     const duration = providerEndTime - providerStartTime
 
@@ -1264,6 +1266,7 @@ export async function executeGeminiRequest(
       cost: state.cost,
     }
   } catch (error) {
+    request.abortSignal?.throwIfAborted()
     const providerEndTime = Date.now()
     const duration = providerEndTime - providerStartTime
 

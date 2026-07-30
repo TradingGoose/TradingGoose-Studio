@@ -51,6 +51,7 @@ interface HandleAIProviderParams {
   requestId: string
   startTime: number
   authUserId?: string
+  abortSignal?: AbortSignal
 }
 
 export async function handleAIProviderRequest({
@@ -59,6 +60,7 @@ export async function handleAIProviderRequest({
   requestId,
   startTime,
   authUserId,
+  abortSignal,
 }: HandleAIProviderParams) {
   const {
     model,
@@ -177,6 +179,7 @@ export async function handleAIProviderRequest({
     userId: authUserId,
     stream,
     messages,
+    abortSignal,
     environmentVariables,
     workflowVariables,
     blockData,

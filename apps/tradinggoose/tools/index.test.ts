@@ -436,7 +436,8 @@ describe('executeTool Function', () => {
           workspaceId: 'workspace-456',
         }),
       }),
-      expect.any(Function)
+      expect.any(Function),
+      undefined
     )
   })
 
@@ -1223,9 +1224,10 @@ describe('MCP Tool Execution', () => {
     )
 
     await vi.waitFor(() => expect(capturedSignal).toBe(controller.signal))
-    controller.abort(new DOMException('Deadline exceeded', 'AbortError'))
+    const reason = new DOMException('Deadline exceeded', 'AbortError')
+    controller.abort(reason)
 
-    await expect(executionPromise).resolves.toMatchObject({ success: false })
+    await expect(executionPromise).rejects.toBe(reason)
     expect(capturedSignal?.aborted).toBe(true)
   })
 

@@ -337,6 +337,12 @@ export async function runPreparedWorkflowExecution(params: {
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
   lifecycle?: WorkflowExecutionLifecycle
+  prepareWorkflowInput?: (context: {
+    blueprint: WorkflowExecutionBlueprint
+    signal?: AbortSignal
+  }) => Promise<
+    { kind: 'execute'; workflowInput: unknown } | { kind: 'skip'; result: ExecutionResult }
+  >
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
@@ -401,6 +407,31 @@ export async function runPreparedWorkflowExecution(params: {
     const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
 
     let rearmDeadlineWake: (() => Promise<void>) | undefined
+    const operationWaitStates = new Map<string, 'active' | 'waiting_child'>()
+    let waitTransitionQueue = Promise.resolve()
+    let participantWaiting = false
+    const updateOperationWaitState = async (
+      operationId: string,
+      state: 'active' | 'waiting_child' | 'completed'
+    ) => {
+      const transition = waitTransitionQueue.then(async () => {
+        if (state === 'completed') operationWaitStates.delete(operationId)
+        else operationWaitStates.set(operationId, state)
+        const nextWaiting =
+          operationWaitStates.size > 0 &&
+          [...operationWaitStates.values()].every((value) => value === 'waiting_child')
+        if (nextWaiting !== participantWaiting && lifecycle.participantId) {
+          await setWorkflowExecutionParticipantState({
+            participantId: lifecycle.participantId,
+            state: nextWaiting ? 'waiting_child' : 'active',
+          })
+          participantWaiting = nextWaiting
+          await rearmDeadlineWake?.()
+        }
+      })
+      waitTransitionQueue = transition.catch(() => undefined)
+      return transition
+    }
     const contextExtensions: ExecutionContextExtensions = {
       ...params.contextExtensions,
       executionId,
@@ -423,21 +454,22 @@ export async function runPreparedWorkflowExecution(params: {
           adapterKind: handlerType,
           capability: getWorkflowOperationCapability(handlerType),
         })
+        await updateOperationWaitState(operation.id, 'active')
         return operation.id
       },
-      completeWorkflowOperation: async (id, state) => {
-        await completeWorkflowOperation({ id, state })
+      completeWorkflowOperation: async (id, state, observation) => {
+        await completeWorkflowOperation({ id, state, observation })
+        await updateOperationWaitState(id, 'completed')
       },
       publishWorkflowOperationIdentity: async (id, identity) => {
         await publishWorkflowOperationIdentity({ id, ...identity })
       },
       setWorkflowParticipantWaiting: lifecycle.participantId
-        ? async (waiting) => {
-            await setWorkflowExecutionParticipantState({
-              participantId: lifecycle.participantId!,
-              state: waiting ? 'waiting_child' : 'active',
-            })
-            await rearmDeadlineWake?.()
+        ? async (operationId, waiting) => {
+            if (!operationWaitStates.has(operationId)) {
+              throw new Error(`Unknown workflow operation ${operationId}`)
+            }
+            await updateOperationWaitState(operationId, waiting ? 'waiting_child' : 'active')
           }
         : undefined,
     }
@@ -478,24 +510,60 @@ export async function runPreparedWorkflowExecution(params: {
       }))
     }
 
-    const executor = new Executor({
-      workflow: serializedWorkflow,
-      currentBlockStates: processedBlockStates,
-      envVarValues: decryptedEnvVars,
-      workflowInput: params.workflowInput,
-      workflowVariables,
-      contextExtensions,
-    })
-
-    const triggerBlockId = resolveTriggerBlockId({
-      mergedStates,
-      serializedWorkflow,
-      target: params.triggerTarget,
-      isChildExecution: contextExtensions.isChildExecution === true,
-    })
-
     try {
-      result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
+      let workflowInput = params.workflowInput
+      let preparedResult: ExecutionResult | undefined
+      if (params.prepareWorkflowInput) {
+        const preparation = await registerWorkflowOperation({
+          rootExecutionId: lifecycle.policy.rootExecutionId,
+          executionId,
+          attemptId: lifecycle.attemptId,
+          participantId: lifecycle.participantId,
+          handlerType: 'trigger_preparation',
+          adapterKind: `${params.triggerType}_preparation`,
+          capability: 'local',
+        })
+        try {
+          const prepared = await params.prepareWorkflowInput({
+            blueprint: params.blueprint,
+            signal: deadlineController?.signal,
+          })
+          await completeWorkflowOperation({ id: preparation.id, state: 'completed' })
+          if (prepared.kind === 'skip') preparedResult = prepared.result
+          else workflowInput = prepared.workflowInput
+        } catch (error) {
+          await completeWorkflowOperation({
+            id: preparation.id,
+            state: error === deadlineController?.signal.reason ? 'local_abort' : 'failed',
+          })
+          preparedResult = {
+            success: false,
+            output: {},
+            error: error instanceof Error ? error.message : String(error),
+            logs: [],
+          }
+        }
+      }
+
+      if (preparedResult) {
+        result = preparedResult
+      } else {
+        const executor = new Executor({
+          workflow: serializedWorkflow,
+          currentBlockStates: processedBlockStates,
+          envVarValues: decryptedEnvVars,
+          workflowInput,
+          workflowVariables,
+          contextExtensions,
+        })
+        const triggerBlockId = resolveTriggerBlockId({
+          mergedStates,
+          serializedWorkflow,
+          target: params.triggerTarget,
+          isChildExecution: contextExtensions.isChildExecution === true,
+        })
+        result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
+      }
       await terminationRequest
     } finally {
       if (deadlineWake) clearTimeout(deadlineWake)

@@ -229,10 +229,17 @@ export function getWorkflowOperationCapability(
   if (handlerType === 'workflow' || handlerType === 'workflow_input') {
     return 'native_cancel_status'
   }
-  if (handlerType === 'gemini_deep_research') return 'status_only'
-  if (handlerType === 'tool:browser_use_run_task') return 'uncancelable'
-  if (handlerType.startsWith('tool:')) return 'local'
-  return 'local'
+  if (
+    handlerType === 'wait' ||
+    handlerType === 'condition' ||
+    handlerType === 'loop' ||
+    handlerType === 'parallel' ||
+    handlerType === 'response' ||
+    handlerType === 'variables'
+  ) {
+    return 'local'
+  }
+  return 'uncancelable'
 }
 
 export async function joinWorkflowExecution(params: {

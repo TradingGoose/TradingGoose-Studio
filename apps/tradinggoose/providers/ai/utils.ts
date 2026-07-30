@@ -29,10 +29,58 @@ import {
   updateOllamaModels as updateOllamaModelsInDefinitions,
   updateVLLMModels as updateVLLMModelsInDefinitions,
 } from '@/providers/ai/models'
-import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
+import type { ProviderId, ProviderRequest, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { executeTool } from '@/tools'
+import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('ProviderUtils')
+
+export async function executeProviderTool(
+  request: ProviderRequest,
+  toolId: string,
+  params: Record<string, any>,
+  skipPostProcess = false
+): Promise<ToolResponse> {
+  const operation = await request.beginToolOperation?.(toolId)
+  let identityPublished = false
+  let terminalObserved = false
+  const runtime = operation
+    ? {
+        ...operation.runtime,
+        publishOperationIdentity: async (
+          identity: Parameters<NonNullable<typeof operation.runtime.publishOperationIdentity>>[0]
+        ) => {
+          identityPublished = true
+          await operation.runtime.publishOperationIdentity?.(identity)
+        },
+        recordTerminalObservation: async (
+          state: 'canceled' | 'completed' | 'failed',
+          observation?: Record<string, unknown>
+        ) => {
+          terminalObserved = true
+          await operation.runtime.recordTerminalObservation?.(state, observation)
+        },
+      }
+    : { signal: request.abortSignal }
+
+  try {
+    const result = await executeTool(toolId, params, skipPostProcess, undefined, runtime)
+    if (operation && !terminalObserved && !identityPublished) {
+      await operation.finish(result.success ? 'completed' : 'failed')
+    }
+    return result
+  } catch (error) {
+    if (operation && !terminalObserved) {
+      if (request.abortSignal?.aborted) {
+        await operation.finish(identityPublished ? 'local_abort' : 'canceled')
+      } else if (!identityPublished) {
+        await operation.finish('failed')
+      }
+    }
+    throw error
+  }
+}
 
 type ProviderCatalogConfig = Omit<ProviderDefinition, 'models'> & {
   version: string

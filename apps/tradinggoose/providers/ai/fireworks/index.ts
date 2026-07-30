@@ -21,12 +21,12 @@ import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createOpenAICompatibleStream,
+  executeProviderTool,
   generateSchemaInstructions,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
 
 const logger = createLogger('FireworksProvider')
 
@@ -300,7 +300,7 @@ export const fireworksProvider: ProviderConfig = {
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams)
+            const result = await executeProviderTool(request, toolName, executionParams, false)
             const toolCallEndTime = Date.now()
 
             return {
@@ -313,6 +313,7 @@ export const fireworksProvider: ProviderConfig = {
               duration: toolCallEndTime - toolCallStartTime,
             }
           } catch (error) {
+            request.abortSignal?.throwIfAborted()
             const toolCallEndTime = Date.now()
             logger.error('Error processing tool call (Fireworks):', {
               error: toError(error).message,
@@ -604,6 +605,7 @@ export const fireworksProvider: ProviderConfig = {
         },
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime

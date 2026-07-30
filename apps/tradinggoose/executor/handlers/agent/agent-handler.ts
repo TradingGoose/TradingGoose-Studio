@@ -699,6 +699,24 @@ export class AgentBlockHandler implements BlockHandler {
               observation?: Record<string, unknown>
             }) => context.publishWorkflowOperationIdentity!(context.workflowOperationId!, identity)
           : undefined,
+      beginToolOperation:
+        context.registerWorkflowOperation && context.completeWorkflowOperation
+          ? async (toolId: string) => {
+              const operationId = await context.registerWorkflowOperation!(block.id, 'agent_tool')
+              return {
+                runtime: {
+                  signal: context.workflowDeadlineSignal,
+                  publishOperationIdentity: context.publishWorkflowOperationIdentity
+                    ? (identity) => context.publishWorkflowOperationIdentity!(operationId, identity)
+                    : undefined,
+                  recordTerminalObservation: (state, observation) =>
+                    context.completeWorkflowOperation!(operationId, state, observation),
+                },
+                finish: (state) =>
+                  context.completeWorkflowOperation!(operationId, state, { toolId }),
+              }
+            }
+          : undefined,
     })
 
     this.logExecutionSuccess(

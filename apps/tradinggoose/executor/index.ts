@@ -1640,10 +1640,6 @@ export class Executor {
         output: NormalizedBlockOutput
         executionTime: number
       }) => {
-        if (operationId) {
-          await context.completeWorkflowOperation?.(operationId, 'completed')
-          operationId = undefined
-        }
         context.blockStates.set(blockId, {
           output,
           executed: true,
@@ -1710,13 +1706,17 @@ export class Executor {
           durationMs: Math.round(executionTime),
           success: true,
         })
+        if (operationId) {
+          await context.completeWorkflowOperation?.(operationId, 'completed')
+          operationId = undefined
+        }
       }
 
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
         if (operationId) {
           await context.completeWorkflowOperation?.(
             operationId,
-            context.workflowDeadlineSignal?.aborted
+            error === context.workflowDeadlineSignal?.reason
               ? 'local_abort'
               : this.isCancelled
                 ? 'canceled'
@@ -1943,6 +1943,7 @@ export class Executor {
         let pendingStreamChunk = ''
         let lastStreamFlushAt = performance.now()
         const flushStreamChunk = async () => {
+          context.workflowDeadlineSignal?.throwIfAborted()
           if (!context.stream || !pendingStreamChunk) return
           const chunk = pendingStreamChunk
           pendingStreamChunk = ''
@@ -1962,7 +1963,9 @@ export class Executor {
         try {
           while (true) {
             const { done, value } = await reader.read()
-            if (done) break
+            if (done) {
+              break
+            }
 
             const chunk = decoder.decode(value, { stream: true })
             if (!chunk) continue
@@ -1980,10 +1983,14 @@ export class Executor {
           }
           await flushStreamChunk()
         } catch (readerError: any) {
+          if (operationId && readerError !== context.workflowDeadlineSignal?.reason) {
+            await context.completeWorkflowOperation?.(operationId, 'failed')
+            operationId = undefined
+          }
+          context.workflowDeadlineSignal?.throwIfAborted()
           logger.error('Error reading stream for executor:', readerError)
           throw readerError
         } finally {
-          await flushStreamChunk()
           try {
             reader.releaseLock()
           } catch {}
@@ -2015,6 +2022,7 @@ export class Executor {
           output: streamedOutput,
           executionTime,
         })
+        context.workflowDeadlineSignal?.throwIfAborted()
         return streamedOutput
       }
 

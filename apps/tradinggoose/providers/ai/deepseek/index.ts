@@ -11,11 +11,11 @@ import type {
 import {
   calculateCost,
   createOpenAICompatibleStream,
+  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
 
 const logger = createLogger('DeepseekProvider')
 
@@ -122,11 +122,10 @@ export const deepseekProvider: ProviderConfig = {
       if (request.stream && (!tools || tools.length === 0)) {
         logger.info('Using streaming response for DeepSeek request (no tools)')
 
-        const streamResponse = await deepseek.chat.completions.create({
-          ...payload,
-          stream: true,
-          stream_options: { include_usage: true },
-        })
+        const streamResponse = await deepseek.chat.completions.create(
+          { ...payload, stream: true, stream_options: { include_usage: true } },
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Start collecting token usage
         const tokenUsage = {
@@ -208,7 +207,10 @@ export const deepseekProvider: ProviderConfig = {
       const forcedTools = preparedTools?.forcedTools || []
       let usedForcedTools: string[] = []
 
-      let currentResponse = await deepseek.chat.completions.create(payload)
+      let currentResponse = await deepseek.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -294,7 +296,7 @@ export const deepseekProvider: ProviderConfig = {
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const result = await executeTool(toolName, executionParams)
+              const result = await executeProviderTool(request, toolName, executionParams, false)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -353,6 +355,7 @@ export const deepseekProvider: ProviderConfig = {
                 content: JSON.stringify(resultContent),
               })
             } catch (error) {
+              request.abortSignal?.throwIfAborted()
               logger.error('Error processing tool call:', { error })
             }
           }
@@ -394,7 +397,10 @@ export const deepseekProvider: ProviderConfig = {
           const nextModelStartTime = Date.now()
 
           // Make the next request
-          currentResponse = await deepseek.chat.completions.create(nextPayload)
+          currentResponse = await deepseek.chat.completions.create(
+            nextPayload,
+            request.abortSignal ? { signal: request.abortSignal } : undefined
+          )
 
           // Check if any forced tools were used in this response
           if (
@@ -447,6 +453,7 @@ export const deepseekProvider: ProviderConfig = {
           iterationCount++
         }
       } catch (error) {
+        request.abortSignal?.throwIfAborted()
         logger.error('Error in Deepseek request:', { error })
       }
 
@@ -469,7 +476,10 @@ export const deepseekProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await deepseek.chat.completions.create(streamingPayload)
+        const streamResponse = await deepseek.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
@@ -554,6 +564,7 @@ export const deepseekProvider: ProviderConfig = {
         },
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

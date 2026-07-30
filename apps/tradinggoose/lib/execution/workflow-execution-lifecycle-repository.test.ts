@@ -86,7 +86,7 @@ describe('workflow lifecycle raw database clocks', () => {
     mocks.requireDatabaseDate.mockImplementation(() => {
       throw decoderSentinel
     })
-    mocks.reconcileDeadline.mockResolvedValue({ state: 'inactive' })
+    mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
     mocks.transaction.mockImplementation(async (callback) =>
       callback({
         execute: mocks.execute,
@@ -289,8 +289,8 @@ describe('workflow lifecycle raw database clocks', () => {
 })
 
 describe('workflow operation capabilities', () => {
-  it.each(['api', 'function', 'router', 'evaluator', 'generic', 'agent', 'wait'])(
-    'treats the %s handler boundary as local',
+  it.each(['wait', 'condition', 'loop', 'parallel', 'response', 'variables'])(
+    'classifies process-contained %s work as local',
     (handlerType) => {
       expect(getWorkflowOperationCapability(handlerType)).toBe('local')
     }
@@ -299,9 +299,10 @@ describe('workflow operation capabilities', () => {
   it.each([
     ['workflow', 'native_cancel_status'],
     ['workflow_input', 'native_cancel_status'],
-    ['gemini_deep_research', 'status_only'],
-    ['tool:browser_use_run_task', 'uncancelable'],
-    ['tool:mcp-example', 'local'],
+    ['agent', 'uncancelable'],
+    ['api', 'uncancelable'],
+    ['function', 'uncancelable'],
+    ['tool:mcp-example', 'uncancelable'],
   ] as const)('classifies %s as %s', (handlerType, capability) => {
     expect(getWorkflowOperationCapability(handlerType)).toBe(capability)
   })

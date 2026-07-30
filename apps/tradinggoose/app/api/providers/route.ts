@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
         requestId,
         startTime,
         authUserId: auth?.userId,
+        abortSignal: request.signal,
       })
     }
 

@@ -83,6 +83,18 @@ describe('workflow deadline reconciliation', () => {
     )
   })
 
+  it('accepts a running unlimited policy without a deadline row', async () => {
+    mocks.selectLimit.mockResolvedValueOnce([
+      { state: 'running', dispatchOpen: true, policyState: 'unlimited' },
+    ])
+    mocks.execute.mockResolvedValueOnce(undefined)
+
+    await expect(reconcileWorkflowExecutionDeadline('root-1')).resolves.toEqual({
+      state: 'unlimited',
+    })
+    expect(mocks.execute).toHaveBeenCalledTimes(1)
+  })
+
   it('returns the persisted bounded wake without converting a semantic large limit in JS', async () => {
     mocks.selectLimit.mockResolvedValueOnce([{ state: 'running', dispatchOpen: true }])
     mocks.execute.mockResolvedValueOnce(undefined).mockResolvedValueOnce([
@@ -164,7 +176,7 @@ describe('workflow deadline reconciliation', () => {
         }
       )
     ).resolves.toEqual({
-      state: 'inactive',
+      state: 'accounted',
     })
     expect(mocks.insertValues).not.toHaveBeenCalled()
   })

@@ -33,6 +33,20 @@ export interface ToolResponse {
   }
 }
 
+export interface ToolExecutionRuntime {
+  signal?: AbortSignal
+  publishOperationIdentity?: (identity: {
+    adapterKind: string
+    capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
+    remoteOperationId: string
+    observation?: Record<string, unknown>
+  }) => Promise<void>
+  recordTerminalObservation?: (
+    state: 'canceled' | 'completed' | 'failed',
+    observation?: Record<string, unknown>
+  ) => Promise<void>
+}
+
 export interface OAuthConfig {
   required: boolean // Whether this tool requires OAuth authentication
   provider: OAuthService // The service that needs to be authorized
@@ -115,7 +129,8 @@ export interface ToolConfig<P = any, R = any> {
   postProcess?: (
     result: R extends ToolResponse ? R : ToolResponse,
     params: P,
-    executeTool: (toolId: string, params: Record<string, any>) => Promise<ToolResponse>
+    executeTool: (toolId: string, params: Record<string, any>) => Promise<ToolResponse>,
+    runtime?: ToolExecutionRuntime
   ) => Promise<R extends ToolResponse ? R : ToolResponse>
 
   // Response handling
@@ -125,7 +140,7 @@ export interface ToolConfig<P = any, R = any> {
    * Direct execution function for tools that don't need HTTP requests.
    * If provided, this will be called instead of making an HTTP request.
    */
-  directExecution?: (params: P) => Promise<ToolResponse>
+  directExecution?: (params: P, runtime?: ToolExecutionRuntime) => Promise<ToolResponse>
 }
 
 export interface TableRow {

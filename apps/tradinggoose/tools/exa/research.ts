@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExaResearchParams, ExaResearchResponse } from '@/tools/exa/types'
+import { waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('ExaResearchTool')
@@ -85,20 +86,27 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
       },
     }
   },
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
     if (!result.success) {
       return result
     }
 
     const taskId = result.output.taskId
+    if (!taskId) return { ...result, success: false, error: 'Missing Exa task ID' }
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'exa_research',
+      capability: 'uncancelable',
+      remoteOperationId: taskId,
+    })
     logger.info(`Exa research task ${taskId} created, polling for completion...`)
 
     let elapsedTime = 0
 
-    while (elapsedTime < MAX_POLL_TIME_MS) {
+    while (true) {
       try {
         const statusResponse = await fetch(`https://api.exa.ai/research/v0/tasks/${taskId}`, {
           method: 'GET',
+          signal: runtime?.signal,
           headers: {
             'x-api-key': params.apiKey,
           },
@@ -125,40 +133,35 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
               },
             ],
           }
+          await runtime?.recordTerminalObservation?.('completed', {
+            providerStatus: taskData.status,
+          })
           return result
         }
 
         if (taskData.status === 'failed') {
-          return {
+          const failure = {
             ...result,
             success: false,
             error: `Research task failed: ${taskData.error || 'Unknown error'}`,
           }
+          await runtime?.recordTerminalObservation?.('failed', {
+            providerStatus: taskData.status,
+          })
+          return failure
         }
 
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
         elapsedTime += POLL_INTERVAL_MS
       } catch (error: any) {
+        runtime?.signal?.throwIfAborted()
         logger.error('Error polling for research task status:', {
           message: error.message || 'Unknown error',
           taskId,
         })
 
-        return {
-          ...result,
-          success: false,
-          error: `Error polling for research task status: ${error.message || 'Unknown error'}`,
-        }
+        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
       }
-    }
-
-    logger.warn(
-      `Research task ${taskId} did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`
-    )
-    return {
-      ...result,
-      success: false,
-      error: `Research task did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`,
     }
   },
 

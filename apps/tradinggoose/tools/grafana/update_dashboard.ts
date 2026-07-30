@@ -113,7 +113,8 @@ export const updateDashboardTool: ToolConfig<GrafanaUpdateDashboardParams, ToolR
     }
   },
 
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
+    runtime?.signal?.throwIfAborted()
     // Merge user changes with existing dashboard and POST the complete object
     const existingDashboard = result.output._existingDashboard
     const existingMeta = result.output._existingMeta
@@ -184,6 +185,7 @@ export const updateDashboardTool: ToolConfig<GrafanaUpdateDashboardParams, ToolR
 
     const updateResponse = await fetch(`${params.baseUrl.replace(/\/$/, '')}/api/dashboards/db`, {
       method: 'POST',
+      signal: runtime?.signal,
       headers,
       body: JSON.stringify(body),
     })

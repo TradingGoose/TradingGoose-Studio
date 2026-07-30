@@ -61,7 +61,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
     },
   },
 
-  postProcess: async (result, params, _executeTool) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
     if (!result.success) {
       return result
     }
@@ -83,6 +83,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
         `https://slides.googleapis.com/v1/presentations/${presentationId}`,
         {
           method: 'GET',
+          signal: runtime?.signal,
           headers: {
             Authorization: `Bearer ${params.accessToken}`,
           },
@@ -139,6 +140,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
         `https://slides.googleapis.com/v1/presentations/${presentationId}:batchUpdate`,
         {
           method: 'POST',
+          signal: runtime?.signal,
           headers: {
             Authorization: `Bearer ${params.accessToken}`,
             'Content-Type': 'application/json',
@@ -169,6 +171,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
         },
       }
     } catch (error) {
+      runtime?.signal?.throwIfAborted()
       logger.error('Error in postProcess:', { error })
       throw error
     }

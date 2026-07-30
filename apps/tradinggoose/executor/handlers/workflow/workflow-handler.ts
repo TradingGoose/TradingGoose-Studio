@@ -104,6 +104,7 @@ export class WorkflowBlockHandler implements BlockHandler {
     return {
       kind: 'deferred',
       wait: async () => {
+        let waitAcquired = false
         try {
           const workflowExecution: InternalWorkflowExecutionContext = {
             source: 'workflow_block',
@@ -127,7 +128,8 @@ export class WorkflowBlockHandler implements BlockHandler {
             remoteOperationId: queueResponse.taskId,
             observation: { childWorkflowName: queueResponse.workflowName },
           })
-          await context.setWorkflowParticipantWaiting?.(true)
+          await context.setWorkflowParticipantWaiting?.(parentOperationId, true)
+          waitAcquired = true
 
           const childWorkflowName = queueResponse.workflowName
           const childResult = await this.waitForQueuedWorkflowResult({
@@ -175,7 +177,9 @@ export class WorkflowBlockHandler implements BlockHandler {
 
           throw wrappedError
         } finally {
-          await context.setWorkflowParticipantWaiting?.(false)
+          if (waitAcquired) {
+            await context.setWorkflowParticipantWaiting?.(parentOperationId, false)
+          }
         }
       },
     }

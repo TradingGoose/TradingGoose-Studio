@@ -9,11 +9,11 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
 
 const logger = createLogger('XAIProvider')
 
@@ -163,7 +163,10 @@ export const xAIProvider: ProviderConfig = {
         streamingPayload.stream = true
       }
 
-      const streamResponse = await xai.chat.completions.create(streamingPayload)
+      const streamResponse = await xai.chat.completions.create(
+        streamingPayload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
 
       // Start collecting token usage
       const tokenUsage = {
@@ -247,7 +250,10 @@ export const xAIProvider: ProviderConfig = {
         Object.assign(initialPayload, responseFormatPayload)
       }
 
-      let currentResponse = await xai.chat.completions.create(initialPayload)
+      let currentResponse = await xai.chat.completions.create(
+        initialPayload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -331,7 +337,7 @@ export const xAIProvider: ProviderConfig = {
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const result = await executeTool(toolName, executionParams)
+              const result = await executeProviderTool(request, toolName, executionParams, false)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -395,6 +401,7 @@ export const xAIProvider: ProviderConfig = {
                 content: JSON.stringify(resultContent),
               })
             } catch (error) {
+              request.abortSignal?.throwIfAborted()
               logger.error('XAI Provider - Error processing tool call:', {
                 error: error instanceof Error ? error.message : String(error),
                 toolCall: toolCall.function.name,
@@ -460,7 +467,10 @@ export const xAIProvider: ProviderConfig = {
           // Time the next model call
           const nextModelStartTime = Date.now()
 
-          currentResponse = await xai.chat.completions.create(nextPayload)
+          currentResponse = await xai.chat.completions.create(
+            nextPayload,
+            request.abortSignal ? { signal: request.abortSignal } : undefined
+          )
 
           // Check if any forced tools were used in this response
           if (nextPayload.tool_choice && typeof nextPayload.tool_choice === 'object') {
@@ -495,6 +505,7 @@ export const xAIProvider: ProviderConfig = {
           iterationCount++
         }
       } catch (error) {
+        request.abortSignal?.throwIfAborted()
         logger.error('XAI Provider - Error in tool processing loop:', {
           error: error instanceof Error ? error.message : String(error),
           iterationCount,
@@ -523,7 +534,10 @@ export const xAIProvider: ProviderConfig = {
           }
         }
 
-        const streamResponse = await xai.chat.completions.create(finalStreamingPayload)
+        const streamResponse = await xai.chat.completions.create(
+          finalStreamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
@@ -606,6 +620,7 @@ export const xAIProvider: ProviderConfig = {
         },
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { FirecrawlCrawlParams, FirecrawlCrawlResponse } from '@/tools/firecrawl/types'
+import { waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('FirecrawlCrawlTool')
@@ -67,20 +68,27 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
       },
     }
   },
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
     if (!result.success) {
       return result
     }
 
     const jobId = result.output.jobId
+    if (!jobId) return { ...result, success: false, error: 'Missing Firecrawl job ID' }
+    await runtime?.publishOperationIdentity?.({
+      adapterKind: 'firecrawl_crawl',
+      capability: 'uncancelable',
+      remoteOperationId: jobId,
+    })
     logger.info(`Firecrawl crawl job ${jobId} created, polling for completion...`)
 
     let elapsedTime = 0
 
-    while (elapsedTime < MAX_POLL_TIME_MS) {
+    while (true) {
       try {
         const statusResponse = await fetch(`/api/tools/firecrawl/crawl/${jobId}`, {
           method: 'GET',
+          signal: runtime?.signal,
           headers: {
             Authorization: `Bearer ${params.apiKey}`,
           },
@@ -99,40 +107,35 @@ export const crawlTool: ToolConfig<FirecrawlCrawlParams, FirecrawlCrawlResponse>
             total: crawlData.total || 0,
             creditsUsed: crawlData.creditsUsed || 0,
           }
+          await runtime?.recordTerminalObservation?.('completed', {
+            providerStatus: crawlData.status,
+          })
           return result
         }
 
         if (crawlData.status === 'failed') {
-          return {
+          const failure = {
             ...result,
             success: false,
             error: `Crawl job failed: ${crawlData.error || 'Unknown error'}`,
           }
+          await runtime?.recordTerminalObservation?.('failed', {
+            providerStatus: crawlData.status,
+          })
+          return failure
         }
 
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
         elapsedTime += POLL_INTERVAL_MS
       } catch (error: any) {
+        runtime?.signal?.throwIfAborted()
         logger.error('Error polling for crawl job status:', {
           message: error.message || 'Unknown error',
           jobId,
         })
 
-        return {
-          ...result,
-          success: false,
-          error: `Error polling for crawl job status: ${error.message || 'Unknown error'}`,
-        }
+        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
       }
-    }
-
-    logger.warn(
-      `Crawl job ${jobId} did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`
-    )
-    return {
-      ...result,
-      success: false,
-      error: `Crawl job did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`,
     }
   },
 

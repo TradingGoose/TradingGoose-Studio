@@ -35,6 +35,9 @@ const mocks = vi.hoisted(() => {
     captureRootWorkflowExecution: vi.fn(),
     finalizeWorkflowExecution: vi.fn(),
     updateWorkflowRunCounts: vi.fn(),
+    reconcileWorkflowExecutionDeadline: vi.fn().mockResolvedValue({ state: 'accounted' }),
+    setWorkflowExecutionParticipantState: vi.fn(),
+    registerWorkflowOperation: vi.fn(),
   }
 })
 
@@ -51,8 +54,8 @@ vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
 }))
 
 vi.mock('@/lib/execution/workflow-execution-deadline-repository', () => ({
-  reconcileWorkflowExecutionDeadline: vi.fn().mockResolvedValue({ state: 'inactive' }),
-  setWorkflowExecutionParticipantState: vi.fn(),
+  reconcileWorkflowExecutionDeadline: mocks.reconcileWorkflowExecutionDeadline,
+  setWorkflowExecutionParticipantState: mocks.setWorkflowExecutionParticipantState,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
@@ -60,8 +63,9 @@ vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
   captureRootWorkflowExecution: mocks.captureRootWorkflowExecution,
   completeWorkflowExecutionAttempt: vi.fn(),
   finalizeWorkflowExecution: mocks.finalizeWorkflowExecution,
+  getWorkflowOperationCapability: vi.fn().mockReturnValue('uncancelable'),
   joinWorkflowExecution: vi.fn(),
-  registerWorkflowOperation: vi.fn(),
+  registerWorkflowOperation: mocks.registerWorkflowOperation,
   completeWorkflowOperation: vi.fn(),
 }))
 
@@ -212,6 +216,9 @@ describe('runPreparedWorkflowExecution', () => {
     }))
     mocks.finalizeWorkflowExecution.mockImplementation(async ({ result }) => result)
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
+    mocks.reconcileWorkflowExecutionDeadline.mockResolvedValue({ state: 'accounted' })
+    mocks.setWorkflowExecutionParticipantState.mockResolvedValue(undefined)
+    mocks.registerWorkflowOperation.mockReset()
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
@@ -422,6 +429,53 @@ describe('runPreparedWorkflowExecution', () => {
     })
 
     expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it('serializes aggregate nested-child wait transitions', async () => {
+    const states: string[] = []
+    mocks.setWorkflowExecutionParticipantState.mockImplementation(async ({ state }) => {
+      if (state === 'waiting_child') await Promise.resolve()
+      states.push(state)
+    })
+    mocks.execute.mockImplementationOnce(async () => {
+      const context = mocks.executorConstructor.mock.calls.at(-1)?.[0].contextExtensions
+      mocks.registerWorkflowOperation
+        .mockResolvedValueOnce({ id: 'operation-1' })
+        .mockResolvedValueOnce({ id: 'operation-2' })
+      const operation1 = await context.registerWorkflowOperation('block-1', 'workflow')
+      const operation2 = await context.registerWorkflowOperation('block-2', 'workflow')
+      await Promise.all([
+        context.setWorkflowParticipantWaiting(operation1, true),
+        context.setWorkflowParticipantWaiting(operation2, true),
+        context.setWorkflowParticipantWaiting(operation1, false),
+        context.setWorkflowParticipantWaiting(operation2, false),
+      ])
+      return { success: true, output: {}, logs: [] }
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      lifecycle: {
+        policy: {
+          kind: 'bounded',
+          rootExecutionId: 'execution-1',
+          appliedTierId: 'tier-1',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+          limitSeconds: '60',
+          limitMicroseconds: '60000000',
+        },
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+        isRoot: true,
+      },
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+    })
+
+    expect(states).toEqual(['waiting_child', 'active'])
   })
 })
 

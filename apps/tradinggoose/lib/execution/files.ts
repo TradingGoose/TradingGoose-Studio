@@ -14,8 +14,10 @@ type ExecutionFileContext = { workspaceId: string; workflowId: string; execution
 export async function processExecutionFile(
   file: { type: string; data: string; name: string; mime?: string },
   executionContext: ExecutionFileContext,
-  requestId: string
+  requestId: string,
+  signal?: AbortSignal
 ): Promise<UserFile | null> {
+  signal?.throwIfAborted()
   if (file.type === 'file' && file.data && file.name) {
     const dataUrlPrefix = 'data:'
     const base64Prefix = ';base64,'
@@ -50,6 +52,7 @@ export async function processExecutionFile(
       file.name,
       mimeType || file.mime || 'application/octet-stream'
     )
+    signal?.throwIfAborted()
 
     logger.debug(`[${requestId}] Successfully uploaded ${file.name}`)
     return userFile
@@ -77,7 +80,8 @@ export async function processExecutionFile(
 export async function processExecutionFiles(
   fieldValue: any,
   executionContext: ExecutionFileContext,
-  requestId: string
+  requestId: string,
+  signal?: AbortSignal
 ): Promise<UserFile[]> {
   if (!fieldValue || typeof fieldValue !== 'object') {
     return []
@@ -88,13 +92,15 @@ export async function processExecutionFiles(
   const fullContext = { ...executionContext }
 
   for (const file of files) {
+    signal?.throwIfAborted()
     try {
-      const userFile = await processExecutionFile(file, fullContext, requestId)
+      const userFile = await processExecutionFile(file, fullContext, requestId, signal)
 
       if (userFile) {
         uploadedFiles.push(userFile)
       }
     } catch (error) {
+      if (error === signal?.reason) throw error
       logger.error(`[${requestId}] Failed to process file ${file.name}:`, error)
       throw new Error(`Failed to upload file: ${file.name}`)
     }

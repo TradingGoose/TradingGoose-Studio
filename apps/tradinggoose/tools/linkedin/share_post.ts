@@ -58,7 +58,8 @@ export const linkedInSharePostTool: ToolConfig<SharePostParams, SharePostRespons
   },
 
   // Use postProcess to make the actual post creation request
-  postProcess: async (profileResult, params, executeTool) => {
+  postProcess: async (profileResult, params, executeTool, runtime) => {
+    runtime?.signal?.throwIfAborted()
     try {
       // Extract profile from the first request
       if (!profileResult.success || !profileResult.output) {
@@ -102,6 +103,7 @@ export const linkedInSharePostTool: ToolConfig<SharePostParams, SharePostRespons
 
       const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
         method: 'POST',
+        signal: runtime?.signal,
         headers: {
           Authorization: `Bearer ${params.accessToken}`,
           'Content-Type': 'application/json',
@@ -128,6 +130,7 @@ export const linkedInSharePostTool: ToolConfig<SharePostParams, SharePostRespons
         },
       }
     } catch (error) {
+      runtime?.signal?.throwIfAborted()
       return {
         success: false,
         output: {},

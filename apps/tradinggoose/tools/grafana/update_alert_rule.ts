@@ -123,7 +123,8 @@ export const updateAlertRuleTool: ToolConfig<GrafanaUpdateAlertRuleParams, ToolR
     }
   },
 
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
+    runtime?.signal?.throwIfAborted()
     // Merge user changes with existing rule and PUT the complete object
     const existingRule = result.output._existingRule
 
@@ -192,6 +193,7 @@ export const updateAlertRuleTool: ToolConfig<GrafanaUpdateAlertRuleParams, ToolR
       `${params.baseUrl.replace(/\/$/, '')}/api/v1/provisioning/alert-rules/${params.alertRuleUid}`,
       {
         method: 'PUT',
+        signal: runtime?.signal,
         headers,
         body: JSON.stringify(updatedRule),
       }

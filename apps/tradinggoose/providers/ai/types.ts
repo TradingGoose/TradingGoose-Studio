@@ -1,4 +1,5 @@
 import type { ExecutionSubmissionSource, StreamingExecution } from '@/executor/types'
+import type { ToolExecutionRuntime } from '@/tools/types'
 
 export type ProviderId =
   | 'openai'
@@ -192,6 +193,10 @@ export interface ProviderRequest {
     remoteOperationId: string
     observation?: Record<string, unknown>
   }) => Promise<void>
+  beginToolOperation?: (toolId: string) => Promise<{
+    runtime: ToolExecutionRuntime
+    finish: (state: 'canceled' | 'completed' | 'failed' | 'local_abort') => Promise<void>
+  }>
 }
 
 export class ProviderError extends Error {

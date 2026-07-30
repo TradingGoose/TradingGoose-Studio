@@ -13,7 +13,9 @@ export const NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE = false
 const MAX_RECONCILE_DELAY_MILLISECONDS = 60_000
 
 export type WorkflowDeadlineReconcileResult =
-  | { state: 'inactive' }
+  | { state: 'unlimited' }
+  | { state: 'closed' }
+  | { state: 'accounted' }
   | { state: 'scheduled'; delayMilliseconds: number }
   | { state: 'exhausted'; exhaustedAt: Date }
 
@@ -36,13 +38,19 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
     .select({
       state: workflowExecutionTerminal.state,
       dispatchOpen: workflowExecutionTerminal.dispatchOpen,
+      policyState: workflowExecutionTerminal.policyState,
+      deadlineCandidateAt: workflowExecutionTerminal.deadlineCandidateAt,
     })
     .from(workflowExecutionTerminal)
     .where(eq(workflowExecutionTerminal.rootExecutionId, rootExecutionId))
     .limit(1)
   if (!terminal || terminal.state !== 'running' || !terminal.dispatchOpen) {
-    return { state: 'inactive' }
+    if (terminal?.deadlineCandidateAt) {
+      return { state: 'exhausted', exhaustedAt: terminal.deadlineCandidateAt }
+    }
+    return { state: 'closed' }
   }
+  if (terminal.policyState === 'unlimited') return { state: 'unlimited' }
 
   const observationTime = options?.terminalCauseAt
     ? sql`${sql.param(
@@ -176,7 +184,9 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       from reconciled
     `)
   const row = rows[0]
-  if (!row) return { state: 'inactive' }
+  if (!row) {
+    throw new Error(`Missing bounded deadline for workflow execution ${rootExecutionId}`)
+  }
   const exhaustedAt = requireNullableDatabaseDate(row.exhausted_at, 'deadline-exhaustion timestamp')
   const nextReconcileAt = requireDatabaseDate(
     row.next_reconcile_at,
@@ -207,7 +217,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       .onConflictDoNothing()
     return { state: 'exhausted', exhaustedAt }
   }
-  if (options?.terminalCauseAt) return { state: 'inactive' }
+  if (options?.terminalCauseAt) return { state: 'accounted' }
   await tx
     .insert(workflowExecutionOutbox)
     .values({

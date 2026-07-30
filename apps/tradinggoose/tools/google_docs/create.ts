@@ -80,7 +80,8 @@ export const createTool: ToolConfig<GoogleDocsToolParams, GoogleDocsCreateRespon
     },
   },
 
-  postProcess: async (result, params, executeTool) => {
+  postProcess: async (result, params, executeTool, runtime) => {
+    runtime?.signal?.throwIfAborted()
     if (!result.success) {
       return result
     }
@@ -104,6 +105,7 @@ export const createTool: ToolConfig<GoogleDocsToolParams, GoogleDocsCreateRespon
           )
         }
       } catch (error) {
+        runtime?.signal?.throwIfAborted()
         logger.warn('Error adding content to document:', { error })
         // Don't fail the overall operation if adding content fails
       }

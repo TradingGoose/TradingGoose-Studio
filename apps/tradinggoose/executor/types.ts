@@ -207,9 +207,10 @@ export interface ExecutionContext {
   ) => Promise<void>
   completeWorkflowOperation?: (
     operationId: string,
-    state: 'canceled' | 'completed' | 'failed' | 'local_abort'
+    state: 'canceled' | 'completed' | 'failed' | 'local_abort',
+    observation?: Record<string, unknown>
   ) => Promise<void>
-  setWorkflowParticipantWaiting?: (waiting: boolean) => Promise<void>
+  setWorkflowParticipantWaiting?: (operationId: string, waiting: boolean) => Promise<void>
 }
 
 /**
@@ -227,9 +228,10 @@ export interface ExecutionContextExtensions {
   publishWorkflowOperationIdentity?: ExecutionContext['publishWorkflowOperationIdentity']
   completeWorkflowOperation?: (
     operationId: string,
-    state: 'canceled' | 'completed' | 'failed' | 'local_abort'
+    state: 'canceled' | 'completed' | 'failed' | 'local_abort',
+    observation?: Record<string, unknown>
   ) => Promise<void>
-  setWorkflowParticipantWaiting?: (waiting: boolean) => Promise<void>
+  setWorkflowParticipantWaiting?: (operationId: string, waiting: boolean) => Promise<void>
   executionId?: string
   workspaceId: string
   userId?: string
