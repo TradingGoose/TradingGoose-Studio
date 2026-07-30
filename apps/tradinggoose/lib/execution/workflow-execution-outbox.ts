@@ -13,20 +13,31 @@ export async function claimWorkflowExecutionOutbox(limit = 100) {
       fencing_token: string
     }>(sql`
       with candidates as (
-        select root_execution_id, kind, version
-        from ${workflowExecutionOutbox}
-        where ${workflowExecutionOutbox.availableAt} <= clock_timestamp()
+        select candidate.root_execution_id, candidate.kind, candidate.version
+        from ${workflowExecutionOutbox} candidate
+        where candidate.available_at <= clock_timestamp()
           and (
-            ${workflowExecutionOutbox.state} = 'pending'
+            candidate.state = 'pending'
             or (
-              ${workflowExecutionOutbox.state} = 'claimed'
-              and ${workflowExecutionOutbox.claimExpiresAt} < clock_timestamp()
+              candidate.state = 'claimed'
+              and candidate.claim_expires_at < clock_timestamp()
             )
           )
-        order by ${workflowExecutionOutbox.availableAt},
-                 ${workflowExecutionOutbox.rootExecutionId},
-                 ${workflowExecutionOutbox.kind},
-                 ${workflowExecutionOutbox.version}
+          and (
+            candidate.kind <> 'pending_execution'
+            or (
+              select count(*)
+              from ${workflowExecutionOutbox} prerequisite
+              where prerequisite.root_execution_id = candidate.root_execution_id
+                and prerequisite.version = candidate.version
+                and prerequisite.kind in ('workflow_log', 'terminal_event')
+                and prerequisite.state = 'completed'
+            ) = 2
+          )
+        order by candidate.available_at,
+                 candidate.root_execution_id,
+                 candidate.kind,
+                 candidate.version
         for update skip locked
         limit ${limit}
       )
@@ -115,7 +126,7 @@ export async function dispatchWorkflowExecutionOutbox(claim: WorkflowExecutionOu
         ? 'workflow-execution-termination-reconcile'
         : 'workflow-execution-project'
   const idempotencyKey = await idempotencyKeys.create(
-    `workflow-lifecycle:${claim.rootExecutionId}:${claim.kind}:${claim.version}`,
+    `workflow-lifecycle:${claim.rootExecutionId}:${claim.kind}:${claim.version}:${claim.fencingToken}`,
     { scope: 'global' }
   )
   try {

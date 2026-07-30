@@ -46,7 +46,7 @@ describe('dispatchWorkflowExecutionOutbox', () => {
     mocks.where.mockResolvedValue(undefined)
   })
 
-  it('uses a global deterministic key and completes only after durable task acceptance', async () => {
+  it('uses a fenced claim key and completes only after durable task acceptance', async () => {
     await dispatchWorkflowExecutionOutbox({
       rootExecutionId: 'root-1',
       kind: 'termination_reconcile',
@@ -56,7 +56,7 @@ describe('dispatchWorkflowExecutionOutbox', () => {
     })
 
     expect(mocks.createKey).toHaveBeenCalledWith(
-      'workflow-lifecycle:root-1:termination_reconcile:4',
+      'workflow-lifecycle:root-1:termination_reconcile:4:fence-1',
       { scope: 'global' }
     )
     expect(mocks.trigger).toHaveBeenCalledWith(
@@ -65,6 +65,34 @@ describe('dispatchWorkflowExecutionOutbox', () => {
       { idempotencyKey: 'global-key' }
     )
     expect(mocks.update).not.toHaveBeenCalled()
+  })
+
+  it('gives a reclaimed delivery a distinct idempotency identity', async () => {
+    await dispatchWorkflowExecutionOutbox({
+      rootExecutionId: 'root-1',
+      kind: 'pending_execution',
+      version: 2,
+      payload: {},
+      fencingToken: 'fence-1',
+    })
+    await dispatchWorkflowExecutionOutbox({
+      rootExecutionId: 'root-1',
+      kind: 'pending_execution',
+      version: 2,
+      payload: {},
+      fencingToken: 'fence-2',
+    })
+
+    expect(mocks.createKey).toHaveBeenNthCalledWith(
+      1,
+      'workflow-lifecycle:root-1:pending_execution:2:fence-1',
+      { scope: 'global' }
+    )
+    expect(mocks.createKey).toHaveBeenNthCalledWith(
+      2,
+      'workflow-lifecycle:root-1:pending_execution:2:fence-2',
+      { scope: 'global' }
+    )
   })
 
   it('requeues the fenced claim when task dispatch fails', async () => {

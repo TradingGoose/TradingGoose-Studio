@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import {
   pendingExecution,
   workflowExecutionLogs,
-  workflowExecutionOutbox,
   workflowExecutionTerminal,
 } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
@@ -100,17 +99,6 @@ export async function projectWorkflowExecutionTerminal(
     }
 
     if (kind === 'pending_execution') {
-      const prerequisites = await tx.execute<{ completed_count: number }>(sql`
-        select count(*)::integer as completed_count
-        from ${workflowExecutionOutbox}
-        where ${workflowExecutionOutbox.rootExecutionId} = ${rootExecutionId}
-          and ${workflowExecutionOutbox.version} = ${terminal.resultVersion}
-          and ${workflowExecutionOutbox.kind} in ('workflow_log', 'terminal_event')
-          and ${workflowExecutionOutbox.state} = 'completed'
-      `)
-      if (prerequisites[0]?.completed_count !== 2) {
-        return { projected: false, billingScopeId: null }
-      }
       const [deleted] = await tx
         .delete(pendingExecution)
         .where(eq(pendingExecution.id, rootExecutionId))
