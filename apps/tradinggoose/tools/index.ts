@@ -412,7 +412,7 @@ export async function executeTool(
     params,
     skipPostProcess,
     executionContext,
-    workflowDeadlineSignal ? { ...options, signal: undefined } : options
+    options
   )
   try {
     const result = workflowDeadlineSignal
@@ -436,8 +436,8 @@ export async function executeTool(
   } catch (error) {
     if (operationId) {
       if (workflowDeadlineSignal?.aborted) {
-        // Deadline stops orchestration, but the live owner must observe this
-        // uncancelable tool's natural settlement before the attempt can end.
+        // The operation remains active until the underlying tool confirms abort
+        // or otherwise reaches its natural terminal state.
         try {
           const result = await executionPromise
           await executionContext?.completeWorkflowOperation?.(
@@ -512,7 +512,8 @@ async function executeToolCore(
         executionContext,
         requestId,
         startTimeISO,
-        scope.userId
+        scope.userId,
+        options
       )
     } else {
       // For built-in tools, use the synchronous version
@@ -595,38 +596,37 @@ async function executeToolCore(
         }
 
         const tokenRequestSignal = createToolRequestSignal(undefined, options?.signal)
-        let response: Response
         try {
-          response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
+          const response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
             method: 'POST',
             headers: tokenHeaders,
             body: JSON.stringify(tokenPayload),
             signal: tokenRequestSignal.signal,
           })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            logger.error(`[${requestId}] Token fetch failed for ${toolId}:`, {
+              status: response.status,
+              error: errorText,
+            })
+            throw new Error(`Failed to fetch access token: ${response.status} ${errorText}`)
+          }
+
+          const data = await response.json()
+          contextParams.accessToken = data.accessToken
+          if (data.apiKey) {
+            contextParams.apiKey = data.apiKey
+          }
+
+          logger.info(
+            `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
+          )
+
+          if (contextParams.workflowId) contextParams.workflowId = undefined
         } finally {
           tokenRequestSignal.cleanup()
         }
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          logger.error(`[${requestId}] Token fetch failed for ${toolId}:`, {
-            status: response.status,
-            error: errorText,
-          })
-          throw new Error(`Failed to fetch access token: ${response.status} ${errorText}`)
-        }
-
-        const data = await response.json()
-        contextParams.accessToken = data.accessToken
-        if (data.apiKey) {
-          contextParams.apiKey = data.apiKey
-        }
-
-        logger.info(
-          `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
-        )
-
-        if (contextParams.workflowId) contextParams.workflowId = undefined
       } catch (error: any) {
         logger.error(`[${requestId}] Error fetching access token for ${toolId}:`, {
           error: error instanceof Error ? error.message : String(error),
@@ -872,6 +872,8 @@ async function executeToolRequest(
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
+  let requestSignal: ReturnType<typeof createToolRequestSignal> | undefined
+  let requestTimeout: number | undefined
 
   const requestParams = formatRequestParams(tool, params)
 
@@ -922,10 +924,10 @@ async function executeToolRequest(
     }
 
     let response: Response
-
     if (isInternalRoute) {
       const timeout = requestParams.timeout || 300000
-      const requestSignal = createToolRequestSignal(timeout, options?.signal)
+      requestTimeout = timeout
+      requestSignal = createToolRequestSignal(timeout, options?.signal)
 
       try {
         response = await fetch(fullUrl, {
@@ -939,8 +941,6 @@ async function executeToolRequest(
           throw new Error(`Request timed out after ${timeout}ms`)
         }
         throw error
-      } finally {
-        requestSignal.cleanup()
       }
     } else {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
@@ -948,7 +948,8 @@ async function executeToolRequest(
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
 
-      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
+      requestTimeout = requestParams.timeout
+      requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
       try {
         response = await fetch(fullUrl, {
           method: requestParams.method,
@@ -961,8 +962,6 @@ async function executeToolRequest(
           throw new Error(`Request timed out after ${requestParams.timeout}ms`)
         }
         throw error
-      } finally {
-        requestSignal.cleanup()
       }
     }
 
@@ -1064,6 +1063,9 @@ async function executeToolRequest(
       error: undefined,
     }
   } catch (error: any) {
+    if (error instanceof Error && error.name === 'AbortError' && requestSignal?.didTimeout()) {
+      throw new Error(`Request timed out after ${requestTimeout}ms`)
+    }
     handleBodySizeLimitError(error, requestId, toolId)
 
     logger.error(`[${requestId}] Internal request error for ${toolId}:`, {
@@ -1071,6 +1073,8 @@ async function executeToolRequest(
     })
 
     throw error
+  } finally {
+    requestSignal?.cleanup()
   }
 }
 
@@ -1155,7 +1159,8 @@ async function executeMcpTool(
   executionContext?: ExecutionContext,
   requestId?: string,
   startTimeISO?: string,
-  userId?: string
+  userId?: string,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   const actualRequestId = requestId || generateRequestId()
   const actualStartTime = startTimeISO || new Date().toISOString()
@@ -1239,6 +1244,7 @@ async function executeMcpTool(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal: options?.signal,
     })
 
     const endTime = new Date()

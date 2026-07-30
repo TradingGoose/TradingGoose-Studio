@@ -300,7 +300,8 @@ describe('workflow operation capabilities', () => {
     ['workflow', 'native_cancel_status'],
     ['workflow_input', 'native_cancel_status'],
     ['gemini_deep_research', 'status_only'],
-    ['tool:mcp-example', 'uncancelable'],
+    ['tool:browser_use_run_task', 'uncancelable'],
+    ['tool:mcp-example', 'local'],
   ] as const)('classifies %s as %s', (handlerType, capability) => {
     expect(getWorkflowOperationCapability(handlerType)).toBe(capability)
   })

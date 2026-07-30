@@ -260,7 +260,8 @@ export class AgentBlockHandler implements BlockHandler {
             isCustomTool: true,
           },
           false, // skipPostProcess
-          context // execution context for file processing
+          context, // execution context for file processing
+          { signal: context.workflowDeadlineSignal }
         )
 
         if (!result.success) {

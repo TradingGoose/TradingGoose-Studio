@@ -1191,6 +1191,44 @@ describe('MCP Tool Execution', () => {
     }
   })
 
+  it('keeps the workflow deadline signal attached while reading an MCP response', async () => {
+    const controller = new AbortController()
+    let capturedSignal: AbortSignal | undefined
+
+    global.fetch = Object.assign(
+      vi.fn().mockImplementation(async (_url, options) => {
+        capturedSignal = options?.signal
+        return {
+          ok: true,
+          status: 200,
+          json: () =>
+            new Promise((_, reject) => {
+              capturedSignal?.addEventListener(
+                'abort',
+                () => reject(capturedSignal?.reason ?? new DOMException('Aborted', 'AbortError')),
+                { once: true }
+              )
+            }),
+        }
+      }),
+      { preconnect: vi.fn() }
+    ) as typeof fetch
+
+    const executionPromise = executeTool(
+      'mcp-123-list_files',
+      { path: '/test' },
+      false,
+      createMockExecutionContext(),
+      { signal: controller.signal }
+    )
+
+    await vi.waitFor(() => expect(capturedSignal).toBe(controller.signal))
+    controller.abort(new DOMException('Deadline exceeded', 'AbortError'))
+
+    await expect(executionPromise).resolves.toMatchObject({ success: false })
+    expect(capturedSignal?.aborted).toBe(true)
+  })
+
   it('should handle MCP tool ID parsing correctly', async () => {
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url, options) => {

@@ -230,7 +230,8 @@ export function getWorkflowOperationCapability(
     return 'native_cancel_status'
   }
   if (handlerType === 'gemini_deep_research') return 'status_only'
-  if (handlerType.startsWith('tool:')) return 'uncancelable'
+  if (handlerType === 'tool:browser_use_run_task') return 'uncancelable'
+  if (handlerType.startsWith('tool:')) return 'local'
   return 'local'
 }
 
