@@ -1,3 +1,4 @@
+import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
@@ -22,6 +23,8 @@ type PortfolioMonitorExecutionMonitor = {
 
 export type PortfolioMonitorExecutionPayload = {
   executionId?: string
+  drainRunId?: string
+  workflowExecutionLifecycle?: WorkflowExecutionLifecycle
   source: typeof PORTFOLIO_MONITOR_PROVIDER
   monitor: PortfolioMonitorExecutionMonitor
   portfolioIdentity: PortfolioIdentity
@@ -75,6 +78,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     actorUserId: payload.monitor.actorUserId,
     requestId,
     executionId,
+    lifecycle: payload.workflowExecutionLifecycle,
     triggerType: 'webhook',
     workflowInput,
     executionTarget: 'deployed',

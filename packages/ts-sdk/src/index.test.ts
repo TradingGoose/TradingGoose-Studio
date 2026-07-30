@@ -135,6 +135,33 @@ describe('TradingGooseClient', () => {
       expect(result).toHaveProperty('output')
       expect(result).not.toHaveProperty('taskId')
     })
+
+    it('preserves workflow deadline diagnostics', async () => {
+      const fetchMock = await getFetchMock()
+      const deadline = {
+        appliedTierId: 'tier-pro',
+        limitSeconds: '300.5',
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        terminatedAt: '2026-01-01T00:05:00.500Z',
+      }
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          output: {},
+          error: 'Workflow execution time limit exceeded',
+          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          deadline,
+        }),
+        headers: { get: vi.fn().mockReturnValue(null) },
+      } as any)
+
+      const result = await client.executeWorkflow('workflow-id')
+
+      expect(result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
+      expect(result.deadline).toEqual(deadline)
+    })
   })
 
   describe('executeWithRetry', () => {

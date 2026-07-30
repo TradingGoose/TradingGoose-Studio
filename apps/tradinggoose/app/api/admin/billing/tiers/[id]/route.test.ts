@@ -44,7 +44,7 @@ const countSelectChain = {
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: vi.fn((selection?: unknown) =>
-      selection === undefined ? tierSelectChain : countSelectChain,
+      selection === undefined ? tierSelectChain : countSelectChain
     ),
     transaction: mockTransaction,
   },
@@ -96,6 +96,7 @@ function createPayload() {
     stripeMonthlyPriceId: 'price_monthly',
     stripeYearlyPriceId: 'price_yearly',
     stripeProductId: 'prod_123',
+    accessCode: null,
     syncRateLimitPerMinute: 120,
     asyncRateLimitPerMinute: 60,
     apiEndpointRateLimitPerMinute: 300,
@@ -155,41 +156,38 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         method: 'PATCH',
         body: JSON.stringify(payload),
       }) as any,
-      { params: Promise.resolve({ id: 'tier-pro' }) },
+      { params: Promise.resolve({ id: 'tier-pro' }) }
     )
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toBe(
-      'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
+      'Tiers with a recurring monthly price must configure a Stripe monthly price ID'
     )
-    expect(mockTierLimit).not.toHaveBeenCalled()
+    expect(mockTierLimit).toHaveBeenCalledWith(1)
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
   it.each([
     ['workflowExecutionMultiplier', 'workflow execution multiplier'],
     ['functionExecutionMultiplier', 'function execution multiplier'],
-  ])(
-    'rejects zero %s for tiers that already have subscriptions',
-    async (field, label) => {
-      const { PATCH } = await import('./route')
-      const payload = createPayload()
-      payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = 0
+  ])('rejects zero %s for tiers that already have subscriptions', async (field, label) => {
+    const { PATCH } = await import('./route')
+    const payload = createPayload()
+    payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = 0
 
-      const response = await PATCH(
-        new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        }) as any,
-        { params: Promise.resolve({ id: 'tier-pro' }) },
-      )
-      const data = await response.json()
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) }
+    )
+    const data = await response.json()
 
-      expect(response.status).toBe(409)
-      expect(data.error).toContain(label)
-      expect(data.error).toContain('Create a separate free tier')
-      expect(mockTransaction).not.toHaveBeenCalled()
-    },
-  )
+    expect(response.status).toBe(409)
+    expect(data.error).toContain(label)
+    expect(data.error).toContain('Create a separate free tier')
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
 })

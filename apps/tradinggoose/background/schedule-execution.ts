@@ -3,6 +3,10 @@ import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import {
+  finalizeWorkflowExecution,
+  type WorkflowExecutionLifecycle,
+} from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -26,6 +30,8 @@ export type ScheduleExecutionPayload = {
   scheduleId: string
   workflowId: string
   executionId?: string
+  drainRunId?: string
+  workflowExecutionLifecycle?: WorkflowExecutionLifecycle
   blockId: string
   cronExpression?: string
   lastRanAt?: string
@@ -124,6 +130,16 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const now = new Date(payload.now)
+  let runnerInvoked = false
+  let runnerRejected = false
+  const settlePreparationFailure = async (message: string) => {
+    if (!payload.workflowExecutionLifecycle) return
+    await finalizeWorkflowExecution({
+      rootExecutionId: payload.workflowExecutionLifecycle.policy.rootExecutionId,
+      attemptId: payload.workflowExecutionLifecycle.attemptId,
+      result: { success: false, output: {}, error: message },
+    })
+  }
 
   logger.info(`[${requestId}] Starting schedule execution`, {
     scheduleId: payload.scheduleId,
@@ -161,11 +177,13 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
     if (!workflowRecord) {
       logger.warn(`[${requestId}] Workflow ${payload.workflowId} not found`)
+      await settlePreparationFailure(`Workflow ${payload.workflowId} not found`)
       return
     }
 
     if (!workflowRecord.workspaceId) {
       logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
+      await settlePreparationFailure(`Workflow ${payload.workflowId} is missing workspaceId`)
       return
     }
 
@@ -175,6 +193,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       logger.warn(
         `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`
       )
+      await settlePreparationFailure('Pinned API key is required to attribute schedule usage')
       return
     }
 
@@ -190,14 +209,17 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
       )
       await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
+      await settlePreparationFailure(`Schedule trigger block ${payload.blockId} was not found`)
       return
     }
 
+    runnerInvoked = true
     const { result } = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId,
       requestId,
       executionId,
+      lifecycle: payload.workflowExecutionLifecycle,
       triggerType: 'schedule',
       workflowInput: {
         _context: {
@@ -208,6 +230,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         kind: 'block',
         blockId: payload.blockId,
       },
+    }).catch((error) => {
+      runnerRejected = true
+      throw error
     })
 
     if (result.success) {
@@ -247,6 +272,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       status: shouldDisable ? 'disabled' : 'active',
     })
   } catch (error: any) {
+    if (runnerRejected) throw error
     if (error instanceof WorkflowUsageLimitError) {
       logger.warn(
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
@@ -256,6 +282,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         }
       )
       await rescheduleSkippedExecution()
+      if (!runnerInvoked) await settlePreparationFailure(error.message)
       return
     }
 
@@ -290,5 +317,10 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       lastFailedAt: now,
       status: shouldDisable ? 'disabled' : 'active',
     })
+    if (!runnerInvoked) {
+      await settlePreparationFailure(
+        error instanceof Error ? error.message : 'Scheduled workflow preparation failed'
+      )
+    }
   }
 }

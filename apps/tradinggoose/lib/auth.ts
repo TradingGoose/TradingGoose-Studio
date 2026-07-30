@@ -46,6 +46,7 @@ import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
+  handleInvoiceCreated,
   handleInvoiceFinalized,
   handleInvoicePaymentFailed,
   handleInvoicePaymentSucceeded,
@@ -1707,6 +1708,10 @@ export const auth = betterAuth({
 
         try {
           switch (event.type) {
+            case 'invoice.created': {
+              await handleInvoiceCreated(event)
+              break
+            }
             case 'invoice.payment_succeeded': {
               await handleInvoicePaymentSucceeded(event)
               break

@@ -12,9 +12,9 @@ import {
   resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
-import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
@@ -89,6 +89,7 @@ export async function handleSubscriptionCreated(
       } else {
         await resetUsageForSubscription(
           {
+            referenceType: subscriptionData.referenceType,
             referenceId: subscriptionData.referenceId,
             tier: subscriptionData.tier,
           },
@@ -138,7 +139,7 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
     })
 
     // Calculate overage for the final billing period
-    const totalOverage = await calculateSubscriptionOverage(subscription)
+    const totalOverage = subscription.tier ? await calculateSubscriptionOverage(subscription) : 0
     const stripe = requireStripeClient()
 
     // Get already-billed overage from threshold billing
@@ -278,96 +279,37 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
 
-  // Settlement talks to Stripe and can fail. Entitlement restore below must not depend on it:
-  // personal Stripe subscriptions reuse the user's default subscription row, so bailing out
-  // here is exactly what leaves a user with no entitled subscription at all and breaks every
-  // billing read. Failures are rethrown once entitlement is safe. Settlement itself still
-  // depends on this sync, because it prices the final invoice off the tier the sync writes.
-  let settlementError: unknown = null
-
-  try {
-    await syncSubscriptionBillingTierFromStripeSubscription(
-      resolvedSubscription.id,
-      stripeSubscription
-    )
-  } catch (error) {
-    settlementError = error
-    logger.error('Failed to sync billing tier for a cancelled subscription', {
-      subscriptionId: resolvedSubscription.id,
-      stripeSubscriptionId,
-      error,
-    })
-  }
-
-  const hydratedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-  if (!hydratedSubscription) {
-    throw new Error(
-      `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`
-    )
-  }
-
   const subscriptionToSettle = {
-    ...hydratedSubscription,
+    ...resolvedSubscription,
+    ...getStripeSubscriptionPeriod(stripeSubscription),
     stripeSubscriptionId,
     status: 'canceled',
+    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
   }
   let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
 
-  if (settlementError) {
-    // The re-read above exists to pick up the tier sync's write, so a failed sync means the tier
-    // driving overage pricing is unverified. Final invoices are created under a fixed idempotency
-    // key, so billing against a stale allowance here would be locked in - the retry this rethrow
-    // triggers would return the prior invoice rather than a corrected one.
-    logger.error('Skipping final settlement because the billing tier could not be verified', {
-      subscriptionId: subscriptionToSettle.id,
-      referenceType: subscriptionToSettle.referenceType,
-      referenceId: subscriptionToSettle.referenceId,
-    })
-  } else {
-    try {
-      await handleSubscriptionDeleted(subscriptionToSettle)
-    } catch (error) {
-      settlementError = error
-      logger.error('Failed to settle a cancelled subscription; restoring entitlement anyway', {
-        subscriptionId: subscriptionToSettle.id,
-        referenceType: subscriptionToSettle.referenceType,
-        referenceId: subscriptionToSettle.referenceId,
-        error,
-      })
-    }
-  }
+  await handleSubscriptionDeleted(subscriptionToSettle)
 
-  // No billing-enabled gate here: a signature-verified Stripe webhook resolving to a local row
-  // that carries a stripeSubscriptionId is only reachable while billing is configured and
-  // running. Re-deriving that from settings only added a fallible read that could skip the
-  // restore and leave the user unentitled.
   if (subscriptionToSettle.referenceType === 'user') {
-    subscriptionForUsageLimits = await db.transaction(async (tx) => {
-      const nextSubscription = await ensureDefaultUserSubscription(
-        subscriptionToSettle.referenceId,
-        tx
-      )
+    const { billingEnabled } = await getResolvedBillingSettings()
 
-      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-        await resetUserDefaultUsageToOnboardingAllowanceBalance(
+    if (billingEnabled) {
+      subscriptionForUsageLimits = await db.transaction(async (tx) => {
+        const nextSubscription = await ensureDefaultUserSubscription(
           subscriptionToSettle.referenceId,
           tx
         )
-      }
 
-      if (settlementError) {
-        // The restore just cleared stripe_subscription_id, the only key the retry resolves
-        // rows by - and for a personal subscription the paid row IS this default row. Put it
-        // back while settlement is still owed, or the retry finds nothing and the final
-        // overage is lost even though the usage ledger was already reset.
-        await tx
-          .update(subscription)
-          .set({ stripeSubscriptionId })
-          .where(eq(subscription.id, nextSubscription.id))
-      }
+        if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+          await resetUserDefaultUsageToOnboardingAllowanceBalance(
+            subscriptionToSettle.referenceId,
+            tx
+          )
+        }
 
-      return nextSubscription
-    })
+        return nextSubscription
+      })
+    }
   }
 
   await syncSubscriptionUsageLimits(subscriptionForUsageLimits)
@@ -378,10 +320,5 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     referenceType: subscriptionToSettle.referenceType,
     referenceId: subscriptionToSettle.referenceId,
     stripeSubscriptionId,
-    settlementFailed: Boolean(settlementError),
   })
-
-  if (settlementError) {
-    throw settlementError
-  }
 }

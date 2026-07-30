@@ -309,6 +309,7 @@ export class AgentBlockHandler implements BlockHandler {
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers,
+      signal: context.workflowDeadlineSignal,
     })
     if (!response.ok) {
       const errorText = await response.text().catch(() => '')
@@ -368,6 +369,7 @@ export class AgentBlockHandler implements BlockHandler {
             workflowId: context.workflowId,
             isDeployedContext: context.isDeployedContext !== false,
           }),
+          signal: context.workflowDeadlineSignal,
         })
 
         if (!execResponse.ok) {
@@ -686,6 +688,16 @@ export class AgentBlockHandler implements BlockHandler {
       ...providerRequest,
       apiKey,
       userId: context.userId,
+      abortSignal: context.workflowDeadlineSignal,
+      onOperationIdentity:
+        context.workflowOperationId && context.publishWorkflowOperationIdentity
+          ? (identity: {
+              adapterKind: string
+              capability: 'status_only'
+              remoteOperationId: string
+              observation?: Record<string, unknown>
+            }) => context.publishWorkflowOperationIdentity!(context.workflowOperationId!, identity)
+          : undefined,
     })
 
     this.logExecutionSuccess(
@@ -739,7 +751,9 @@ export class AgentBlockHandler implements BlockHandler {
       method: 'POST',
       headers,
       body: JSON.stringify(providerRequest),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      signal: context.workflowDeadlineSignal
+        ? AbortSignal.any([context.workflowDeadlineSignal, AbortSignal.timeout(REQUEST_TIMEOUT)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT),
     })
 
     if (!response.ok) {

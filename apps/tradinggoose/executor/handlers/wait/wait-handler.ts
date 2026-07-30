@@ -5,37 +5,20 @@ import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('WaitBlockHandler')
 
-/**
- * Helper function to sleep for a specified number of milliseconds
- * On client-side: checks for cancellation every 100ms (non-blocking for UI)
- * On server-side: simple sleep without polling (server execution can't be cancelled mid-flight)
- */
-const sleep = async (ms: number, checkCancelled?: () => boolean): Promise<boolean> => {
-  const isClientSide = typeof window !== 'undefined'
-
-  // Server-side: simple sleep without polling
-  if (!isClientSide) {
-    await new Promise((resolve) => setTimeout(resolve, ms))
-    return true
-  }
-
-  // Client-side: check for cancellation every 100ms
-  const chunkMs = 100
-  let elapsed = 0
-
-  while (elapsed < ms) {
-    // Check if execution was cancelled
-    if (checkCancelled?.()) {
-      return false // Sleep was interrupted
+const sleep = async (ms: number, signal?: AbortSignal): Promise<boolean> => {
+  if (signal?.aborted) return false
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', cancel)
+      resolve(true)
+    }, ms)
+    const cancel = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', cancel)
+      resolve(false)
     }
-
-    // Sleep for a chunk or remaining time, whichever is smaller
-    const sleepTime = Math.min(chunkMs, ms - elapsed)
-    await new Promise((resolve) => setTimeout(resolve, sleepTime))
-    elapsed += sleepTime
-  }
-
-  return true // Sleep completed normally
+    signal?.addEventListener('abort', cancel, { once: true })
+  })
 }
 
 /**
@@ -77,21 +60,11 @@ export class WaitBlockHandler implements BlockHandler {
 
     logger.info(`Waiting for ${waitMs}ms (${timeValue} ${timeUnit})`)
 
-    // Actually sleep for the specified duration
-    // The executor updates context.isCancelled when cancel() is called
-    const checkCancelled = () => {
-      // Check if execution was marked as cancelled in the context
-      return (context as any).isCancelled === true
-    }
-
-    const completed = await sleep(waitMs, checkCancelled)
+    const completed = await sleep(waitMs, context.workflowDeadlineSignal)
 
     if (!completed) {
       logger.info('Wait was interrupted by cancellation')
-      return {
-        waitDuration: waitMs,
-        status: 'cancelled',
-      }
+      throw new Error('Workflow wait was canceled')
     }
 
     logger.info('Wait completed successfully')

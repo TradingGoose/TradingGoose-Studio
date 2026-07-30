@@ -1,27 +1,25 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Skeleton } from '@/components/ui'
+import { Input, Skeleton, Switch } from '@/components/ui'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
-import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
+import {
+  composeSubscriptionTierDisplays,
+  type SubscriptionTierDisplay,
+} from '@/lib/billing/subscription-tier-display'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { getUserRole } from '@/lib/organization'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
-import {
-  type GeneralSettings,
-  generalSettingsKeys,
-  patchBillingUsageNotifications,
-} from '@/hooks/queries/general-settings'
+import { useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { usePrivateTierAccess } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -41,88 +39,6 @@ const CONSTANTS = {
 
 const safeNumber = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
-
-function BillingUsageNotificationsToggle({ userId }: { userId: string | null }) {
-  const copy = useTranslations('workspace.settingsModal.subscription')
-  const queryClient = useQueryClient()
-  const titleId = useId()
-  const descriptionId = useId()
-  const feedbackId = useId()
-  const writeLockRef = useRef(false)
-  const enabled = useGeneralStore((state) => state.isBillingUsageNotificationsEnabled)
-  const settingsKey = generalSettingsKeys.settings(userId)
-  const mutation = useMutation<void, Error, boolean, { previousEnabled: boolean }>({
-    mutationFn: patchBillingUsageNotifications,
-    onMutate: async (value) => {
-      await queryClient.cancelQueries({ queryKey: settingsKey })
-      const previousEnabled = useGeneralStore.getState().isBillingUsageNotificationsEnabled
-      useGeneralStore.setState({ isBillingUsageNotificationsEnabled: value })
-      queryClient.setQueryData<GeneralSettings>(settingsKey, (settings) =>
-        settings ? { ...settings, billingUsageNotificationsEnabled: value } : settings
-      )
-      return { previousEnabled }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKey }),
-    onError: (_error, _value, context) => {
-      if (!context) return
-      useGeneralStore.setState({
-        isBillingUsageNotificationsEnabled: context.previousEnabled,
-      })
-      queryClient.setQueryData<GeneralSettings>(settingsKey, (settings) =>
-        settings
-          ? { ...settings, billingUsageNotificationsEnabled: context.previousEnabled }
-          : settings
-      )
-    },
-    onSettled: () => {
-      writeLockRef.current = false
-    },
-  })
-  const handleCheckedChange = (value: boolean) => {
-    if (!userId || writeLockRef.current || value === enabled) return
-    writeLockRef.current = true
-    mutation.reset()
-    mutation.mutate(value)
-  }
-  const feedback = mutation.isPending
-    ? copy('notifications.pending')
-    : mutation.isError
-      ? copy('notifications.error')
-      : null
-
-  return (
-    <div className='mt-4 flex items-start justify-between gap-4'>
-      <div className='flex flex-col'>
-        <span id={titleId} className='font-medium text-sm'>
-          {copy('titles.usageNotifications')}
-        </span>
-        <span id={descriptionId} className='text-muted-foreground text-xs'>
-          {copy('descriptions.usageNotifications')}
-        </span>
-        {feedback && (
-          <span
-            id={feedbackId}
-            role={mutation.isError ? 'alert' : 'status'}
-            aria-atomic='true'
-            className={
-              mutation.isError ? 'text-destructive text-xs' : 'text-muted-foreground text-xs'
-            }
-          >
-            {feedback}
-          </span>
-        )}
-      </div>
-      <Switch
-        checked={enabled}
-        disabled={!userId || mutation.isPending}
-        aria-busy={mutation.isPending || undefined}
-        aria-labelledby={titleId}
-        aria-describedby={`${descriptionId}${feedback ? ` ${feedbackId}` : ''}`}
-        onCheckedChange={handleCheckedChange}
-      />
-    </div>
-  )
-}
 
 interface SubscriptionProps {
   onOpenChange: (open: boolean) => void
@@ -221,7 +137,7 @@ function SubscriptionSkeleton() {
   )
 }
 
-function toUpgradeTarget(tier: PublicBillingTierDisplay): BillingUpgradeTarget {
+function toUpgradeTarget(tier: SubscriptionTierDisplay): BillingUpgradeTarget {
   return {
     billingTierId: tier.id,
     displayName: tier.displayName,
@@ -241,6 +157,7 @@ function openContactUrl(url: string | null) {
 }
 
 export function Subscription({ onOpenChange }: SubscriptionProps) {
+  const t = useTranslations('workspace.settingsModal.subscription')
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
 
@@ -257,14 +174,24 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   } = useUsageLimitData()
   const { data: organizationsData } = useOrganizations()
   const { data: publicBillingCatalog, isLoading: isCatalogLoading } = usePublicBillingCatalog()
+  const {
+    data: privateTierAccess,
+    isLoading: isPrivateTierAccessLoading,
+    validateAccessCode: validatePrivateTierCode,
+  } = usePrivateTierAccess({ enabled: Boolean(session?.user?.id) })
 
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrgId = activeOrganization?.id
-  const { data: organizationBillingData, isLoading: isOrgBillingLoading } = useOrganizationBilling(
-    activeOrgId || ''
-  )
+  const {
+    data: organizationBillingData,
+    isLoading: isOrgBillingLoading,
+    refetch: refetchOrgBilling,
+  } = useOrganizationBilling(activeOrgId || '')
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
+  const [accessCode, setAccessCode] = useState('')
+  const [accessCodeError, setAccessCodeError] = useState<string | null>(null)
+  const [accessCodeMessage, setAccessCodeMessage] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
@@ -294,6 +221,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const userRole = getUserRole(activeOrganization, session?.user?.email)
   const isTeamAdmin = ['owner', 'admin'].includes(userRole)
 
+  const subscriptionTiers = composeSubscriptionTierDisplays({
+    publicTiers: publicBillingCatalog?.publicTiers ?? [],
+    privateTiers: privateTierAccess?.privateTiers ?? [],
+    currentTier: subscription.tier,
+  })
+  const enterpriseContactCard = privateTierAccess?.enterpriseContactCard ?? null
   const surfaceState = getSubscriptionSurfaceState({
     subscription: {
       isFree: subscription.isFree,
@@ -303,8 +236,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     userRole: {
       isTeamAdmin,
     },
-    publicTiers: publicBillingCatalog?.publicTiers ?? [],
-    enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
+    subscriptionTiers,
+    enterpriseContactCard,
   })
 
   const isOrganizationPlan = surfaceState.isOrganizationPlan
@@ -381,10 +314,24 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         : 'Increase Limit'
   const hasVisiblePlanCards =
     surfaceState.visiblePlanTiers.length > 0 || surfaceState.showEnterprisePlaceholder
-  const enterpriseContactUrl =
-    surfaceState.enterprisePlaceholder?.contactUrl ??
-    publicBillingCatalog?.enterpriseContactUrl ??
-    null
+  const enterpriseContactUrl = surfaceState.enterprisePlaceholder?.contactUrl ?? null
+
+  const validateAccessCode = async () => {
+    const code = accessCode.trim()
+    if (!code) {
+      setAccessCodeError(t('privateAccess.required'))
+      return
+    }
+    setAccessCodeError(null)
+    setAccessCodeMessage(null)
+    try {
+      await validatePrivateTierCode.mutateAsync(code)
+      setAccessCode('')
+      setAccessCodeMessage(t('privateAccess.success'))
+    } catch {
+      setAccessCodeError(t('privateAccess.invalid'))
+    }
+  }
 
   const handleUpgradeWithErrorHandling = useCallback(
     async (targetTier: BillingUpgradeTarget) => {
@@ -486,7 +433,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   }
 
   const isLoading =
-    isSubscriptionLoading || isUsageLimitLoading || isOrgBillingLoading || isCatalogLoading
+    isSubscriptionLoading ||
+    isUsageLimitLoading ||
+    isOrgBillingLoading ||
+    isCatalogLoading ||
+    isPrivateTierAccessLoading
 
   if (isLoading) {
     return <SubscriptionSkeleton />
@@ -559,6 +510,13 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   organizationId={
                     surfaceState.isAdjustableSeatPlan && isTeamAdmin ? activeOrgId : undefined
                   }
+                  onLimitUpdated={async () => {
+                    if (surfaceState.isAdjustableSeatPlan && isTeamAdmin && activeOrgId) {
+                      await refetchOrgBilling()
+                    } else {
+                      await refetchUsageLimit()
+                    }
+                  }}
                 />
               ) : undefined
             }
@@ -574,6 +532,31 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
+        {session?.user?.id ? (
+          <div className='flex flex-col gap-2 rounded-sm border p-3'>
+            <div className='flex gap-2'>
+              <Input
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                placeholder={t('privateAccess.placeholder')}
+                aria-label={t('privateAccess.label')}
+              />
+              <Button
+                type='button'
+                variant='outline'
+                disabled={validatePrivateTierCode.isPending || !accessCode.trim()}
+                onClick={() => void validateAccessCode()}
+              >
+                {t('privateAccess.validate')}
+              </Button>
+            </div>
+            {accessCodeError ? <p className='text-destructive text-xs'>{accessCodeError}</p> : null}
+            {accessCodeMessage ? (
+              <p className='text-muted-foreground text-xs'>{accessCodeMessage}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
             {surfaceState.visiblePlanTiers.length > 0 && (
@@ -585,6 +568,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
+                  const isDisabled = isCurrentTier || tier.isCurrentOnly || tier.status !== 'active'
 
                   return (
                     <PlanCard
@@ -594,18 +578,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                       priceSubtext={formatBillingPricePeriod(tier) ?? undefined}
                       features={toPlanFeatures(tier.pricingFeatures)}
                       buttonText={
-                        isCurrentTier
+                        isDisabled
                           ? 'Current'
                           : subscription.isFree
                             ? 'Upgrade'
                             : `Upgrade to ${tier.displayName}`
                       }
                       onButtonClick={
-                        isCurrentTier
+                        isDisabled
                           ? () => {}
                           : () => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))
                       }
-                      buttonDisabled={isCurrentTier}
+                      buttonDisabled={isDisabled}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
                     />
@@ -643,7 +627,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           )}
 
         {(subscription.isPaid || showPersonalSubscriptionManagement) && (
-          <BillingUsageNotificationsToggle userId={session?.user?.id ?? null} />
+          <BillingUsageNotificationsToggle />
         )}
 
         <WorkspaceBillingOwnerEditor />
@@ -688,6 +672,32 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function BillingUsageNotificationsToggle() {
+  const enabled = useGeneralStore((s) => s.isBillingUsageNotificationsEnabled)
+  const updateSetting = useUpdateGeneralSetting()
+  const isLoading = updateSetting.isPending
+
+  return (
+    <div className='mt-4 flex items-center justify-between'>
+      <div className='flex flex-col'>
+        <span className='font-medium text-sm'>Usage notifications</span>
+        <span className='text-muted-foreground text-xs'>
+          Email me when usage reaches the billing warning threshold
+        </span>
+      </div>
+      <Switch
+        checked={!!enabled}
+        disabled={isLoading}
+        onCheckedChange={(v: boolean) => {
+          if (v !== enabled) {
+            updateSetting.mutate({ key: 'billingUsageNotificationsEnabled', value: v })
+          }
+        }}
+      />
     </div>
   )
 }

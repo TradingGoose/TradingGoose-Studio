@@ -186,6 +186,12 @@ export interface ProviderRequest {
   callChain?: string[]
   previousInteractionId?: string
   abortSignal?: AbortSignal
+  onOperationIdentity?: (identity: {
+    adapterKind: string
+    capability: 'status_only' | 'uncancelable'
+    remoteOperationId: string
+    observation?: Record<string, unknown>
+  }) => Promise<void>
 }
 
 export class ProviderError extends Error {

@@ -1,7 +1,6 @@
 'use client'
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Receipt } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
 import {
@@ -17,7 +16,6 @@ import {
   Notice,
 } from '@/components/ui'
 import type { AdminBillingSettingsMutationInput } from '@/lib/admin/billing/settings-mutations'
-import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
 import { ADMIN_META_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
@@ -27,14 +25,10 @@ import {
   SearchInput,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {
-  ADMIN_BILLING_SETTINGS_ENDPOINT,
-  ADMIN_BILLING_TIERS_ENDPOINT,
-  adminBillingKeys,
-  sendAdminBillingMutationRequest,
   useAdminBillingSnapshot,
+  useCreateAdminBillingTier,
+  useUpdateAdminBillingSettings,
 } from '@/hooks/queries/admin-billing'
-import { adminSystemSettingsKeys } from '@/hooks/queries/admin-system-settings'
-import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import { Link, useRouter } from '@/i18n/navigation'
 import { formatTemplate, type LocaleCode } from '@/i18n/utils'
@@ -162,10 +156,15 @@ function formatNullableNumber(
 }
 
 function getTierCommerceSummary(copy: AdminBillingCopy, tier: AdminBillingTierSnapshot): string {
-  if (tier.isPublic && (tier.stripeMonthlyPriceId || tier.stripeYearlyPriceId)) {
+  const hasRecurringPrice =
+    (tier.monthlyPriceUsd !== null && tier.monthlyPriceUsd > 0) ||
+    (tier.yearlyPriceUsd !== null && tier.yearlyPriceUsd > 0)
+  if (!hasRecurringPrice) {
+    return copy.commerce.freeTier
+  }
+  if (tier.stripeMonthlyPriceId || tier.stripeYearlyPriceId) {
     return copy.commerce.selfServe
   }
-
   return copy.commerce.contactSales
 }
 
@@ -298,17 +297,7 @@ function BillingSettingsCard({
     enterpriseContactUrl: string | null
   }
 }) {
-  const queryClient = useQueryClient()
-  const updateSettings = useMutation({
-    mutationFn: (input: AdminBillingSettingsMutationInput) =>
-      sendAdminBillingMutationRequest(ADMIN_BILLING_SETTINGS_ENDPOINT, 'PATCH', input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
-      ])
-    },
-  })
+  const updateSettings = useUpdateAdminBillingSettings()
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const defaults = createBillingSettingsFormDefaults(snapshot)
@@ -348,9 +337,8 @@ function BillingSettingsCard({
         <CardDescription>{copy.settings.description}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-4 bg-muted/10 px-4 py-4 sm:px-5'>
-        <form onSubmit={handleSubmit} aria-busy={updateSettings.isPending} className='space-y-4'>
+        <form onSubmit={handleSubmit} className='space-y-4'>
           <fieldset disabled={updateSettings.isPending} className='space-y-4'>
-            <legend className='sr-only'>{copy.settings.cardTitle}</legend>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
                 <p className='font-medium text-sm'>{copy.settings.thresholds.title}</p>
@@ -369,7 +357,6 @@ function BillingSettingsCard({
                   <Input
                     id='onboardingAllowanceUsd'
                     name='onboardingAllowanceUsd'
-                    aria-labelledby='onboardingAllowanceUsd-label'
                     type='number'
                     step='0.01'
                     defaultValue={defaults.onboardingAllowanceUsd}
@@ -385,7 +372,6 @@ function BillingSettingsCard({
                   <Input
                     id='overageThresholdDollars'
                     name='overageThresholdDollars'
-                    aria-labelledby='overageThresholdDollars-label'
                     type='number'
                     step='0.01'
                     defaultValue={defaults.overageThresholdDollars}
@@ -401,7 +387,6 @@ function BillingSettingsCard({
                   <Input
                     id='usageWarningThresholdPercent'
                     name='usageWarningThresholdPercent'
-                    aria-labelledby='usageWarningThresholdPercent-label'
                     type='number'
                     defaultValue={defaults.usageWarningThresholdPercent}
                   />
@@ -416,7 +401,6 @@ function BillingSettingsCard({
                   <Input
                     id='freeTierUpgradeThresholdPercent'
                     name='freeTierUpgradeThresholdPercent'
-                    aria-labelledby='freeTierUpgradeThresholdPercent-label'
                     type='number'
                     defaultValue={defaults.freeTierUpgradeThresholdPercent}
                   />
@@ -443,7 +427,6 @@ function BillingSettingsCard({
                     <Input
                       id='workflowExecutionChargeUsd'
                       name='workflowExecutionChargeUsd'
-                      aria-labelledby='workflowExecutionChargeUsd-label'
                       type='number'
                       step='0.0001'
                       defaultValue={defaults.workflowExecutionChargeUsd}
@@ -459,7 +442,6 @@ function BillingSettingsCard({
                     <Input
                       id='functionExecutionChargeUsd'
                       name='functionExecutionChargeUsd'
-                      aria-labelledby='functionExecutionChargeUsd-label'
                       type='number'
                       step='0.0001'
                       defaultValue={defaults.functionExecutionChargeUsd}
@@ -487,7 +469,6 @@ function BillingSettingsCard({
                   <Input
                     id='enterpriseContactUrl'
                     name='enterpriseContactUrl'
-                    aria-labelledby='enterpriseContactUrl-label'
                     defaultValue={defaults.enterpriseContactUrl}
                   />
                 </FieldShell>
@@ -498,16 +479,14 @@ function BillingSettingsCard({
             </div>
 
             {error ? (
-              <Alert role='alert' variant='destructive'>
+              <Alert variant='destructive'>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
             {message ? (
-              <div role='status'>
-                <Notice variant='success' title={copy.settings.savedTitle}>
-                  {message}
-                </Notice>
-              </div>
+              <Notice variant='success' title={copy.settings.savedTitle}>
+                {message}
+              </Notice>
             ) : null}
             <PrimaryButton type='submit' disabled={updateSettings.isPending}>
               {updateSettings.isPending ? copy.settings.saving : copy.settings.save}
@@ -557,7 +536,6 @@ export function AdminBilling() {
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder={copy.overview.searchPlaceholder}
-          clearLabel={copy.overview.clearSearch}
           className='w-full'
         />
       </div>
@@ -619,7 +597,7 @@ export function AdminBilling() {
     <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {snapshotQuery.isError ? (
-          <Alert role='alert' variant='destructive'>
+          <Alert variant='destructive'>
             <AlertDescription>
               {getErrorMessage(snapshotQuery.error, copy.errors.unknown)}
             </AlertDescription>
@@ -648,8 +626,8 @@ export function AdminBilling() {
                 <EmptyStateCard
                   title={copy.overview.emptyTitle}
                   description={copy.overview.emptyDescription}
-                  actionLabel={copy.overview.emptyButton}
-                  onAction={() => router.push('/admin/billing/create')}
+                  buttonText={copy.overview.emptyButton}
+                  onClick={() => router.push('/admin/billing/create')}
                   icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
                 />
               ) : filteredTiers.length === 0 ? (
@@ -673,17 +651,7 @@ export function AdminBillingCreateTier() {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().admin.billing
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const createTier = useMutation({
-    mutationFn: (input: AdminBillingTierMutationInput) =>
-      sendAdminBillingMutationRequest(ADMIN_BILLING_TIERS_ENDPOINT, 'POST', input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({ queryKey: adminSystemSettingsKeys.snapshot() }),
-      ])
-    },
-  })
+  const createTier = useCreateAdminBillingTier()
   const [error, setError] = useState<string | null>(null)
   const initialValues = useMemo(() => createTierFormDefaults(), [])
   const [previewValues, setPreviewValues] = useState<TierFormDefaults>(initialValues)
@@ -753,7 +721,7 @@ export function AdminBillingCreateTier() {
     <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {error ? (
-          <Alert role='alert' variant='destructive'>
+          <Alert variant='destructive'>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
@@ -769,8 +737,7 @@ export function AdminBillingCreateTier() {
             setSectionState((current) => ({ ...current, [sectionId]: open }))
           }
           onAccessFieldChange={handleAccessFieldChange}
-          requireStripeMonthlyPriceId={true}
-          isPending={createTier.isPending}
+          disabled={createTier.isPending}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}
         />

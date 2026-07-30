@@ -137,6 +137,7 @@ export class Executor {
   private contextExtensions: ExecutionContextExtensions
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
+  private isDeadlineExceeded = false
   private isChildExecution = false
 
   /**
@@ -248,6 +249,10 @@ export class Executor {
   }
 
   private async shouldStopExecution(): Promise<boolean> {
+    if (this.contextExtensions.workflowDeadlineSignal?.aborted) {
+      this.isDeadlineExceeded = true
+      return true
+    }
     if (this.isCancelled) return true
     if (await this.contextExtensions.shouldCancelExecution?.()) {
       this.cancel()
@@ -318,7 +323,7 @@ export class Executor {
       }
 
       // Handle cancellation
-      if (this.isCancelled) {
+      if (this.isCancelled || this.isDeadlineExceeded) {
         trackWorkflowTelemetry('workflow_execution_cancelled', {
           workflowId,
           duration: Date.now() - startTime.getTime(),
@@ -627,6 +632,12 @@ export class Executor {
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
       shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+      workflowExecutionTimePolicy: this.contextExtensions.workflowExecutionTimePolicy,
+      workflowDeadlineSignal: this.contextExtensions.workflowDeadlineSignal,
+      registerWorkflowOperation: this.contextExtensions.registerWorkflowOperation,
+      publishWorkflowOperationIdentity: this.contextExtensions.publishWorkflowOperationIdentity,
+      completeWorkflowOperation: this.contextExtensions.completeWorkflowOperation,
+      setWorkflowParticipantWaiting: this.contextExtensions.setWorkflowParticipantWaiting,
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1586,6 +1597,7 @@ export class Executor {
     }
 
     let handleBlockFailure: ((error: any) => Promise<NormalizedBlockOutput>) | undefined
+    let operationId: string | undefined
 
     try {
       if (block.enabled === false) {
@@ -1628,6 +1640,10 @@ export class Executor {
         output: NormalizedBlockOutput
         executionTime: number
       }) => {
+        if (operationId) {
+          await context.completeWorkflowOperation?.(operationId, 'completed')
+          operationId = undefined
+        }
         context.blockStates.set(blockId, {
           output,
           executed: true,
@@ -1697,6 +1713,17 @@ export class Executor {
       }
 
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
+        if (operationId) {
+          await context.completeWorkflowOperation?.(
+            operationId,
+            context.workflowDeadlineSignal?.aborted
+              ? 'local_abort'
+              : this.isCancelled
+                ? 'canceled'
+                : 'failed'
+          )
+          operationId = undefined
+        }
         blockLog.success = false
         blockLog.error =
           error.message ||
@@ -1792,6 +1819,8 @@ export class Executor {
           success: false,
           output: upstreamExecutionResult?.output ?? errorOutput,
           error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
+          code: upstreamExecutionResult?.code,
+          deadline: upstreamExecutionResult?.deadline,
           logs: [...context.blockLogs],
           metadata: {
             ...failureMetadata,
@@ -1860,8 +1889,12 @@ export class Executor {
       }
 
       // Execute the block
+      operationId = await context.registerWorkflowOperation?.(consoleBlockId, blockType)
       const startTime = performance.now()
-      const rawOutput = await handler.execute(block, inputs, context)
+      const rawOutput = await handler.execute(block, inputs, {
+        ...context,
+        workflowOperationId: operationId,
+      })
 
       if (isDeferredBlockExecution(rawOutput)) {
         return {

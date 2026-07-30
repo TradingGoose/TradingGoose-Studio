@@ -54,6 +54,8 @@ export type TierFormDefaults = {
   stripeMonthlyPriceId: string
   stripeYearlyPriceId: string
   stripeProductId: string
+  accessCode: string
+  workflowExecutionTimeLimitSeconds: string
   syncRateLimitPerMinute: string
   asyncRateLimitPerMinute: string
   apiEndpointRateLimitPerMinute: string
@@ -188,7 +190,7 @@ const TIER_SECTION_STATUS_BADGE_CLASSNAME = {
   optional: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
 } as const
 
-function formatOptionalNumber(value: number | null) {
+function formatOptionalNumber(value: number | string | null) {
   return value === null ? '' : value.toString()
 }
 
@@ -222,10 +224,7 @@ function getTierCommerceLabel(defaults: {
     return 'free'
   }
 
-  if (
-    defaults.isPublic &&
-    (isFilled(defaults.stripeMonthlyPriceId) || isFilled(defaults.stripeYearlyPriceId))
-  ) {
+  if (isFilled(defaults.stripeMonthlyPriceId) || isFilled(defaults.stripeYearlyPriceId)) {
     return 'self-serve'
   }
 
@@ -257,6 +256,8 @@ export function createTierFormDefaults(tier?: AdminBillingTierSnapshot): TierFor
     stripeMonthlyPriceId: tier?.stripeMonthlyPriceId ?? '',
     stripeYearlyPriceId: tier?.stripeYearlyPriceId ?? '',
     stripeProductId: tier?.stripeProductId ?? '',
+    accessCode: tier?.accessCode ?? '',
+    workflowExecutionTimeLimitSeconds: tier?.workflowExecutionTimeLimitSeconds ?? '',
     syncRateLimitPerMinute: formatOptionalNumber(tier?.syncRateLimitPerMinute ?? null),
     asyncRateLimitPerMinute: formatOptionalNumber(tier?.asyncRateLimitPerMinute ?? null),
     apiEndpointRateLimitPerMinute: formatOptionalNumber(
@@ -331,8 +332,9 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     seatMode: readRequiredText(formData, 'seatMode') as AdminBillingTierMutationInput['seatMode'],
   })
 
+  const isPublic = readBoolean(formData, 'isPublic')
   return {
-    displayName: readRequiredText(formData, 'tierLabel'),
+    displayName: readRequiredText(formData, 'displayName'),
     description: readRequiredText(formData, 'description'),
     status: readRequiredText(formData, 'status') as AdminBillingTierMutationInput['status'],
     ownerType: accessFields.ownerType,
@@ -348,6 +350,11 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     stripeMonthlyPriceId: readOptionalText(formData, 'stripeMonthlyPriceId'),
     stripeYearlyPriceId: readOptionalText(formData, 'stripeYearlyPriceId'),
     stripeProductId: readOptionalText(formData, 'stripeProductId'),
+    accessCode: isPublic ? null : readOptionalText(formData, 'accessCode'),
+    workflowExecutionTimeLimitSeconds: readOptionalText(
+      formData,
+      'workflowExecutionTimeLimitSeconds'
+    ),
     syncRateLimitPerMinute: readOptionalInteger(formData, 'syncRateLimitPerMinute'),
     asyncRateLimitPerMinute: readOptionalInteger(formData, 'asyncRateLimitPerMinute'),
     apiEndpointRateLimitPerMinute: readOptionalInteger(formData, 'apiEndpointRateLimitPerMinute'),
@@ -364,10 +371,24 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
       .split('\n')
       .map((entry) => entry.trim())
       .filter(Boolean),
-    isPublic: readBoolean(formData, 'isPublic'),
+    isPublic,
     isDefault: readBoolean(formData, 'isDefault'),
     displayOrder: readOptionalInteger(formData, 'displayOrder') ?? 0,
   }
+}
+
+export function buildTierMutationInputFromDefaults(
+  defaults: TierFormDefaults
+): AdminBillingTierMutationInput {
+  const formData = new FormData()
+  for (const [key, value] of Object.entries(defaults)) {
+    if (typeof value === 'boolean') {
+      if (value) formData.set(key, 'on')
+    } else {
+      formData.set(key, value)
+    }
+  }
+  return buildTierMutationInput(formData)
 }
 
 function getOptionLabel(
@@ -461,14 +482,10 @@ function getTierSectionSummaries(
   ].filter((value): value is string => Boolean(value))
 
   const pricingMissing = [
-    defaults.isPublic &&
-    hasPositiveNumber(defaults.monthlyPriceUsd) &&
-    !isFilled(defaults.stripeMonthlyPriceId)
+    hasPositiveNumber(defaults.monthlyPriceUsd) && !isFilled(defaults.stripeMonthlyPriceId)
       ? copy.editor.summaries.monthlyStripePrice
       : null,
-    defaults.isPublic &&
-    hasPositiveNumber(defaults.yearlyPriceUsd) &&
-    !isFilled(defaults.stripeYearlyPriceId)
+    hasPositiveNumber(defaults.yearlyPriceUsd) && !isFilled(defaults.stripeYearlyPriceId)
       ? copy.editor.summaries.yearlyStripePrice
       : null,
     commerceLabel === 'free' &&
@@ -711,7 +728,7 @@ export function createTierPreviewState(formData: FormData): TierFormDefaults {
   })
 
   return normalizeTierFormDefaults({
-    displayName: readRequiredText(formData, 'tierLabel'),
+    displayName: readRequiredText(formData, 'displayName'),
     description: readRequiredText(formData, 'description'),
     status: (readRequiredText(formData, 'status') || 'draft') as TierFormDefaults['status'],
     ownerType: accessFields.ownerType,
@@ -727,6 +744,11 @@ export function createTierPreviewState(formData: FormData): TierFormDefaults {
     stripeMonthlyPriceId: readRequiredText(formData, 'stripeMonthlyPriceId'),
     stripeYearlyPriceId: readRequiredText(formData, 'stripeYearlyPriceId'),
     stripeProductId: readRequiredText(formData, 'stripeProductId'),
+    accessCode: readRequiredText(formData, 'accessCode'),
+    workflowExecutionTimeLimitSeconds: readRequiredText(
+      formData,
+      'workflowExecutionTimeLimitSeconds'
+    ),
     syncRateLimitPerMinute: readRequiredText(formData, 'syncRateLimitPerMinute'),
     asyncRateLimitPerMinute: readRequiredText(formData, 'asyncRateLimitPerMinute'),
     apiEndpointRateLimitPerMinute: readRequiredText(formData, 'apiEndpointRateLimitPerMinute'),
@@ -790,9 +812,7 @@ export function FieldShell({
   return (
     <div className={cn('space-y-2', className)}>
       <div className='flex min-h-6 items-center gap-2'>
-        <Label id={`${id}-label`} htmlFor={id}>
-          {label}
-        </Label>
+        <Label htmlFor={id}>{label}</Label>
         {nullable && optionalLabel ? <OptionalFieldBadge label={optionalLabel} /> : null}
       </div>
       {children}
@@ -821,48 +841,46 @@ function TierFormSection({
   return (
     <section id={`tier-section-${sectionId}`} className='border-border/60 border-b last:border-b-0'>
       <Collapsible open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger
-          render={
-            <Button
-              type='button'
-              variant='ghost'
-              className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
-            />
-          }
-        >
-          <div className='min-w-0 flex-1 space-y-1'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='font-medium text-sm'>{title}</span>
-              <Badge
-                variant='outline'
-                className={cn(
-                  ADMIN_STATUS_BADGE_CLASSNAME,
-                  TIER_SECTION_STATUS_BADGE_CLASSNAME[summary.status]
-                )}
-              >
-                {summary.status === 'ready'
-                  ? statusLabels.ready
-                  : summary.status === 'review'
-                    ? statusLabels.review
-                    : statusLabels.optional}
-              </Badge>
-            </div>
-            <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
-              {summary.preview}
-            </p>
-            {summary.missing ? (
-              <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
-                {summary.missing}
+        <CollapsibleTrigger asChild>
+          <Button
+            type='button'
+            variant='ghost'
+            className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
+          >
+            <div className='min-w-0 flex-1 space-y-1'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='font-medium text-sm'>{title}</span>
+                <Badge
+                  variant='outline'
+                  className={cn(
+                    ADMIN_STATUS_BADGE_CLASSNAME,
+                    TIER_SECTION_STATUS_BADGE_CLASSNAME[summary.status]
+                  )}
+                >
+                  {summary.status === 'ready'
+                    ? statusLabels.ready
+                    : summary.status === 'review'
+                      ? statusLabels.review
+                      : statusLabels.optional}
+                </Badge>
+              </div>
+              <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
+                {summary.preview}
               </p>
-            ) : null}
-          </div>
-          <div className='flex items-center pt-0.5'>
-            {open ? (
-              <ChevronDown className='h-4 w-4 text-muted-foreground' />
-            ) : (
-              <ChevronRight className='h-4 w-4 text-muted-foreground' />
-            )}
-          </div>
+              {summary.missing ? (
+                <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
+                  {summary.missing}
+                </p>
+              ) : null}
+            </div>
+            <div className='flex items-center pt-0.5'>
+              {open ? (
+                <ChevronDown className='h-4 w-4 text-muted-foreground' />
+              ) : (
+                <ChevronRight className='h-4 w-4 text-muted-foreground' />
+              )}
+            </div>
+          </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className='border-border/60 border-t bg-muted/10 px-4 py-4 sm:px-5'>
           {children}
@@ -899,20 +917,15 @@ function SelectField({
 }) {
   const selectProps =
     value !== undefined
-      ? {
-          value,
-          onValueChange: (nextValue: string | null | undefined) => {
-            if (nextValue != null) onValueChange?.(nextValue)
-          },
-        }
+      ? { value, onValueChange }
       : {
           defaultValue,
         }
 
   return (
     <FieldShell id={id} label={label} hint={hint} className={className}>
-      <Select name={name} disabled={disabled} items={options} {...selectProps}>
-        <SelectTrigger id={id} aria-labelledby={`${id}-label`} className={triggerClassName}>
+      <Select name={name} disabled={disabled} {...selectProps}>
+        <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -953,34 +966,22 @@ function SwitchField({
   )
 }
 
-export function TierEditorFormSurface({
+function TierFormFields({
   copy,
   locale,
-  formId,
   initialValues,
   previewValues,
   sectionState,
   onSectionStateChange,
   onAccessFieldChange,
-  requireStripeMonthlyPriceId = false,
-  isPending,
-  onSubmit,
-  onFormChange,
-  footer,
 }: {
   copy: AdminBillingCopy
   locale: LocaleCode | string
-  formId: string
   initialValues: TierFormDefaults
   previewValues: TierFormDefaults
   sectionState: TierEditorSectionState
   onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
-  requireStripeMonthlyPriceId?: boolean
-  isPending: boolean
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
-  onFormChange: (event: FormEvent<HTMLFormElement>) => void
-  footer?: ReactNode
 }) {
   const sectionSummaries = getTierSectionSummaries(previewValues, locale, copy)
   const derivedAccessFields = normalizeTierAccessFields(previewValues)
@@ -990,604 +991,600 @@ export function TierEditorFormSurface({
   const tierSeatModeOptions = getTierSeatModeOptions(copy)
 
   return (
-    <div className='overflow-hidden rounded-lg border border-border bg-background'>
-      <form id={formId} aria-busy={isPending} onSubmit={onSubmit} onChange={onFormChange}>
-        <fieldset disabled={isPending}>
-          <legend className='sr-only'>{copy.editor.sections.general}</legend>
-          <div>
-            <TierFormSection
-              sectionId='general'
-              title={copy.editor.sections.general}
-              summary={sectionSummaries.general}
-              open={sectionState.general}
-              onOpenChange={(open) => onSectionStateChange('general', open)}
-              statusLabels={copy.editor.sectionStatuses}
-            >
-              <div className='space-y-4'>
-                <div className='space-y-3'>
-                  <FieldHint>{copy.editor.general.intro}</FieldHint>
-                  <div className='grid gap-3 md:grid-cols-2'>
-                    <SwitchField
-                      id='isPublic'
-                      name='isPublic'
-                      label={copy.editor.general.publicTier}
-                      defaultChecked={initialValues.isPublic}
-                    />
-                    <SwitchField
-                      id='isDefault'
-                      name='isDefault'
-                      label={copy.editor.general.defaultTier}
-                      defaultChecked={initialValues.isDefault}
-                    />
-                  </div>
-                  <FieldHint>{copy.editor.general.defaultRules}</FieldHint>
-                </div>
-
-                <div className='grid gap-3 md:grid-cols-12'>
-                  <FieldShell
-                    id='tierLabel'
-                    label={copy.editor.general.displayName}
-                    hint={copy.editor.general.displayNameHint}
-                    className='md:col-span-7'
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Input
-                      id='tierLabel'
-                      name='tierLabel'
-                      aria-labelledby='tierLabel-label'
-                      defaultValue={initialValues.displayName}
-                      className='h-9'
-                      required
-                    />
-                  </FieldShell>
-                  <FieldShell
-                    id='status'
-                    label={copy.editor.general.status}
-                    hint={copy.editor.general.statusHint}
-                    className='md:col-span-3'
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Select
-                      name='status'
-                      defaultValue={initialValues.status}
-                      items={tierStatusOptions}
-                    >
-                      <SelectTrigger id='status' aria-labelledby='status-label' className='h-9'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tierStatusOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FieldShell>
-                  <FieldShell
-                    id='displayOrder'
-                    label={copy.editor.general.displayOrder}
-                    hint={copy.editor.general.displayOrderHint}
-                    className='md:col-span-2'
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Input
-                      id='displayOrder'
-                      name='displayOrder'
-                      aria-labelledby='displayOrder-label'
-                      type='number'
-                      defaultValue={initialValues.displayOrder}
-                      className='h-9'
-                    />
-                  </FieldShell>
-                </div>
-
-                <div className='grid gap-3 md:grid-cols-2'>
-                  <FieldShell
-                    id='description'
-                    label={copy.editor.general.description}
-                    hint={copy.editor.general.descriptionHint}
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Textarea
-                      id='description'
-                      name='description'
-                      aria-labelledby='description-label'
-                      defaultValue={initialValues.description}
-                      rows={3}
-                      className='min-h-[112px]'
-                      required
-                    />
-                  </FieldShell>
-                  <FieldShell
-                    id='pricingFeatures'
-                    label={copy.editor.general.pricingFeatures}
-                    hint={copy.editor.general.pricingFeaturesHint}
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Textarea
-                      id='pricingFeatures'
-                      name='pricingFeatures'
-                      aria-labelledby='pricingFeatures-label'
-                      defaultValue={initialValues.pricingFeatures}
-                      rows={3}
-                      className='min-h-[112px]'
-                    />
-                  </FieldShell>
-                </div>
-              </div>
-            </TierFormSection>
-
-            <TierFormSection
-              sectionId='pricing'
-              title={copy.editor.sections.pricing}
-              summary={sectionSummaries.pricing}
-              open={sectionState.pricing}
-              onOpenChange={(open) => onSectionStateChange('pricing', open)}
-              statusLabels={copy.editor.sectionStatuses}
-            >
-              <div className='space-y-4'>
-                <div className='grid gap-4 xl:grid-cols-2'>
-                  <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                    <div className='space-y-1'>
-                      <p className='font-medium text-sm'>{copy.editor.pricing.monthlyTitle}</p>
-                      <p className='text-muted-foreground text-xs leading-relaxed'>
-                        {copy.editor.pricing.monthlyDescription}
-                      </p>
-                    </div>
-                    <FieldShell
-                      id='monthlyPriceUsd'
-                      label={copy.editor.pricing.monthlyPrice}
-                      hint={copy.editor.pricing.monthlyPriceHint}
-                      nullable
-                      blankHint={copy.editor.pricing.monthlyBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='monthlyPriceUsd'
-                        name='monthlyPriceUsd'
-                        aria-labelledby='monthlyPriceUsd-label'
-                        type='number'
-                        step='0.01'
-                        defaultValue={initialValues.monthlyPriceUsd}
-                      />
-                    </FieldShell>
-                    <FieldShell
-                      id='stripeMonthlyPriceId'
-                      label={copy.editor.pricing.stripeMonthlyPriceId}
-                      hint={copy.editor.pricing.stripeMonthlyPriceIdHint}
-                      nullable={!requireStripeMonthlyPriceId}
-                      blankHint={copy.editor.pricing.stripeMonthlyPriceIdBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='stripeMonthlyPriceId'
-                        name='stripeMonthlyPriceId'
-                        aria-labelledby='stripeMonthlyPriceId-label'
-                        defaultValue={initialValues.stripeMonthlyPriceId}
-                        required={requireStripeMonthlyPriceId}
-                      />
-                    </FieldShell>
-                  </div>
-
-                  <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                    <div className='space-y-1'>
-                      <p className='font-medium text-sm'>{copy.editor.pricing.yearlyTitle}</p>
-                      <p className='text-muted-foreground text-xs leading-relaxed'>
-                        {copy.editor.pricing.yearlyDescription}
-                      </p>
-                    </div>
-                    <FieldShell
-                      id='yearlyPriceUsd'
-                      label={copy.editor.pricing.yearlyPrice}
-                      hint={copy.editor.pricing.yearlyPriceHint}
-                      nullable
-                      blankHint={copy.editor.pricing.yearlyBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='yearlyPriceUsd'
-                        name='yearlyPriceUsd'
-                        aria-labelledby='yearlyPriceUsd-label'
-                        type='number'
-                        step='0.01'
-                        defaultValue={initialValues.yearlyPriceUsd}
-                      />
-                    </FieldShell>
-                    <FieldShell
-                      id='stripeYearlyPriceId'
-                      label={copy.editor.pricing.stripeYearlyPriceId}
-                      hint={copy.editor.pricing.stripeYearlyPriceIdHint}
-                      nullable
-                      blankHint={copy.editor.pricing.stripeYearlyPriceIdBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='stripeYearlyPriceId'
-                        name='stripeYearlyPriceId'
-                        aria-labelledby='stripeYearlyPriceId-label'
-                        defaultValue={initialValues.stripeYearlyPriceId}
-                      />
-                    </FieldShell>
-                  </div>
-                </div>
-
-                <div className='rounded-md border border-border/60 bg-background px-4 py-4'>
-                  <FieldShell
-                    id='stripeProductId'
-                    label={copy.editor.pricing.stripeProductId}
-                    hint={copy.editor.pricing.stripeProductIdHint}
-                    nullable
-                    blankHint={copy.editor.pricing.stripeProductIdBlank}
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Input
-                      id='stripeProductId'
-                      name='stripeProductId'
-                      aria-labelledby='stripeProductId-label'
-                      defaultValue={initialValues.stripeProductId}
-                    />
-                  </FieldShell>
-                </div>
-              </div>
-            </TierFormSection>
-
-            <TierFormSection
-              sectionId='access'
-              title={copy.editor.sections.access}
-              summary={sectionSummaries.access}
-              open={sectionState.access}
-              onOpenChange={(open) => onSectionStateChange('access', open)}
-              statusLabels={copy.editor.sectionStatuses}
-            >
-              <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
-                <SelectField
-                  id='ownerType'
-                  name='ownerType'
-                  label={copy.editor.access.ownerType}
-                  value={derivedAccessFields.ownerType}
-                  options={tierOwnerTypeOptions}
-                  hint={copy.editor.access.ownerTypeHint}
-                  onValueChange={(value) => onAccessFieldChange('ownerType', value)}
-                />
-                <SelectField
-                  id='usageScope'
-                  name='usageScope'
-                  label={copy.editor.access.usageScope}
-                  value={derivedAccessFields.usageScope}
-                  options={tierUsageScopeOptions}
-                  hint={copy.editor.access.usageScopeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
-                  onValueChange={(value) => onAccessFieldChange('usageScope', value)}
-                />
-                <SelectField
-                  id='seatMode'
-                  name='seatMode'
-                  label={copy.editor.access.seatMode}
-                  value={derivedAccessFields.seatMode}
-                  options={tierSeatModeOptions}
-                  hint={copy.editor.access.seatModeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
-                  onValueChange={(value) => onAccessFieldChange('seatMode', value)}
-                />
-                <SwitchField
-                  id='canEditUsageLimit'
-                  name='canEditUsageLimit'
-                  label={copy.editor.access.canEditUsageLimit}
-                  defaultChecked={initialValues.canEditUsageLimit}
-                  hint={copy.editor.access.canEditUsageLimitHint}
-                />
-                <SwitchField
-                  id='canConfigureSso'
-                  name='canConfigureSso'
-                  label={copy.editor.access.canConfigureSso}
-                  defaultChecked={initialValues.canConfigureSso}
-                  hint={copy.editor.access.canConfigureSsoHint}
-                />
-              </div>
-            </TierFormSection>
-
-            {derivedAccessFields.ownerType === 'organization' ? (
-              <TierFormSection
-                sectionId='seats'
-                title={copy.editor.sections.seats}
-                summary={sectionSummaries.seats}
-                open={sectionState.seats}
-                onOpenChange={(open) => onSectionStateChange('seats', open)}
-                statusLabels={copy.editor.sectionStatuses}
-              >
-                <div className='grid gap-4 md:grid-cols-2'>
-                  <FieldShell
-                    id='seatCount'
-                    label={copy.editor.seats.seatCount}
-                    hint={copy.editor.seats.seatCountHint}
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Input
-                      id='seatCount'
-                      name='seatCount'
-                      aria-labelledby='seatCount-label'
-                      type='number'
-                      defaultValue={initialValues.seatCount}
-                    />
-                  </FieldShell>
-                  <FieldShell
-                    id='seatMaximum'
-                    label={copy.editor.seats.seatMaximum}
-                    hint={copy.editor.seats.seatMaximumHint}
-                    nullable
-                    blankHint={copy.editor.seats.seatMaximumBlank}
-                    optionalLabel={copy.editor.optional}
-                    defaultBlankHint={copy.editor.defaultBlankHint}
-                  >
-                    <Input
-                      id='seatMaximum'
-                      name='seatMaximum'
-                      aria-labelledby='seatMaximum-label'
-                      type='number'
-                      defaultValue={initialValues.seatMaximum}
-                      disabled={derivedAccessFields.seatMode !== 'adjustable'}
-                    />
-                  </FieldShell>
-                </div>
-              </TierFormSection>
-            ) : null}
-
-            <TierFormSection
-              sectionId='limits'
-              title={copy.editor.sections.limits}
-              summary={sectionSummaries.limits}
-              open={sectionState.limits}
-              onOpenChange={(open) => onSectionStateChange('limits', open)}
-              statusLabels={copy.editor.sectionStatuses}
-            >
-              <div className='space-y-4'>
-                <div className='grid gap-4 xl:grid-cols-2'>
-                  <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                    <div className='space-y-1'>
-                      <p className='font-medium text-sm'>{copy.editor.limits.allowanceTitle}</p>
-                      <p className='text-muted-foreground text-xs leading-relaxed'>
-                        {copy.editor.limits.allowanceDescription}
-                      </p>
-                    </div>
-                    <div className='grid gap-4'>
-                      <FieldShell
-                        id='includedUsageLimitUsd'
-                        label={copy.editor.limits.includedUsage}
-                        hint={copy.editor.limits.includedUsageHint}
-                        nullable
-                        blankHint={copy.editor.limits.includedUsageBlank}
-                        optionalLabel={copy.editor.optional}
-                        defaultBlankHint={copy.editor.defaultBlankHint}
-                      >
-                        <Input
-                          id='includedUsageLimitUsd'
-                          name='includedUsageLimitUsd'
-                          aria-labelledby='includedUsageLimitUsd-label'
-                          type='number'
-                          step='0.01'
-                          defaultValue={initialValues.includedUsageLimitUsd}
-                        />
-                      </FieldShell>
-                      <FieldShell
-                        id='storageLimitGb'
-                        label={copy.editor.limits.storageLimit}
-                        hint={copy.editor.limits.storageLimitHint}
-                        nullable
-                        blankHint={copy.editor.limits.storageLimitBlank}
-                        optionalLabel={copy.editor.optional}
-                        defaultBlankHint={copy.editor.defaultBlankHint}
-                      >
-                        <Input
-                          id='storageLimitGb'
-                          name='storageLimitGb'
-                          aria-labelledby='storageLimitGb-label'
-                          type='number'
-                          defaultValue={initialValues.storageLimitGb}
-                        />
-                      </FieldShell>
-                      <FieldShell
-                        id='logRetentionDays'
-                        label={copy.editor.limits.logRetentionDays}
-                        hint={copy.editor.limits.logRetentionDaysHint}
-                        nullable
-                        blankHint={copy.editor.limits.logRetentionDaysBlank}
-                        optionalLabel={copy.editor.optional}
-                        defaultBlankHint={copy.editor.defaultBlankHint}
-                      >
-                        <Input
-                          id='logRetentionDays'
-                          name='logRetentionDays'
-                          aria-labelledby='logRetentionDays-label'
-                          type='number'
-                          defaultValue={initialValues.logRetentionDays}
-                        />
-                      </FieldShell>
-                    </div>
-                  </div>
-
-                  <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                    <div className='space-y-1'>
-                      <p className='font-medium text-sm'>{copy.editor.limits.throughputTitle}</p>
-                      <p className='text-muted-foreground text-xs leading-relaxed'>
-                        {copy.editor.limits.throughputDescription}
-                      </p>
-                    </div>
-                    <FieldShell
-                      id='concurrencyLimit'
-                      label={copy.editor.limits.concurrencyLimit}
-                      hint={copy.editor.limits.concurrencyLimitHint}
-                      nullable
-                      blankHint={copy.editor.limits.concurrencyLimitBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='concurrencyLimit'
-                        name='concurrencyLimit'
-                        aria-labelledby='concurrencyLimit-label'
-                        type='number'
-                        defaultValue={initialValues.concurrencyLimit}
-                      />
-                    </FieldShell>
-                    <div className='grid gap-4 md:grid-cols-2'>
-                      <FieldShell
-                        id='syncRateLimitPerMinute'
-                        label={copy.editor.limits.syncRateLimit}
-                        hint={copy.editor.limits.syncRateLimitHint}
-                        nullable
-                        blankHint={copy.editor.limits.syncRateLimitBlank}
-                        optionalLabel={copy.editor.optional}
-                        defaultBlankHint={copy.editor.defaultBlankHint}
-                      >
-                        <Input
-                          id='syncRateLimitPerMinute'
-                          name='syncRateLimitPerMinute'
-                          aria-labelledby='syncRateLimitPerMinute-label'
-                          type='number'
-                          defaultValue={initialValues.syncRateLimitPerMinute}
-                        />
-                      </FieldShell>
-                      <FieldShell
-                        id='asyncRateLimitPerMinute'
-                        label={copy.editor.limits.asyncRateLimit}
-                        hint={copy.editor.limits.asyncRateLimitHint}
-                        nullable
-                        blankHint={copy.editor.limits.asyncRateLimitBlank}
-                        optionalLabel={copy.editor.optional}
-                        defaultBlankHint={copy.editor.defaultBlankHint}
-                      >
-                        <Input
-                          id='asyncRateLimitPerMinute'
-                          name='asyncRateLimitPerMinute'
-                          aria-labelledby='asyncRateLimitPerMinute-label'
-                          type='number'
-                          defaultValue={initialValues.asyncRateLimitPerMinute}
-                        />
-                      </FieldShell>
-                    </div>
-                    <FieldShell
-                      id='apiEndpointRateLimitPerMinute'
-                      label={copy.editor.limits.apiRateLimit}
-                      hint={copy.editor.limits.apiRateLimitHint}
-                      nullable
-                      blankHint={copy.editor.limits.apiRateLimitBlank}
-                      optionalLabel={copy.editor.optional}
-                      defaultBlankHint={copy.editor.defaultBlankHint}
-                    >
-                      <Input
-                        id='apiEndpointRateLimitPerMinute'
-                        name='apiEndpointRateLimitPerMinute'
-                        aria-labelledby='apiEndpointRateLimitPerMinute-label'
-                        type='number'
-                        defaultValue={initialValues.apiEndpointRateLimitPerMinute}
-                      />
-                    </FieldShell>
-                  </div>
-                </div>
-              </div>
-            </TierFormSection>
-
-            <TierFormSection
-              sectionId='metering'
-              title={copy.editor.sections.metering}
-              summary={sectionSummaries.metering}
-              open={sectionState.metering}
-              onOpenChange={(open) => onSectionStateChange('metering', open)}
-              statusLabels={copy.editor.sectionStatuses}
-            >
-              <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
-                <FieldShell
-                  id='workflowExecutionMultiplier'
-                  label={copy.editor.metering.workflowExecutionMultiplier}
-                  hint={copy.editor.metering.workflowExecutionMultiplierHint}
-                  nullable
-                  blankHint={copy.editor.metering.workflowExecutionMultiplierBlank}
-                  optionalLabel={copy.editor.optional}
-                  defaultBlankHint={copy.editor.defaultBlankHint}
-                >
-                  <Input
-                    id='workflowExecutionMultiplier'
-                    name='workflowExecutionMultiplier'
-                    aria-labelledby='workflowExecutionMultiplier-label'
-                    type='number'
-                    step='0.01'
-                    defaultValue={initialValues.workflowExecutionMultiplier}
-                  />
-                </FieldShell>
-                <FieldShell
-                  id='workflowModelCostMultiplier'
-                  label={copy.editor.metering.workflowModelCostMultiplier}
-                  hint={copy.editor.metering.workflowModelCostMultiplierHint}
-                  nullable
-                  blankHint={copy.editor.metering.workflowModelCostMultiplierBlank}
-                  optionalLabel={copy.editor.optional}
-                  defaultBlankHint={copy.editor.defaultBlankHint}
-                >
-                  <Input
-                    id='workflowModelCostMultiplier'
-                    name='workflowModelCostMultiplier'
-                    aria-labelledby='workflowModelCostMultiplier-label'
-                    type='number'
-                    step='0.01'
-                    defaultValue={initialValues.workflowModelCostMultiplier}
-                  />
-                </FieldShell>
-                <FieldShell
-                  id='functionExecutionMultiplier'
-                  label={copy.editor.metering.functionExecutionMultiplier}
-                  hint={copy.editor.metering.functionExecutionMultiplierHint}
-                  nullable
-                  blankHint={copy.editor.metering.functionExecutionMultiplierBlank}
-                  optionalLabel={copy.editor.optional}
-                  defaultBlankHint={copy.editor.defaultBlankHint}
-                >
-                  <Input
-                    id='functionExecutionMultiplier'
-                    name='functionExecutionMultiplier'
-                    aria-labelledby='functionExecutionMultiplier-label'
-                    type='number'
-                    step='0.0001'
-                    defaultValue={initialValues.functionExecutionMultiplier}
-                  />
-                </FieldShell>
-                <FieldShell
-                  id='copilotCostMultiplier'
-                  label={copy.editor.metering.copilotCostMultiplier}
-                  hint={copy.editor.metering.copilotCostMultiplierHint}
-                  nullable
-                  blankHint={copy.editor.metering.copilotCostMultiplierBlank}
-                  optionalLabel={copy.editor.optional}
-                  defaultBlankHint={copy.editor.defaultBlankHint}
-                >
-                  <Input
-                    id='copilotCostMultiplier'
-                    name='copilotCostMultiplier'
-                    aria-labelledby='copilotCostMultiplier-label'
-                    type='number'
-                    step='0.01'
-                    defaultValue={initialValues.copilotCostMultiplier}
-                  />
-                </FieldShell>
-              </div>
-            </TierFormSection>
+    <div>
+      <TierFormSection
+        sectionId='general'
+        title={copy.editor.sections.general}
+        summary={sectionSummaries.general}
+        open={sectionState.general}
+        onOpenChange={(open) => onSectionStateChange('general', open)}
+        statusLabels={copy.editor.sectionStatuses}
+      >
+        <div className='space-y-4'>
+          <div className='space-y-3'>
+            <FieldHint>{copy.editor.general.intro}</FieldHint>
+            <div className='grid gap-3 md:grid-cols-2'>
+              <SwitchField
+                id='isPublic'
+                name='isPublic'
+                label={copy.editor.general.publicTier}
+                defaultChecked={initialValues.isPublic}
+              />
+              <SwitchField
+                id='isDefault'
+                name='isDefault'
+                label={copy.editor.general.defaultTier}
+                defaultChecked={initialValues.isDefault}
+              />
+            </div>
+            <FieldHint>{copy.editor.general.defaultRules}</FieldHint>
           </div>
-          {footer ? (
-            <div className='border-border/60 border-t px-4 py-4 sm:px-5'>{footer}</div>
-          ) : null}
-        </fieldset>
-      </form>
+
+          <div className='grid gap-3 md:grid-cols-12'>
+            <FieldShell
+              id='displayName'
+              label={copy.editor.general.displayName}
+              hint={copy.editor.general.displayNameHint}
+              className='md:col-span-7'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input
+                id='displayName'
+                name='displayName'
+                defaultValue={initialValues.displayName}
+                className='h-9'
+                required
+              />
+            </FieldShell>
+            <FieldShell
+              id='status'
+              label={copy.editor.general.status}
+              hint={copy.editor.general.statusHint}
+              className='md:col-span-3'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Select name='status' defaultValue={initialValues.status}>
+                <SelectTrigger id='status' className='h-9'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {tierStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FieldShell>
+            <FieldShell
+              id='displayOrder'
+              label={copy.editor.general.displayOrder}
+              hint={copy.editor.general.displayOrderHint}
+              className='md:col-span-2'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input
+                id='displayOrder'
+                name='displayOrder'
+                type='number'
+                defaultValue={initialValues.displayOrder}
+                className='h-9'
+              />
+            </FieldShell>
+          </div>
+
+          <div className='grid gap-3 md:grid-cols-2'>
+            <FieldShell
+              id='description'
+              label={copy.editor.general.description}
+              hint={copy.editor.general.descriptionHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Textarea
+                id='description'
+                name='description'
+                defaultValue={initialValues.description}
+                rows={3}
+                className='min-h-[112px]'
+                required
+              />
+            </FieldShell>
+            <FieldShell
+              id='pricingFeatures'
+              label={copy.editor.general.pricingFeatures}
+              hint={copy.editor.general.pricingFeaturesHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Textarea
+                id='pricingFeatures'
+                name='pricingFeatures'
+                defaultValue={initialValues.pricingFeatures}
+                rows={3}
+                className='min-h-[112px]'
+              />
+            </FieldShell>
+          </div>
+        </div>
+      </TierFormSection>
+
+      <TierFormSection
+        sectionId='pricing'
+        title={copy.editor.sections.pricing}
+        summary={sectionSummaries.pricing}
+        open={sectionState.pricing}
+        onOpenChange={(open) => onSectionStateChange('pricing', open)}
+        statusLabels={copy.editor.sectionStatuses}
+      >
+        <div className='space-y-4'>
+          <div className='grid gap-4 xl:grid-cols-2'>
+            <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
+              <div className='space-y-1'>
+                <p className='font-medium text-sm'>{copy.editor.pricing.monthlyTitle}</p>
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {copy.editor.pricing.monthlyDescription}
+                </p>
+              </div>
+              <FieldShell
+                id='monthlyPriceUsd'
+                label={copy.editor.pricing.monthlyPrice}
+                hint={copy.editor.pricing.monthlyPriceHint}
+                nullable
+                blankHint={copy.editor.pricing.monthlyBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='monthlyPriceUsd'
+                  name='monthlyPriceUsd'
+                  type='number'
+                  step='0.01'
+                  defaultValue={initialValues.monthlyPriceUsd}
+                />
+              </FieldShell>
+              <FieldShell
+                id='stripeMonthlyPriceId'
+                label={copy.editor.pricing.stripeMonthlyPriceId}
+                hint={copy.editor.pricing.stripeMonthlyPriceIdHint}
+                nullable
+                blankHint={copy.editor.pricing.stripeMonthlyPriceIdBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='stripeMonthlyPriceId'
+                  name='stripeMonthlyPriceId'
+                  defaultValue={initialValues.stripeMonthlyPriceId}
+                />
+              </FieldShell>
+            </div>
+
+            <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
+              <div className='space-y-1'>
+                <p className='font-medium text-sm'>{copy.editor.pricing.yearlyTitle}</p>
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {copy.editor.pricing.yearlyDescription}
+                </p>
+              </div>
+              <FieldShell
+                id='yearlyPriceUsd'
+                label={copy.editor.pricing.yearlyPrice}
+                hint={copy.editor.pricing.yearlyPriceHint}
+                nullable
+                blankHint={copy.editor.pricing.yearlyBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='yearlyPriceUsd'
+                  name='yearlyPriceUsd'
+                  type='number'
+                  step='0.01'
+                  defaultValue={initialValues.yearlyPriceUsd}
+                />
+              </FieldShell>
+              <FieldShell
+                id='stripeYearlyPriceId'
+                label={copy.editor.pricing.stripeYearlyPriceId}
+                hint={copy.editor.pricing.stripeYearlyPriceIdHint}
+                nullable
+                blankHint={copy.editor.pricing.stripeYearlyPriceIdBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='stripeYearlyPriceId'
+                  name='stripeYearlyPriceId'
+                  defaultValue={initialValues.stripeYearlyPriceId}
+                />
+              </FieldShell>
+            </div>
+          </div>
+
+          <div className='rounded-md border border-border/60 bg-background px-4 py-4'>
+            <FieldShell
+              id='stripeProductId'
+              label={copy.editor.pricing.stripeProductId}
+              hint={copy.editor.pricing.stripeProductIdHint}
+              nullable
+              blankHint={copy.editor.pricing.stripeProductIdBlank}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input
+                id='stripeProductId'
+                name='stripeProductId'
+                defaultValue={initialValues.stripeProductId}
+              />
+            </FieldShell>
+          </div>
+        </div>
+      </TierFormSection>
+
+      <TierFormSection
+        sectionId='access'
+        title={copy.editor.sections.access}
+        summary={sectionSummaries.access}
+        open={sectionState.access}
+        onOpenChange={(open) => onSectionStateChange('access', open)}
+        statusLabels={copy.editor.sectionStatuses}
+      >
+        <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
+          <SelectField
+            id='ownerType'
+            name='ownerType'
+            label={copy.editor.access.ownerType}
+            value={derivedAccessFields.ownerType}
+            options={tierOwnerTypeOptions}
+            hint={copy.editor.access.ownerTypeHint}
+            onValueChange={(value) => onAccessFieldChange('ownerType', value)}
+          />
+          <SelectField
+            id='usageScope'
+            name='usageScope'
+            label={copy.editor.access.usageScope}
+            value={derivedAccessFields.usageScope}
+            options={tierUsageScopeOptions}
+            hint={copy.editor.access.usageScopeHint}
+            disabled={derivedAccessFields.ownerType === 'user'}
+            onValueChange={(value) => onAccessFieldChange('usageScope', value)}
+          />
+          <SelectField
+            id='seatMode'
+            name='seatMode'
+            label={copy.editor.access.seatMode}
+            value={derivedAccessFields.seatMode}
+            options={tierSeatModeOptions}
+            hint={copy.editor.access.seatModeHint}
+            disabled={derivedAccessFields.ownerType === 'user'}
+            onValueChange={(value) => onAccessFieldChange('seatMode', value)}
+          />
+          <SwitchField
+            id='canEditUsageLimit'
+            name='canEditUsageLimit'
+            label={copy.editor.access.canEditUsageLimit}
+            defaultChecked={initialValues.canEditUsageLimit}
+            hint={copy.editor.access.canEditUsageLimitHint}
+          />
+          <SwitchField
+            id='canConfigureSso'
+            name='canConfigureSso'
+            label={copy.editor.access.canConfigureSso}
+            defaultChecked={initialValues.canConfigureSso}
+            hint={copy.editor.access.canConfigureSsoHint}
+          />
+          {!previewValues.isPublic ? (
+            <FieldShell
+              id='accessCode'
+              label={copy.editor.access.accessCode}
+              hint={copy.editor.access.accessCodeHint}
+              nullable
+              blankHint={copy.editor.access.accessCodeBlank}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input id='accessCode' name='accessCode' defaultValue={initialValues.accessCode} />
+            </FieldShell>
+          ) : (
+            <input type='hidden' name='accessCode' value='' />
+          )}
+        </div>
+      </TierFormSection>
+
+      {derivedAccessFields.ownerType === 'organization' ? (
+        <TierFormSection
+          sectionId='seats'
+          title={copy.editor.sections.seats}
+          summary={sectionSummaries.seats}
+          open={sectionState.seats}
+          onOpenChange={(open) => onSectionStateChange('seats', open)}
+          statusLabels={copy.editor.sectionStatuses}
+        >
+          <div className='grid gap-4 md:grid-cols-2'>
+            <FieldShell
+              id='seatCount'
+              label={copy.editor.seats.seatCount}
+              hint={copy.editor.seats.seatCountHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input
+                id='seatCount'
+                name='seatCount'
+                type='number'
+                defaultValue={initialValues.seatCount}
+              />
+            </FieldShell>
+            <FieldShell
+              id='seatMaximum'
+              label={copy.editor.seats.seatMaximum}
+              hint={copy.editor.seats.seatMaximumHint}
+              nullable
+              blankHint={copy.editor.seats.seatMaximumBlank}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
+              <Input
+                id='seatMaximum'
+                name='seatMaximum'
+                type='number'
+                defaultValue={initialValues.seatMaximum}
+                disabled={derivedAccessFields.seatMode !== 'adjustable'}
+              />
+            </FieldShell>
+          </div>
+        </TierFormSection>
+      ) : null}
+
+      <TierFormSection
+        sectionId='limits'
+        title={copy.editor.sections.limits}
+        summary={sectionSummaries.limits}
+        open={sectionState.limits}
+        onOpenChange={(open) => onSectionStateChange('limits', open)}
+        statusLabels={copy.editor.sectionStatuses}
+      >
+        <div className='space-y-4'>
+          <div className='grid gap-4 xl:grid-cols-2'>
+            <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
+              <div className='space-y-1'>
+                <p className='font-medium text-sm'>{copy.editor.limits.allowanceTitle}</p>
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {copy.editor.limits.allowanceDescription}
+                </p>
+              </div>
+              <div className='grid gap-4'>
+                <FieldShell
+                  id='includedUsageLimitUsd'
+                  label={copy.editor.limits.includedUsage}
+                  hint={copy.editor.limits.includedUsageHint}
+                  nullable
+                  blankHint={copy.editor.limits.includedUsageBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='includedUsageLimitUsd'
+                    name='includedUsageLimitUsd'
+                    type='number'
+                    step='0.01'
+                    defaultValue={initialValues.includedUsageLimitUsd}
+                  />
+                </FieldShell>
+                <FieldShell
+                  id='storageLimitGb'
+                  label={copy.editor.limits.storageLimit}
+                  hint={copy.editor.limits.storageLimitHint}
+                  nullable
+                  blankHint={copy.editor.limits.storageLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='storageLimitGb'
+                    name='storageLimitGb'
+                    type='number'
+                    defaultValue={initialValues.storageLimitGb}
+                  />
+                </FieldShell>
+                <FieldShell
+                  id='logRetentionDays'
+                  label={copy.editor.limits.logRetentionDays}
+                  hint={copy.editor.limits.logRetentionDaysHint}
+                  nullable
+                  blankHint={copy.editor.limits.logRetentionDaysBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='logRetentionDays'
+                    name='logRetentionDays'
+                    type='number'
+                    defaultValue={initialValues.logRetentionDays}
+                  />
+                </FieldShell>
+              </div>
+            </div>
+
+            <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
+              <div className='space-y-1'>
+                <p className='font-medium text-sm'>{copy.editor.limits.throughputTitle}</p>
+                <p className='text-muted-foreground text-xs leading-relaxed'>
+                  {copy.editor.limits.throughputDescription}
+                </p>
+              </div>
+              <FieldShell
+                id='concurrencyLimit'
+                label={copy.editor.limits.concurrencyLimit}
+                hint={copy.editor.limits.concurrencyLimitHint}
+                nullable
+                blankHint={copy.editor.limits.concurrencyLimitBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='concurrencyLimit'
+                  name='concurrencyLimit'
+                  type='number'
+                  defaultValue={initialValues.concurrencyLimit}
+                />
+              </FieldShell>
+              <FieldShell
+                id='workflowExecutionTimeLimitSeconds'
+                label={copy.editor.limits.workflowExecutionTimeLimit}
+                hint={copy.editor.limits.workflowExecutionTimeLimitHint}
+                nullable
+                blankHint={copy.editor.limits.workflowExecutionTimeLimitBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='workflowExecutionTimeLimitSeconds'
+                  name='workflowExecutionTimeLimitSeconds'
+                  type='number'
+                  min='0'
+                  step='any'
+                  defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
+                />
+              </FieldShell>
+              <div className='grid gap-4 md:grid-cols-2'>
+                <FieldShell
+                  id='syncRateLimitPerMinute'
+                  label={copy.editor.limits.syncRateLimit}
+                  hint={copy.editor.limits.syncRateLimitHint}
+                  nullable
+                  blankHint={copy.editor.limits.syncRateLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='syncRateLimitPerMinute'
+                    name='syncRateLimitPerMinute'
+                    type='number'
+                    defaultValue={initialValues.syncRateLimitPerMinute}
+                  />
+                </FieldShell>
+                <FieldShell
+                  id='asyncRateLimitPerMinute'
+                  label={copy.editor.limits.asyncRateLimit}
+                  hint={copy.editor.limits.asyncRateLimitHint}
+                  nullable
+                  blankHint={copy.editor.limits.asyncRateLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='asyncRateLimitPerMinute'
+                    name='asyncRateLimitPerMinute'
+                    type='number'
+                    defaultValue={initialValues.asyncRateLimitPerMinute}
+                  />
+                </FieldShell>
+              </div>
+              <FieldShell
+                id='apiEndpointRateLimitPerMinute'
+                label={copy.editor.limits.apiRateLimit}
+                hint={copy.editor.limits.apiRateLimitHint}
+                nullable
+                blankHint={copy.editor.limits.apiRateLimitBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
+              >
+                <Input
+                  id='apiEndpointRateLimitPerMinute'
+                  name='apiEndpointRateLimitPerMinute'
+                  type='number'
+                  defaultValue={initialValues.apiEndpointRateLimitPerMinute}
+                />
+              </FieldShell>
+            </div>
+          </div>
+        </div>
+      </TierFormSection>
+
+      <TierFormSection
+        sectionId='metering'
+        title={copy.editor.sections.metering}
+        summary={sectionSummaries.metering}
+        open={sectionState.metering}
+        onOpenChange={(open) => onSectionStateChange('metering', open)}
+        statusLabels={copy.editor.sectionStatuses}
+      >
+        <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
+          <FieldShell
+            id='workflowExecutionMultiplier'
+            label={copy.editor.metering.workflowExecutionMultiplier}
+            hint={copy.editor.metering.workflowExecutionMultiplierHint}
+            nullable
+            blankHint={copy.editor.metering.workflowExecutionMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
+          >
+            <Input
+              id='workflowExecutionMultiplier'
+              name='workflowExecutionMultiplier'
+              type='number'
+              step='0.01'
+              defaultValue={initialValues.workflowExecutionMultiplier}
+            />
+          </FieldShell>
+          <FieldShell
+            id='workflowModelCostMultiplier'
+            label={copy.editor.metering.workflowModelCostMultiplier}
+            hint={copy.editor.metering.workflowModelCostMultiplierHint}
+            nullable
+            blankHint={copy.editor.metering.workflowModelCostMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
+          >
+            <Input
+              id='workflowModelCostMultiplier'
+              name='workflowModelCostMultiplier'
+              type='number'
+              step='0.01'
+              defaultValue={initialValues.workflowModelCostMultiplier}
+            />
+          </FieldShell>
+          <FieldShell
+            id='functionExecutionMultiplier'
+            label={copy.editor.metering.functionExecutionMultiplier}
+            hint={copy.editor.metering.functionExecutionMultiplierHint}
+            nullable
+            blankHint={copy.editor.metering.functionExecutionMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
+          >
+            <Input
+              id='functionExecutionMultiplier'
+              name='functionExecutionMultiplier'
+              type='number'
+              step='0.0001'
+              defaultValue={initialValues.functionExecutionMultiplier}
+            />
+          </FieldShell>
+          <FieldShell
+            id='copilotCostMultiplier'
+            label={copy.editor.metering.copilotCostMultiplier}
+            hint={copy.editor.metering.copilotCostMultiplierHint}
+            nullable
+            blankHint={copy.editor.metering.copilotCostMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
+          >
+            <Input
+              id='copilotCostMultiplier'
+              name='copilotCostMultiplier'
+              type='number'
+              step='0.01'
+              defaultValue={initialValues.copilotCostMultiplier}
+            />
+          </FieldShell>
+        </div>
+      </TierFormSection>
     </div>
   )
 }
@@ -1631,6 +1628,55 @@ export function TierEditorHeaderCenter({
           <span className='font-medium text-[11px] text-foreground'>{stat.value}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+export function TierEditorFormSurface({
+  copy,
+  locale,
+  formId,
+  initialValues,
+  previewValues,
+  sectionState,
+  onSectionStateChange,
+  onAccessFieldChange,
+  disabled,
+  onSubmit,
+  onFormChange,
+  footer,
+}: {
+  copy: AdminBillingCopy
+  locale: LocaleCode | string
+  formId: string
+  initialValues: TierFormDefaults
+  previewValues: TierFormDefaults
+  sectionState: TierEditorSectionState
+  onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
+  onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
+  disabled: boolean
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onFormChange: (event: FormEvent<HTMLFormElement>) => void
+  footer?: ReactNode
+}) {
+  return (
+    <div className='overflow-hidden rounded-lg border border-border bg-background'>
+      <form id={formId} onSubmit={onSubmit} onChange={onFormChange}>
+        <fieldset disabled={disabled}>
+          <TierFormFields
+            copy={copy}
+            locale={locale}
+            initialValues={initialValues}
+            previewValues={previewValues}
+            sectionState={sectionState}
+            onSectionStateChange={onSectionStateChange}
+            onAccessFieldChange={onAccessFieldChange}
+          />
+          {footer ? (
+            <div className='border-border/60 border-t px-4 py-4 sm:px-5'>{footer}</div>
+          ) : null}
+        </fieldset>
+      </form>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import {
+  type EnterprisePlaceholderDisplay,
   GENERIC_ENTERPRISE_PLACEHOLDER_DESCRIPTION,
   GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES,
   type PublicBillingCatalog,
@@ -6,7 +7,11 @@ import {
 } from '@/lib/billing/public-catalog'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
-import { getHiddenEnterprisePlaceholderTier, getPublicBillingTiers } from '@/lib/billing/tiers'
+import {
+  getHiddenEnterprisePlaceholderTier,
+  getPublicBillingTiers,
+  hasPrivateBillingTiers,
+} from '@/lib/billing/tiers'
 
 function toTierDisplay(tier: BillingTierRecord): PublicBillingTierDisplay {
   return {
@@ -49,5 +54,19 @@ export async function getPublicBillingCatalog(): Promise<PublicBillingCatalog> {
           contactUrl: settings.enterpriseContactUrl,
         }
       : null,
+  }
+}
+
+export async function getModalEnterpriseContactCard(): Promise<EnterprisePlaceholderDisplay | null> {
+  const [settings, hasPrivateTiers] = await Promise.all([
+    getResolvedBillingSettings().catch(() => ({ enterpriseContactUrl: null })),
+    hasPrivateBillingTiers({ statuses: ['draft', 'active', 'archived'] }),
+  ])
+  if (!hasPrivateTiers) return null
+  return {
+    displayName: 'Enterprise',
+    description: GENERIC_ENTERPRISE_PLACEHOLDER_DESCRIPTION,
+    pricingFeatures: GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES,
+    contactUrl: settings.enterpriseContactUrl,
   }
 }

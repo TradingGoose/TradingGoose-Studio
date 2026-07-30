@@ -39,6 +39,14 @@ describe('WorkflowBlockHandler', () => {
       workspaceId: 'test-workspace-id',
       userId: 'user-1',
       executionId: 'execution-1',
+      workflowOperationId: 'operation-1',
+      publishWorkflowOperationIdentity: vi.fn().mockResolvedValue(undefined),
+      workflowExecutionTimePolicy: {
+        kind: 'unlimited',
+        rootExecutionId: 'execution-1',
+        appliedTierId: 'tier-1',
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+      },
       workflowDepth: 0,
       triggerType: 'manual',
       blockStates: new Map(),
@@ -123,6 +131,12 @@ describe('WorkflowBlockHandler', () => {
 
     const result = await (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
 
+    expect(mockContext.publishWorkflowOperationIdentity).toHaveBeenCalledWith('operation-1', {
+      adapterKind: 'workflow',
+      capability: 'native_cancel_status',
+      remoteOperationId: 'job-1',
+      observation: { childWorkflowName: 'Child Workflow' },
+    })
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       'http://localhost:3000/api/workflows/child-workflow-id/queue',
@@ -167,6 +181,8 @@ describe('WorkflowBlockHandler', () => {
         parentWorkflowId: 'parent-workflow-id',
         parentExecutionId: 'execution-1',
         parentBlockId: 'workflow-block-1',
+        parentOperationId: 'operation-1',
+        workflowExecutionTimePolicy: mockContext.workflowExecutionTimePolicy,
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
@@ -223,6 +239,10 @@ describe('WorkflowBlockHandler', () => {
           }),
       } as Response)
       .mockResolvedValueOnce({ ok: true } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'failed', error: 'cancelled' }),
+      } as Response)
 
     const deferred = await handler.execute(
       mockBlock,
@@ -248,14 +268,11 @@ describe('WorkflowBlockHandler', () => {
         }),
       })
     )
-    expect(generateInternalToken).toHaveBeenCalledTimes(2)
+    expect(generateInternalToken).toHaveBeenCalledTimes(3)
   })
 
-  it('cancels queued child workflows when child polling reaches its deadline', async () => {
+  it('does not impose a separate timeout while polling queued child workflows', async () => {
     vi.useFakeTimers()
-    const nowSpy = vi.spyOn(Date, 'now')
-    let now = 0
-    nowSpy.mockImplementation(() => now)
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -268,9 +285,8 @@ describe('WorkflowBlockHandler', () => {
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ status: 'processing' }),
+        json: () => Promise.resolve({ status: 'completed', output: { success: true } }),
       } as Response)
-      .mockResolvedValueOnce({ ok: true } as Response)
 
     try {
       const deferred = await handler.execute(
@@ -280,23 +296,12 @@ describe('WorkflowBlockHandler', () => {
       )
 
       const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-      const errorPromise = waitPromise.catch((error) => error as Error)
       await vi.advanceTimersByTimeAsync(0)
-      now = 30 * 60 * 1000 + 1
       await vi.advanceTimersByTimeAsync(1_000)
 
-      await expect(errorPromise).resolves.toMatchObject({
-        message: expect.stringContaining('Child workflow execution timed out'),
-      })
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        3,
-        'http://localhost:3000/api/jobs/job-4',
-        expect.objectContaining({
-          method: 'DELETE',
-        })
-      )
+      await expect(waitPromise).resolves.toMatchObject({ success: true })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
-      nowSpy.mockRestore()
       vi.useRealTimers()
     }
   })

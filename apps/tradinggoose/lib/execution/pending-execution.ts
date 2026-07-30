@@ -1,5 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import {
+  pendingExecution,
+  workflowExecutionLogs,
+  workflowExecutionOperation,
+  workflowExecutionTerminal,
+} from '@tradinggoose/db/schema'
 import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
@@ -11,14 +16,17 @@ import {
   triggerPendingExecutionDrain,
   wakePendingExecutionDrain,
 } from '@/lib/execution/pending-execution-drain-wake'
+import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import { captureClaimedWorkflowLifecycleInTransaction } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
+import { requireDatabaseDate } from './database-date'
+import { isWorkflowExecutionTimePolicy } from './workflow-execution-time-policy'
 
 export {
   PENDING_EXECUTION_DRAIN_TASK_ID,
   triggerPendingExecutionDrain,
 } from '@/lib/execution/pending-execution-drain-wake'
 
-const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 
@@ -63,6 +71,7 @@ type PendingExecutionRow = {
 
 export type PendingExecutionClaim = PendingExecutionRow & {
   payload: PendingExecutionPayload
+  lifecycle?: WorkflowExecutionLifecycle
 }
 
 export type PendingExecutionClaimResult =
@@ -93,30 +102,6 @@ export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
     maxPendingAgeSeconds: tier.maxPendingAgeSeconds ?? null,
     maxPendingCount: tier.maxPendingCount ?? null,
   }
-}
-
-async function getConcurrencyLimitForPendingExecution(
-  row: Pick<PendingExecutionRow, 'billingScopeId' | 'billingScopeType'>
-): Promise<number | null> {
-  const tier = await resolveServerExecutionBillingTierForScope({
-    scopeId: row.billingScopeId,
-    scopeType: row.billingScopeType,
-  })
-
-  if (!tier) {
-    return null
-  }
-
-  const limit = tier.concurrencyLimit
-  if (limit === null) {
-    return null
-  }
-
-  if (limit < 0) {
-    throw new Error(`Billing tier ${tier.displayName} is missing concurrencyLimit`)
-  }
-
-  return limit
 }
 
 export function isPendingExecutionPayload(value: unknown): value is PendingExecutionPayload {
@@ -166,6 +151,53 @@ export async function enqueuePendingExecution(
     await tx.execute(
       sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
     )
+    let parentOperationId: string | null = null
+    if (params.source === WORKFLOW_BLOCK_SOURCE) {
+      const metadata =
+        params.payload.metadata &&
+        typeof params.payload.metadata === 'object' &&
+        !Array.isArray(params.payload.metadata)
+          ? (params.payload.metadata as Record<string, unknown>)
+          : {}
+      const policy = isWorkflowExecutionTimePolicy(metadata.workflowExecutionTimePolicy)
+        ? metadata.workflowExecutionTimePolicy
+        : null
+      parentOperationId =
+        typeof metadata.parentOperationId === 'string' ? metadata.parentOperationId : null
+      if (!policy || !parentOperationId) {
+        throw new Error('Nested workflow enqueue is missing its inherited lifecycle context')
+      }
+      await tx.execute(
+        sql`select ${workflowExecutionTerminal.rootExecutionId}
+            from ${workflowExecutionTerminal}
+            where ${workflowExecutionTerminal.rootExecutionId} = ${policy.rootExecutionId}
+            for update`
+      )
+      const [root] = await tx
+        .select()
+        .from(workflowExecutionTerminal)
+        .where(eq(workflowExecutionTerminal.rootExecutionId, policy.rootExecutionId))
+        .limit(1)
+      const [operation] = await tx
+        .select()
+        .from(workflowExecutionOperation)
+        .where(eq(workflowExecutionOperation.id, parentOperationId))
+        .limit(1)
+      if (
+        !root ||
+        root.state !== 'running' ||
+        !root.dispatchOpen ||
+        root.policyState !== policy.kind ||
+        root.appliedTierId !== policy.appliedTierId ||
+        root.processingStartedAt?.toISOString() !== policy.processingStartedAt ||
+        (policy.kind === 'bounded' && root.limitSeconds !== policy.limitSeconds) ||
+        !operation ||
+        operation.rootExecutionId !== policy.rootExecutionId ||
+        !['registered', 'running'].includes(operation.state)
+      ) {
+        throw new Error('Nested workflow admission is closed')
+      }
+    }
 
     if (limits.maxPendingAgeSeconds !== null) {
       const staleBefore = new Date(Date.now() - limits.maxPendingAgeSeconds * 1000)
@@ -253,6 +285,20 @@ export async function enqueuePendingExecution(
       workspaceId: params.workspaceId ?? null,
       payload: params.payload,
     })
+    if (parentOperationId) {
+      await tx
+        .update(workflowExecutionOperation)
+        .set({
+          remoteOperationId: params.pendingExecutionId,
+          updatedAt: sql`clock_timestamp()`,
+        })
+        .where(
+          and(
+            eq(workflowExecutionOperation.id, parentOperationId),
+            sql`${workflowExecutionOperation.remoteOperationId} is null`
+          )
+        )
+    }
     inserted = true
   })
 
@@ -296,28 +342,13 @@ export async function enqueuePendingExecution(
 }
 
 export async function claimNextPendingExecution(
-  billingScopeId: string
+  billingScopeId: string,
+  drainRunId?: string
 ): Promise<PendingExecutionClaimResult> {
-  const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
     )
-
-    await tx
-      .update(pendingExecution)
-      .set({
-        status: 'pending',
-        processingStartedAt: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(pendingExecution.billingScopeId, billingScopeId),
-          eq(pendingExecution.status, 'processing'),
-          lte(pendingExecution.processingStartedAt, staleBefore)
-        )
-      )
 
     const [candidate] = await tx
       .select()
@@ -326,7 +357,8 @@ export async function claimNextPendingExecution(
         and(
           eq(pendingExecution.billingScopeId, billingScopeId),
           eq(pendingExecution.status, 'pending'),
-          lte(pendingExecution.nextAttemptAt, new Date())
+          sql`${pendingExecution.payload}->>'cancelRequestedAt' is null`,
+          sql`${pendingExecution.nextAttemptAt} <= clock_timestamp()`
         )
       )
       .orderBy(
@@ -341,8 +373,13 @@ export async function claimNextPendingExecution(
     }
 
     let claimCandidate = candidate
+    let resolvedTier: BillingTierRecord | null | undefined
     if (!usesParentExecutionCapacity(candidate)) {
-      const concurrencyLimit = await getConcurrencyLimitForPendingExecution(candidate)
+      resolvedTier = await resolveServerExecutionBillingTierForScope({
+        scopeId: candidate.billingScopeId,
+        scopeType: candidate.billingScopeType,
+      })
+      const concurrencyLimit = resolvedTier?.concurrencyLimit ?? null
 
       if (concurrencyLimit !== null) {
         const [activeRow] = await tx
@@ -367,7 +404,8 @@ export async function claimNextPendingExecution(
                 eq(pendingExecution.billingScopeId, billingScopeId),
                 eq(pendingExecution.status, 'pending'),
                 eq(pendingExecution.source, WORKFLOW_BLOCK_SOURCE),
-                lte(pendingExecution.nextAttemptAt, new Date())
+                sql`${pendingExecution.payload}->>'cancelRequestedAt' is null`,
+                sql`${pendingExecution.nextAttemptAt} <= clock_timestamp()`
               )
             )
             .orderBy(
@@ -385,15 +423,52 @@ export async function claimNextPendingExecution(
       }
     }
 
+    const clockRows = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const processingStartedAt = requireDatabaseDate(
+      clockRows?.[0]?.now,
+      'processing-start timestamp'
+    )
+    let lifecycle: WorkflowExecutionLifecycle | undefined
+    if (
+      claimCandidate.executionType !== 'document' &&
+      claimCandidate.source !== 'monitor:indicator:calculation' &&
+      claimCandidate.workflowId &&
+      claimCandidate.workspaceId
+    ) {
+      const tier =
+        resolvedTier ??
+        (claimCandidate.source === WORKFLOW_BLOCK_SOURCE
+          ? null
+          : await resolveServerExecutionBillingTierForScope({
+              scopeId: claimCandidate.billingScopeId,
+              scopeType: claimCandidate.billingScopeType,
+            }))
+      lifecycle = await captureClaimedWorkflowLifecycleInTransaction({
+        tx,
+        pending: {
+          ...claimCandidate,
+          workflowId: claimCandidate.workflowId,
+          workspaceId: claimCandidate.workspaceId,
+        },
+        processingStartedAt,
+        drainRunId,
+        tier,
+      })
+    }
+
     const [claimed] = await tx
       .update(pendingExecution)
       .set({
         status: 'processing',
-        processingStartedAt: new Date(),
-        updatedAt: new Date(),
+        processingStartedAt,
+        updatedAt: processingStartedAt,
       })
       .where(
-        and(eq(pendingExecution.id, claimCandidate.id), eq(pendingExecution.status, 'pending'))
+        and(
+          eq(pendingExecution.id, claimCandidate.id),
+          eq(pendingExecution.status, 'pending'),
+          sql`${pendingExecution.payload}->>'cancelRequestedAt' is null`
+        )
       )
       .returning()
 
@@ -411,7 +486,10 @@ export async function claimNextPendingExecution(
       }
     }
 
-    return { status: 'claimed', row: claimed as PendingExecutionClaim }
+    return {
+      status: 'claimed',
+      row: { ...(claimed as PendingExecutionClaim), lifecycle },
+    }
   })
 }
 
@@ -430,7 +508,7 @@ export async function isPendingWorkflowExecutionCancellationRequested(pendingExe
   return typeof payload.cancelRequestedAt === 'string'
 }
 
-export async function completePendingExecution(params: { pendingExecutionId: string }) {
+async function deleteCompletedPendingExecution(params: { pendingExecutionId: string }) {
   // The queue row is the active capacity marker; terminal state belongs to the execution owner.
   const [deleted] = await db
     .delete(pendingExecution)
@@ -442,4 +520,12 @@ export async function completePendingExecution(params: { pendingExecutionId: str
       billingScopeId: deleted.billingScopeId,
     })
   }
+}
+
+export async function completePendingExecution(params: { pendingExecutionId: string }) {
+  return deleteCompletedPendingExecution(params)
+}
+
+export async function settleIndicatorCalculationPendingExecution(pendingExecutionId: string) {
+  return deleteCompletedPendingExecution({ pendingExecutionId })
 }

@@ -1,3 +1,7 @@
+import type {
+  WorkflowDeadlineMetadata,
+  WorkflowExecutionTimePolicy,
+} from '@/lib/execution/workflow-execution-time-policy'
 import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { BlockOutput } from '@/blocks/types'
@@ -188,6 +192,24 @@ export interface ExecutionContext {
 
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
+  workflowExecutionTimePolicy?: WorkflowExecutionTimePolicy
+  workflowDeadlineSignal?: AbortSignal
+  registerWorkflowOperation?: (blockId: string, handlerType: string) => Promise<string>
+  workflowOperationId?: string
+  publishWorkflowOperationIdentity?: (
+    operationId: string,
+    identity: {
+      adapterKind: string
+      capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
+      remoteOperationId: string
+      observation?: Record<string, unknown>
+    }
+  ) => Promise<void>
+  completeWorkflowOperation?: (
+    operationId: string,
+    state: 'canceled' | 'completed' | 'failed' | 'local_abort'
+  ) => Promise<void>
+  setWorkflowParticipantWaiting?: (waiting: boolean) => Promise<void>
 }
 
 /**
@@ -199,6 +221,15 @@ export interface ExecutionContextExtensions {
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
+  workflowExecutionTimePolicy?: WorkflowExecutionTimePolicy
+  workflowDeadlineSignal?: AbortSignal
+  registerWorkflowOperation?: (blockId: string, handlerType: string) => Promise<string>
+  publishWorkflowOperationIdentity?: ExecutionContext['publishWorkflowOperationIdentity']
+  completeWorkflowOperation?: (
+    operationId: string,
+    state: 'canceled' | 'completed' | 'failed' | 'local_abort'
+  ) => Promise<void>
+  setWorkflowParticipantWaiting?: (waiting: boolean) => Promise<void>
   executionId?: string
   workspaceId: string
   userId?: string
@@ -218,6 +249,8 @@ export interface ExecutionResult {
   success: boolean // Whether the workflow executed successfully
   output: NormalizedBlockOutput // Final output data from the workflow
   error?: string // Error message if execution failed
+  code?: string
+  deadline?: WorkflowDeadlineMetadata
   logs?: BlockLog[] // Execution logs for all blocks
   metadata?: ExecutionMetadata
 }

@@ -3,8 +3,13 @@ import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
-import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
+import type {
+  BillingReference,
+  SubscriptionWithNullableTier,
+  SubscriptionWithTier,
+} from '@/lib/billing/tiers'
 import {
+  getBillingTierById,
   getSubscriptionUsageAllowanceUsd,
   getTierDisplayName,
   hydrateSubscriptionsWithTiers,
@@ -162,15 +167,17 @@ export async function requireActiveSubscriptionForReference(
 
 export async function getSubscriptionByStripeSubscriptionId(
   stripeSubscriptionId: string
-): Promise<SubscriptionWithTier | null> {
+): Promise<SubscriptionWithNullableTier | null> {
   const rows = await db
     .select()
     .from(subscription)
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
     .limit(1)
 
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
-  return hydratedSubscriptions[0] ?? null
+  const row = rows[0]
+  if (!row) return null
+  const tier = row.billingTierId ? await getBillingTierById(row.billingTierId) : null
+  return { ...row, tier }
 }
 
 export async function getEffectiveSubscription(

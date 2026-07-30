@@ -47,6 +47,8 @@ function resolveExecutionScope(
   executionId?: string
   workflowLogId?: string
   toolExecutionId?: string
+  workflowOperationId?: string
+  workflowExecutionTimePolicy?: ExecutionContext['workflowExecutionTimePolicy']
   submissionSource?: string
   isDeployedContext?: boolean
 } {
@@ -59,6 +61,8 @@ function resolveExecutionScope(
     executionId: executionContext?.executionId ?? context.executionId,
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
     toolExecutionId: context.toolExecutionId,
+    workflowOperationId: executionContext?.workflowOperationId,
+    workflowExecutionTimePolicy: executionContext?.workflowExecutionTimePolicy,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
   }
@@ -200,18 +204,26 @@ export async function getToolAsync(
 }
 
 function generateScopedInternalToken(scope: ExecutionScope) {
-  const workflowExecution =
-    !scope.userId && scope.workflowId && scope.toolExecutionId
-      ? {
-          source: 'workflow_block' as const,
-          parentWorkflowId: scope.workflowId,
-          ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
-          parentBlockId: scope.toolExecutionId,
-        }
-      : undefined
-  return workflowExecution
-    ? generateInternalToken(scope.userId, { workflowExecution })
-    : generateInternalToken(scope.userId)
+  if (
+    !scope.userId &&
+    scope.workflowId &&
+    scope.executionId &&
+    scope.toolExecutionId &&
+    scope.workflowOperationId &&
+    scope.workflowExecutionTimePolicy
+  ) {
+    return generateInternalToken(undefined, {
+      workflowExecution: {
+        source: 'workflow_block',
+        parentWorkflowId: scope.workflowId,
+        parentExecutionId: scope.executionId,
+        parentBlockId: scope.toolExecutionId,
+        parentOperationId: scope.workflowOperationId,
+        workflowExecutionTimePolicy: scope.workflowExecutionTimePolicy,
+      },
+    })
+  }
+  return generateInternalToken(scope.userId)
 }
 
 /**
@@ -384,6 +396,66 @@ async function processFileOutputs(
 
 // Execute a tool by making internal/external requests directly (no proxy indirection)
 export async function executeTool(
+  toolId: string,
+  params: Record<string, any>,
+  skipPostProcess = false,
+  executionContext?: ExecutionContext,
+  options?: ToolExecutionOptions
+): Promise<ToolResponse> {
+  const operationId = await executionContext?.registerWorkflowOperation?.(
+    executionContext.workflowOperationId ?? toolId,
+    `tool:${toolId}`
+  )
+  const workflowDeadlineSignal = operationId ? options?.signal : undefined
+  const executionPromise = executeToolCore(
+    toolId,
+    params,
+    skipPostProcess,
+    executionContext,
+    workflowDeadlineSignal ? { ...options, signal: undefined } : options
+  )
+  try {
+    const result = workflowDeadlineSignal
+      ? await Promise.race([
+          executionPromise,
+          new Promise<never>((_, reject) => {
+            const rejectForAbort = () =>
+              reject(workflowDeadlineSignal.reason ?? new DOMException('Aborted', 'AbortError'))
+            if (workflowDeadlineSignal.aborted) rejectForAbort()
+            else workflowDeadlineSignal.addEventListener('abort', rejectForAbort, { once: true })
+          }),
+        ])
+      : await executionPromise
+    if (operationId) {
+      await executionContext?.completeWorkflowOperation?.(
+        operationId,
+        result.success ? 'completed' : 'failed'
+      )
+    }
+    return result
+  } catch (error) {
+    if (operationId) {
+      if (workflowDeadlineSignal?.aborted) {
+        // Deadline stops orchestration immediately, but uncancelable tool work
+        // keeps a live observer. Only its natural settlement crosses the PM-17
+        // barrier; its result can no longer resume the workflow.
+        void executionPromise.then(
+          (result) =>
+            executionContext?.completeWorkflowOperation?.(
+              operationId,
+              result.success ? 'completed' : 'failed'
+            ),
+          () => executionContext?.completeWorkflowOperation?.(operationId, 'failed')
+        )
+      } else {
+        await executionContext?.completeWorkflowOperation?.(operationId, 'failed')
+      }
+    }
+    throw error
+  }
+}
+
+async function executeToolCore(
   toolId: string,
   params: Record<string, any>,
   skipPostProcess = false,

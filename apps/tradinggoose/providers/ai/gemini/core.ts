@@ -12,9 +12,9 @@ import {
   type ToolConfig,
 } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
-import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import {
   checkForForcedToolUsage,
   cleanSchemaForGemini,
@@ -575,7 +575,8 @@ function createDeepResearchStream(
       totalTokens: number
     },
     interactionId?: string
-  ) => void
+  ) => void,
+  onOperationIdentity?: ProviderRequest['onOperationIdentity']
 ): ReadableStream<Uint8Array> {
   const streamLogger = createLogger('DeepResearchStream')
   let fullContent = ''
@@ -602,6 +603,11 @@ function createDeepResearchStream(
             const interaction = (event as Interactions.InteractionStartEvent).interaction
             if (interaction?.id) {
               completedInteractionId = interaction.id
+              await onOperationIdentity?.({
+                adapterKind: 'gemini_interaction_status',
+                capability: 'status_only',
+                remoteOperationId: interaction.id,
+              })
             }
           } else if (event.event_type === 'error') {
             const errorEvent = event as { error?: { code?: string; message?: string } }
@@ -776,7 +782,19 @@ export async function executeDeepResearchRequest(
               segments[0].duration = streamEndTime - providerStartTime
             }
           }
-        }
+        },
+        request.onOperationIdentity
+          ? (identity) =>
+              request.onOperationIdentity!({
+                ...identity,
+                observation: {
+                  providerType,
+                  model,
+                  vertexProject: request.vertexProject,
+                  vertexLocation: request.vertexLocation,
+                },
+              })
+          : undefined
       )
 
       return streamingResult
@@ -793,6 +811,17 @@ export async function executeDeepResearchRequest(
       request.abortSignal ? { signal: request.abortSignal } : undefined
     )
     const interactionId = interaction.id
+    await request.onOperationIdentity?.({
+      adapterKind: 'gemini_interaction_status',
+      capability: 'status_only',
+      remoteOperationId: interactionId,
+      observation: {
+        providerType,
+        model,
+        vertexProject: request.vertexProject,
+        vertexLocation: request.vertexLocation,
+      },
+    })
 
     logger.info('Deep research interaction created', { interactionId, status: interaction.status })
 

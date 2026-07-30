@@ -1,10 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
+import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import { isWorkflowExecutionTimePolicy } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
-import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
   runWorkflowExecution,
   type WorkflowExecutionBlueprint,
@@ -22,6 +23,8 @@ export type WorkflowExecutionPayload = {
   userId: string
   workspaceId?: string | null
   executionId?: string
+  drainRunId?: string
+  workflowExecutionLifecycle?: WorkflowExecutionLifecycle
   input?: any
   triggerType?: TriggerType
   triggerBlockId?: string
@@ -91,92 +94,83 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     },
   })
 
-  try {
-    const triggerData =
-      payload.metadata === undefined
-        ? payload.triggerData
-        : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
-    const { result, dispatchFailureReason } = await runWorkflowExecution({
-      workflowId,
-      actorUserId: payload.userId,
-      requestId,
-      executionId,
-      executionTarget,
-      triggerType,
-      workflowInput: payload.input ?? {},
-      workflowContext:
-        payload.workspaceId || (isLiveExecution && payload.workflowVariables)
-          ? {
-              workspaceId: payload.workspaceId,
-              variables: isLiveExecution ? payload.workflowVariables : undefined,
-            }
-          : undefined,
-      workflowData: isLiveExecution ? payload.workflowData : undefined,
-      triggerTarget,
-      triggerData,
-      contextExtensions: {
-        workflowDepth: payload.workflowDepth ?? 0,
-        isChildExecution,
-        stream: payload.stream === true,
-        selectedOutputs: payload.selectedOutputs ?? [],
-        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
-        ...(eventWriter
-          ? {
-              onExecutionEvent: async (event) => {
-                await eventWriter.write(event)
-              },
-            }
-          : {}),
-      },
-    })
-    if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
-      const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
-      if (typeof monitorId === 'string') {
-        await disableMonitor({
-          monitorId,
-          provider: getMonitorProviderForTriggerId(triggerData.source),
-          logger,
-          reason: dispatchFailureReason,
-          workflowId,
-        })
-      }
-    }
-
-    const { traceSpans } = buildTraceSpans(result)
-    const queuedResult = {
-      ...result,
-      success: result.success,
-      workflowId: payload.workflowId,
-      executionId,
-      output: result.output,
-      error: result.error,
-      traceSpans: traceSpans || [],
-      executedAt: new Date().toISOString(),
-      metadata: {
-        ...(result.metadata ?? {}),
-        queuedExecution: payload.metadata,
-      },
-    }
-
-    await eventWriter?.write(createWorkflowExecutionTerminalEventInput(queuedResult))
-
-    logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
-      success: result.success,
-      executionTime: result.metadata?.duration,
-      executionId,
-    })
-
-    return queuedResult
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Workflow execution failed'
-    await eventWriter?.write(
-      createWorkflowExecutionTerminalEventInput({
-        success: false,
-        output: {},
-        error: message,
-        logs: [],
+  const triggerData =
+    payload.metadata === undefined
+      ? payload.triggerData
+      : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
+  const { result, dispatchFailureReason } = await runWorkflowExecution({
+    workflowId,
+    actorUserId: payload.userId,
+    requestId,
+    executionId,
+    lifecycle: payload.workflowExecutionLifecycle,
+    executionTarget,
+    triggerType,
+    workflowInput: payload.input ?? {},
+    workflowContext:
+      payload.workspaceId || (isLiveExecution && payload.workflowVariables)
+        ? {
+            workspaceId: payload.workspaceId,
+            variables: isLiveExecution ? payload.workflowVariables : undefined,
+          }
+        : undefined,
+    workflowData: isLiveExecution ? payload.workflowData : undefined,
+    triggerTarget,
+    triggerData,
+    contextExtensions: {
+      workflowDepth: payload.workflowDepth ?? 0,
+      isChildExecution,
+      stream: payload.stream === true,
+      selectedOutputs: payload.selectedOutputs ?? [],
+      workflowExecutionTimePolicy: isWorkflowExecutionTimePolicy(
+        payload.metadata?.workflowExecutionTimePolicy
+      )
+        ? payload.metadata.workflowExecutionTimePolicy
+        : undefined,
+      shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
+      ...(eventWriter
+        ? {
+            onExecutionEvent: async (event) => {
+              await eventWriter.write(event)
+            },
+          }
+        : {}),
+    },
+  })
+  if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
+    const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
+    if (typeof monitorId === 'string') {
+      await disableMonitor({
+        monitorId,
+        provider: getMonitorProviderForTriggerId(triggerData.source),
+        logger,
+        reason: dispatchFailureReason,
+        workflowId,
       })
-    )
-    throw error
+    }
   }
+
+  const { traceSpans } = buildTraceSpans(result)
+  const queuedResult = {
+    ...result,
+    success: result.success,
+    workflowId: payload.workflowId,
+    executionId,
+    output: result.output,
+    error: result.error,
+    traceSpans: traceSpans || [],
+    executedAt: new Date().toISOString(),
+    metadata: {
+      ...(result.metadata ?? {}),
+      queuedExecution: payload.metadata,
+    },
+  }
+
+  logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
+    success: result.success,
+    executionTime: result.metadata?.duration,
+    executionId,
+  })
+
+  return queuedResult
 }

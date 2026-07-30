@@ -19,6 +19,7 @@ const BUFFER_EVENT_LIMIT = 1000
 
 type MemoryExecutionEventStream = {
   events: WorkflowExecutionEventEntry[]
+  idempotentEntries: Map<string, WorkflowExecutionEventEntry>
   nextEventId: number
   expiresAt: number
 }
@@ -54,6 +55,10 @@ function sequenceKey(pendingExecutionId: string) {
   return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:seq`
 }
 
+function idempotencyKey(pendingExecutionId: string) {
+  return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:idempotency`
+}
+
 function canUseMemoryBuffer() {
   return typeof window === 'undefined' && getRedisStorageMode() === 'local'
 }
@@ -72,6 +77,7 @@ function getMemoryStream(pendingExecutionId: string) {
   if (!stream) {
     stream = {
       events: [],
+      idempotentEntries: new Map(),
       nextEventId: 1,
       expiresAt: Date.now() + BUFFER_TTL_SECONDS * 1000,
     }
@@ -216,6 +222,19 @@ export function createWorkflowExecutionResultFromLog(
   }
 
   const executionData = isRecord(row.executionData) ? row.executionData : {}
+  const canonicalResult = executionData.canonicalResult
+  if (
+    isRecord(canonicalResult) &&
+    typeof canonicalResult.success === 'boolean' &&
+    isRecord(canonicalResult.output)
+  ) {
+    const result = canonicalResult as unknown as ExecutionResult
+    return {
+      status: result.success ? 'completed' : 'failed',
+      result,
+      errorMessage: result.error ?? null,
+    }
+  }
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
@@ -319,7 +338,8 @@ export async function createWorkflowExecutionEventWriter(params: {
   let writeChain = Promise.resolve()
 
   const write = async (
-    input: WorkflowExecutionEventInput
+    input: WorkflowExecutionEventInput,
+    options?: { idempotencyKey?: string }
   ): Promise<WorkflowExecutionEventEntry> => {
     const task = writeChain.then(async () => {
       const redis = getRedisClient()
@@ -328,6 +348,10 @@ export async function createWorkflowExecutionEventWriter(params: {
           throw new Error('Workflow execution event buffer is unavailable')
         }
         const stream = getMemoryStream(params.pendingExecutionId)
+        if (options?.idempotencyKey) {
+          const existing = stream.idempotentEntries.get(options.idempotencyKey)
+          if (existing) return existing
+        }
         const entry = createEventEntry({
           eventId: stream.nextEventId++,
           pendingExecutionId: params.pendingExecutionId,
@@ -338,7 +362,46 @@ export async function createWorkflowExecutionEventWriter(params: {
         if (stream.events.length > BUFFER_EVENT_LIMIT) {
           stream.events = stream.events.slice(-BUFFER_EVENT_LIMIT)
         }
+        if (options?.idempotencyKey) {
+          stream.idempotentEntries.set(options.idempotencyKey, entry)
+        }
         touchMemoryStream(stream)
+        return entry
+      }
+
+      if (options?.idempotencyKey) {
+        const template = createEventEntry({
+          eventId: 0,
+          pendingExecutionId: params.pendingExecutionId,
+          workflowId: params.workflowId,
+          input,
+        })
+        const serialized = await redis.eval(
+          `local existing = redis.call('HGET', KEYS[3], ARGV[1])
+           if existing then return existing end
+           local eventId = redis.call('INCR', KEYS[2])
+           local entry = cjson.decode(ARGV[2])
+           entry.eventId = eventId
+           entry.event.eventId = eventId
+           local value = cjson.encode(entry)
+           redis.call('ZADD', KEYS[1], eventId, value)
+           redis.call('HSET', KEYS[3], ARGV[1], value)
+           redis.call('EXPIRE', KEYS[1], ARGV[3])
+           redis.call('EXPIRE', KEYS[2], ARGV[3])
+           redis.call('EXPIRE', KEYS[3], ARGV[3])
+           redis.call('ZREMRANGEBYRANK', KEYS[1], 0, -tonumber(ARGV[4]) - 1)
+           return value`,
+          3,
+          eventsKey(params.pendingExecutionId),
+          sequenceKey(params.pendingExecutionId),
+          idempotencyKey(params.pendingExecutionId),
+          options.idempotencyKey,
+          JSON.stringify(template),
+          BUFFER_TTL_SECONDS,
+          BUFFER_EVENT_LIMIT
+        )
+        const entry = parseEventEntry(String(serialized))
+        if (!entry) throw new Error('Workflow execution event buffer returned invalid data')
         return entry
       }
 

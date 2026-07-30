@@ -525,7 +525,18 @@ describe('executeTool Function', () => {
   })
 
   it('uses workflow-scoped internal auth for credential token lookup without user context', async () => {
-    const mockContext = createMockExecutionContext({ userId: undefined })
+    const workflowExecutionTimePolicy = {
+      kind: 'unlimited' as const,
+      rootExecutionId: 'execution-1',
+      appliedTierId: 'tier-1',
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+    }
+    const mockContext = createMockExecutionContext({
+      userId: undefined,
+      executionId: 'execution-1',
+      workflowOperationId: 'operation-1',
+      workflowExecutionTimePolicy,
+    })
     const originalWindow = global.window
     const originalTool = (tools as any).test_credential_tool
     ;(tools as any).test_credential_tool = {
@@ -559,7 +570,10 @@ describe('executeTool Function', () => {
       const workflowExecution = {
         source: 'workflow_block',
         parentWorkflowId: 'test-workflow',
+        parentExecutionId: 'execution-1',
         parentBlockId: 'agent-1',
+        parentOperationId: 'operation-1',
+        workflowExecutionTimePolicy,
       }
       expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
         workflowExecution,

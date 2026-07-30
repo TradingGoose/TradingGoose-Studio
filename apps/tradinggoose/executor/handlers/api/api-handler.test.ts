@@ -109,7 +109,8 @@ describe('ApiBlockHandler', () => {
         _context: { toolExecutionId: 'api-block-1' },
       },
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: undefined }
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -160,7 +161,8 @@ describe('ApiBlockHandler', () => {
       'http_request',
       expect.objectContaining({ body: expectedParsedBody }),
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: undefined }
     )
   })
 
@@ -176,7 +178,8 @@ describe('ApiBlockHandler', () => {
       'http_request',
       expect.objectContaining({ body: 'This is plain text' }),
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: undefined }
     )
   })
 
@@ -192,7 +195,8 @@ describe('ApiBlockHandler', () => {
       'http_request',
       expect.objectContaining({ body: undefined }),
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: undefined }
     )
   })
 
