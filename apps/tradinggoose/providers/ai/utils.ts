@@ -73,7 +73,7 @@ export async function executeProviderTool(
   } catch (error) {
     if (operation && !terminalObserved) {
       if (request.abortSignal?.aborted) {
-        await operation.finish(identityPublished ? 'local_abort' : 'canceled')
+        await operation.finish('local_abort')
       } else if (!identityPublished) {
         await operation.finish('failed')
       }
