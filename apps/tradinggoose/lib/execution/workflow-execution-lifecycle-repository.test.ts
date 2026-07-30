@@ -56,6 +56,7 @@ import {
   cancelWorkflowExecutionAtomically,
   captureRootWorkflowExecution,
   finalizeWorkflowExecution,
+  getWorkflowOperationCapability,
   reconcileWorkflowDeadlineTermination,
   recordWorkflowInfrastructureCandidate,
 } from './workflow-execution-lifecycle-repository'
@@ -282,5 +283,23 @@ describe('workflow lifecycle raw database clocks', () => {
     expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'execution-1', {
       terminalCauseAt: failedAt,
     })
+  })
+})
+
+describe('workflow operation capabilities', () => {
+  it.each(['api', 'function', 'router', 'evaluator', 'generic', 'agent', 'wait'])(
+    'treats the %s handler boundary as local',
+    (handlerType) => {
+      expect(getWorkflowOperationCapability(handlerType)).toBe('local')
+    }
+  )
+
+  it.each([
+    ['workflow', 'native_cancel_status'],
+    ['workflow_input', 'native_cancel_status'],
+    ['gemini_deep_research', 'status_only'],
+    ['tool:mcp-example', 'uncancelable'],
+  ] as const)('classifies %s as %s', (handlerType, capability) => {
+    expect(getWorkflowOperationCapability(handlerType)).toBe(capability)
   })
 })

@@ -40,6 +40,12 @@ export const workflowExecutionSweep = schedules.task({
               failedAt: run.finishedAt,
               diagnostics: { triggerRunId: run.id, status: run.status },
             })
+            await recordWorkflowAttemptTerminalObservation({
+              attemptId: attempt.id,
+              rootExecutionId: attempt.rootExecutionId,
+              state: 'failed',
+              finishedAt: run.finishedAt,
+            })
           } else if (['COMPLETED', 'CANCELED'].includes(run.status) && run.finishedAt) {
             await recordWorkflowAttemptTerminalObservation({
               attemptId: attempt.id,

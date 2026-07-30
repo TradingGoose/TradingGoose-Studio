@@ -222,18 +222,12 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
 export function getWorkflowOperationCapability(
   handlerType: string
 ): 'local' | 'native_cancel_status' | 'status_only' | 'uncancelable' {
-  if (
-    ['trigger', 'condition', 'variables', 'response', 'wait', 'loop', 'parallel'].includes(
-      handlerType
-    )
-  ) {
-    return 'local'
-  }
   if (handlerType === 'workflow' || handlerType === 'workflow_input') {
     return 'native_cancel_status'
   }
   if (handlerType === 'gemini_deep_research') return 'status_only'
-  return 'uncancelable'
+  if (handlerType.startsWith('tool:')) return 'uncancelable'
+  return 'local'
 }
 
 export async function joinWorkflowExecution(params: {
@@ -1257,7 +1251,7 @@ export async function listOpenWorkflowExecutionAttemptsForRoot(rootExecutionId: 
 export async function recordWorkflowAttemptTerminalObservation(params: {
   attemptId: string
   rootExecutionId: string
-  state: 'completed' | 'canceled'
+  state: 'completed' | 'canceled' | 'failed'
   finishedAt: Date
 }) {
   await db.transaction(async (tx) => {
@@ -1267,6 +1261,17 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
           where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
           for update`
     )
+    const [attempt] = await tx
+      .select({ id: workflowExecutionAttempt.id })
+      .from(workflowExecutionAttempt)
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId)
+        )
+      )
+      .limit(1)
+    if (!attempt) return
     const attemptState = params.state
     const [closed] = await tx
       .update(workflowExecutionAttempt)
@@ -1282,11 +1287,28 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
         )
       )
       .returning({ id: workflowExecutionAttempt.id })
-    if (!closed) return
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({ state: attemptState, updatedAt: params.finishedAt })
-      .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
+    if (closed) {
+      await tx
+        .update(workflowExecutionParticipant)
+        .set({ state: attemptState, updatedAt: params.finishedAt })
+        .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
+    }
+    const settledOperations = await tx
+      .update(workflowExecutionOperation)
+      .set({
+        state: attemptState,
+        terminalAt: params.finishedAt,
+        updatedAt: params.finishedAt,
+      })
+      .where(
+        and(
+          eq(workflowExecutionOperation.attemptId, params.attemptId),
+          eq(workflowExecutionOperation.capability, 'local'),
+          inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    if (!closed && settledOperations.length === 0) return
     await tx
       .update(workflowExecutionTerminal)
       .set({
@@ -1318,17 +1340,6 @@ export async function recordWorkflowInfrastructureCandidate(params: {
     await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
       terminalCauseAt: params.failedAt,
     })
-    await tx
-      .update(workflowExecutionAttempt)
-      .set({
-        state: 'failed',
-        processingCompletedAt: params.failedAt,
-      })
-      .where(eq(workflowExecutionAttempt.id, params.attemptId))
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({ state: 'failed', updatedAt: params.failedAt })
-      .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
     await tx
       .update(workflowExecutionTerminal)
       .set({

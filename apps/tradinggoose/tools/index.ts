@@ -436,17 +436,17 @@ export async function executeTool(
   } catch (error) {
     if (operationId) {
       if (workflowDeadlineSignal?.aborted) {
-        // Deadline stops orchestration immediately, but uncancelable tool work
-        // keeps a live observer. Only its natural settlement crosses the PM-17
-        // barrier; its result can no longer resume the workflow.
-        void executionPromise.then(
-          (result) =>
-            executionContext?.completeWorkflowOperation?.(
-              operationId,
-              result.success ? 'completed' : 'failed'
-            ),
-          () => executionContext?.completeWorkflowOperation?.(operationId, 'failed')
-        )
+        // Deadline stops orchestration, but the live owner must observe this
+        // uncancelable tool's natural settlement before the attempt can end.
+        try {
+          const result = await executionPromise
+          await executionContext?.completeWorkflowOperation?.(
+            operationId,
+            result.success ? 'completed' : 'failed'
+          )
+        } catch {
+          await executionContext?.completeWorkflowOperation?.(operationId, 'failed')
+        }
       } else {
         await executionContext?.completeWorkflowOperation?.(operationId, 'failed')
       }

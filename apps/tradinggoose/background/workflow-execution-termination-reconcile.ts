@@ -35,6 +35,12 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
           failedAt: run.finishedAt,
           diagnostics: { triggerRunId: run.id, status: run.status },
         })
+        await recordWorkflowAttemptTerminalObservation({
+          attemptId: attempt.id,
+          rootExecutionId,
+          state: 'failed',
+          finishedAt: run.finishedAt,
+        })
       } else if (['COMPLETED', 'CANCELED'].includes(run.status) && run.finishedAt) {
         await recordWorkflowAttemptTerminalObservation({
           attemptId: attempt.id,
