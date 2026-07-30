@@ -127,16 +127,18 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       ), updated as (
         update ${workflowExecutionDeadline} deadline
         set counted_microseconds = least(
-              calculated.limit_microseconds,
-              calculated.counted_microseconds + calculated.accrued
+              scheduled.limit_microseconds,
+              scheduled.counted_microseconds + scheduled.accrued
             ),
-            last_accounted_at = calculated.now,
+            last_accounted_at = scheduled.now,
             next_reconcile_at = scheduled.next_wake_at,
             schedule_version = deadline.schedule_version + 1,
-            updated_at = calculated.now
+            updated_at = scheduled.now
         from scheduled
         where deadline.root_execution_id = scheduled.root_execution_id
-        returning deadline.*,
+        returning deadline.*
+      ), reconciled as (
+        select updated.*,
           case when scheduled.counted_microseconds + scheduled.accrued
                     >= scheduled.limit_microseconds
             then scheduled.last_accounted_at +
@@ -145,18 +147,21 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
             else null
           end as exhausted_at,
           scheduled.now as observed_at
+        from updated
+        inner join scheduled
+          on scheduled.root_execution_id = updated.root_execution_id
       ), terminalized as (
         update ${workflowExecutionTerminal} terminal
         set state = 'termination_pending',
             dispatch_open = false,
-            termination_requested_at = updated.exhausted_at,
-            deadline_candidate_at = updated.exhausted_at,
+            termination_requested_at = reconciled.exhausted_at,
+            deadline_candidate_at = reconciled.exhausted_at,
             barrier_version = terminal.barrier_version + 1,
-            updated_at = updated.observed_at
-        from updated
-        where terminal.root_execution_id = updated.root_execution_id
+            updated_at = reconciled.observed_at
+        from reconciled
+        where terminal.root_execution_id = reconciled.root_execution_id
           and terminal.state = 'running'
-          and updated.exhausted_at is not null
+          and reconciled.exhausted_at is not null
         returning terminal.root_execution_id
       )
       select counted_microseconds, limit_microseconds, exhausted_at, schedule_version,
@@ -165,7 +170,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
           1,
           ceil(extract(epoch from (next_reconcile_at - observed_at)) * 1000)
         )::integer as wake_milliseconds
-      from updated
+      from reconciled
     `)
   const row = rows[0]
   if (!row) return { state: 'inactive' }
