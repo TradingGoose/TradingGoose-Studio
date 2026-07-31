@@ -57,6 +57,7 @@ vi.mock('./workflow-execution-deadline-repository', () => ({
 import {
   cancelWorkflowExecutionAtomically,
   captureRootWorkflowExecution,
+  completeWorkflowExecutionAttempt,
   finalizeWorkflowExecution,
   getWorkflowOperationCapability,
   reconcileWorkflowDeadlineTermination,
@@ -286,6 +287,61 @@ describe('workflow lifecycle raw database clocks', () => {
       terminalCauseAt: failedAt,
     })
   })
+})
+
+describe('nested workflow attempt completion', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.selectRows = []
+    mocks.select.mockImplementation(selectChain)
+    mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
+  })
+
+  it.each([
+    [{ success: true, output: {} }, 'completed'],
+    [{ success: false, output: {}, error: 'child failed' }, 'failed'],
+  ] as const)(
+    'accounts the final active interval before setting the participant to %s',
+    async (result, state) => {
+      const updateChain = {
+        set: vi.fn(),
+        where: vi.fn().mockResolvedValue(undefined),
+      }
+      updateChain.set.mockReturnValue(updateChain)
+      const insertChain = {
+        values: vi.fn(),
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+      }
+      insertChain.values.mockReturnValue(insertChain)
+      const update = vi.fn(() => updateChain)
+      mocks.selectRows = [
+        [
+          {
+            id: 'attempt-1',
+            rootExecutionId: 'root-1',
+            pendingExecutionId: 'pending-1',
+            attemptNumber: 1,
+          },
+        ],
+      ]
+      mocks.transaction.mockImplementationOnce(async (callback) =>
+        callback({
+          execute: mocks.execute,
+          insert: vi.fn(() => insertChain),
+          select: mocks.select,
+          update,
+        })
+      )
+
+      await completeWorkflowExecutionAttempt({ attemptId: 'attempt-1', result })
+
+      expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'root-1')
+      expect(updateChain.set).toHaveBeenNthCalledWith(1, expect.objectContaining({ state }))
+      expect(mocks.reconcileDeadline.mock.invocationCallOrder[0]).toBeLessThan(
+        update.mock.invocationCallOrder[0]
+      )
+    }
+  )
 })
 
 describe('workflow operation capabilities', () => {

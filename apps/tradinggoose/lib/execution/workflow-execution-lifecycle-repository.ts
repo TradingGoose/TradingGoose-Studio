@@ -497,6 +497,7 @@ export async function completeWorkflowExecutionAttempt(params: {
           where ${workflowExecutionTerminal.rootExecutionId} = ${attempt.rootExecutionId}
           for update`
     )
+    await reconcileWorkflowExecutionDeadlineInTransaction(tx, attempt.rootExecutionId)
     await tx
       .update(workflowExecutionParticipant)
       .set({
