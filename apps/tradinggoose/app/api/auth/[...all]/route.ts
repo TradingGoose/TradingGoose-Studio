@@ -54,11 +54,12 @@ async function getRequestedSystemOAuthProviderId(request: Request, pathname: str
 
 export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
-  const guardResponse = await guardSubscriptionUpgradeRequest(request, pathname)
-  if (guardResponse) return guardResponse
+  const guardedUpgrade = await guardSubscriptionUpgradeRequest(request, pathname)
+  if (guardedUpgrade instanceof Response) return guardedUpgrade
+  const delegatedRequest = guardedUpgrade ?? request
 
   if (!shouldHydrateSystemOAuthCredentials(pathname)) {
-    return auth.handler(request)
+    return auth.handler(delegatedRequest)
   }
 
   const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
@@ -81,7 +82,7 @@ export const handleAuthRequest = async (request: Request) => {
 export async function guardSubscriptionUpgradeRequest(
   request: Request,
   pathname: string
-): Promise<Response | null> {
+): Promise<Request | Response | null> {
   if (request.method !== 'POST' || pathname !== SUBSCRIPTION_UPGRADE_PATH) return null
   const body = await request
     .clone()
@@ -114,6 +115,16 @@ export async function guardSubscriptionUpgradeRequest(
   const authorized = await authorizeSubscriptionReference(session.user.id, requestedReferenceId)
   if (!authorized) return Response.json({ error: 'Forbidden' }, { status: 403 })
   const reference = toBillingReference(session.user.id, requestedReferenceId)
+  const headers = new Headers(request.headers)
+  headers.delete('content-length')
+  const canonicalRequest = new Request(request, {
+    body: JSON.stringify({
+      ...body,
+      referenceId: reference.referenceId,
+      customerType: reference.referenceType,
+    }),
+    headers,
+  })
   const subscriptionId = 'subscriptionId' in body ? body.subscriptionId : undefined
   if (typeof subscriptionId === 'string' && subscriptionId) {
     const current = await getActiveSubscriptionForReference(reference)
@@ -121,7 +132,7 @@ export async function guardSubscriptionUpgradeRequest(
       current?.stripeSubscriptionId === subscriptionId &&
       (current.billingTierId ?? current.plan) === plan
     ) {
-      return null
+      return canonicalRequest
     }
   }
   const tier = await getBillingTierById(plan)
@@ -133,7 +144,7 @@ export async function guardSubscriptionUpgradeRequest(
   if (!evaluateSubscriptionTierAvailability({ tier, isVisible }).isSelectable) {
     return Response.json({ error: 'Billing tier is not available' }, { status: 403 })
   }
-  return null
+  return canonicalRequest
 }
 
 export const { GET, POST } = toNextJsHandler(handleAuthRequest)

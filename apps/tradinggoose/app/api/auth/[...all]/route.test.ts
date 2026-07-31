@@ -228,7 +228,7 @@ describe('/api/auth/[...all] route', () => {
     }
   )
 
-  it('authorizes before target lookup and delegates selectable targets unchanged', async () => {
+  it('authorizes before target lookup and delegates a canonical user reference', async () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
@@ -242,6 +242,11 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthorizeSubscriptionReference).toHaveBeenCalledWith('user-1', 'user-1')
     expect(mockGetBillingTierById).toHaveBeenCalledWith('pro')
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toEqual({
+      plan: 'pro',
+      referenceId: 'user-1',
+      customerType: 'user',
+    })
   })
 
   it('bypasses private selectability only for the authorized current Stripe subscription', async () => {
@@ -267,5 +272,43 @@ describe('/api/auth/[...all] route', () => {
     expect(response.status).toBe(204)
     expect(mockGetBillingTierById).not.toHaveBeenCalled()
     expect(mockUserCanAccessPrivateBillingTier).not.toHaveBeenCalled()
+    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toMatchObject({
+      plan: 'private',
+      referenceId: 'user-1',
+      subscriptionId: 'sub_stripe',
+      customerType: 'user',
+    })
+  })
+
+  it('delegates an authorized organization with canonical organization identity', async () => {
+    mockToBillingReference.mockReturnValue({
+      referenceType: 'organization',
+      referenceId: 'organization-1',
+    })
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    const { handleAuthRequest } = await import('./route')
+
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: 'pro',
+          referenceId: 'organization-1',
+          customerType: 'user',
+          seats: 4,
+          successUrl: '/billing/success',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toEqual({
+      plan: 'pro',
+      referenceId: 'organization-1',
+      customerType: 'organization',
+      seats: 4,
+      successUrl: '/billing/success',
+    })
   })
 })
