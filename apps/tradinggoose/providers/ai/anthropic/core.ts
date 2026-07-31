@@ -19,11 +19,11 @@ import type { ProviderRequest, ProviderResponse, TimeSegment } from '@/providers
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
-  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 /**
  * Configuration for creating an Anthropic provider instance.

@@ -21,12 +21,12 @@ import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
   createOpenAICompatibleStream,
-  executeProviderTool,
   generateSchemaInstructions,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('FireworksProvider')
 

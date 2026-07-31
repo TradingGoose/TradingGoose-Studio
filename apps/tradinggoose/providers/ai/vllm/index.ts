@@ -16,12 +16,12 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
-  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 import { createReadableStreamFromVLLMStream } from '@/providers/ai/vllm/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 

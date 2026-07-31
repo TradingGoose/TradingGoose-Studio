@@ -11,11 +11,11 @@ import type {
 import {
   calculateCost,
   createOpenAICompatibleStream,
-  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('DeepseekProvider')
 

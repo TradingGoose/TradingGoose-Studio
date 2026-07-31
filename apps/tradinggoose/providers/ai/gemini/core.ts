@@ -29,13 +29,13 @@ import {
 import type { FunctionCallResponse, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
-  executeProviderTool,
   isDeepResearchModel,
   isGemini3Model,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 import type { ExecutionState, GeminiProviderType, GeminiUsage } from './types'
 
 /**

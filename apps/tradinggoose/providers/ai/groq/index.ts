@@ -8,7 +8,8 @@ import type {
   ProviderResponse,
   TimeSegment,
 } from '@/providers/ai/types'
-import { executeProviderTool, prepareToolExecution } from '@/providers/ai/utils'
+import { prepareToolExecution } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('GroqProvider')
 

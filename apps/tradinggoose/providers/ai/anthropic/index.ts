@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { executeProviderTool } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 import { getProviderDefaultModel, getProviderModels } from '../models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse, TimeSegment } from '../types'
 import { prepareToolExecution, prepareToolsWithUsageControl, trackForcedToolUsage } from '../utils'

@@ -8,11 +8,11 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
-  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('GoogleProvider')
 

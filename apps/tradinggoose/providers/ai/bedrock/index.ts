@@ -33,11 +33,11 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
-  executeProviderTool,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('BedrockProvider')
 
