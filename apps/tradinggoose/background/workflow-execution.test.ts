@@ -32,6 +32,15 @@ vi.mock('@/lib/workflows/execution-runner', () => ({
   runWorkflowExecution: runWorkflowExecutionMock,
 }))
 
+vi.mock('@/lib/execution/workflow-execution-runtime', () => ({
+  createWorkflowExecutionRuntime: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    rearm: vi.fn(),
+    settleStartup: vi.fn(),
+    close: vi.fn(),
+  }),
+}))
+
 vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
   buildTraceSpans: buildTraceSpansMock,
 }))
@@ -46,7 +55,26 @@ vi.mock('./monitor-disable', () => ({
   disableMonitor: disableMonitorMock,
 }))
 
-import { executeWorkflowJob } from './workflow-execution'
+import { executeWorkflowJob as executeClaimedWorkflowJob } from './workflow-execution'
+
+function executeWorkflowJob(
+  payload: Omit<Parameters<typeof executeClaimedWorkflowJob>[0], 'workflowExecutionLifecycle'>
+) {
+  return executeClaimedWorkflowJob({
+    ...payload,
+    workflowExecutionLifecycle: {
+      policy: {
+        kind: 'unlimited',
+        rootExecutionId: payload.executionId ?? 'execution-1',
+        appliedTierId: 'tier-1',
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+      },
+      attemptId: 'attempt-1',
+      startupOperationId: 'startup-operation',
+      isRoot: true,
+    },
+  })
+}
 
 describe('executeWorkflowJob', () => {
   beforeEach(() => {

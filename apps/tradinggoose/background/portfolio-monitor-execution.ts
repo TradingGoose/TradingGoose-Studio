@@ -1,4 +1,5 @@
 import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import { createWorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
@@ -55,6 +56,21 @@ export function isPortfolioMonitorExecutionPayload(
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
   const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
   const requestId = executionId.slice(0, 8)
+  if (!payload.workflowExecutionLifecycle) {
+    throw new Error(`Portfolio workflow execution ${executionId} is missing its claimed lifecycle`)
+  }
+  const deadlineRuntime = createWorkflowExecutionRuntime(
+    payload.workflowExecutionLifecycle,
+    (error) => logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
+  )
+  try {
+    await deadlineRuntime.start()
+    deadlineRuntime.signal?.throwIfAborted()
+  } catch (error) {
+    await deadlineRuntime.settleStartup(deadlineRuntime.signal?.aborted ? 'local_abort' : 'failed')
+    deadlineRuntime.close()
+    throw error
+  }
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
     event: 'portfolio_state_condition_matched',
@@ -79,6 +95,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     requestId,
     executionId,
     lifecycle: payload.workflowExecutionLifecycle,
+    deadlineRuntime,
     triggerType: 'webhook',
     workflowInput,
     executionTarget: 'deployed',
@@ -100,7 +117,8 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
         assetType: 'portfolio',
       },
     },
-  })
+  }).finally(() => deadlineRuntime.close())
+  deadlineRuntime.signal?.throwIfAborted()
   if (dispatchFailureReason) {
     await disableMonitor({
       monitorId: payload.monitor.id,

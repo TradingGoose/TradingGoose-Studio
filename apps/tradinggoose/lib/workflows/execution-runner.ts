@@ -4,11 +4,7 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
-import {
-  heartbeatWorkflowExecutionParticipant,
-  reconcileWorkflowExecutionDeadline,
-  setWorkflowExecutionParticipantState,
-} from '@/lib/execution/workflow-execution-deadline-repository'
+import { setWorkflowExecutionParticipantState } from '@/lib/execution/workflow-execution-deadline-repository'
 import {
   claimWorkflowOperationRemoteDispatch,
   completeWorkflowExecutionAttempt,
@@ -20,6 +16,7 @@ import {
   sealWorkflowOperationCredential,
   type WorkflowExecutionLifecycle,
 } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import type { WorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { decryptSecret } from '@/lib/utils-server'
@@ -339,6 +336,7 @@ export async function runPreparedWorkflowExecution(params: {
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
   lifecycle?: WorkflowExecutionLifecycle
+  deadlineRuntime: WorkflowExecutionRuntime
   prepareWorkflowInput?: (context: {
     blueprint: WorkflowExecutionBlueprint
     signal?: AbortSignal
@@ -353,6 +351,7 @@ export async function runPreparedWorkflowExecution(params: {
     throw new Error(`Workflow execution ${executionId} is missing its claimed lifecycle`)
   }
   const lifecycle = params.lifecycle
+  const deadlineRuntime = params.deadlineRuntime
   const loggingTriggerType = params.triggerType === 'api-endpoint' ? 'api' : params.triggerType
   const loggingSession = new LoggingSession(
     params.blueprint.workflowId,
@@ -360,18 +359,19 @@ export async function runPreparedWorkflowExecution(params: {
     loggingTriggerType,
     requestId
   )
-
-  // Workflow logs are the durable terminal state for queued and non-stream executions.
-  const workflowLogId = await loggingSession.start({
-    userId: params.actorUserId,
-    workspaceId,
-    workflowState: params.blueprint.workflowData,
-    triggerData: params.triggerData,
-  })
-
   let encryptedEnvVars: Record<string, string> | undefined
   let result: ExecutionResult
   try {
+    deadlineRuntime.signal?.throwIfAborted()
+
+    // Workflow logs are the durable terminal state for queued and non-stream executions.
+    const workflowLogId = await loggingSession.start({
+      userId: params.actorUserId,
+      workspaceId,
+      workflowState: params.blueprint.workflowData,
+      triggerData: params.triggerData,
+    })
+    deadlineRuntime.signal?.throwIfAborted()
     if (params.startupError) {
       throw params.startupError
     }
@@ -381,6 +381,7 @@ export async function runPreparedWorkflowExecution(params: {
       workflowId: params.blueprint.workflowId,
       workspaceId,
     })
+    deadlineRuntime.signal?.throwIfAborted()
 
     if (usageCheck.isExceeded) {
       throw new WorkflowUsageLimitError(
@@ -392,13 +393,17 @@ export async function runPreparedWorkflowExecution(params: {
       params.actorUserId,
       workspaceId
     )
+    deadlineRuntime.signal?.throwIfAborted()
     encryptedEnvVars = {
       ...personalEncrypted,
       ...workspaceEncrypted,
     }
     const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
+    deadlineRuntime.signal?.throwIfAborted()
     const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
+    deadlineRuntime.signal?.throwIfAborted()
     const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
+    deadlineRuntime.signal?.throwIfAborted()
     const serializedWorkflow = new Serializer().serializeWorkflow(
       mergedStates,
       params.blueprint.workflowData.edges,
@@ -406,9 +411,10 @@ export async function runPreparedWorkflowExecution(params: {
       params.blueprint.workflowData.parallels,
       true
     )
+    deadlineRuntime.signal?.throwIfAborted()
     const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
+    deadlineRuntime.signal?.throwIfAborted()
 
-    let rearmDeadlineWake: (() => Promise<void>) | undefined
     const operationWaitStates = new Map<string, 'active' | 'waiting_child'>()
     let waitTransitionQueue = Promise.resolve()
     let participantWaiting = false
@@ -428,7 +434,7 @@ export async function runPreparedWorkflowExecution(params: {
             state: nextWaiting ? 'waiting_child' : 'active',
           })
           participantWaiting = nextWaiting
-          await rearmDeadlineWake?.()
+          await deadlineRuntime.rearm()
         }
       })
       waitTransitionQueue = transition.catch(() => undefined)
@@ -445,6 +451,7 @@ export async function runPreparedWorkflowExecution(params: {
       submissionSource: 'workflow',
       workflowLogId,
       workflowExecutionTimePolicy: lifecycle.policy,
+      workflowDeadlineSignal: deadlineRuntime.signal,
       registerWorkflowOperation: async (blockId, handlerType) => {
         const operation = await registerWorkflowOperation({
           rootExecutionId: lifecycle.policy.rootExecutionId,
@@ -482,35 +489,6 @@ export async function runPreparedWorkflowExecution(params: {
         : undefined,
     }
 
-    const deadlineController = lifecycle.policy.kind === 'bounded' ? new AbortController() : null
-    let deadlineWake: ReturnType<typeof setTimeout> | undefined
-    let participantHeartbeat: ReturnType<typeof setInterval> | undefined
-    let terminationRequest: Promise<void> | undefined
-    if (deadlineController && lifecycle.policy.kind === 'bounded') {
-      if (lifecycle.participantId) {
-        participantHeartbeat = setInterval(() => {
-          void heartbeatWorkflowExecutionParticipant(lifecycle.participantId!).catch((error) =>
-            logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
-          )
-        }, 30_000)
-      }
-      contextExtensions.workflowDeadlineSignal = deadlineController.signal
-      const armDeadlineWake = async () => {
-        if (deadlineWake) clearTimeout(deadlineWake)
-        const reconciliation = await reconcileWorkflowExecutionDeadline(
-          lifecycle.policy.rootExecutionId
-        )
-        if (reconciliation.state === 'scheduled') {
-          deadlineWake = setTimeout(() => void armDeadlineWake(), reconciliation.delayMilliseconds)
-        } else if (reconciliation.state === 'exhausted') {
-          terminationRequest = Promise.resolve().then(() => deadlineController.abort())
-          await terminationRequest
-        }
-      }
-      rearmDeadlineWake = armDeadlineWake
-      await armDeadlineWake()
-    }
-
     if (contextExtensions.stream) {
       contextExtensions.edges = params.blueprint.workflowData.edges.map((edge: any) => ({
         source: edge.source,
@@ -518,64 +496,48 @@ export async function runPreparedWorkflowExecution(params: {
       }))
     }
 
-    try {
-      let workflowInput = params.workflowInput
-      let preparedResult: ExecutionResult | undefined
-      if (params.prepareWorkflowInput) {
-        const preparation = await registerWorkflowOperation({
-          rootExecutionId: lifecycle.policy.rootExecutionId,
-          executionId,
-          attemptId: lifecycle.attemptId,
-          participantId: lifecycle.participantId,
-          handlerType: 'trigger_preparation',
-          adapterKind: `${params.triggerType}_preparation`,
-          capability: 'local',
+    let workflowInput = params.workflowInput
+    let preparedResult: ExecutionResult | undefined
+    if (params.prepareWorkflowInput) {
+      try {
+        const prepared = await params.prepareWorkflowInput({
+          blueprint: params.blueprint,
+          signal: deadlineRuntime.signal,
         })
-        try {
-          const prepared = await params.prepareWorkflowInput({
-            blueprint: params.blueprint,
-            signal: deadlineController?.signal,
-          })
-          await completeWorkflowOperation({ id: preparation.id, state: 'completed' })
-          if (prepared.kind === 'skip') preparedResult = prepared.result
-          else workflowInput = prepared.workflowInput
-        } catch (error) {
-          await completeWorkflowOperation({
-            id: preparation.id,
-            state: error === deadlineController?.signal.reason ? 'local_abort' : 'failed',
-          })
-          preparedResult = {
-            success: false,
-            output: {},
-            error: error instanceof Error ? error.message : String(error),
-            logs: [],
-          }
+        deadlineRuntime.signal?.throwIfAborted()
+        if (prepared.kind === 'skip') preparedResult = prepared.result
+        else workflowInput = prepared.workflowInput
+      } catch (error) {
+        preparedResult = {
+          success: false,
+          output: {},
+          error: error instanceof Error ? error.message : String(error),
+          logs: [],
         }
       }
+    }
 
-      if (preparedResult) {
-        result = preparedResult
-      } else {
-        const executor = new Executor({
-          workflow: serializedWorkflow,
-          currentBlockStates: processedBlockStates,
-          envVarValues: decryptedEnvVars,
-          workflowInput,
-          workflowVariables,
-          contextExtensions,
-        })
-        const triggerBlockId = resolveTriggerBlockId({
-          mergedStates,
-          serializedWorkflow,
-          target: params.triggerTarget,
-          isChildExecution: contextExtensions.isChildExecution === true,
-        })
-        result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
-      }
-      await terminationRequest
-    } finally {
-      if (deadlineWake) clearTimeout(deadlineWake)
-      if (participantHeartbeat) clearInterval(participantHeartbeat)
+    await deadlineRuntime.settleStartup('completed')
+    deadlineRuntime.signal?.throwIfAborted()
+
+    if (preparedResult) {
+      result = preparedResult
+    } else {
+      const executor = new Executor({
+        workflow: serializedWorkflow,
+        currentBlockStates: processedBlockStates,
+        envVarValues: decryptedEnvVars,
+        workflowInput,
+        workflowVariables,
+        contextExtensions,
+      })
+      const triggerBlockId = resolveTriggerBlockId({
+        mergedStates,
+        serializedWorkflow,
+        target: params.triggerTarget,
+        isChildExecution: contextExtensions.isChildExecution === true,
+      })
+      result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
     }
     if (lifecycle.isRoot) {
       const storedResult = await finalizeWorkflowExecution({
@@ -600,7 +562,10 @@ export async function runPreparedWorkflowExecution(params: {
       )
     }
   } catch (error: any) {
+    const deadlineAborted = deadlineRuntime.signal?.aborted === true
+    await deadlineRuntime.settleStartup(deadlineAborted ? 'local_abort' : 'failed')
     const isApplicationFailure =
+      deadlineAborted ||
       error instanceof WorkflowUsageLimitError ||
       error instanceof WorkflowTriggerBlockError ||
       Boolean(error?.executionResult)
@@ -667,7 +632,9 @@ export async function runWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   lifecycle?: WorkflowExecutionLifecycle
+  deadlineRuntime: WorkflowExecutionRuntime
 }): Promise<WorkflowRunnerResult> {
+  params.deadlineRuntime.signal?.throwIfAborted()
   let startupError: unknown
   const blueprint = await loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
@@ -675,6 +642,7 @@ export async function runWorkflowExecution(params: {
     workflowContext: params.workflowContext,
     workflowData: params.workflowData,
   }).catch(async (error) => {
+    params.deadlineRuntime.signal?.throwIfAborted()
     startupError = error
     return {
       workflowId: params.workflowId,
@@ -686,6 +654,7 @@ export async function runWorkflowExecution(params: {
       workflowData: params.workflowData ?? { blocks: {}, edges: [], loops: {}, parallels: {} },
     }
   })
+  params.deadlineRuntime.signal?.throwIfAborted()
 
   return runPreparedWorkflowExecution({
     blueprint,
@@ -699,5 +668,6 @@ export async function runWorkflowExecution(params: {
     contextExtensions: params.contextExtensions,
     startupError,
     lifecycle: params.lifecycle,
+    deadlineRuntime: params.deadlineRuntime,
   })
 }

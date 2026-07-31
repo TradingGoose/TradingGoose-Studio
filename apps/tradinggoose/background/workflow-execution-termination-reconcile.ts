@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { runs, task } from '@trigger.dev/sdk'
 import { refreshWorkflowExecutionAttemptParticipant } from '@/lib/execution/workflow-execution-deadline-repository'
 import {
+  cancelWorkflowExecutionAtomically,
   claimWorkflowOperationsForTermination,
   getWorkflowExecutionProjection,
   listOpenWorkflowExecutionAttemptsForRoot,
@@ -17,7 +18,6 @@ import {
   type WorkflowExecutionOutboxClaim,
 } from '@/lib/execution/workflow-execution-outbox'
 import { decryptSecret } from '@/lib/utils-server'
-import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 
 type RemoteTerminalState = 'canceled' | 'completed' | 'failed'
 
@@ -285,9 +285,9 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
       operation.remoteOperationId &&
       terminal?.actorUserId
     ) {
-      const outcome = await cancelPendingWorkflowExecution({
+      const outcome = await cancelWorkflowExecutionAtomically({
         pendingExecutionId: operation.remoteOperationId,
-        userId: terminal.actorUserId,
+        actorUserId: terminal.actorUserId,
         descendantOnly: true,
       })
       await recordWorkflowOperationObservation({

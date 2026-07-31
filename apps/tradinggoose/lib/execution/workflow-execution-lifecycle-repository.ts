@@ -8,7 +8,7 @@ import {
   workflowExecutionParticipant,
   workflowExecutionTerminal,
 } from '@tradinggoose/db/schema'
-import { and, asc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import type { ExecutionResult } from '@/executor/types'
@@ -28,11 +28,38 @@ import {
 export type WorkflowExecutionLifecycle = {
   policy: WorkflowExecutionTimePolicy
   attemptId: string
+  startupOperationId: string
   isRoot: boolean
   participantId?: string
 }
 
+export type WorkflowExecutionCancellationResult =
+  | { status: 'not_found' }
+  | { status: 'cancelling' }
+  | { status: 'finished' }
+
 type LifecycleTransaction = Pick<typeof db, 'execute' | 'select' | 'insert' | 'update'>
+
+async function createWorkflowStartupOperation(
+  tx: LifecycleTransaction,
+  params: {
+    rootExecutionId: string
+    executionId: string
+    attemptId: string
+    participantId?: string
+  }
+) {
+  const id = uuidv4()
+  await tx.insert(workflowExecutionOperation).values({
+    id,
+    ...params,
+    handlerType: 'workflow_startup',
+    adapterKind: 'workflow_startup',
+    capability: 'local',
+    state: 'running',
+  })
+  return id
+}
 
 function terminalWorkflowOperationObservation(incoming?: Record<string, unknown>) {
   return sql`(
@@ -222,10 +249,17 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
         .onConflictDoNothing()
     }
   }
+  const startupOperationId = await createWorkflowStartupOperation(params.tx, {
+    rootExecutionId,
+    executionId: params.pending.id,
+    attemptId,
+    participantId,
+  })
   return {
     policy,
     attemptId,
     participantId,
+    startupOperationId,
     isRoot: !inherited,
   } satisfies WorkflowExecutionLifecycle
 }
@@ -252,232 +286,6 @@ export function getWorkflowOperationCapability(
     return 'local'
   }
   return 'uncancelable'
-}
-
-export async function joinWorkflowExecution(params: {
-  executionId: string
-  policy: WorkflowExecutionTimePolicy
-}): Promise<WorkflowExecutionLifecycle> {
-  return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select ${workflowExecutionTerminal.rootExecutionId}
-          from ${workflowExecutionTerminal}
-          where ${workflowExecutionTerminal.rootExecutionId} = ${params.policy.rootExecutionId}
-          for update`
-    )
-    const [root] = await tx
-      .select()
-      .from(workflowExecutionTerminal)
-      .where(eq(workflowExecutionTerminal.rootExecutionId, params.policy.rootExecutionId))
-      .limit(1)
-    if (
-      !root ||
-      root.state !== 'running' ||
-      !root.dispatchOpen ||
-      root.policyState !== params.policy.kind ||
-      root.appliedTierId !== params.policy.appliedTierId ||
-      root.processingStartedAt?.toISOString() !== params.policy.processingStartedAt ||
-      (params.policy.kind === 'bounded' && root.limitSeconds !== params.policy.limitSeconds)
-    ) {
-      throw new Error('Inherited workflow execution policy does not match its durable root')
-    }
-    const [claimedAttempt] = await tx
-      .select({ id: workflowExecutionAttempt.id })
-      .from(workflowExecutionAttempt)
-      .where(
-        and(
-          eq(workflowExecutionAttempt.pendingExecutionId, params.executionId),
-          isNull(workflowExecutionAttempt.processingCompletedAt)
-        )
-      )
-      .limit(1)
-    if (claimedAttempt) {
-      const [participant] = await tx
-        .select({ id: workflowExecutionParticipant.id })
-        .from(workflowExecutionParticipant)
-        .where(eq(workflowExecutionParticipant.attemptId, claimedAttempt.id))
-        .limit(1)
-      return {
-        policy: params.policy,
-        attemptId: claimedAttempt.id,
-        participantId: participant?.id,
-        isRoot: false,
-      }
-    }
-    const attemptId = uuidv4()
-    const [attemptSequence] = await tx
-      .select({
-        next: sql<number>`coalesce(max(${workflowExecutionAttempt.attemptNumber}), 0)::integer + 1`,
-      })
-      .from(workflowExecutionAttempt)
-      .where(eq(workflowExecutionAttempt.pendingExecutionId, params.executionId))
-    await tx.insert(workflowExecutionAttempt).values({
-      id: attemptId,
-      rootExecutionId: params.policy.rootExecutionId,
-      pendingExecutionId: params.executionId,
-      attemptNumber: attemptSequence?.next ?? 1,
-      processingStartedAt: sql`clock_timestamp()`,
-    })
-    let participantId: string | undefined
-    if (params.policy.kind === 'bounded') {
-      participantId = uuidv4()
-      await tx.insert(workflowExecutionParticipant).values({
-        id: participantId,
-        rootExecutionId: params.policy.rootExecutionId,
-        attemptId,
-        pendingExecutionId: params.executionId,
-        state: 'active',
-        leaseExpiresAt: sql`clock_timestamp() + interval '60 seconds'`,
-        lastHeartbeatAt: sql`clock_timestamp()`,
-      })
-    }
-    return { policy: params.policy, attemptId, participantId, isRoot: false }
-  })
-}
-
-export async function captureRootWorkflowExecution(params: {
-  executionId: string
-  workflowId: string
-  workspaceId: string
-  actorUserId: string
-  triggerType: string
-  pendingExecutionId?: string
-  drainRunId?: string | null
-  tier?: BillingTierRecord
-}): Promise<WorkflowExecutionLifecycle> {
-  return db.transaction(async (tx) => {
-    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
-    const processingStartedAt = requireDatabaseDate(
-      databaseClock?.now,
-      'processing-start timestamp'
-    )
-    const [existing] = await tx
-      .select({ rootExecutionId: workflowExecutionTerminal.rootExecutionId })
-      .from(workflowExecutionTerminal)
-      .where(eq(workflowExecutionTerminal.rootExecutionId, params.executionId))
-      .limit(1)
-    if (!existing) {
-      if (!params.tier) {
-        throw new Error(`Workflow execution ${params.executionId} has no captured policy`)
-      }
-      const policy = createWorkflowExecutionTimePolicy({
-        rootExecutionId: params.executionId,
-        processingStartedAt: processingStartedAt.toISOString(),
-        tier: params.tier,
-      })
-      await tx.insert(workflowExecutionTerminal).values({
-        rootExecutionId: params.executionId,
-        workflowId: params.workflowId,
-        workspaceId: params.workspaceId,
-        actorUserId: params.actorUserId,
-        policyState: policy.kind,
-        appliedTierId: policy.appliedTierId,
-        limitSeconds: policy.kind === 'bounded' ? policy.limitSeconds : null,
-        processingStartedAt,
-      })
-    }
-
-    const [stored] = await tx
-      .select()
-      .from(workflowExecutionTerminal)
-      .where(eq(workflowExecutionTerminal.rootExecutionId, params.executionId))
-      .limit(1)
-    if (!stored?.processingStartedAt || stored.policyState === 'uncaptured') {
-      throw new Error(`Workflow execution ${params.executionId} has no captured policy`)
-    }
-
-    if (!stored.appliedTierId) {
-      throw new Error(`Workflow execution ${params.executionId} has no captured owning tier`)
-    }
-    const storedPolicy: WorkflowExecutionTimePolicy =
-      stored.policyState === 'bounded'
-        ? {
-            kind: 'bounded',
-            rootExecutionId: params.executionId,
-            appliedTierId: stored.appliedTierId,
-            processingStartedAt: stored.processingStartedAt.toISOString(),
-            limitSeconds: stored.limitSeconds!,
-            limitMicroseconds: secondsToCeilMicroseconds(stored.limitSeconds!),
-          }
-        : {
-            kind: 'unlimited',
-            rootExecutionId: params.executionId,
-            appliedTierId: stored.appliedTierId,
-            processingStartedAt: stored.processingStartedAt.toISOString(),
-          }
-    const pendingExecutionId = params.pendingExecutionId ?? params.executionId
-    const [claimedAttempt] = await tx
-      .select({ id: workflowExecutionAttempt.id })
-      .from(workflowExecutionAttempt)
-      .where(
-        and(
-          eq(workflowExecutionAttempt.pendingExecutionId, pendingExecutionId),
-          isNull(workflowExecutionAttempt.processingCompletedAt)
-        )
-      )
-      .limit(1)
-    if (claimedAttempt) {
-      const [participant] = await tx
-        .select({ id: workflowExecutionParticipant.id })
-        .from(workflowExecutionParticipant)
-        .where(eq(workflowExecutionParticipant.attemptId, claimedAttempt.id))
-        .limit(1)
-      return {
-        policy: storedPolicy,
-        attemptId: claimedAttempt.id,
-        participantId: participant?.id,
-        isRoot: true,
-      }
-    }
-    const attemptId = uuidv4()
-    const [attemptSequence] = await tx
-      .select({
-        next: sql<number>`coalesce(max(${workflowExecutionAttempt.attemptNumber}), 0)::integer + 1`,
-      })
-      .from(workflowExecutionAttempt)
-      .where(eq(workflowExecutionAttempt.pendingExecutionId, pendingExecutionId))
-    await tx.insert(workflowExecutionAttempt).values({
-      id: attemptId,
-      rootExecutionId: params.executionId,
-      pendingExecutionId,
-      attemptNumber: attemptSequence?.next ?? 1,
-      drainRunId: params.drainRunId ?? null,
-      processingStartedAt: stored.processingStartedAt,
-    })
-
-    if (storedPolicy.kind === 'bounded') {
-      await tx
-        .insert(workflowExecutionDeadline)
-        .values({
-          rootExecutionId: params.executionId,
-          actorUserId: params.actorUserId,
-          triggerType: params.triggerType,
-          appliedTierId: storedPolicy.appliedTierId,
-          processingStartedAt: stored.processingStartedAt,
-          limitSeconds: storedPolicy.limitSeconds,
-          limitMicroseconds: storedPolicy.limitMicroseconds,
-          lastAccountedAt: stored.processingStartedAt,
-          nextReconcileAt: stored.processingStartedAt,
-        })
-        .onConflictDoNothing()
-    }
-
-    let participantId: string | undefined
-    if (storedPolicy.kind === 'bounded') {
-      participantId = uuidv4()
-      await tx.insert(workflowExecutionParticipant).values({
-        id: participantId,
-        rootExecutionId: params.executionId,
-        attemptId,
-        pendingExecutionId,
-        state: 'active',
-        leaseExpiresAt: sql`clock_timestamp() + interval '60 seconds'`,
-        lastHeartbeatAt: sql`clock_timestamp()`,
-      })
-    }
-
-    return { policy: storedPolicy, attemptId, participantId, isRoot: true }
-  })
 }
 
 export async function completeWorkflowExecutionAttempt(params: {
@@ -690,7 +498,7 @@ export async function cancelWorkflowExecutionAtomically(params: {
   pendingExecutionId: string
   actorUserId: string
   descendantOnly?: boolean
-}) {
+}): Promise<WorkflowExecutionCancellationResult> {
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select ${pendingExecution.id}
@@ -711,13 +519,48 @@ export async function cancelWorkflowExecutionAtomically(params: {
         )
       )
       .limit(1)
-    if (!pending?.workflowId || !pending.workspaceId) return false
+    if (!pending?.workflowId || !pending.workspaceId) {
+      const [directTerminal] = await tx
+        .select({ state: workflowExecutionTerminal.state })
+        .from(workflowExecutionTerminal)
+        .where(
+          and(
+            eq(workflowExecutionTerminal.rootExecutionId, params.pendingExecutionId),
+            eq(workflowExecutionTerminal.actorUserId, params.actorUserId)
+          )
+        )
+        .limit(1)
+      if (directTerminal) {
+        return { status: directTerminal.state === 'terminal' ? 'finished' : 'cancelling' }
+      }
+      const [settledAttempt] = await tx
+        .select({
+          processingCompletedAt: workflowExecutionAttempt.processingCompletedAt,
+          rootExecutionId: workflowExecutionAttempt.rootExecutionId,
+        })
+        .from(workflowExecutionAttempt)
+        .where(eq(workflowExecutionAttempt.pendingExecutionId, params.pendingExecutionId))
+        .orderBy(desc(workflowExecutionAttempt.attemptNumber))
+        .limit(1)
+      if (!settledAttempt) return { status: 'not_found' }
+      const [attemptRoot] = await tx
+        .select({ actorUserId: workflowExecutionTerminal.actorUserId })
+        .from(workflowExecutionTerminal)
+        .where(eq(workflowExecutionTerminal.rootExecutionId, settledAttempt.rootExecutionId))
+        .limit(1)
+      if (attemptRoot?.actorUserId !== params.actorUserId) return { status: 'not_found' }
+      return {
+        status: settledAttempt.processingCompletedAt ? 'finished' : 'cancelling',
+      }
+    }
     const [attempt] = await tx
       .select({
+        processingCompletedAt: workflowExecutionAttempt.processingCompletedAt,
         rootExecutionId: workflowExecutionAttempt.rootExecutionId,
       })
       .from(workflowExecutionAttempt)
       .where(eq(workflowExecutionAttempt.pendingExecutionId, pending.id))
+      .orderBy(desc(workflowExecutionAttempt.attemptNumber))
       .limit(1)
     const rootExecutionId = attempt?.rootExecutionId ?? pending.id
 
@@ -740,7 +583,9 @@ export async function cancelWorkflowExecutionAtomically(params: {
         updatedAt: requestedAt,
       })
       .where(eq(pendingExecution.id, pending.id))
-    if (attempt && params.descendantOnly) return true
+    if (attempt && params.descendantOnly) {
+      return { status: attempt.processingCompletedAt ? 'finished' : 'cancelling' }
+    }
     await reconcileWorkflowExecutionDeadlineInTransaction(tx, rootExecutionId, {
       terminalCauseAt: requestedAt,
     })
@@ -836,7 +681,7 @@ export async function cancelWorkflowExecutionAtomically(params: {
           .onConflictDoNothing()
       }
     }
-    return true
+    return { status: processing ? 'cancelling' : 'finished' }
   })
 }
 

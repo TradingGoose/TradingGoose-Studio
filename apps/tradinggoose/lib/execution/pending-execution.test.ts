@@ -193,7 +193,6 @@ vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
   captureClaimedWorkflowLifecycleInTransaction: captureClaimedWorkflowLifecycleInTransactionMock,
 }))
 
-import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -657,77 +656,5 @@ describe('completePendingExecution', () => {
     expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
       billingScopeId: 'scope-1',
     })
-  })
-})
-
-describe('cancelPendingWorkflowExecution', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    selectChain.from.mockReturnThis()
-    selectChain.where.mockReturnThis()
-    updateChain.set.mockReturnThis()
-    updateChain.where.mockReturnThis()
-    updateReturningMock.mockResolvedValue([])
-    deleteWhereMock.mockReturnValue(deleteChain)
-    deleteReturningMock.mockResolvedValue([])
-    loggingStartMock.mockResolvedValue('log-1')
-    loggingCompleteWithErrorMock.mockResolvedValue(undefined)
-    cancelWorkflowExecutionAtomicallyMock.mockResolvedValue(true)
-  })
-
-  it('records queued workflow cancellation before completing the pending row', async () => {
-    selectLimitMock.mockResolvedValueOnce([
-      {
-        id: 'pending-1',
-        status: 'pending',
-        payload: { triggerType: 'manual' },
-        workflowId: 'workflow-1',
-      },
-    ])
-    updateReturningMock.mockResolvedValueOnce([
-      {
-        id: 'pending-1',
-        userId: 'user-1',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-        payload: { triggerType: 'manual' },
-      },
-    ])
-    deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
-
-    await expect(
-      cancelPendingWorkflowExecution({
-        pendingExecutionId: 'pending-1',
-        userId: 'user-1',
-      })
-    ).resolves.toEqual({ status: 'cancelling' })
-    expect(cancelWorkflowExecutionAtomicallyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pendingExecutionId: 'pending-1',
-        actorUserId: 'user-1',
-      })
-    )
-    expect(loggingStartMock).not.toHaveBeenCalled()
-    expect(triggerMock).not.toHaveBeenCalled()
-  })
-
-  it('returns not_found when a worker race removes the pending row', async () => {
-    cancelWorkflowExecutionAtomicallyMock.mockResolvedValueOnce(false)
-    selectLimitMock.mockResolvedValueOnce([
-      {
-        id: 'pending-1',
-        status: 'pending',
-        payload: {},
-        workflowId: 'workflow-1',
-      },
-    ])
-    updateReturningMock.mockResolvedValueOnce([])
-
-    await expect(
-      cancelPendingWorkflowExecution({
-        pendingExecutionId: 'pending-1',
-        userId: 'user-1',
-      })
-    ).resolves.toEqual({ status: 'not_found' })
   })
 })

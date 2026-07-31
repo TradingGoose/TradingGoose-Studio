@@ -6,6 +6,7 @@ import {
   finalizeWorkflowExecution,
   type WorkflowExecutionLifecycle,
 } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import { createWorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
 import { fetchAndProcessAirtablePayloads, formatWebhookInput } from '@/lib/webhooks/utils'
@@ -99,6 +100,13 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
+  if (!payload.workflowExecutionLifecycle) {
+    throw new Error(`Webhook workflow execution ${executionId} is missing its claimed lifecycle`)
+  }
+  const deadlineRuntime = createWorkflowExecutionRuntime(
+    payload.workflowExecutionLifecycle,
+    (error) => logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
+  )
 
   logger.info(`[${requestId}] Starting webhook execution`, {
     webhookId: payload.webhookId,
@@ -115,15 +123,21 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
 
   let blueprint: WorkflowExecutionBlueprint
   try {
+    await deadlineRuntime.start()
+    deadlineRuntime.signal?.throwIfAborted()
     blueprint = await loadWorkflowExecutionBlueprint({
       workflowId: payload.workflowId,
       executionTarget,
     })
+    deadlineRuntime.signal?.throwIfAborted()
     if (!blueprint.workflowContext.workspaceId) {
       throw new Error(`Workflow ${payload.workflowId} is missing workspace scope`)
     }
   } catch (error) {
     if (payload.workflowExecutionLifecycle) {
+      await deadlineRuntime.settleStartup(
+        deadlineRuntime.signal?.aborted ? 'local_abort' : 'failed'
+      )
       await finalizeWorkflowExecution({
         rootExecutionId: payload.workflowExecutionLifecycle.policy.rootExecutionId,
         attemptId: payload.workflowExecutionLifecycle.attemptId,
@@ -134,6 +148,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         },
       })
     }
+    deadlineRuntime.close()
     throw error
   }
 
@@ -145,6 +160,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       requestId,
       executionId,
       lifecycle: payload.workflowExecutionLifecycle,
+      deadlineRuntime,
       triggerType: 'webhook',
       workflowInput: {},
       triggerTarget: {
@@ -160,6 +176,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
           .from(webhook)
           .where(eq(webhook.id, payload.webhookId))
           .limit(1)
+        signal?.throwIfAborted()
         const webhookRecord =
           webhookRows[0] ||
           ({
@@ -289,5 +306,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     })
 
     throw error
+  } finally {
+    deadlineRuntime.close()
   }
 }

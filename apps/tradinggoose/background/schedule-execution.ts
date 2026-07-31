@@ -7,6 +7,7 @@ import {
   finalizeWorkflowExecution,
   type WorkflowExecutionLifecycle,
 } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import { createWorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -129,14 +130,21 @@ async function resolveFallbackNextRunAt(params: {
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
+  if (!payload.workflowExecutionLifecycle) {
+    throw new Error(`Schedule workflow execution ${executionId} is missing its claimed lifecycle`)
+  }
+  const lifecycle = payload.workflowExecutionLifecycle
+  const deadlineRuntime = createWorkflowExecutionRuntime(lifecycle, (error) =>
+    logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
+  )
   const now = new Date(payload.now)
   let runnerInvoked = false
   let runnerRejected = false
   const settlePreparationFailure = async (message: string) => {
-    if (!payload.workflowExecutionLifecycle) return
+    await deadlineRuntime.settleStartup(deadlineRuntime.signal?.aborted ? 'local_abort' : 'failed')
     await finalizeWorkflowExecution({
-      rootExecutionId: payload.workflowExecutionLifecycle.policy.rootExecutionId,
-      attemptId: payload.workflowExecutionLifecycle.attemptId,
+      rootExecutionId: lifecycle.policy.rootExecutionId,
+      attemptId: lifecycle.attemptId,
       result: { success: false, output: {}, error: message },
     })
   }
@@ -169,11 +177,14 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   }
 
   try {
+    await deadlineRuntime.start()
+    deadlineRuntime.signal?.throwIfAborted()
     const [workflowRecord] = await db
       .select()
       .from(workflow)
       .where(eq(workflow.id, payload.workflowId))
       .limit(1)
+    deadlineRuntime.signal?.throwIfAborted()
 
     if (!workflowRecord) {
       logger.warn(`[${requestId}] Workflow ${payload.workflowId} not found`)
@@ -188,6 +199,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     }
 
     const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
+    deadlineRuntime.signal?.throwIfAborted()
 
     if (!actorUserId) {
       logger.warn(
@@ -202,24 +214,28 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       workflowContext: workflowRecord,
       executionTarget: 'deployed',
     })
+    deadlineRuntime.signal?.throwIfAborted()
     const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
 
     if (!scheduleBlocks[payload.blockId]) {
       logger.warn(
         `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
       )
+      deadlineRuntime.signal?.throwIfAborted()
       await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
       await settlePreparationFailure(`Schedule trigger block ${payload.blockId} was not found`)
       return
     }
 
     runnerInvoked = true
+    deadlineRuntime.signal?.throwIfAborted()
     const { result } = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId,
       requestId,
       executionId,
-      lifecycle: payload.workflowExecutionLifecycle,
+      lifecycle,
+      deadlineRuntime,
       triggerType: 'schedule',
       workflowInput: {
         _context: {
@@ -234,6 +250,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       runnerRejected = true
       throw error
     })
+    deadlineRuntime.signal?.throwIfAborted()
 
     if (result.success) {
       logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
@@ -272,6 +289,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       status: shouldDisable ? 'disabled' : 'active',
     })
   } catch (error: any) {
+    if (deadlineRuntime.signal?.aborted) {
+      if (!runnerInvoked)
+        await settlePreparationFailure(error.message || 'Workflow deadline reached')
+      throw error
+    }
     if (runnerRejected) throw error
     if (error instanceof WorkflowUsageLimitError) {
       logger.warn(
@@ -322,5 +344,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         error instanceof Error ? error.message : 'Scheduled workflow preparation failed'
       )
     }
+  } finally {
+    deadlineRuntime.close()
   }
 }

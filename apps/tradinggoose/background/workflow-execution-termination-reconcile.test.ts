@@ -21,6 +21,7 @@ vi.mock('@trigger.dev/sdk', () => ({
 }))
 
 vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
+  cancelWorkflowExecutionAtomically: mocks.cancel,
   claimWorkflowOperationsForTermination: mocks.claim,
   getWorkflowExecutionProjection: mocks.projection,
   listOpenWorkflowExecutionAttemptsForRoot: mocks.attempts,
@@ -33,10 +34,6 @@ vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
 
 vi.mock('@/lib/execution/workflow-execution-deadline-repository', () => ({
   refreshWorkflowExecutionAttemptParticipant: mocks.refreshAttempt,
-}))
-
-vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
-  cancelPendingWorkflowExecution: mocks.cancel,
 }))
 
 vi.mock('@/lib/utils-server', () => ({
@@ -161,7 +158,7 @@ describe('reconcileWorkflowTermination', () => {
 
     expect(mocks.cancel).toHaveBeenCalledWith({
       pendingExecutionId: 'child-1',
-      userId: 'user-1',
+      actorUserId: 'user-1',
       descendantOnly: true,
     })
     expect(mocks.observe).toHaveBeenCalledWith(

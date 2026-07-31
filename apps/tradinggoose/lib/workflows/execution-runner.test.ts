@@ -32,12 +32,16 @@ const mocks = vi.hoisted(() => {
     getPersonalAndWorkspaceEnv,
     loggingSessionConstructor: vi.fn(),
     resolveServerExecutionBillingContext: vi.fn(),
-    captureRootWorkflowExecution: vi.fn(),
+    completeWorkflowOperation: vi.fn(),
     finalizeWorkflowExecution: vi.fn(),
     updateWorkflowRunCounts: vi.fn(),
     reconcileWorkflowExecutionDeadline: vi.fn().mockResolvedValue({ state: 'accounted' }),
     setWorkflowExecutionParticipantState: vi.fn(),
     registerWorkflowOperation: vi.fn(),
+    runtimeClose: vi.fn(),
+    runtimeRearm: vi.fn(),
+    runtimeSettleStartup: vi.fn(),
+    runtimeStart: vi.fn(),
   }
 })
 
@@ -60,14 +64,12 @@ vi.mock('@/lib/execution/workflow-execution-deadline-repository', () => ({
 
 vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
   beginWorkflowDeadlineTermination: vi.fn(),
-  captureRootWorkflowExecution: mocks.captureRootWorkflowExecution,
   completeWorkflowExecutionAttempt: vi.fn(),
   finalizeWorkflowExecution: mocks.finalizeWorkflowExecution,
   getWorkflowOperationCapability: vi.fn().mockReturnValue('uncancelable'),
-  joinWorkflowExecution: vi.fn(),
   claimWorkflowOperationRemoteDispatch: vi.fn(),
   registerWorkflowOperation: mocks.registerWorkflowOperation,
-  completeWorkflowOperation: vi.fn(),
+  completeWorkflowOperation: mocks.completeWorkflowOperation,
 }))
 
 vi.mock('@/lib/environment/utils', () => ({
@@ -167,17 +169,30 @@ const claimedLifecycle = {
     processingStartedAt: '2026-01-01T00:00:00.000Z',
   },
   attemptId: 'attempt-1',
+  startupOperationId: 'startup-operation',
   isRoot: true,
 }
 
 function runPreparedWorkflowExecution(
-  params: Omit<Parameters<typeof runPreparedWorkflowExecutionWithLifecycle>[0], 'lifecycle'> & {
+  params: Omit<
+    Parameters<typeof runPreparedWorkflowExecutionWithLifecycle>[0],
+    'lifecycle' | 'deadlineRuntime'
+  > & {
     lifecycle?: Parameters<typeof runPreparedWorkflowExecutionWithLifecycle>[0]['lifecycle']
+    deadlineRuntime?: Parameters<
+      typeof runPreparedWorkflowExecutionWithLifecycle
+    >[0]['deadlineRuntime']
   }
 ) {
   return runPreparedWorkflowExecutionWithLifecycle({
     ...params,
     lifecycle: params.lifecycle ?? claimedLifecycle,
+    deadlineRuntime: params.deadlineRuntime ?? {
+      start: mocks.runtimeStart,
+      rearm: mocks.runtimeRearm,
+      settleStartup: mocks.runtimeSettleStartup,
+      close: mocks.runtimeClose,
+    },
   })
 }
 
@@ -193,6 +208,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
+    mocks.completeWorkflowOperation.mockResolvedValue(undefined)
     mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
     mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
@@ -205,21 +221,15 @@ describe('runPreparedWorkflowExecution', () => {
         workflowExecutionTimeLimitSeconds: null,
       },
     })
-    mocks.captureRootWorkflowExecution.mockImplementation(async ({ executionId }) => ({
-      policy: {
-        kind: 'unlimited',
-        rootExecutionId: executionId,
-        appliedTierId: 'tier-1',
-        processingStartedAt: new Date().toISOString(),
-      },
-      attemptId: 'attempt-1',
-      isRoot: true,
-    }))
     mocks.finalizeWorkflowExecution.mockImplementation(async ({ result }) => result)
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
     mocks.reconcileWorkflowExecutionDeadline.mockResolvedValue({ state: 'accounted' })
     mocks.setWorkflowExecutionParticipantState.mockResolvedValue(undefined)
-    mocks.registerWorkflowOperation.mockReset()
+    mocks.registerWorkflowOperation.mockReset().mockResolvedValue({ id: 'startup-operation' })
+    mocks.runtimeClose.mockReset()
+    mocks.runtimeRearm.mockReset().mockResolvedValue(undefined)
+    mocks.runtimeSettleStartup.mockReset().mockResolvedValue(undefined)
+    mocks.runtimeStart.mockReset().mockResolvedValue(undefined)
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
@@ -271,6 +281,47 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
+  })
+
+  it('arms bounded enforcement before workflow logging and stops expired startup work', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      lifecycle: {
+        policy: {
+          kind: 'bounded',
+          rootExecutionId: 'execution-1',
+          appliedTierId: 'tier-1',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+          limitSeconds: '1',
+          limitMicroseconds: '1000000',
+        },
+        attemptId: 'attempt-1',
+        startupOperationId: 'startup-operation',
+        participantId: 'participant-1',
+        isRoot: true,
+      },
+      deadlineRuntime: {
+        signal: controller.signal,
+        start: mocks.runtimeStart,
+        rearm: mocks.runtimeRearm,
+        settleStartup: mocks.runtimeSettleStartup,
+        close: mocks.runtimeClose,
+      },
+    })
+
+    expect(mocks.registerWorkflowOperation).not.toHaveBeenCalled()
+    expect(mocks.start).not.toHaveBeenCalled()
+    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.runtimeSettleStartup).toHaveBeenCalledWith('local_abort')
   })
 
   it('leaves terminal workflow-log projection to the durable outbox', async () => {
@@ -470,6 +521,7 @@ describe('runPreparedWorkflowExecution', () => {
           limitMicroseconds: '60000000',
         },
         attemptId: 'attempt-1',
+        startupOperationId: 'startup-operation',
         participantId: 'participant-1',
         isRoot: true,
       },
