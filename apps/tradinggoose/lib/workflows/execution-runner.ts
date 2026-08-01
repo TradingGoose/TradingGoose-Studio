@@ -15,6 +15,7 @@ import {
   registerWorkflowOperation,
   sealWorkflowOperationCredential,
   type WorkflowExecutionLifecycle,
+  type WorkflowExecutionOperationHandle,
 } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import type { WorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -416,6 +417,7 @@ export async function runPreparedWorkflowExecution(params: {
     deadlineRuntime.signal?.throwIfAborted()
 
     const operationWaitStates = new Map<string, 'active' | 'waiting_child'>()
+    const operationHandles = new Map<string, WorkflowExecutionOperationHandle>()
     let waitTransitionQueue = Promise.resolve()
     let participantWaiting = false
     const updateOperationWaitState = async (
@@ -429,10 +431,19 @@ export async function runPreparedWorkflowExecution(params: {
           operationWaitStates.size > 0 &&
           [...operationWaitStates.values()].every((value) => value === 'waiting_child')
         if (nextWaiting !== participantWaiting && lifecycle.participantId) {
-          await setWorkflowExecutionParticipantState({
+          const reconciliation = await setWorkflowExecutionParticipantState({
+            rootExecutionId: lifecycle.policy.rootExecutionId,
+            attemptId: lifecycle.attemptId,
             participantId: lifecycle.participantId,
             state: nextWaiting ? 'waiting_child' : 'active',
           })
+          if (
+            !reconciliation ||
+            reconciliation.state === 'closed' ||
+            reconciliation.state === 'exhausted'
+          ) {
+            throw new Error('Workflow participant transition was rejected')
+          }
           participantWaiting = nextWaiting
           await deadlineRuntime.rearm()
         }
@@ -463,21 +474,40 @@ export async function runPreparedWorkflowExecution(params: {
           adapterKind: handlerType,
           capability: getWorkflowOperationCapability(handlerType),
         })
+        operationHandles.set(operation.id, {
+          id: operation.id,
+          rootExecutionId: operation.rootExecutionId,
+          attemptId: operation.attemptId,
+          participantId: operation.participantId ?? undefined,
+        })
         await updateOperationWaitState(operation.id, 'active')
         return operation.id
       },
       completeWorkflowOperation: async (id, state, observation) => {
-        await completeWorkflowOperation({ id, state, observation })
+        const operation = operationHandles.get(id)
+        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
+        const completed = await completeWorkflowOperation({ operation, state, observation })
+        if (!completed) throw new Error('Workflow operation completion was rejected')
         await updateOperationWaitState(id, 'completed')
+        operationHandles.delete(id)
       },
       publishWorkflowOperationIdentity: async (id, identity) => {
-        await publishWorkflowOperationIdentity({ id, ...identity })
+        const operation = operationHandles.get(id)
+        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
+        const published = await publishWorkflowOperationIdentity({ operation, ...identity })
+        if (!published) throw new Error('Workflow operation identity was rejected')
       },
-      claimWorkflowOperationRemoteDispatch,
+      claimWorkflowOperationRemoteDispatch: async (id) => {
+        const operation = operationHandles.get(id)
+        return operation ? claimWorkflowOperationRemoteDispatch(operation) : false
+      },
       prepareWorkflowOperationCredential: async (id, secret) => {
+        const operation = operationHandles.get(id)
+        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
         const { encryptSecret } = await import('@/lib/utils-server')
         const { encrypted } = await encryptSecret(secret)
-        await sealWorkflowOperationCredential(id, encrypted)
+        const sealed = await sealWorkflowOperationCredential(operation, encrypted)
+        if (!sealed) throw new Error('Workflow operation credential was rejected')
       },
       setWorkflowParticipantWaiting: lifecycle.participantId
         ? async (operationId, waiting) => {

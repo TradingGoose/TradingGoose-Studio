@@ -1,10 +1,5 @@
 import { db } from '@tradinggoose/db'
-import {
-  pendingExecution,
-  workflowExecutionLogs,
-  workflowExecutionOperation,
-  workflowExecutionTerminal,
-} from '@tradinggoose/db/schema'
+import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
@@ -17,7 +12,10 @@ import {
   wakePendingExecutionDrain,
 } from '@/lib/execution/pending-execution-drain-wake'
 import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
-import { captureClaimedWorkflowLifecycleInTransaction } from '@/lib/execution/workflow-execution-lifecycle-repository'
+import {
+  admitNestedWorkflowExecutionInTransaction,
+  captureClaimedWorkflowLifecycleInTransaction,
+} from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { requireDatabaseDate } from './database-date'
 import { isWorkflowExecutionTimePolicy } from './workflow-execution-time-policy'
@@ -167,36 +165,11 @@ export async function enqueuePendingExecution(
       if (!policy || !parentOperationId) {
         throw new Error('Nested workflow enqueue is missing its inherited lifecycle context')
       }
-      await tx.execute(
-        sql`select ${workflowExecutionTerminal.rootExecutionId}
-            from ${workflowExecutionTerminal}
-            where ${workflowExecutionTerminal.rootExecutionId} = ${policy.rootExecutionId}
-            for update`
-      )
-      const [root] = await tx
-        .select()
-        .from(workflowExecutionTerminal)
-        .where(eq(workflowExecutionTerminal.rootExecutionId, policy.rootExecutionId))
-        .limit(1)
-      const [operation] = await tx
-        .select()
-        .from(workflowExecutionOperation)
-        .where(eq(workflowExecutionOperation.id, parentOperationId))
-        .limit(1)
-      if (
-        !root ||
-        root.state !== 'running' ||
-        !root.dispatchOpen ||
-        root.policyState !== policy.kind ||
-        root.appliedTierId !== policy.appliedTierId ||
-        root.processingStartedAt?.toISOString() !== policy.processingStartedAt ||
-        (policy.kind === 'bounded' && root.limitSeconds !== policy.limitSeconds) ||
-        !operation ||
-        operation.rootExecutionId !== policy.rootExecutionId ||
-        !['registered', 'running'].includes(operation.state)
-      ) {
-        throw new Error('Nested workflow admission is closed')
-      }
+      await admitNestedWorkflowExecutionInTransaction(tx, {
+        operationId: parentOperationId,
+        pendingExecutionId: params.pendingExecutionId,
+        policy,
+      })
     }
 
     if (limits.maxPendingAgeSeconds !== null) {
@@ -285,20 +258,6 @@ export async function enqueuePendingExecution(
       workspaceId: params.workspaceId ?? null,
       payload: params.payload,
     })
-    if (parentOperationId) {
-      await tx
-        .update(workflowExecutionOperation)
-        .set({
-          remoteOperationId: params.pendingExecutionId,
-          updatedAt: sql`clock_timestamp()`,
-        })
-        .where(
-          and(
-            eq(workflowExecutionOperation.id, parentOperationId),
-            sql`${workflowExecutionOperation.remoteOperationId} is null`
-          )
-        )
-    }
     inserted = true
   })
 

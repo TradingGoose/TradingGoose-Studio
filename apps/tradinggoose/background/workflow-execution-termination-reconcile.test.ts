@@ -105,7 +105,7 @@ describe('reconcileWorkflowTermination', () => {
 
     expect(mocks.observe).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: 'operation-remote',
+        operation: expect.objectContaining({ id: 'operation-remote' }),
         fencingToken: 'fence-remote',
         state: testCase.state,
       })
@@ -132,7 +132,7 @@ describe('reconcileWorkflowTermination', () => {
 
       expect(mocks.observe).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'operation-retry',
+          operation: expect.objectContaining({ id: 'operation-retry' }),
           observation: { adapter: 'exa_research', outcome: 'unknown' },
         })
       )
@@ -163,7 +163,7 @@ describe('reconcileWorkflowTermination', () => {
     })
     expect(mocks.observe).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: 'operation-1',
+        operation: expect.objectContaining({ id: 'operation-1' }),
         fencingToken: 'fence-1',
         state: 'canceled',
       })

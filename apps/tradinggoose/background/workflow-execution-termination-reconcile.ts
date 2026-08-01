@@ -223,7 +223,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
       const durableTool = await reconcileDurableToolOperation(operation)
       if (durableTool) {
         await recordWorkflowOperationObservation({
-          id: operation.id,
+          operation,
           fencingToken: operation.fencingToken,
           ...durableTool,
         })
@@ -234,7 +234,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
     }
     if (isDurableTool) {
       await recordWorkflowOperationObservation({
-        id: operation.id,
+        operation,
         fencingToken: operation.fencingToken,
         observation: { adapter: operation.adapterKind, outcome: 'unknown' },
       })
@@ -266,7 +266,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
                   ? 'failed'
                   : undefined
           await recordWorkflowOperationObservation({
-            id: operation.id,
+            operation,
             fencingToken: operation.fencingToken,
             state,
             observation: {
@@ -291,7 +291,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
         descendantOnly: true,
       })
       await recordWorkflowOperationObservation({
-        id: operation.id,
+        operation,
         fencingToken: operation.fencingToken,
         state: outcome.status === 'finished' ? 'canceled' : undefined,
         observation: { adapter: operation.adapterKind, outcome: outcome.status },
@@ -301,7 +301,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
     // Local, status-only, and uncancelable work crosses the barrier only when its
     // live adapter or authoritative provider observer confirms a terminal state.
     await recordWorkflowOperationObservation({
-      id: operation.id,
+      operation,
       fencingToken: operation.fencingToken,
       observation: { adapter: operation.adapterKind, outcome: 'unknown' },
     })

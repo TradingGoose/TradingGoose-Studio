@@ -26,6 +26,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
   rootExecutionId: string,
   options?: {
     terminalCauseAt?: Date
+    allowTerminalObservation?: boolean
   }
 ): Promise<WorkflowDeadlineReconcileResult> {
   await tx.execute(
@@ -40,11 +41,20 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       dispatchOpen: workflowExecutionTerminal.dispatchOpen,
       policyState: workflowExecutionTerminal.policyState,
       deadlineCandidateAt: workflowExecutionTerminal.deadlineCandidateAt,
+      result: workflowExecutionTerminal.result,
     })
     .from(workflowExecutionTerminal)
     .where(eq(workflowExecutionTerminal.rootExecutionId, rootExecutionId))
     .limit(1)
-  if (!terminal || terminal.state !== 'running' || !terminal.dispatchOpen) {
+  const acceptsTerminalObservation =
+    options?.allowTerminalObservation &&
+    terminal?.state === 'termination_pending' &&
+    !terminal.result
+  if (
+    !terminal ||
+    (!acceptsTerminalObservation && (terminal.state !== 'running' || !terminal.dispatchOpen))
+  ) {
+    if (!terminal || terminal.result || terminal.state === 'terminal') return { state: 'closed' }
     if (terminal?.deadlineCandidateAt) {
       return { state: 'exhausted', exhaustedAt: terminal.deadlineCandidateAt }
     }
@@ -107,7 +117,18 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
             floor(extract(epoch from (
               accounting.counted_until - accounting.last_accounted_at
             )) * 1000000)
-          )::numeric as accrued
+          )::numeric as accrued,
+          case
+            when accounting.live_until is null then accounting.now
+            when ${NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE}
+              then case
+                when accounting.live_until >= accounting.now then accounting.now
+                else accounting.counted_until
+              end
+            when accounting.active_until is null then accounting.now
+            when accounting.active_until >= accounting.now then accounting.now
+            else accounting.counted_until
+          end as accounted_until
         from accounting
       ), scheduled as (
         select calculated.*,
@@ -125,14 +146,15 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
                     )
                 )
               ))::text || ' microseconds')::interval,
-            coalesce(
-              case
-                when ${NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE}
-                  then calculated.live_until
-                else calculated.active_until
-              end,
-              calculated.now + interval '60 seconds'
-            )
+            case
+              when ${NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE}
+                and calculated.live_until >= calculated.now
+                then calculated.live_until
+              when not ${NESTED_WORKFLOW_QUEUE_WAIT_COUNTS_TOWARD_DEADLINE}
+                and calculated.active_until >= calculated.now
+                then calculated.active_until
+              else calculated.now + interval '60 seconds'
+            end
           ) as next_wake_at
         from calculated
       ), updated as (
@@ -141,7 +163,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
               scheduled.limit_microseconds,
               scheduled.counted_microseconds + scheduled.accrued
             ),
-            last_accounted_at = scheduled.now,
+            last_accounted_at = scheduled.accounted_until,
             next_reconcile_at = scheduled.next_wake_at,
             schedule_version = deadline.schedule_version + 1,
             updated_at = scheduled.now
@@ -165,13 +187,20 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
         update ${workflowExecutionTerminal} terminal
         set state = 'termination_pending',
             dispatch_open = false,
-            termination_requested_at = reconciled.exhausted_at,
-            deadline_candidate_at = reconciled.exhausted_at,
+            termination_requested_at = least(
+              coalesce(terminal.termination_requested_at, reconciled.exhausted_at),
+              reconciled.exhausted_at
+            ),
+            deadline_candidate_at = least(
+              coalesce(terminal.deadline_candidate_at, reconciled.exhausted_at),
+              reconciled.exhausted_at
+            ),
             barrier_version = terminal.barrier_version + 1,
             updated_at = reconciled.observed_at
         from reconciled
         where terminal.root_execution_id = reconciled.root_execution_id
-          and terminal.state = 'running'
+          and terminal.state in ('running', 'termination_pending')
+          and terminal.result is null
           and reconciled.exhausted_at is not null
         returning terminal.root_execution_id
       )
@@ -217,7 +246,7 @@ export async function reconcileWorkflowExecutionDeadlineInTransaction(
       .onConflictDoNothing()
     return { state: 'exhausted', exhaustedAt }
   }
-  if (options?.terminalCauseAt) return { state: 'accounted' }
+  if (options?.terminalCauseAt || acceptsTerminalObservation) return { state: 'accounted' }
   await tx
     .insert(workflowExecutionOutbox)
     .values({
@@ -245,65 +274,149 @@ export async function reconcileWorkflowExecutionDeadline(
   )
 }
 
+export async function transitionWorkflowExecutionParticipantInTransaction(
+  tx: DeadlineTransaction,
+  params: {
+    rootExecutionId: string
+    attemptId: string
+    participantId: string
+    state?: 'active' | 'waiting_child' | 'canceled' | 'completed' | 'failed'
+    observedAt?: Date
+  }
+) {
+  await tx.execute(
+    sql`select ${workflowExecutionTerminal.rootExecutionId}
+        from ${workflowExecutionTerminal}
+        where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
+        for update`
+  )
+  const [terminal] = await tx
+    .select({
+      result: workflowExecutionTerminal.result,
+      state: workflowExecutionTerminal.state,
+    })
+    .from(workflowExecutionTerminal)
+    .where(eq(workflowExecutionTerminal.rootExecutionId, params.rootExecutionId))
+    .limit(1)
+  if (!terminal || terminal.result || terminal.state === 'terminal') return
+  if (terminal.state !== 'running' && !params.observedAt) return
+  await tx.execute(
+    sql`select ${workflowExecutionDeadline.rootExecutionId}
+        from ${workflowExecutionDeadline}
+        where ${workflowExecutionDeadline.rootExecutionId} = ${params.rootExecutionId}
+        for update`
+  )
+  const [lockedParticipant] = await tx
+    .select({
+      attemptId: workflowExecutionParticipant.attemptId,
+      rootExecutionId: workflowExecutionParticipant.rootExecutionId,
+      state: workflowExecutionParticipant.state,
+    })
+    .from(workflowExecutionParticipant)
+    .where(
+      and(
+        eq(workflowExecutionParticipant.id, params.participantId),
+        eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+        eq(workflowExecutionParticipant.attemptId, params.attemptId)
+      )
+    )
+    .limit(1)
+  if (!lockedParticipant) return
+  if (
+    lockedParticipant.rootExecutionId !== params.rootExecutionId ||
+    lockedParticipant.attemptId !== params.attemptId
+  ) {
+    return
+  }
+  if (!['active', 'waiting_child'].includes(lockedParticipant.state)) {
+    if (params.observedAt && (!params.state || params.state === lockedParticipant.state)) {
+      return { state: 'accounted' } as const
+    }
+    return
+  }
+  const observedAt = params.observedAt
+    ? sql`${sql.param(params.observedAt, workflowExecutionParticipant.lastHeartbeatAt)}::timestamptz`
+    : sql`clock_timestamp()`
+  const [renewedParticipant] = await tx
+    .update(workflowExecutionParticipant)
+    .set({
+      lastHeartbeatAt: observedAt,
+      leaseExpiresAt: sql`${observedAt} + interval '60 seconds'`,
+      updatedAt: observedAt,
+    })
+    .where(
+      and(
+        eq(workflowExecutionParticipant.id, params.participantId),
+        eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+        eq(workflowExecutionParticipant.attemptId, params.attemptId),
+        eq(workflowExecutionParticipant.state, lockedParticipant.state)
+      )
+    )
+    .returning({ id: workflowExecutionParticipant.id })
+  if (!renewedParticipant) return
+  const reconciliation = await reconcileWorkflowExecutionDeadlineInTransaction(
+    tx,
+    params.rootExecutionId,
+    {
+      terminalCauseAt: params.observedAt,
+      allowTerminalObservation: Boolean(params.observedAt),
+    }
+  )
+  if (params.state) {
+    const [transitionedParticipant] = await tx
+      .update(workflowExecutionParticipant)
+      .set({ state: params.state, updatedAt: observedAt })
+      .where(
+        and(
+          eq(workflowExecutionParticipant.id, params.participantId),
+          eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+          eq(workflowExecutionParticipant.attemptId, params.attemptId),
+          eq(workflowExecutionParticipant.state, lockedParticipant.state)
+        )
+      )
+      .returning({ id: workflowExecutionParticipant.id })
+    if (!transitionedParticipant) {
+      throw new Error('Workflow participant transition ownership was lost')
+    }
+  }
+  return reconciliation
+}
+
 export async function setWorkflowExecutionParticipantState(params: {
+  rootExecutionId: string
+  attemptId: string
   participantId: string
   state: 'active' | 'waiting_child' | 'canceled' | 'completed' | 'failed'
 }) {
-  await db.transaction(async (tx) => {
-    const [participant] = await tx
-      .select({ rootExecutionId: workflowExecutionParticipant.rootExecutionId })
-      .from(workflowExecutionParticipant)
-      .where(eq(workflowExecutionParticipant.id, params.participantId))
-      .limit(1)
-    if (!participant) return
-    await reconcileWorkflowExecutionDeadlineInTransaction(tx, participant.rootExecutionId)
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({
-        state: params.state,
-        lastHeartbeatAt: sql`clock_timestamp()`,
-        leaseExpiresAt: sql`clock_timestamp() + interval '60 seconds'`,
-        updatedAt: sql`clock_timestamp()`,
-      })
-      .where(eq(workflowExecutionParticipant.id, params.participantId))
-  })
+  return db.transaction((tx) => transitionWorkflowExecutionParticipantInTransaction(tx, params))
 }
 
-export async function heartbeatWorkflowExecutionParticipant(participantId: string) {
-  await db.transaction(async (tx) => {
-    const [participant] = await tx
-      .select({
-        rootExecutionId: workflowExecutionParticipant.rootExecutionId,
-        state: workflowExecutionParticipant.state,
-      })
-      .from(workflowExecutionParticipant)
-      .where(eq(workflowExecutionParticipant.id, participantId))
-      .limit(1)
-    if (!participant || !['active', 'waiting_child'].includes(participant.state)) return
-    await reconcileWorkflowExecutionDeadlineInTransaction(tx, participant.rootExecutionId)
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({
-        lastHeartbeatAt: sql`clock_timestamp()`,
-        leaseExpiresAt: sql`clock_timestamp() + interval '60 seconds'`,
-        updatedAt: sql`clock_timestamp()`,
-      })
-      .where(
-        and(
-          eq(workflowExecutionParticipant.id, participantId),
-          inArray(workflowExecutionParticipant.state, ['active', 'waiting_child'])
-        )
-      )
-  })
+export async function heartbeatWorkflowExecutionParticipant(params: {
+  rootExecutionId: string
+  attemptId: string
+  participantId: string
+}) {
+  return db.transaction((tx) => transitionWorkflowExecutionParticipantInTransaction(tx, params))
 }
 
 export async function refreshWorkflowExecutionAttemptParticipant(attemptId: string) {
-  const [participant] = await db
-    .select({ id: workflowExecutionParticipant.id })
-    .from(workflowExecutionParticipant)
-    .where(eq(workflowExecutionParticipant.attemptId, attemptId))
-    .limit(1)
-  if (participant) await heartbeatWorkflowExecutionParticipant(participant.id)
+  await db.transaction(async (tx) => {
+    const [participant] = await tx
+      .select({
+        attemptId: workflowExecutionParticipant.attemptId,
+        id: workflowExecutionParticipant.id,
+        rootExecutionId: workflowExecutionParticipant.rootExecutionId,
+      })
+      .from(workflowExecutionParticipant)
+      .where(eq(workflowExecutionParticipant.attemptId, attemptId))
+      .limit(1)
+    if (!participant) return
+    await transitionWorkflowExecutionParticipantInTransaction(tx, {
+      rootExecutionId: participant.rootExecutionId,
+      attemptId: participant.attemptId,
+      participantId: participant.id,
+    })
+  })
 }
 
 export async function listDueWorkflowExecutionDeadlines(limit = 100) {

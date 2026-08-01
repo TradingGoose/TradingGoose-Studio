@@ -24,36 +24,75 @@ export function createWorkflowExecutionRuntime(
   let participantHeartbeat: ReturnType<typeof setInterval> | undefined
   let startupSettled = false
 
-  const arm = async () => {
-    if (!controller) return
+  const applyReconciliation = (
+    reconciliation: Awaited<ReturnType<typeof reconcileWorkflowExecutionDeadline>>
+  ) => {
     if (deadlineWake) clearTimeout(deadlineWake)
-    const reconciliation = await reconcileWorkflowExecutionDeadline(
-      lifecycle.policy.rootExecutionId
-    )
     if (reconciliation.state === 'scheduled') {
       deadlineWake = setTimeout(() => void arm(), reconciliation.delayMilliseconds)
-    } else if (reconciliation.state === 'exhausted') {
-      controller.abort()
+    } else if (reconciliation.state === 'exhausted' || reconciliation.state === 'closed') {
+      controller?.abort()
     }
+  }
+
+  const arm = async () => {
+    if (!controller) return
+    applyReconciliation(await reconcileWorkflowExecutionDeadline(lifecycle.policy.rootExecutionId))
   }
 
   return {
     signal: controller?.signal,
     start: async () => {
-      await arm()
+      if (controller) {
+        if (!lifecycle.participantId) throw new Error('Bounded workflow participant is missing')
+        const reconciliation = await heartbeatWorkflowExecutionParticipant({
+          rootExecutionId: lifecycle.policy.rootExecutionId,
+          attemptId: lifecycle.attemptId,
+          participantId: lifecycle.participantId,
+        })
+        if (!reconciliation || reconciliation.state === 'closed') {
+          controller.abort()
+        } else {
+          applyReconciliation(reconciliation)
+        }
+      }
       controller?.signal.throwIfAborted()
       if (controller && lifecycle.participantId) {
         participantHeartbeat = setInterval(() => {
-          void heartbeatWorkflowExecutionParticipant(lifecycle.participantId!).catch(
-            onHeartbeatError
-          )
+          void heartbeatWorkflowExecutionParticipant({
+            rootExecutionId: lifecycle.policy.rootExecutionId,
+            attemptId: lifecycle.attemptId,
+            participantId: lifecycle.participantId!,
+          })
+            .then((reconciliation) => {
+              if (
+                !reconciliation ||
+                reconciliation.state === 'closed' ||
+                reconciliation.state === 'exhausted'
+              ) {
+                controller.abort()
+              }
+            })
+            .catch((error) => {
+              controller.abort()
+              onHeartbeatError(error)
+            })
         }, 30_000)
       }
     },
     rearm: arm,
     settleStartup: async (state) => {
       if (startupSettled) return
-      await completeWorkflowOperation({ id: lifecycle.startupOperationId, state })
+      const completed = await completeWorkflowOperation({
+        operation: {
+          id: lifecycle.startupOperationId,
+          rootExecutionId: lifecycle.policy.rootExecutionId,
+          attemptId: lifecycle.attemptId,
+          participantId: lifecycle.participantId,
+        },
+        state,
+      })
+      if (!completed) throw new Error('Workflow startup settlement was rejected')
       startupSettled = true
     },
     close: () => {

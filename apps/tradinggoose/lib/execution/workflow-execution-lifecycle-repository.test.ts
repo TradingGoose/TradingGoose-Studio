@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   selectRows: [] as unknown[][],
   requireDatabaseDate: vi.fn(),
   reconcileDeadline: vi.fn(),
+  transitionParticipant: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -53,6 +54,7 @@ vi.mock('./database-date', () => ({
 vi.mock('./workflow-execution-deadline-repository', () => ({
   reconcileWorkflowExecutionDeadline: vi.fn(),
   reconcileWorkflowExecutionDeadlineInTransaction: mocks.reconcileDeadline,
+  transitionWorkflowExecutionParticipantInTransaction: mocks.transitionParticipant,
 }))
 
 import {
@@ -84,12 +86,14 @@ function selectChain() {
 describe('workflow lifecycle raw database clocks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.execute.mockReset()
     mocks.selectRows = []
     mocks.select.mockImplementation(selectChain)
     mocks.requireDatabaseDate.mockImplementation(() => {
       throw decoderSentinel
     })
     mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
+    mocks.transitionParticipant.mockResolvedValue({ state: 'accounted' })
     mocks.transaction.mockImplementation(async (callback) =>
       callback({
         execute: mocks.execute,
@@ -239,7 +243,8 @@ describe('workflow lifecycle raw database clocks', () => {
   })
 
   it('normalizes the completion clock before participant and attempt writes', async () => {
-    mocks.execute.mockResolvedValueOnce(undefined).mockResolvedValueOnce([{ now: rawTimestamp }])
+    mocks.selectRows = [[{ result: null }], [{ processingCompletedAt: null }]]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
 
     await expect(
       finalizeWorkflowExecution({
@@ -275,8 +280,13 @@ describe('workflow lifecycle raw database clocks', () => {
     )
   })
 
-  it('accounts a deadline through infrastructure failure before closing dispatch', async () => {
+  it('observes the failed participant before closing dispatch for infrastructure failure', async () => {
     const failedAt = new Date(rawTimestamp)
+    mocks.selectRows = [
+      [{ processingCompletedAt: null }],
+      [{ id: 'participant-1' }],
+      [{ id: 'attempt-1' }],
+    ]
     mocks.execute.mockResolvedValueOnce(undefined)
 
     await expect(
@@ -286,8 +296,12 @@ describe('workflow lifecycle raw database clocks', () => {
         failedAt,
       })
     ).rejects.toThrow()
-    expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'execution-1', {
-      terminalCauseAt: failedAt,
+    expect(mocks.transitionParticipant).toHaveBeenCalledWith(expect.anything(), {
+      rootExecutionId: 'execution-1',
+      attemptId: 'attempt-1',
+      participantId: 'participant-1',
+      state: 'failed',
+      observedAt: failedAt,
     })
   })
 })
@@ -295,9 +309,12 @@ describe('workflow lifecycle raw database clocks', () => {
 describe('nested workflow attempt completion', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.execute.mockReset()
     mocks.selectRows = []
     mocks.select.mockImplementation(selectChain)
     mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
+    mocks.transitionParticipant.mockResolvedValue({ state: 'accounted' })
+    mocks.requireDatabaseDate.mockReturnValue(new Date(rawTimestamp))
   })
 
   it.each([
@@ -308,9 +325,11 @@ describe('nested workflow attempt completion', () => {
     async (result, state) => {
       const updateChain = {
         set: vi.fn(),
-        where: vi.fn().mockResolvedValue(undefined),
+        where: vi.fn(),
+        returning: vi.fn().mockResolvedValue([{ id: 'attempt-1' }]),
       }
       updateChain.set.mockReturnValue(updateChain)
+      updateChain.where.mockReturnValue(updateChain)
       const insertChain = {
         values: vi.fn(),
         onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
@@ -326,7 +345,10 @@ describe('nested workflow attempt completion', () => {
             attemptNumber: 1,
           },
         ],
+        [{ id: 'participant-1' }],
+        [{ id: 'attempt-1' }],
       ]
+      mocks.execute.mockReset().mockResolvedValueOnce([{ now: rawTimestamp }])
       mocks.transaction.mockImplementationOnce(async (callback) =>
         callback({
           execute: mocks.execute,
@@ -338,9 +360,17 @@ describe('nested workflow attempt completion', () => {
 
       await completeWorkflowExecutionAttempt({ attemptId: 'attempt-1', result })
 
-      expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'root-1')
+      expect(mocks.transitionParticipant).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          rootExecutionId: 'root-1',
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          state,
+        })
+      )
       expect(updateChain.set).toHaveBeenNthCalledWith(1, expect.objectContaining({ state }))
-      expect(mocks.reconcileDeadline.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(mocks.transitionParticipant.mock.invocationCallOrder[0]).toBeLessThan(
         update.mock.invocationCallOrder[0]
       )
     }

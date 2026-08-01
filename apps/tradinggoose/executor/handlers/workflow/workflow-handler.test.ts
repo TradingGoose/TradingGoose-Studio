@@ -131,12 +131,7 @@ describe('WorkflowBlockHandler', () => {
 
     const result = await (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
 
-    expect(mockContext.publishWorkflowOperationIdentity).toHaveBeenCalledWith('operation-1', {
-      adapterKind: 'workflow',
-      capability: 'native_cancel_status',
-      remoteOperationId: 'job-1',
-      observation: { childWorkflowName: 'Child Workflow' },
-    })
+    expect(mockContext.publishWorkflowOperationIdentity).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       'http://localhost:3000/api/workflows/child-workflow-id/queue',

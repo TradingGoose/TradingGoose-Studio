@@ -14,8 +14,8 @@ import type { BillingTierRecord } from '@/lib/billing/tiers'
 import type { ExecutionResult } from '@/executor/types'
 import { requireDatabaseDate } from './database-date'
 import {
-  reconcileWorkflowExecutionDeadline,
   reconcileWorkflowExecutionDeadlineInTransaction,
+  transitionWorkflowExecutionParticipantInTransaction,
 } from './workflow-execution-deadline-repository'
 import {
   createWorkflowDeadlineResult,
@@ -33,12 +33,38 @@ export type WorkflowExecutionLifecycle = {
   participantId?: string
 }
 
+export type WorkflowExecutionOperationHandle = {
+  id: string
+  rootExecutionId: string
+  attemptId: string
+  participantId?: string
+}
+
 export type WorkflowExecutionCancellationResult =
   | { status: 'not_found' }
   | { status: 'cancelling' }
   | { status: 'finished' }
 
 type LifecycleTransaction = Pick<typeof db, 'execute' | 'select' | 'insert' | 'update'>
+
+async function isWorkflowExecutionAttemptOpen(
+  tx: LifecycleTransaction,
+  rootExecutionId: string,
+  attemptId: string
+) {
+  const [attempt] = await tx
+    .select({ id: workflowExecutionAttempt.id })
+    .from(workflowExecutionAttempt)
+    .where(
+      and(
+        eq(workflowExecutionAttempt.id, attemptId),
+        eq(workflowExecutionAttempt.rootExecutionId, rootExecutionId),
+        isNull(workflowExecutionAttempt.processingCompletedAt)
+      )
+    )
+    .limit(1)
+  return Boolean(attempt)
+}
 
 async function createWorkflowStartupOperation(
   tx: LifecycleTransaction,
@@ -127,6 +153,9 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
       throw new Error('Inherited workflow policy is restricted to workflow-block children')
     }
     rootExecutionId = inherited.rootExecutionId
+    const parentOperationId =
+      typeof metadata.parentOperationId === 'string' ? metadata.parentOperationId : null
+    if (!parentOperationId) throw new Error('Nested workflow claim is missing its parent operation')
     await params.tx.execute(
       sql`select ${workflowExecutionTerminal.rootExecutionId}
           from ${workflowExecutionTerminal}
@@ -151,11 +180,31 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
     }
     policy = inherited
     if (policy.kind === 'bounded') {
-      const reconciliation = await reconcileWorkflowExecutionDeadlineInTransaction(
-        params.tx,
-        rootExecutionId
-      )
-      if (reconciliation.state === 'exhausted') {
+      const [parentLocator] = await params.tx
+        .select({
+          attemptId: workflowExecutionOperation.attemptId,
+          participantId: workflowExecutionOperation.participantId,
+          remoteOperationId: workflowExecutionOperation.remoteOperationId,
+          rootExecutionId: workflowExecutionOperation.rootExecutionId,
+          state: workflowExecutionOperation.state,
+        })
+        .from(workflowExecutionOperation)
+        .where(eq(workflowExecutionOperation.id, parentOperationId))
+        .limit(1)
+      if (
+        !parentLocator?.participantId ||
+        parentLocator.rootExecutionId !== rootExecutionId ||
+        parentLocator.remoteOperationId !== params.pending.id ||
+        !['registered', 'running'].includes(parentLocator.state)
+      ) {
+        throw new Error('Inherited workflow execution admission is closed')
+      }
+      const reconciliation = await transitionWorkflowExecutionParticipantInTransaction(params.tx, {
+        rootExecutionId,
+        attemptId: parentLocator.attemptId,
+        participantId: parentLocator.participantId,
+      })
+      if (!reconciliation || reconciliation.state === 'exhausted') {
         throw new Error('Inherited workflow execution deadline is exhausted')
       }
       const [revalidatedRoot] = await params.tx
@@ -169,6 +218,36 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
       if (revalidatedRoot?.state !== 'running' || !revalidatedRoot.dispatchOpen) {
         throw new Error('Inherited workflow execution admission is closed')
       }
+      if (
+        !(await isWorkflowExecutionAttemptOpen(params.tx, rootExecutionId, parentLocator.attemptId))
+      ) {
+        throw new Error('Inherited workflow execution admission is closed')
+      }
+    }
+    const [parentOperation] = await params.tx
+      .select({
+        attemptId: workflowExecutionOperation.attemptId,
+        participantId: workflowExecutionOperation.participantId,
+        remoteOperationId: workflowExecutionOperation.remoteOperationId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(eq(workflowExecutionOperation.id, parentOperationId))
+      .limit(1)
+    if (
+      !parentOperation ||
+      parentOperation.rootExecutionId !== rootExecutionId ||
+      parentOperation.remoteOperationId !== params.pending.id ||
+      (policy.kind === 'unlimited' && parentOperation.participantId) ||
+      !['registered', 'running'].includes(parentOperation.state)
+    ) {
+      throw new Error('Inherited workflow execution admission is closed')
+    }
+    if (
+      !(await isWorkflowExecutionAttemptOpen(params.tx, rootExecutionId, parentOperation.attemptId))
+    ) {
+      throw new Error('Inherited workflow execution admission is closed')
     }
   } else {
     if (params.pending.source === 'workflow_block') {
@@ -292,34 +371,62 @@ export async function completeWorkflowExecutionAttempt(params: {
   attemptId: string
   result: ExecutionResult
 }) {
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     const [attempt] = await tx
       .select()
       .from(workflowExecutionAttempt)
       .where(eq(workflowExecutionAttempt.id, params.attemptId))
       .limit(1)
     if (!attempt) throw new Error(`Missing workflow attempt ${params.attemptId}`)
-    await tx.execute(
-      sql`select ${workflowExecutionTerminal.rootExecutionId}
-          from ${workflowExecutionTerminal}
-          where ${workflowExecutionTerminal.rootExecutionId} = ${attempt.rootExecutionId}
-          for update`
-    )
-    await reconcileWorkflowExecutionDeadlineInTransaction(tx, attempt.rootExecutionId)
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({
-        state: params.result.success ? 'completed' : 'failed',
-        updatedAt: sql`clock_timestamp()`,
-      })
-      .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
-    await tx
+    if (attempt.processingCompletedAt) return
+    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const completedAt = requireDatabaseDate(databaseClock?.now, 'completion timestamp')
+    const [participant] = await tx
+      .select({ id: workflowExecutionParticipant.id })
+      .from(workflowExecutionParticipant)
+      .where(
+        and(
+          eq(workflowExecutionParticipant.rootExecutionId, attempt.rootExecutionId),
+          eq(workflowExecutionParticipant.attemptId, params.attemptId)
+        )
+      )
+      .limit(1)
+    const evidence = participant
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: attempt.rootExecutionId,
+          attemptId: params.attemptId,
+          participantId: participant.id,
+          state: params.result.success ? 'completed' : 'failed',
+          observedAt: completedAt,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, attempt.rootExecutionId, {
+          terminalCauseAt: completedAt,
+          allowTerminalObservation: true,
+        })
+    if (
+      !evidence ||
+      evidence.state === 'closed' ||
+      (!participant && evidence.state !== 'unlimited')
+    ) {
+      return
+    }
+    if (!(await isWorkflowExecutionAttemptOpen(tx, attempt.rootExecutionId, params.attemptId)))
+      return
+    const [closedAttempt] = await tx
       .update(workflowExecutionAttempt)
       .set({
         state: params.result.success ? 'completed' : 'failed',
-        processingCompletedAt: sql`clock_timestamp()`,
+        processingCompletedAt: completedAt,
       })
-      .where(eq(workflowExecutionAttempt.id, params.attemptId))
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, attempt.rootExecutionId),
+          isNull(workflowExecutionAttempt.processingCompletedAt)
+        )
+      )
+      .returning({ id: workflowExecutionAttempt.id })
+    if (!closedAttempt) throw new Error('Workflow execution attempt ownership was lost')
     await tx
       .insert(workflowExecutionOutbox)
       .values({
@@ -349,11 +456,31 @@ export async function registerWorkflowOperation(params: {
 }) {
   const id = uuidv4()
   return db.transaction(async (tx) => {
-    const reconciliation = await reconcileWorkflowExecutionDeadlineInTransaction(
-      tx,
-      params.rootExecutionId
-    )
-    if (reconciliation.state === 'exhausted') {
+    const [attempt] = await tx
+      .select({ processingCompletedAt: workflowExecutionAttempt.processingCompletedAt })
+      .from(workflowExecutionAttempt)
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId)
+        )
+      )
+      .limit(1)
+    if (!attempt || attempt.processingCompletedAt) {
+      throw new Error('Workflow execution dispatch is closed')
+    }
+    const reconciliation = params.participantId
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: params.rootExecutionId,
+          attemptId: params.attemptId,
+          participantId: params.participantId,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId)
+    if (
+      !reconciliation ||
+      reconciliation.state === 'exhausted' ||
+      (!params.participantId && reconciliation.state !== 'unlimited')
+    ) {
       throw new Error('Workflow execution dispatch is closed')
     }
     const [terminal] = await tx
@@ -367,67 +494,262 @@ export async function registerWorkflowOperation(params: {
     if (!terminal?.dispatchOpen || terminal.state !== 'running') {
       throw new Error('Workflow execution dispatch is closed')
     }
+    if (!(await isWorkflowExecutionAttemptOpen(tx, params.rootExecutionId, params.attemptId))) {
+      throw new Error('Workflow execution dispatch is closed')
+    }
+    if (params.participantId) {
+      const [participant] = await tx
+        .select({ id: workflowExecutionParticipant.id })
+        .from(workflowExecutionParticipant)
+        .where(
+          and(
+            eq(workflowExecutionParticipant.id, params.participantId),
+            eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+            eq(workflowExecutionParticipant.attemptId, params.attemptId),
+            inArray(workflowExecutionParticipant.state, ['active', 'waiting_child'])
+          )
+        )
+        .limit(1)
+      if (!participant) throw new Error('Workflow execution dispatch is closed')
+    }
     const [operation] = await tx
       .insert(workflowExecutionOperation)
       .values({ id, ...params, state: 'running' })
       .returning()
+    if (!operation) throw new Error('Workflow execution dispatch is closed')
     return operation
   })
 }
 
-export async function completeWorkflowOperation(params: {
-  id: string
-  state: 'canceled' | 'completed' | 'failed' | 'local_abort'
-  observation?: Record<string, unknown>
-}) {
-  const [operation] = await db
+export async function admitNestedWorkflowExecutionInTransaction(
+  tx: LifecycleTransaction,
+  params: {
+    operationId: string
+    pendingExecutionId: string
+    policy: WorkflowExecutionTimePolicy
+  }
+) {
+  const [locator] = await tx
     .select({
+      participantId: workflowExecutionOperation.participantId,
+      remoteOperationId: workflowExecutionOperation.remoteOperationId,
       rootExecutionId: workflowExecutionOperation.rootExecutionId,
-      capability: workflowExecutionOperation.capability,
+      state: workflowExecutionOperation.state,
+      attemptId: workflowExecutionOperation.attemptId,
     })
     .from(workflowExecutionOperation)
-    .where(eq(workflowExecutionOperation.id, params.id))
+    .where(eq(workflowExecutionOperation.id, params.operationId))
     .limit(1)
-  if (operation) await reconcileWorkflowExecutionDeadline(operation.rootExecutionId)
-  if (params.state === 'local_abort' && operation?.capability !== 'local') {
-    await db
-      .update(workflowExecutionOperation)
-      .set({
-        state: 'cancel_requested',
-        observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-          || ${{
-            ...params.observation,
-            outcome: 'local_abort_remote_settlement_unknown',
-          }}::jsonb`,
-        nextReconcileAt: sql`clock_timestamp()`,
-        updatedAt: sql`clock_timestamp()`,
-      })
-      .where(
-        and(
-          eq(workflowExecutionOperation.id, params.id),
-          inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
-        )
-      )
-    return
+  if (
+    !locator ||
+    locator.rootExecutionId !== params.policy.rootExecutionId ||
+    !['registered', 'running'].includes(locator.state) ||
+    (locator.remoteOperationId && locator.remoteOperationId !== params.pendingExecutionId)
+  ) {
+    throw new Error('Nested workflow admission is closed')
   }
-  await db
+  if (params.policy.kind === 'bounded' && !locator.participantId) {
+    throw new Error('Nested workflow admission is closed')
+  }
+  if (
+    !(await isWorkflowExecutionAttemptOpen(tx, params.policy.rootExecutionId, locator.attemptId))
+  ) {
+    throw new Error('Nested workflow admission is closed')
+  }
+  const reconciliation = locator.participantId
+    ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+        rootExecutionId: params.policy.rootExecutionId,
+        attemptId: locator.attemptId,
+        participantId: locator.participantId,
+      })
+    : await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.policy.rootExecutionId)
+  if (
+    !reconciliation ||
+    reconciliation.state === 'exhausted' ||
+    reconciliation.state === 'closed'
+  ) {
+    throw new Error('Nested workflow admission is closed')
+  }
+  if (
+    !(await isWorkflowExecutionAttemptOpen(tx, params.policy.rootExecutionId, locator.attemptId))
+  ) {
+    throw new Error('Nested workflow admission is closed')
+  }
+  const [root] = await tx
+    .select()
+    .from(workflowExecutionTerminal)
+    .where(eq(workflowExecutionTerminal.rootExecutionId, params.policy.rootExecutionId))
+    .limit(1)
+  const [operation] = await tx
+    .select()
+    .from(workflowExecutionOperation)
+    .where(eq(workflowExecutionOperation.id, params.operationId))
+    .limit(1)
+  if (
+    !root ||
+    root.state !== 'running' ||
+    !root.dispatchOpen ||
+    root.policyState !== params.policy.kind ||
+    root.appliedTierId !== params.policy.appliedTierId ||
+    root.processingStartedAt?.toISOString() !== params.policy.processingStartedAt ||
+    (params.policy.kind === 'bounded' && root.limitSeconds !== params.policy.limitSeconds) ||
+    !operation ||
+    operation.rootExecutionId !== params.policy.rootExecutionId ||
+    operation.attemptId !== locator.attemptId ||
+    operation.participantId !== locator.participantId ||
+    !['registered', 'running'].includes(operation.state) ||
+    (operation.remoteOperationId && operation.remoteOperationId !== params.pendingExecutionId)
+  ) {
+    throw new Error('Nested workflow admission is closed')
+  }
+  const [boundOperation] = await tx
     .update(workflowExecutionOperation)
     .set({
-      state: params.state === 'local_abort' ? 'canceled' : params.state,
-      observation: terminalWorkflowOperationObservation(params.observation),
-      terminalAt: sql`clock_timestamp()`,
+      adapterKind: 'workflow',
+      capability: 'native_cancel_status',
+      remoteOperationId: params.pendingExecutionId,
       updatedAt: sql`clock_timestamp()`,
     })
     .where(
       and(
-        eq(workflowExecutionOperation.id, params.id),
-        inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+        eq(workflowExecutionOperation.id, params.operationId),
+        eq(workflowExecutionOperation.rootExecutionId, params.policy.rootExecutionId),
+        eq(workflowExecutionOperation.attemptId, locator.attemptId),
+        locator.participantId
+          ? eq(workflowExecutionOperation.participantId, locator.participantId)
+          : isNull(workflowExecutionOperation.participantId),
+        inArray(workflowExecutionOperation.state, ['registered', 'running']),
+        sql`(${workflowExecutionOperation.remoteOperationId} is null
+          or ${workflowExecutionOperation.remoteOperationId} = ${params.pendingExecutionId})`
       )
     )
+    .returning({ id: workflowExecutionOperation.id })
+  if (!boundOperation) throw new Error('Nested workflow admission is closed')
+}
+
+export async function completeWorkflowOperation(params: {
+  operation: WorkflowExecutionOperationHandle
+  state: 'canceled' | 'completed' | 'failed' | 'local_abort'
+  observation?: Record<string, unknown>
+}) {
+  return db.transaction(async (tx) => {
+    const [locator] = await tx
+      .select({
+        attemptId: workflowExecutionOperation.attemptId,
+        participantId: workflowExecutionOperation.participantId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, params.operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, params.operation.attemptId),
+          params.operation.participantId
+            ? eq(workflowExecutionOperation.participantId, params.operation.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
+      )
+      .limit(1)
+    if (!locator || !['registered', 'running', 'cancel_requested'].includes(locator.state)) return
+    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const completedAt = requireDatabaseDate(databaseClock?.now, 'operation completion timestamp')
+    let evidence
+    if (locator.participantId) {
+      evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
+        rootExecutionId: locator.rootExecutionId,
+        attemptId: locator.attemptId,
+        participantId: locator.participantId,
+        observedAt: completedAt,
+      })
+    } else {
+      evidence = await reconcileWorkflowExecutionDeadlineInTransaction(
+        tx,
+        locator.rootExecutionId,
+        {
+          terminalCauseAt: completedAt,
+          allowTerminalObservation: true,
+        }
+      )
+    }
+    if (
+      !evidence ||
+      evidence.state === 'closed' ||
+      (!locator.participantId && evidence.state !== 'unlimited')
+    ) {
+      return
+    }
+    const [operation] = await tx
+      .select({ capability: workflowExecutionOperation.capability })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, params.operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, params.operation.attemptId),
+          params.operation.participantId
+            ? eq(workflowExecutionOperation.participantId, params.operation.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
+      )
+      .limit(1)
+    if (!operation) return
+    if (params.state === 'local_abort' && operation.capability !== 'local') {
+      const [requested] = await tx
+        .update(workflowExecutionOperation)
+        .set({
+          state: 'cancel_requested',
+          observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+            || ${{
+              ...params.observation,
+              outcome: 'local_abort_remote_settlement_unknown',
+            }}::jsonb`,
+          nextReconcileAt: completedAt,
+          updatedAt: completedAt,
+        })
+        .where(
+          and(
+            eq(workflowExecutionOperation.id, params.operation.id),
+            eq(workflowExecutionOperation.rootExecutionId, locator.rootExecutionId),
+            eq(workflowExecutionOperation.attemptId, locator.attemptId),
+            locator.participantId
+              ? eq(workflowExecutionOperation.participantId, locator.participantId)
+              : isNull(workflowExecutionOperation.participantId),
+            inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+          )
+        )
+        .returning({ id: workflowExecutionOperation.id })
+      if (!requested) throw new Error('Workflow operation ownership was lost')
+      return true
+    }
+    const [completed] = await tx
+      .update(workflowExecutionOperation)
+      .set({
+        state: params.state === 'local_abort' ? 'canceled' : params.state,
+        observation: terminalWorkflowOperationObservation(params.observation),
+        terminalAt: completedAt,
+        updatedAt: completedAt,
+      })
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, locator.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, locator.attemptId),
+          locator.participantId
+            ? eq(workflowExecutionOperation.participantId, locator.participantId)
+            : isNull(workflowExecutionOperation.participantId),
+          inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    if (!completed) throw new Error('Workflow operation ownership was lost')
+    return true
+  })
 }
 
 export async function publishWorkflowOperationIdentity(params: {
-  id: string
+  operation: WorkflowExecutionOperationHandle
   adapterKind: string
   capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
   remoteOperationId: string
@@ -435,63 +757,231 @@ export async function publishWorkflowOperationIdentity(params: {
   expectedAdapterKind?: string
   expectedRemoteOperationId?: string
 }) {
-  await db
-    .update(workflowExecutionOperation)
-    .set({
-      adapterKind: params.adapterKind,
-      capability: params.capability,
-      remoteOperationId: params.remoteOperationId,
-      observation: params.observation
-        ? sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb) || ${params.observation}::jsonb`
-        : workflowExecutionOperation.observation,
-      updatedAt: sql`clock_timestamp()`,
-    })
-    .where(
-      and(
-        eq(workflowExecutionOperation.id, params.id),
-        params.expectedAdapterKind && params.expectedRemoteOperationId
-          ? and(
-              eq(workflowExecutionOperation.adapterKind, params.expectedAdapterKind),
-              eq(workflowExecutionOperation.remoteOperationId, params.expectedRemoteOperationId)
-            )
-          : isNull(workflowExecutionOperation.remoteOperationId),
-        inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+  return db.transaction(async (tx) => {
+    const [operation] = await tx
+      .select({
+        adapterKind: workflowExecutionOperation.adapterKind,
+        attemptId: workflowExecutionOperation.attemptId,
+        participantId: workflowExecutionOperation.participantId,
+        remoteOperationId: workflowExecutionOperation.remoteOperationId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, params.operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, params.operation.attemptId),
+          params.operation.participantId
+            ? eq(workflowExecutionOperation.participantId, params.operation.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
       )
-    )
+      .limit(1)
+    if (
+      !operation ||
+      !['registered', 'running', 'cancel_requested'].includes(operation.state) ||
+      (params.expectedAdapterKind && operation.adapterKind !== params.expectedAdapterKind) ||
+      (params.expectedRemoteOperationId &&
+        operation.remoteOperationId !== params.expectedRemoteOperationId) ||
+      (!params.expectedRemoteOperationId && operation.remoteOperationId)
+    ) {
+      return
+    }
+    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const observedAt = requireDatabaseDate(databaseClock?.now, 'operation identity timestamp')
+    if (operation?.participantId) {
+      const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
+        rootExecutionId: operation.rootExecutionId,
+        attemptId: operation.attemptId,
+        participantId: operation.participantId,
+        observedAt,
+      })
+      if (!evidence || evidence.state === 'closed') return
+    } else if (operation) {
+      const evidence = await reconcileWorkflowExecutionDeadlineInTransaction(
+        tx,
+        operation.rootExecutionId,
+        { allowTerminalObservation: true }
+      )
+      if (evidence.state !== 'unlimited') return
+    }
+    const [published] = await tx
+      .update(workflowExecutionOperation)
+      .set({
+        adapterKind: params.adapterKind,
+        capability: params.capability,
+        remoteOperationId: params.remoteOperationId,
+        observation: params.observation
+          ? sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb) || ${params.observation}::jsonb`
+          : workflowExecutionOperation.observation,
+        updatedAt: observedAt,
+      })
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, operation.attemptId),
+          operation.participantId
+            ? eq(workflowExecutionOperation.participantId, operation.participantId)
+            : isNull(workflowExecutionOperation.participantId),
+          params.expectedAdapterKind && params.expectedRemoteOperationId
+            ? and(
+                eq(workflowExecutionOperation.adapterKind, params.expectedAdapterKind),
+                eq(workflowExecutionOperation.remoteOperationId, params.expectedRemoteOperationId)
+              )
+            : isNull(workflowExecutionOperation.remoteOperationId),
+          inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    if (!published) throw new Error('Workflow operation ownership was lost')
+    return true
+  })
 }
 
-export async function sealWorkflowOperationCredential(id: string, encrypted: string) {
-  await db
-    .update(workflowExecutionOperation)
-    .set({
-      observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-        || ${{ _credentialLease: encrypted }}::jsonb`,
-      updatedAt: sql`clock_timestamp()`,
-    })
-    .where(
-      and(
-        eq(workflowExecutionOperation.id, id),
-        inArray(workflowExecutionOperation.state, ['registered', 'running'])
+export async function sealWorkflowOperationCredential(
+  operationHandle: WorkflowExecutionOperationHandle,
+  encrypted: string
+) {
+  return db.transaction(async (tx) => {
+    const [operation] = await tx
+      .select({
+        attemptId: workflowExecutionOperation.attemptId,
+        participantId: workflowExecutionOperation.participantId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, operationHandle.id),
+          eq(workflowExecutionOperation.rootExecutionId, operationHandle.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, operationHandle.attemptId),
+          operationHandle.participantId
+            ? eq(workflowExecutionOperation.participantId, operationHandle.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
       )
-    )
+      .limit(1)
+    if (!operation || !['registered', 'running'].includes(operation.state)) return
+    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const observedAt = requireDatabaseDate(databaseClock?.now, 'operation credential timestamp')
+    if (operation?.participantId) {
+      const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
+        rootExecutionId: operation.rootExecutionId,
+        attemptId: operation.attemptId,
+        participantId: operation.participantId,
+        observedAt,
+      })
+      if (!evidence || evidence.state === 'closed') return
+    } else if (operation) {
+      const evidence = await reconcileWorkflowExecutionDeadlineInTransaction(
+        tx,
+        operation.rootExecutionId,
+        { allowTerminalObservation: true }
+      )
+      if (evidence.state !== 'unlimited') return
+    }
+    const [sealed] = await tx
+      .update(workflowExecutionOperation)
+      .set({
+        observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+          || ${{ _credentialLease: encrypted }}::jsonb`,
+        updatedAt: observedAt,
+      })
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, operationHandle.id),
+          eq(workflowExecutionOperation.rootExecutionId, operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, operation.attemptId),
+          operation.participantId
+            ? eq(workflowExecutionOperation.participantId, operation.participantId)
+            : isNull(workflowExecutionOperation.participantId),
+          inArray(workflowExecutionOperation.state, ['registered', 'running'])
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    if (!sealed) throw new Error('Workflow operation ownership was lost')
+    return true
+  })
 }
 
-export async function claimWorkflowOperationRemoteDispatch(id: string): Promise<boolean> {
-  const [operation] = await db
-    .update(workflowExecutionOperation)
-    .set({
-      adapterKind: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'tool' else ${workflowExecutionOperation.adapterKind} end`,
-      capability: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'uncancelable' else ${workflowExecutionOperation.capability} end`,
-      updatedAt: sql`clock_timestamp()`,
-    })
-    .where(
-      and(
-        eq(workflowExecutionOperation.id, id),
-        inArray(workflowExecutionOperation.state, ['registered', 'running'])
+export async function claimWorkflowOperationRemoteDispatch(
+  operationHandle: WorkflowExecutionOperationHandle
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [registered] = await tx
+      .select({
+        attemptId: workflowExecutionOperation.attemptId,
+        participantId: workflowExecutionOperation.participantId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, operationHandle.id),
+          eq(workflowExecutionOperation.rootExecutionId, operationHandle.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, operationHandle.attemptId),
+          operationHandle.participantId
+            ? eq(workflowExecutionOperation.participantId, operationHandle.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
       )
-    )
-    .returning({ id: workflowExecutionOperation.id })
-  return operation !== undefined
+      .limit(1)
+    if (!registered || !['registered', 'running'].includes(registered.state)) return false
+    const reconciliation = registered.participantId
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: registered.rootExecutionId,
+          attemptId: registered.attemptId,
+          participantId: registered.participantId,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, registered.rootExecutionId)
+    if (
+      !reconciliation ||
+      reconciliation.state === 'exhausted' ||
+      reconciliation.state === 'closed' ||
+      (!registered.participantId && reconciliation.state !== 'unlimited')
+    ) {
+      return false
+    }
+    if (
+      !(await isWorkflowExecutionAttemptOpen(tx, registered.rootExecutionId, registered.attemptId))
+    ) {
+      return false
+    }
+    const [terminal] = await tx
+      .select({
+        dispatchOpen: workflowExecutionTerminal.dispatchOpen,
+        state: workflowExecutionTerminal.state,
+      })
+      .from(workflowExecutionTerminal)
+      .where(eq(workflowExecutionTerminal.rootExecutionId, registered.rootExecutionId))
+      .limit(1)
+    if (!terminal?.dispatchOpen || terminal.state !== 'running') return false
+    const [operation] = await tx
+      .update(workflowExecutionOperation)
+      .set({
+        adapterKind: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'tool' else ${workflowExecutionOperation.adapterKind} end`,
+        capability: sql`case when ${workflowExecutionOperation.capability} = 'local' then 'uncancelable' else ${workflowExecutionOperation.capability} end`,
+        updatedAt: sql`clock_timestamp()`,
+      })
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, operationHandle.id),
+          eq(workflowExecutionOperation.rootExecutionId, registered.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, registered.attemptId),
+          registered.participantId
+            ? eq(workflowExecutionOperation.participantId, registered.participantId)
+            : isNull(workflowExecutionOperation.participantId),
+          inArray(workflowExecutionOperation.state, ['registered', 'running'])
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    return operation !== undefined
+  })
 }
 
 export async function cancelWorkflowExecutionAtomically(params: {
@@ -691,32 +1181,73 @@ export async function finalizeWorkflowExecution(params: {
   result: ExecutionResult
 }) {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select ${workflowExecutionTerminal.rootExecutionId}
-          from ${workflowExecutionTerminal}
-          where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
-          for update`
-    )
-    // Account through the same database instant while the terminal lock is held.
-    // This makes a numerically exhausted deadline ineligible to lose to a late
-    // application completion, even when the timer callback has not run yet.
-    await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId)
+    const [terminalSnapshot] = await tx
+      .select({ result: workflowExecutionTerminal.result })
+      .from(workflowExecutionTerminal)
+      .where(eq(workflowExecutionTerminal.rootExecutionId, params.rootExecutionId))
+      .limit(1)
+    if (terminalSnapshot?.result) return terminalSnapshot.result as ExecutionResult
+    const [attempt] = await tx
+      .select({ processingCompletedAt: workflowExecutionAttempt.processingCompletedAt })
+      .from(workflowExecutionAttempt)
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId)
+        )
+      )
+      .limit(1)
+    if (!attempt || attempt.processingCompletedAt) {
+      return terminalSnapshot?.result as ExecutionResult | null | undefined
+    }
     const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
     const completedAt = requireDatabaseDate(databaseClock?.now, 'completion timestamp')
-    await tx
-      .update(workflowExecutionParticipant)
-      .set({
-        state: params.result.success ? 'completed' : 'failed',
-        updatedAt: completedAt,
-      })
-      .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
-    await tx
+    const [participant] = await tx
+      .select({ id: workflowExecutionParticipant.id })
+      .from(workflowExecutionParticipant)
+      .where(
+        and(
+          eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+          eq(workflowExecutionParticipant.attemptId, params.attemptId)
+        )
+      )
+      .limit(1)
+    const evidence = participant
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: params.rootExecutionId,
+          attemptId: params.attemptId,
+          participantId: participant.id,
+          state: params.result.success ? 'completed' : 'failed',
+          observedAt: completedAt,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
+          terminalCauseAt: completedAt,
+          allowTerminalObservation: true,
+        })
+    if (
+      !evidence ||
+      evidence.state === 'closed' ||
+      (!participant && evidence.state !== 'unlimited')
+    ) {
+      return
+    }
+    if (!(await isWorkflowExecutionAttemptOpen(tx, params.rootExecutionId, params.attemptId)))
+      return
+    const [closedAttempt] = await tx
       .update(workflowExecutionAttempt)
       .set({
         state: params.result.success ? 'completed' : 'failed',
         processingCompletedAt: completedAt,
       })
-      .where(eq(workflowExecutionAttempt.id, params.attemptId))
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId),
+          isNull(workflowExecutionAttempt.processingCompletedAt)
+        )
+      )
+      .returning({ id: workflowExecutionAttempt.id })
+    if (!closedAttempt) throw new Error('Workflow execution attempt ownership was lost')
 
     const [activeOperation] = await tx
       .select({ id: workflowExecutionOperation.id })
@@ -1060,6 +1591,9 @@ export async function scheduleWorkflowTerminationReconcile(
 export async function claimWorkflowOperationsForTermination(rootExecutionId: string) {
   const rows = await db.execute<{
     id: string
+    root_execution_id: string
+    attempt_id: string
+    participant_id: string | null
     capability: 'local' | 'native_cancel_status' | 'status_only' | 'uncancelable'
     adapter_kind: string
     remote_operation_id: string | null
@@ -1089,11 +1623,15 @@ export async function claimWorkflowOperationsForTermination(rootExecutionId: str
         last_observed_at = clock_timestamp()
     from candidates
     where operation.id = candidates.id
-    returning operation.id, operation.capability, operation.adapter_kind,
+    returning operation.id, operation.root_execution_id, operation.attempt_id,
+              operation.participant_id, operation.capability, operation.adapter_kind,
               operation.remote_operation_id, operation.observation, operation.fencing_token
   `)
   return rows.map((row) => ({
     id: row.id,
+    rootExecutionId: row.root_execution_id,
+    attemptId: row.attempt_id,
+    participantId: row.participant_id ?? undefined,
     capability: row.capability,
     adapterKind: row.adapter_kind,
     remoteOperationId: row.remote_operation_id,
@@ -1103,40 +1641,94 @@ export async function claimWorkflowOperationsForTermination(rootExecutionId: str
 }
 
 export async function recordWorkflowOperationObservation(params: {
-  id: string
+  operation: WorkflowExecutionOperationHandle
   fencingToken: string
   state?: 'canceled' | 'completed' | 'failed'
   observation?: Record<string, unknown>
 }) {
-  await db
-    .update(workflowExecutionOperation)
-    .set(
-      params.state
-        ? {
-            state: params.state,
-            observation: terminalWorkflowOperationObservation(params.observation),
-            terminalAt: sql`clock_timestamp()`,
-            leaseExpiresAt: null,
-            fencingToken: null,
-            nextReconcileAt: null,
-            updatedAt: sql`clock_timestamp()`,
-          }
-        : {
-            observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-              || ${params.observation ?? {}}::jsonb`,
-            leaseExpiresAt: null,
-            fencingToken: null,
-            nextReconcileAt: sql`clock_timestamp() + interval '10 seconds'`,
-            updatedAt: sql`clock_timestamp()`,
-          }
-    )
-    .where(
-      and(
-        eq(workflowExecutionOperation.id, params.id),
-        eq(workflowExecutionOperation.fencingToken, params.fencingToken),
-        eq(workflowExecutionOperation.state, 'cancel_requested')
+  await db.transaction(async (tx) => {
+    const [operation] = await tx
+      .select({
+        attemptId: workflowExecutionOperation.attemptId,
+        fencingToken: workflowExecutionOperation.fencingToken,
+        participantId: workflowExecutionOperation.participantId,
+        rootExecutionId: workflowExecutionOperation.rootExecutionId,
+        state: workflowExecutionOperation.state,
+      })
+      .from(workflowExecutionOperation)
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, params.operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, params.operation.attemptId),
+          params.operation.participantId
+            ? eq(workflowExecutionOperation.participantId, params.operation.participantId)
+            : isNull(workflowExecutionOperation.participantId)
+        )
       )
-    )
+      .limit(1)
+    if (
+      !operation ||
+      operation.fencingToken !== params.fencingToken ||
+      operation.state !== 'cancel_requested'
+    ) {
+      return
+    }
+    const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
+    const observedAt = requireDatabaseDate(databaseClock?.now, 'operation observation timestamp')
+    if (operation?.participantId) {
+      const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
+        rootExecutionId: operation.rootExecutionId,
+        attemptId: operation.attemptId,
+        participantId: operation.participantId,
+        observedAt,
+      })
+      if (!evidence || evidence.state === 'closed') return
+    } else if (operation) {
+      const evidence = await reconcileWorkflowExecutionDeadlineInTransaction(
+        tx,
+        operation.rootExecutionId,
+        { allowTerminalObservation: true }
+      )
+      if (evidence.state !== 'unlimited') return
+    }
+    const [recorded] = await tx
+      .update(workflowExecutionOperation)
+      .set(
+        params.state
+          ? {
+              state: params.state,
+              observation: terminalWorkflowOperationObservation(params.observation),
+              terminalAt: observedAt,
+              leaseExpiresAt: null,
+              fencingToken: null,
+              nextReconcileAt: null,
+              updatedAt: observedAt,
+            }
+          : {
+              observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
+                || ${params.observation ?? {}}::jsonb`,
+              leaseExpiresAt: null,
+              fencingToken: null,
+              nextReconcileAt: sql`${observedAt} + interval '10 seconds'`,
+              updatedAt: observedAt,
+            }
+      )
+      .where(
+        and(
+          eq(workflowExecutionOperation.id, params.operation.id),
+          eq(workflowExecutionOperation.rootExecutionId, operation.rootExecutionId),
+          eq(workflowExecutionOperation.attemptId, operation.attemptId),
+          operation.participantId
+            ? eq(workflowExecutionOperation.participantId, operation.participantId)
+            : isNull(workflowExecutionOperation.participantId),
+          eq(workflowExecutionOperation.fencingToken, params.fencingToken),
+          eq(workflowExecutionOperation.state, 'cancel_requested')
+        )
+      )
+      .returning({ id: workflowExecutionOperation.id })
+    if (!recorded) throw new Error('Workflow operation fencing ownership was lost')
+  })
 }
 
 export async function listOpenWorkflowExecutionAttempts(limit = 100, afterId?: string) {
@@ -1183,14 +1775,11 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
   finishedAt: Date
 }) {
   await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select ${workflowExecutionTerminal.rootExecutionId}
-          from ${workflowExecutionTerminal}
-          where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
-          for update`
-    )
     const [attempt] = await tx
-      .select({ id: workflowExecutionAttempt.id })
+      .select({
+        id: workflowExecutionAttempt.id,
+        processingCompletedAt: workflowExecutionAttempt.processingCompletedAt,
+      })
       .from(workflowExecutionAttempt)
       .where(
         and(
@@ -1199,8 +1788,39 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
         )
       )
       .limit(1)
-    if (!attempt) return
+    if (!attempt || attempt.processingCompletedAt) return
     const attemptState = params.state
+    const [participant] = await tx
+      .select({ id: workflowExecutionParticipant.id })
+      .from(workflowExecutionParticipant)
+      .where(
+        and(
+          eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+          eq(workflowExecutionParticipant.attemptId, params.attemptId)
+        )
+      )
+      .limit(1)
+    const evidence = participant
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: params.rootExecutionId,
+          attemptId: params.attemptId,
+          participantId: participant.id,
+          state: attemptState,
+          observedAt: params.finishedAt,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
+          terminalCauseAt: params.finishedAt,
+          allowTerminalObservation: true,
+        })
+    if (
+      !evidence ||
+      evidence.state === 'closed' ||
+      (!participant && evidence.state !== 'unlimited')
+    ) {
+      return
+    }
+    if (!(await isWorkflowExecutionAttemptOpen(tx, params.rootExecutionId, params.attemptId)))
+      return
     const [closed] = await tx
       .update(workflowExecutionAttempt)
       .set({
@@ -1215,13 +1835,8 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
         )
       )
       .returning({ id: workflowExecutionAttempt.id })
-    if (closed) {
-      await tx
-        .update(workflowExecutionParticipant)
-        .set({ state: attemptState, updatedAt: params.finishedAt })
-        .where(eq(workflowExecutionParticipant.attemptId, params.attemptId))
-    }
-    const settledOperations = await tx
+    if (!closed) throw new Error('Workflow execution attempt ownership was lost')
+    await tx
       .update(workflowExecutionOperation)
       .set({
         state: attemptState,
@@ -1232,12 +1847,15 @@ export async function recordWorkflowAttemptTerminalObservation(params: {
       .where(
         and(
           eq(workflowExecutionOperation.attemptId, params.attemptId),
+          eq(workflowExecutionOperation.rootExecutionId, params.rootExecutionId),
+          participant
+            ? eq(workflowExecutionOperation.participantId, participant.id)
+            : isNull(workflowExecutionOperation.participantId),
           eq(workflowExecutionOperation.capability, 'local'),
           inArray(workflowExecutionOperation.state, ['registered', 'running', 'cancel_requested'])
         )
       )
       .returning({ id: workflowExecutionOperation.id })
-    if (!closed && settledOperations.length === 0) return
     await tx
       .update(workflowExecutionTerminal)
       .set({
@@ -1260,15 +1878,48 @@ export async function recordWorkflowInfrastructureCandidate(params: {
   diagnostics?: Record<string, unknown>
 }) {
   await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select ${workflowExecutionTerminal.rootExecutionId}
-          from ${workflowExecutionTerminal}
-          where ${workflowExecutionTerminal.rootExecutionId} = ${params.rootExecutionId}
-          for update`
-    )
-    await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
-      terminalCauseAt: params.failedAt,
-    })
+    const [attempt] = await tx
+      .select({ processingCompletedAt: workflowExecutionAttempt.processingCompletedAt })
+      .from(workflowExecutionAttempt)
+      .where(
+        and(
+          eq(workflowExecutionAttempt.id, params.attemptId),
+          eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId)
+        )
+      )
+      .limit(1)
+    if (!attempt || attempt.processingCompletedAt) return
+    const [participant] = await tx
+      .select({ id: workflowExecutionParticipant.id })
+      .from(workflowExecutionParticipant)
+      .where(
+        and(
+          eq(workflowExecutionParticipant.rootExecutionId, params.rootExecutionId),
+          eq(workflowExecutionParticipant.attemptId, params.attemptId)
+        )
+      )
+      .limit(1)
+    const evidence = participant
+      ? await transitionWorkflowExecutionParticipantInTransaction(tx, {
+          rootExecutionId: params.rootExecutionId,
+          attemptId: params.attemptId,
+          participantId: participant.id,
+          state: 'failed',
+          observedAt: params.failedAt,
+        })
+      : await reconcileWorkflowExecutionDeadlineInTransaction(tx, params.rootExecutionId, {
+          terminalCauseAt: params.failedAt,
+          allowTerminalObservation: true,
+        })
+    if (
+      !evidence ||
+      evidence.state === 'closed' ||
+      (!participant && evidence.state !== 'unlimited')
+    ) {
+      return
+    }
+    if (!(await isWorkflowExecutionAttemptOpen(tx, params.rootExecutionId, params.attemptId)))
+      return
     const infrastructureCandidateAt = sql.param(
       params.failedAt,
       workflowExecutionTerminal.infrastructureCandidateAt

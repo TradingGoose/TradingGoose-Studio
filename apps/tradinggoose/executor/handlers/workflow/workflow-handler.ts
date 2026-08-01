@@ -90,16 +90,11 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const childWorkflowInput = this.resolveChildWorkflowInput(inputs)
-    if (
-      !context.workflowExecutionTimePolicy ||
-      !context.workflowOperationId ||
-      !context.publishWorkflowOperationIdentity
-    ) {
+    if (!context.workflowExecutionTimePolicy || !context.workflowOperationId) {
       throw new Error('Nested workflow execution requires inherited lifecycle context')
     }
     const inheritedPolicy = context.workflowExecutionTimePolicy
     const parentOperationId = context.workflowOperationId
-    const publishOperationIdentity = context.publishWorkflowOperationIdentity
 
     return {
       kind: 'deferred',
@@ -121,12 +116,6 @@ export class WorkflowBlockHandler implements BlockHandler {
             input: childWorkflowInput,
             executionTarget: context.isDeployedContext ? 'deployed' : 'live',
             workflowDepth: currentDepth + 1,
-          })
-          await publishOperationIdentity(parentOperationId, {
-            adapterKind: 'workflow',
-            capability: 'native_cancel_status',
-            remoteOperationId: queueResponse.taskId,
-            observation: { childWorkflowName: queueResponse.workflowName },
           })
           await context.setWorkflowParticipantWaiting?.(parentOperationId, true)
           waitAcquired = true

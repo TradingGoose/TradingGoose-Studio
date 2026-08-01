@@ -208,7 +208,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
-    mocks.completeWorkflowOperation.mockResolvedValue(undefined)
+    mocks.completeWorkflowOperation.mockResolvedValue(true)
     mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
     mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
@@ -224,7 +224,7 @@ describe('runPreparedWorkflowExecution', () => {
     mocks.finalizeWorkflowExecution.mockImplementation(async ({ result }) => result)
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
     mocks.reconcileWorkflowExecutionDeadline.mockResolvedValue({ state: 'accounted' })
-    mocks.setWorkflowExecutionParticipantState.mockResolvedValue(undefined)
+    mocks.setWorkflowExecutionParticipantState.mockResolvedValue({ state: 'accounted' })
     mocks.registerWorkflowOperation.mockReset().mockResolvedValue({ id: 'startup-operation' })
     mocks.runtimeClose.mockReset()
     mocks.runtimeRearm.mockReset().mockResolvedValue(undefined)
@@ -488,6 +488,7 @@ describe('runPreparedWorkflowExecution', () => {
     mocks.setWorkflowExecutionParticipantState.mockImplementation(async ({ state }) => {
       if (state === 'waiting_child') await Promise.resolve()
       states.push(state)
+      return { state: 'accounted' as const }
     })
     mocks.execute.mockImplementationOnce(async () => {
       const context = mocks.executorConstructor.mock.calls.at(-1)?.[0].contextExtensions
