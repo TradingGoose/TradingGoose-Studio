@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, ChevronDown, Home, Loader2, User } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   type SidebarDropdownGroup,
   type SidebarDropdownItem,
@@ -62,6 +62,7 @@ export function IndicatorDropdown({
     includeDefaults ? 'default' : 'custom'
   )
   const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
 
   const isMultiSelect = selectionMode === 'multiple'
 
@@ -85,11 +86,11 @@ export function IndicatorDropdown({
     () =>
       includeDefaults
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
-          id: indicator.id,
-          name: indicator.name,
-          source: 'default' as const,
-          color: getEntityIconColor(indicator.id),
-        }))
+            id: indicator.id,
+            name: indicator.name,
+            source: 'default' as const,
+            color: getEntityIconColor(indicator.id),
+          }))
         : [],
     [includeDefaults]
   )
@@ -302,11 +303,19 @@ export function IndicatorDropdown({
   const triggerPlaceholder = dropdownOpen ? copy.searchPlaceholder : selectionLabel
 
   return (
-    <Popover open={dropdownOpen} onOpenChange={setOpen}>
-      <PopoverAnchor asChild>
-        <div className='relative inline-flex min-w-[220px]'>
-          <Tooltip>
-            <TooltipTrigger asChild>
+    <Popover
+      open={dropdownOpen}
+      onOpenChange={(open, details) => {
+        const insideTrigger =
+          triggerRef.current && details.event.composedPath().includes(triggerRef.current)
+        if (!open && details.reason === 'outside-press' && insideTrigger) return details.cancel()
+        setOpen(open)
+      }}
+    >
+      <div ref={triggerRef} className='relative inline-flex min-w-[220px]'>
+        <Tooltip>
+          <TooltipTrigger
+            render={
               <Input
                 ref={inputRef}
                 disabled={isDropdownDisabled}
@@ -336,50 +345,44 @@ export function IndicatorDropdown({
                   }
                 }}
               />
-            </TooltipTrigger>
-            <TooltipContent side='top'>{tooltipText}</TooltipContent>
-          </Tooltip>
-          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-1.5 flex'>
-            {isLoading ? (
-              <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-            ) : (
-              colorBadge
-            )}
-          </div>
-          <button
-            type='button'
-            tabIndex={-1}
-            disabled={isDropdownDisabled}
-            className='-translate-y-1/2 absolute top-1/2 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed'
-            onMouseDown={(event) => {
-              event.preventDefault()
-              if (isDropdownDisabled) return
-              const nextOpen = !dropdownOpen
-              setOpen(nextOpen)
-              if (nextOpen) {
-                inputRef.current?.focus()
-              } else {
-                inputRef.current?.blur()
-              }
-            }}
-            aria-label={dropdownOpen ? 'Close indicators' : 'Open indicators'}
-          >
-            <ChevronDown
-              className={cn('h-4 w-4 transition-transform', dropdownOpen && 'rotate-180')}
-              aria-hidden='true'
-            />
-          </button>
+            }
+          />
+          <TooltipContent side='top'>{tooltipText}</TooltipContent>
+        </Tooltip>
+        <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-1.5 flex'>
+          {isLoading ? (
+            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+          ) : (
+            colorBadge
+          )}
         </div>
-      </PopoverAnchor>
+        <PopoverTrigger
+          render={
+            <button
+              type='button'
+              tabIndex={-1}
+              disabled={isDropdownDisabled}
+              className='-translate-y-1/2 absolute top-1/2 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed'
+              aria-label={copy.tooltip}
+            />
+          }
+        >
+          <ChevronDown
+            className={cn('h-4 w-4 transition-transform', dropdownOpen && 'rotate-180')}
+            aria-hidden='true'
+          />
+        </PopoverTrigger>
+      </div>
       <PopoverContent
         align='start'
+        anchor={triggerRef}
         sideOffset={6}
         className={cn(
           'w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md p-0 shadow-lg',
           menuClassName
         )}
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => event.preventDefault()}
+        initialFocus={inputRef}
+        finalFocus={false}
         onWheel={(event) => event.stopPropagation()}
       >
         <SidebarDropdownMenuContent

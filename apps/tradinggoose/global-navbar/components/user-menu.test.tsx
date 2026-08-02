@@ -216,7 +216,7 @@ describe('UserMenu language selector', () => {
     window.matchMedia = originalMatchMedia
   })
 
-  it('renders the zh theme trigger label from the raw workspace template', async () => {
+  it('renders visible focus styles for the localized theme and language triggers', async () => {
     await act(async () => {
       renderUserMenu(root, 'zh')
       await flush()
@@ -226,7 +226,8 @@ describe('UserMenu language selector', () => {
       await openMenu(getUserMenuButton(container))
     })
 
-    expect(getThemeButton('主题：系统')).toBeInTheDocument()
+    expect(getThemeButton('主题：系统')).toHaveClass('focus-visible:ring-2')
+    expect(getLanguageButton('简体中文')).toHaveClass('focus-visible:ring-2')
   })
 
   it('renders the compact avatar trigger outside a sidebar context', async () => {
@@ -257,7 +258,7 @@ describe('UserMenu language selector', () => {
     })
 
     const menu = document.body.querySelector('[role="menu"]')
-    expect(menu?.className).toContain('w-[var(--radix-dropdown-menu-trigger-width)]')
+    expect(menu?.className).toContain('w-[var(--anchor-width)]')
   })
 
   it('owns the system admin menu item for authorized users', async () => {

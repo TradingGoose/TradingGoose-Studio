@@ -22,28 +22,9 @@ const VALID_PROVIDER_IDS: readonly ProviderId[] = [
 ] as const
 
 /**
- * Configuration validation constraints
- */
-const VALIDATION_CONSTRAINTS = {
-  temperature: { min: 0, max: 2 },
-  maxTokens: { min: 1, max: 100000 },
-  maxSources: { min: 1, max: 20 },
-  similarityThreshold: { min: 0, max: 1 },
-  maxConversationHistory: { min: 1, max: 50 },
-} as const
-
-/**
  * Copilot model types
  */
 export type CopilotModelType = 'chat' | 'rag' | 'title'
-
-/**
- * Configuration validation result
- */
-export interface ValidationResult {
-  isValid: boolean
-  errors: string[]
-}
 
 /**
  * Copilot configuration interface
@@ -249,88 +230,5 @@ export function getCopilotModel(type: CopilotModelType): {
       }
     default:
       throw new Error(`Unknown copilot model type: ${type}`)
-  }
-}
-
-function validateNumericValue(
-  value: number,
-  constraint: { min: number; max: number },
-  name: string
-): string | null {
-  if (value < constraint.min || value > constraint.max) {
-    return `${name} must be between ${constraint.min} and ${constraint.max}`
-  }
-  return null
-}
-
-export function validateCopilotConfig(config: CopilotConfig): ValidationResult {
-  const errors: string[] = []
-
-  try {
-    const chatDefaultModel = getProviderDefaultModel(config.chat.defaultProvider)
-    if (!chatDefaultModel) {
-      errors.push(`Chat provider '${config.chat.defaultProvider}' not found`)
-    }
-  } catch (error) {
-    errors.push(`Invalid chat provider: ${config.chat.defaultProvider}`)
-  }
-
-  try {
-    const ragDefaultModel = getProviderDefaultModel(config.rag.defaultProvider)
-    if (!ragDefaultModel) {
-      errors.push(`RAG provider '${config.rag.defaultProvider}' not found`)
-    }
-  } catch (error) {
-    errors.push(`Invalid RAG provider: ${config.rag.defaultProvider}`)
-  }
-
-  const validationChecks = [
-    {
-      value: config.chat.temperature,
-      constraint: VALIDATION_CONSTRAINTS.temperature,
-      name: 'Chat temperature',
-    },
-    {
-      value: config.rag.temperature,
-      constraint: VALIDATION_CONSTRAINTS.temperature,
-      name: 'RAG temperature',
-    },
-    {
-      value: config.chat.maxTokens,
-      constraint: VALIDATION_CONSTRAINTS.maxTokens,
-      name: 'Chat maxTokens',
-    },
-    {
-      value: config.rag.maxTokens,
-      constraint: VALIDATION_CONSTRAINTS.maxTokens,
-      name: 'RAG maxTokens',
-    },
-    {
-      value: config.rag.maxSources,
-      constraint: VALIDATION_CONSTRAINTS.maxSources,
-      name: 'RAG maxSources',
-    },
-    {
-      value: config.rag.similarityThreshold,
-      constraint: VALIDATION_CONSTRAINTS.similarityThreshold,
-      name: 'RAG similarityThreshold',
-    },
-    {
-      value: config.general.maxConversationHistory,
-      constraint: VALIDATION_CONSTRAINTS.maxConversationHistory,
-      name: 'General maxConversationHistory',
-    },
-  ]
-
-  for (const check of validationChecks) {
-    const error = validateNumericValue(check.value, check.constraint, check.name)
-    if (error) {
-      errors.push(error)
-    }
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
   }
 }

@@ -1,23 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
-import {
-  type JiraProjectInfo,
-  JiraProjectSelector,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/jira-project-selector'
-import {
-  type LinearProjectInfo,
-  LinearProjectSelector,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/linear-project-selector'
-import {
-  type LinearTeamInfo,
-  LinearTeamSelector,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/linear-team-selector'
+import { JiraProjectSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/jira-project-selector'
+import { LinearProjectSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/linear-project-selector'
+import { LinearTeamSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/project-selector/components/linear-team-selector'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -27,27 +17,21 @@ interface ProjectSelectorInputProps {
   blockId: string
   subBlock: SubBlockConfig
   disabled?: boolean
-  onProjectSelect?: (projectId: string) => void
 }
 
 export function ProjectSelectorInput({
   blockId,
   subBlock,
   disabled = false,
-  onProjectSelect,
 }: ProjectSelectorInputProps) {
   const locale = useLocale() as LocaleCode
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
-  const [_projectInfo, setProjectInfo] = useState<any | null>(null)
-  // Use the proper hook to get the current value and setter
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
+  const selectedProjectId = typeof storeValue === 'string' ? storeValue : ''
   const { isForeignCredential } = useForeignCredential(
     subBlock.provider || subBlock.serviceId || 'jira',
     (connectedCredential as string) || ''
   )
-  // Reactive dependencies from store for Linear
-  const [linearCredential] = useSubBlockValue(blockId, 'credential')
   const [linearTeamId] = useSubBlockValue(blockId, 'teamId')
   const { workflowId, workspaceId } = useWorkflowRoute()
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled })
@@ -58,30 +42,7 @@ export function ProjectSelectorInput({
 
   // Jira/Discord upstream fields
   const [jiraDomain] = useSubBlockValue(blockId, 'domain')
-  const [jiraCredential] = useSubBlockValue(blockId, 'credential')
   const domain = (jiraDomain as string) || ''
-
-  // Verify Jira credential belongs to current user; if not, treat as absent
-
-  useEffect(() => {
-    if (typeof storeValue === 'string') {
-      setSelectedProjectId(storeValue)
-    } else {
-      setSelectedProjectId('')
-    }
-  }, [storeValue])
-
-  // Handle project selection
-  const handleProjectChange = (
-    projectId: string,
-    info?: JiraProjectInfo | LinearTeamInfo | LinearProjectInfo
-  ) => {
-    setSelectedProjectId(projectId)
-    setProjectInfo(info || null)
-    setStoreValue(projectId)
-
-    onProjectSelect?.(projectId)
-  }
 
   // Discord no longer uses a server selector; fall through to other providers
 
@@ -90,46 +51,46 @@ export function ProjectSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              {subBlock.id === 'teamId' ? (
-                <LinearTeamSelector
-                  value={selectedProjectId}
-                  onChange={(teamId: string, teamInfo?: LinearTeamInfo) => {
-                    handleProjectChange(teamId, teamInfo)
-                  }}
-                  credential={(linearCredential as string) || ''}
-                  label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectLinearTeam')}
-                  disabled={finalDisabled}
-                  showPreview={true}
-                  workflowId={workflowId || ''}
-                />
-              ) : (
-                (() => {
-                  const credential = (linearCredential as string) || ''
-                  const teamId = (linearTeamId as string) || ''
-                  const isDisabled = finalDisabled
-                  return (
-                    <LinearProjectSelector
-                      value={selectedProjectId}
-                      onChange={(projectId: string, projectInfo?: LinearProjectInfo) => {
-                        handleProjectChange(projectId, projectInfo)
-                      }}
-                      credential={credential}
-                      teamId={teamId}
-                      label={
-                        subBlock.placeholder ||
-                        translateWorkflowLabel(locale, 'selectLinearProject')
-                      }
-                      disabled={isDisabled}
-                      workflowId={workflowId || ''}
-                    />
-                  )
-                })()
-              )}
-            </div>
-          </TooltipTrigger>
-          {!(linearCredential as string) && (
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                {subBlock.id === 'teamId' ? (
+                  <LinearTeamSelector
+                    value={selectedProjectId}
+                    onChange={setStoreValue}
+                    credential={(connectedCredential as string) || ''}
+                    label={
+                      subBlock.placeholder || translateWorkflowLabel(locale, 'selectLinearTeam')
+                    }
+                    disabled={finalDisabled}
+                    showPreview={true}
+                    workflowId={workflowId || ''}
+                  />
+                ) : (
+                  (() => {
+                    const credential = (connectedCredential as string) || ''
+                    const teamId = (linearTeamId as string) || ''
+                    const isDisabled = finalDisabled
+                    return (
+                      <LinearProjectSelector
+                        value={selectedProjectId}
+                        onChange={setStoreValue}
+                        credential={credential}
+                        teamId={teamId}
+                        label={
+                          subBlock.placeholder ||
+                          translateWorkflowLabel(locale, 'selectLinearProject')
+                        }
+                        disabled={isDisabled}
+                        workflowId={workflowId || ''}
+                      />
+                    )
+                  })()
+                )}
+              </div>
+            }
+          />
+          {!(connectedCredential as string) && (
             <TooltipContent side='top'>
               <p>{translateWorkflowLabel(locale, 'pleaseSelectALinearAccountFirst')}</p>
             </TooltipContent>
@@ -143,26 +104,25 @@ export function ProjectSelectorInput({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <div className='w-full'>
-            <JiraProjectSelector
-              value={selectedProjectId}
-              onChange={handleProjectChange}
-              domain={domain}
-              provider='jira'
-              requiredScopes={subBlock.requiredScopes || []}
-              serviceId={subBlock.serviceId}
-              label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectJiraProject')}
-              disabled={finalDisabled}
-              showPreview={true}
-              onProjectInfoChange={setProjectInfo}
-              credentialId={(jiraCredential as string) || ''}
-              isForeignCredential={isForeignCredential}
-              workflowId={workflowId || ''}
-              workspaceId={workspaceId}
-            />
-          </div>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <div className='w-full'>
+              <JiraProjectSelector
+                value={selectedProjectId}
+                onChange={setStoreValue}
+                domain={domain}
+                provider='jira'
+                label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectJiraProject')}
+                disabled={finalDisabled}
+                showPreview={true}
+                credentialId={(connectedCredential as string) || ''}
+                isForeignCredential={isForeignCredential}
+                workflowId={workflowId || ''}
+                workspaceId={workspaceId}
+              />
+            </div>
+          }
+        />
       </Tooltip>
     </TooltipProvider>
   )

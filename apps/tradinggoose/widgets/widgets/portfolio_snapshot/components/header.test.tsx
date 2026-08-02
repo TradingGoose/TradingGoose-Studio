@@ -2,14 +2,20 @@
  * @vitest-environment jsdom
  */
 
+import { EventEmitter } from 'node:events'
 import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { renderPortfolioSnapshotHeader } from '@/widgets/widgets/portfolio_snapshot/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockPatchWidgetParams = vi.fn()
+const { useSocketMock } = vi.hoisted(() => ({ useSocketMock: vi.fn() }))
+
+vi.mock('@/contexts/socket-context', () => ({ useSocket: () => useSocketMock() }))
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: unknown) => void
 }
@@ -96,7 +102,13 @@ vi.mock('@/components/trading-selector/account-selector', () => ({
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }))
 
@@ -275,5 +287,160 @@ describe('PortfolioSnapshotHeaderControls', () => {
 
     expect(container.querySelector('[data-testid="trading-provider-selector"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="account-selector"]')).toBeNull()
+  })
+})
+
+class PortfolioTestSocket extends EventEmitter {
+  connected = true
+  calls: Array<[string, any]> = []
+  emit(event: string, payload: any) {
+    this.calls.push([event, payload])
+    return true
+  }
+  receive(event: string, payload?: any) {
+    super.emit(event, payload)
+  }
+  payloads(event: string) {
+    return this.calls.filter(([name]) => name === event).map(([, payload]) => payload)
+  }
+}
+
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-live',
+  accountId: 'acct-1',
+} as PortfolioIdentity
+const portfolioDetail = {
+  ...portfolioIdentity,
+  summary: { totalPortfolioValue: 1000, totalCashValue: 100 },
+} as NonNullable<ReturnType<typeof usePortfolioDetail>['data']>
+type DetailResult = ReturnType<typeof usePortfolioDetail>
+let portfolioResults: Record<string, DetailResult>
+
+function PortfolioProbe({ id = 'probe', workspaceId = 'workspace-1' }) {
+  portfolioResults[id] = usePortfolioDetail({
+    workspaceId,
+    provider: 'alpaca',
+    serviceId: 'alpaca-live',
+    portfolioIdentity,
+  })
+  return (
+    <output data-testid={id}>{portfolioResults[id].data?.summary.totalPortfolioValue ?? ''}</output>
+  )
+}
+
+describe('trading portfolio socket query', () => {
+  let container: HTMLDivElement
+  let root: Root
+  let socket: PortfolioTestSocket
+  const render = (node: ReactNode) => act(() => root.render(node))
+  const receive = (event: string, payload?: any) => act(() => socket.receive(event, payload))
+  const subscribe = (index = 0) => socket.payloads('trading-portfolio-subscribe')[index]
+  const acknowledge = (clientSubscriptionId: string, subscriptionId: string) =>
+    receive('trading-portfolio-subscribed', { clientSubscriptionId, subscriptionId })
+  const snapshot = (clientSubscriptionId: string, subscriptionId: string, refreshId?: string) => ({
+    clientSubscriptionId,
+    subscriptionId,
+    portfolioDetail,
+    ...(refreshId ? { refreshId } : {}),
+  })
+  const startRefetch = () => {
+    let pending!: ReturnType<DetailResult['refetch']>
+    act(() => {
+      pending = portfolioResults.probe.refetch()
+    })
+    return pending
+  }
+  const mountAcknowledged = (subscriptionId: string) => {
+    render(<PortfolioProbe />)
+    const initial = subscribe()
+    acknowledge(initial.clientSubscriptionId, subscriptionId)
+    return initial
+  }
+  const settle = (pending: ReturnType<DetailResult['refetch']>, payload: unknown) =>
+    act(async () => {
+      socket.receive('trading-portfolio-snapshot', payload)
+      await pending
+    })
+
+  beforeEach(() => {
+    portfolioResults = {}
+    socket = new PortfolioTestSocket()
+    useSocketMock.mockReturnValue({ socket })
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  it('isolates hook instances by acknowledged server subscription', async () => {
+    render(
+      <>
+        <PortfolioProbe id='first' />
+        <PortfolioProbe id='second' />
+      </>
+    )
+    const [first, second] = socket.payloads('trading-portfolio-subscribe')
+    expect(first.clientSubscriptionId).not.toBe(second.clientSubscriptionId)
+    acknowledge(first.clientSubscriptionId, 'server-first')
+    receive('trading-portfolio-snapshot', snapshot(first.clientSubscriptionId, 'server-wrong'))
+    expect(container.querySelector('[data-testid="first"]')).toHaveTextContent('')
+    receive('trading-portfolio-snapshot', snapshot(first.clientSubscriptionId, 'server-first'))
+    expect(container.querySelector('[data-testid="first"]')).toHaveTextContent('1000')
+    expect(container.querySelector('[data-testid="second"]')).toHaveTextContent('')
+    const staleRefetch = portfolioResults.first.refetch
+    act(() => root.unmount())
+    root = createRoot(container)
+    expect((await staleRefetch()).error?.message).toBe(
+      'Trading portfolio subscription is unavailable'
+    )
+  })
+
+  it('settles only the owned refresh token and times out bounded work', async () => {
+    vi.useFakeTimers()
+    const initial = mountAcknowledged('server-1')
+    const pending = startRefetch()
+    const refresh = socket.payloads('trading-portfolio-refresh').at(-1)
+    expect(refresh.subscriptionId).toBe('server-1')
+    receive(
+      'trading-portfolio-snapshot',
+      snapshot(initial.clientSubscriptionId, 'server-1', 'wrong')
+    )
+    expect(portfolioResults.probe.isFetching).toBe(true)
+    await settle(pending, snapshot(initial.clientSubscriptionId, 'server-1', refresh.refreshId))
+    await expect(pending).resolves.toEqual({ data: portfolioDetail, error: null })
+    const timedOut = startRefetch()
+    await act(() => vi.advanceTimersByTimeAsync(30_000))
+    expect((await timedOut).error?.message).toBe('Trading portfolio refresh timed out')
+  })
+
+  it('clears stale ownership on disconnect and accepts only the reconnect acknowledgement', async () => {
+    const initial = mountAcknowledged('server-old')
+    const disconnected = startRefetch()
+    await act(async () => {
+      socket.connected = false
+      socket.receive('disconnect')
+      await disconnected
+    })
+    expect((await disconnected).error?.message).toBe('Trading portfolio connection was lost')
+    act(() => {
+      socket.connected = true
+      socket.receive('connect')
+    })
+    acknowledge(initial.clientSubscriptionId, 'server-new')
+    receive('trading-portfolio-snapshot', snapshot(initial.clientSubscriptionId, 'server-old'))
+    expect(container.querySelector('output')).toHaveTextContent('')
+    const pending = startRefetch()
+    const refresh = socket.payloads('trading-portfolio-refresh').at(-1)
+    expect(refresh.subscriptionId).toBe('server-new')
+    await settle(pending, snapshot(initial.clientSubscriptionId, 'server-new', refresh.refreshId))
+    await expect(pending).resolves.toEqual({ data: portfolioDetail, error: null })
   })
 })

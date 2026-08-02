@@ -14,7 +14,6 @@ import { useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -22,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +53,7 @@ import {
   watchlistListingMembershipKey,
 } from '@/lib/watchlists/validation'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { formatTemplate } from '@/i18n/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -99,6 +100,12 @@ const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widg
 
 type WatchlistListOption = {
   id: string
+  name: string
+}
+
+type ListActionFeedback = {
+  operation: 'create' | 'delete'
+  phase: 'pending' | 'failure'
   name: string
 }
 
@@ -340,21 +347,23 @@ export const WatchlistHeaderCenterControls = ({
         onListingChange={handleListingChange}
       />
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              onClick={() => {
-                void handleAddListing()
-              }}
-              disabled={addListingDisabled}
-            >
-              <Check className='h-3.5 w-3.5' />
-              <span className='sr-only'>{copy.addListingAriaLabel}</span>
-            </button>
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <button
+                type='button'
+                className={widgetHeaderIconButtonClassName()}
+                onClick={() => {
+                  void handleAddListing()
+                }}
+                disabled={addListingDisabled}
+              >
+                <Check className='h-3.5 w-3.5' />
+                <span className='sr-only'>{copy.addListingAriaLabel}</span>
+              </button>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{copy.addListingTooltip}</TooltipContent>
       </Tooltip>
     </div>
@@ -390,6 +399,7 @@ export const WatchlistHeaderRightControls = ({
   })
   const selectedWatchlist = selectedDocument.record
   const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const [listActionFeedback, setListActionFeedback] = useState<ListActionFeedback | null>(null)
   const listOptions: WatchlistListOption[] = useMemo(() => {
     return selectedDocument.members.map((member) => ({
       id: member.entityId,
@@ -442,17 +452,20 @@ export const WatchlistHeaderRightControls = ({
       return
     }
 
+    const name = resolveNextWatchlistName(
+      selectedDocument.members,
+      copy.header.defaultWatchlistPrefix
+    )
+
     try {
       setPendingAction('create-list')
+      setListActionFeedback({ operation: 'create', phase: 'pending', name })
       const response = await fetch('/api/watchlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          name: resolveNextWatchlistName(
-            selectedDocument.members,
-            copy.header.defaultWatchlistPrefix
-          ),
+          name,
         }),
       })
       const payload = await response.json().catch(() => null)
@@ -460,8 +473,9 @@ export const WatchlistHeaderRightControls = ({
         throw new Error(payload?.error || 'Failed to create watchlist')
       }
       handleSelectList(payload.watchlist.id)
+      setListActionFeedback(null)
     } catch {
-      // Creation errors keep the current watchlist selection intact.
+      setListActionFeedback({ operation: 'create', phase: 'failure', name })
     } finally {
       setPendingAction(null)
     }
@@ -469,10 +483,12 @@ export const WatchlistHeaderRightControls = ({
 
   const handleConfirmRemoveList = async () => {
     const watchlistId = listToDelete?.id
+    const watchlistName = listToDelete?.name
     if (
       !canMutateWatchlist ||
       !workspaceId ||
       !watchlistId ||
+      !watchlistName ||
       pendingAction ||
       listOptions.length <= 1
     )
@@ -480,6 +496,11 @@ export const WatchlistHeaderRightControls = ({
 
     try {
       setPendingAction('delete-list')
+      setListActionFeedback({
+        operation: 'delete',
+        phase: 'pending',
+        name: watchlistName,
+      })
       const nextOption = listOptions.find((option) => option.id !== watchlistId) ?? null
       const response = await fetch(
         `/api/watchlists/${encodeURIComponent(watchlistId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
@@ -490,11 +511,16 @@ export const WatchlistHeaderRightControls = ({
         throw new Error(payload?.error || 'Failed to delete watchlist')
       }
       setListToDelete(null)
+      setListActionFeedback(null)
       if (selectedOptionId === watchlistId) {
         handleSelectList(nextOption?.id ?? null)
       }
     } catch {
-      // Keep the current list in place so the user can retry.
+      setListActionFeedback({
+        operation: 'delete',
+        phase: 'failure',
+        name: watchlistName,
+      })
     } finally {
       setPendingAction(null)
     }
@@ -671,6 +697,32 @@ export const WatchlistHeaderRightControls = ({
     })
   }
 
+  const listActionFeedbackMessage = listActionFeedback
+    ? formatTemplate(
+        listActionFeedback.operation === 'create'
+          ? listActionFeedback.phase === 'pending'
+            ? copy.header.creatingList
+            : copy.header.createListFailed
+          : listActionFeedback.phase === 'pending'
+            ? copy.header.deletingList
+            : copy.header.deleteListFailed,
+        { name: listActionFeedback.name }
+      )
+    : null
+  const listActionFeedbackNode =
+    listActionFeedback && listActionFeedbackMessage ? (
+      <p
+        role={listActionFeedback.phase === 'failure' ? 'alert' : 'status'}
+        aria-atomic='true'
+        className={cn(
+          'text-xs',
+          listActionFeedback.phase === 'failure' ? 'text-destructive' : 'text-muted-foreground'
+        )}
+      >
+        {listActionFeedbackMessage}
+      </p>
+    ) : null
+
   return (
     <>
       <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -681,16 +733,22 @@ export const WatchlistHeaderRightControls = ({
             onOpenChange={handleListDropdownOpenChange}
           >
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className='inline-flex'>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type='button'
-                      disabled={!workspaceId || !canEditWidgetParams || listOptions.length === 0}
-                      className={widgetHeaderControlClassName(
-                        'group flex min-w-[240px] items-center justify-between gap-1'
-                      )}
-                      aria-label={copy.header.explorer}
+              <TooltipTrigger
+                render={
+                  <span className='inline-flex'>
+                    <DropdownMenuTrigger
+                      render={
+                        <button
+                          type='button'
+                          disabled={
+                            !workspaceId || !canEditWidgetParams || listOptions.length === 0
+                          }
+                          className={widgetHeaderControlClassName(
+                            'group flex min-w-[240px] items-center justify-between gap-1'
+                          )}
+                          aria-label={copy.header.explorer}
+                        />
+                      }
                     >
                       {selectedOptionColor ? (
                         <span
@@ -714,13 +772,13 @@ export const WatchlistHeaderRightControls = ({
                         {selectedOption?.name ?? 'Watchlist'}
                       </span>
                       <ChevronDown
-                        className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                        className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
                         aria-hidden='true'
                       />
-                    </button>
-                  </DropdownMenuTrigger>
-                </span>
-              </TooltipTrigger>
+                    </DropdownMenuTrigger>
+                  </span>
+                }
+              />
               <TooltipContent side='top'>
                 {!workspaceId ? copy.header.selectWorkspace : copy.header.explorer}
               </TooltipContent>
@@ -782,7 +840,7 @@ export const WatchlistHeaderRightControls = ({
                   <DropdownMenuItem
                     key={option.id}
                     data-active={isSelected ? '' : undefined}
-                    onSelect={() => {
+                    onClick={() => {
                       selectListOption(option)
                     }}
                     className={cn(
@@ -833,6 +891,7 @@ export const WatchlistHeaderRightControls = ({
                               event.preventDefault()
                               event.stopPropagation()
                               setListDropdownOpen(false)
+                              setListActionFeedback(null)
                               setListToDelete(option)
                             }}
                           >
@@ -884,33 +943,40 @@ export const WatchlistHeaderRightControls = ({
           onChange={handleImportChange}
         />
       </div>
+      {listActionFeedback?.operation === 'create' && listActionFeedbackNode}
       <AlertDialog
         open={Boolean(listToDelete)}
-        onOpenChange={(open) => {
-          if (open || pendingAction === 'delete-list') return
+        onOpenChange={(open, details) => {
+          if (open) return
+          if (pendingAction === 'delete-list') return details.cancel()
           setListToDelete(null)
+          if (listActionFeedback?.operation === 'delete') {
+            setListActionFeedback(null)
+          }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={pendingAction === 'delete-list'}>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.header.deleteListDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {copy.header.deleteListDialogDescription}
             </AlertDialogDescription>
+            {listActionFeedback?.operation === 'delete' && listActionFeedbackNode}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={!canMutateWatchlist || pendingAction === 'delete-list'}>
               {copy.header.cancel}
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type='button'
               disabled={!canMutateWatchlist || pendingAction === 'delete-list'}
-              onClick={(event) => {
-                event.preventDefault()
-                void handleConfirmRemoveList()
-              }}
+              aria-busy={pendingAction === 'delete-list' || undefined}
+              onClick={() => void handleConfirmRemoveList()}
             >
-              {copy.header.delete}
-            </AlertDialogAction>
+              {pendingAction === 'delete-list' && listActionFeedback
+                ? formatTemplate(copy.header.deletingList, { name: listActionFeedback.name })
+                : copy.header.delete}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
 import { PackageSearchIcon } from '@/components/icons/icons'
@@ -51,6 +51,7 @@ export function KnowledgeBaseSelector({
   const [error, setError] = useState<KnowledgeBaseSelectorErrorCode | null>(null)
   const [open, setOpen] = useState(false)
   const [initialFetchDone, setInitialFetchDone] = useState(false)
+  const loadOwnerRef = useRef({ generation: 0, pending: false })
 
   // Use the proper hook to get the current value and setter - this prevents infinite loops
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
@@ -76,20 +77,44 @@ export function KnowledgeBaseSelector({
   }, [storeValue, knowledgeBases])
 
   const fetchKnowledgeBases = useCallback(async () => {
+    const owner = loadOwnerRef.current
+    if (owner.pending) return
+    const generation = ++owner.generation
+    owner.pending = true
     setLoading(true)
     setError(null)
 
     try {
       const data = await fetchWorkspaceKnowledgeBases(workspaceId)
+      if (generation !== owner.generation) return
       setKnowledgeBases(data)
-      setInitialFetchDone(true)
     } catch (err) {
+      if (generation !== owner.generation) return
       if ((err as Error).name === 'AbortError') return
       console.error('Failed to fetch knowledge bases', err)
       setError('failedToFetchKnowledgeBases')
       setKnowledgeBases([])
     } finally {
-      setLoading(false)
+      if (generation === owner.generation) {
+        owner.pending = false
+        setInitialFetchDone(true)
+        setLoading(false)
+      }
+    }
+  }, [workspaceId])
+
+  useLayoutEffect(() => {
+    const owner = loadOwnerRef.current
+    owner.generation += 1
+    owner.pending = false
+    setKnowledgeBases([])
+    setLoading(false)
+    setError(null)
+    setInitialFetchDone(false)
+
+    return () => {
+      owner.generation += 1
+      owner.pending = false
     }
   }, [workspaceId])
 
@@ -99,7 +124,7 @@ export function KnowledgeBaseSelector({
 
     // Always fetch fresh knowledge bases when opening the dropdown
     if (isOpen) {
-      fetchKnowledgeBases()
+      void fetchKnowledgeBases()
     }
   }
 
@@ -154,7 +179,7 @@ export function KnowledgeBaseSelector({
       !loading &&
       !initialFetchDone
     ) {
-      fetchKnowledgeBases()
+      void fetchKnowledgeBases()
     }
   }, [
     storeValue,
@@ -209,30 +234,33 @@ export function KnowledgeBaseSelector({
       )}
 
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='relative w-full justify-between'
-            disabled={disabled}
-          >
-            <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-              <PackageSearchIcon className='h-4 w-4 text-[#00B0B0]' />
-              {selectedKnowledgeBases.length > 0 ? (
-                <span className='truncate font-normal'>
-                  {isMultiSelect
-                    ? formatTemplate(translateWorkflowLabel(locale, 'selectedCount'), {
-                        count: selectedKnowledgeBases.length,
-                      })
-                    : formatKnowledgeBaseName(selectedKnowledgeBases[0])}
-                </span>
-              ) : (
-                <span className='truncate text-muted-foreground'>{label}</span>
-              )}
-            </div>
-            <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={disabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='relative w-full justify-between'
+              disabled={disabled}
+            />
+          }
+        >
+          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
+            <PackageSearchIcon className='h-4 w-4 text-[#00B0B0]' />
+            {selectedKnowledgeBases.length > 0 ? (
+              <span className='truncate font-normal'>
+                {isMultiSelect
+                  ? formatTemplate(translateWorkflowLabel(locale, 'selectedCount'), {
+                      count: selectedKnowledgeBases.length,
+                    })
+                  : formatKnowledgeBaseName(selectedKnowledgeBases[0])}
+              </span>
+            ) : (
+              <span className='truncate text-muted-foreground'>{label}</span>
+            )}
+          </div>
+          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>

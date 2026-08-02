@@ -25,7 +25,9 @@ vi.mock('@/components/ui/scroll-area', () => ({
   ScrollArea: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/components/ui/tooltip', () => {
-  const Wrapper = ({ children }: { children: ReactNode }) => <>{children}</>
+  const Wrapper = ({ children, render }: { children?: ReactNode; render?: ReactNode }) => (
+    <>{render ?? children}</>
+  )
   return {
     Tooltip: Wrapper,
     TooltipContent: Wrapper,

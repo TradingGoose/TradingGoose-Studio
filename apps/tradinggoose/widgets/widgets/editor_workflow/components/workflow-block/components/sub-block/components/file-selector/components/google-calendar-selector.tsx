@@ -233,36 +233,39 @@ export function GoogleCalendarSelector({
   return (
     <div className='space-y-2'>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='h-10 w-full min-w-0 justify-between'
-            disabled={disabled || !credentialId}
-          >
-            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-              {selectedCalendar ? (
-                <>
-                  <div
-                    className='h-3 w-3 flex-shrink-0 rounded-full'
-                    style={{
-                      backgroundColor: selectedCalendar.backgroundColor || '#4285f4',
-                    }}
-                  />
-                  <span className='truncate font-normal'>
-                    {getCalendarDisplayName(selectedCalendar)}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <GoogleCalendarIcon className='h-4 w-4' />
-                  <span className='truncate text-muted-foreground'>{labelText}</span>
-                </>
-              )}
-            </div>
-            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={disabled || !credentialId}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='h-10 w-full min-w-0 justify-between'
+              disabled={disabled || !credentialId}
+            />
+          }
+        >
+          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+            {selectedCalendar ? (
+              <>
+                <div
+                  className='h-3 w-3 flex-shrink-0 rounded-full'
+                  style={{
+                    backgroundColor: selectedCalendar.backgroundColor || '#4285f4',
+                  }}
+                />
+                <span className='truncate font-normal'>
+                  {getCalendarDisplayName(selectedCalendar)}
+                </span>
+              </>
+            ) : (
+              <>
+                <GoogleCalendarIcon className='h-4 w-4' />
+                <span className='truncate text-muted-foreground'>{labelText}</span>
+              </>
+            )}
+          </div>
+          <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>

@@ -43,6 +43,7 @@ export interface CopilotMessage {
   >
   fileAttachments?: MessageFileAttachment[]
   contexts?: ChatContext[]
+  isError?: boolean
 }
 
 // Contexts attached to a user message

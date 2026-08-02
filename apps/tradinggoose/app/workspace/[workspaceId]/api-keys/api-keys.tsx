@@ -4,23 +4,23 @@ import { useRef, useState } from 'react'
 import { KeyRound, Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { GlobalNavbarHeader } from '@/global-navbar'
 import { Input } from '@/components/ui'
 import { Button } from '@/components/ui/button'
-import { PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { cn } from '@/lib/utils'
 import {
   WorkspaceApiKeysCard,
   type WorkspaceApiKeysCardHandle,
 } from '@/app/workspace/[workspaceId]/api-keys/workspace-api-keys-card'
+import { PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { cn } from '@/lib/utils'
+import { GlobalNavbarHeader } from '@/global-navbar'
 
 export function WorkspaceApiKeysPage() {
   const t = useTranslations('workspace.apiKeys')
   const params = useParams<{ workspaceId: string }>()
   const workspaceId = params.workspaceId
   const [searchTerm, setSearchTerm] = useState('')
-  const [isCardLoading, setIsCardLoading] = useState(true)
+  const [isCardBusy, setIsCardBusy] = useState(true)
   const [keyScope, setKeyScope] = useState<'workspace' | 'personal'>('workspace')
   const cardRef = useRef<WorkspaceApiKeysCardHandle>(null)
   const userPermissions = useUserPermissionsContext()
@@ -40,6 +40,7 @@ export function WorkspaceApiKeysPage() {
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
+            aria-label={t('searchPlaceholder')}
             placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -84,15 +85,13 @@ export function WorkspaceApiKeysPage() {
   )
 
   const headerRight = (
-      <PrimaryButton
-        onClick={handleStartCreate}
-        disabled={(keyScope === 'workspace' && !canManageWorkspaceKeys) || isCardLoading}
-      >
-        <Plus className='h-3.5 w-3.5' />
-      <span>
-        {keyScope === 'workspace' ? t('create.workspace') : t('create.personal')}
-      </span>
-      </PrimaryButton>
+    <PrimaryButton
+      onClick={handleStartCreate}
+      disabled={(keyScope === 'workspace' && !canManageWorkspaceKeys) || isCardBusy}
+    >
+      <Plus className='h-3.5 w-3.5' />
+      <span>{keyScope === 'workspace' ? t('create.workspace') : t('create.personal')}</span>
+    </PrimaryButton>
   )
 
   return (
@@ -107,9 +106,7 @@ export function WorkspaceApiKeysPage() {
                 workspaceId={workspaceId}
                 keyScope={keyScope}
                 searchTerm={searchTerm}
-                onSearchTermChange={setSearchTerm}
-                variant='page'
-                onLoadingChange={setIsCardLoading}
+                onBusyChange={setIsCardBusy}
               />
             </div>
           </div>

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useMessages } from 'next-intl'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInviteErrorCode, type InviteErrorCode } from '@/app/invite/[id]/utils'
 import { InviteLayout, InviteStatusCard } from '@/app/invite/components'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import { useRouter } from '@/i18n/navigation'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('InviteById')
 
@@ -305,14 +305,14 @@ export default function Invite() {
       )
     }
 
-    const errorMessage = inviteErrors[error] ?? inviteErrors.unknown
+    const inviteFailureCopy = inviteErrors[error] ?? inviteErrors.unknown
 
     return (
       <InviteLayout>
         <InviteStatusCard
           type='error'
           title={inviteCopy.error.title}
-          description={errorMessage}
+          description={inviteFailureCopy}
           icon='error'
           isExpiredError={isExpiredError}
           actions={[

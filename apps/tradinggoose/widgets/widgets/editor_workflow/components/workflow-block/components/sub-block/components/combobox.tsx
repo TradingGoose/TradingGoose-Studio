@@ -465,7 +465,6 @@ export function ComboBox({
       if (
         inputRef.current &&
         !inputRef.current.contains(target) &&
-        !target.closest('[data-radix-popper-content-wrapper]') &&
         !target.closest('.absolute.top-full')
       ) {
         setOpen(false)

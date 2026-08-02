@@ -12,7 +12,9 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }))
 vi.mock('@/components/ui/tooltip', () => {
-  const Wrapper = ({ children }: { children: ReactNode }) => <>{children}</>
+  const Wrapper = ({ children, render }: { children?: ReactNode; render?: ReactNode }) => (
+    <>{render ?? children}</>
+  )
   return { Tooltip: Wrapper, TooltipContent: Wrapper, TooltipTrigger: Wrapper }
 })
 vi.mock('@/widgets/widgets/editor_workflow/components/control-bar/components', () => ({

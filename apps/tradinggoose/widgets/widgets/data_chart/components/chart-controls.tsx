@@ -73,20 +73,24 @@ export const DataChartIntervalDropdown = ({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderIconButtonClassName()}
-                disabled={!supportsInterval || allowedIntervals.length === 0}
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    className={widgetHeaderIconButtonClassName()}
+                    disabled={!supportsInterval || allowedIntervals.length === 0}
+                  />
+                }
               >
                 <Clock className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.controls.intervalAriaLabel}</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{copy.controls.intervalTooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
@@ -96,8 +100,8 @@ export const DataChartIntervalDropdown = ({
           allowedIntervals.map((option) => (
             <DropdownMenuItem
               key={option}
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 handleIntervalSelect(option)
               }}
               className={cn(
@@ -145,26 +149,28 @@ export const DataChartCandleTypeDropdown = ({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button type='button' className={widgetHeaderIconButtonClassName()}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={<button type='button' className={widgetHeaderIconButtonClassName()} />}
+            >
               {SelectedIcon ? (
                 <SelectedIcon className='h-3.5 w-3.5' />
               ) : (
                 <CandlestickChart className='h-3.5 w-3.5' />
               )}
               <span className='sr-only'>{copy.controls.candleStyleAriaLabel}</span>
-            </button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
+            </DropdownMenuTrigger>
+          }
+        />
         <TooltipContent side='top'>{copy.controls.candleStyleTooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-48')}>
         {CANDLE_TYPE_OPTIONS.map((option) => (
           <DropdownMenuItem
             key={option.id}
-            onSelect={(event) => {
-              event.preventDefault()
+            closeOnClick={false}
+            onClick={() => {
               handleCandleType(option.id)
             }}
             className={cn(

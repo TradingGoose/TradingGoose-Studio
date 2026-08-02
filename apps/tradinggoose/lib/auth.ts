@@ -382,9 +382,17 @@ function getMicrosoftUserInfoFromIdToken(tokens: OAuthTokens, providerId: string
     )
   }
 
+  const tenantId = typeof payload.tid === 'string' ? payload.tid.trim() : ''
+  const objectId = typeof payload.oid === 'string' ? payload.oid.trim() : ''
+  const subject = typeof payload.sub === 'string' ? payload.sub.trim() : ''
+  const identity = tenantId && objectId ? `${tenantId}:${objectId}` : subject
+  if (!identity) {
+    throw new Error(`Microsoft ${providerId} OAuth: ID token contains no stable identity claim`)
+  }
+
   const now = new Date()
   return {
-    id: `${payload.oid || payload.sub}-${crypto.randomUUID()}`,
+    id: identity,
     name: (payload.name as string) || 'Microsoft User',
     email,
     emailVerified: true,
@@ -1485,8 +1493,21 @@ export const auth = betterAuth({
               const data = await response.json()
               const now = new Date()
 
-              const userId = data.user_id || `webflow-${Date.now()}`
-              const uniqueId = `webflow-${userId}`
+              const userIds = Array.isArray(data.authorization?.authorizedTo?.userIds)
+                ? [
+                    ...new Set(
+                      data.authorization.authorizedTo.userIds
+                        .filter((id: unknown): id is string => typeof id === 'string')
+                        .map((id: string) => id.trim())
+                        .filter(Boolean)
+                    ),
+                  ].sort()
+                : []
+              if (!userIds.length) {
+                logger.error('Webflow token introspection returned no stable user identity')
+                return null
+              }
+              const uniqueId = `webflow-${userIds.join(':')}`
 
               return {
                 id: uniqueId,

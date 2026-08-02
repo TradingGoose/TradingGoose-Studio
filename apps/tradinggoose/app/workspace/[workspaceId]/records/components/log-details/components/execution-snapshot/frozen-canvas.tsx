@@ -15,6 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -28,6 +29,7 @@ const logger = createLogger('FrozenCanvas')
 function ExpandableDataSection({ title, data }: { title: string; data: any }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const t = useTranslations('workspace.logs.details.snapshot')
 
   const jsonString = JSON.stringify(data, null, 2)
   const isLargeData = jsonString.length > 500 || jsonString.split('\n').length > 10
@@ -40,18 +42,29 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
           <div className='flex items-center gap-1'>
             {isLargeData && (
               <button
+                type='button'
                 onClick={() => setIsModalOpen(true)}
+                aria-label={t('openExpandedData', { section: title })}
                 className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
-                title='Expand in modal'
               >
-                <Maximize2 className='h-3 w-3' />
+                <Maximize2 aria-hidden='true' className='h-3 w-3' />
               </button>
             )}
             <button
+              type='button'
               onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={
+                isExpanded
+                  ? t('collapseSection', { section: title })
+                  : t('expandSection', { section: title })
+              }
               className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
             >
-              {isExpanded ? <ChevronUp className='h-3 w-3' /> : <ChevronDown className='h-3 w-3' />}
+              {isExpanded ? (
+                <ChevronUp aria-hidden='true' className='h-3 w-3' />
+              ) : (
+                <ChevronDown aria-hidden='true' className='h-3 w-3' />
+              )}
             </button>
           </div>
         </div>
@@ -72,10 +85,12 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
             <div className='flex items-center justify-between border-b p-4'>
               <h3 className='font-medium text-foreground text-lg'>{title}</h3>
               <button
+                type='button'
                 onClick={() => setIsModalOpen(false)}
+                aria-label={t('closeExpandedData', { section: title })}
                 className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground'
               >
-                <X className='h-4 w-4' />
+                <X aria-hidden='true' className='h-4 w-4' />
               </button>
             </div>
             <div className='h-[calc(80vh-4rem)] overflow-auto p-4'>
@@ -91,18 +106,8 @@ function ExpandableDataSection({ title, data }: { title: string; data: any }) {
 }
 
 function formatExecutionData(executionData: any, costMultiplier = 1) {
-  const {
-    inputData,
-    outputData,
-    cost,
-    tokens,
-    durationMs,
-    status,
-    blockName,
-    blockType,
-    errorMessage,
-    errorStackTrace,
-  } = executionData
+  const { inputData, outputData, cost, tokens, durationMs, status, blockName, blockType } =
+    executionData
   const scaledCost = scaleLogCostBreakdown(cost, costMultiplier)
 
   return {
@@ -112,8 +117,6 @@ function formatExecutionData(executionData: any, costMultiplier = 1) {
     duration: durationMs ? `${durationMs}ms` : 'N/A',
     input: redactApiKeys(inputData || {}),
     output: redactApiKeys(outputData || {}),
-    errorMessage,
-    errorStackTrace,
     cost: scaledCost
       ? {
           input: scaledCost.input || 0,
@@ -165,6 +168,7 @@ function PinnedLogs({
 }) {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [currentIterationIndex, setCurrentIterationIndex] = useState(0)
+  const t = useTranslations('workspace.logs.details.snapshot')
 
   // Reset iteration index when execution data changes
   useEffect(() => {
@@ -181,8 +185,6 @@ function PinnedLogs({
       duration: 'N/A',
       input: null,
       output: null,
-      errorMessage: null,
-      errorStackTrace: null,
       cost: null,
       tokens: null,
     }
@@ -195,8 +197,13 @@ function PinnedLogs({
               <Zap className='h-5 w-5' />
               {formatted.blockName}
             </CardTitle>
-            <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-card'>
-              <X className='h-4 w-4' />
+            <button
+              type='button'
+              aria-label={t('closeBlockDetails')}
+              onClick={onClose}
+              className='rounded-sm p-1 text-foreground hover:bg-card'
+            >
+              <X aria-hidden='true' className='h-4 w-4' />
             </button>
           </div>
           <div className='flex items-center justify-between'>
@@ -247,8 +254,13 @@ function PinnedLogs({
             <Zap className='h-5 w-5' />
             {formatted.blockName}
           </CardTitle>
-          <button onClick={onClose} className='rounded-sm p-1 text-foreground hover:bg-card'>
-            <X className='h-4 w-4' />
+          <button
+            type='button'
+            aria-label={t('closeBlockDetails')}
+            onClick={onClose}
+            className='rounded-sm p-1 text-foreground hover:bg-card'
+          >
+            <X aria-hidden='true' className='h-4 w-4' />
           </button>
         </div>
         <div className='flex items-center justify-between'>
@@ -263,11 +275,13 @@ function PinnedLogs({
           {iterationInfo.hasMultipleIterations && (
             <div className='flex items-center gap-1'>
               <button
+                type='button'
                 onClick={goToPreviousIteration}
+                aria-label={t('previousIteration')}
                 disabled={currentIterationIndex === 0}
                 className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
               >
-                <ChevronLeft className='h-4 w-4' />
+                <ChevronLeft aria-hidden='true' className='h-4 w-4' />
               </button>
               <span className='px-2 text-muted-foreground text-xs'>
                 {iterationInfo.totalIterations !== undefined
@@ -275,11 +289,13 @@ function PinnedLogs({
                   : `${currentIterationIndex + 1}`}
               </span>
               <button
+                type='button'
                 onClick={goToNextIteration}
+                aria-label={t('nextIteration')}
                 disabled={currentIterationIndex === totalIterations - 1}
                 className='rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
               >
-                <ChevronRight className='h-4 w-4' />
+                <ChevronRight aria-hidden='true' className='h-4 w-4' />
               </button>
             </div>
           )}
@@ -431,26 +447,6 @@ export function FrozenCanvas({
         const spanArray = spans as any[]
 
         const iterations = spanArray.map((span: any) => {
-          // Extract error information from span output if status is error
-          let errorMessage = null
-          let errorStackTrace = null
-
-          if (span.status === 'error' && span.output) {
-            // Error information can be in different formats in the output
-            if (typeof span.output === 'string') {
-              errorMessage = span.output
-            } else if (span.output.error) {
-              errorMessage = span.output.error
-              errorStackTrace = span.output.stackTrace || span.output.stack
-            } else if (span.output.message) {
-              errorMessage = span.output.message
-              errorStackTrace = span.output.stackTrace || span.output.stack
-            } else {
-              // Fallback: stringify the entire output for error cases
-              errorMessage = JSON.stringify(span.output)
-            }
-          }
-
           return {
             id: span.id,
             blockId: span.blockId,
@@ -462,8 +458,6 @@ export function FrozenCanvas({
             durationMs: span.duration,
             inputData: span.input,
             outputData: span.output,
-            errorMessage,
-            errorStackTrace,
             cost: span.cost || {
               input: null,
               output: null,
@@ -505,9 +499,9 @@ export function FrozenCanvas({
         setData(result)
         logger.debug(`Loaded frozen canvas data for execution: ${executionId}`)
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        const frozenCanvasFailureDetail = err instanceof Error ? err.message : 'Unknown error'
         logger.error('Failed to fetch frozen canvas data:', err)
-        setError(errorMessage)
+        setError(frozenCanvasFailureDetail)
       } finally {
         setLoading(false)
       }
@@ -518,9 +512,16 @@ export function FrozenCanvas({
 
   if (loading) {
     return (
-      <div className={cn('flex items-center justify-center', className)} style={{ height, width }}>
+      <div
+        className={cn('flex items-center justify-center', className)}
+        style={{ height, width }}
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        aria-busy='true'
+      >
         <div className='flex items-center gap-2 text-muted-foreground'>
-          <Loader2 className='h-5 w-5 animate-spin' />
+          <Loader2 aria-hidden='true' className='h-5 w-5 animate-spin' />
           <span>Loading frozen canvas...</span>
         </div>
       </div>
@@ -529,9 +530,14 @@ export function FrozenCanvas({
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center', className)} style={{ height, width }}>
+      <div
+        className={cn('flex items-center justify-center', className)}
+        style={{ height, width }}
+        role='alert'
+        aria-atomic='true'
+      >
         <div className='flex items-center gap-2 text-destructive'>
-          <AlertCircle className='h-5 w-5' />
+          <AlertCircle aria-hidden='true' className='h-5 w-5' />
           <span>Failed to load frozen canvas: {error}</span>
         </div>
       </div>

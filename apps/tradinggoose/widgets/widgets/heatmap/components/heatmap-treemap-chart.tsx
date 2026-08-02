@@ -109,6 +109,8 @@ const useObservedElementSize = <ElementType extends HTMLElement>(
   options: { observeParent?: boolean } = {}
 ) => {
   const elementRef = useRef<ElementType | null>(null)
+  const hasMeasuredWidth = useRef(false)
+  const hasMeasuredHeight = useRef(false)
   const [size, setSize] = useState(fallbackSize)
   const observeParent = options.observeParent ?? false
 
@@ -123,9 +125,14 @@ const useObservedElementSize = <ElementType extends HTMLElement>(
       setSize((currentSize) => {
         const measuredWidth = Math.max(entrySize.width, elementSize.width, parentSize.width)
         const measuredHeight = Math.max(entrySize.height, elementSize.height, parentSize.height)
+        if (measuredWidth > 0) hasMeasuredWidth.current = true
+        if (measuredHeight > 0) hasMeasuredHeight.current = true
         const nextSize = {
-          width: measuredWidth || fallbackSize.width || currentSize.width,
-          height: measuredHeight || fallbackSize.height || currentSize.height,
+          width:
+            measuredWidth || (hasMeasuredWidth.current ? currentSize.width : fallbackSize.width),
+          height:
+            measuredHeight ||
+            (hasMeasuredHeight.current ? currentSize.height : fallbackSize.height),
         }
 
         return currentSize.width === nextSize.width && currentSize.height === nextSize.height
@@ -189,60 +196,64 @@ const HeatmapTileButton = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type='button'
-          className={cn(
-            'relative h-full w-full overflow-hidden rounded-sm border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
-            color.className
-          )}
-          onClick={onListingSelect ? () => onListingSelect(tile.listing) : undefined}
-          aria-label={`${tile.name}: ${quoteText}; ${sourceText}`}
-        >
-          {iconUrl && iconSize > 0 ? (
-            <img
-              src={iconUrl}
-              alt=''
-              aria-hidden='true'
-              className='-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 z-0 rounded-md border border-border/70 object-contain drop-shadow-lg'
-              style={{
-                width: iconSize,
-                height: iconSize,
-              }}
-            />
-          ) : null}
-          {showSymbol ? (
-            <div className='relative z-10 flex h-full min-h-0 flex-col justify-between gap-1'>
-              <div className='min-w-0'>
-                <div className='flex min-w-0 items-center gap-1'>
-                  <div className='min-w-0 truncate font-semibold text-[12px] leading-4'>
-                    <span>{symbolParts.base || symbolText}</span>
-                    {symbolParts.quote ? (
-                      <span className='font-medium opacity-75'>/{symbolParts.quote}</span>
+      <TooltipTrigger
+        render={
+          <button
+            type='button'
+            className={cn(
+              'relative h-full w-full overflow-hidden rounded-sm border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
+              color.className
+            )}
+            onClick={onListingSelect ? () => onListingSelect(tile.listing) : undefined}
+            aria-label={`${tile.name}: ${quoteText}; ${sourceText}`}
+          >
+            {iconUrl && iconSize > 0 ? (
+              <img
+                src={iconUrl}
+                alt=''
+                aria-hidden='true'
+                className='-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 z-0 rounded-md border border-border/70 object-contain drop-shadow-lg'
+                style={{
+                  width: iconSize,
+                  height: iconSize,
+                }}
+              />
+            ) : null}
+            {showSymbol ? (
+              <div className='relative z-10 flex h-full min-h-0 flex-col justify-between gap-1'>
+                <div className='min-w-0'>
+                  <div className='flex min-w-0 items-center gap-1'>
+                    <div className='min-w-0 truncate font-semibold text-[12px] leading-4'>
+                      <span>{symbolParts.base || symbolText}</span>
+                      {symbolParts.quote ? (
+                        <span className='font-medium opacity-75'>/{symbolParts.quote}</span>
+                      ) : null}
+                    </div>
+                    {flagImageUrl ? (
+                      <img
+                        src={flagImageUrl}
+                        alt={`${flagCountryCode} flag`}
+                        className='h-3.5 w-3.5 shrink-0'
+                        loading='lazy'
+                      />
                     ) : null}
                   </div>
-                  {flagImageUrl ? (
-                    <img
-                      src={flagImageUrl}
-                      alt={`${flagCountryCode} flag`}
-                      className='h-3.5 w-3.5 shrink-0'
-                      loading='lazy'
-                    />
-                  ) : null}
                 </div>
+                {showPercent ? (
+                  <div className='min-w-0'>
+                    <div className='truncate font-medium text-[12px] leading-4'>{percentText}</div>
+                    {showPrice ? (
+                      <div className='truncate text-[10px] leading-3 opacity-75'>
+                        {lastPriceText}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-              {showPercent ? (
-                <div className='min-w-0'>
-                  <div className='truncate font-medium text-[12px] leading-4'>{percentText}</div>
-                  {showPrice ? (
-                    <div className='truncate text-[10px] leading-3 opacity-75'>{lastPriceText}</div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </button>
-      </TooltipTrigger>
+            ) : null}
+          </button>
+        }
+      />
       <TooltipContent side='top' className='max-w-[260px] whitespace-normal'>
         <div className='space-y-1'>
           <div className='font-medium'>{tile.name}</div>
@@ -319,30 +330,32 @@ export function HeatmapTreemapChart({
     [items, size.height, size.width]
   )
 
-  if (isLoading) {
-    return (
-      <div className='flex h-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
-  if (errorMessage) {
-    return <HeatmapTreemapMessage message={errorMessage} />
-  }
-
   const resolvedTotalCount = totalCount ?? items.length + cappedCount
 
   return (
     <div ref={containerRef} className='relative h-full w-full overflow-hidden'>
-      {cappedCount > 0 ? (
-        <div className='absolute top-1 right-1 z-10 rounded-sm border border-border/70 bg-card/90 px-2 py-1 text-muted-foreground text-xs shadow-sm'>
-          Showing first {items.length} of {resolvedTotalCount} listings.
+      {isLoading ? (
+        <div className='flex h-full items-center justify-center'>
+          <LoadingAgent size='md' />
         </div>
-      ) : null}
-      {layout ? (
-        <HeatmapTreemapPanelNode key={layout.key} node={layout} onListingSelect={onListingSelect} />
-      ) : null}
+      ) : errorMessage ? (
+        <HeatmapTreemapMessage message={errorMessage} />
+      ) : (
+        <>
+          {cappedCount > 0 ? (
+            <div className='absolute top-1 right-1 z-10 rounded-sm border border-border/70 bg-card/90 px-2 py-1 text-muted-foreground text-xs shadow-sm'>
+              Showing first {items.length} of {resolvedTotalCount} listings.
+            </div>
+          ) : null}
+          {layout ? (
+            <HeatmapTreemapPanelNode
+              key={layout.key}
+              node={layout}
+              onListingSelect={onListingSelect}
+            />
+          ) : null}
+        </>
+      )}
     </div>
   )
 }

@@ -43,7 +43,7 @@ export function findIntroducedNonCanonicalSubBlocks(
     return []
   }
 
-  const errors: string[] = []
+  const nonCanonicalSubBlockFailures: string[] = []
 
   for (const [blockId, block] of Object.entries(workflowState.blocks)) {
     const blockConfig = getBlock(block.type)
@@ -67,11 +67,11 @@ export function findIntroducedNonCanonicalSubBlocks(
         continue
       }
 
-      errors.push(
+      nonCanonicalSubBlockFailures.push(
         `Block ${block.name || blockId}: non-canonical sub-block "${subBlockId}" is not part of the ${block.type} block config. Use the canonical sub-block ids: ${[...allowedSubBlockIds].sort().join(', ')}.`
       )
     }
   }
 
-  return errors
+  return nonCanonicalSubBlockFailures
 }

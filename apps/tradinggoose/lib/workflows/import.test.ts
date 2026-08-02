@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
+import { importParsedWorkflow } from '@/lib/workflows/import'
+import { parseWorkflowJson } from '@/stores/workflows/json/importer'
+
+function parsePayload(payload: unknown) {
+  const parsed = parseWorkflowJson(JSON.stringify(payload), true)
+  expect(parsed.errors).toEqual([])
+  expect(parsed.data).not.toBeNull()
+  return parsed.data!
+}
 
 describe('workflow import orchestration', () => {
   it('creates the workflow with imported state as creation-time initialization', async () => {
@@ -62,8 +70,8 @@ describe('workflow import orchestration', () => {
       }
     )
 
-    const workflowId = await importWorkflowFromJsonContent({
-      content: JSON.stringify(payload),
+    const workflowId = await importParsedWorkflow({
+      workflowData: parsePayload(payload),
       workspaceId: 'workspace-1',
       existingWorkflowNames: ['Primary Workflow'],
       createWorkflow,
@@ -215,8 +223,8 @@ describe('workflow import orchestration', () => {
       }
     )
 
-    const workflowId = await importWorkflowFromJsonContent({
-      content: JSON.stringify(payload),
+    const workflowId = await importParsedWorkflow({
+      workflowData: parsePayload(payload),
       workspaceId: 'workspace-1',
       existingWorkflowNames: ['Primary Workflow'],
       importedSkillsBySourceName,

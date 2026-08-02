@@ -44,7 +44,7 @@ export function providerSelectorMenuContentClassName(
   return cn(
     variant === 'widget'
       ? widgetHeaderMenuContentClassName
-      : 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)]',
+      : 'w-[var(--anchor-width)] min-w-[var(--anchor-width)]',
     className
   )
 }
@@ -95,15 +95,19 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={isDropdownDisabled}
-                className={providerSelectorTriggerClassName(variant, triggerClassName)}
-                aria-haspopup='listbox'
-                aria-label={ariaLabel}
+        <TooltipTrigger
+          render={
+            <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    disabled={isDropdownDisabled}
+                    className={providerSelectorTriggerClassName(variant, triggerClassName)}
+                    aria-haspopup='listbox'
+                    aria-label={ariaLabel}
+                  />
+                }
               >
                 <div className='flex min-w-0 items-center gap-1.5'>
                   {SelectedIcon ? (
@@ -122,13 +126,13 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
                   </span>
                 </div>
                 <ChevronDown
-                  className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[state=open]:rotate-180'
+                  className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[popup-open]:rotate-180'
                   aria-hidden='true'
                 />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>
           {isDropdownDisabled ? selectionUnavailableText : tooltipText}
         </TooltipContent>
@@ -150,7 +154,7 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
               <DropdownMenuItem
                 key={option.id}
                 className={providerSelectorMenuItemClassName(variant, 'items-center')}
-                onSelect={() => {
+                onClick={() => {
                   if (option.id === value) return
                   onChange?.(option.id)
                 }}

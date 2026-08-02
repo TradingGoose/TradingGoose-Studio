@@ -11,6 +11,11 @@ import { Link, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('ResetPasswordPage')
 
+type ResetPasswordResult = {
+  type: 'success' | 'error'
+  message: string
+}
+
 function ResetPasswordContent() {
   const router = useRouter()
   const copy = useMessages()
@@ -19,19 +24,13 @@ function ResetPasswordContent() {
   const token = searchParams.get('token')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<{
-    type: 'success' | 'error' | null
-    text: string
-  }>({
-    type: null,
-    text: '',
-  })
+  const [resetResult, setResetResult] = useState<ResetPasswordResult | null>(null)
 
   useEffect(() => {
     if (!token) {
-      setStatusMessage({
+      setResetResult({
         type: 'error',
-        text: resetCopy.invalidToken,
+        message: resetCopy.invalidToken,
       })
     }
   }, [resetCopy.invalidToken, token])
@@ -39,7 +38,7 @@ function ResetPasswordContent() {
   const handleResetPassword = async (password: string) => {
     try {
       setIsSubmitting(true)
-      setStatusMessage({ type: null, text: '' })
+      setResetResult(null)
 
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
@@ -57,9 +56,9 @@ function ResetPasswordContent() {
         throw new Error(errorData.message || resetCopy.failure)
       }
 
-      setStatusMessage({
+      setResetResult({
         type: 'success',
-        text: resetCopy.success,
+        message: resetCopy.success,
       })
 
       setTimeout(() => {
@@ -67,9 +66,9 @@ function ResetPasswordContent() {
       }, 1500)
     } catch (error) {
       logger.error('Error resetting password:', { error })
-      setStatusMessage({
+      setResetResult({
         type: 'error',
-        text: error instanceof Error ? error.message : resetCopy.failure,
+        message: error instanceof Error ? error.message : resetCopy.failure,
       })
     } finally {
       setIsSubmitting(false)
@@ -89,8 +88,7 @@ function ResetPasswordContent() {
           token={token}
           onSubmit={handleResetPassword}
           isSubmitting={isSubmitting}
-          statusType={statusMessage.type}
-          statusMessage={statusMessage.text}
+          result={resetResult}
         />
       </div>
 

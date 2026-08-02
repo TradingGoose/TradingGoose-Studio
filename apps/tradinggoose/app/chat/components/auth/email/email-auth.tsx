@@ -1,7 +1,8 @@
 'use client'
 
-import { type KeyboardEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,14 +12,13 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { getChatEmailAuthErrorMessage } from '@/app/chat/errors'
-import { formatTemplate } from '@/i18n/utils'
-import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('EmailAuth')
 
@@ -30,15 +30,16 @@ interface EmailAuthProps {
   copy: ChatMessages
 }
 
-export default function EmailAuth({
-  identifier,
-  onAuthSuccess,
-  copy,
-}: EmailAuthProps) {
+type AuthFailure = {
+  source: 'verification' | 'resend'
+  message: string
+}
+
+export default function EmailAuth({ identifier, onAuthSuccess, copy }: EmailAuthProps) {
   const locale = useLocale() as LocaleCode
   const [email, setEmail] = useState('')
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [authFailure, setAuthFailure] = useState<AuthFailure | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
@@ -61,26 +62,19 @@ export default function EmailAuth({
   }, [countdown, isResendDisabled])
 
   const validateEmailField = (emailValue: string): string[] => {
-    const errors: string[] = []
+    const validationMessages: string[] = []
 
     if (!emailValue || !emailValue.trim()) {
-      errors.push(copy.auth.email.validation.required)
-      return errors
+      validationMessages.push(copy.auth.email.validation.required)
+      return validationMessages
     }
 
     const validation = quickValidateEmail(emailValue.trim().toLowerCase())
     if (!validation.isValid) {
-      errors.push(copy.auth.email.validation.invalid)
+      validationMessages.push(copy.auth.email.validation.invalid)
     }
 
-    return errors
-  }
-
-  const handleEmailKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSendOtp()
-    }
+    return validationMessages
   }
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +84,9 @@ export default function EmailAuth({
     setShowEmailValidationError(false)
   }
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
     const emailValidationErrors = validateEmailField(email)
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
@@ -99,8 +95,8 @@ export default function EmailAuth({
       return
     }
 
-    setAuthError(null)
-    setIsSendingOtp(true)
+    setAuthFailure(null)
+    setIsSubmitting(true)
 
     try {
       const response = await fetch(`/api/chat/${identifier}/otp`, {
@@ -127,7 +123,7 @@ export default function EmailAuth({
       setEmailErrors([copy.auth.email.errors.authenticationError])
       setShowEmailValidationError(true)
     } finally {
-      setIsSendingOtp(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -138,7 +134,7 @@ export default function EmailAuth({
       return
     }
 
-    setAuthError(null)
+    setAuthFailure(null)
     setIsVerifyingOtp(true)
 
     try {
@@ -153,22 +149,28 @@ export default function EmailAuth({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setAuthError(getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null))
+        setAuthFailure({
+          source: 'verification',
+          message: getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null),
+        })
         return
       }
 
       onAuthSuccess()
     } catch (error) {
       logger.error('Error verifying OTP:', error)
-      setAuthError(copy.auth.email.errors.verifyFailed)
+      setAuthFailure({
+        source: 'verification',
+        message: copy.auth.email.errors.verifyFailed,
+      })
     } finally {
       setIsVerifyingOtp(false)
     }
   }
 
   const handleResendOtp = async () => {
-    setAuthError(null)
-    setIsSendingOtp(true)
+    setAuthFailure(null)
+    setIsSubmitting(true)
     setIsResendDisabled(true)
     setCountdown(30)
 
@@ -184,7 +186,10 @@ export default function EmailAuth({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setAuthError(getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null))
+        setAuthFailure({
+          source: 'resend',
+          message: getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null),
+        })
         setIsResendDisabled(false)
         setCountdown(0)
         return
@@ -193,11 +198,14 @@ export default function EmailAuth({
       setOtpValue('')
     } catch (error) {
       logger.error('Error resending OTP:', error)
-      setAuthError(copy.auth.email.errors.resendFailed)
+      setAuthFailure({
+        source: 'resend',
+        message: copy.auth.email.errors.resendFailed,
+      })
       setIsResendDisabled(false)
       setCountdown(0)
     } finally {
-      setIsSendingOtp(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -221,10 +229,9 @@ export default function EmailAuth({
             <div className={`${inter.className} mt-8 w-full`}>
               {!showOtpVerification ? (
                 <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    handleSendOtp()
-                  }}
+                  onSubmit={handleSendOtp}
+                  noValidate
+                  aria-busy={isSubmitting}
                   className='space-y-8'
                 >
                   <div className='space-y-6'>
@@ -235,6 +242,13 @@ export default function EmailAuth({
                       <Input
                         id='email'
                         name='email'
+                        type='email'
+                        aria-invalid={showEmailValidationError && emailErrors.length > 0}
+                        aria-describedby={
+                          showEmailValidationError && emailErrors.length > 0
+                            ? 'chat-email-auth-error'
+                            : undefined
+                        }
                         placeholder={copy.auth.email.placeholder}
                         required
                         autoCapitalize='none'
@@ -242,7 +256,6 @@ export default function EmailAuth({
                         autoCorrect='off'
                         value={email}
                         onChange={handleEmailChange}
-                        onKeyDown={handleEmailKeyDown}
                         className={cn(
                           'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showEmailValidationError &&
@@ -252,17 +265,21 @@ export default function EmailAuth({
                         autoFocus
                       />
                       {showEmailValidationError && emailErrors.length > 0 && (
-                        <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                          {emailErrors.map((error, index) => (
-                            <p key={index}>{error}</p>
+                        <div
+                          id='chat-email-auth-error'
+                          role='alert'
+                          className='mt-1 space-y-1 text-red-400 text-xs'
+                        >
+                          {emailErrors.map((error) => (
+                            <p key={error}>{error}</p>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <Button type='submit' className={primaryButtonClasses} disabled={isSendingOtp}>
-                    {isSendingOtp ? (
+                  <Button type='submit' className={primaryButtonClasses} disabled={isSubmitting}>
+                    {isSubmitting ? (
                       <>
                         <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                         {copy.auth.email.submitting}
@@ -273,7 +290,7 @@ export default function EmailAuth({
                   </Button>
                 </form>
               ) : (
-                <div className='space-y-8'>
+                <div className='space-y-8' aria-busy={isVerifyingOtp || isSubmitting}>
                   <div className='space-y-6'>
                     <p className='text-center text-muted-foreground text-sm'>
                       {copy.auth.email.instructions}
@@ -283,6 +300,12 @@ export default function EmailAuth({
                       <InputOTP
                         maxLength={6}
                         value={otpValue}
+                        aria-invalid={authFailure?.source === 'verification'}
+                        aria-errormessage={
+                          authFailure?.source === 'verification'
+                            ? 'chat-email-otp-error'
+                            : undefined
+                        }
                         onChange={(value) => {
                           setOtpValue(value)
                           if (value.length === 6) {
@@ -290,7 +313,10 @@ export default function EmailAuth({
                           }
                         }}
                         disabled={isVerifyingOtp}
-                        className={cn('gap-2', authError && 'otp-error')}
+                        className={cn(
+                          'gap-2',
+                          authFailure?.source === 'verification' && 'otp-error'
+                        )}
                       >
                         <InputOTPGroup className='[&>div]:!rounded-md gap-2'>
                           {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -301,7 +327,8 @@ export default function EmailAuth({
                                 '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
                                 'border-gray-300 hover:border-gray-400',
                                 'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                                authError && 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                                authFailure?.source === 'verification' &&
+                                  'border-red-500 focus:border-red-500 focus:ring-red-100'
                               )}
                             />
                           ))}
@@ -309,9 +336,16 @@ export default function EmailAuth({
                       </InputOTP>
                     </div>
 
-                    {authError && (
-                      <div className='mt-1 space-y-1 text-center text-red-400 text-xs'>
-                        <p>{authError}</p>
+                    {authFailure && (
+                      <div
+                        id={
+                          authFailure.source === 'verification' ? 'chat-email-otp-error' : undefined
+                        }
+                        role='alert'
+                        aria-atomic='true'
+                        className='mt-1 space-y-1 text-center text-red-400 text-xs'
+                      >
+                        <p>{authFailure.message}</p>
                       </div>
                     )}
                   </div>
@@ -328,11 +362,10 @@ export default function EmailAuth({
                     <p className='text-muted-foreground text-sm'>
                       {copy.auth.email.resendPrompt}{' '}
                       {countdown > 0 ? (
-                        <span>
-                          {formatTemplate(copy.auth.email.resendIn, { countdown })}
-                        </span>
+                        <span>{formatTemplate(copy.auth.email.resendIn, { countdown })}</span>
                       ) : (
                         <button
+                          type='button'
                           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                           onClick={handleResendOtp}
                           disabled={isVerifyingOtp || isResendDisabled}
@@ -345,10 +378,11 @@ export default function EmailAuth({
 
                   <div className='text-center font-light text-[14px]'>
                     <button
+                      type='button'
                       onClick={() => {
                         setShowOtpVerification(false)
                         setOtpValue('')
-                        setAuthError(null)
+                        setAuthFailure(null)
                       }}
                       className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     >

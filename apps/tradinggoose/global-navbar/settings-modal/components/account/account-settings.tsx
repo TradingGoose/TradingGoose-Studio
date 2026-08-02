@@ -1,14 +1,7 @@
-"use client"
+'use client'
 
 import Image from 'next/image'
-import {
-  type ChangeEvent,
-  type DragEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -73,7 +66,10 @@ export function AccountSettings() {
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
-  const [passwordResetStatus, setPasswordResetStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [passwordResetStatus, setPasswordResetStatus] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editingNameValue, setEditingNameValue] = useState('')
   const [isUpdatingName, setIsUpdatingName] = useState(false)
@@ -121,29 +117,24 @@ export function AccountSettings() {
     }
   }
 
-  const {
-    previewUrl,
-    fileInputRef,
-    handleThumbnailClick,
-    handleFileChange,
-    isUploading,
-  } = useProfilePictureUpload({
-    messages: {
-      fileTooLarge: (fileName) =>
-        tAccount('status.profilePictureFileTooLarge', { name: fileName }),
-      unsupportedFormat: (fileName) =>
-        tAccount('status.profilePictureUnsupportedFormat', { name: fileName }),
-      uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
-    },
-    currentImage: userImage,
-    onUpload: async (url) => {
-      await updateUserImage(url)
-      setProfilePictureError(null)
-    },
-    onError: (error) => {
-      setProfilePictureError(error)
-    },
-  })
+  const { previewUrl, fileInputRef, handleThumbnailClick, handleFileChange, isUploading } =
+    useProfilePictureUpload({
+      messages: {
+        fileTooLarge: (fileName) =>
+          tAccount('status.profilePictureFileTooLarge', { name: fileName }),
+        unsupportedFormat: (fileName) =>
+          tAccount('status.profilePictureUnsupportedFormat', { name: fileName }),
+        uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
+      },
+      currentImage: userImage,
+      onUpload: async (url) => {
+        await updateUserImage(url)
+        setProfilePictureError(null)
+      },
+      onError: (error) => {
+        setProfilePictureError(error)
+      },
+    })
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -161,8 +152,7 @@ export function AccountSettings() {
         setUserImage(data.user.image || null)
         setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
         if (typeof window !== 'undefined' && userId) {
-          const version =
-            toEpochMillis(data.user.updatedAt) ?? Date.now()
+          const version = toEpochMillis(data.user.updatedAt) ?? Date.now()
           window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
           window.localStorage.setItem(`user-avatar-url-${userId}`, data.user.image ?? '')
           window.localStorage.setItem(`user-name-${userId}`, data.user.name ?? '')
@@ -176,8 +166,7 @@ export function AccountSettings() {
           session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
         )
         if (typeof window !== 'undefined' && userId) {
-          const version =
-            toEpochMillis(session?.user?.updatedAt) ?? Date.now()
+          const version = toEpochMillis(session?.user?.updatedAt) ?? Date.now()
           window.localStorage.setItem(`user-avatar-version-${userId}`, String(version))
           window.localStorage.setItem(`user-avatar-url-${userId}`, session?.user?.image ?? '')
           window.localStorage.setItem(`user-name-${userId}`, session?.user?.name ?? '')
@@ -238,7 +227,9 @@ export function AccountSettings() {
         if (userId) {
           window.localStorage.setItem(`user-name-${userId}`, trimmedName)
         }
-        window.dispatchEvent(new CustomEvent('user-name-updated', { detail: { name: trimmedName } }))
+        window.dispatchEvent(
+          new CustomEvent('user-name-updated', { detail: { name: trimmedName } })
+        )
       }
     } catch (error) {
       logger.error('Error updating name:', error)
@@ -273,10 +264,7 @@ export function AccountSettings() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        const rawMessage =
-          errorData?.message ??
-          errorData?.error?.message ??
-          errorData?.error
+        const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
         const normalizedError =
           typeof rawMessage === 'string' ? rawMessage.trim().toLowerCase() : ''
 
@@ -295,8 +283,7 @@ export function AccountSettings() {
       logger.error('Error requesting password reset:', error)
       setPasswordResetStatus({
         type: 'error',
-        message:
-          error instanceof Error ? error.message : tAccount('status.passwordResetFailed'),
+        message: error instanceof Error ? error.message : tAccount('status.passwordResetFailed'),
       })
     } finally {
       setIsSendingReset(false)
@@ -356,10 +343,11 @@ export function AccountSettings() {
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
-              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
-                ? 'border-primary bg-primary/10'
-                : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
-                }`}
+              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${
+                isDragActive
+                  ? 'border-primary bg-primary/10'
+                  : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
+              }`}
               onClick={handleThumbnailClick}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -408,9 +396,7 @@ export function AccountSettings() {
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
             <CardTitle className='text-lg font-semibold'>{tAccount('profileDetails')}</CardTitle>
-            <p className='text-muted-foreground text-sm'>
-              {tAccount('profileDetailsDescription')}
-            </p>
+            <p className='text-muted-foreground text-sm'>{tAccount('profileDetailsDescription')}</p>
           </CardHeader>
           <CardContent className='space-y-5'>
             <div className='space-y-3'>
@@ -524,8 +510,9 @@ export function AccountSettings() {
               </div>
               {passwordResetStatus && (
                 <p
-                  className={`mt-3 text-sm ${passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
-                    }`}
+                  className={`mt-3 text-sm ${
+                    passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
+                  }`}
                   role='status'
                 >
                   {passwordResetStatus.message}
@@ -550,17 +537,19 @@ export function AccountSettings() {
                       {tAccount('telemetry.label')}
                     </Label>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          className='h-7 p-1 text-gray-500'
-                          aria-label={tAccount('telemetry.tooltipLabel')}
-                          disabled={isTelemetrySettingsLoading || isTelemetryLoading}
-                        >
-                          <Info className='h-5 w-5' />
-                        </Button>
-                      </TooltipTrigger>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            className='h-7 p-1 text-gray-500'
+                            aria-label={tAccount('telemetry.tooltipLabel')}
+                            disabled={isTelemetrySettingsLoading || isTelemetryLoading}
+                          >
+                            <Info className='h-5 w-5' />
+                          </Button>
+                        }
+                      />
                       <TooltipContent side='top' className='max-w-[300px] p-3'>
                         <p className='text-sm'>{tAccount('telemetry.tooltipBody')}</p>
                       </TooltipContent>
@@ -573,9 +562,7 @@ export function AccountSettings() {
                     disabled={isTelemetrySettingsLoading || isTelemetryLoading}
                   />
                 </div>
-                <p className='text-muted-foreground text-xs'>
-                  {tAccount('telemetry.body')}
-                </p>
+                <p className='text-muted-foreground text-xs'>{tAccount('telemetry.body')}</p>
               </div>
             </TooltipProvider>
           </CardContent>

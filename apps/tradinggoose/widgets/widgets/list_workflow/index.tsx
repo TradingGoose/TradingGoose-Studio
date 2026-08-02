@@ -1,14 +1,17 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { LayoutList } from 'lucide-react'
 import { useMessages } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useFolders } from '@/hooks/queries/folders'
+import { formatTemplate } from '@/i18n/utils'
+import { type FolderWrite, useFolderStore } from '@/stores/folders/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
@@ -24,21 +27,38 @@ const WidgetMessage = ({ message }: { message: string }) => (
   </div>
 )
 
+const getFolderWriteCopy = (
+  copy: ReturnType<typeof useMessages>['workspace']['widgets']['workflowList']['folderWrites'],
+  write: FolderWrite,
+  suffix: 'Pending' | 'Failed'
+) => formatTemplate(copy[`${write.kind}${suffix}`], { name: write.name })
+
 const WorkflowListWidgetBody = ({
   channelId,
   context,
+  panelId,
   params,
   onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
+  const ownerId = panelId ?? channelId
   const copy = useMessages().workspace.widgets.workflowList
   const { resolvedWorkflowId: selectedWorkflowId } = useWorkflowWidgetState({
     workspaceId: workspaceId ?? undefined,
     params,
   })
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
-  const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
-  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
+  const foldersQuery = useFolders(workspaceId ?? undefined)
+  const activeFolderWrite = useFolderStore((state) =>
+    state.activeWrite?.ownerId === ownerId && state.activeWrite.workspaceId === workspaceId
+      ? state.activeWrite
+      : null
+  )
+  const folderWriteError = useFolderStore((state) =>
+    state.writeError?.ownerId === ownerId && state.writeError.workspaceId === workspaceId
+      ? state.writeError
+      : null
+  )
 
   // Workflows list newest-first; the projection's canonical name order is a
   // deterministic base, not the workflow list's presentation order.
@@ -69,34 +89,6 @@ const WorkflowListWidgetBody = ({
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
-  const handleCreateWorkflow = useCallback(
-    async (folderId?: string) => {
-      if (!workspaceId) {
-        throw new Error('Workspace ID is required to create workflows.')
-      }
-
-      if (isCreatingWorkflow) {
-        throw new Error('Workflow creation already in progress.')
-      }
-
-      try {
-        setIsCreatingWorkflow(true)
-        const newWorkflowId = await createWorkflow({
-          workspaceId,
-          folderId: folderId ?? undefined,
-        })
-        const createdId = newWorkflowId ?? null
-        if (createdId) {
-          selectWorkflowIdWhenListed(createdId)
-        }
-        return createdId
-      } finally {
-        setIsCreatingWorkflow(false)
-      }
-    },
-    [workspaceId, createWorkflow, isCreatingWorkflow, selectWorkflowIdWhenListed]
-  )
-
   const handleWorkflowSelect = useCallback(
     (workflow: WorkflowListEntry) => {
       selectWorkflowIdWhenListed(workflow.id)
@@ -108,17 +100,38 @@ const WorkflowListWidgetBody = ({
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
-  if (error && regularWorkflows.length === 0) {
-    return <WidgetMessage message={error} />
-  }
-
-  if (isLoading && regularWorkflows.length === 0) {
-    return (
+  const content =
+    error && regularWorkflows.length === 0 ? (
+      <WidgetMessage message={error} />
+    ) : isLoading && regularWorkflows.length === 0 ? (
       <div className='flex h-full items-center justify-center'>
         <LoadingAgent size='md' />
       </div>
+    ) : (
+      <FolderTree
+        regularWorkflows={regularWorkflows}
+        isLoading={isLoading || foldersQuery.isPending}
+        workspaceIdOverride={workspaceId}
+        workflowIdOverride={selectedWorkflowId}
+        ownerId={ownerId}
+        onWorkflowSelect={handleWorkflowSelect}
+        disableNavigation
+      />
     )
-  }
+  const refreshFailure = folderWriteError?.failure === 'refresh'
+  const folderQueryFailure =
+    !folderWriteError &&
+    (foldersQuery.isError || (foldersQuery.isPending && foldersQuery.isFetched))
+  const refreshPending = Boolean((refreshFailure || folderQueryFailure) && foldersQuery.isFetching)
+  const folderFeedback = refreshPending
+    ? copy.folderWrites.refreshPending
+    : folderWriteError
+      ? refreshFailure
+        ? formatTemplate(copy.folderWrites.refreshFailed, { name: folderWriteError.name })
+        : getFolderWriteCopy(copy.folderWrites, folderWriteError, 'Failed')
+      : folderQueryFailure
+        ? copy.body.unableToLoadFolders
+        : null
 
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
@@ -127,16 +140,39 @@ const WorkflowListWidgetBody = ({
         workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
         channelId={channelId}
       >
-        <div className='h-full w-full overflow-hidden p-2'>
-          <FolderTree
-            regularWorkflows={regularWorkflows}
-            isLoading={isLoading}
-            onCreateWorkflow={handleCreateWorkflow}
-            workspaceIdOverride={workspaceId}
-            workflowIdOverride={selectedWorkflowId}
-            onWorkflowSelect={handleWorkflowSelect}
-            disableNavigation
-          />
+        <div className='flex h-full w-full flex-col overflow-hidden p-2'>
+          {activeFolderWrite && (
+            <p
+              role='status'
+              aria-atomic='true'
+              className='mb-2 rounded-md bg-muted/40 px-2 py-1.5 text-muted-foreground text-xs'
+            >
+              {getFolderWriteCopy(copy.folderWrites, activeFolderWrite, 'Pending')}
+            </p>
+          )}
+          {!activeFolderWrite && folderFeedback && (
+            <div
+              role={refreshPending ? 'status' : 'alert'}
+              aria-atomic='true'
+              className='mb-2 rounded-md bg-destructive/10 px-2 py-1.5 text-destructive text-xs'
+            >
+              {folderFeedback}
+              {(refreshFailure || folderQueryFailure) && !refreshPending && (
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='ml-2 h-7'
+                  onClick={() => {
+                    void foldersQuery.refetch()
+                  }}
+                >
+                  {copy.folderWrites.refreshAction}
+                </Button>
+              )}
+            </div>
+          )}
+          <div className='min-h-0 flex-1'>{content}</div>
         </div>
       </WorkflowRouteProvider>
     </WorkspacePermissionsProvider>
@@ -147,12 +183,20 @@ export const workflowListWidget: DashboardWidgetDefinition = {
   contract: workflowListWidgetContract,
   icon: LayoutList,
   component: (props) => <WorkflowListWidgetBody {...props} />,
-  renderHeader: ({ context }) => ({
-    right: <WorkflowListHeaderRight workspaceId={context?.workspaceId} />,
+  renderHeader: ({ channelId, context, panelId }) => ({
+    right: (
+      <WorkflowListHeaderRight ownerId={panelId ?? channelId} workspaceId={context?.workspaceId} />
+    ),
   }),
 }
 
-const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
+const WorkflowListHeaderRight = ({
+  ownerId,
+  workspaceId,
+}: {
+  ownerId: string
+  workspaceId?: string
+}) => {
   const copy = useMessages().workspace.widgets.workflowList
   const { members } = useEntityList('workflow', workspaceId)
   const actions = useWidgetConfigRuntimeActions()
@@ -175,6 +219,7 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <DashboardWorkflowCreateMenu
+          ownerId={ownerId}
           workspaceId={workspaceId}
           existingWorkflowNames={members.map((member) => member.entityName)}
           onWorkflowCreated={selectWorkflowIdWhenListed}

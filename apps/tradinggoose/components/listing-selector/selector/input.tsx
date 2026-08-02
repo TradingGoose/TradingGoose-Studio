@@ -1,7 +1,7 @@
 'use client'
 
 import type { ChangeEvent, FocusEvent, KeyboardEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   triggerCryptoRankUpdate,
@@ -35,6 +35,7 @@ import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
 export interface ListingSearchInputProps {
   instanceId: string
@@ -42,6 +43,7 @@ export interface ListingSearchInputProps {
   disabled?: boolean
   compact?: boolean
   className?: string
+  ariaLabel?: string
   variant?: 'field' | 'header'
   providerType?: 'market' | 'trading'
   marketProviderId?: string
@@ -76,6 +78,7 @@ export function ListingSearchInput({
   disabled,
   compact = false,
   className,
+  ariaLabel,
   variant = 'field',
   providerType = 'market',
   marketProviderId,
@@ -89,11 +92,14 @@ export function ListingSearchInput({
   onListingTagSelect,
 }: ListingSearchInputProps) {
   const isHeader = variant === 'header'
+  const copy = useWorkspaceWidgetsMessages().listingSelector
+  const resolvedAriaLabel = ariaLabel ?? (isHeader ? copy.searchPlaceholder : copy.selectListing)
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const feedbackId = useId()
   const hydrateRequestRef = useRef(0)
   const hasActivatedOnMountRef = useRef(false)
   const [open, setOpen] = useState(false)
@@ -117,6 +123,7 @@ export function ListingSearchInput({
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const { query, results, isLoading, error, selectedListing, providerId } = safeInstance
+  const searchBusy = isLoading
   const selectedLabel = selectedListing ? getListingDisplaySymbol(selectedListing) : ''
   const selectedListingIdentity = toListingValueObject(
     safeInstance.selectedListingValue ?? selectedListing ?? null
@@ -480,7 +487,7 @@ export function ListingSearchInput({
         activeGroupId={activeAssetClassFilterId}
         onActiveGroupChange={handleAssetClassFilterChange}
         results={results}
-        isLoading={isLoading}
+        busy={searchBusy}
         error={error}
         highlightedIndex={highlightedIndex}
         onHighlightChange={setHighlightedIndex}
@@ -503,13 +510,17 @@ export function ListingSearchInput({
         <Input
           ref={inputRef}
           name={`listing-search-${instanceId}`}
+          aria-label={resolvedAriaLabel}
+          aria-describedby={searchBusy || error ? feedbackId : undefined}
+          aria-busy={searchBusy || undefined}
+          aria-invalid={error ? 'true' : undefined}
           className={cn(
             isHeader
               ? widgetHeaderControlClassName('w-full justify-center font-medium text-sm')
               : ['w-full', compact ? 'h-8 text-sm' : 'h-10'],
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
-          placeholder={isHeader ? 'Search listings...' : 'Select listing'}
+          placeholder={isHeader ? copy.searchPlaceholder : copy.selectListing}
           autoComplete='off'
           data-1p-ignore='true'
           data-lpignore='true'
@@ -557,6 +568,15 @@ export function ListingSearchInput({
           </div>
         ) : null}
       </div>
+      <span
+        id={feedbackId}
+        role={error ? 'alert' : 'status'}
+        aria-live={error ? undefined : 'polite'}
+        aria-atomic='true'
+        className='sr-only'
+      >
+        {error ? copy.unableToLoadListings : searchBusy ? copy.searching : null}
+      </span>
 
       {listingDropdown && portalTarget && dropdownPosition
         ? createPortal(listingDropdown, portalTarget)

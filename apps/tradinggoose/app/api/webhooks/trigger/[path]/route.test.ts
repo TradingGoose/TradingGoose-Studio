@@ -20,7 +20,6 @@ const handleWhatsAppVerificationMock = vi.fn().mockResolvedValue(null)
 const handleSlackChallengeMock = vi.fn().mockReturnValue(null)
 const processWhatsAppDeduplicationMock = vi.fn().mockResolvedValue(null)
 const processGenericDeduplicationMock = vi.fn().mockResolvedValue(null)
-const fetchAndProcessAirtablePayloadsMock = vi.fn().mockResolvedValue(undefined)
 const enqueuePendingExecutionMock = vi.fn().mockResolvedValue({
   pendingExecutionId: 'pending-webhook-1',
   billingScopeId: 'billing-scope-1',
@@ -53,7 +52,6 @@ vi.mock('@/lib/webhooks/utils', () => ({
   verifyProviderWebhook: vi.fn().mockReturnValue(null),
   processWhatsAppDeduplication: processWhatsAppDeduplicationMock,
   processGenericDeduplication: processGenericDeduplicationMock,
-  fetchAndProcessAirtablePayloads: fetchAndProcessAirtablePayloadsMock,
   processWebhook: processWebhookMock,
 }))
 

@@ -344,7 +344,7 @@ describe('auth locale redirects', () => {
       isLoading: false,
       isVerified: false,
       isInvalidOtp: false,
-      errorMessage: '',
+      failureMessage: '',
       isOtpComplete: false,
       hasEmailService: true,
       isProduction: false,

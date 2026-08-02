@@ -183,31 +183,32 @@ const DataChartTimezoneDropdown = ({
   return (
     <DropdownMenu onOpenChange={handleTimezoneMenuOpenChange} modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderControlClassName('gap-1')}
-                aria-haspopup='listbox'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    className={widgetHeaderControlClassName('gap-1')}
+                    aria-haspopup='listbox'
+                  />
+                }
               >
                 <ClockFading className='h-3.5 w-3.5 bg-background text-muted-foreground' />
                 <span className='max-w-[120px] truncate font-medium text-xs'>
                   {selectedLabel || copy.footer.timezone.exchange}
                 </span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         align='end'
         className={cn(widgetHeaderMenuContentClassName, 'w-[260px] p-0')}
-        onCloseAutoFocus={(event: Event) => {
-          event.preventDefault()
-          searchInputRef.current?.focus()
-        }}
+        finalFocus={false}
       >
         <div className='border-border border-b p-2'>
           <Input
@@ -229,7 +230,7 @@ const DataChartTimezoneDropdown = ({
           ) : (
             <>
               <DropdownMenuItem
-                onSelect={() => handleTimezoneSelect(null)}
+                onClick={() => handleTimezoneSelect(null)}
                 className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
               >
                 <span
@@ -258,7 +259,7 @@ const DataChartTimezoneDropdown = ({
                   return (
                     <DropdownMenuItem
                       key={option.id}
-                      onSelect={() => handleTimezoneSelect(option.name)}
+                      onClick={() => handleTimezoneSelect(option.name)}
                       className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
                     >
                       <span
@@ -323,16 +324,18 @@ const DataChartMarketSessionDropdown = ({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={widgetHeaderIconButtonClassName()}>
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={<button type='button' className={widgetHeaderIconButtonClassName()} />}
+              >
                 <SessionIcon className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.footer.session.ariaLabel}</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
@@ -345,8 +348,8 @@ const DataChartMarketSessionDropdown = ({
           return (
             <DropdownMenuItem
               key={mode}
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 handleSessionSelect(mode)
               }}
               className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
@@ -406,20 +409,24 @@ const DataChartNormalizationDropdown = ({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderIconButtonClassName()}
-                disabled={isDisabled}
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    className={widgetHeaderIconButtonClassName()}
+                    disabled={isDisabled}
+                  />
+                }
               >
                 <ChartNetwork className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.footer.normalization.ariaLabel}</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipLabel}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-52')}>
@@ -434,8 +441,8 @@ const DataChartNormalizationDropdown = ({
               return (
                 <DropdownMenuItem
                   key={mode}
-                  onSelect={(event) => {
-                    event.preventDefault()
+                  closeOnClick={false}
+                  onClick={() => {
                     handleNormalizationSelect(mode)
                   }}
                   className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
@@ -546,14 +553,16 @@ export const DataChartFooter = ({
                     <TabsTrigger
                       key={preset.id}
                       value={preset.id}
-                      className='rounded-sm px-2 py-1 font-medium text-xs transition-colors data-[state=active]:shadow-sm'
+                      className='rounded-sm px-2 py-1 font-medium text-xs transition-colors data-[active]:shadow-sm'
                     >
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className='inline-flex items-center'>
-                            {getDataChartRangePresetLabel(copy, preset.id)}
-                          </span>
-                        </TooltipTrigger>
+                        <TooltipTrigger
+                          render={
+                            <span className='inline-flex items-center'>
+                              {getDataChartRangePresetLabel(copy, preset.id)}
+                            </span>
+                          }
+                        />
                         <TooltipContent side='top'>
                           {(() => {
                             const anchor = new Date(0)

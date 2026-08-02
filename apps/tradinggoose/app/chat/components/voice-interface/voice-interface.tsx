@@ -569,6 +569,7 @@ export function VoiceInterface({
           {/* End call */}
           <Button
             onClick={handleCallEnd}
+            aria-label='End voice call'
             variant='outline'
             size='icon'
             className='h-14 w-14 rounded-full border-gray-300 hover:bg-gray-50'
@@ -579,6 +580,13 @@ export function VoiceInterface({
           {/* Mic/Stop button */}
           <Button
             onClick={toggleMute}
+            aria-label={
+              state === 'agent_speaking'
+                ? 'Stop response'
+                : isMuted
+                  ? 'Unmute microphone'
+                  : 'Mute microphone'
+            }
             variant='outline'
             size='icon'
             disabled={!isInitialized}

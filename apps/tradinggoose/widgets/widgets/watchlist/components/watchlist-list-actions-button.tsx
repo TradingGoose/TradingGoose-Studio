@@ -79,20 +79,24 @@ export const WatchlistListActionsButton = ({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderIconButtonClassName()}
-                disabled={allDisabled}
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    className={widgetHeaderIconButtonClassName()}
+                    disabled={allDisabled}
+                  />
+                }
               >
                 <Plus className='h-3.5 w-3.5' />
                 <span className='sr-only'>{copy.listActionsAriaLabel}</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{copy.listActionsTooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -105,7 +109,7 @@ export const WatchlistListActionsButton = ({
             key={key}
             className={widgetHeaderMenuItemClassName}
             disabled={actionDisabled}
-            onSelect={() => {
+            onClick={() => {
               if (actionDisabled) return
               handler()
             }}

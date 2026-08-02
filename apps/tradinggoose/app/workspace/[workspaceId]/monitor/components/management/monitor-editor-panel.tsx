@@ -1,6 +1,7 @@
 'use client'
 
 import { Pause, Pencil, Play, Trash2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -10,27 +11,43 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
-import type { MonitorReferenceData } from '../shared/types'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { IndicatorInputSummary } from './indicator-input-fields'
 import { MonitorEditorForm } from './monitor-editor-form'
 import type { MonitorEditorState } from './use-monitor-editor-state'
 
 type MonitorEditorPanelProps = {
-  workspaceId: string
   editorState: MonitorEditorState
   referenceData: MonitorReferenceData
-  createDisabled?: boolean
+  operationMessage: string | null
+}
+
+function getMonitorTitle(
+  monitor: MonitorRecord,
+  referenceData: MonitorReferenceData,
+  portfolioFallback: string
+): string {
+  const monitorConfig = monitor.providerConfig.monitor
+  if (monitor.source === PORTFOLIO_MONITOR_PROVIDER) {
+    return monitorConfig.accountId || portfolioFallback
+  }
+  if (!monitorConfig.indicatorId) {
+    return monitor.monitorId
+  }
+  return referenceData.indicatorById[monitorConfig.indicatorId]?.name ?? monitorConfig.indicatorId
 }
 
 function MonitorDetails({
   editorState,
+  operationMessage,
   referenceData,
 }: {
   editorState: MonitorEditorState
+  operationMessage: string | null
   referenceData: MonitorReferenceData
 }) {
   const { copy } = useMonitorCopy()
@@ -44,20 +61,19 @@ function MonitorDetails({
   const workflowTarget =
     referenceData.workflowTargetByKey[`${monitor.workflowId}:${monitor.blockId}`]
   const isPortfolio = monitor.source === PORTFOLIO_MONITOR_PROVIDER
+  const title = getMonitorTitle(monitor, referenceData, copy.editor.form.sourcePortfolio)
 
   return (
     <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/60'>
       <CardHeader className='shrink-0 border-b px-4 py-3'>
-        <CardTitle className='font-medium text-sm'>
-          {isPortfolio
-            ? monitorConfig.accountId || 'Portfolio state'
-            : (indicator?.name ?? monitorConfig.indicatorId)}
-        </CardTitle>
+        <CardTitle className='font-medium text-sm'>{title}</CardTitle>
         <CardDescription className='text-xs'>
           {workflowTarget?.label ?? `${monitor.workflowId}:${monitor.blockId}`}
         </CardDescription>
-        {editorState.panelError ? (
-          <p className='mt-2 text-destructive text-xs'>{editorState.panelError}</p>
+        {operationMessage ? (
+          <Alert variant='destructive' aria-atomic='true' className='mt-2'>
+            <AlertDescription>{operationMessage}</AlertDescription>
+          </Alert>
         ) : null}
       </CardHeader>
 
@@ -141,12 +157,7 @@ function MonitorDetails({
   )
 }
 
-function EditorContent({
-  createDisabled = false,
-  editorState,
-  referenceData,
-  workspaceId,
-}: MonitorEditorPanelProps) {
+function EditorContent({ editorState, operationMessage, referenceData }: MonitorEditorPanelProps) {
   const { copy } = useMonitorCopy()
   if (editorState.isEditorOpen && editorState.editingDraft) {
     return (
@@ -156,15 +167,16 @@ function EditorContent({
             {editorState.editingKey ? copy.editor.editTitle : copy.editor.createTitle}
           </CardTitle>
           <CardDescription className='text-xs'>{copy.editor.description}</CardDescription>
-          {editorState.panelError ? (
-            <p className='mt-2 text-destructive text-xs'>{editorState.panelError}</p>
+          {operationMessage ? (
+            <Alert variant='destructive' aria-atomic='true' className='mt-2'>
+              <AlertDescription>{operationMessage}</AlertDescription>
+            </Alert>
           ) : null}
         </CardHeader>
         <MonitorEditorForm
-          workspaceId={workspaceId}
           editingKey={editorState.editingKey}
           draft={editorState.editingDraft}
-          errors={editorState.editingErrors}
+          issues={editorState.editingIssues}
           saving={editorState.saving}
           marketProviders={referenceData.marketProviders}
           tradingProviders={referenceData.tradingProviders}
@@ -191,31 +203,42 @@ function EditorContent({
   }
 
   if (editorState.selectedMonitor) {
-    return <MonitorDetails editorState={editorState} referenceData={referenceData} />
+    return (
+      <MonitorDetails
+        editorState={editorState}
+        operationMessage={operationMessage}
+        referenceData={referenceData}
+      />
+    )
   }
 
   return null
 }
 
 export function MonitorEditorPanel({
-  createDisabled = false,
   editorState,
+  operationMessage,
   referenceData,
-  workspaceId,
 }: MonitorEditorPanelProps) {
   const { copy } = useMonitorCopy()
   const isMobile = useIsMobile()
+  const sheetTitle =
+    editorState.isEditorOpen && editorState.editingDraft
+      ? editorState.editingKey
+        ? copy.editor.editTitle
+        : copy.editor.createTitle
+      : editorState.selectedMonitor
+        ? getMonitorTitle(
+            editorState.selectedMonitor,
+            referenceData,
+            copy.editor.form.sourcePortfolio
+          )
+        : copy.editor.createTitle
   const content = (
     <EditorContent
       editorState={editorState}
-      workspaceId={workspaceId}
-      referenceData={{
-        ...referenceData,
-        createDisabledReason:
-        createDisabled && !referenceData.createDisabledReason
-            ? copy.loadingRequirements
-            : referenceData.createDisabledReason,
-      }}
+      operationMessage={operationMessage}
+      referenceData={referenceData}
     />
   )
 
@@ -232,6 +255,7 @@ export function MonitorEditorPanel({
         }}
       >
         <SheetContent side='right' className='w-[92vw] p-3 sm:max-w-xl'>
+          <SheetTitle className='sr-only'>{sheetTitle}</SheetTitle>
           {content}
         </SheetContent>
       </Sheet>

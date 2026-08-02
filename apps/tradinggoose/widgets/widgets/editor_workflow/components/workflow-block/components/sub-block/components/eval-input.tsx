@@ -32,11 +32,7 @@ const createDefaultMetric = (): EvalMetric => ({
   range: { min: 0, max: 1 },
 })
 
-export function EvalInput({
-  blockId,
-  subBlockId,
-  disabled = false,
-}: EvalInputProps) {
+export function EvalInput({ blockId, subBlockId, disabled = false }: EvalInputProps) {
   const copy = useWorkflowBlockEditorCopy().evalInput
   const [storeValue, setStoreValue] = useSubBlockValue<EvalMetric[]>(blockId, subBlockId)
 
@@ -111,34 +107,38 @@ export function EvalInput({
       </span>
       <div className='flex items-center gap-1'>
         <Tooltip key={`add-${metric.id}`}>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={addMetric}
-              disabled={disabled}
-              className='h-8 w-8'
-            >
-              <Plus className='h-4 w-4' />
-              <span className='sr-only'>{copy.addMetric}</span>
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={addMetric}
+                disabled={disabled}
+                className='h-8 w-8'
+              >
+                <Plus className='h-4 w-4' />
+                <span className='sr-only'>{copy.addMetric}</span>
+              </Button>
+            }
+          />
           <TooltipContent>{copy.addMetric}</TooltipContent>
         </Tooltip>
 
         <Tooltip key={`remove-${metric.id}`}>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => removeMetric(metric.id)}
-              disabled={disabled || metrics.length === 1}
-              className='h-8 w-8 text-destructive hover:text-destructive'
-            >
-              <Trash className='h-4 w-4' />
-              <span className='sr-only'>{copy.deleteMetric}</span>
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => removeMetric(metric.id)}
+                disabled={disabled || metrics.length === 1}
+                className='h-8 w-8 text-destructive hover:text-destructive'
+              >
+                <Trash className='h-4 w-4' />
+                <span className='sr-only'>{copy.deleteMetric}</span>
+              </Button>
+            }
+          />
           <TooltipContent>{copy.deleteMetric}</TooltipContent>
         </Tooltip>
       </div>

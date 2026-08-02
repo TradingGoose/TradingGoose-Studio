@@ -733,33 +733,36 @@ export function TeamsMessageSelector({
     <>
       <div className='space-y-2'>
         <Popover open={open} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='h-10 w-full min-w-0 justify-between'
-              disabled={disabled || isForeignCredential}
-            >
-              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-                {selectedMessage ? (
-                  <>
-                    <MicrosoftTeamsIcon className='h-4 w-4' />
-                    <span className='truncate font-normal'>{selectedMessage.displayName}</span>
-                  </>
-                ) : (
-                  <>
-                    <MicrosoftTeamsIcon className='h-4 w-4' />
-                    <span className='truncate text-muted-foreground'>
-                      {selectionType === 'channel' && selectionStage === 'team'
-                        ? copy.selectATeamFirst
-                        : labelText}
-                    </span>
-                  </>
-                )}
-              </div>
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={disabled || isForeignCredential}
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={open}
+                className='h-10 w-full min-w-0 justify-between'
+                disabled={disabled || isForeignCredential}
+              />
+            }
+          >
+            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+              {selectedMessage ? (
+                <>
+                  <MicrosoftTeamsIcon className='h-4 w-4' />
+                  <span className='truncate font-normal'>{selectedMessage.displayName}</span>
+                </>
+              ) : (
+                <>
+                  <MicrosoftTeamsIcon className='h-4 w-4' />
+                  <span className='truncate text-muted-foreground'>
+                    {selectionType === 'channel' && selectionStage === 'team'
+                      ? copy.selectATeamFirst
+                      : labelText}
+                  </span>
+                </>
+              )}
+            </div>
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           {!isForeignCredential && (
             <PopoverContent className='w-[300px] p-0' align='start'>

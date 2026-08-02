@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react'
-import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
 import { createSearchClause, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
@@ -9,6 +8,7 @@ import {
   MONITOR_TRIGGER_IDS,
   PORTFOLIO_MONITOR_TRIGGER_ID,
 } from '@/lib/monitors/sources'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
@@ -312,7 +312,6 @@ export function useMonitorWorkspaceLogs({
 
     return sortExecutionItems(items, viewConfig.sortBy)
   }, [
-    copy.errors.loadExecutions,
     copy.execution.unknownListing,
     copy.execution.unknownWorkflow,
     liveMonitorIds,
@@ -348,12 +347,11 @@ export function useMonitorWorkspaceLogs({
         (logsQuery.hasNextPage && !reachedAutoPageLimit) ||
         logsQuery.isFetchingNextPage),
     isFetching: logsQuery.isFetching,
-    error:
-      logsQuery.error instanceof Error
-        ? logsQuery.error.message
-        : logsQuery.error
-          ? copy.errors.loadExecutions
-          : null,
+    failureMode: logsQuery.error
+      ? logsQuery.data
+        ? ('background' as const)
+        : ('initial' as const)
+      : null,
     refresh: logsQuery.refetch,
   }
 }

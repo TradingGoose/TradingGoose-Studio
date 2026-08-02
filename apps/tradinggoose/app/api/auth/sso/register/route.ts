@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth, getSession } from '@/lib/auth'
-import { getOrganizationBillingData, isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
+import {
+  getOrganizationBillingData,
+  isOrganizationOwnerOrAdmin,
+} from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -154,13 +157,13 @@ export async function POST(request: NextRequest) {
 
     if (!parseResult.success) {
       const firstError = parseResult.error.issues[0]
-      const errorMessage = firstError?.message || 'Validation failed'
+      const registrationValidationMessage = firstError?.message || 'Validation failed'
 
       logger.warn('Invalid SSO registration request', {
         errors: parseResult.error.issues,
       })
 
-      return NextResponse.json({ error: errorMessage }, { status: 400 })
+      return NextResponse.json({ error: registrationValidationMessage }, { status: 400 })
     }
 
     const body = parseResult.data
@@ -179,12 +182,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (providerType === 'oidc') {
-      const {
-        clientId,
-        clientSecret,
-        scopes,
-        pkce,
-      } = body
+      const { clientId, clientSecret, scopes, pkce } = body
 
       const oidcConfig: any = {
         clientId,
@@ -421,7 +419,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Failed to register SSO provider', {
       error,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      registrationFailureMessage: error instanceof Error ? error.message : 'Unknown error',
       errorStack: error instanceof Error ? error.stack : undefined,
       errorDetails: JSON.stringify(error),
     })

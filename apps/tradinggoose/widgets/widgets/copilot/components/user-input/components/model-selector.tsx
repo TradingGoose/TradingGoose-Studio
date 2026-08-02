@@ -55,24 +55,26 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant='outline'
-          size='sm'
-          className='flex h-6 bg-background hover:bg-muted/30 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
-          title={modelCopy.choose}
-        >
-          {getModelOptionIcon(selectedModel)}
-          <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
-            {collapsedModeLabel}
-            {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
-              <span className='ml-1 font-semibold'>{modelCopy.lite}</span>
-            )}
-          </span>
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant='outline'
+            size='sm'
+            className='flex h-6 bg-background hover:bg-muted/30 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
+            title={modelCopy.choose}
+          />
+        }
+      >
+        {getModelOptionIcon(selectedModel)}
+        <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
+          {collapsedModeLabel}
+          {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
+            <span className='ml-1 font-semibold'>{modelCopy.lite}</span>
+          )}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent side={isNearTop ? 'bottom' : 'top'} className='max-h-[400px] p-0'>
-        <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+        <TooltipProvider delay={100} timeout={0}>
           <div className='w-[220px]'>
             <div className='max-h-[280px] overflow-y-auto p-2'>
               <div>
@@ -90,7 +92,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
                       ).map((option) => (
                         <DropdownMenuItem
                           key={option.value}
-                          onSelect={() => {
+                          onClick={() => {
                             setSelectedModel(option.value)
                             if (FAST_MODELS.includes(option.value) && agentPrefetch) {
                               setAgentPrefetch(false)
@@ -118,7 +120,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
                       ).map((option) => (
                         <DropdownMenuItem
                           key={option.value}
-                          onSelect={() => {
+                          onClick={() => {
                             setSelectedModel(option.value)
                             if (FAST_MODELS.includes(option.value) && agentPrefetch) {
                               setAgentPrefetch(false)

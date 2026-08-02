@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 
 export interface StatusBarSegment {
@@ -67,28 +68,42 @@ export function StatusBar({
 
           let color: string
           if (!segment.hasExecutions) {
-            color = 'bg-gray-300/60 dark:bg-gray-500/40'
+            color =
+              'bg-gray-300/60 hover:bg-gray-300/60 dark:bg-gray-500/40 dark:hover:bg-gray-500/40'
           } else if (segment.successRate === 100) {
-            color = 'bg-emerald-400/90'
+            color = 'bg-emerald-400/90 hover:bg-emerald-400/90'
           } else if (segment.successRate >= 95) {
-            color = 'bg-yellow-400/90'
+            color = 'bg-yellow-400/90 hover:bg-yellow-400/90'
           } else {
-            color = 'bg-red-400/90'
+            color = 'bg-red-400/90 hover:bg-red-400/90'
           }
 
           return (
-            <div
+            <Button
               key={i}
-              className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${
+              type='button'
+              variant='ghost'
+              aria-pressed={isSelected}
+              aria-label={
+                segment.hasExecutions
+                  ? t('segmentWithExecutions', {
+                      index: i + 1,
+                      range: labels[i].rangeLabel || t('timeUnavailable'),
+                      successRate: labels[i].successLabel,
+                      counts: labels[i].countsLabel,
+                    })
+                  : t('segmentWithoutExecutions', {
+                      index: i + 1,
+                      range: labels[i].rangeLabel || t('timeUnavailable'),
+                    })
+              }
+              className={`h-6 min-w-0 flex-1 rounded-xs p-0 ${color} transition-[opacity,transform] hover:opacity-90 ${
                 isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
               }`}
-              aria-label={t('segment', { index: i + 1 })}
               onMouseEnter={() => setHoverIndex(i)}
-              onMouseDown={(e) => {
-                e.preventDefault()
-              }}
+              onFocus={() => setHoverIndex(i)}
+              onBlur={() => setHoverIndex(null)}
               onClick={(e) => {
-                e.stopPropagation()
                 const mode = e.shiftKey ? 'range' : e.metaKey || e.ctrlKey ? 'toggle' : 'single'
                 onSegmentClick(workflowId, i, segment.timestamp, mode)
               }}

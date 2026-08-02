@@ -81,15 +81,10 @@ export const useGeneralStore = create<GeneralStore>()(
           },
           updateSetting: async (key, value) => {
             try {
-              const apiKey =
-                key === 'isBillingUsageNotificationsEnabled'
-                  ? 'billingUsageNotificationsEnabled'
-                  : key
-
               const response = await fetch('/api/users/me/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [apiKey]: value }),
+                body: JSON.stringify({ [key]: value }),
               })
 
               if (!response.ok) {

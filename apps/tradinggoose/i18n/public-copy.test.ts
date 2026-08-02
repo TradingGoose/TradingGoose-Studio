@@ -297,18 +297,6 @@ describe('public copy', () => {
     expect(getPublicCopy('es').workspace.widgets.deployment.chat.failedToSavePassword).toBe(
       'No se pudo guardar la contraseña del chat'
     )
-    expect(
-      getPublicCopy('en').workspace.widgets.blockEditor.webhookSettings.errors.validationFailed
-    ).toBe('Validation failed. Review the webhook settings and try again.')
-    expect(
-      getPublicCopy('zh').workspace.widgets.blockEditor.webhookSettings.testStatus.failure
-    ).toBe('测试 Webhook 失败。')
-    expect(getPublicCopy('es').workspace.widgets.blockEditor.webhookSettings.actions.add).toBe(
-      'Agregar webhook'
-    )
-    expect(
-      getPublicCopy('zh').workspace.widgets.blockEditor.webhookSettings.form.payloadTitle
-    ).toBe('包含在负载中')
   })
 
   it('includes localized webhook workflow labels', () => {
@@ -601,6 +589,30 @@ describe('public copy', () => {
 
     expect(normalizeShape(esCopy)).toEqual(normalizeShape(enCopy))
     expect(normalizeShape(zhCopy)).toEqual(normalizeShape(enCopy))
+  })
+
+  it('keeps workspace file failure copy localized without a legacy errors namespace', () => {
+    for (const locale of ['en', 'es', 'zh'] as const) {
+      const filesCopy = getPublicCopy(locale).workspace.files
+
+      expect(filesCopy.billingTierFallback).toEqual(expect.any(String))
+      expect(filesCopy.upload.failed).toEqual(expect.any(String))
+      expect(
+        formatTemplate(filesCopy.upload.unsupportedFileType, { files: 'sample.exe' })
+      ).toContain('sample.exe')
+      expect('errors' in filesCopy).toBe(false)
+    }
+  })
+
+  it('keeps integrations feedback localized without a field-errors namespace', () => {
+    for (const locale of ['en', 'es', 'zh'] as const) {
+      const integrationsCopy = getPublicCopy(locale).workspace.integrations
+
+      expect(integrationsCopy.failures.load).toEqual(expect.any(String))
+      expect(integrationsCopy.failures.oauth).toEqual(expect.any(String))
+      expect(integrationsCopy.failures.disconnect).toEqual(expect.any(String))
+      expect('errors' in integrationsCopy).toBe(false)
+    }
   })
 
   it('formats template placeholders', () => {

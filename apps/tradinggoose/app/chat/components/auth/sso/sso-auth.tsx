@@ -1,6 +1,7 @@
 'use client'
 
-import { type KeyboardEvent, useState } from 'react'
+import { useState } from 'react'
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,13 +9,12 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { Messages } from 'next-intl'
-
-type ChatMessages = Messages['chat']
 import { getChatSsoAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useRouter } from '@/i18n/navigation'
+
+type ChatMessages = Messages['chat']
 
 const logger = createLogger('SSOAuth')
 
@@ -32,30 +32,24 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const { errors: ssoFailureCopy } = copy.auth.sso
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
   const validateEmailField = (emailValue: string): string[] => {
-    const errors: string[] = []
+    const validationMessages: string[] = []
 
     if (!emailValue || !emailValue.trim()) {
-      errors.push(copy.auth.sso.validation.required)
-      return errors
+      validationMessages.push(copy.auth.sso.validation.required)
+      return validationMessages
     }
 
     const validation = quickValidateEmail(emailValue.trim().toLowerCase())
     if (!validation.isValid) {
-      errors.push(copy.auth.sso.validation.invalid)
+      validationMessages.push(copy.auth.sso.validation.invalid)
     }
 
-    return errors
-  }
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAuthenticate()
-    }
+    return validationMessages
   }
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +59,10 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
     setEmailErrors([])
   }
 
-  const handleAuthenticate = async () => {
+  const handleAuthenticate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (isLoading) return
+
     const emailValidationErrors = validateEmailField(email)
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
@@ -98,14 +95,18 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
       }
 
       const callbackUrl = `/chat/${identifier}`
-      router.push(`/sso?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(callbackUrl)}`)
+      router.push(
+        `/sso?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(callbackUrl)}`
+      )
     } catch (error) {
       logger.error('SSO authentication error:', error)
-      setEmailErrors([copy.auth.sso.errors.authenticationError])
+      setEmailErrors([ssoFailureCopy.authenticationError])
       setShowEmailValidationError(true)
       setIsLoading(false)
     }
   }
+
+  const hasEmailError = showEmailValidationError && emailErrors.length > 0
 
   return (
     <div className=''>
@@ -123,10 +124,8 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleAuthenticate()
-              }}
+              onSubmit={handleAuthenticate}
+              aria-busy={isLoading}
               className={`${inter.className} mt-8 w-full space-y-8`}
             >
               <div className='space-y-6'>
@@ -137,6 +136,8 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
                   <Input
                     id='email'
                     name='email'
+                    aria-invalid={hasEmailError}
+                    aria-describedby={hasEmailError ? 'chat-sso-auth-error' : undefined}
                     required
                     type='email'
                     autoCapitalize='none'
@@ -145,19 +146,22 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
                     placeholder={copy.auth.sso.placeholder}
                     value={email}
                     onChange={handleEmailChange}
-                    onKeyDown={handleKeyDown}
                     className={cn(
                       'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                      showEmailValidationError &&
-                        emailErrors.length > 0 &&
+                      hasEmailError &&
                         'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                     autoFocus
                   />
-                  {showEmailValidationError && emailErrors.length > 0 && (
-                    <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                      {emailErrors.map((error, index) => (
-                        <p key={index}>{error}</p>
+                  {hasEmailError && (
+                    <div
+                      id='chat-sso-auth-error'
+                      role='alert'
+                      aria-atomic='true'
+                      className='mt-1 space-y-1 text-red-400 text-xs'
+                    >
+                      {emailErrors.map((message) => (
+                        <p key={message}>{message}</p>
                       ))}
                     </div>
                   )}

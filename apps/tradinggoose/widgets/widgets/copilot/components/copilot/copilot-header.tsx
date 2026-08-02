@@ -142,21 +142,25 @@ function ChatHistoryItem({
   )
 
   return (
-    <DropdownMenuItem
-      className='group flex w-full items-center justify-between gap-3 rounded-xs py-2 text-left text-sm font-normal text-foreground transition-colors focus:bg-muted data-[highlighted]:bg-muted'
-      onSelect={(event) => {
-        event.preventDefault()
-        void onSelect(chat)
-      }}
+    <div
+      className='group flex w-full items-center gap-1'
       onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
       onMouseLeave={() => onHoverChat(null)}
     >
-      <div className='min-w-0'>
-        <p className='min-w-0 whitespace-normal break-words text-foreground'>
-          {chat.title || historyCopy.newChat}
-        </p>
-        <p className='text-xs text-muted-foreground'>{updatedLabel}</p>
-      </div>
+      <DropdownMenuItem
+        className='min-w-0 flex-1 rounded-xs py-2 text-left text-sm font-normal text-foreground transition-colors data-[highlighted]:bg-muted'
+        closeOnClick={false}
+        onClick={() => {
+          void onSelect(chat)
+        }}
+      >
+        <div className='min-w-0'>
+          <p className='min-w-0 whitespace-normal break-words text-foreground'>
+            {chat.title || historyCopy.newChat}
+          </p>
+          <p className='text-xs text-muted-foreground'>{updatedLabel}</p>
+        </div>
+      </DropdownMenuItem>
       <button
         type='button'
         onClick={(event) => {
@@ -173,7 +177,7 @@ function ChatHistoryItem({
       >
         <Trash2 className='h-3.5 w-3.5' />
       </button>
-    </DropdownMenuItem>
+    </div>
   )
 }
 
@@ -300,30 +304,32 @@ export function CopilotHeader({
           if (open) void handleRefresh()
         }}
       >
-        <DropdownMenuTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderControlClassName(
-              'group flex w-[240px] shrink-0 items-center justify-between gap-1'
-            )}
-            aria-label={historyCopy.openChatHistory}
-          >
-            <div className='bg-muted p-1 rounded-xs'>
-              <Clock3 className='h-3 w-3 text-muted-foreground' />
-            </div>
-            <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>{title}</span>
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform',
-                'group-data-[state=open]:rotate-180'
+        <DropdownMenuTrigger
+          render={
+            <button
+              type='button'
+              className={widgetHeaderControlClassName(
+                'group flex w-[240px] shrink-0 items-center justify-between gap-1'
               )}
+              aria-label={historyCopy.openChatHistory}
             />
-          </button>
+          }
+        >
+          <div className='bg-muted p-1 rounded-xs'>
+            <Clock3 className='h-3 w-3 text-muted-foreground' />
+          </div>
+          <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>{title}</span>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform',
+              'group-data-[popup-open]:rotate-180'
+            )}
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side='bottom'
           sideOffset={6}
-          className='w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden rounded-sm bg-background p-0 text-sm text-foreground shadow-xs'
+          className='w-[var(--anchor-width)] overflow-hidden rounded-sm bg-background p-0 text-sm text-foreground shadow-xs'
         >
           <ScrollArea className='max-h-72 bg-background pr-1 text-sm text-foreground'>
             {dropdownMenuBody}

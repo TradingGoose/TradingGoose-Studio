@@ -31,7 +31,7 @@ const Workflow = React.memo(({ ui, channelId, toolbarScopeId, viewportBounds }: 
   }, [layoutUI, ui])
 
   if (workflowSession.error) {
-    return <WidgetStateMessage message={workflowSession.error} />
+    return <WidgetStateMessage message={copy.unableToLoadWorkflows} variant='error' />
   }
 
   if (workflowSession.isLoading || !workflowSession.doc) {
@@ -44,7 +44,9 @@ const Workflow = React.memo(({ ui, channelId, toolbarScopeId, viewportBounds }: 
 
   return (
     <ReactFlowProvider>
-      <ErrorBoundary fallback={<WidgetStateMessage message={copy.unableToLoadWorkflows} />}>
+      <ErrorBoundary
+        fallback={<WidgetStateMessage message={copy.unableToLoadWorkflows} variant='error' />}
+      >
         <WorkflowCanvas
           channelId={channelId}
           toolbarScopeId={toolbarScopeId}

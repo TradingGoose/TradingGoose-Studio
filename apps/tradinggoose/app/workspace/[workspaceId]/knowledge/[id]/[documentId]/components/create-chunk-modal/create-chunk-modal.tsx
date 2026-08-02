@@ -1,7 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AlertCircle, Loader2, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,11 +18,14 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useTranslations } from 'next-intl'
+import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ChunkData, DocumentData } from '@/stores/knowledge/store'
 
 const logger = createLogger('CreateChunkModal')
+const CONTENT_ID = 'create-chunk-content'
+const CONTENT_CONSTRAINT_ID = 'create-chunk-content-constraint'
+const SUBMISSION_FAILURE_ID = 'create-chunk-failure'
 
 interface CreateChunkModalProps {
   open: boolean
@@ -40,14 +45,25 @@ export function CreateChunkModal({
   const t = useTranslations('workspace.knowledge.chunkModal')
   const [content, setContent] = useState('')
   const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
   const [showUnsavedChangesAlert, setShowUnsavedChangesAlert] = useState(false)
   const isProcessingRef = useRef(false)
 
   const hasUnsavedChanges = content.trim().length > 0
+  const contentConstraint =
+    content.trim().length === 0
+      ? t('contentConstraints.required')
+      : content.length > MAX_CHUNK_CONTENT_LENGTH
+        ? t('contentConstraints.maxLength', { max: MAX_CHUNK_CONTENT_LENGTH })
+        : null
+  const contentDescriptionId = contentConstraint
+    ? CONTENT_CONSTRAINT_ID
+    : failure
+      ? SUBMISSION_FAILURE_ID
+      : undefined
 
   const handleCreateChunk = async () => {
-    if (!document || content.trim().length === 0 || isProcessingRef.current) {
+    if (!document || contentConstraint || isProcessingRef.current) {
       if (isProcessingRef.current) {
         logger.warn('Chunk creation already in progress, ignoring duplicate request')
       }
@@ -57,7 +73,7 @@ export function CreateChunkModal({
     try {
       isProcessingRef.current = true
       setIsCreating(true)
-      setError(null)
+      setFailure(null)
 
       const response = await fetch(
         `/api/knowledge/${knowledgeBaseId}/documents/${document.id}/chunks`,
@@ -67,7 +83,7 @@ export function CreateChunkModal({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: content.trim(),
+            content,
             enabled: true,
           }),
         }
@@ -75,7 +91,7 @@ export function CreateChunkModal({
 
       if (!response.ok) {
         const result = await response.json()
-        throw new Error(result.error || t('errors.failedToCreateChunk'))
+        throw new Error(result.error || t('failures.failedToCreateChunk'))
       }
 
       const result = await response.json()
@@ -89,11 +105,11 @@ export function CreateChunkModal({
 
         onClose()
       } else {
-        throw new Error(result.error || t('errors.failedToCreateChunk'))
+        throw new Error(result.error || t('failures.failedToCreateChunk'))
       }
     } catch (err) {
       logger.error('Error creating chunk:', err)
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      setFailure(err instanceof Error ? err.message : t('failures.generic'))
     } finally {
       isProcessingRef.current = false
       setIsCreating(false)
@@ -104,12 +120,13 @@ export function CreateChunkModal({
     onOpenChange(false)
     // Reset form state when modal closes
     setContent('')
-    setError(null)
+    setFailure(null)
     setShowUnsavedChangesAlert(false)
   }
 
   const handleCloseAttempt = () => {
-    if (hasUnsavedChanges && !isCreating) {
+    if (isProcessingRef.current) return
+    if (hasUnsavedChanges) {
       setShowUnsavedChangesAlert(true)
     } else {
       onClose()
@@ -121,23 +138,35 @@ export function CreateChunkModal({
     onClose()
   }
 
-  const isFormValid = content.trim().length > 0 && content.trim().length <= 10000
+  const isFormValid = contentConstraint === null
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleCloseAttempt}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen, details) => {
+          if (nextOpen) return
+          if (isProcessingRef.current) {
+            details.cancel()
+            return
+          }
+          if (hasUnsavedChanges) details.cancel()
+          handleCloseAttempt()
+        }}
+      >
         <DialogContent
           className='flex h-[74vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px]'
           hideCloseButton
         >
           <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
-              <div className='flex items-center justify-between'>
+            <div className='flex items-center justify-between'>
               <DialogTitle className='font-medium text-lg'>{t('createTitle')}</DialogTitle>
               <Button
                 variant='ghost'
                 size='icon'
                 className='h-8 w-8 p-0'
                 onClick={handleCloseAttempt}
+                disabled={isCreating}
               >
                 <X className='h-4 w-4' />
                 <span className='sr-only'>{t('close')}</span>
@@ -159,28 +188,37 @@ export function CreateChunkModal({
                     </div>
                   </div>
 
-                  {/* Error Display */}
-                  {error && (
-                    <div className='flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3'>
-                      <AlertCircle className='h-4 w-4 text-red-600' />
-                      <p className='text-red-800 text-sm'>{error}</p>
-                    </div>
-                  )}
+                  {failure ? (
+                    <Alert variant='destructive' aria-atomic='true'>
+                      <AlertDescription id={SUBMISSION_FAILURE_ID}>{failure}</AlertDescription>
+                    </Alert>
+                  ) : null}
                 </div>
 
                 {/* Content Input Section - Expands to fill remaining space */}
                 <div className='mt-4 flex flex-1 flex-col'>
-                  <Label htmlFor='content' className='mb-2 font-medium text-sm'>
+                  <Label htmlFor={CONTENT_ID} className='mb-2 font-medium text-sm'>
                     {t('chunkContent')}
                   </Label>
                   <Textarea
-                    id='content'
+                    id={CONTENT_ID}
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={(event) => {
+                      setContent(event.target.value)
+                      setFailure(null)
+                    }}
                     placeholder={t('chunkContentPlaceholder')}
                     className='flex-1 resize-none'
                     disabled={isCreating}
+                    required
+                    aria-invalid={contentConstraint ? 'true' : undefined}
+                    aria-describedby={contentDescriptionId}
                   />
+                  {contentConstraint ? (
+                    <p id={CONTENT_CONSTRAINT_ID} className='mt-2 text-destructive text-xs'>
+                      {contentConstraint}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -137,10 +137,13 @@ export async function sendStreamingMessage(
     })
 
     if (!response.ok) {
-      const errorMessage = await handleApiError(response, 'Failed to send streaming message')
+      const streamRequestFailure = await handleApiError(
+        response,
+        'Failed to send streaming message'
+      )
       return {
         success: false,
-        error: errorMessage,
+        error: streamRequestFailure,
         status: response.status,
       }
     }

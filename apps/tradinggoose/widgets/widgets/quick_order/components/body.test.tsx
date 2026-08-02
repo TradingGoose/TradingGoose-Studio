@@ -3,8 +3,10 @@
  */
 
 import { act, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordsOrderKeys } from '@/hooks/queries/records-orders'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/body'
 
@@ -13,10 +15,8 @@ const mockUseOAuthConnections = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
-const mockUseSubmitTradingOrder = vi.fn()
-const mockMutate = vi.fn()
+const mockSubmitTradingOrder = vi.fn()
 const mockPortfolioRefetch = vi.fn()
-const mockReset = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
@@ -43,6 +43,30 @@ const createPortfolioDetail = () => ({
   },
 })
 
+const submittedOrder = {
+  appOrderId: 'app-order-1',
+  clientOrderId: 'client-order-1',
+  provider: 'alpaca',
+  accountId: 'acct-1',
+  message: 'Order accepted',
+  order: {
+    id: 'order-1',
+    status: 'submitted',
+    symbol: 'AAPL',
+    side: 'buy',
+    submittedAt: '2026-04-25T12:00:00.000Z',
+    raw: {},
+  },
+}
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 const stockListing = {
   listing_type: 'default',
   listing_id: 'AAPL',
@@ -62,7 +86,10 @@ const assetlessListing = {
   quote: 'USD',
 }
 
+const defaultParams = { provider: 'alpaca', portfolioIdentity, side: 'buy' } as const
+
 let nextListing: Record<string, unknown> = stockListing
+let queryClient: QueryClient
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
@@ -79,7 +106,7 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
   usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
-  useSubmitTradingOrder: (...args: unknown[]) => mockUseSubmitTradingOrder(...args),
+  submitTradingOrder: (...args: unknown[]) => mockSubmitTradingOrder(...args),
 }))
 
 vi.mock('@/components/ui/select', () => ({
@@ -112,42 +139,6 @@ vi.mock('@/components/ui/select', () => ({
   ),
 }))
 
-vi.mock('@/components/ui/radio-group', async () => {
-  const React = await vi.importActual<typeof import('react')>('react')
-  const RadioContext = React.createContext<{
-    value?: string
-    onValueChange?: (value: string) => void
-  }>({})
-
-  return {
-    RadioGroup: ({
-      value,
-      onValueChange,
-      children,
-    }: {
-      value?: string
-      onValueChange?: (value: string) => void
-      children?: ReactNode
-    }) => (
-      <RadioContext.Provider value={{ value, onValueChange }}>
-        <div>{children}</div>
-      </RadioContext.Provider>
-    ),
-    RadioGroupItem: ({ id, value }: { id?: string; value: string }) => {
-      const context = React.useContext(RadioContext)
-      return (
-        <input
-          id={id}
-          type='radio'
-          value={value}
-          checked={context.value === value}
-          onChange={() => context.onValueChange?.(value)}
-        />
-      )
-    },
-  }
-})
-
 vi.mock('@/components/listing-selector/selector/combo', () => ({
   ListingSelector: ({
     instanceId,
@@ -156,6 +147,7 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
     tradingProviderId,
     listingRequired,
     className,
+    disabled,
     onListingChange,
     onListingValueChange,
   }: {
@@ -165,6 +157,7 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
     tradingProviderId?: string
     listingRequired?: boolean
     className?: string
+    disabled?: boolean
     onListingChange: (listing: Record<string, unknown>) => void
     onListingValueChange: (value: string) => void
   }) => (
@@ -180,6 +173,7 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
       <button
         type='button'
         data-testid='listing-selector'
+        disabled={disabled}
         onClick={() => onListingChange(nextListing)}
       >
         AAPL
@@ -187,6 +181,7 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
       <button
         type='button'
         data-testid='listing-value-selector'
+        disabled={disabled}
         onClick={() => onListingValueChange('AAPL')}
       >
         Raw AAPL
@@ -212,14 +207,16 @@ const renderBody = async (
 ) => {
   await act(async () => {
     root.render(
-      <QuickOrderWidgetBody
-        channelId='quick-order-panel-1'
-        context={{ workspaceId: 'workspace-1' } as any}
-        widget={{ key: 'quick_order' } as any}
-        panelId='panel-1'
-        params={params}
-        onWidgetParamsPatch={onWidgetParamsPatch}
-      />
+      <QueryClientProvider client={queryClient}>
+        <QuickOrderWidgetBody
+          channelId='quick-order-panel-1'
+          context={{ workspaceId: 'workspace-1' } as any}
+          widget={{ key: 'quick_order' } as any}
+          panelId='panel-1'
+          params={params}
+          onWidgetParamsPatch={onWidgetParamsPatch}
+        />
+      </QueryClientProvider>
     )
   })
 }
@@ -261,6 +258,9 @@ const findButton = (container: HTMLElement, label: string) =>
     button.textContent?.includes(label)
   )
 
+const selectListing = (container: HTMLElement) =>
+  act(() => container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click())
+
 describe('QuickOrderWidgetBody', () => {
   let container: HTMLDivElement
   let root: Root
@@ -274,6 +274,12 @@ describe('QuickOrderWidgetBody', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
+    })
 
     mockUseOAuthProviderAvailability.mockReturnValue(
       queryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true } })
@@ -290,6 +296,11 @@ describe('QuickOrderWidgetBody', () => {
     mockUsePortfolioDetail.mockReturnValue(
       queryResult({ data: createPortfolioDetail(), refetch: mockPortfolioRefetch })
     )
+    mockPortfolioRefetch.mockResolvedValue({
+      data: createPortfolioDetail(),
+      error: null,
+    })
+    mockSubmitTradingOrder.mockResolvedValue(submittedOrder)
     mockUseMarketQuoteSnapshots.mockReturnValue(
       queryResult({
         data: {
@@ -302,13 +313,6 @@ describe('QuickOrderWidgetBody', () => {
         },
       })
     )
-    mockUseSubmitTradingOrder.mockReturnValue({
-      mutate: mockMutate,
-      reset: mockReset,
-      isPending: false,
-      data: undefined,
-      error: null,
-    })
     useListingSelectorStore.setState({ instances: {} })
   })
 
@@ -320,11 +324,7 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('renders order body controls and keeps the submit footer pinned as a sibling', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
     expect(container.querySelector('[data-testid="listing-selector"]')).not.toBeNull()
     const footerButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -335,21 +335,13 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('uses user broker connections independently of workspace scope', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
     expect(mockUseOAuthConnections).toHaveBeenCalled()
   })
 
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
     const selector = container.querySelector<HTMLElement>(
       '[data-testid="listing-selector-surface"]'
@@ -379,11 +371,7 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('shows disabled order type placeholders before submit-ready listings', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
     const emptyOrderTypeSelect = Array.from(container.querySelectorAll('select')).find((select) =>
       select.textContent?.includes('Select listing first')
@@ -391,9 +379,7 @@ describe('QuickOrderWidgetBody', () => {
     expect(emptyOrderTypeSelect).toBeDisabled()
 
     nextListing = assetlessListing
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
 
     const assetlessOrderTypeSelect = Array.from(container.querySelectorAll('select')).find(
       (select) => select.textContent?.includes('Asset class unavailable')
@@ -403,15 +389,9 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('clears unresolved listing values from submit readiness', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {
       container.querySelector<HTMLButtonElement>('[data-testid="listing-value-selector"]')?.click()
     })
@@ -438,9 +418,7 @@ describe('QuickOrderWidgetBody', () => {
         .marketProviderId
     ).toBe('finnhub')
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {})
 
     expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
@@ -460,15 +438,9 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('does not use trading provider settings for market quote websocket subscriptions', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {})
 
     expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
@@ -535,15 +507,9 @@ describe('QuickOrderWidgetBody', () => {
   })
 
   it('keeps invalid numeric text from becoming a submit payload', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {})
 
     await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), 'abc')
@@ -554,21 +520,18 @@ describe('QuickOrderWidgetBody', () => {
     await act(async () => {
       footerButton?.click()
     })
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockSubmitTradingOrder).not.toHaveBeenCalled()
   })
 
   it('rejects Alpaca notional trailing stop orders before submit', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    await renderBody(container, root, defaultParams)
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {})
 
+    const sizingRadio = container.querySelector<HTMLElement>('[role="radio"]')
+    expect(sizingRadio?.tagName).toBe('SPAN')
+    expect(sizingRadio?.className).toContain('focus-visible:ring-2')
     await chooseRadioValue(container, 'notional')
     await setInputValue(
       container.querySelector<HTMLInputElement>('input[placeholder="0.00"]'),
@@ -586,10 +549,22 @@ describe('QuickOrderWidgetBody', () => {
     await act(async () => {
       footerButton?.click()
     })
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockSubmitTradingOrder).not.toHaveBeenCalled()
   })
 
-  it('submits only the quick order route payload fields', async () => {
+  it('keeps pending feedback and controls owned until order and account data converge', async () => {
+    const orderRequest = createDeferred<typeof submittedOrder>()
+    const recordsRefresh = createDeferred<void>()
+    const portfolioRefresh = createDeferred<{
+      data: ReturnType<typeof createPortfolioDetail>
+      error: null
+    }>()
+    mockSubmitTradingOrder.mockReturnValueOnce(orderRequest.promise)
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockReturnValueOnce(recordsRefresh.promise)
+    mockPortfolioRefetch.mockReturnValueOnce(portfolioRefresh.promise)
+
     await renderBody(container, root, {
       provider: 'alpaca',
       marketProvider: 'finnhub',
@@ -599,21 +574,22 @@ describe('QuickOrderWidgetBody', () => {
       side: 'buy',
     })
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
+    await selectListing(container)
     await act(async () => {})
 
     await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
     await act(async () => {})
 
+    const submitButton = findButton(container, 'Submit BUY Order')
     await act(async () => {
-      Array.from(container.querySelectorAll('button'))
-        .find((button) => button.textContent?.includes('Submit BUY Order'))
-        ?.click()
+      submitButton?.focus()
+      submitButton?.click()
+      submitButton?.click()
     })
 
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSubmitTradingOrder).toHaveBeenCalledTimes(1)
+    const payload = mockSubmitTradingOrder.mock.calls[0][0]
+    expect(payload).toEqual(
       expect.objectContaining({
         idempotencyKey: expect.any(String),
         workspaceId: 'workspace-1',
@@ -624,121 +600,96 @@ describe('QuickOrderWidgetBody', () => {
         timeInForce: 'day',
         orderSizingMode: 'quantity',
         quantity: 2,
-      }),
-      expect.objectContaining({
-        onSuccess: expect.any(Function),
       })
     )
+    expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Submitting')
+    expect(container.querySelector<HTMLInputElement>('#quick-order-size')).toBeDisabled()
+    expect(findButton(container, 'Submitting')).toHaveAttribute('aria-busy', 'true')
+
+    await renderBody(container, root, { ...defaultParams, side: 'sell' })
+
     await act(async () => {
-      mockMutate.mock.calls[0][1].onSuccess()
+      orderRequest.resolve(submittedOrder)
+      await Promise.resolve()
     })
     expect(mockPortfolioRefetch).toHaveBeenCalled()
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('tokenAccountId')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('serviceId')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('accountId')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('provider')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('providerParams')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProvider')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProviderParams')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketAuth')
-  })
-
-  it('reuses the same idempotency key when retrying the same order payload', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
-
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
-    })
-    await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
-
-    const submit = async () => {
-      await act(async () => {
-        findButton(container, 'Submit BUY Order')?.click()
-      })
-    }
-    await submit()
-    await act(async () => {
-      root.render(
-        <QuickOrderWidgetBody
-          channelId='quick-order-panel-1'
-          context={{ workspaceId: 'workspace-1' } as any}
-          widget={{ key: 'quick_order' } as any}
-          panelId='panel-1'
-          params={{ provider: 'alpaca', portfolioIdentity, side: 'buy' }}
-          onWidgetParamsPatch={vi.fn()}
-        />
-      )
-    })
-    await submit()
-
-    expect(mockMutate).toHaveBeenCalledTimes(2)
-    expect(mockMutate.mock.calls[1][0].idempotencyKey).toBe(
-      mockMutate.mock.calls[0][0].idempotencyKey
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      { queryKey: recordsOrderKeys.all },
+      { throwOnError: true }
     )
-  })
-
-  it('keeps the idempotency key after a failed order attempt', async () => {
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
+    expect(findButton(container, 'Submitting')).toHaveAttribute('aria-busy', 'true')
 
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
+      recordsRefresh.resolve(undefined)
+      await Promise.resolve()
     })
-    await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
+    expect(findButton(container, 'Submitting')).toHaveAttribute('aria-busy', 'true')
 
     await act(async () => {
-      findButton(container, 'Submit BUY Order')?.click()
-    })
-    expect(mockMutate.mock.calls[0][1]).not.toHaveProperty('onError')
-    await act(async () => {
-      findButton(container, 'Submit BUY Order')?.click()
+      portfolioRefresh.resolve({ data: createPortfolioDetail(), error: null })
+      await Promise.resolve()
     })
 
-    expect(mockMutate).toHaveBeenCalledTimes(2)
-    expect(mockMutate.mock.calls[1][0].idempotencyKey).toBe(
-      mockMutate.mock.calls[0][0].idempotencyKey
-    )
-  })
-
-  it('renders success feedback with destination provider and account details', async () => {
-    mockUseSubmitTradingOrder.mockReturnValue({
-      mutate: mockMutate,
-      reset: mockReset,
-      isPending: false,
-      data: {
-        appOrderId: 'app-order-1',
-        clientOrderId: 'client-order-1',
-        provider: 'alpaca',
-        accountId: 'acct-1',
-        message: 'Order accepted',
-        order: {
-          id: 'order-1',
-          status: 'submitted',
-          symbol: 'AAPL',
-          side: 'buy',
-          submittedAt: '2026-04-25T12:00:00.000Z',
-          raw: {},
-        },
-      },
-      error: null,
-    })
-
-    await renderBody(container, root, {
-      provider: 'alpaca',
-      portfolioIdentity,
-      side: 'buy',
-    })
-
+    expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
     expect(container.textContent).toContain('Order order-1')
     expect(container.textContent).toContain('alpaca / acct-1')
+    expect(container.textContent).toContain('AAPL · BUY')
     expect(container.textContent).toContain('Order accepted')
+    expect(payload).not.toHaveProperty('tokenAccountId')
+    expect(payload).not.toHaveProperty('serviceId')
+    expect(payload).not.toHaveProperty('environment')
+    expect(payload).not.toHaveProperty('accountId')
+    expect(payload).not.toHaveProperty('provider')
+    expect(payload).not.toHaveProperty('providerParams')
+    expect(payload).not.toHaveProperty('marketProvider')
+    expect(payload).not.toHaveProperty('marketProviderParams')
+    expect(payload).not.toHaveProperty('marketAuth')
+  })
+
+  it('reuses a key only after rejection and preserves accepted orders when convergence fails', async () => {
+    mockSubmitTradingOrder.mockRejectedValueOnce(new Error('Order rejected'))
+    await renderBody(container, root, defaultParams)
+
+    await selectListing(container)
+    await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
+
+    await act(async () => {
+      const submitButton = findButton(container, 'Submit BUY Order')
+      submitButton?.click()
+      submitButton?.click()
+    })
+
+    expect(mockSubmitTradingOrder).toHaveBeenCalledTimes(1)
+    const failedKey = mockSubmitTradingOrder.mock.calls[0][0].idempotencyKey
+    await act(async () => {})
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1)
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Order rejected')
+
+    vi.spyOn(queryClient, 'invalidateQueries').mockRejectedValueOnce(
+      new Error('Order records failed to refresh')
+    )
+    mockPortfolioRefetch.mockResolvedValueOnce({
+      data: undefined,
+      error: new Error('Portfolio failed to refresh'),
+    })
+    await act(async () => {
+      findButton(container, 'Submit BUY Order')?.click()
+      await Promise.resolve()
+    })
+    expect(mockSubmitTradingOrder).toHaveBeenCalledTimes(2)
+    expect(mockSubmitTradingOrder.mock.calls[1][0].idempotencyKey).toBe(failedKey)
+    expect(container.textContent).toContain('Order order-1')
+    expect(container.textContent).toContain('Order accepted')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'The order was accepted, but refreshed records or portfolio data could not be confirmed.'
+    )
+
+    await act(async () => {
+      findButton(container, 'Submit BUY Order')?.click()
+      await Promise.resolve()
+    })
+    expect(mockSubmitTradingOrder).toHaveBeenCalledTimes(3)
+    expect(mockSubmitTradingOrder.mock.calls[2][0].idempotencyKey).not.toBe(failedKey)
   })
 })

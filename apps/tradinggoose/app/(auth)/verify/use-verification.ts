@@ -38,7 +38,8 @@ const VERIFICATION_ERROR_CODE_GROUPS = {
   ]),
 } as const
 
-export function getVerificationErrorMessage(copy: VerifyCopy, error: unknown) {
+export function resolveVerificationFailureMessage(copy: VerifyCopy, error: unknown) {
+  const { errors: failureCopy } = copy
   const code =
     error && typeof error === 'object' && 'code' in error
       ? String((error as { code?: unknown }).code ?? '')
@@ -54,16 +55,16 @@ export function getVerificationErrorMessage(copy: VerifyCopy, error: unknown) {
 
   const normalizedErrorCode = normalizeAuthErrorCode(code) ?? normalizeAuthErrorCode(message)
   if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.expired.has(normalizedErrorCode)) {
-    return copy.errors.expired
+    return failureCopy.expired
   }
   if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.invalid.has(normalizedErrorCode)) {
-    return copy.errors.invalid
+    return failureCopy.invalid
   }
   if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.attempts.has(normalizedErrorCode)) {
-    return copy.errors.attempts
+    return failureCopy.attempts
   }
 
-  return copy.errors.generic
+  return failureCopy.generic
 }
 
 interface UseVerificationParams {
@@ -79,7 +80,7 @@ interface UseVerificationReturn {
   isLoading: boolean
   isVerified: boolean
   isInvalidOtp: boolean
-  errorMessage: string
+  failureMessage: string
   isOtpComplete: boolean
   hasEmailService: boolean
   isProduction: boolean
@@ -99,13 +100,14 @@ export function useVerification({
   const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const { refetch: refetchSession } = useSession()
+  const { errors: failureCopy } = copy
   const [otp, setOtp] = useState('')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
   const [isSendingInitialOtp, setIsSendingInitialOtp] = useState(false)
   const [isInvalidOtp, setIsInvalidOtp] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [failureMessage, setFailureMessage] = useState('')
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
   const [isInviteFlow, setIsInviteFlow] = useState(false)
 
@@ -186,7 +188,7 @@ export function useVerification({
 
     setIsLoading(true)
     setIsInvalidOtp(false)
-    setErrorMessage('')
+    setFailureMessage('')
 
     try {
       const normalizedEmail = email.trim().toLowerCase()
@@ -224,23 +226,23 @@ export function useVerification({
         }, 1000)
       } else {
         logger.info('Setting invalid OTP state - API error response')
-        const message = copy.errors.invalid
+        const message = failureCopy.invalid
         setIsInvalidOtp(true)
-        setErrorMessage(message)
+        setFailureMessage(message)
         logger.info('Error state after API error:', {
           isInvalidOtp: true,
-          errorMessage: message,
+          failureMessage: message,
         })
         setOtp('')
       }
     } catch (error: unknown) {
-      const message = getVerificationErrorMessage(copy, error)
+      const message = resolveVerificationFailureMessage(copy, error)
 
       setIsInvalidOtp(true)
-      setErrorMessage(message)
+      setFailureMessage(message)
       logger.info('Error state after caught error:', {
         isInvalidOtp: true,
-        errorMessage: message,
+        failureMessage: message,
       })
 
       setOtp('')
@@ -253,7 +255,8 @@ export function useVerification({
     if (!email || !hasEmailService || !isEmailVerificationEnabled) return
 
     setIsLoading(true)
-    setErrorMessage('')
+    setIsInvalidOtp(false)
+    setFailureMessage('')
 
     const normalizedEmail = email.trim().toLowerCase()
     client.emailOtp
@@ -262,7 +265,7 @@ export function useVerification({
         type: 'sign-in',
       })
       .catch(() => {
-        setErrorMessage(copy.errors.resendFailed)
+        setFailureMessage(failureCopy.resendFailed)
       })
       .finally(() => {
         setIsLoading(false)
@@ -272,7 +275,7 @@ export function useVerification({
   function handleOtpChange(value: string) {
     if (value.length === 6) {
       setIsInvalidOtp(false)
-      setErrorMessage('')
+      setFailureMessage('')
     }
     setOtp(value)
   }
@@ -319,7 +322,7 @@ export function useVerification({
     isLoading,
     isVerified,
     isInvalidOtp,
-    errorMessage,
+    failureMessage,
     isOtpComplete,
     hasEmailService,
     isProduction,

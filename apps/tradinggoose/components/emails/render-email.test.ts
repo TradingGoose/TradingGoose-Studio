@@ -43,6 +43,12 @@ describe('localized email rendering', () => {
     expect(html).toContain('ada@example.com')
     expect(html).toContain('https://test.tradinggoose.ai/es/privacy')
     expect(html).toContain('https://test.tradinggoose.ai/es/terms')
+    expect(html).toMatch(
+      /<a(?=[^>]*href="https:\/\/discord\.gg\/wavf5JWhuT")(?=[^>]*aria-label="Discord")[^>]*>/
+    )
+    expect(html).toMatch(
+      /<a(?=[^>]*href="https:\/\/github\.com\/TradingGoose\/TradingGoose-Studio")(?=[^>]*aria-label="GitHub")[^>]*>/
+    )
   })
 
   it('localizes generated email app links by locale', async () => {

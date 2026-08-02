@@ -527,40 +527,36 @@ export function Dropdown({
 
   return (
     <DropdownMenu onOpenChange={handleDropdownMenuOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type='button'
-          className={cn(
-            'flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-foreground text-sm shadow-sm transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            finalDisabled && 'cursor-not-allowed opacity-50',
-            className
-          )}
-          disabled={finalDisabled}
-        >
-          {selectedOption?.icon ? <selectedOption.icon className='mr-2 h-3 w-3' /> : null}
-          <span
-            className={cn('flex-1 truncate text-left', !triggerLabel && 'text-muted-foreground')}
-          >
-            {triggerLabel || resolvedPlaceholder}
+      <DropdownMenuTrigger
+        render={
+          <button
+            type='button'
+            className={cn(
+              'flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-foreground text-sm shadow-sm transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              finalDisabled && 'cursor-not-allowed opacity-50',
+              className
+            )}
+            disabled={finalDisabled}
+          />
+        }
+      >
+        {selectedOption?.icon ? <selectedOption.icon className='mr-2 h-3 w-3' /> : null}
+        <span className={cn('flex-1 truncate text-left', !triggerLabel && 'text-muted-foreground')}>
+          {triggerLabel || resolvedPlaceholder}
+        </span>
+        {triggerRightLabel ? (
+          <span className='ml-2 flex-shrink-0 text-muted-foreground text-xs tabular-nums'>
+            ({triggerRightLabel})
           </span>
-          {triggerRightLabel ? (
-            <span className='ml-2 flex-shrink-0 text-muted-foreground text-xs tabular-nums'>
-              ({triggerRightLabel})
-            </span>
-          ) : null}
-          <ChevronDown className='ml-2 h-4 w-4 flex-shrink-0 text-muted-foreground' />
-        </button>
+        ) : null}
+        <ChevronDown className='ml-2 h-4 w-4 flex-shrink-0 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        portalled={false}
         align='start'
-        className='w-[var(--radix-popper-anchor-width)] p-0'
-        onCloseAutoFocus={(event: Event) => {
-          if (!enableSearch) return
-          event.preventDefault()
-          searchInputRef.current?.focus()
-        }}
+        className='w-[var(--anchor-width)] p-0'
+        finalFocus={enableSearch ? false : undefined}
+        portal={false}
       >
         {enableSearch && (
           <div className='border-border border-b p-2'>
@@ -602,7 +598,7 @@ export function Dropdown({
                         key={option.id}
                         disabled={option.disabled}
                         className='flex items-center'
-                        onSelect={() => {
+                        onClick={() => {
                           if (option.disabled) return
                           handleSelect(option.value)
                         }}

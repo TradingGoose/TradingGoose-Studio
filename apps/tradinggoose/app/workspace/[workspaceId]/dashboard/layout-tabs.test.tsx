@@ -50,7 +50,7 @@ describe('LayoutTabs', () => {
     })
   }
 
-  it('keeps inline rename when only onRename is supplied', async () => {
+  it('commits inline rename from the labeled save action', async () => {
     const onRename = vi.fn()
     await renderTabs({ onRename })
 
@@ -75,7 +75,15 @@ describe('LayoutTabs', () => {
       )?.set
       valueSetter?.call(input, 'Renamed Layout')
       input.dispatchEvent(new Event('input', { bubbles: true }))
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+
+    const saveButton = container.querySelector('button[aria-label="Save name for Layout 1"]')
+    if (!(saveButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected labeled save button to render')
+    }
+
+    await act(async () => {
+      saveButton.click()
     })
 
     expect(onRename).toHaveBeenCalledWith('layout-1', 'Renamed Layout')

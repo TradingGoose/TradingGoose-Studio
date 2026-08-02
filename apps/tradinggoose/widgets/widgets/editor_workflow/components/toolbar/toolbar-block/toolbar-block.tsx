@@ -83,7 +83,7 @@ export function ToolbarBlock({
   if (disabled) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{blockContent}</TooltipTrigger>
+        <TooltipTrigger render={blockContent} />
         <TooltipContent>
           {getToolbarDisabledReason(Boolean(userPermissions.isOfflineMode))}
         </TooltipContent>

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +33,8 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 type PortfolioConditionBuilderProps = {
   condition: PortfolioFireCondition
   disabled?: boolean
-  error?: string
+  invalid?: boolean
+  describedBy?: string
   tradingProviderId?: string
   onChange: (condition: PortfolioFireCondition) => void
 }
@@ -151,16 +153,25 @@ const removeNodeAtPath = (
 export function PortfolioConditionBuilder({
   condition,
   disabled = false,
-  error,
+  invalid,
+  describedBy,
   tradingProviderId,
   onChange,
 }: PortfolioConditionBuilderProps) {
   const root = condition.root?.rules?.length ? condition.root : createGroup()
   const updateRoot = (nextRoot: PortfolioConditionGroup) => onChange({ root: nextRoot })
-
   return (
-    <div className='space-y-2'>
-      <Label className='text-muted-foreground text-xs'>Fire conditions</Label>
+    <div
+      id='monitor-portfolio-condition'
+      role='group'
+      aria-labelledby='monitor-portfolio-condition-label'
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      className='space-y-2'
+    >
+      <Label id='monitor-portfolio-condition-label' className='text-muted-foreground text-xs'>
+        Fire conditions
+      </Label>
       <ConditionGroupEditor
         group={root}
         path={[]}
@@ -169,7 +180,6 @@ export function PortfolioConditionBuilder({
         onUpdate={(path, updater) => updateRoot(updateNodeAtPath(root, path, updater))}
         onRemove={(path) => updateRoot(removeNodeAtPath(root, path))}
       />
-      {error ? <p className='text-[11px] text-destructive'>{error}</p> : null}
     </div>
   )
 }
@@ -192,6 +202,7 @@ function ConditionGroupEditor({
   ) => void
   onRemove: (path: number[]) => void
 }) {
+  const t = useTranslations('workspace.monitor.editor.form')
   const addRule = () =>
     onUpdate(path, (node) =>
       isGroup(node) ? { ...node, rules: node.rules.concat(createRule()) } : node
@@ -206,12 +217,18 @@ function ConditionGroupEditor({
       <div className='flex items-center justify-between gap-2'>
         <Select
           value={group.combinator}
+          items={[
+            { value: 'and', label: 'All' },
+            { value: 'or', label: 'Any' },
+          ]}
           disabled={disabled}
-          onValueChange={(combinator: 'and' | 'or') =>
-            onUpdate(path, (node) => (isGroup(node) ? { ...node, combinator } : node))
-          }
+          onValueChange={(combinator) => {
+            if (combinator !== null) {
+              onUpdate(path, (node) => (isGroup(node) ? { ...node, combinator } : node))
+            }
+          }}
         >
-          <SelectTrigger className='h-8 w-24'>
+          <SelectTrigger aria-label='Condition matching' className='h-8 w-24'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -222,11 +239,11 @@ function ConditionGroupEditor({
 
         <div className='flex items-center gap-1'>
           <Button type='button' variant='outline' size='sm' disabled={disabled} onClick={addRule}>
-            <Plus className='mr-1 h-3.5 w-3.5' />
+            <Plus data-icon='inline-start' className='mr-1 h-3.5 w-3.5' />
             Rule
           </Button>
           <Button type='button' variant='outline' size='sm' disabled={disabled} onClick={addGroup}>
-            <Plus className='mr-1 h-3.5 w-3.5' />
+            <Plus data-icon='inline-start' className='mr-1 h-3.5 w-3.5' />
             Group
           </Button>
           {path.length > 0 ? (
@@ -234,6 +251,7 @@ function ConditionGroupEditor({
               type='button'
               variant='ghost'
               size='icon'
+              aria-label={t('deleteConditionGroup')}
               className='h-8 w-8'
               disabled={disabled}
               onClick={() => onRemove(path)}
@@ -291,12 +309,16 @@ function ConditionRuleEditor({
   ) => void
   onRemove: (path: number[]) => void
 }) {
+  const t = useTranslations('workspace.monitor.editor.form')
   const operators = getPortfolioConditionOperatorsForMetric(rule.metric)
   const showListing = portfolioConditionRequiresListing(rule.metric)
   const showValue = !isPortfolioConditionValuelessOperator(rule.operator)
   const ruleListingInstanceId = showListing
     ? `monitor-portfolio-condition-${rule.id ?? path.join('-')}`
     : null
+  const comparisonValueId = `monitor-portfolio-condition-${encodeURIComponent(
+    rule.id ?? path.join('-')
+  )}-value`
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
 
   useEffect(() => {
@@ -321,12 +343,18 @@ function ConditionRuleEditor({
     >
       <Select
         value={rule.metric}
+        items={PORTFOLIO_CONDITION_METRICS.map((metric) => ({
+          value: metric,
+          label: METRIC_LABELS[metric],
+        }))}
         disabled={disabled}
-        onValueChange={(metric: PortfolioConditionMetric) =>
-          onUpdate(path, (node) => (isGroup(node) ? node : normalizeRuleForMetric(node, metric)))
-        }
+        onValueChange={(metric) => {
+          if (metric !== null) {
+            onUpdate(path, (node) => (isGroup(node) ? node : normalizeRuleForMetric(node, metric)))
+          }
+        }}
       >
-        <SelectTrigger className='h-8'>
+        <SelectTrigger aria-label='Portfolio metric' className='h-8'>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -340,20 +368,28 @@ function ConditionRuleEditor({
 
       <Select
         value={rule.operator}
+        items={operators.map((operator) => ({
+          value: operator,
+          label: OPERATOR_LABELS[operator],
+        }))}
         disabled={disabled}
-        onValueChange={(operator: PortfolioConditionOperator) =>
-          onUpdate(path, (node) =>
-            isGroup(node)
-              ? node
-              : {
-                  ...node,
-                  operator,
-                  value: isPortfolioConditionValuelessOperator(operator) ? null : (node.value ?? 0),
-                }
-          )
-        }
+        onValueChange={(operator) => {
+          if (operator !== null) {
+            onUpdate(path, (node) =>
+              isGroup(node)
+                ? node
+                : {
+                    ...node,
+                    operator,
+                    value: isPortfolioConditionValuelessOperator(operator)
+                      ? null
+                      : (node.value ?? 0),
+                  }
+            )
+          }
+        }}
       >
-        <SelectTrigger className='h-8'>
+        <SelectTrigger aria-label='Comparison operator' className='h-8'>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -384,6 +420,8 @@ function ConditionRuleEditor({
       ) : null}
       {showValue ? (
         <Input
+          id={comparisonValueId}
+          aria-label={t('comparisonValue')}
           value={typeof rule.value === 'number' || typeof rule.value === 'string' ? rule.value : ''}
           type='number'
           className='h-8'
@@ -400,6 +438,7 @@ function ConditionRuleEditor({
         type='button'
         variant='ghost'
         size='icon'
+        aria-label={t('deleteCondition')}
         className='h-8 w-8'
         disabled={disabled}
         onClick={() => onRemove(path)}

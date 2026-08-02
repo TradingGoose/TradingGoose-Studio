@@ -154,7 +154,7 @@ type MarketChartIndicator = {
   id: string
   output: NormalizedPineOutput | null
   visible: boolean
-  errorMessage?: string
+  executionFailure?: string
 }
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
@@ -475,7 +475,7 @@ export function MarketChart({
         }
       }
 
-      if (plots.length > 0 || indicator.errorMessage) {
+      if (plots.length > 0 || indicator.executionFailure) {
         nextRuntime.set(indicator.id, {
           id: indicator.id,
           pane: runtimePane,
@@ -483,9 +483,9 @@ export function MarketChart({
           plots,
           paneAnchorSeries: anchorSeries ?? mainSeries,
           paneAnchorIdentity: `landing-${indicator.id}`,
-          errorMessage: indicator.errorMessage,
+          executionFailure: indicator.executionFailure,
         })
-        runtimeSignatureParts.push(`${indicator.id}:error:${indicator.errorMessage ?? ''}`)
+        runtimeSignatureParts.push(`${indicator.id}:error:${indicator.executionFailure ?? ''}`)
       }
     })
 

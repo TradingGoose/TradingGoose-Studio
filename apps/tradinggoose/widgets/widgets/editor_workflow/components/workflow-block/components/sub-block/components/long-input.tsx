@@ -361,6 +361,7 @@ export function LongInput({
           isVisible={wandHook.isPromptVisible}
           isLoading={wandHook.isLoading}
           isStreaming={wandHook.isStreaming}
+          hasFailure={Boolean(wandHook.error)}
           promptValue={wandHook.promptInputValue}
           onSubmit={(prompt: string) => wandHook.generateStream({ prompt })}
           onCancel={wandHook.isStreaming ? wandHook.cancelGeneration : wandHook.hidePromptInline}

@@ -93,7 +93,7 @@ export function SidebarDropdownMenuContent({
 
                 return (
                   <Tooltip key={group.id}>
-                    <TooltipTrigger asChild>{groupButton}</TooltipTrigger>
+                    <TooltipTrigger render={groupButton} />
                     <TooltipContent side='left'>{group.label}</TooltipContent>
                   </Tooltip>
                 )
@@ -118,7 +118,7 @@ export function SidebarDropdownMenuContent({
                   type='button'
                   data-option-index={index}
                   data-highlighted={highlightedItemId === item.id ? 'true' : undefined}
-                  className='relative flex w-full min-w-0 cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-muted-foreground text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground'
+                  className='relative flex w-full min-w-0 cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground'
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => onHighlightItem?.(item, index)}
                   onClick={(event) => onSelectItem(item, event)}

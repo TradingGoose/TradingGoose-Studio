@@ -284,7 +284,11 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         )}
       </div>
 
-      {errorMessage && <p className='mt-2 text-[12px] text-destructive'>{errorMessage}</p>}
+      {errorMessage && (
+        <p role='alert' aria-atomic='true' className='mt-2 text-[12px] text-destructive'>
+          {errorMessage}
+        </p>
+      )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

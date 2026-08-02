@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ToolCase } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
@@ -11,11 +11,14 @@ import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
+import { createSkill, importSkills } from '@/hooks/queries/skills'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
-import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
+import {
+  SkillCreateMenu,
+  type SkillMenuAction,
+} from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
   SkillListMessage,
@@ -31,8 +34,9 @@ const SkillListHeaderRight = ({
 }) => {
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
-  const createSkillMutation = useCreateSkill()
-  const importMutation = useImportSkills()
+  const actionLockRef = useRef(false)
+  const [activeAction, setActiveAction] = useState<SkillMenuAction | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('skill', workspaceId)
 
@@ -45,39 +49,40 @@ const SkillListHeaderRight = ({
   const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
 
   const handleCreateSkill = useCallback(() => {
-    if (!workspaceId || !permissions.canEdit) return
+    if (!workspaceId || !permissions.canEdit || actionLockRef.current) return
 
-    void createSkillMutation
-      .mutateAsync({
-        workspaceId,
-        skill: {
-          name: generateAvailableName(
-            members.map((member) => member.entityName),
-            copy.skillEditor.defaults.name
-          ),
-          description: copy.skillEditor.defaults.description,
-          content: copy.skillEditor.defaults.content,
-        },
-      })
+    actionLockRef.current = true
+    setActiveAction('create')
+    setActionError(null)
+    void createSkill({
+      workspaceId,
+      skill: {
+        name: generateAvailableName(
+          members.map((member) => member.entityName),
+          copy.skillEditor.defaults.name
+        ),
+        description: copy.skillEditor.defaults.description,
+        content: copy.skillEditor.defaults.content,
+      },
+    })
       .then((createdSkills) => {
-        const createdSkill = createdSkills[0]
-        const createdSkillId =
-          createdSkill && typeof createdSkill.id === 'string' ? createdSkill.id : null
-
-        if (!createdSkillId) {
-          throw new Error('Created skill is missing an id')
-        }
-
+        const createdSkillId = createdSkills[0]?.id
+        if (!createdSkillId) throw new Error('Created skill is missing an id')
         selectSkillWhenListed(createdSkillId)
       })
       .catch((error) => {
         console.error('Failed to create skill from list widget', error)
+        setActionError(copy.skillList.createMenu.createFailed)
+      })
+      .finally(() => {
+        actionLockRef.current = false
+        setActiveAction(null)
       })
   }, [
-    createSkillMutation,
     copy.skillEditor.defaults.content,
     copy.skillEditor.defaults.description,
     copy.skillEditor.defaults.name,
+    copy.skillList.createMenu.createFailed,
     members,
     permissions.canEdit,
     selectSkillWhenListed,
@@ -85,29 +90,36 @@ const SkillListHeaderRight = ({
   ])
 
   const handleImportSkills = useCallback(
-    async (content: string) => {
-      if (!workspaceId || importMutation.isPending || !permissions.canEdit) return
+    async (file: File) => {
+      if (!workspaceId || !permissions.canEdit || actionLockRef.current) return
 
+      actionLockRef.current = true
+      setActiveAction('import')
+      setActionError(null)
       try {
+        const content = await file.text()
         const parsedFile = JSON.parse(content) as unknown
         parseImportedSkillsFile(parsedFile)
-        await importMutation.mutateAsync({
+        await importSkills({
           workspaceId,
           file: parsedFile,
         })
       } catch (error) {
         console.error('Failed to import skills', error)
+        setActionError(copy.skillList.createMenu.importFailed)
+      } finally {
+        actionLockRef.current = false
+        setActiveAction(null)
       }
     },
-    [importMutation, permissions.canEdit, workspaceId]
+    [copy.skillList.createMenu.importFailed, permissions.canEdit, workspaceId]
   )
 
   return (
     <SkillCreateMenu
-      disabled={!workspaceId || !permissions.canEdit || createSkillMutation.isPending}
-      canCreate={!createSkillMutation.isPending && permissions.canEdit}
-      canImport={Boolean(workspaceId && permissions.canEdit)}
-      isImporting={importMutation.isPending}
+      disabled={!workspaceId || !permissions.canEdit}
+      activeAction={activeAction}
+      error={actionError}
       onCreateSkill={handleCreateSkill}
       onImportSkills={handleImportSkills}
     />

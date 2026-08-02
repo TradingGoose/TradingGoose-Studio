@@ -45,7 +45,11 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                   <tbody>
                     <tr>
                       <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://discord.gg/wavf5JWhuT' rel='noopener noreferrer'>
+                        <Link
+                          href='https://discord.gg/wavf5JWhuT'
+                          rel='noopener noreferrer'
+                          aria-label='Discord'
+                        >
                           <Img
                             src='https://avatars.githubusercontent.com/u/1965106'
                             width='24'
@@ -59,6 +63,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                         <Link
                           href='https://github.com/TradingGoose/TradingGoose-Studio'
                           rel='noopener noreferrer'
+                          aria-label='GitHub'
                         >
                           <Img
                             src='https://avatars.githubusercontent.com/u/9919'

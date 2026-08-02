@@ -381,7 +381,7 @@ export const useManualDrawToolsController = ({
         if (persistedToolCount <= 0) return
 
         const runtimeEntry = resolveRuntimeEntryForIndicator(entry.indicatorId)
-        if (!runtimeEntry || runtimeEntry.errorMessage) return
+        if (!runtimeEntry || runtimeEntry.executionFailure) return
 
         const runtimePaneIndex = resolveRuntimePaneIndex(runtimeEntry, mainPaneIndex)
         if (!Number.isFinite(runtimePaneIndex) || runtimePaneIndex === mainPaneIndex) {

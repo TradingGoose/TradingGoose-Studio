@@ -46,6 +46,32 @@ function isContributorsLabel(nodeChildren: React.ReactNode): boolean {
   return /^\s*contributors\s*:?\s*$/i.test(String(nodeChildren))
 }
 
+function OmittedMarkdownImage() {
+  return null
+}
+
+function hasAccessibleLinkContent(children: React.ReactNode): boolean {
+  return React.Children.toArray(children).some((child) => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      return String(child).trim().length > 0
+    }
+    if (!React.isValidElement(child) || child.type === OmittedMarkdownImage) {
+      return false
+    }
+
+    const childProps = child.props as {
+      'aria-label'?: string
+      alt?: string
+      children?: React.ReactNode
+    }
+    return (
+      Boolean(childProps['aria-label']?.trim()) ||
+      Boolean(childProps.alt?.trim()) ||
+      hasAccessibleLinkContent(childProps.children)
+    )
+  })
+}
+
 function stripPrReferences(body: string): string {
   return body.replace(/\s*\(\s*\[#\d+\]\([^)]*\)\s*\)/g, '').replace(/\s*\(\s*#\d+\s*\)/g, '')
 }
@@ -257,15 +283,18 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
                       {children}
                     </code>
                   ),
-                  img: () => null,
-                  a: ({ className, ...props }: any) => (
-                    <a
-                      {...props}
-                      className={`underline ${className ?? ''}`}
-                      target='_blank'
-                      rel='noreferrer'
-                    />
-                  ),
+                  img: OmittedMarkdownImage,
+                  a: ({ children, className, ...props }: any) =>
+                    hasAccessibleLinkContent(children) ? (
+                      <a
+                        {...props}
+                        className={`underline ${className ?? ''}`}
+                        target='_blank'
+                        rel='noreferrer'
+                      >
+                        {children}
+                      </a>
+                    ) : null,
                 }}
               >
                 {cleanMarkdown(entry.content)}

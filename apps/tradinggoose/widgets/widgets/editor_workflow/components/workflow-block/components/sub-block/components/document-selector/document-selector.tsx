@@ -182,24 +182,27 @@ export function DocumentSelector({
   return (
     <div className='w-full'>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='relative w-full justify-between'
-            disabled={isDisabled}
-          >
-            <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-              <FileText className='h-4 w-4 text-muted-foreground' />
-              {selectedDocument ? (
-                <span className='truncate font-normal'>{formatDocumentName(selectedDocument)}</span>
-              ) : (
-                <span className='truncate text-muted-foreground'>{label}</span>
-              )}
-            </div>
-            <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={isDisabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='relative w-full justify-between'
+              disabled={isDisabled}
+            />
+          }
+        >
+          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
+            <FileText className='h-4 w-4 text-muted-foreground' />
+            {selectedDocument ? (
+              <span className='truncate font-normal'>{formatDocumentName(selectedDocument)}</span>
+            ) : (
+              <span className='truncate text-muted-foreground'>{label}</span>
+            )}
+          </div>
+          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>

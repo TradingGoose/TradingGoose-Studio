@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import { serializeQuery } from '@/lib/logs/query-parser'
 import type { QueryPolicy, SearchClause } from '@/lib/logs/query-types'
 import {
@@ -50,6 +50,7 @@ export function AutocompleteSearch({
 }: AutocompleteSearchProps) {
   const t = useTranslations('workspace.logs')
   const resolvedPlaceholder = placeholder ?? t('searchPlaceholder')
+  const invalidQualifierMessageId = useId()
   const suggestionEngine = useMemo(
     () =>
       new SearchSuggestions({
@@ -87,6 +88,7 @@ export function AutocompleteSearch({
     queryPolicy,
     getSuggestions: (input) => suggestionEngine.getSuggestions(input),
   })
+  const hasInvalidQualifiers = invalidQualifierFragments.length > 0
 
   const lastPropValueRef = useRef(value)
   const pendingCommittedQueryRef = useRef<string | null>(null)
@@ -193,103 +195,111 @@ export function AutocompleteSearch({
           }
         }}
       >
-        <PopoverTrigger asChild>
-          <div
-            ref={inputContainerRef}
-            className='relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'
-          >
-            <Search className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
-            <div className='flex flex-1 items-center gap-1.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-              {showActiveFilters &&
-                externalClauses.map((clause) => (
-                  <Button
-                    key={`external:${clause.id}`}
-                    variant='outline'
-                    size='sm'
-                    className='h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]'
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      onRemoveExternalClause?.(clause)
-                    }}
-                  >
-                    <span className='text-foreground'>{clause.raw}</span>
-                    <X className='h-3 w-3' />
-                  </Button>
-                ))}
-
-              {showActiveFilters &&
-                clauses.map((clause, index) => (
-                  <Button
-                    key={`clause:${index}:${clause.id}`}
-                    variant='outline'
-                    size='sm'
-                    className={cn(
-                      'h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]',
-                      highlightedBadgeIndex === index && 'border-ring text-foreground'
-                    )}
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      removeBadge(index)
-                    }}
-                  >
-                    <span className='text-foreground'>{clause.raw}</span>
-                    <X className='h-3 w-3' />
-                  </Button>
-                ))}
-
-              {showTextSearchIndicator && hasTextSearch && (
+        <div
+          ref={inputContainerRef}
+          className='relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'
+        >
+          <Search
+            aria-hidden='true'
+            className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground'
+            strokeWidth={2}
+          />
+          <div className='flex flex-1 items-center gap-1.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
+            {showActiveFilters &&
+              externalClauses.map((clause) => (
                 <Button
+                  key={`external:${clause.id}`}
                   variant='outline'
                   size='sm'
                   className='h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]'
                   onMouseDown={(event) => {
                     event.preventDefault()
-                    handleTextSearchClear()
+                    onRemoveExternalClause?.(clause)
                   }}
                 >
-                  <span className='text-muted-foreground'>text:</span>
-                  <span className='text-foreground'>{textSearch}</span>
-                  <X className='h-3 w-3' />
+                  <span className='text-foreground'>{clause.raw}</span>
+                  <X aria-hidden='true' className='h-3 w-3' />
                 </Button>
-              )}
+              ))}
 
-              <input
-                ref={inputRef}
-                value={currentInput}
-                onChange={(event) => handleInputChange(event.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                placeholder={!hasClauses && !hasTextSearch ? resolvedPlaceholder : ''}
-                className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
-                autoComplete='off'
-                autoCorrect='off'
-                autoCapitalize='off'
-                spellCheck='false'
-              />
-            </div>
+            {showActiveFilters &&
+              clauses.map((clause, index) => (
+                <Button
+                  key={`clause:${index}:${clause.id}`}
+                  variant='outline'
+                  size='sm'
+                  className={cn(
+                    'h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]',
+                    highlightedBadgeIndex === index && 'border-ring text-foreground'
+                  )}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    removeBadge(index)
+                  }}
+                >
+                  <span className='text-foreground'>{clause.raw}</span>
+                  <X aria-hidden='true' className='h-3 w-3' />
+                </Button>
+              ))}
 
-            {(hasClauses || hasTextSearch || currentInput) && (
+            {showTextSearchIndicator && hasTextSearch && (
               <Button
-                variant='ghost'
-                size='icon'
-                className='ml-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
+                variant='outline'
+                size='sm'
+                className='h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]'
                 onMouseDown={(event) => {
                   event.preventDefault()
-                  clearAll()
+                  handleTextSearchClear()
                 }}
               >
-                <X className='h-3.5 w-3.5' />
+                <span className='text-muted-foreground'>text:</span>
+                <span className='text-foreground'>{textSearch}</span>
+                <X aria-hidden='true' className='h-3 w-3' />
               </Button>
             )}
+
+            <input
+              ref={inputRef}
+              value={currentInput}
+              onChange={(event) => handleInputChange(event.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              aria-label={resolvedPlaceholder}
+              aria-invalid={hasInvalidQualifiers || undefined}
+              aria-describedby={hasInvalidQualifiers ? invalidQualifierMessageId : undefined}
+              placeholder={!hasClauses && !hasTextSearch ? resolvedPlaceholder : ''}
+              className='h-full min-w-[120px] flex-1 bg-transparent placeholder:text-muted-foreground'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
+              spellCheck='false'
+            />
           </div>
-        </PopoverTrigger>
+
+          {(hasClauses || hasTextSearch || currentInput) && (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              aria-label={t('dashboard.filters.clearAll')}
+              className='ml-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
+              onMouseDown={(event) => {
+                event.preventDefault()
+                clearAll()
+              }}
+            >
+              <X aria-hidden='true' className='h-3.5 w-3.5' />
+            </Button>
+          )}
+        </div>
 
         <PopoverContent
           align='start'
+          anchor={inputContainerRef}
           className='p-1'
           style={{ width: dropdownWidth }}
-          onOpenAutoFocus={(event) => event.preventDefault()}
+          initialFocus={false}
         >
           <div ref={dropdownRef} className='max-h-[300px] overflow-y-auto'>
             {sections.length > 0 ? (
@@ -394,9 +404,14 @@ export function AutocompleteSearch({
         </PopoverContent>
       </Popover>
 
-      {invalidQualifierFragments.length > 0 ? (
-        <div className='mt-1 truncate text-destructive text-xs'>
-          Unsupported qualifier: {invalidQualifierFragments.join(', ')}
+      {hasInvalidQualifiers ? (
+        <div
+          id={invalidQualifierMessageId}
+          className='mt-1 truncate text-destructive text-xs'
+          role='alert'
+          aria-atomic='true'
+        >
+          {t('unsupportedQualifier', { qualifiers: invalidQualifierFragments.join(', ') })}
         </div>
       ) : null}
     </div>

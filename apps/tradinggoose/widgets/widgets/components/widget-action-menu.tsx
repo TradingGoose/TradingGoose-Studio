@@ -54,20 +54,24 @@ export function WidgetActionMenu({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={allDisabled}
-                className={widgetHeaderIconButtonClassName()}
-                aria-label='Widget actions'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    disabled={allDisabled}
+                    className={widgetHeaderIconButtonClassName()}
+                    aria-label='Widget actions'
+                  />
+                }
               >
                 <EllipsisVertical className='h-3.5 w-3.5' />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -79,7 +83,7 @@ export function WidgetActionMenu({
             key={label}
             className={widgetHeaderMenuItemClassName}
             disabled={!handler}
-            onSelect={() => {
+            onClick={() => {
               if (!handler) return
               handler()
             }}

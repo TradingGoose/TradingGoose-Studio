@@ -32,7 +32,11 @@ export function ChatErrorState({ error, copy }: ChatErrorStateProps) {
               <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
                 {copy.error.title}
               </h1>
-              <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
+              <p
+                role='alert'
+                aria-atomic='true'
+                className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}
+              >
                 {error}
               </p>
             </div>

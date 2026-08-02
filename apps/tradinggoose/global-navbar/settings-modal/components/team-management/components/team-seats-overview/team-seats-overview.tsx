@@ -1,4 +1,5 @@
 import { Building2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,6 +26,9 @@ interface TeamSeatsOverviewProps {
   isLoadingSubscription: boolean
   usedSeats: number
   isLoading: boolean
+  actionsDisabled: boolean
+  isReducing: boolean
+  error?: string | null
   onConfirmTeamUpgrade: (seats: number) => Promise<void>
   onReduceSeats: () => Promise<void>
   onAddSeatDialog: () => void
@@ -60,6 +64,9 @@ export function TeamSeatsOverview({
   isLoadingSubscription,
   usedSeats,
   isLoading,
+  actionsDisabled,
+  isReducing,
+  error,
   onConfirmTeamUpgrade,
   onReduceSeats,
   onAddSeatDialog,
@@ -90,7 +97,7 @@ export function TeamSeatsOverview({
             onClick={() => {
               onConfirmTeamUpgrade(2) // Start with 2 seats as default
             }}
-            disabled={isLoading}
+            disabled={isLoading || actionsDisabled}
             className='h-9 rounded-sm'
           >
             Set Up Team Subscription
@@ -121,20 +128,28 @@ export function TeamSeatsOverview({
 
         <Progress value={(usedSeats / (subscriptionData.seats || 1)) * 100} className='h-2' />
 
+        {error ? (
+          <Alert role='alert' variant='destructive'>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
         <div className='flex gap-2 pt-1'>
           <Button
             variant='outline'
             size='sm'
             onClick={onReduceSeats}
-            disabled={(subscriptionData.seats || 0) <= 1 || isLoading}
+            disabled={(subscriptionData.seats || 0) <= 1 || isLoading || actionsDisabled}
+            focusableWhenDisabled={isReducing}
+            aria-busy={isReducing || undefined}
             className='h-8 flex-1 rounded-sm'
           >
-            Remove Seat
+            {isReducing ? 'Removing seat…' : 'Remove Seat'}
           </Button>
           <Button
             size='sm'
             onClick={onAddSeatDialog}
-            disabled={isLoading}
+            disabled={isLoading || actionsDisabled}
             className='h-8 flex-1 rounded-sm'
           >
             Add Seat

@@ -3,13 +3,18 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { deleteChunk, updateChunk } from '@/lib/knowledge/chunks/service'
+import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkChunkAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('ChunkByIdAPI')
 
 const UpdateChunkSchema = z.object({
-  content: z.string().min(1, 'Content is required').optional(),
+  content: z
+    .string()
+    .min(1, 'Content is required')
+    .max(MAX_CHUNK_CONTENT_LENGTH, 'Content too long')
+    .optional(),
   enabled: z.boolean().optional(),
 })
 

@@ -11,70 +11,28 @@ import type { EnvironmentVariable } from '@/stores/settings/environment/types'
 
 const logger = createLogger('EnvironmentAPI')
 
-const EnvVarSchema = z.object({
-  variables: z.record(z.string(), z.string()),
-})
 const UpsertEnvVarSchema = z.object({
+  originalKey: z.string().min(1).nullable(),
   key: z.string().min(1),
-  value: z.string(),
+  value: z.string().min(1),
 })
 const DeleteEnvVarSchema = z.object({
   key: z.string().min(1),
 })
 
-export async function POST(req: NextRequest) {
-  const requestId = generateRequestId()
-
-  try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthorized environment variables update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await req.json()
-
-    try {
-      const { variables } = EnvVarSchema.parse(body)
-
-      const userId = session.user.id
-      const encryptedRows = await Promise.all(
-        Object.entries(variables).map(async ([key, value]) => {
-          const { encrypted } = await encryptSecret(value)
-          return {
-            id: crypto.randomUUID(),
-            userId,
-            key,
-            value: encrypted,
-          }
-        })
-      )
-
-      await db.transaction(async (tx) => {
-        await tx.delete(environmentVariables).where(eq(environmentVariables.userId, userId))
-
-        if (encryptedRows.length > 0) {
-          await tx.insert(environmentVariables).values(encryptedRows)
-        }
-      })
-
-      return NextResponse.json({ success: true })
-    } catch (validationError) {
-      if (validationError instanceof z.ZodError) {
-        logger.warn(`[${requestId}] Invalid environment variables data`, {
-          errors: validationError.issues,
-        })
-        return NextResponse.json(
-          { error: 'Invalid request data', details: validationError.issues },
-          { status: 400 }
-        )
-      }
-      throw validationError
-    }
-  } catch (error) {
-    logger.error(`[${requestId}] Error updating environment variables`, error)
-    return NextResponse.json({ error: 'Failed to update environment variables' }, { status: 500 })
+function isPersonalKeyConflict(error: unknown) {
+  const seen = new Set<unknown>()
+  while (error && typeof error === 'object' && !seen.has(error)) {
+    seen.add(error)
+    const record = error as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (
+      record.code === '23505' &&
+      record.constraint_name === 'environment_variables_user_key_unique'
+    )
+      return true
+    error = record.cause
   }
+  return false
 }
 
 export async function PUT(req: NextRequest) {
@@ -87,25 +45,40 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await req.json()
-    const { key, value } = UpsertEnvVarSchema.parse(body)
+    const { originalKey, key, value } = UpsertEnvVarSchema.parse(await req.json())
     const { encrypted } = await encryptSecret(value)
 
-    await db
-      .insert(environmentVariables)
-      .values({
-        id: crypto.randomUUID(),
-        userId: session.user.id,
-        key,
-        value: encrypted,
-      })
-      .onConflictDoUpdate({
-        target: [environmentVariables.userId, environmentVariables.key],
-        set: {
+    if (originalKey === null) {
+      await db
+        .insert(environmentVariables)
+        .values({
+          id: crypto.randomUUID(),
+          userId: session.user.id,
+          key,
           value: encrypted,
-          updatedAt: new Date(),
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: [environmentVariables.userId, environmentVariables.key],
+          set: {
+            value: encrypted,
+            updatedAt: new Date(),
+          },
+        })
+    } else {
+      const [renamed] = await db
+        .update(environmentVariables)
+        .set({ key, value: encrypted, updatedAt: new Date() })
+        .where(
+          and(
+            eq(environmentVariables.userId, session.user.id),
+            eq(environmentVariables.key, originalKey)
+          )
+        )
+        .returning({ id: environmentVariables.id })
+      if (!renamed) {
+        return NextResponse.json({ error: 'Environment variable not found' }, { status: 404 })
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -116,6 +89,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.issues },
         { status: 400 }
+      )
+    }
+    if (isPersonalKeyConflict(error)) {
+      return NextResponse.json(
+        { error: 'Environment variable key already exists' },
+        { status: 409 }
       )
     }
 

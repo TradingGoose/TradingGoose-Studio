@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useLocale, useMessages, type Messages } from 'next-intl'
-import { CheckCheck, ShieldCheck, UserCheck2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { CheckCheck, Loader2, ShieldCheck, UserCheck2, X } from 'lucide-react'
+import { type Messages, useLocale, useMessages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -27,16 +28,28 @@ import { ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {
+  adminRegistrationKeys,
+  updateAdminRegistration,
   useAdminRegistrationSnapshot,
-  useSaveRegistrationMode,
-  useUpdateWaitlistStatuses,
 } from '@/hooks/queries/admin-registration'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const TIME_RANGE_VALUES = ['all', '7d', '30d', '90d'] as const
 
 type WaitlistTimeRange = (typeof TIME_RANGE_VALUES)[number]
+type RegistrationAction =
+  | { kind: 'mode'; mode: RegistrationMode }
+  | {
+      kind: 'row'
+      entryId: string
+      status: Extract<WaitlistStatus, 'approved' | 'rejected'>
+    }
+  | {
+      kind: 'bulk'
+      ids: string[]
+      status: Extract<WaitlistStatus, 'approved' | 'rejected'>
+    }
 type RegistrationStatusCopy = Messages['admin']['registration']['status']
 type RegistrationModeCopy = Messages['admin']['registration']['modes']
 
@@ -127,12 +140,33 @@ export function AdminRegistration() {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().admin.registration
   const snapshotQuery = useAdminRegistrationSnapshot()
-  const saveModeMutation = useSaveRegistrationMode()
-  const updateWaitlistMutation = useUpdateWaitlistStatuses()
   const [searchTerm, setSearchTerm] = useState('')
   const [submittedRange, setSubmittedRange] = useState<WaitlistTimeRange>('all')
   const [statusFilters, setStatusFilters] = useState<WaitlistStatus[]>([...WAITLIST_STATUS_VALUES])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const queryClient = useQueryClient()
+  const writeLockRef = useRef(false)
+  const registrationMutation = useMutation({
+    mutationFn: (action: RegistrationAction) =>
+      updateAdminRegistration(
+        action.kind === 'mode'
+          ? { type: 'settings', registrationMode: action.mode }
+          : {
+              type: 'waitlist',
+              ids: action.kind === 'row' ? [action.entryId] : action.ids,
+              status: action.status,
+            }
+      ),
+    onSuccess: (nextSnapshot, action) => {
+      queryClient.setQueryData(adminRegistrationKeys.snapshot(), nextSnapshot)
+      if (action.kind === 'bulk') {
+        setSelectedIds([])
+      }
+    },
+    onSettled: () => {
+      writeLockRef.current = false
+    },
+  })
 
   const snapshot = snapshotQuery.data
   const registrationMode = snapshot?.registrationMode ?? 'open'
@@ -193,6 +227,9 @@ export function AdminRegistration() {
   const selectedVisibleCount = selectedIds.length
   const bulkSelectionChecked =
     selectableIds.length > 0 && selectedVisibleCount === selectableIds.length
+  const pendingAction = registrationMutation.isPending ? registrationMutation.variables : undefined
+  const isBulkApproving = pendingAction?.kind === 'bulk' && pendingAction.status === 'approved'
+  const isBulkRejecting = pendingAction?.kind === 'bulk' && pendingAction.status === 'rejected'
 
   function toggleStatusFilter(status: WaitlistStatus) {
     setStatusFilters((current) => {
@@ -213,16 +250,24 @@ export function AdminRegistration() {
       return
     }
 
-    updateWaitlistMutation.mutate(
-      { ids, status },
-      {
-        onSuccess: () => {
-          if (clearSelection) {
-            setSelectedIds([])
-          }
-        },
-      }
+    startRegistrationAction(
+      clearSelection
+        ? { kind: 'bulk', ids: [...ids], status }
+        : { kind: 'row', entryId: ids[0] as string, status }
     )
+  }
+
+  function startRegistrationAction(action: RegistrationAction) {
+    if (
+      writeLockRef.current ||
+      registrationMutation.isPending ||
+      (action.kind === 'mode' && action.mode === registrationMode)
+    ) {
+      return
+    }
+
+    writeLockRef.current = true
+    registrationMutation.mutate(action)
   }
 
   const headerLeft = (
@@ -236,6 +281,7 @@ export function AdminRegistration() {
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder={copy.searchPlaceholder}
+          clearLabel={copy.clearSearch}
           className='w-full'
         />
       </div>
@@ -248,17 +294,35 @@ export function AdminRegistration() {
       <div className='flex items-center gap-2 rounded-md border bg-muted/20 p-1'>
         {REGISTRATION_MODE_VALUES.map((mode) => {
           const isActive = registrationMode === mode
+          const isSwitching =
+            registrationMutation.isPending &&
+            registrationMutation.variables?.kind === 'mode' &&
+            registrationMutation.variables.mode === mode
+          const modeLabel = getModeLabel(mode as RegistrationMode, copy.modes)
 
           return (
             <Button
               key={mode}
               variant={isActive ? 'default' : 'ghost'}
               size='sm'
-              disabled={saveModeMutation.isPending && saveModeMutation.variables === mode}
-              onClick={() => saveModeMutation.mutate(mode as RegistrationMode)}
+              disabled={isActive || registrationMutation.isPending}
+              aria-busy={isSwitching || undefined}
+              onClick={() =>
+                startRegistrationAction({ kind: 'mode', mode: mode as RegistrationMode })
+              }
               className='h-7 px-2'
             >
-              {getModeLabel(mode as RegistrationMode, copy.modes)}
+              {isSwitching ? (
+                <>
+                  <Loader2
+                    aria-hidden='true'
+                    className='size-4 animate-spin motion-reduce:animate-none'
+                  />
+                  {formatTemplate(copy.actions.switching, { mode: modeLabel })}
+                </>
+              ) : (
+                modeLabel
+              )}
             </Button>
           )
         })}
@@ -292,26 +356,27 @@ export function AdminRegistration() {
       <div className='flex h-full min-h-0 flex-col gap-4'>
         {snapshotQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(snapshotQuery.error) ?? copy.error}</AlertDescription>
+            <AlertDescription>
+              {getErrorMessage(snapshotQuery.error) ?? copy.error}
+            </AlertDescription>
           </Alert>
         ) : null}
 
-        {saveModeMutation.isError ? (
-          <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(saveModeMutation.error) ?? copy.error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {updateWaitlistMutation.isError ? (
+        {registrationMutation.isError ? (
           <Alert variant='destructive'>
             <AlertDescription>
-              {getErrorMessage(updateWaitlistMutation.error) ?? copy.error}
+              {getErrorMessage(registrationMutation.error) ?? copy.error}
             </AlertDescription>
           </Alert>
         ) : null}
 
         {!snapshot && snapshotQuery.isPending ? (
-          <div className='flex flex-1 items-center justify-center rounded-lg border bg-background'>
+          <div
+            role='status'
+            aria-live='polite'
+            aria-atomic='true'
+            className='flex flex-1 items-center justify-center rounded-lg border bg-background'
+          >
             <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
@@ -371,27 +436,43 @@ export function AdminRegistration() {
                 <Button
                   size='sm'
                   variant='outline'
-                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  disabled={selectedIds.length === 0 || registrationMutation.isPending}
+                  aria-busy={isBulkApproving || undefined}
                   onClick={() => updateEntries(selectedIds, 'approved', true)}
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
-                  <CheckCheck className='mr-2 h-4 w-4' />
-                  {copy.actions.approve}
+                  {isBulkApproving ? (
+                    <Loader2
+                      aria-hidden='true'
+                      className='size-4 animate-spin motion-reduce:animate-none'
+                    />
+                  ) : (
+                    <CheckCheck className='h-4 w-4' />
+                  )}
+                  {isBulkApproving ? copy.actions.approving : copy.actions.approve}
                 </Button>
                 <Button
                   size='sm'
                   variant='outline'
-                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  disabled={selectedIds.length === 0 || registrationMutation.isPending}
+                  aria-busy={isBulkRejecting || undefined}
                   onClick={() => updateEntries(selectedIds, 'rejected', true)}
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
-                  <UserCheck2 className='mr-2 h-4 w-4' />
-                  {copy.actions.reject}
+                  {isBulkRejecting ? (
+                    <Loader2
+                      aria-hidden='true'
+                      className='size-4 animate-spin motion-reduce:animate-none'
+                    />
+                  ) : (
+                    <UserCheck2 className='h-4 w-4' />
+                  )}
+                  {isBulkRejecting ? copy.actions.rejecting : copy.actions.reject}
                 </Button>
                 <Button
                   size='sm'
                   variant='ghost'
-                  disabled={selectedIds.length === 0 || updateWaitlistMutation.isPending}
+                  disabled={selectedIds.length === 0 || registrationMutation.isPending}
                   onClick={() => setSelectedIds([])}
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
@@ -408,7 +489,7 @@ export function AdminRegistration() {
                     <TableHead className='w-10 bg-background'>
                       <Switch
                         checked={bulkSelectionChecked}
-                        disabled={selectableIds.length === 0 || updateWaitlistMutation.isPending}
+                        disabled={selectableIds.length === 0 || registrationMutation.isPending}
                         onCheckedChange={(checked) =>
                           setSelectedIds(checked === true ? selectableIds : [])
                         }
@@ -431,9 +512,14 @@ export function AdminRegistration() {
                     </TableRow>
                   ) : (
                     filteredWaitlist.map((entry) => {
-                      const isUpdating =
-                        updateWaitlistMutation.isPending &&
-                        updateWaitlistMutation.variables?.ids?.includes(entry.id)
+                      const isApproving =
+                        pendingAction?.kind === 'row' &&
+                        pendingAction.entryId === entry.id &&
+                        pendingAction.status === 'approved'
+                      const isRejecting =
+                        pendingAction?.kind === 'row' &&
+                        pendingAction.entryId === entry.id &&
+                        pendingAction.status === 'rejected'
                       const isSelectable = entry.status !== 'signed_up'
                       const submittedAt = formatTimestamp(locale, entry.createdAt, copy.never)
                       const lastActivityAt = formatTimestamp(
@@ -448,7 +534,7 @@ export function AdminRegistration() {
                             {isSelectable ? (
                               <Switch
                                 checked={selectedIds.includes(entry.id)}
-                                disabled={updateWaitlistMutation.isPending}
+                                disabled={registrationMutation.isPending}
                                 onCheckedChange={(checked) =>
                                   setSelectedIds((current) =>
                                     checked === true
@@ -456,7 +542,9 @@ export function AdminRegistration() {
                                       : current.filter((id) => id !== entry.id)
                                   )
                                 }
-                                aria-label={formatTemplate(copy.selectEntry, { email: entry.email })}
+                                aria-label={formatTemplate(copy.selectEntry, {
+                                  email: entry.email,
+                                })}
                               />
                             ) : null}
                           </TableCell>
@@ -498,11 +586,19 @@ export function AdminRegistration() {
                                 <Button
                                   size='sm'
                                   variant='outline'
-                                  disabled={isUpdating}
+                                  disabled={registrationMutation.isPending}
+                                  aria-busy={isApproving || undefined}
                                   onClick={() => updateEntries([entry.id], 'approved')}
                                 >
-                                  <CheckCheck className='mr-2 h-4 w-4' />
-                                  {copy.actions.approve}
+                                  {isApproving ? (
+                                    <Loader2
+                                      aria-hidden='true'
+                                      className='size-4 animate-spin motion-reduce:animate-none'
+                                    />
+                                  ) : (
+                                    <CheckCheck className='h-4 w-4' />
+                                  )}
+                                  {isApproving ? copy.actions.approving : copy.actions.approve}
                                 </Button>
                               ) : null}
 
@@ -510,11 +606,19 @@ export function AdminRegistration() {
                                 <Button
                                   size='sm'
                                   variant='outline'
-                                  disabled={isUpdating}
+                                  disabled={registrationMutation.isPending}
+                                  aria-busy={isRejecting || undefined}
                                   onClick={() => updateEntries([entry.id], 'rejected')}
                                 >
-                                  <UserCheck2 className='mr-2 h-4 w-4' />
-                                  {copy.actions.reject}
+                                  {isRejecting ? (
+                                    <Loader2
+                                      aria-hidden='true'
+                                      className='size-4 animate-spin motion-reduce:animate-none'
+                                    />
+                                  ) : (
+                                    <UserCheck2 className='h-4 w-4' />
+                                  )}
+                                  {isRejecting ? copy.actions.rejecting : copy.actions.reject}
                                 </Button>
                               ) : null}
                             </div>

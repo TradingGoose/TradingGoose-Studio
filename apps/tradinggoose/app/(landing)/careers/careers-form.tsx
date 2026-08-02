@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,80 +18,104 @@ import { Textarea } from '@/components/ui/textarea'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const validateName = (name: string, message: string): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
   if (!name || name.trim().length < 2) {
-    errors.push(message)
+    validationMessages.push(message)
   }
-  return errors
+  return validationMessages
 }
 
-const validateEmail = (email: string, requiredMessage: string, invalidMessage: string): string[] => {
-  const errors: string[] = []
+const validateEmail = (
+  email: string,
+  requiredMessage: string,
+  invalidMessage: string
+): string[] => {
+  const validationMessages: string[] = []
   if (!email || !email.trim()) {
-    errors.push(requiredMessage)
-    return errors
+    validationMessages.push(requiredMessage)
+    return validationMessages
   }
   const validation = quickValidateEmail(email.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(validation.reason || invalidMessage)
+    validationMessages.push(validation.reason || invalidMessage)
   }
-  return errors
+  return validationMessages
 }
 
 const validatePosition = (position: string, message: string): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
   if (!position || position.trim().length < 2) {
-    errors.push(message)
+    validationMessages.push(message)
   }
-  return errors
+  return validationMessages
 }
 
 const validateLinkedIn = (url: string, message: string): string[] => {
   if (!url || url.trim() === '') return []
-  const errors: string[] = []
+  const validationMessages: string[] = []
   try {
     new URL(url)
   } catch {
-    errors.push(message)
+    validationMessages.push(message)
   }
-  return errors
+  return validationMessages
 }
 
 const validatePortfolio = (url: string, message: string): string[] => {
   if (!url || url.trim() === '') return []
-  const errors: string[] = []
+  const validationMessages: string[] = []
   try {
     new URL(url)
   } catch {
-    errors.push(message)
+    validationMessages.push(message)
   }
-  return errors
+  return validationMessages
 }
 
 const validateLocation = (location: string, message: string): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
   if (!location || location.trim().length < 2) {
-    errors.push(message)
+    validationMessages.push(message)
   }
-  return errors
+  return validationMessages
 }
 
 const validateMessage = (message: string, validationMessage: string): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
   if (!message || message.trim().length < 50) {
-    errors.push(validationMessage)
+    validationMessages.push(validationMessage)
   }
-  return errors
+  return validationMessages
+}
+
+function CareersFieldMessages({
+  id,
+  messages,
+  visible,
+}: {
+  id: string
+  messages: string[]
+  visible: boolean
+}) {
+  if (!visible || messages.length === 0) return null
+
+  return (
+    <div id={id} className='mt-1 space-y-1 text-red-400 text-xs'>
+      {messages.map((message) => (
+        <p key={message}>{message}</p>
+      ))}
+    </div>
+  )
 }
 
 export function CareersForm() {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().careers.form
   const contactEmail = copy.helpers.contactEmail
+  const submissionFailedMessage = copy.errors.submitFailed
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [showErrors, setShowErrors] = useState(false)
@@ -101,7 +126,7 @@ export function CareersForm() {
   const [position, setPosition] = useState('')
   const [linkedin, setLinkedin] = useState('')
   const [portfolio, setPortfolio] = useState('')
-  const [experience, setExperience] = useState('')
+  const [experience, setExperience] = useState<string | null>(null)
   const [location, setLocation] = useState('')
   const [message, setMessage] = useState('')
   const [resume, setResume] = useState<File | null>(null)
@@ -127,6 +152,7 @@ export function CareersForm() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setSubmitStatus('idle')
     setShowErrors(true)
 
     const nameErrs = validateName(name, copy.validation.nameTooShort)
@@ -159,7 +185,7 @@ export function CareersForm() {
       positionErrs.length > 0 ||
       linkedinErrs.length > 0 ||
       portfolioErrs.length > 0 ||
-      experienceErrs.length > 0 ||
+      !experience ||
       locationErrs.length > 0 ||
       messageErrs.length > 0 ||
       resumeErrs.length > 0
@@ -168,7 +194,6 @@ export function CareersForm() {
     }
 
     setIsSubmitting(true)
-    setSubmitStatus('idle')
 
     try {
       const formData = new FormData()
@@ -190,7 +215,7 @@ export function CareersForm() {
       })
 
       if (!response.ok) {
-        throw new Error(copy.errors.submitFailed)
+        throw new Error(submissionFailedMessage)
       }
 
       setSubmitStatus('success')
@@ -216,6 +241,10 @@ export function CareersForm() {
               </Label>
               <Input
                 id='name'
+                aria-invalid={showErrors && nameErrors.length > 0}
+                aria-describedby={
+                  showErrors && nameErrors.length > 0 ? 'careers-name-error' : undefined
+                }
                 placeholder={copy.fields.name.placeholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -225,13 +254,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && nameErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {nameErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-name-error'
+                messages={nameErrors}
+                visible={showErrors}
+              />
             </div>
 
             <div className='space-y-2'>
@@ -240,7 +267,12 @@ export function CareersForm() {
               </Label>
               <Input
                 id='email'
+                aria-invalid={showErrors && emailErrors.length > 0}
+                aria-describedby={
+                  showErrors && emailErrors.length > 0 ? 'careers-email-error' : undefined
+                }
                 type='email'
+                autoComplete='email'
                 placeholder={copy.fields.email.placeholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -250,13 +282,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && emailErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {emailErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-email-error'
+                messages={emailErrors}
+                visible={showErrors}
+              />
             </div>
           </div>
 
@@ -268,6 +298,7 @@ export function CareersForm() {
               <Input
                 id='phone'
                 type='tel'
+                autoComplete='tel'
                 placeholder={copy.fields.phone.placeholder}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -280,6 +311,10 @@ export function CareersForm() {
               </Label>
               <Input
                 id='position'
+                aria-invalid={showErrors && positionErrors.length > 0}
+                aria-describedby={
+                  showErrors && positionErrors.length > 0 ? 'careers-position-error' : undefined
+                }
                 placeholder={copy.fields.position.placeholder}
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
@@ -289,13 +324,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && positionErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {positionErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-position-error'
+                messages={positionErrors}
+                visible={showErrors}
+              />
             </div>
           </div>
 
@@ -306,6 +339,10 @@ export function CareersForm() {
               </Label>
               <Input
                 id='linkedin'
+                aria-invalid={showErrors && linkedinErrors.length > 0}
+                aria-describedby={
+                  showErrors && linkedinErrors.length > 0 ? 'careers-linkedin-error' : undefined
+                }
                 placeholder={copy.fields.linkedin.placeholder}
                 value={linkedin}
                 onChange={(e) => setLinkedin(e.target.value)}
@@ -315,13 +352,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && linkedinErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {linkedinErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-linkedin-error'
+                messages={linkedinErrors}
+                visible={showErrors}
+              />
             </div>
 
             <div className='space-y-2'>
@@ -330,6 +365,10 @@ export function CareersForm() {
               </Label>
               <Input
                 id='portfolio'
+                aria-invalid={showErrors && portfolioErrors.length > 0}
+                aria-describedby={
+                  showErrors && portfolioErrors.length > 0 ? 'careers-portfolio-error' : undefined
+                }
                 placeholder={copy.fields.portfolio.placeholder}
                 value={portfolio}
                 onChange={(e) => setPortfolio(e.target.value)}
@@ -339,13 +378,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && portfolioErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {portfolioErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-portfolio-error'
+                messages={portfolioErrors}
+                visible={showErrors}
+              />
             </div>
           </div>
 
@@ -354,8 +391,25 @@ export function CareersForm() {
               <Label htmlFor='experience' className='font-medium text-sm'>
                 {copy.fields.experience.label}
               </Label>
-              <Select value={experience} onValueChange={setExperience}>
+              <Select
+                value={experience}
+                items={[
+                  { value: '0-1', label: copy.fields.experience.options[0] },
+                  { value: '1-3', label: copy.fields.experience.options[1] },
+                  { value: '3-5', label: copy.fields.experience.options[2] },
+                  { value: '5-10', label: copy.fields.experience.options[3] },
+                  { value: '10+', label: copy.fields.experience.options[4] },
+                ]}
+                onValueChange={setExperience}
+              >
                 <SelectTrigger
+                  id='experience'
+                  aria-invalid={showErrors && experienceErrors.length > 0}
+                  aria-describedby={
+                    showErrors && experienceErrors.length > 0
+                      ? 'careers-experience-error'
+                      : undefined
+                  }
                   className={cn(
                     showErrors &&
                       experienceErrors.length > 0 &&
@@ -372,13 +426,11 @@ export function CareersForm() {
                   <SelectItem value='10+'>{copy.fields.experience.options[4]}</SelectItem>
                 </SelectContent>
               </Select>
-              {showErrors && experienceErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {experienceErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-experience-error'
+                messages={experienceErrors}
+                visible={showErrors}
+              />
             </div>
 
             <div className='space-y-2'>
@@ -387,6 +439,10 @@ export function CareersForm() {
               </Label>
               <Input
                 id='location'
+                aria-invalid={showErrors && locationErrors.length > 0}
+                aria-describedby={
+                  showErrors && locationErrors.length > 0 ? 'careers-location-error' : undefined
+                }
                 placeholder={copy.fields.location.placeholder}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -396,13 +452,11 @@ export function CareersForm() {
                     'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                 )}
               />
-              {showErrors && locationErrors.length > 0 && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                  {locationErrors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
+              <CareersFieldMessages
+                id='careers-location-error'
+                messages={locationErrors}
+                visible={showErrors}
+              />
             </div>
           </div>
 
@@ -412,6 +466,10 @@ export function CareersForm() {
             </Label>
             <Textarea
               id='message'
+              aria-invalid={showErrors && messageErrors.length > 0}
+              aria-describedby={
+                showErrors && messageErrors.length > 0 ? 'careers-message-error' : undefined
+              }
               placeholder={copy.fields.message.placeholder}
               className={cn(
                 'min-h-[140px]',
@@ -423,13 +481,11 @@ export function CareersForm() {
               onChange={(e) => setMessage(e.target.value)}
             />
             <p className='mt-1.5 text-gray-500 text-xs'>{copy.helpers.messageMinimum}</p>
-            {showErrors && messageErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                {messageErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
-              </div>
-            )}
+            <CareersFieldMessages
+              id='careers-message-error'
+              messages={messageErrors}
+              visible={showErrors}
+            />
           </div>
 
           <div className='space-y-2'>
@@ -458,6 +514,10 @@ export function CareersForm() {
               ) : (
                 <Input
                   id='resume'
+                  aria-invalid={showErrors && resumeErrors.length > 0}
+                  aria-describedby={
+                    showErrors && resumeErrors.length > 0 ? 'careers-resume-error' : undefined
+                  }
                   type='file'
                   accept='.pdf,.doc,.docx'
                   onChange={handleFileChange}
@@ -471,14 +531,23 @@ export function CareersForm() {
               )}
             </div>
             <p className='mt-1.5 text-gray-500 text-xs'>{copy.fields.resume.helper}</p>
-            {showErrors && resumeErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                {resumeErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
-              </div>
-            )}
+            <CareersFieldMessages
+              id='careers-resume-error'
+              messages={resumeErrors}
+              visible={showErrors}
+            />
           </div>
+
+          {submitStatus === 'success' ? (
+            <p role='status' className='text-center text-sm text-green-600'>
+              {copy.actions.submitted}
+            </p>
+          ) : null}
+          {submitStatus === 'error' ? (
+            <Alert role='alert' variant='destructive'>
+              <AlertDescription>{submissionFailedMessage}</AlertDescription>
+            </Alert>
+          ) : null}
 
           <div className='flex justify-end pt-2'>
             <Button
@@ -505,10 +574,7 @@ export function CareersForm() {
       <section className='mt-6 text-center text-gray-600 text-sm'>
         <p>
           {copy.helpers.contactPrefix}{' '}
-          <a
-            href={`mailto:${contactEmail}`}
-            className='font-medium underline transition-colors'
-          >
+          <a href={`mailto:${contactEmail}`} className='font-medium underline transition-colors'>
             {contactEmail}
           </a>
         </p>

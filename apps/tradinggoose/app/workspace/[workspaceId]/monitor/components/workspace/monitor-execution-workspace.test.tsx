@@ -35,10 +35,7 @@ const selectOption = async (triggerText: string, optionText: string) => {
   const trigger = findCombobox(triggerText)
 
   await act(async () => {
-    const event = new MouseEvent('pointerdown', { bubbles: true, button: 0 })
-    Object.defineProperty(event, 'pointerId', { value: 1 })
-    Object.defineProperty(event, 'pointerType', { value: 'mouse' })
-    trigger.dispatchEvent(event)
+    trigger.click()
   })
 
   const option = Array.from(document.querySelectorAll('[role="option"]')).find((node) =>
@@ -143,7 +140,7 @@ describe('MonitorExecutionWorkspace', () => {
           effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId={null}
           selectedExecution={null}
           selectedExecutionLog={null}
@@ -193,7 +190,7 @@ describe('MonitorExecutionWorkspace', () => {
           effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId='log-1'
           selectedExecution={{
             logId: 'log-1',
@@ -282,7 +279,7 @@ describe('MonitorExecutionWorkspace', () => {
           effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId='log-1'
           selectedExecution={{
             logId: 'log-1',
@@ -386,7 +383,7 @@ describe('MonitorExecutionWorkspace', () => {
           effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId='log-1'
           selectedExecution={{
             logId: 'log-1',
@@ -498,7 +495,7 @@ describe('MonitorExecutionWorkspace', () => {
           }}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId={null}
           selectedExecution={null}
           selectedExecutionLog={null}
@@ -553,7 +550,7 @@ describe('MonitorExecutionWorkspace', () => {
           effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId={null}
           selectedExecution={null}
           selectedExecutionLog={null}
@@ -609,7 +606,7 @@ describe('MonitorExecutionWorkspace', () => {
           }}
           executionItems={[]}
           executionsLoading={false}
-          executionsError={null}
+          executionFailureMode={null}
           selectedExecutionLogId={null}
           selectedExecution={null}
           selectedExecutionLog={null}
@@ -664,6 +661,6 @@ describe('MonitorExecutionWorkspace', () => {
     expect(rangeControls.textContent).toContain('Scale')
     expect(rangeControls.textContent).toContain('120%')
     expect(rangeControls.textContent).not.toContain('Markers')
-    expect(rangeControls.querySelector('[role="slider"]')).toBeTruthy()
+    expect(rangeControls.querySelector('input[type="range"]')).toBeTruthy()
   })
 })

@@ -2,11 +2,12 @@
 
 import { memo, useMemo, useState } from 'react'
 import { Check, Copy, File as FileIcon, FileText, Image as ImageIcon } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Messages } from 'next-intl'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate } from '@/i18n/utils'
+import MarkdownRenderer from './components/markdown-renderer'
 
 type ChatMessages = Messages['chat']
-import MarkdownRenderer from './components/markdown-renderer'
 
 export interface ChatAttachment {
   id: string
@@ -23,6 +24,7 @@ export interface ChatMessage {
   timestamp: Date
   isInitialMessage?: boolean
   isStreaming?: boolean
+  isError?: boolean
   attachments?: ChatAttachment[]
 }
 
@@ -35,13 +37,7 @@ function EnhancedMarkdownRenderer({ content }: { content: string }) {
 }
 
 export const ClientChatMessage = memo(
-  function ClientChatMessage({
-    message,
-    copy,
-  }: {
-    message: ChatMessage
-    copy: ChatMessages
-  }) {
+  function ClientChatMessage({ message, copy }: { message: ChatMessage; copy: ChatMessages }) {
     const [isCopied, setIsCopied] = useState(false)
 
     const isJsonObject = useMemo(() => {
@@ -83,72 +79,82 @@ export const ClientChatMessage = memo(
                       const i = Math.floor(Math.log(bytes) / Math.log(k))
                       return `${Math.round((bytes / k ** i) * 10) / 10} ${sizes[i]}`
                     }
+                    const validDataUrl = attachment.dataUrl?.trim()
+                    const isPreviewable = validDataUrl?.startsWith('data:') ?? false
+                    const attachmentClassName = `relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 ${
+                      isPreviewable ? 'cursor-pointer' : ''
+                    } ${
+                      isImage
+                        ? 'h-16 w-16 md:h-20 md:w-20'
+                        : 'flex h-16 min-w-[140px] max-w-[220px] items-center gap-2 px-3 md:h-20 md:min-w-[160px] md:max-w-[240px]'
+                    }`
+                    const attachmentContent =
+                      isImage && isPreviewable ? (
+                        <img
+                          src={validDataUrl}
+                          alt={attachment.name}
+                          className='h-full w-full object-cover'
+                        />
+                      ) : (
+                        <>
+                          <div className='flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-gray-100 md:h-12 md:w-12 dark:bg-gray-700'>
+                            {getFileIcon(attachment.type)}
+                          </div>
+                          <div className='min-w-0 flex-1'>
+                            <div className='truncate font-medium text-gray-800 text-xs md:text-sm dark:text-gray-200'>
+                              {attachment.name}
+                            </div>
+                            {attachment.size ? (
+                              <div className='text-[10px] text-gray-500 md:text-xs dark:text-gray-400'>
+                                {formatFileSize(attachment.size)}
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
+                      )
+
+                    if (!isPreviewable) {
+                      return (
+                        <div key={attachment.id} className={attachmentClassName}>
+                          {attachmentContent}
+                        </div>
+                      )
+                    }
 
                     return (
-                      <div
+                      <button
                         key={attachment.id}
-                        className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 ${
-                          attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
-                            ? 'cursor-pointer'
-                            : ''
-                        } ${
-                          isImage
-                            ? 'h-16 w-16 md:h-20 md:w-20'
-                            : 'flex h-16 min-w-[140px] max-w-[220px] items-center gap-2 px-3 md:h-20 md:min-w-[160px] md:max-w-[240px]'
-                        }`}
-                        onClick={(e) => {
-                          const validDataUrl = attachment.dataUrl?.trim()
-                          if (validDataUrl?.startsWith('data:')) {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            const newWindow = window.open('', '_blank')
-                            if (newWindow) {
-                              newWindow.document.write(`
-                                <!DOCTYPE html>
-                                <html>
-                                  <head>
-                                    <title>${attachment.name}</title>
-                                    <style>
-                                      body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
-                                      img { max-width: 100%; max-height: 100vh; object-fit: contain; }
-                                    </style>
-                                  </head>
-                                  <body>
-                                    <img src="${validDataUrl}" alt="${attachment.name}" />
-                                  </body>
-                                </html>
-                              `)
-                              newWindow.document.close()
-                            }
+                        type='button'
+                        aria-label={formatTemplate(copy.message.openAttachment, {
+                          name: attachment.name,
+                        })}
+                        className={`${attachmentClassName} appearance-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          const newWindow = window.open('', '_blank')
+                          if (newWindow) {
+                            newWindow.document.write(`
+                              <!DOCTYPE html>
+                              <html>
+                                <head>
+                                  <title>${attachment.name}</title>
+                                  <style>
+                                    body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; }
+                                    img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+                                  </style>
+                                </head>
+                                <body>
+                                  <img src="${validDataUrl}" alt="${attachment.name}" />
+                                </body>
+                              </html>
+                            `)
+                            newWindow.document.close()
                           }
                         }}
                       >
-                        {isImage &&
-                        attachment.dataUrl?.trim() &&
-                        attachment.dataUrl.startsWith('data:') ? (
-                          <img
-                            src={attachment.dataUrl}
-                            alt={attachment.name}
-                            className='h-full w-full object-cover'
-                          />
-                        ) : (
-                          <>
-                            <div className='flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-gray-100 md:h-12 md:w-12 dark:bg-gray-700'>
-                              {getFileIcon(attachment.type)}
-                            </div>
-                            <div className='min-w-0 flex-1'>
-                              <div className='truncate font-medium text-gray-800 text-xs md:text-sm dark:text-gray-200'>
-                                {attachment.name}
-                              </div>
-                              {attachment.size && (
-                                <div className='text-[10px] text-gray-500 md:text-xs dark:text-gray-400'>
-                                  {formatFileSize(attachment.size)}
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                        {attachmentContent}
+                      </button>
                     )
                   })}
                 </div>
@@ -178,7 +184,11 @@ export const ClientChatMessage = memo(
         <div className='mx-auto max-w-3xl'>
           <div className='flex flex-col space-y-3'>
             <div>
-              <div className='break-words text-base'>
+              <div
+                role={message.isError ? 'alert' : undefined}
+                aria-atomic={message.isError ? 'true' : undefined}
+                className='break-words text-base'
+              >
                 {isJsonObject ? (
                   <pre className='text-gray-800 dark:text-gray-100'>
                     {JSON.stringify(cleanTextContent, null, 2)}
@@ -192,27 +202,34 @@ export const ClientChatMessage = memo(
               <div className='flex items-center justify-start space-x-2'>
                 {!message.isStreaming && (
                   <TooltipProvider>
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <button
-                          className='text-muted-foreground transition-colors hover:bg-card'
-                          onClick={() => {
-                            const contentToCopy =
-                              typeof cleanTextContent === 'string'
-                                ? cleanTextContent
-                                : JSON.stringify(cleanTextContent, null, 2)
-                            navigator.clipboard.writeText(contentToCopy)
-                            setIsCopied(true)
-                            setTimeout(() => setIsCopied(false), 2000)
-                          }}
-                        >
-                          {isCopied ? (
-                            <Check className='h-3 w-3' strokeWidth={2} />
-                          ) : (
-                            <Copy className='h-3 w-3' strokeWidth={2} />
-                          )}
-                        </button>
-                      </TooltipTrigger>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type='button'
+                            aria-label={
+                              isCopied ? copy.message.copied : copy.message.copyToClipboard
+                            }
+                            className='text-muted-foreground transition-colors hover:bg-card'
+                            onClick={() => {
+                              const contentToCopy =
+                                typeof cleanTextContent === 'string'
+                                  ? cleanTextContent
+                                  : JSON.stringify(cleanTextContent, null, 2)
+                              navigator.clipboard.writeText(contentToCopy)
+                              setIsCopied(true)
+                              setTimeout(() => setIsCopied(false), 2000)
+                            }}
+                          >
+                            {isCopied ? (
+                              <Check className='h-3 w-3' strokeWidth={2} />
+                            ) : (
+                              <Copy className='h-3 w-3' strokeWidth={2} />
+                            )}
+                          </button>
+                        }
+                        delay={300}
+                      />
                       <TooltipContent side='top' align='center' sideOffset={5}>
                         {isCopied ? copy.message.copied : copy.message.copyToClipboard}
                       </TooltipContent>
@@ -232,7 +249,8 @@ export const ClientChatMessage = memo(
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
       prevProps.message.isStreaming === nextProps.message.isStreaming &&
-      prevProps.message.isInitialMessage === nextProps.message.isInitialMessage
+      prevProps.message.isInitialMessage === nextProps.message.isInitialMessage &&
+      prevProps.message.isError === nextProps.message.isError
     )
   }
 )

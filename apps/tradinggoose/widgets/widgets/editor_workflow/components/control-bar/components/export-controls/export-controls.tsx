@@ -90,17 +90,19 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant='outline'
-          onClick={handleExportJson}
-          disabled={isDisabled}
-          className={buttonClass}
-        >
-          <ArrowDownToLine className='h-5 w-5' />
-          <span className='sr-only'>{copy.exportControls.export}</span>
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <Button
+            variant='outline'
+            onClick={handleExportJson}
+            disabled={isDisabled}
+            className={buttonClass}
+          >
+            <ArrowDownToLine className='h-5 w-5' />
+            <span className='sr-only'>{copy.exportControls.export}</span>
+          </Button>
+        }
+      />
       <TooltipContent>{getTooltipText()}</TooltipContent>
     </Tooltip>
   )

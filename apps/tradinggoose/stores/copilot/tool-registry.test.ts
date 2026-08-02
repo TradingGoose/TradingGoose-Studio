@@ -4,7 +4,6 @@ import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
-import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import {
   createExecutionContext,
@@ -329,16 +328,14 @@ describe('tool-registry', () => {
     })
   })
 
-  it('invalidates saved-entity list queries after server-managed saved-entity mutations', async () => {
+  it('does not invalidate React Query after server-managed skill mutations', async () => {
     const invalidateQueries = vi
       .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
 
     await handleCopilotServerToolSuccess('edit_skill', { workspaceId: 'workspace-1' })
 
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: skillsKeys.list('workspace-1'),
-    })
+    expect(invalidateQueries).not.toHaveBeenCalled()
   })
 
   it('does not invalidate React Query after server-managed watchlist mutations', async () => {

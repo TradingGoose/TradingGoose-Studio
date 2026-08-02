@@ -18,6 +18,7 @@ import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
 import {
   acceptCopilotServerToolReview,
   executeCopilotServerTool,
+  getCopilotServerToolErrorDetails,
   getCopilotServerToolErrorStatus,
   isCopilotServerToolReviewResult,
 } from '@/lib/copilot/tools/client/server-tool-response'
@@ -1474,7 +1475,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             }
 
             const message = error instanceof Error ? error.message : String(error)
-            applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
+            const details = getCopilotServerToolErrorDetails(error)
+            applyToolStateUpdate(
+              targetStore,
+              id,
+              ClientToolCallState.error,
+              details ? { result: details } : undefined
+            )
 
             try {
               await postCopilotMarkComplete({

@@ -362,7 +362,7 @@ describe('Gantt', () => {
     expect((controls.textContent ?? '').indexOf('Scale')).toBeLessThan(
       (controls.textContent ?? '').indexOf('Week')
     )
-    expect(controls.querySelector('[role="slider"]')).toBeTruthy()
+    expect(controls.querySelector('input[type="range"]')).toBeTruthy()
     expect(
       Array.from(controls.querySelectorAll('button')).some(
         (button) => button.getAttribute('aria-label') === 'Scroll to previous date range'

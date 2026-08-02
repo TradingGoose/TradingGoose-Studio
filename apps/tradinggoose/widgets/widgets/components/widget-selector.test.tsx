@@ -41,11 +41,7 @@ describe('WidgetSelectorComponent', () => {
     })
 
     await act(async () => {
-      container.querySelector('button')?.dispatchEvent(
-        new MouseEvent('pointerdown', {
-          bubbles: true,
-        })
-      )
+      container.querySelector<HTMLButtonElement>('button')?.click()
     })
 
     const content = document.body.textContent ?? ''
@@ -78,14 +74,15 @@ describe('WidgetSelectorComponent', () => {
       )
     })
 
+    const trigger = container.querySelector<HTMLButtonElement>('button')
+    expect(trigger?.disabled).toBe(true)
+    expect(trigger?.getAttribute('aria-disabled')).toBe('true')
+
     await act(async () => {
-      container.querySelector('button')?.dispatchEvent(
-        new MouseEvent('pointerdown', {
-          bubbles: true,
-        })
-      )
+      trigger?.click()
     })
 
     expect(document.body.textContent).not.toContain('Trading')
+    expect(document.body.querySelector('[role="menu"]')).toBeNull()
   })
 })

@@ -135,7 +135,7 @@ describe('TradingAccountSelector', () => {
       `button[aria-label="${copy.ariaLabel}"]`
     )
     act(() => {
-      button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      button?.click()
     })
 
     expect(document.body.textContent).toContain('Primary Broker - cash - active - USD')
@@ -146,9 +146,15 @@ describe('TradingAccountSelector', () => {
     const copy = getPublicCopy('es').workspace.widgets.providerControls.accountSelector
     renderWithLocale('es', <TradingAccountSelector />)
 
-    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
+    const button = container.querySelector<HTMLButtonElement>(
+      `button[aria-label="${copy.ariaLabel}"]`
+    )
     expect(button?.textContent).toContain(copy.placeholder)
-    expect((button as HTMLButtonElement | null)?.disabled).toBe(true)
+    expect(button?.disabled).toBe(true)
+    act(() => {
+      button?.click()
+    })
+    expect(document.body.querySelector('[role="menu"]')).toBeNull()
   })
 
   it('shows loading text instead of an unresolved account id while accounts load', () => {
@@ -236,7 +242,7 @@ describe('TradingAccountSelector', () => {
       `button[aria-label="${copy.ariaLabel}"]`
     )
     act(() => {
-      button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      button?.click()
     })
 
     expect(document.body.textContent).toContain(copy.loadingProviderConnection)
@@ -259,7 +265,7 @@ describe('TradingAccountSelector', () => {
       `button[aria-label="${copy.ariaLabel}"]`
     )
     act(() => {
-      button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      button?.click()
     })
 
     expect(document.body.textContent).toContain(
@@ -291,7 +297,7 @@ describe('TradingAccountSelector', () => {
       `button[aria-label="${copy.ariaLabel}"]`
     )
     act(() => {
-      button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      button?.click()
     })
 
     expect(document.body.textContent).toContain(

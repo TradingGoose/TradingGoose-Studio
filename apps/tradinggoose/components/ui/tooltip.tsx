@@ -1,12 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 import { cn } from '@/lib/utils'
 
+type TooltipPortalProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Portal>
+
 type TooltipEnvironment = {
-  container?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Portal>['container'] | null
-  scale?: number
+  container?: TooltipPortalProps['container']
 }
 
 const TooltipEnvironmentContext = React.createContext<TooltipEnvironment | undefined>(undefined)
@@ -24,60 +25,67 @@ const Tooltip = TooltipPrimitive.Root
 
 const TooltipTrigger = TooltipPrimitive.Trigger
 
-type TooltipContentProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
-  command?: string
-  commandPosition?: 'inline' | 'below'
-  container?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Portal>['container']
-  scale?: number
-}
+type TooltipPositionerProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>
+type TooltipPopupProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Popup>
 
-const TooltipContent = React.forwardRef<React.ElementRef<typeof TooltipPrimitive.Content>, TooltipContentProps>(
-  ({ className, sideOffset = 8, command, commandPosition = 'inline', container, scale, style, ...props }, ref) => {
+type TooltipContentProps = Omit<TooltipPopupProps, 'className' | 'style'> &
+  Pick<TooltipPositionerProps, 'align' | 'collisionAvoidance' | 'side' | 'sideOffset'> & {
+    command?: string
+    container?: TooltipPortalProps['container']
+    zIndex?: number
+    className?: string
+    style?: React.CSSProperties
+  }
+
+const TooltipContent = React.forwardRef<
+  React.ElementRef<typeof TooltipPrimitive.Popup>,
+  TooltipContentProps
+>(
+  (
+    {
+      align,
+      className,
+      collisionAvoidance,
+      command,
+      container,
+      side,
+      sideOffset = 8,
+      style,
+      zIndex,
+      ...props
+    },
+    ref
+  ) => {
     const env = React.useContext(TooltipEnvironmentContext)
     const resolvedContainer = container ?? env?.container ?? undefined
-    const resolvedScale = scale ?? env?.scale
-
-    const shouldScale =
-      typeof resolvedScale === 'number' && Number.isFinite(resolvedScale) && Math.abs(resolvedScale - 1) > 0.001
-    const scaledStyle = shouldScale
-      ? {
-          fontSize: `${12 * resolvedScale}px`, // text-xs ≈ 12px
-          padding: `${6 * resolvedScale}px ${12 * resolvedScale}px`, // py-1.5 px-3
-          borderRadius: `${4 * resolvedScale}px`,
-          lineHeight: 1.4,
-          width: 'max-content',
-          maxWidth: 'max-content',
-          whiteSpace: 'nowrap',
-        }
-      : undefined
 
     return (
       <TooltipPrimitive.Portal container={resolvedContainer ?? undefined}>
-        <TooltipPrimitive.Content
-          ref={ref}
+        <TooltipPrimitive.Positioner
+          align={align}
+          className='isolate z-[60]'
+          collisionAvoidance={collisionAvoidance}
+          side={side}
           sideOffset={sideOffset}
-          className={cn(
-            'fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark: z-[60] animate-in overflow-hidden rounded-xs bg-black px-3 py-1.5 text-white text-xs shadow-md data-[state=closed]:animate-out dark:text-black dark:bg-white',
-            className
-          )}
-          style={{
-            ...style,
-            ...(scaledStyle ?? {}),
-          }}
-          {...props}
+          style={zIndex === undefined ? undefined : { zIndex }}
         >
-          {props.children}
-          {command && commandPosition === 'inline' && (
-            <span className='pl-2 text-white/80 dark:text-black/70'>{command}</span>
-          )}
-          {command && commandPosition === 'below' && (
-            <div className='pt-[1px] text-white/80 dark:text-black/70'>{command}</div>
-          )}
-        </TooltipPrimitive.Content>
+          <TooltipPrimitive.Popup
+            ref={ref}
+            className={cn(
+              'data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 overflow-hidden rounded-xs bg-black px-3 py-1.5 text-white text-xs shadow-md data-[ending-style]:animate-out data-[starting-style]:animate-in dark:bg-white dark:text-black',
+              className
+            )}
+            style={style}
+            {...props}
+          >
+            {props.children}
+            {command && <span className='pl-2 text-white/80 dark:text-black/70'>{command}</span>}
+          </TooltipPrimitive.Popup>
+        </TooltipPrimitive.Positioner>
       </TooltipPrimitive.Portal>
     )
   }
 )
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
+TooltipContent.displayName = TooltipPrimitive.Popup.displayName
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

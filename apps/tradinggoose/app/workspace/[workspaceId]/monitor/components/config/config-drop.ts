@@ -3,23 +3,27 @@ import type { MonitorDraft, MonitorReferenceData, MonitorUpdateInput } from '../
 import type { ConfigMonitorViewConfig } from '../view/view-config'
 import type { ConfigBoardContext } from './config-board-state'
 import type { ConfigMonitorCard } from './config-card-model'
-import { getProviderIntervalFallback } from './config-draft'
+import {
+  addMonitorDraftIssue,
+  getProviderIntervalFallback,
+  type MonitorDraftIssues,
+} from './config-draft'
 
 type ConfigDropResolution = {
   draftPatch: Partial<MonitorDraft>
   updatePatch: Partial<MonitorUpdateInput>
-  errors: Record<string, string>
+  issues: MonitorDraftIssues
 }
 
 const applyDimension = ({
   draftPatch,
-  errors,
+  issues,
   field,
   value,
   referenceData,
 }: {
   draftPatch: Partial<MonitorDraft>
-  errors: Record<string, string>
+  issues: MonitorDraftIssues
   field: string
   value: string
   referenceData: MonitorReferenceData
@@ -27,7 +31,7 @@ const applyDimension = ({
   if (field === 'workflowTarget') {
     const target = referenceData.workflowTargetByKey[value]
     if (!target) {
-      errors.workflowTarget = 'Workflow target is unavailable.'
+      addMonitorDraftIssue(issues, 'workflowTarget', 'Workflow target is unavailable.')
       return
     }
     draftPatch.workflowId = target.workflowId
@@ -37,7 +41,7 @@ const applyDimension = ({
 
   if (field === 'indicator') {
     if (!referenceData.indicatorById[value]) {
-      errors.indicator = 'Indicator is unavailable.'
+      addMonitorDraftIssue(issues, 'indicatorId', 'Indicator is unavailable.')
       return
     }
     draftPatch.indicatorId = value
@@ -47,7 +51,7 @@ const applyDimension = ({
 
   if (field === 'provider') {
     if (!referenceData.marketProviderById[value]) {
-      errors.provider = 'Provider is unavailable.'
+      addMonitorDraftIssue(issues, 'providerId', 'Provider is unavailable.')
       return
     }
     draftPatch.providerId = value
@@ -62,7 +66,7 @@ const applyDimension = ({
   if (field === 'listing') {
     const listing = toListingValueObject(JSON.parse(value))
     if (!listing) {
-      errors.listing = 'Listing is invalid.'
+      addMonitorDraftIssue(issues, 'listing', 'Listing is invalid.')
       return
     }
     draftPatch.listing = listing
@@ -72,14 +76,14 @@ const applyDimension = ({
 const resolveProviderInterval = ({
   allowFallback,
   draftPatch,
-  errors,
+  issues,
   providerId,
   interval,
   referenceData,
 }: {
   allowFallback: boolean
   draftPatch: Partial<MonitorDraft>
-  errors: Record<string, string>
+  issues: MonitorDraftIssues
   providerId: string
   interval?: string | null
   referenceData: MonitorReferenceData
@@ -95,12 +99,15 @@ const resolveProviderInterval = ({
       providerId,
       providerIntervalsByProviderId: referenceData.providerIntervalsByProviderId,
     })
-    Reflect.deleteProperty(errors, 'interval')
+    Reflect.deleteProperty(issues, 'interval')
     return
   }
 
-  errors.interval = 'Selected interval is not supported for this provider.'
+  addMonitorDraftIssue(issues, 'interval', 'Selected interval is not supported for this provider.')
 }
+
+const getIssueKey = (field: string) =>
+  field === 'provider' ? 'providerId' : field === 'indicator' ? 'indicatorId' : field
 
 export const resolveConfigBoardContextPatch = ({
   decodedContext,
@@ -114,7 +121,7 @@ export const resolveConfigBoardContextPatch = ({
   sourceCard?: ConfigMonitorCard
 }): ConfigDropResolution => {
   const draftPatch: Partial<MonitorDraft> = {}
-  const errors: Record<string, string> = {}
+  const issues: MonitorDraftIssues = {}
   const candidates: Array<{ field: string | null; value: string }> = [
     { field: viewConfig.verticalGroupBy, value: decodedContext.verticalGroupValue },
     { field: viewConfig.groupBy, value: decodedContext.groupValue },
@@ -125,15 +132,19 @@ export const resolveConfigBoardContextPatch = ({
   candidates.forEach(({ field, value }) => {
     if (!field || value === 'all') return
     if (seenFields.has(field)) {
-      errors[field] = 'Duplicate board axes are not supported for this drop.'
+      addMonitorDraftIssue(
+        issues,
+        getIssueKey(field),
+        'Duplicate board axes are not supported for this drop.'
+      )
       return
     }
     seenFields.add(field)
 
     try {
-      applyDimension({ draftPatch, errors, field, value, referenceData })
+      applyDimension({ draftPatch, issues, field, value, referenceData })
     } catch {
-      errors[field] = 'Board context value is invalid.'
+      addMonitorDraftIssue(issues, getIssueKey(field), 'Board context value is invalid.')
     }
   })
 
@@ -150,7 +161,7 @@ export const resolveConfigBoardContextPatch = ({
           !seenFields.has('interval')
       ),
       draftPatch,
-      errors,
+      issues,
       providerId,
       interval,
       referenceData,
@@ -169,6 +180,6 @@ export const resolveConfigBoardContextPatch = ({
       ...(typeof draftPatch.isActive === 'boolean' ? { isActive: draftPatch.isActive } : {}),
       ...(draftPatch.indicatorInputs ? { indicatorInputs: draftPatch.indicatorInputs } : {}),
     },
-    errors,
+    issues,
   }
 }

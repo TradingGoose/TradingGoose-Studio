@@ -10,12 +10,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import { AlertCircle, Check, Copy, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertCircle, Check, Copy, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Alert, AlertDescription, Button, Input, Label, Skeleton } from '@/components/ui'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -23,23 +23,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { createLogger } from '@/lib/logs/console/logger'
-import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { type ApiKey, useApiKeys, useCreateApiKey, useDeleteApiKey } from '@/hooks/queries/api-keys'
+import {
+  type ApiKey,
+  apiKeysKeys,
+  createApiKey,
+  deleteApiKey,
+  renameWorkspaceApiKey,
+  usePersonalApiKeys,
+  useWorkspaceApiKeys,
+} from '@/hooks/queries/api-keys'
 import type { LocaleCode } from '@/i18n/utils'
 
 interface WorkspaceApiKeysCardProps {
-  workspaceId?: string
-  keyScope?: 'workspace' | 'personal'
-  searchTerm?: string
-  onSearchTermChange?: (value: string) => void
-  hideHeader?: boolean
-  variant?: 'card' | 'page'
-  onLoadingChange?: (isLoading: boolean) => void
+  workspaceId: string
+  keyScope: 'workspace' | 'personal'
+  searchTerm: string
+  onBusyChange: (isBusy: boolean) => void
 }
-
-const logger = createLogger('WorkspaceApiKeysCard')
 
 export interface WorkspaceApiKeysCardHandle {
   openCreateDialog: () => void
@@ -53,16 +54,13 @@ function ApiKeyDisplay({ value }: { value: string }) {
   )
 }
 
+type ApiKeyWrite =
+  | { kind: 'create'; workspaceId: string; name: string; keyType: 'personal' | 'workspace' }
+  | { kind: 'rename'; workspaceId: string; keyId: string; name: string }
+  | { kind: 'delete'; workspaceId: string; keyId: string; keyType: 'personal' | 'workspace' }
+
 const WorkspaceApiKeysCardComponent = (
-  {
-    workspaceId,
-    searchTerm: controlledSearchTerm,
-    onSearchTermChange,
-    hideHeader = false,
-    variant = 'card',
-    onLoadingChange,
-    keyScope = 'workspace',
-  }: WorkspaceApiKeysCardProps,
+  { workspaceId, searchTerm, onBusyChange, keyScope }: WorkspaceApiKeysCardProps,
   ref: Ref<WorkspaceApiKeysCardHandle>
 ) => {
   const locale = useLocale() as LocaleCode
@@ -70,14 +68,11 @@ const WorkspaceApiKeysCardComponent = (
   const userPermissions = useUserPermissionsContext()
   const canManageWorkspaceKeys = userPermissions.canEdit || userPermissions.canAdmin
 
+  const queryClient = useQueryClient()
+  const writeLockRef = useRef(false)
   const scope = keyScope
   const isWorkspaceScope = scope === 'workspace'
   const scopeLabel = isWorkspaceScope ? t('scope.workspace') : t('scope.personal')
-  const scopeDescription = isWorkspaceScope
-    ? t('descriptions.workspace')
-    : t('descriptions.personal')
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newKeyName, setNewKeyName] = useState('')
   const [newKey, setNewKey] = useState<ApiKey | null>(null)
@@ -85,57 +80,52 @@ const WorkspaceApiKeysCardComponent = (
   const [deleteKey, setDeleteKey] = useState<ApiKey | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteConfirmationName, setDeleteConfirmationName] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null)
   const [editingKeyName, setEditingKeyName] = useState('')
-  const [isUpdatingKeyName, setIsUpdatingKeyName] = useState(false)
   const [renameError, setRenameError] = useState<string | null>(null)
   const editKeyNameInputRef = useRef<HTMLInputElement | null>(null)
-  const {
-    data: apiKeysData,
-    isPending: isApiKeysPending,
-    error: apiKeysError,
-    refetch: refetchApiKeys,
-  } = useApiKeys(workspaceId ?? '')
-  const createApiKeyMutation = useCreateApiKey()
-  const deleteApiKeyMutation = useDeleteApiKey()
-
-  useEffect(() => {
-    if (!apiKeysData) {
-      setApiKeys([])
-      return
-    }
-    const scopedKeys = isWorkspaceScope ? apiKeysData.workspaceKeys : apiKeysData.personalKeys
-    setApiKeys(scopedKeys || [])
-  }, [apiKeysData, isWorkspaceScope])
-
-  const loadError = apiKeysError instanceof Error ? apiKeysError.message : null
-  const isLoading = isApiKeysPending
-  const isSubmittingCreate = createApiKeyMutation.isPending
+  const workspaceKeysQuery = useWorkspaceApiKeys(workspaceId)
+  const personalKeysQuery = usePersonalApiKeys()
+  const activeKeysQuery = isWorkspaceScope ? workspaceKeysQuery : personalKeysQuery
+  const { data: apiKeys = [], isPending: isLoading, error: apiKeysError } = activeKeysQuery
+  const writeMutation = useMutation({
+    mutationFn: (operation: ApiKeyWrite) => {
+      if (operation.kind === 'create') return createApiKey(operation)
+      if (operation.kind === 'rename') return renameWorkspaceApiKey(operation)
+      return deleteApiKey(operation)
+    },
+    onSuccess: async (_result, operation) => {
+      const operationScope = operation.kind === 'rename' ? 'workspace' : operation.keyType
+      if (operationScope === 'workspace') {
+        await queryClient.invalidateQueries({
+          queryKey: apiKeysKeys.workspace(operation.workspaceId),
+        })
+      } else {
+        await queryClient.invalidateQueries({ queryKey: apiKeysKeys.personal() })
+      }
+    },
+  })
+  const isWriting = writeMutation.isPending
+  const loadError = apiKeysError ? t('labels.failedLoad') : null
+  const isSubmittingCreate = isWriting && writeMutation.variables?.kind === 'create'
+  const isSubmittingDelete = isWriting && writeMutation.variables?.kind === 'delete'
 
   const canManageKeys = isWorkspaceScope ? canManageWorkspaceKeys : true
   const canRenameKeys = isWorkspaceScope && canManageWorkspaceKeys
   const canDeleteKeys = canManageKeys
 
-  const isCardVariant = variant === 'card'
-  const shouldRenderHeader = isCardVariant && !hideHeader
-  const resolvedSearchTerm = controlledSearchTerm ?? internalSearchTerm
-  const handleSearchTermChange = onSearchTermChange ?? setInternalSearchTerm
-
   const filteredKeys = useMemo(() => {
-    if (!resolvedSearchTerm.trim()) return apiKeys
-    return apiKeys.filter((key) =>
-      key.name.toLowerCase().includes(resolvedSearchTerm.toLowerCase())
-    )
-  }, [apiKeys, resolvedSearchTerm])
+    if (!searchTerm.trim()) return apiKeys
+    return apiKeys.filter((key) => key.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  }, [apiKeys, searchTerm])
 
   useEffect(() => {
-    if (onLoadingChange) {
-      onLoadingChange(isLoading)
-    }
-  }, [isLoading, onLoadingChange])
+    onBusyChange(isLoading || isWriting)
+  }, [isLoading, isWriting, onBusyChange])
 
   useEffect(() => {
     return () => {
@@ -156,6 +146,7 @@ const WorkspaceApiKeysCardComponent = (
     ref,
     () => ({
       openCreateDialog: () => {
+        if (writeLockRef.current) return
         setCreateError(null)
         setIsCreateDialogOpen(true)
       },
@@ -185,7 +176,6 @@ const WorkspaceApiKeysCardComponent = (
   const cancelEditingKey = useCallback(() => {
     setEditingKeyId(null)
     setEditingKeyName('')
-    setIsUpdatingKeyName(false)
     setRenameError(null)
   }, [])
 
@@ -196,59 +186,42 @@ const WorkspaceApiKeysCardComponent = (
   }, [canRenameKeys, cancelEditingKey])
 
   const commitEditingKey = useCallback(async () => {
-    if (!editingKeyId || (isWorkspaceScope && !workspaceId) || !canRenameKeys) return
+    if (!editingKeyId || !canRenameKeys || writeLockRef.current) return
     const trimmedName = editingKeyName.trim()
     if (!trimmedName) {
       setRenameError(t('labels.nameRequired'))
       editKeyNameInputRef.current?.focus()
       return
     }
-    setIsUpdatingKeyName(true)
+    writeLockRef.current = true
     setRenameError(null)
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/api-keys/${editingKeyId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
+      await writeMutation.mutateAsync({
+        kind: 'rename',
+        workspaceId,
+        keyId: editingKeyId,
+        name: trimmedName,
       })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const message =
-          typeof errorData?.error === 'string'
-            ? errorData.error
-            : t('labels.failedRename', { scope: scopeLabel })
-        setRenameError(message)
-        editKeyNameInputRef.current?.focus()
-        return
-      }
-      setApiKeys((prev) =>
-        prev.map((key) => (key.id === editingKeyId ? { ...key, name: trimmedName } : key))
-      )
       cancelEditingKey()
-      void refetchApiKeys()
-    } catch (error) {
-      logger.error('Error renaming API key', { error, scope })
+    } catch {
       setRenameError(t('labels.unableRename', { scope: scopeLabel }))
       editKeyNameInputRef.current?.focus()
     } finally {
-      setIsUpdatingKeyName(false)
+      writeLockRef.current = false
     }
   }, [
     cancelEditingKey,
     canRenameKeys,
     editingKeyId,
     editingKeyName,
-    refetchApiKeys,
-    scope,
     scopeLabel,
     t,
     workspaceId,
-    isWorkspaceScope,
+    writeMutation,
   ])
 
   const handleCreateKey = async () => {
-    if (!newKeyName.trim() || isSubmittingCreate) return
-    if (!workspaceId) return
+    if (!newKeyName.trim() || writeLockRef.current) return
 
     const trimmedName = newKeyName.trim()
     const isDuplicate = apiKeys.some((key) => key.name === trimmedName)
@@ -257,44 +230,46 @@ const WorkspaceApiKeysCardComponent = (
       return
     }
 
+    writeLockRef.current = true
     setCreateError(null)
     try {
-      const data = await createApiKeyMutation.mutateAsync({
+      const data = (await writeMutation.mutateAsync({
+        kind: 'create',
         workspaceId,
         name: trimmedName,
         keyType: isWorkspaceScope ? 'workspace' : 'personal',
-      })
+      })) as { key: ApiKey }
 
       setNewKey(data.key)
       setShowNewKeyDialog(true)
       setIsCreateDialogOpen(false)
       setNewKeyName('')
-    } catch (error) {
-      logger.error('Error creating API key', { error, scope })
-      const message =
-        error instanceof Error ? error.message : t('labels.failedCreate', { scope: scopeLabel })
-      setCreateError(message)
+    } catch {
+      setCreateError(t('labels.failedCreate', { scope: scopeLabel }))
+    } finally {
+      writeLockRef.current = false
     }
   }
 
   const handleDeleteKey = async () => {
-    if (!deleteKey) return
-    if (!workspaceId) return
+    if (!deleteKey || writeLockRef.current) return
 
+    writeLockRef.current = true
+    setDeleteError(null)
     try {
-      setApiKeys((prev) => prev.filter((key) => key.id !== deleteKey.id))
-      setShowDeleteDialog(false)
-      await deleteApiKeyMutation.mutateAsync({
+      await writeMutation.mutateAsync({
+        kind: 'delete',
         workspaceId,
         keyId: deleteKey.id,
         keyType: isWorkspaceScope ? 'workspace' : 'personal',
       })
-    } catch (error) {
-      logger.error('Error deleting API key', { error, scope })
-      await refetchApiKeys()
-    } finally {
+      setShowDeleteDialog(false)
       setDeleteKey(null)
       setDeleteConfirmationName('')
+    } catch {
+      setDeleteError(t('labels.failedDelete', { scope: scopeLabel }))
+    } finally {
+      writeLockRef.current = false
     }
   }
 
@@ -312,146 +287,7 @@ const WorkspaceApiKeysCardComponent = (
         }
         copyTimeoutRef.current = setTimeout(() => setCopySuccess(false), 1500)
       })
-      .catch((error) => {
-        logger.error('Error copying API key', { error, scope })
-      })
-  }
-
-  const renderCardView = () => {
-    if (isLoading) {
-      return (
-        <div className='space-y-4'>
-          <WorkspaceApiKeySkeleton />
-          <WorkspaceApiKeySkeleton />
-        </div>
-      )
-    }
-
-    if (apiKeys.length === 0) {
-      return (
-        <div className='rounded-2xl border bg-card p-10 text-center shadow-sm'>
-          <p className='font-medium'>{t(`emptyState.${scope}.title`)}</p>
-          <p className='mt-2 text-muted-foreground'>{t(`emptyState.${scope}.description`)}</p>
-          {canManageKeys && (
-            <Button
-              className='mt-4'
-              onClick={() => {
-                setIsCreateDialogOpen(true)
-                setCreateError(null)
-              }}
-            >
-              <Plus className='mr-2 h-4 w-4 stroke-[2px]' />
-              {t(`emptyState.${scope}.button`)}
-            </Button>
-          )}
-        </div>
-      )
-    }
-
-    if (resolvedSearchTerm.trim() && filteredKeys.length === 0) {
-      return (
-        <div className='rounded-xl border border-dashed bg-muted/40 px-6 py-4 text-center text-muted-foreground text-sm'>
-          {t('searchEmpty', { scope: scopeLabel, query: resolvedSearchTerm })}
-        </div>
-      )
-    }
-
-    return (
-      <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-        {filteredKeys.map((key) => {
-          return (
-            <div
-              key={key.id}
-              className='rounded-md border bg-card/40 p-4 shadow-xs transition hover:bg-card'
-            >
-              <div className='flex justify-between gap-4'>
-                <div className='w-full'>
-                  {canRenameKeys && editingKeyId === key.id ? (
-                    <div className='py-1.5'>
-                      <div className='flex max-w-md items-center gap-2'>
-                        <Input
-                          ref={(el) => {
-                            if (editingKeyId === key.id) {
-                              editKeyNameInputRef.current = el
-                            }
-                          }}
-                          value={editingKeyName}
-                          onChange={(event) => setEditingKeyName(event.target.value)}
-                          onBlur={() => void commitEditingKey()}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault()
-                              void commitEditingKey()
-                            } else if (event.key === 'Escape') {
-                              event.preventDefault()
-                              cancelEditingKey()
-                            }
-                          }}
-                          disabled={isUpdatingKeyName}
-                          className='h-8 min-w-0 flex-1'
-                          autoComplete='off'
-                        />
-                        <button
-                          type='button'
-                          className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-                          onClick={() => void commitEditingKey()}
-                          disabled={isUpdatingKeyName}
-                        >
-                          <Check className='h-3.5 w-3.5' />
-                          <span className='sr-only'>{t('labels.saveName')}</span>
-                        </button>
-                      </div>
-                      {renameError && <p className='text-destructive text-xs'>{renameError}</p>}
-                    </div>
-                  ) : (
-                    <div className='flex items-center justify-center gap-2'>
-                      <div className='space-y-1'>
-                        <p className='font-medium'>{key.name}</p>
-                        <p className='text-muted-foreground text-xs'>
-                          {t('labels.lastUsed', { date: formatDate(key.lastUsed) })}
-                        </p>
-                      </div>
-                      {canRenameKeys && (
-                        <button
-                          type='button'
-                          className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                          onClick={() => startEditingKey(key)}
-                          disabled={isUpdatingKeyName || (isWorkspaceScope && !workspaceId)}
-                        >
-                          <Pencil className='h-3.5 w-3.5' />
-                          <span className='sr-only'>
-                            {t('labels.rename', { scope: scopeLabel })}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className='flex w-full justify-center'>
-                  <div className='flex flex-col items-center gap-2 md:flex-row md:justify-center md:gap-2'>
-                    <div className='max-w-xs'>
-                      <ApiKeyDisplay value={key.displayKey || '—'} />
-                    </div>
-                    <button
-                      type='button'
-                      disabled={!canDeleteKeys}
-                      className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                      onClick={() => {
-                        setDeleteKey(key)
-                        setShowDeleteDialog(true)
-                      }}
-                    >
-                      <Trash2 className='h-3.5 w-3.5' />
-                      <span className='sr-only'>{t('labels.delete', { scope: scopeLabel })}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    )
+      .catch(() => setCopySuccess(false))
   }
 
   const renderTableView = () => {
@@ -491,6 +327,7 @@ const WorkspaceApiKeysCardComponent = (
               {canManageKeys && (
                 <Button
                   className='mt-6'
+                  disabled={isWriting}
                   onClick={() => {
                     setIsCreateDialogOpen(true)
                     setCreateError(null)
@@ -505,11 +342,11 @@ const WorkspaceApiKeysCardComponent = (
         )
       }
 
-      if (resolvedSearchTerm.trim() && filteredKeys.length === 0) {
+      if (searchTerm.trim() && filteredKeys.length === 0) {
         return (
           <tr>
             <td colSpan={5} className='px-4 py-12 text-center text-muted-foreground'>
-              {t('searchEmpty', { scope: scopeLabel, query: resolvedSearchTerm })}
+              {t('searchEmpty', { scope: scopeLabel, query: searchTerm })}
             </td>
           </tr>
         )
@@ -528,6 +365,7 @@ const WorkspaceApiKeysCardComponent = (
                 <div className='space-y-2'>
                   <div className='flex max-w-sm items-center gap-2'>
                     <Input
+                      aria-label={t('labels.rename', { scope: scopeLabel })}
                       ref={(el) => {
                         if (editingKeyId === key.id) {
                           editKeyNameInputRef.current = el
@@ -544,7 +382,7 @@ const WorkspaceApiKeysCardComponent = (
                           cancelEditingKey()
                         }
                       }}
-                      disabled={isUpdatingKeyName}
+                      disabled={isWriting}
                       className='h-8 flex-1'
                       autoComplete='off'
                     />
@@ -577,7 +415,7 @@ const WorkspaceApiKeysCardComponent = (
                       type='button'
                       variant='ghost'
                       size='icon'
-                      disabled={isUpdatingKeyName}
+                      disabled={isWriting}
                       className='h-8 w-8 text-muted-foreground'
                       onClick={() => void commitEditingKey()}
                     >
@@ -588,7 +426,7 @@ const WorkspaceApiKeysCardComponent = (
                       type='button'
                       variant='ghost'
                       size='icon'
-                      disabled={isUpdatingKeyName}
+                      disabled={isWriting}
                       className='h-8 w-8 text-muted-foreground'
                       onClick={cancelEditingKey}
                     >
@@ -603,7 +441,7 @@ const WorkspaceApiKeysCardComponent = (
                         type='button'
                         variant='ghost'
                         size='icon'
-                        disabled={!canRenameKeys || (isWorkspaceScope && !workspaceId)}
+                        disabled={!canRenameKeys || isWriting}
                         className='h-8 w-8 text-muted-foreground'
                         onClick={() => startEditingKey(key)}
                       >
@@ -615,9 +453,10 @@ const WorkspaceApiKeysCardComponent = (
                       type='button'
                       variant='ghost'
                       size='icon'
-                      disabled={!canDeleteKeys}
+                      disabled={!canDeleteKeys || isWriting}
                       className='h-8 w-8 text-destructive'
                       onClick={() => {
+                        setDeleteError(null)
                         setDeleteKey(key)
                         setShowDeleteDialog(true)
                       }}
@@ -693,15 +532,6 @@ const WorkspaceApiKeysCardComponent = (
   }
 
   const renderContent = () => {
-    if (isWorkspaceScope && !workspaceId) {
-      return (
-        <Alert variant='destructive'>
-          <AlertCircle className='h-4 w-4' />
-          <AlertDescription>{t('labels.unableToDetermineWorkspace')}</AlertDescription>
-        </Alert>
-      )
-    }
-
     if (loadError) {
       return (
         <Alert variant='destructive'>
@@ -711,69 +541,33 @@ const WorkspaceApiKeysCardComponent = (
       )
     }
 
-    return isCardVariant ? renderCardView() : renderTableView()
+    return renderTableView()
   }
 
   const content = renderContent()
 
   const permissionNotice =
     isWorkspaceScope && !canManageKeys ? (
-      <div
-        className={cn(
-          'text-muted-foreground text-xs',
-          isCardVariant ? 'border-t px-6 py-3' : 'px-1 pt-3'
-        )}
-      >
+      <div className='px-1 pt-3 text-muted-foreground text-xs'>
         {t('labels.workspacePermissions')}
       </div>
     ) : null
 
   return (
     <>
-      {isCardVariant ? (
-        <section className='rounded-2xl border bg-card shadow-sm'>
-          {shouldRenderHeader && (
-            <div className='flex flex-col gap-4 border-b px-6 py-5 md:flex-row md:items-center md:justify-between'>
-              <div>
-                <h2 className='font-semibold text-lg'>{scopeLabel} API Keys</h2>
-                <p className='text-muted-foreground text-sm'>{scopeDescription}</p>
-              </div>
-              <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
-                <div className='flex h-9 items-center gap-2 rounded-lg border bg-background pr-2 pl-3 sm:w-60'>
-                  <Search className='h-4 w-4 text-muted-foreground' strokeWidth={2} />
-                  <Input
-                    placeholder={t('searchPlaceholder')}
-                    value={resolvedSearchTerm}
-                    onChange={(e) => handleSearchTermChange(e.target.value)}
-                    className='flex-1 border-0 bg-transparent px-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0'
-                  />
-                </div>
-                <Button
-                  onClick={() => {
-                    setIsCreateDialogOpen(true)
-                    setCreateError(null)
-                  }}
-                  disabled={!canManageKeys}
-                >
-                  <Plus className='mr-2 h-4 w-4' />
-                  {t(`create.${scope}`)}
-                </Button>
-              </div>
-            </div>
-          )}
+      <div className='flex h-full min-h-0 flex-1 flex-col'>
+        {content}
+        {permissionNotice}
+      </div>
 
-          <div className='px-6 py-5'>{content}</div>
-          {permissionNotice}
-        </section>
-      ) : (
-        <div className='flex h-full min-h-0 flex-1 flex-col'>
-          {content}
-          {permissionNotice}
-        </div>
-      )}
-
-      <AlertDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <AlertDialogContent className='rounded-md sm:max-w-lg'>
+      <AlertDialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open, details) => {
+          if (!open && isSubmittingCreate) return details.cancel()
+          setIsCreateDialogOpen(open)
+        }}
+      >
+        <AlertDialogContent hideCloseButton={isSubmittingCreate} className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.createTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -782,9 +576,13 @@ const WorkspaceApiKeysCardComponent = (
           </AlertDialogHeader>
 
           <div className='space-y-2'>
-            <Label>{t('dialogs.createNameLabel')}</Label>
+            <Label htmlFor='api-key-create-name'>{t('dialogs.createNameLabel')}</Label>
             <Input
+              id='api-key-create-name'
               autoFocus
+              disabled={isSubmittingCreate}
+              aria-invalid={Boolean(createError)}
+              aria-describedby={createError ? 'api-key-create-error' : undefined}
               placeholder={t('dialogs.createNamePlaceholder')}
               value={newKeyName}
               onChange={(e) => {
@@ -792,12 +590,17 @@ const WorkspaceApiKeysCardComponent = (
                 if (createError) setCreateError(null)
               }}
             />
-            {createError && <p className='text-red-600 text-sm'>{createError}</p>}
+            {createError ? (
+              <p id='api-key-create-error' role='alert' className='text-red-600 text-sm'>
+                {createError}
+              </p>
+            ) : null}
           </div>
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
               className='w-full rounded-sm'
+              disabled={isSubmittingCreate}
               onClick={() => {
                 setNewKeyName('')
                 setCreateError(null)
@@ -805,15 +608,22 @@ const WorkspaceApiKeysCardComponent = (
             >
               {t('dialogs.cancel')}
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type='button'
               className='w-full rounded-sm'
-              disabled={
-                !newKeyName.trim() || isSubmittingCreate || (isWorkspaceScope && !workspaceId)
-              }
-              onClick={handleCreateKey}
+              disabled={!newKeyName.trim() || isSubmittingCreate}
+              aria-busy={isSubmittingCreate || undefined}
+              onClick={() => void handleCreateKey()}
             >
-              {t('dialogs.createButton')}
-            </AlertDialogAction>
+              {isSubmittingCreate ? (
+                <>
+                  <Loader2 data-icon='inline-start' className='animate-spin' />
+                  {t('dialogs.creating')}
+                </>
+              ) : (
+                t('dialogs.createButton')
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -843,6 +653,7 @@ const WorkspaceApiKeysCardComponent = (
                 variant='ghost'
                 size='icon'
                 disabled={!newKey.key}
+                aria-label={t('dialogs.copyToClipboard')}
                 className='-translate-y-1/2 absolute top-1/2 right-1 h-7 w-7 rounded-sm text-muted-foreground hover:bg-card hover:text-foreground'
                 onClick={() => {
                   if (newKey.key) copyToClipboard(newKey.key)
@@ -855,8 +666,14 @@ const WorkspaceApiKeysCardComponent = (
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className='rounded-md sm:max-w-lg'>
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={(open, details) => {
+          if (!open && isSubmittingDelete) return details.cancel()
+          setShowDeleteDialog(open)
+        }}
+      >
+        <AlertDialogContent hideCloseButton={isSubmittingDelete} className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dialogs.deleteTitle', { scope: scopeLabel })}</AlertDialogTitle>
             <AlertDialogDescription>{t('dialogs.deleteDescription')}</AlertDialogDescription>
@@ -864,9 +681,15 @@ const WorkspaceApiKeysCardComponent = (
 
           {deleteKey && (
             <div className='py-2'>
-              <p className='mb-2 text-sm'>{t('dialogs.deletePrompt', { name: deleteKey.name })}</p>
+              <Label htmlFor='api-key-delete-confirmation' className='mb-2'>
+                {t('dialogs.deletePrompt', { name: deleteKey.name })}
+              </Label>
               <Input
+                id='api-key-delete-confirmation'
                 autoFocus
+                disabled={isSubmittingDelete}
+                aria-invalid={Boolean(deleteError)}
+                aria-describedby={deleteError ? 'api-key-delete-error' : undefined}
                 value={deleteConfirmationName}
                 onChange={(e) => setDeleteConfirmationName(e.target.value)}
                 placeholder={t('dialogs.deletePlaceholder')}
@@ -874,23 +697,42 @@ const WorkspaceApiKeysCardComponent = (
             </div>
           )}
 
+          {deleteError ? (
+            <Alert variant='destructive' aria-atomic='true'>
+              <AlertDescription id='api-key-delete-error'>{deleteError}</AlertDescription>
+            </Alert>
+          ) : null}
+
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel
               className='w-full rounded-sm'
+              disabled={isSubmittingDelete}
               onClick={() => {
                 setDeleteKey(null)
                 setDeleteConfirmationName('')
+                setDeleteError(null)
               }}
             >
               {t('dialogs.cancel')}
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type='button'
               className='w-full rounded-sm bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600'
-              disabled={!deleteKey || deleteConfirmationName !== deleteKey.name}
-              onClick={handleDeleteKey}
+              disabled={
+                !deleteKey || deleteConfirmationName !== deleteKey.name || isSubmittingDelete
+              }
+              aria-busy={isSubmittingDelete || undefined}
+              onClick={() => void handleDeleteKey()}
             >
-              {t('dialogs.deleteButton')}
-            </AlertDialogAction>
+              {isSubmittingDelete ? (
+                <>
+                  <Loader2 data-icon='inline-start' className='animate-spin' />
+                  {t('dialogs.deleting')}
+                </>
+              ) : (
+                t('dialogs.deleteButton')
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -900,20 +742,3 @@ const WorkspaceApiKeysCardComponent = (
 
 export const WorkspaceApiKeysCard = forwardRef(WorkspaceApiKeysCardComponent)
 WorkspaceApiKeysCard.displayName = 'WorkspaceApiKeysCard'
-
-function WorkspaceApiKeySkeleton() {
-  return (
-    <div className='rounded-xl border bg-card/40 p-4'>
-      <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
-        <div className='space-y-2'>
-          <Skeleton className='h-4 w-32' />
-          <Skeleton className='h-3 w-24' />
-        </div>
-        <div className='flex items-center gap-3'>
-          <Skeleton className='h-9 w-32 rounded-md' />
-          <Skeleton className='h-8 w-20 rounded-md' />
-        </div>
-      </div>
-    </div>
-  )
-}

@@ -1,8 +1,6 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { createLogger } from '@/lib/logs/console/logger'
-
-const logger = createLogger('FoldersStore')
 
 export interface WorkflowFolder {
   id: string
@@ -17,6 +15,84 @@ export interface WorkflowFolder {
   updatedAt: Date
 }
 
+export const folderKeys = {
+  all: ['folders'] as const,
+  lists: () => [...folderKeys.all, 'list'] as const,
+  list: (workspaceId: string | undefined) => [...folderKeys.lists(), workspaceId ?? ''] as const,
+}
+
+const mapFolder = (folder: any): WorkflowFolder => ({
+  id: folder.id,
+  name: folder.name,
+  userId: folder.userId,
+  workspaceId: folder.workspaceId,
+  parentId: folder.parentId,
+  color: folder.color,
+  isExpanded: folder.isExpanded,
+  sortOrder: folder.sortOrder,
+  createdAt: new Date(folder.createdAt),
+  updatedAt: new Date(folder.updatedAt),
+})
+
+async function throwFolderResponseError(response: Response, fallback: string): Promise<never> {
+  const failure = await response.json().catch(() => ({}))
+  throw new Error(failure.error || fallback)
+}
+
+export async function fetchFolders(workspaceId: string): Promise<WorkflowFolder[]> {
+  const response = await fetch(`/api/folders?workspaceId=${workspaceId}`)
+  if (!response.ok) await throwFolderResponseError(response, 'Failed to fetch folders')
+
+  const { folders }: { folders: any[] } = await response.json()
+  return folders.map(mapFolder)
+}
+
+async function createFolder(input: {
+  workspaceId: string
+  name: string
+  parentId?: string
+  color?: string
+}): Promise<void> {
+  const response = await fetch('/api/folders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) await throwFolderResponseError(response, 'Failed to create folder')
+}
+
+async function updateFolder(input: {
+  id: string
+  updates: Partial<Pick<WorkflowFolder, 'name' | 'parentId' | 'color' | 'sortOrder'>>
+}): Promise<void> {
+  const response = await fetch(`/api/folders/${input.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input.updates),
+  })
+  if (!response.ok) await throwFolderResponseError(response, 'Failed to update folder')
+}
+
+async function deleteFolder(id: string): Promise<void> {
+  const response = await fetch(`/api/folders/${id}`, { method: 'DELETE' })
+  if (!response.ok) await throwFolderResponseError(response, 'Failed to delete folder')
+}
+
+export type FolderWrite =
+  | { kind: 'create'; workspaceId: string; ownerId: string; name: string }
+  | { kind: 'rename'; workspaceId: string; ownerId: string; id: string; name: string }
+  | {
+      kind: 'move'
+      workspaceId: string
+      ownerId: string
+      id: string
+      name: string
+      parentId: string | null
+    }
+  | { kind: 'delete'; workspaceId: string; ownerId: string; id: string; name: string }
+
+export type FolderWriteFailure = FolderWrite & { failure: 'transport' | 'refresh' }
+
 export interface FolderTreeNode extends WorkflowFolder {
   children: FolderTreeNode[]
   level: number
@@ -24,17 +100,14 @@ export interface FolderTreeNode extends WorkflowFolder {
 
 interface FolderState {
   folders: Record<string, WorkflowFolder>
-  isLoading: boolean
   expandedFolders: Set<string>
   selectedWorkflows: Set<string>
-  loadedWorkspaces: Record<string, boolean>
+  folderDataReady: Record<string, boolean>
+  activeWrite: FolderWrite | null
+  writeError: FolderWriteFailure | null
 
   // Actions
-  setFolders: (workspaceId: string, folders: WorkflowFolder[]) => void
-  addFolder: (folder: WorkflowFolder) => void
-  updateFolder: (id: string, updates: Partial<WorkflowFolder>) => void
-  removeFolder: (id: string) => void
-  setLoading: (loading: boolean) => void
+  setFolders: (workspaceId: string, folders: WorkflowFolder[]) => boolean
   toggleExpanded: (folderId: string) => void
   setExpanded: (folderId: string, expanded: boolean) => void
 
@@ -52,62 +125,63 @@ interface FolderState {
   getChildFolders: (parentId: string | null) => WorkflowFolder[]
   getFolderPath: (folderId: string) => WorkflowFolder[]
 
-  // API actions
-  fetchFolders: (workspaceId: string) => Promise<void>
-  createFolder: (data: {
-    name: string
-    workspaceId: string
-    parentId?: string
-    color?: string
-  }) => Promise<WorkflowFolder>
-  updateFolderAPI: (id: string, updates: Partial<WorkflowFolder>) => Promise<WorkflowFolder>
-  deleteFolder: (id: string, workspaceId: string) => Promise<void>
+  writeFolder: (write: FolderWrite, queryClient: QueryClient) => Promise<'synced' | 'committed'>
 }
 
 export const useFolderStore = create<FolderState>()(
   devtools(
     (set, get) => ({
       folders: {},
-      isLoading: false,
       expandedFolders: new Set(),
       selectedWorkflows: new Set(),
-      loadedWorkspaces: {},
+      folderDataReady: {},
+      activeWrite: null,
+      writeError: null,
 
-      setFolders: (workspaceId, folders) =>
+      setFolders: (workspaceId, folders) => {
+        if (folders.some((folder) => folder.workspaceId !== workspaceId)) {
+          set((state) => ({
+            folderDataReady: { ...state.folderDataReady, [workspaceId]: false },
+          }))
+          return false
+        }
+
         set((state) => {
           const nextFolders: Record<string, WorkflowFolder> = {}
+          const previousWorkspaceIds = new Set<string>()
           Object.entries(state.folders).forEach(([id, folder]) => {
             if (folder.workspaceId !== workspaceId) {
               nextFolders[id] = folder
+            } else {
+              previousWorkspaceIds.add(id)
             }
           })
           folders.forEach((folder) => {
             nextFolders[folder.id] = folder
           })
-          return { folders: nextFolders }
-        }),
-
-      addFolder: (folder) =>
-        set((state) => ({
-          folders: { ...state.folders, [folder.id]: folder },
-        })),
-
-      updateFolder: (id, updates) =>
-        set((state) => ({
-          folders: {
-            ...state.folders,
-            [id]: state.folders[id] ? { ...state.folders[id], ...updates } : state.folders[id],
-          },
-        })),
-
-      removeFolder: (id) =>
-        set((state) => {
-          const newFolders = { ...state.folders }
-          delete newFolders[id]
-          return { folders: newFolders }
-        }),
-
-      setLoading: (loading) => set({ isLoading: loading }),
+          const nextExpanded = new Set(state.expandedFolders)
+          const nextWorkspaceIds = new Set(folders.map((folder) => folder.id))
+          for (const previousId of previousWorkspaceIds) {
+            if (!nextWorkspaceIds.has(previousId)) nextExpanded.delete(previousId)
+          }
+          if (previousWorkspaceIds.size === 0) {
+            for (const folder of folders) {
+              if (folder.isExpanded) nextExpanded.add(folder.id)
+            }
+          }
+          return {
+            folders: nextFolders,
+            expandedFolders: nextExpanded,
+            folderDataReady: { ...state.folderDataReady, [workspaceId]: true },
+            writeError:
+              state.writeError?.failure === 'refresh' &&
+              state.writeError.workspaceId === workspaceId
+                ? null
+                : state.writeError,
+          }
+        })
+        return true
+      },
 
       toggleExpanded: (folderId) =>
         set((state) => {
@@ -207,126 +281,51 @@ export const useFolderStore = create<FolderState>()(
         return path
       },
 
-      fetchFolders: async (workspaceId) => {
-        let didLoad = false
-        set((state) => ({
-          isLoading: true,
-          loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: false },
-        }))
+      writeFolder: async (write, queryClient) => {
+        if (get().activeWrite) throw new Error('A folder change is already in progress.')
+        if (get().folderDataReady[write.workspaceId] !== true) {
+          throw new Error('Folder data must be refreshed before making changes.')
+        }
+        set({ activeWrite: write, writeError: null })
+
         try {
-          const response = await fetch(`/api/folders?workspaceId=${workspaceId}`)
-          if (!response.ok) {
-            throw new Error('Failed to fetch folders')
+          if (write.kind === 'create') {
+            await createFolder({ workspaceId: write.workspaceId, name: write.name })
+          } else if (write.kind === 'delete') {
+            await deleteFolder(write.id)
+          } else {
+            await updateFolder({
+              id: write.id,
+              updates:
+                write.kind === 'rename' ? { name: write.name } : { parentId: write.parentId },
+            })
           }
-          const { folders }: { folders: any[] } = await response.json()
-
-          // Convert date strings to Date objects
-          const processedFolders: WorkflowFolder[] = folders.map((folder: any) => ({
-            id: folder.id,
-            name: folder.name,
-            userId: folder.userId,
-            workspaceId: folder.workspaceId,
-            parentId: folder.parentId,
-            color: folder.color,
-            isExpanded: folder.isExpanded,
-            sortOrder: folder.sortOrder,
-            createdAt: new Date(folder.createdAt),
-            updatedAt: new Date(folder.updatedAt),
-          }))
-
-          get().setFolders(workspaceId, processedFolders)
-
-          // Initialize expanded state from folder data
-          const expandedSet = new Set<string>()
-          processedFolders.forEach((folder: WorkflowFolder) => {
-            if (folder.isExpanded) {
-              expandedSet.add(folder.id)
-            }
-          })
-          set({ expandedFolders: expandedSet })
-          didLoad = true
         } catch (error) {
-          logger.error('Error fetching folders:', error)
-        } finally {
+          set({ activeWrite: null, writeError: { ...write, failure: 'transport' } })
+          throw error
+        }
+
+        try {
+          const queryKey = folderKeys.list(write.workspaceId)
+          await queryClient.cancelQueries({ queryKey, exact: true })
+          const folders = await queryClient.fetchQuery({
+            queryKey,
+            queryFn: () => fetchFolders(write.workspaceId),
+            staleTime: 0,
+          })
+          if (!get().setFolders(write.workspaceId, folders)) {
+            throw new Error('Folder refresh returned data for another workspace.')
+          }
+          set({ activeWrite: null })
+          return 'synced'
+        } catch (error) {
           set((state) => ({
-            isLoading: false,
-            loadedWorkspaces: { ...state.loadedWorkspaces, [workspaceId]: didLoad },
+            activeWrite: null,
+            folderDataReady: { ...state.folderDataReady, [write.workspaceId]: false },
+            writeError: { ...write, failure: 'refresh' },
           }))
+          return 'committed'
         }
-      },
-
-      createFolder: async (data) => {
-        const response = await fetch('/api/folders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to create folder')
-        }
-
-        const { folder } = await response.json()
-        const processedFolder = {
-          ...folder,
-          createdAt: new Date(folder.createdAt),
-          updatedAt: new Date(folder.updatedAt),
-        }
-
-        get().addFolder(processedFolder)
-        return processedFolder
-      },
-
-      updateFolderAPI: async (id, updates) => {
-        const response = await fetch(`/api/folders/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to update folder')
-        }
-
-        const { folder } = await response.json()
-        const processedFolder = {
-          ...folder,
-          createdAt: new Date(folder.createdAt),
-          updatedAt: new Date(folder.updatedAt),
-        }
-
-        get().updateFolder(id, processedFolder)
-
-        return processedFolder
-      },
-
-      deleteFolder: async (id: string, _workspaceId: string) => {
-        const response = await fetch(`/api/folders/${id}`, { method: 'DELETE' })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to delete folder')
-        }
-
-        const responseData = await response.json()
-        const parentId = typeof responseData.parentId === 'string' ? responseData.parentId : null
-
-        for (const childFolder of get().getChildFolders(id)) {
-          get().updateFolder(childFolder.id, { parentId })
-        }
-        get().removeFolder(id)
-
-        set((state) => {
-          const newExpanded = new Set(state.expandedFolders)
-          newExpanded.delete(id)
-          return { expandedFolders: newExpanded }
-        })
-
-        logger.info(
-          `Deleted folder ${id}; moved ${responseData.movedFolders ?? 0} folder(s) and ${responseData.movedWorkflows ?? 0} workflow(s) up one level`
-        )
       },
     }),
     { name: 'folder-store' }

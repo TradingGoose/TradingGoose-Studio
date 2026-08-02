@@ -1,11 +1,18 @@
 import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
+import { webhook, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { schedules } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
-import { fetchAndProcessAirtablePayloads, formatWebhookInput } from '@/lib/webhooks/utils'
+import {
+  type AirtablePollResult,
+  formatWebhookInput,
+  getAirtableContinuationExecutionId,
+  getAirtablePollContinuation,
+} from '@/lib/webhooks/utils'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -180,7 +187,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     executionTarget,
   }
 
-  let runnerInvoked = false
+  let executionLogOwned = false
   let workspaceId: string | null = null
   let workflowState: WorkflowExecutionBlueprint['workflowData'] | null = null
 
@@ -196,6 +203,55 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
 
     workspaceId = scopedWorkspaceId
     workflowState = blueprint.workflowData
+
+    const enqueueAirtableContinuation = (
+      continuation: NonNullable<AirtablePollResult['continuation']>
+    ) =>
+      enqueuePendingExecution({
+        executionType: 'webhook',
+        pendingExecutionId: getAirtableContinuationExecutionId(payload.webhookId, continuation),
+        workflowId: payload.workflowId,
+        workspaceId: scopedWorkspaceId,
+        userId: payload.userId,
+        source: 'webhook:airtable',
+        requestId,
+        payload: {
+          webhookId: payload.webhookId,
+          workflowId: payload.workflowId,
+          userId: payload.userId,
+          provider: payload.provider,
+          blockId: payload.blockId,
+          testMode: payload.testMode,
+          executionTarget: payload.executionTarget,
+        },
+      })
+
+    const [completedExecution] = await db
+      .select({
+        endedAt: workflowExecutionLogs.endedAt,
+        level: workflowExecutionLogs.level,
+      })
+      .from(workflowExecutionLogs)
+      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .limit(1)
+
+    if (completedExecution?.endedAt) {
+      executionLogOwned = true
+      const success = completedExecution.level === 'info'
+      const continuation =
+        success && payload.provider === 'airtable' ? getAirtablePollContinuation(payload) : null
+      if (continuation) {
+        await enqueueAirtableContinuation(continuation)
+      }
+      return {
+        success,
+        workflowId: payload.workflowId,
+        executionId,
+        output: {},
+        executedAt: completedExecution.endedAt.toISOString(),
+        provider: payload.provider,
+      }
+    }
 
     const blocks = blueprint.workflowData.blocks
 
@@ -220,83 +276,46 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       workspaceId: scopedWorkspaceId,
     }
 
-    if (payload.provider === 'airtable') {
-      if (!webhookRows[0]) {
-        throw new Error(`Webhook record not found: ${payload.webhookId}`)
-      }
-
-      logger.info(`[${requestId}] Processing Airtable webhook via fetchAndProcessAirtablePayloads`)
-
-      const airtableInput = await fetchAndProcessAirtablePayloads(
-        {
-          id: payload.webhookId,
-          provider: payload.provider,
-          providerConfig: webhookRows[0].providerConfig,
-        },
-        workflowRef,
-        requestId
-      )
-
-      if (!airtableInput) {
-        logger.info(`[${requestId}] No Airtable changes to process`)
-        return completeSkippedWebhookExecution({
-          payload,
-          executionId,
-          requestId,
-          workspaceId: scopedWorkspaceId,
-          workflowState: blueprint.workflowData,
-          triggerData,
-          message: 'No Airtable changes to process',
-        })
-      }
-
-      runnerInvoked = true
-      const { result } = await runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: payload.userId,
-        requestId,
-        executionId,
-        triggerType: 'webhook',
-        workflowInput: airtableInput,
-        triggerTarget: {
-          kind: 'block',
-          blockId: payload.blockId,
-        },
-        triggerData,
-      })
-
-      logger.info(`[${requestId}] Airtable webhook execution completed`, {
-        success: result.success,
-        workflowId: payload.workflowId,
-      })
-
-      return {
-        success: result.success,
-        workflowId: payload.workflowId,
-        executionId,
-        output: result.output,
-        executedAt: new Date().toISOString(),
-        provider: payload.provider,
-      }
+    if (payload.provider === 'airtable' && !webhookRows[0]) {
+      throw new Error(`Webhook record not found: ${payload.webhookId}`)
     }
 
     const mockRequest = {
-      headers: new Map(Object.entries(payload.headers)),
+      headers: new Map(Object.entries(payload.headers ?? {})),
     } as any
 
-    const input = await formatWebhookInput(webhookRecord, workflowRef, payload.body, mockRequest)
+    const formattedInput = await formatWebhookInput(
+      webhookRecord,
+      workflowRef,
+      payload.body,
+      mockRequest,
+      requestId,
+      executionId
+    )
+    const airtablePoll =
+      payload.provider === 'airtable' ? (formattedInput as AirtablePollResult) : null
+    const input = airtablePoll ? airtablePoll.input : formattedInput
 
-    if (!input && payload.provider === 'whatsapp') {
-      logger.info(`[${requestId}] No messages in WhatsApp payload, skipping execution`)
-      return completeSkippedWebhookExecution({
+    if (!input && (payload.provider === 'whatsapp' || payload.provider === 'airtable')) {
+      const message =
+        payload.provider === 'airtable'
+          ? 'No Airtable changes to process'
+          : 'No messages in WhatsApp payload'
+      logger.info(`[${requestId}] ${message}, skipping execution`)
+      const skippedExecution = await completeSkippedWebhookExecution({
         payload,
         executionId,
         requestId,
         workspaceId: scopedWorkspaceId,
         workflowState: blueprint.workflowData,
         triggerData,
-        message: 'No messages in WhatsApp payload',
+        message,
       })
+      executionLogOwned = true
+      if (airtablePoll?.continuation) {
+        await enqueueAirtableContinuation(airtablePoll.continuation)
+      }
+      return skippedExecution
     }
 
     if (input && payload.blockId && blocks[payload.blockId]) {
@@ -341,7 +360,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       Object.assign(input, processedInput)
     }
 
-    runnerInvoked = true
+    executionLogOwned = true
     const { result } = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: payload.userId,
@@ -362,6 +381,10 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       provider: payload.provider,
     })
 
+    if (result.success && airtablePoll?.continuation) {
+      await enqueueAirtableContinuation(airtablePoll.continuation)
+    }
+
     return {
       success: result.success,
       workflowId: payload.workflowId,
@@ -378,7 +401,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       provider: payload.provider,
     })
 
-    if (!runnerInvoked && error instanceof Error && workspaceId && workflowState) {
+    if (!executionLogOwned && error instanceof Error && workspaceId && workflowState) {
       await logWebhookFailure({
         payload,
         executionId,
@@ -393,3 +416,19 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     throw error
   }
 }
+
+export const airtableWebhookCleanupSweep = schedules.task({
+  id: 'airtable-webhook-cleanup-sweep',
+  cron: '*/5 * * * *',
+  retry: {
+    maxAttempts: 3,
+    factor: 3,
+    minTimeoutInMs: 60_000,
+    maxTimeoutInMs: 900_000,
+    randomize: true,
+  },
+  run: async () => {
+    const { sweepAirtableWebhookCleanup } = await import('@/lib/webhooks/webhook-helpers')
+    await sweepAirtableWebhookCleanup(`airtable-cleanup-${Date.now()}`)
+  },
+})

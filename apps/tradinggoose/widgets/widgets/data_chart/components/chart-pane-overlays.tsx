@@ -18,7 +18,7 @@ export type PaneIndicatorControlItem = {
   inputs?: Record<string, unknown>
   values: IndicatorPlotValue[]
   isHidden: boolean
-  errorMessage?: string
+  executionFailure?: string
 }
 
 type ChartPaneOverlaysProps = {
@@ -114,7 +114,7 @@ export const ChartPaneOverlays = ({
                           indicatorInputs={item.inputs}
                           plotValues={item.values}
                           isHidden={item.isHidden}
-                          errorMessage={item.errorMessage}
+                          executionFailure={item.executionFailure}
                           onToggleHidden={onToggleHidden}
                           onRemove={onRemoveIndicator}
                           onOpenSettings={onOpenSettings}

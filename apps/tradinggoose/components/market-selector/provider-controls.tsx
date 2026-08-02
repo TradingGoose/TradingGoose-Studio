@@ -55,6 +55,7 @@ export function MarketProviderControls({
         providerParams={providerParams}
         authParams={authParams}
         workspaceId={workspaceId}
+        disabled={disabled}
         onSave={onSettingsSave}
       />
     </div>

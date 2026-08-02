@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, useMemo, useState } from 'react'
 import { Activity, Check, ChevronDown, Search } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +19,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type { LandingMarketIndicatorOption } from './indicators/catalog'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
@@ -93,15 +92,19 @@ export function LandingIndicatorDropdown({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                className={widgetHeaderControlClassName(
-                  'group flex min-w-[220px] items-center justify-between gap-2'
-                )}
-                aria-haspopup='listbox'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    className={widgetHeaderControlClassName(
+                      'group flex min-w-[220px] items-center justify-between gap-2'
+                    )}
+                    aria-haspopup='listbox'
+                  />
+                }
               >
                 {colorBadge}
                 {value.length > 0 ? (
@@ -114,13 +117,13 @@ export function LandingIndicatorDropdown({
                   </span>
                 )}
                 <ChevronDown
-                  className='h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                  className='h-4 w-4 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
                   aria-hidden='true'
                 />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{copy.tooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -141,6 +144,7 @@ export function LandingIndicatorDropdown({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={copy.searchPlaceholder}
+                aria-label={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
@@ -153,10 +157,10 @@ export function LandingIndicatorDropdown({
             <ScrollArea
               className={cn(
                 'h-full w-full px-2 py-2',
-                '[&_[data-radix-scroll-area-viewport]>div]:!block',
-                '[&_[data-radix-scroll-area-viewport]>div]:w-full',
-                '[&_[data-radix-scroll-area-viewport]>div]:max-w-full',
-                '[&_[data-radix-scroll-area-viewport]>div]:overflow-hidden'
+                '[&_[data-slot=scroll-area-viewport]>div]:!block',
+                '[&_[data-slot=scroll-area-content]]:w-full',
+                '[&_[data-slot=scroll-area-content]]:max-w-full',
+                '[&_[data-slot=scroll-area-content]]:overflow-hidden'
               )}
               style={{
                 height: DROPDOWN_VIEWPORT_HEIGHT,
@@ -174,8 +178,8 @@ export function LandingIndicatorDropdown({
                       <DropdownMenuItem
                         key={option.id}
                         className={cn(widgetHeaderMenuItemClassName, 'items-center gap-2')}
-                        onSelect={(event) => {
-                          event.preventDefault()
+                        closeOnClick={false}
+                        onClick={() => {
                           handleToggleIndicator(option.id)
                         }}
                       >

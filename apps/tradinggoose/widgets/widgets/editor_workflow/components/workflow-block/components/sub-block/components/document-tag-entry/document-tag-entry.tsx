@@ -56,7 +56,8 @@ export function DocumentTagEntry({
   const knowledgeBaseId = knowledgeBaseIdValue || null
 
   // Use KB tag definitions hook to get available tags
-  const { tagDefinitions, isLoading } = useKnowledgeBaseTagDefinitions(knowledgeBaseId)
+  const { tagDefinitions, isLoading, error, fetchTagDefinitions } =
+    useKnowledgeBaseTagDefinitions(knowledgeBaseId)
 
   const emitTagSelection = useTagSelection(blockId, subBlock.id)
 
@@ -252,8 +253,41 @@ export function DocumentTagEntry({
     )
   }
 
+  if (error) {
+    return (
+      <div className='space-y-2 p-4'>
+        <p role='alert' aria-atomic='true' className='text-destructive text-sm'>
+          {copy.failedToLoad}
+        </p>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={isLoading}
+          focusableWhenDisabled={isLoading}
+          aria-busy={isLoading || undefined}
+          onClick={() => {
+            void fetchTagDefinitions()
+          }}
+        >
+          {isLoading ? copy.retrying : copy.retry}
+        </Button>
+      </div>
+    )
+  }
+
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>{t('loadingTagDefinitions')}</div>
+    return (
+      <div
+        className='p-4 text-muted-foreground text-sm'
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        aria-busy='true'
+      >
+        {t('loadingTagDefinitions')}
+      </div>
+    )
   }
 
   const renderHeader = () => (

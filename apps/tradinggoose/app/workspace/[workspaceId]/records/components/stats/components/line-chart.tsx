@@ -199,12 +199,6 @@ export function LineChart({
                     }}
                     onMouseEnter={() => setHoverSeriesId(s.id || null)}
                     onMouseLeave={() => setHoverSeriesId((prev) => (prev === s.id ? null : prev))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setActiveSeriesId((prev) => (prev === s.id ? null : s.id || null))
-                      }
-                    }}
                     onClick={() =>
                       setActiveSeriesId((prev) => (prev === s.id ? null : s.id || null))
                     }
@@ -225,7 +219,7 @@ export function LineChart({
           <div className='text-[10px] text-muted-foreground'>{currentHoverDate}</div>
         ) : null}
       </div>
-      <TooltipProvider delayDuration={0}>
+      <TooltipProvider delay={0}>
         <div className='relative' style={{ width, height }}>
           <svg
             width={width}
@@ -369,10 +363,9 @@ export function LineChart({
                   strokeWidth={sw}
                   strokeLinecap='round'
                   clipPath={`url(#clip-${label.replace(/\s+/g, '-')})`}
-                  style={{ cursor: 'pointer', mixBlendMode: isDark ? 'screen' : 'normal' }}
+                  style={{ mixBlendMode: isDark ? 'screen' : 'normal' }}
                   strokeDasharray={s.dashed ? '5 4' : undefined}
                   opacity={strokeOpacity}
-                  onClick={() => setActiveSeriesId((prev) => (prev === s.id ? null : s.id || null))}
                 />
               )
             })}

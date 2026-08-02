@@ -1,4 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  mutationOptions,
+  type QueryClient,
+  useQuery,
+} from '@tanstack/react-query'
 
 /**
  * Query key factories for workspace-related queries
@@ -92,33 +97,34 @@ interface UpdateWorkspaceSettingsParams {
   billingOwner?: WorkspaceBillingOwner
 }
 
-export function useUpdateWorkspaceSettings() {
-  const queryClient = useQueryClient()
+export const workspaceMutationOptions = {
+  updateSettings(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ workspaceId, ...updates }: UpdateWorkspaceSettingsParams) => {
+        const response = await fetch(`/api/workspaces/${workspaceId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        })
 
-  return useMutation({
-    mutationFn: async ({ workspaceId, ...updates }: UpdateWorkspaceSettingsParams) => {
-      const response = await fetch(`/api/workspaces/${workspaceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || error.message || 'Failed to update workspace settings')
+        }
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || error.message || 'Failed to update workspace settings')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: workspaceKeys.settings(variables.workspaceId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: workspaceKeys.adminLists(),
-      })
-    },
-  })
+        return response.json()
+      },
+      onSuccess: (_data, variables) =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: workspaceKeys.settings(variables.workspaceId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: workspaceKeys.adminLists(),
+          }),
+        ]),
+    })
+  },
 }
 
 /**

@@ -15,10 +15,7 @@ import {
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
 import { getAllTriggerBlocks, getTriggersForSidebar } from '@/lib/workflows/trigger-utils'
-import {
-  useWorkflowEditorCopy,
-  useWorkflowI18n,
-} from '@/widgets/widgets/editor_workflow/copy'
+import { useWorkflowEditorCopy, useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('TriggerList')
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
@@ -186,21 +183,25 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           </div>
           <span className='flex-1 truncate font-medium text-sm leading-none'>{trigger.name}</span>
         </div>
-        <Tooltip delayDuration={300}>
-          <TooltipTrigger asChild>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className='flex h-6 w-6 items-center justify-center rounded-md'
-            >
-              <Info className='h-3.5 w-3.5 text-muted-foreground' />
-            </button>
-          </TooltipTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className='flex h-6 w-6 items-center justify-center rounded-md'
+              >
+                <Info className='h-3.5 w-3.5 text-muted-foreground' />
+              </button>
+            }
+            delay={300}
+          />
           <TooltipContent
             side='top'
             sideOffset={5}
-            className='z-[9999] max-w-[200px]'
+            className='max-w-[200px]'
+            zIndex={9999}
             align='center'
-            avoidCollisions={false}
+            collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
           >
             <p className='text-xs'>{trigger.description}</p>
           </TooltipContent>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { CopyButton } from '@/components/ui/copy-button'
 import type { ToolCall, ToolCallMetadata } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
@@ -42,11 +43,15 @@ function ToolCallItem({ toolCall, index }: ToolCallItemProps) {
   const StatusIcon = toolCall.status === 'success' ? CheckCircle2 : AlertCircle
 
   return (
-    <div className={cn('border-b last:border-b-0', expanded ? 'bg-secondary/30' : '')}>
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className={cn('border-b last:border-b-0', expanded ? 'bg-secondary/30' : '')}
+    >
       {/* Tool call header */}
-      <div
-        className='flex cursor-pointer items-center p-2 transition-colors hover:bg-secondary/40'
-        onClick={() => setExpanded(!expanded)}
+      <CollapsibleTrigger
+        type='button'
+        className='flex w-full items-center p-2 text-left transition-colors hover:bg-secondary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
       >
         <div className='mr-1'>
           {expanded ? <ChevronDown className='h-4 w-4' /> : <ChevronRight className='h-4 w-4' />}
@@ -65,83 +70,81 @@ function ToolCallItem({ toolCall, index }: ToolCallItemProps) {
             </div>
           </div>
         </div>
-      </div>
+      </CollapsibleTrigger>
 
       {/* Tool call details */}
-      {expanded && (
-        <div className='border-t bg-secondary/20 p-3 text-xs'>
-          <div className='space-y-4'>
-            {/* Timing information */}
-            <div className='grid grid-cols-2 gap-2'>
-              <div>
-                <div className='mb-1 text-muted-foreground'>Start Time</div>
-                <div className='group relative font-mono'>
-                  {toolCall.startTime && isValidDate(toolCall.startTime) ? (
-                    <>
-                      <CopyButton
-                        text={formatDateWithMilliseconds(new Date(toolCall.startTime))}
-                        showLabel={false}
-                      />
-                      {formatDateWithMilliseconds(new Date(toolCall.startTime))}
-                    </>
-                  ) : (
-                    'Not available'
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className='mb-1 text-muted-foreground'>End Time</div>
-                <div className='group relative font-mono'>
-                  {toolCall.endTime && isValidDate(toolCall.endTime) ? (
-                    <>
-                      <CopyButton
-                        text={formatDateWithMilliseconds(new Date(toolCall.endTime))}
-                        showLabel={false}
-                      />
-                      {formatDateWithMilliseconds(new Date(toolCall.endTime))}
-                    </>
-                  ) : (
-                    'Not available'
-                  )}
-                </div>
+      <CollapsibleContent className='border-t bg-secondary/20 p-3 text-xs'>
+        <div className='space-y-4'>
+          {/* Timing information */}
+          <div className='grid grid-cols-2 gap-2'>
+            <div>
+              <div className='mb-1 text-muted-foreground'>Start Time</div>
+              <div className='group relative font-mono'>
+                {toolCall.startTime && isValidDate(toolCall.startTime) ? (
+                  <>
+                    <CopyButton
+                      text={formatDateWithMilliseconds(new Date(toolCall.startTime))}
+                      showLabel={false}
+                    />
+                    {formatDateWithMilliseconds(new Date(toolCall.startTime))}
+                  </>
+                ) : (
+                  'Not available'
+                )}
               </div>
             </div>
-
-            {/* Input */}
-            {toolCall.input && (
-              <div>
-                <div className='mb-1 text-muted-foreground'>Input</div>
-                <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded p-2'>
-                  <CopyButton text={JSON.stringify(toolCall.input, null, 2)} showLabel={false} />
-                  <code>{JSON.stringify(toolCall.input, null, 2)}</code>
-                </pre>
+            <div>
+              <div className='mb-1 text-muted-foreground'>End Time</div>
+              <div className='group relative font-mono'>
+                {toolCall.endTime && isValidDate(toolCall.endTime) ? (
+                  <>
+                    <CopyButton
+                      text={formatDateWithMilliseconds(new Date(toolCall.endTime))}
+                      showLabel={false}
+                    />
+                    {formatDateWithMilliseconds(new Date(toolCall.endTime))}
+                  </>
+                ) : (
+                  'Not available'
+                )}
               </div>
-            )}
-
-            {/* Output or Error */}
-            {toolCall.status === 'success' && toolCall.output && (
-              <div>
-                <div className='mb-1 text-muted-foreground'>Output</div>
-                <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded p-2'>
-                  <CopyButton text={JSON.stringify(toolCall.output, null, 2)} showLabel={false} />
-                  <code>{JSON.stringify(toolCall.output, null, 2)}</code>
-                </pre>
-              </div>
-            )}
-
-            {toolCall.status === 'error' && toolCall.error && (
-              <div>
-                <div className='mb-1 text-destructive'>Error</div>
-                <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded bg-destructive/10 p-2 text-destructive'>
-                  <CopyButton text={toolCall.error} showLabel={false} />
-                  <code>{toolCall.error}</code>
-                </pre>
-              </div>
-            )}
+            </div>
           </div>
+
+          {/* Input */}
+          {toolCall.input && (
+            <div>
+              <div className='mb-1 text-muted-foreground'>Input</div>
+              <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded p-2'>
+                <CopyButton text={JSON.stringify(toolCall.input, null, 2)} showLabel={false} />
+                <code>{JSON.stringify(toolCall.input, null, 2)}</code>
+              </pre>
+            </div>
+          )}
+
+          {/* Output or Error */}
+          {toolCall.status === 'success' && toolCall.output && (
+            <div>
+              <div className='mb-1 text-muted-foreground'>Output</div>
+              <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded p-2'>
+                <CopyButton text={JSON.stringify(toolCall.output, null, 2)} showLabel={false} />
+                <code>{JSON.stringify(toolCall.output, null, 2)}</code>
+              </pre>
+            </div>
+          )}
+
+          {toolCall.status === 'error' && toolCall.error && (
+            <div>
+              <div className='mb-1 text-destructive'>Error</div>
+              <pre className='group relative max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded bg-destructive/10 p-2 text-destructive'>
+                <CopyButton text={toolCall.error} showLabel={false} />
+                <code>{toolCall.error}</code>
+              </pre>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 

@@ -48,8 +48,19 @@
     "homeLabel": "Inicio",
     "languageLabel": "Idioma",
     "primaryNavigation": "Navegación principal",
+    "mobileNavigation": "Navegación móvil",
     "githubRepositoryAriaLabel": "Repositorio de GitHub - {stars} estrellas",
-    "homeAriaLabel": "Inicio de {brand}"
+    "homeAriaLabel": "Inicio de {brand}",
+    "commandMenu": {
+      "title": "Menú de comandos",
+      "searchPlaceholder": "Buscar comandos...",
+      "empty": "No se encontraron comandos.",
+      "navigation": "Navegación",
+      "actions": "Acciones",
+      "toggleTheme": "Cambiar tema",
+      "themeChanged": "El tema cambió a {theme}.",
+      "themeChangeFailed": "No se pudo cambiar el tema."
+    }
   },
   "registration": {
     "open": {
@@ -183,6 +194,7 @@
     },
     "verify": {
       "eyebrow": "Verificación",
+      "codeLabel": "Código de verificación",
       "pendingTitle": "Verifica tu correo electrónico",
       "verifiedTitle": "¡Correo electrónico verificado!",
       "verifiedDescription": "Tu correo electrónico ha sido verificado. Redirigiendo al panel...",
@@ -254,17 +266,6 @@
       "success": "¡Contraseña restablecida correctamente! Redirigiendo al inicio de sesión...",
       "failure": "No se pudo restablecer la contraseña",
       "backToLogin": "Volver al inicio de sesión",
-      "request": {
-        "emailLabel": "Correo electrónico",
-        "emailPlaceholder": "Ingresa tu correo electrónico",
-        "helperText": "Enviaremos un enlace para restablecer la contraseña a esta dirección.",
-        "submit": "Enviar enlace",
-        "submitting": "Enviando...",
-        "validation": {
-          "emailRequired": "El correo electrónico es obligatorio.",
-          "emailInvalid": "Introduzca una dirección de correo electrónico válida."
-        }
-      },
       "setNew": {
         "passwordLabel": "Nueva contraseña",
         "passwordPlaceholder": "Ingresa una nueva contraseña",
@@ -860,6 +861,7 @@
     }
   },
   "unsubscribe": {
+    "loading": "Cargando preferencias de correo...",
     "intro": {
       "title": "Lamentamos verte partir",
       "description": "Entendemos que las preferencias de correo son personales. Elige qué correos dejar de recibir de TradingGoose."
@@ -920,6 +922,12 @@
   "workspace": {
     "entry": {
       "loading": "Cargando espacio de trabajo..."
+    },
+    "permissionsFeedback": {
+      "title": "No se pudo comprobar el acceso al espacio de trabajo",
+      "description": "Comprueba tu conexión e inténtalo de nuevo.",
+      "retry": "Intentar de nuevo",
+      "retrying": "Reintentando…"
     },
     "switcher": {
       "failedToCreateWorkspace": "Error al crear el espacio de trabajo",
@@ -1008,6 +1016,7 @@
     "knowledge": {
       "title": "Conocimiento",
       "searchPlaceholder": "Buscar bases de conocimiento...",
+      "clearSearch": "Borrar búsqueda",
       "sort": {
         "nameAsc": "Nombre (A-Z)",
         "nameDesc": "Nombre (Z-A)"
@@ -1016,16 +1025,25 @@
         "create": "Crear",
         "createTooltip": "Se requiere permiso de escritura para crear bases de conocimiento"
       },
-      "errors": {
-        "load": "Error al cargar las bases de conocimiento: {error}",
-        "retry": "Reintentar"
+      "actionBar": {
+        "selectedItems": "{count, plural, one {# elemento seleccionado} other {# elementos seleccionados}}",
+        "enableItems": "{count, plural, one {Habilitar # elemento} other {Habilitar # elementos}}",
+        "disableItems": "{count, plural, one {Deshabilitar # elemento} other {Deshabilitar # elementos}}",
+        "deleteItems": "{count, plural, one {Eliminar # elemento} other {Eliminar # elementos}}"
+      },
+      "listFeedback": {
+        "failure": "No pudimos cargar las bases de conocimiento.",
+        "retry": "Reintentar",
+        "retrying": "Reintentando…",
+        "loading": "Cargando bases de conocimiento…",
+        "refreshing": "Actualizando bases de conocimiento…",
+        "loaded": "Bases de conocimiento cargadas."
       },
       "emptyState": {
         "createFirst": "Crea tu primera base de conocimiento",
         "withEditPermission": "Sube tus documentos para crear una base de conocimiento para tus agentes.",
         "withoutEditPermission": "Las bases de conocimiento aparecerán aquí. Contacta a un administrador para crear bases de conocimiento.",
         "buttonCreate": "Crear base de conocimiento",
-        "buttonContactAdmin": "Contactar al administrador",
         "noMatches": "Ninguna base de conocimiento coincide con tu búsqueda."
       },
       "defaults": {
@@ -1055,6 +1073,7 @@
         "deleting": "Eliminando..."
       },
       "loading": {
+        "status": "Cargando conocimiento...",
         "searchDocumentsPlaceholder": "Buscar documentos...",
         "addDocuments": "Añadir documentos"
       },
@@ -1085,7 +1104,11 @@
         "nextPage": "página siguiente",
         "editingChunk": "Editando fragmento #{index} • Página {currentPage} de {totalPages}",
         "cancel": "Cancelar",
-        "errors": {
+        "contentConstraints": {
+          "required": "El contenido del fragmento es obligatorio.",
+          "maxLength": "El contenido del fragmento debe tener {max, number} caracteres o menos."
+        },
+        "failures": {
           "failedToCreateChunk": "Error al crear el fragmento",
           "failedToUpdateChunk": "Error al actualizar el fragmento",
           "failedToNavigatePrev": "Error al navegar al fragmento anterior",
@@ -1109,6 +1132,7 @@
         "overlapSizeLabel": "Tamaño de superposición",
         "chunkingDescription": "Configure cómo se dividen los documentos en fragmentos para su procesamiento. Los fragmentos más pequeños ofrecen una recuperación más precisa, pero pueden perder contexto.",
         "uploadDocuments": "Cargar documentos",
+        "removeFile": "Eliminar {name}",
         "dropFilesHere": "¡Suelte los archivos aquí!",
         "dropFilesHereOrClickToBrowse": "Suelte los archivos aquí o haga clic para examinar",
         "dropMoreFilesHere": "¡Suelte más archivos aquí!",
@@ -1149,6 +1173,7 @@
         "cancel": "Cancelar",
         "close": "Cerrar",
         "uploadDocuments": "Cargar documentos",
+        "removeFile": "Eliminar {name}",
         "uploading": "Cargando...",
         "processing": "Procesando...",
         "fileTooLarge": "El archivo \"{name}\" es demasiado grande. El tamaño máximo es 100 MB.",
@@ -1156,6 +1181,20 @@
       },
       "document": {
         "searchChunksPlaceholder": "Buscar fragmentos...",
+        "searchingChunks": "Buscando fragmentos...",
+        "batchUpdatePartial": "Se actualizaron {updated} de {total} fragmentos seleccionados. No se pudieron actualizar {failed}.",
+        "batchUpdateFailed": "No se pudieron actualizar los fragmentos seleccionados. Inténtalo de nuevo.",
+        "closeTags": "Cerrar etiquetas",
+        "previousPage": "Página anterior",
+        "nextPage": "Página siguiente",
+        "enableChunk": "Habilitar fragmento {index}",
+        "disableChunk": "Deshabilitar fragmento {index}",
+        "deleteChunk": "Eliminar fragmento {index}",
+        "retryDocument": "Reintentar el procesamiento de {name}",
+        "enableDocument": "Habilitar {name}",
+        "disableDocument": "Deshabilitar {name}",
+        "manageDocumentTags": "Administrar etiquetas de {name}",
+        "deleteDocument": "Eliminar {name}",
         "createChunk": "Crear fragmento",
         "deleteChunkTitle": "¿Eliminar fragmento?",
         "deleteChunksTitle": "¿Eliminar fragmentos?",
@@ -1172,16 +1211,19 @@
       },
       "tags": {
         "knowledgeBaseTagsTitle": "Etiquetas de la base de conocimiento",
+        "definitionsLoadFailed": "No se pudieron cargar las definiciones de etiquetas.",
+        "loadingDefinitions": "Cargando definiciones de etiquetas…",
+        "retry": "Intentar de nuevo",
+        "retrying": "Reintentando…",
         "noTagDefinitionsYet": "Aún no hay definiciones de etiquetas.",
         "viewDocuments": "Ver documentos",
         "deleteTag": "Eliminar etiqueta",
+        "removeTag": "Eliminar {name}",
         "addTagDefinition": "Agregar definición de etiqueta",
         "documentTagsTitle": "Etiquetas del documento",
         "unnamedTag": "Etiqueta sin nombre",
         "addTag": "Agregar etiqueta",
         "emptyState": "Aún no se han agregado etiquetas. Haga clic en \"Agregar etiqueta\" para comenzar.",
-        "advancedSettings": "Configuración avanzada",
-        "tagCount": "{count} etiqueta{count, plural, one {} other {s}}",
         "slotsUsed": "{used} de {total} ranuras de etiqueta usadas",
         "editTag": "Editar etiqueta",
         "addNewTag": "Agregar nueva etiqueta",
@@ -1202,10 +1244,9 @@
         "createNewTag": "Crear nueva etiqueta",
         "creating": "Creando...",
         "save": "Guardar",
-        "moreTags": "Más etiquetas",
-        "showFewerTags": "Mostrar menos etiquetas",
-        "activeTags": "Etiquetas activas:",
-        "tagLabel": "Etiqueta {index}",
+        "savingTag": "Guardando etiqueta…",
+        "tagSaved": "Etiqueta guardada.",
+        "tagSaveFailed": "No se pudo guardar la etiqueta. Tus cambios siguen aquí; inténtalo de nuevo.",
         "deleteTagTitle": "Eliminar etiqueta",
         "deleteTagDescription": "¿Está seguro de que desea eliminar la etiqueta \"{name}\"? Esto quitará esta etiqueta de {count} documento{plural}.",
         "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
@@ -1234,6 +1275,7 @@
         "dashboard": "Panel de control"
       },
       "searchPlaceholder": "Buscar registros...",
+      "unsupportedQualifier": "Calificador no compatible: {qualifiers}",
       "live": "En vivo",
       "monitorRequirement": "Por favor configura un flujo de trabajo que use un indicador como disparador y un indicador que emita un disparador para agregar un monitor.",
       "actions": {
@@ -1241,9 +1283,6 @@
         "refresh": "Actualizar",
         "refreshing": "Actualizando...",
         "exportCsv": "Exportar CSV"
-      },
-      "errors": {
-        "fetchLogs": "Error al obtener registros"
       },
       "dashboard": {
         "title": "Panel de control",
@@ -1343,8 +1382,13 @@
           "noExecutions": "Sin ejecuciones",
           "loadingMore": "Cargando más...",
           "scrollToLoadMore": "Desplázate para cargar más",
+          "detailsLoaded": "Se cargaron {count} registros de ejecución.",
+          "loadMoreFailed": "No se pudieron cargar más registros de ejecución.",
           "succeeded": "{success}/{total} exitosos",
-          "segment": "Segmento {index}",
+          "segmentWithExecutions": "Segmento {index}, {range}: {successRate} de éxito, {counts}",
+          "segmentWithoutExecutions": "Segmento {index}, {range}: sin ejecuciones",
+          "timeUnavailable": "Hora no disponible",
+          "executionDetails": "Detalles de la ejecución del {timestamp}",
           "allWorkflows": "Todos los flujos de trabajo",
           "multipleSelected": "{count} flujos de trabajo seleccionados",
           "durationDay": "{count} día{plural}",
@@ -1366,7 +1410,8 @@
         "scrollToLoadMore": "Desplázate para cargar más",
         "noLogs": "No se encontraron registros",
         "unknownWorkflow": "Flujo de trabajo desconocido",
-        "errorPrefix": "Error: ",
+        "initialLoadFailure": "No se pudieron cargar los registros. Actualiza para volver a intentarlo.",
+        "backgroundLoadFailure": "No se pudieron actualizar los registros. Se muestran los últimos resultados disponibles.",
         "runningMs": "{value} ms"
       },
       "details": {
@@ -1385,6 +1430,17 @@
         "loading": "Cargando detalles…",
         "workflowState": "Estado del Flujo de trabajo",
         "viewSnapshot": "Ver instantánea",
+        "snapshot": {
+          "enterFullscreen": "Entrar en pantalla completa",
+          "exitFullscreen": "Salir de pantalla completa",
+          "openExpandedData": "Abrir datos ampliados de {section}",
+          "expandSection": "Ampliar {section}",
+          "collapseSection": "Contraer {section}",
+          "closeExpandedData": "Cerrar datos ampliados de {section}",
+          "closeBlockDetails": "Cerrar detalles del bloque",
+          "previousIteration": "Iteración anterior",
+          "nextIteration": "Siguiente iteración"
+        },
         "toolCalls": "Llamadas de herramientas",
         "files": "Archivos",
         "costBreakdown": "Desglose de costos",
@@ -1533,6 +1589,13 @@
         "workspace": "No se encontraron variables de entorno del espacio de trabajo que coincidan con \"{query}\".",
         "personal": "No se encontraron variables de entorno personales que coincidan con \"{query}\"."
       },
+      "status": {
+        "saving": "Guardando la variable {key} de {scope}...",
+        "deleting": "Eliminando la variable {key} de {scope}...",
+        "notConfirmed": "No se pudo confirmar el cambio en la variable {key} de {scope}. Inténtalo de nuevo.",
+        "refreshRequired": "Se confirmó el cambio en la variable {key} de {scope}, pero no se pudieron cargar las variables más recientes.",
+        "refresh": "Actualizar variables"
+      },
       "headers": {
         "createdAt": "Creado el",
         "variable": "Variable",
@@ -1554,7 +1617,6 @@
     },
     "apiKeys": {
       "title": "Claves API",
-      "cardTitle": "Claves API de {scope}",
       "searchPlaceholder": "Buscar claves...",
       "scope": {
         "workspace": "Espacio de trabajo",
@@ -1586,25 +1648,19 @@
       },
       "labels": {
         "never": "Nunca",
-        "billingTier": "Nivel de facturación",
         "lastUsed": "Último uso: {date}",
-        "saveName": "Guardar nombre de la clave API",
         "rename": "Renombrar clave API de {scope}",
-        "reveal": "Revelar clave API de {scope}",
-        "hide": "Ocultar clave API de {scope}",
-        "copy": "Copiar clave API de {scope}",
         "save": "Guardar clave API de {scope}",
         "cancelRename": "Cancelar cambio de nombre",
         "delete": "Eliminar clave API de {scope}",
         "nameRequired": "El nombre es obligatorio",
         "duplicateName": "Ya existe una clave API de {scope} llamada \"{name}\".",
-        "failedRename": "Error al renombrar la clave API de {scope}.",
         "unableRename": "No se puede renombrar la clave API de {scope}. Inténtalo de nuevo.",
         "failedCreate": "Error al crear la clave API de {scope}. Inténtalo de nuevo.",
+        "failedDelete": "Error al eliminar la clave API de {scope}. Inténtalo de nuevo.",
+        "failedLoad": "Error al cargar las claves API. Inténtalo de nuevo.",
         "workspaceAccess": "Esta clave otorga acceso a todos los flujos de trabajo y archivos dentro de este espacio de trabajo. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
         "personalAccess": "Esta clave otorga acceso a tus flujos de trabajo y archivos personales. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
-        "onlyTimeYouWillSee": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
-        "unableToDetermineWorkspace": "No se puede determinar el espacio de trabajo. Actualiza la página e inténtalo de nuevo.",
         "workspacePermissions": "Necesitas acceso de edición o administrador para gestionar las claves API del espacio de trabajo."
       },
       "dialogs": {
@@ -1612,6 +1668,7 @@
         "createNameLabel": "Nombre",
         "createNamePlaceholder": "p. ej., Servidor MCP de producción",
         "createButton": "Crear clave",
+        "creating": "Creando...",
         "newKeyTitle": "Tu clave API de {scope}",
         "newKeyDescription": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
         "deleteTitle": "¿Eliminar la clave API de {scope}?",
@@ -1620,11 +1677,8 @@
         "deletePlaceholder": "Nombre de la clave API",
         "cancel": "Cancelar",
         "deleteButton": "Eliminar clave",
+        "deleting": "Eliminando...",
         "copyToClipboard": "Copiar al portapapeles"
-      },
-      "descriptions": {
-        "workspace": "Crear claves de ámbito de espacio de trabajo para flujos de trabajo y archivos compartidos.",
-        "personal": "Crear claves personales para tus propios flujos de trabajo y archivos."
       }
     },
     "records": {
@@ -1730,14 +1784,18 @@
       },
       "otherServices": "Otros servicios",
       "connect": "Conectar",
+      "connecting": "Conectando...",
       "disconnect": "Desconectar",
+      "disconnecting": "Desconectando...",
       "emptyState": {
         "noConnectible": "No hay integraciones conectables configuradas.",
         "noSearchMatches": "No se encontraron servicios que coincidan con \"{query}\""
       },
-      "errors": {
-        "loadAvailability": "Error al cargar la disponibilidad del proveedor",
-        "oauth": "Error al conectar la cuenta. Inténtalo de nuevo."
+      "failures": {
+        "load": "No se pudieron cargar las integraciones. Inténtalo de nuevo.",
+        "oauth": "Error al conectar la cuenta. Inténtalo de nuevo.",
+        "disconnect": "No se pudo desconectar la cuenta. Inténtalo de nuevo.",
+        "disconnectInUse": "Elimina o reconfigura los webhooks dependientes antes de desconectar esta cuenta."
       }
     },
     "files": {
@@ -1747,7 +1805,9 @@
         "idle": "Subir archivo",
         "uploading": "Subiendo...",
         "uploadingWithCount": "Subiendo {completed}/{total}...",
-        "button": "Subir archivo"
+        "button": "Subir archivo",
+        "failed": "Error al cargar",
+        "unsupportedFileType": "Tipo de archivo no compatible: {files}"
       },
       "headers": {
         "name": "Nombre",
@@ -1777,11 +1837,7 @@
         "confirm": "Eliminar",
         "deleting": "Eliminando..."
       },
-      "errors": {
-        "billingTier": "Nivel de facturación",
-        "uploadFailed": "Error al cargar",
-        "unsupportedFileType": "Tipo de archivo no compatible: {files}"
-      }
+      "billingTierFallback": "Nivel de facturación"
     },
     "userMenu": {
       "accountDetail": "Detalles de la cuenta",
@@ -1905,6 +1961,14 @@
           "description": "Genere claves para el acceso a la API de Market."
         },
         "create": "Crear",
+        "creating": "Creando…",
+        "deleting": "Eliminando…",
+        "loading": "Cargando claves de API…",
+        "retry": "Reintentar",
+        "retrying": "Reintentando…",
+        "loadError": "No se pudieron cargar las claves de API.",
+        "generateError": "No se pudo crear la clave de API.",
+        "deleteError": "No se pudo eliminar la clave de API. La clave fue restaurada.",
         "noKeys": "Aún no hay claves de API",
         "generateSuccessTitle": "Su clave de API ha sido creada",
         "generateSuccessDescription": "Esta es la única vez que verá su clave de API. Cópiela ahora y guárdela de forma segura.",
@@ -1934,9 +1998,16 @@
           "customPlan": "Contacte a su equipo de cuenta para cambios de nivel de facturación y límites de uso.",
           "teamMemberView": "Contacte al administrador de su equipo para aumentar los límites."
         },
+        "notifications": {
+          "pending": "Guardando la preferencia de notificaciones de uso…",
+          "error": "No se pudieron actualizar las notificaciones de uso. Inténtelo de nuevo con el interruptor."
+        },
         "limit": {
           "save": "Guardar límite",
-          "edit": "Editar límite"
+          "edit": "Editar límite",
+          "saving": "Guardando límite",
+          "belowUsage": "El límite no puede ser inferior al uso actual.",
+          "updateFailed": "No se pudo actualizar el límite de uso."
         },
         "billingOwner": {
           "title": "Propietario de facturación",
@@ -2783,6 +2854,10 @@
         "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Guarda este servidor para actualizar e inspeccionar las herramientas MCP descubiertas.",
         "refreshTools": "Actualizar herramientas",
         "testConnection": "Probar conexión",
+        "testingConnection": "Probando conexión…",
+        "connectionSuccessful": "Conexión correcta.",
+        "connectionFailed": "Error de conexión",
+        "connectionFailedDescription": "Revisa la configuración del servidor e inténtalo de nuevo.",
         "resetForm": "Restablecer formulario",
         "saveServer": "Guardar servidor",
         "clearSelection": "Limpiar selección",
@@ -2966,8 +3041,11 @@
         "searchFiles": "Buscar archivos...",
         "searchItems": "Buscar {itemName}...",
         "loadingItems": "Cargando {itemName}...",
+        "failedToLoadItems": "No se pudieron cargar {itemName}. Inténtalo de nuevo.",
         "noItemsFound": "No se encontraron {itemName}.",
         "noItemsFoundInService": "No se encontraron {itemName} en tu {serviceName}.",
+        "reconnectProviderAccount": "Vuelve a conectar tu cuenta de {providerName} para cargar {itemName}.",
+        "tryAgain": "Inténtalo de nuevo",
         "connectProviderAccountToContinue": "Conecta una cuenta de {providerName} para continuar.",
         "connectProviderAccount": "Conectar cuenta de {providerName}",
         "openInProvider": "Abrir en {providerName}",
@@ -18326,7 +18404,8 @@
           "searchFailed": "La búsqueda falló"
         },
         "wandPromptBar": {
-          "generating": "Generando..."
+          "generating": "Generando...",
+          "generationFailed": "No se pudo generar. Tu instrucción está lista para volver a intentarlo."
         },
         "teamsMessageSelector": {
           "errors": {
@@ -18364,11 +18443,17 @@
         },
         "knowledgeTagFilters": {
           "addFilter": "Agregar filtro",
+          "failedToLoad": "No se pudieron cargar las definiciones de etiquetas.",
+          "retry": "Intentar de nuevo",
+          "retrying": "Reintentando…",
           "appliedCountSingular": "{count} filtro aplicado",
           "appliedCountPlural": "{count} filtros aplicados"
         },
         "documentTagEntry": {
           "typeText": "Texto",
+          "failedToLoad": "No se pudieron cargar las definiciones de etiquetas.",
+          "retry": "Intentar de nuevo",
+          "retrying": "Reintentando…",
           "prefillExistingTags": "Rellenar etiquetas existentes",
           "addTag": "Agregar etiqueta",
           "tagSlotsUsed": "{used} de {total} espacios de etiquetas usados"
@@ -18479,6 +18564,8 @@
           "selectServerFirst": "Selecciona primero un servidor",
           "loadingTools": "Cargando herramientas...",
           "errorLoadingTools": "Error al cargar herramientas",
+          "retry": "Intentar de nuevo",
+          "retrying": "Reintentando…",
           "noServerSelected": "No hay servidor seleccionado",
           "selectServerFirstDescription": "Selecciona primero un servidor MCP para ver las herramientas disponibles",
           "noToolsFound": "No se encontraron herramientas",
@@ -18491,129 +18578,6 @@
           "duplicateTitle": "Solo se permite un disparador de {triggerName}",
           "duplicateDescription": "Un flujo solo puede tener un bloque disparador de {triggerName}. Elimina el existente antes de agregar uno nuevo.",
           "dismiss": "Entendido"
-        },
-        "webhookSettings": {
-          "title": "Notificaciones por webhook",
-          "searchPlaceholder": "Buscar webhooks...",
-          "emptyState": "Haz clic en \"Agregar webhook\" para comenzar",
-          "webhookLabel": "Webhook {index}",
-          "noSearchMatches": "No se encontraron webhooks que coincidan con \"{query}\"",
-          "actions": {
-            "copyUrl": "Copiar URL del webhook",
-            "test": "Probar webhook",
-            "edit": "Editar webhook",
-            "delete": "Eliminar webhook",
-            "generateSecret": "Generar secreto seguro",
-            "copySecret": "Copiar secreto",
-            "showSecret": "Mostrar secreto",
-            "hideSecret": "Ocultar secreto",
-            "back": "Volver",
-            "create": "Crear webhook",
-            "creating": "Creando...",
-            "update": "Actualizar webhook",
-            "updating": "Actualizando...",
-            "add": "Agregar webhook"
-          },
-          "form": {
-            "createTitle": "Crear nuevo webhook",
-            "editTitle": "Editar webhook",
-            "description": "Configura notificaciones por webhook para ejecuciones del flujo",
-            "url": {
-              "label": "URL del webhook",
-              "placeholder": "https://your-app.com/webhook",
-              "hint": "La URL a la que se enviarán las notificaciones del webhook"
-            },
-            "secret": {
-              "label": "Secreto (opcional)",
-              "placeholder": "Secreto del webhook para verificación de firma",
-              "hint": "Se usa para firmar las cargas del webhook con HMAC-SHA256"
-            },
-            "logLevelsTitle": "Filtros de nivel de registro",
-            "triggerTypesTitle": "Filtros de tipo de disparador",
-            "payloadTitle": "Incluir en la carga",
-            "payloadHint": "De forma predeterminada, solo se incluye metadata básica e información de costo"
-          },
-          "logLevels": {
-            "info": {
-              "label": "Registros informativos",
-              "description": "Recibir notificaciones para registros de nivel info"
-            },
-            "error": {
-              "label": "Registros de error",
-              "description": "Recibir notificaciones para registros de nivel error"
-            }
-          },
-          "triggers": {
-            "api": {
-              "label": "Disparadores API",
-              "description": "Notificar cuando el flujo se active mediante API"
-            },
-            "webhook": {
-              "label": "Disparadores webhook",
-              "description": "Notificar cuando el flujo se active mediante webhook"
-            },
-            "schedule": {
-              "label": "Disparadores programados",
-              "description": "Notificar cuando el flujo se active por programación"
-            },
-            "manual": {
-              "label": "Disparadores manuales",
-              "description": "Notificar cuando el flujo se active manualmente"
-            },
-            "chat": {
-              "label": "Disparadores de chat",
-              "description": "Notificar cuando el flujo se active desde chat"
-            }
-          },
-          "payloadOptions": {
-            "finalOutput": {
-              "label": "Salida final",
-              "description": "Incluir resultados de la ejecución del flujo",
-              "chip": "salida"
-            },
-            "traceSpans": {
-              "label": "Trazas",
-              "description": "Pasos detallados de la ejecución",
-              "chip": "trazas"
-            },
-            "rateLimits": {
-              "label": "Límites de uso",
-              "description": "Límites de ejecución del flujo",
-              "chip": "límites"
-            },
-            "usageData": {
-              "label": "Datos de uso",
-              "description": "Costo y límites del período de facturación",
-              "chip": "uso"
-            }
-          },
-          "validation": {
-            "enterWebhookUrl": "Ingresa una URL de webhook",
-            "urlProtocol": "La URL debe comenzar con http:// o https://",
-            "validUrl": "Ingresa una URL válida (por ejemplo, https://example.com/webhook)",
-            "logLevelRequired": "Selecciona al menos un filtro de nivel de registro",
-            "triggerRequired": "Selecciona al menos un filtro de disparador",
-            "duplicateUrl": "Ya existe un webhook con esta URL"
-          },
-          "errors": {
-            "create": "No se pudo crear el webhook",
-            "createRetry": "No se pudo crear el webhook. Inténtalo de nuevo.",
-            "update": "No se pudo actualizar el webhook",
-            "validationFailed": "La validación falló. Revisa la configuración del webhook e inténtalo de nuevo."
-          },
-          "testStatus": {
-            "success": "Webhook de prueba enviado correctamente ({status})",
-            "failure": "La prueba del webhook falló.",
-            "sendFailed": "No se pudo enviar el webhook de prueba"
-          },
-          "deleteDialog": {
-            "title": "¿Eliminar webhook?",
-            "description": "Esto eliminará permanentemente la configuración del webhook y detendrá todas las notificaciones.",
-            "warning": "Esta acción no se puede deshacer.",
-            "cancel": "Cancelar",
-            "confirm": "Eliminar",
-            "deleting": "Eliminando..."
-          }
         },
         "triggers": {
           "api": {
@@ -20253,6 +20217,12 @@
         "requiredField": "Este campo es obligatorio",
         "invalidJson": "JSON no válido",
         "unknownInputType": "Tipo de entrada desconocido: {type}",
+        "dateTimePicker": {
+          "openMonthYearPicker": "Elegir mes y año",
+          "showCalendar": "Mostrar calendario",
+          "previousMonth": "Mes anterior",
+          "nextMonth": "Mes siguiente"
+        },
         "loop": "Bucle",
         "parallel": "Paralelo",
         "start": "Inicio",
@@ -20270,7 +20240,10 @@
           "writePermissionRequiredToRunWorkflows": "Se requieren permisos de escritura para ejecutar flujos",
           "usageLimitExceeded": "Límite de uso superado",
           "usageLimitExceededDescription": "Has usado {currentUsage}$ de {limit}$. Actualiza tu plan para continuar.",
-          "run": "Ejecutar"
+          "run": "Ejecutar",
+          "runningWorkflow": "Ejecutando flujo de trabajo…",
+          "workflowCompleted": "Flujo de trabajo completado.",
+          "workflowFailed": "Error del flujo de trabajo: {error}"
         },
         "floatingControls": {
           "zoomOut": "Alejar",
@@ -20333,7 +20306,6 @@
         "createNew": "Crear nueva",
         "loadingApiKeys": "Cargando claves API...",
         "selectAnApiKey": "Selecciona una clave API",
-        "selectApiKeyValidation": "Selecciona una clave API",
         "noApiKeysAvailable": "No hay claves API disponibles",
         "createNewApiKey": "Crear nueva clave API",
         "workspaceAccess": "Esta clave tendrá acceso a todos los flujos de trabajo de este espacio. Copia la clave después de crearla, ya que no podrás volver a verla.",
@@ -20459,6 +20431,13 @@
           "welcomeMessageDescription": "Este mensaje se muestra cuando los usuarios abren el chat publicado por primera vez.",
           "chatLogo": "Logo del chat",
           "chatLogoHint": "Sube un logo para tu chat (PNG o JPEG, hasta 5 MB).",
+          "chatLogoSelect": "Seleccionar logo del chat",
+          "chatLogoDrop": "o arrastra y suelta un archivo aquí",
+          "chatLogoUploading": "Subiendo el logo del chat…",
+          "chatLogoWait": "Espera, por favor",
+          "chatLogoReplace": "Reemplazar logo del chat",
+          "chatLogoDelete": "Eliminar logo del chat",
+          "chatLogoRemoveFile": "Quitar el archivo de logo seleccionado",
           "identifierInvalidFormat": "El identificador solo puede contener letras minúsculas, números y guiones",
           "identifierCheckFailed": "Error al comprobar la disponibilidad del identificador",
           "identifierInUse": "Este identificador ya está en uso",
@@ -20505,7 +20484,12 @@
         "createFolder": "Nueva carpeta",
         "importWorkflow": "Importar flujo",
         "creating": "Creando...",
-        "importing": "Importando..."
+        "creatingFolder": "Creando carpeta...",
+        "importing": "Importando...",
+        "createFailed": "No se pudo crear el flujo. Inténtalo de nuevo.",
+        "emptyImportFile": "El archivo de flujo seleccionado está vacío.",
+        "importFailed": "No se pudo importar el flujo. Revisa el archivo e inténtalo de nuevo.",
+        "importPartialFailed": "Se importaron {count} skills, pero no se pudo crear el flujo."
       },
       "providerControls": {
         "marketSelector": {
@@ -20553,6 +20537,17 @@
           "defaultProviderName": "Mercado"
         }
       },
+      "surface": {
+        "loadingWidget": "Cargando widget…",
+        "failedToLoadWidget": "No se pudo cargar el widget.",
+        "failedToLoadPairSettings": "No se pudo cargar la configuración de color compartida.",
+        "retry": "Reintentar",
+        "retrying": "Reintentando…"
+      },
+      "stateMessage": {
+        "retry": "Reintentar",
+        "retrying": "Reintentando…"
+      },
       "watchlist": {
         "header": {
           "explorer": "Explorador",
@@ -20564,8 +20559,12 @@
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Sección",
           "createList": "Crear lista",
+          "creatingList": "Creando {name}…",
+          "createListFailed": "No se pudo crear {name}. Inténtalo de nuevo.",
           "renameList": "Renombrar lista",
           "deleteList": "Eliminar lista",
+          "deletingList": "Eliminando {name}…",
+          "deleteListFailed": "No se pudo eliminar {name}. Inténtalo de nuevo.",
           "deleteListDialogTitle": "¿Eliminar lista?",
           "deleteListDialogDescription": "Al eliminar esta lista, se eliminan sus secciones y listados.",
           "cancel": "Cancelar",
@@ -20580,6 +20579,7 @@
         },
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
+          "loadingWatchlists": "Cargando watchlists…",
           "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
           "createWatchlistToGetStarted": "Crea una watchlist para comenzar.",
           "watchlistNotFound": "No se encontró la watchlist.",
@@ -20614,8 +20614,11 @@
           "manageSkills": "Administrar skills",
           "importSkills": "Importar skills",
           "importingSkills": "Importando skills",
+          "creatingSkill": "Creando skill",
           "newSkill": "Nueva skill",
-          "create": "Crear"
+          "create": "Crear",
+          "createFailed": "No se pudo crear la skill. Inténtalo de nuevo.",
+          "importFailed": "No se pudieron importar las skills. Revisa el archivo e inténtalo de nuevo."
         },
         "header": {
           "explorer": "Explorador"
@@ -20633,7 +20636,9 @@
           "deleteDialogDescription": "Eliminar esta skill borrará permanentemente sus instrucciones del espacio de trabajo.",
           "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
           "cancel": "Cancelar",
-          "delete": "Eliminar"
+          "delete": "Eliminar",
+          "deleting": "Eliminando...",
+          "deleteFailed": "No se pudo eliminar la skill. Inténtalo de nuevo."
         }
       },
       "skillEditor": {
@@ -20678,7 +20683,6 @@
           "createIndicator": "Crear indicador",
           "create": "Crear",
           "newIndicator": "Nuevo indicador",
-          "importingIndicator": "Importando indicador",
           "importIndicator": "Importar indicador"
         },
         "header": {
@@ -20687,7 +20691,9 @@
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para explorar sus indicadores.",
           "noIndicatorsYet": "Aún no hay indicadores.",
-          "failedToLoadIndicators": "No se pudieron cargar los indicadores."
+          "failedToLoadIndicators": "No se pudieron cargar los indicadores.",
+          "writePending": "Guardando cambios del indicador…",
+          "writeFailed": "No se pudieron guardar los cambios del indicador. Inténtalo de nuevo."
         },
         "listItem": {
           "untitledIndicator": "Indicador sin título",
@@ -20764,8 +20770,11 @@
         "createMenu": {
           "createCustomTool": "Crear herramienta personalizada",
           "create": "Crear",
+          "creatingCustomTool": "Creando herramienta personalizada...",
+          "createFailed": "No se pudo crear la herramienta personalizada. Inténtalo de nuevo.",
           "importCustomTools": "Importar herramientas personalizadas",
           "importingCustomTools": "Importando herramientas personalizadas",
+          "importFailed": "No se pudo importar la herramienta personalizada. Selecciona el archivo e inténtalo de nuevo.",
           "newCustomTool": "Nueva herramienta personalizada"
         },
         "header": {
@@ -20784,6 +20793,10 @@
           "deleteDialogDescription": "Eliminar esta herramienta borrará permanentemente su código y configuración.",
           "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
           "cancel": "Cancelar",
+          "renaming": "Cambiando nombre...",
+          "renameFailed": "No se pudo cambiar el nombre de esta herramienta. Inténtalo de nuevo.",
+          "deleting": "Eliminando...",
+          "deleteFailed": "No se pudo eliminar esta herramienta. Inténtalo de nuevo.",
           "delete": "Eliminar"
         }
       },
@@ -20829,10 +20842,24 @@
       "workflowList": {
         "body": {
           "selectWorkspace": "Selecciona un espacio de trabajo para explorar sus carpetas de flujos de trabajo.",
+          "unableToLoadFolders": "No se pudieron cargar las carpetas. Actualízalas para habilitar los cambios en las carpetas.",
           "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo de este espacio de trabajo."
         },
         "header": {
           "explorer": "Explorador"
+        },
+        "folderWrites": {
+          "createPending": "Creando la carpeta {name}...",
+          "renamePending": "Cambiando el nombre de la carpeta a {name}...",
+          "movePending": "Moviendo la carpeta {name}...",
+          "deletePending": "Eliminando la carpeta {name}...",
+          "createFailed": "No se pudo crear la carpeta {name}. Inténtalo de nuevo.",
+          "renameFailed": "No se pudo cambiar el nombre de la carpeta a {name}. Inténtalo de nuevo.",
+          "moveFailed": "No se pudo mover la carpeta {name}. Inténtalo de nuevo.",
+          "deleteFailed": "No se pudo eliminar la carpeta {name}. Inténtalo de nuevo.",
+          "refreshPending": "Actualizando carpetas...",
+          "refreshFailed": "El cambio en la carpeta {name} se guardó, pero no se pudieron actualizar las carpetas.",
+          "refreshAction": "Actualizar carpetas"
         }
       },
       "mcpList": {
@@ -20987,6 +21014,7 @@
           "noSupportedOrderTypesForThisListing": "No hay tipos de orden compatibles para este listado.",
           "selectedOrderTypeIsNotSupportedForThisListing": "El tipo de orden seleccionado no es compatible con este listado.",
           "orderSubmitted": "Orden enviada",
+          "orderAcceptedRefreshWarning": "La orden fue aceptada, pero no se pudieron confirmar los registros ni los datos actualizados de la cartera.",
           "submitting": "Enviando...",
           "orderPrefix": "Orden",
           "sideLabel": "{side}",
@@ -21008,7 +21036,10 @@
             "chooseListingDescription": "Elige un listado para mostrar datos del gráfico."
           },
           "errorTitle": "No se pudieron cargar los datos",
-          "errorFallback": "No se pudieron cargar los datos del gráfico."
+          "errorFallback": "No se pudieron cargar los datos del gráfico.",
+          "indicatorLoadFailure": "No se pudieron cargar uno o más indicadores personalizados.",
+          "retry": "Reintentar",
+          "retrying": "Reintentando…"
         },
         "controls": {
           "intervalAriaLabel": "Seleccionar intervalo",
@@ -21208,6 +21239,7 @@
         "selectListing": "Seleccionar listado",
         "flagAlt": "Bandera de {countryCode}",
         "searching": "Buscando...",
+        "unableToLoadListings": "No se pudieron cargar los listados. Inténtalo de nuevo.",
         "noListingsFound": "No se encontraron listados.",
         "searchPlaceholder": "Buscar listados..."
       },
@@ -21333,6 +21365,7 @@
     "layoutTabs": {
       "createNewLayout": "Crear nuevo diseño",
       "renameAriaLabel": "Renombrar {name}",
+      "saveNameAriaLabel": "Guardar el nombre de {name}",
       "deleteAriaLabel": "Eliminar {name}"
     },
     "monitor": {
@@ -21354,10 +21387,12 @@
         "cancel": "Cancelar",
         "createConfigDescription": "Crea una vista guardada de configuración para este espacio de trabajo.",
         "createExecutionDescription": "Crea una vista guardada de ejecuciones para este espacio de trabajo.",
+        "createNameLabel": "Nombre de la nueva vista",
         "createSubmit": "Crear vista",
         "createTitle": "Crear vista",
         "namePlaceholder": "Nombre de la vista",
         "renameDescription": "Renombra esta vista guardada del monitor.",
+        "renameNameLabel": "Nuevo nombre de esta vista",
         "renameSubmit": "Guardar nombre",
         "renameTitle": "Renombrar vista"
       },
@@ -21481,6 +21516,7 @@
         "viewsUnavailableDescription": "No se pudieron cargar las vistas de ejecución en este momento.",
         "loadingExecutions": "Cargando ejecuciones...",
         "loadingDetails": "Cargando detalles de la ejecución...",
+        "detailsTitle": "Detalles de la ejecución",
         "detailsUnavailableTitle": "Detalles de la ejecución no disponibles",
         "detailsUnavailableDescription": "No se pudo cargar la ejecución seleccionada desde la ruta de detalles.",
         "closeInspector": "Cerrar inspector",
@@ -21561,15 +21597,13 @@
           "sourceLabel": "Origen del monitor",
           "sourcePortfolio": "Estado del portafolio",
           "statusDescription": "Los monitores nuevos comienzan pausados a menos que se habiliten aquí.",
+          "comparisonValue": "Valor de comparación",
+          "deleteCondition": "Eliminar condición",
+          "deleteConditionGroup": "Eliminar grupo de condiciones",
           "statusTitle": "Estado del monitor",
           "tradingAccount": "Cuenta de trading",
           "tradingProvider": "Proveedor de trading",
           "workflowTargetPlaceholder": "Seleccionar destino del flujo"
-        },
-        "errors": {
-          "delete": "No se pudo eliminar el monitor",
-          "save": "No se pudo guardar el monitor",
-          "updateState": "No se pudo actualizar el estado del monitor"
         }
       },
       "timeline": {
@@ -21626,11 +21660,13 @@
     },
     "message": {
       "copied": "Copiado",
-      "copyToClipboard": "Copiar al portapapeles"
+      "copyToClipboard": "Copiar al portapapeles",
+      "openAttachment": "Abrir {name}"
     },
     "input": {
       "fileUploadErrorTitle": "Error al subir archivos",
       "attachFiles": "Adjuntar archivos",
+      "removeFile": "Quitar {name}",
       "dropFilesHere": "Suelta los archivos aquí",
       "placeholderMobile": "Escribe un mensaje",
       "placeholderDesktop": "Escribe un mensaje",
@@ -21803,6 +21839,7 @@
     "registration": {
       "title": "Registro de administración",
       "searchPlaceholder": "Buscar entradas de la lista de espera...",
+      "clearSearch": "Borrar búsqueda",
       "mode": "Modo",
       "loading": "Cargando la configuración de registro...",
       "selectedCount": "{count} seleccionados",
@@ -21824,7 +21861,10 @@
       "actions": {
         "approve": "Aprobar",
         "reject": "Rechazar",
-        "clear": "Limpiar"
+        "clear": "Limpiar",
+        "switching": "Cambiando a {mode}…",
+        "approving": "Aprobando…",
+        "rejecting": "Rechazando…"
       },
       "table": {
         "email": "Correo",
@@ -21847,6 +21887,7 @@
     "services": {
       "title": "Servicios de administración",
       "searchPlaceholder": "Buscar servicios, credenciales y configuraciones...",
+      "clearSearch": "Borrar búsqueda",
       "loading": "Cargando catálogo de servicios...",
       "emptyState": "Ningún servicio coincide con la búsqueda actual.",
       "headerStats": {
@@ -21856,7 +21897,8 @@
       },
       "status": {
         "ready": "Listo",
-        "review": "Revisar"
+        "review": "Revisar",
+        "saving": "Guardando cambios de {name}…"
       },
       "credentials": {
         "title": "Credenciales",
@@ -21897,7 +21939,6 @@
         "missing": "Falta {labels}."
       },
       "footer": {
-        "saving": "Guardando cambios...",
         "ready": "Este servicio tiene todo lo necesario para ejecutarse. Los cambios se guardan de inmediato.",
         "review": "Revisa las credenciales o configuraciones faltantes. Los cambios se guardan de inmediato."
       },
@@ -21906,6 +21947,7 @@
     "integrations": {
       "title": "OAuth gestionado por el sistema",
       "searchPlaceholder": "Buscar integraciones OAuth gestionadas por el sistema...",
+      "clearSearch": "Borrar búsqueda",
       "info": "Estas filas administran integraciones OAuth gestionadas por el sistema para servicios de ejecución como Google Drive y acceso a repositorios de GitHub. El inicio de sesión social de Better Auth para GitHub y Google sigue estando solo en apps/tradinggoose/.env.example y no se edita aquí.",
       "loading": "Cargando catálogo de integraciones...",
       "emptyState": "Ninguna integración OAuth gestionada por el sistema coincide con la búsqueda actual.",
@@ -21917,7 +21959,8 @@
       },
       "status": {
         "ready": "Listo",
-        "review": "Revisar"
+        "review": "Revisar",
+        "saving": "Guardando cambios de {name}…"
       },
       "credentials": {
         "title": "Credenciales del proveedor",
@@ -22016,6 +22059,7 @@
       },
       "overview": {
         "searchPlaceholder": "Buscar niveles...",
+        "clearSearch": "Borrar búsqueda",
         "createTier": "Crear nivel",
         "loadingInventory": "Cargando inventario de facturación...",
         "subscriptionCount": "{count} suscripciones",
@@ -22085,6 +22129,7 @@
         "saving": "Guardando…",
         "updated": "Nivel actualizado",
         "delete": "Eliminar nivel",
+        "deleting": "Eliminando…",
         "activeSubscriptionsWarning": "Este nivel tiene suscripciones activas. La eliminación se desactiva hasta que se muevan.",
         "loading": "Cargando nivel de facturación...",
         "notFoundTitle": "Nivel no encontrado",

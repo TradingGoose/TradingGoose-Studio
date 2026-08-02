@@ -31,6 +31,7 @@ export function WorkspaceEnvironmentPage() {
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
+            aria-label={t('searchPlaceholder')}
             placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -46,6 +47,7 @@ export function WorkspaceEnvironmentPage() {
       <Button
         variant='ghost'
         size='sm'
+        disabled={isCardLoading}
         onClick={() => setKeyScope('workspace')}
         className={`h-7 rounded-sm px-3 font-normal text-xs ${
           keyScope === 'workspace'
@@ -59,6 +61,7 @@ export function WorkspaceEnvironmentPage() {
       <Button
         variant='ghost'
         size='sm'
+        disabled={isCardLoading}
         onClick={() => setKeyScope('personal')}
         className={`h-7 rounded-sm px-3 font-normal text-xs ${
           keyScope === 'personal'
@@ -73,13 +76,13 @@ export function WorkspaceEnvironmentPage() {
   )
 
   const headerRight = (
-      <PrimaryButton
-        onClick={() => envVarRef.current?.addVariable(keyScope)}
-        disabled={isCardLoading || (keyScope === 'workspace' && !workspaceId)}
-      >
-        <Plus className='h-3.5 w-3.5' />
+    <PrimaryButton
+      onClick={() => envVarRef.current?.addVariable(keyScope)}
+      disabled={isCardLoading || (keyScope === 'workspace' && !workspaceId)}
+    >
+      <Plus className='h-3.5 w-3.5' />
       <span>{keyScope === 'workspace' ? t('create.workspace') : t('create.personal')}</span>
-      </PrimaryButton>
+    </PrimaryButton>
   )
 
   return (

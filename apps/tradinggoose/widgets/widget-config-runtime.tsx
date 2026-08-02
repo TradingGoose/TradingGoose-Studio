@@ -34,7 +34,9 @@ type WidgetConfigRuntime = {
   pairContext: PairColorContext
   isWidgetReady: boolean
   isPairReady: boolean
-  error: string | null
+  loadFailure: 'widget' | 'pair' | null
+  isRetrying: boolean
+  retry: () => void
   writeWidget: (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => void
   writePair: (baseline: PairColorContext, target: PairColorContext) => void
 }
@@ -137,14 +139,20 @@ export function WidgetConfigRuntimeProvider({
     },
     [pairDoc]
   )
-  const value = useMemo(
+  const retry = useCallback(() => {
+    if (widgetSession.error) widgetSession.retry()
+    if (pairSession.error) pairSession.retry()
+  }, [pairSession.error, pairSession.retry, widgetSession.error, widgetSession.retry])
+  const value = useMemo<WidgetConfigRuntime>(
     () => ({
       widgetKey,
       widget,
       pairContext,
       isWidgetReady,
       isPairReady,
-      error: widgetSession.error ?? pairSession.error,
+      loadFailure: widgetSession.error ? 'widget' : pairSession.error ? 'pair' : null,
+      isRetrying: widgetSession.isRetrying || pairSession.isRetrying,
+      retry,
       writeWidget,
       writePair,
     }),
@@ -153,9 +161,12 @@ export function WidgetConfigRuntimeProvider({
       isWidgetReady,
       pairContext,
       pairSession.error,
+      pairSession.isRetrying,
+      retry,
       widget,
       widgetKey,
       widgetSession.error,
+      widgetSession.isRetrying,
       writePair,
       writeWidget,
     ]
@@ -207,7 +218,9 @@ export function LocalWidgetConfigRuntimeProvider({
       pairContext: EMPTY_PAIR_CONTEXT,
       isWidgetReady: true,
       isPairReady: true,
-      error: null,
+      loadFailure: null,
+      isRetrying: false,
+      retry: () => undefined,
       writeWidget,
       writePair: () => undefined,
     }),
@@ -289,10 +302,20 @@ export const useDashboardWidgetRenderState = (): {
   pairColor: PairColor
   isWidgetReady: boolean
   isEffectiveParamsReady: boolean
-  error: string | null
+  loadFailure: 'widget' | 'pair' | null
+  isRetrying: boolean
+  retry: () => void
 } => {
-  const { widgetKey, widget, pairContext, isWidgetReady, isPairReady, error } =
-    useWidgetConfigRuntime()
+  const {
+    widgetKey,
+    widget,
+    pairContext,
+    isWidgetReady,
+    isPairReady,
+    loadFailure,
+    isRetrying,
+    retry,
+  } = useWidgetConfigRuntime()
   const isEffectiveParamsReady = isWidgetReady && isPairReady
   const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
   if (!isEffectiveParamsReady || !widget || !isWidgetKey(widgetKey)) {
@@ -302,7 +325,9 @@ export const useDashboardWidgetRenderState = (): {
       pairColor,
       isWidgetReady,
       isEffectiveParamsReady,
-      error,
+      loadFailure,
+      isRetrying,
+      retry,
     }
   }
   return {
@@ -318,6 +343,8 @@ export const useDashboardWidgetRenderState = (): {
     pairColor,
     isWidgetReady,
     isEffectiveParamsReady,
-    error,
+    loadFailure,
+    isRetrying,
+    retry,
   }
 }

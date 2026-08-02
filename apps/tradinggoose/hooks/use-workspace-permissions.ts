@@ -100,7 +100,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
 
     const fetchPromise = (async () => {
       try {
-        setRecord(recordKey, { loading: true, error: null })
+        setRecord(recordKey, { loading: true })
 
         const response = await fetch(API_ENDPOINTS.WORKSPACE_PERMISSIONS(workspaceId))
 
@@ -134,14 +134,15 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           error: null,
         })
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+        const permissionLoadFailure =
+          err instanceof Error ? err.message : 'Unknown error occurred'
         logger.error('Failed to fetch workspace permissions', {
           workspaceId,
-          error: errorMessage,
+          error: permissionLoadFailure,
         })
         setRecord(recordKey, {
           loading: false,
-          error: errorMessage,
+          error: permissionLoadFailure,
         })
       } finally {
         set((state) => {

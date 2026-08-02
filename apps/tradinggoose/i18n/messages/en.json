@@ -48,8 +48,19 @@
     "homeLabel": "Home",
     "languageLabel": "Language",
     "primaryNavigation": "Primary navigation",
+    "mobileNavigation": "Mobile navigation",
     "githubRepositoryAriaLabel": "GitHub repository - {stars} stars",
-    "homeAriaLabel": "{brand} home"
+    "homeAriaLabel": "{brand} home",
+    "commandMenu": {
+      "title": "Command menu",
+      "searchPlaceholder": "Search commands...",
+      "empty": "No commands found.",
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "toggleTheme": "Toggle theme",
+      "themeChanged": "Theme changed to {theme}.",
+      "themeChangeFailed": "Could not change the theme."
+    }
   },
   "registration": {
     "open": {
@@ -183,6 +194,7 @@
     },
     "verify": {
       "eyebrow": "Verification",
+      "codeLabel": "Verification code",
       "pendingTitle": "Verify Your Email",
       "verifiedTitle": "Email Verified!",
       "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
@@ -254,17 +266,6 @@
       "success": "Password reset successful! Redirecting to login...",
       "failure": "Failed to reset password",
       "backToLogin": "Back to login",
-      "request": {
-        "emailLabel": "Email",
-        "emailPlaceholder": "Enter your email",
-        "helperText": "We'll send a password reset link to this email address.",
-        "submit": "Send Reset Link",
-        "submitting": "Sending...",
-        "validation": {
-          "emailRequired": "Email is required.",
-          "emailInvalid": "Please enter a valid email address."
-        }
-      },
       "setNew": {
         "passwordLabel": "New Password",
         "passwordPlaceholder": "Enter new password",
@@ -860,6 +861,7 @@
     }
   },
   "unsubscribe": {
+    "loading": "Loading email preferences...",
     "intro": {
       "title": "We're sorry to see you go!",
       "description": "We understand email preferences are personal. Choose which emails you'd like to stop receiving from TradingGoose."
@@ -920,6 +922,12 @@
   "workspace": {
     "entry": {
       "loading": "Loading workspace..."
+    },
+    "permissionsFeedback": {
+      "title": "Workspace access could not be checked",
+      "description": "Check your connection and try again.",
+      "retry": "Try again",
+      "retrying": "Retrying…"
     },
     "switcher": {
       "failedToCreateWorkspace": "Failed to create workspace",
@@ -1008,6 +1016,7 @@
     "knowledge": {
       "title": "Knowledge",
       "searchPlaceholder": "Search knowledge bases...",
+      "clearSearch": "Clear search",
       "sort": {
         "nameAsc": "Name (A-Z)",
         "nameDesc": "Name (Z-A)"
@@ -1016,16 +1025,25 @@
         "create": "Create",
         "createTooltip": "Write permission required to create knowledge bases"
       },
-      "errors": {
-        "load": "Error loading knowledge bases: {error}",
-        "retry": "Try again"
+      "actionBar": {
+        "selectedItems": "{count, plural, one {# item selected} other {# items selected}}",
+        "enableItems": "{count, plural, one {Enable # item} other {Enable # items}}",
+        "disableItems": "{count, plural, one {Disable # item} other {Disable # items}}",
+        "deleteItems": "{count, plural, one {Delete # item} other {Delete # items}}"
+      },
+      "listFeedback": {
+        "failure": "We couldn't load the knowledge bases.",
+        "retry": "Try again",
+        "retrying": "Retrying…",
+        "loading": "Loading knowledge bases…",
+        "refreshing": "Refreshing knowledge bases…",
+        "loaded": "Knowledge bases loaded."
       },
       "emptyState": {
         "createFirst": "Create your first knowledge base",
         "withEditPermission": "Upload your documents to create a knowledge base for your agents.",
         "withoutEditPermission": "Knowledge bases will appear here. Contact an admin to create knowledge bases.",
         "buttonCreate": "Create Knowledge Base",
-        "buttonContactAdmin": "Contact Admin",
         "noMatches": "No knowledge bases match your search."
       },
       "defaults": {
@@ -1055,6 +1073,7 @@
         "deleting": "Deleting..."
       },
       "loading": {
+        "status": "Loading knowledge...",
         "searchDocumentsPlaceholder": "Search documents...",
         "addDocuments": "Add Documents"
       },
@@ -1085,7 +1104,11 @@
         "nextPage": "next page",
         "editingChunk": "Editing chunk #{index} • Page {currentPage} of {totalPages}",
         "cancel": "Cancel",
-        "errors": {
+        "contentConstraints": {
+          "required": "Chunk content is required.",
+          "maxLength": "Chunk content must be {max, number} characters or fewer."
+        },
+        "failures": {
           "failedToCreateChunk": "Failed to create chunk",
           "failedToUpdateChunk": "Failed to update chunk",
           "failedToNavigatePrev": "Failed to navigate to previous chunk",
@@ -1109,6 +1132,7 @@
         "overlapSizeLabel": "Overlap Size",
         "chunkingDescription": "Configure how documents are split into chunks for processing. Smaller chunks provide more precise retrieval but may lose context.",
         "uploadDocuments": "Upload Documents",
+        "removeFile": "Remove {name}",
         "dropFilesHere": "Drop files here!",
         "dropFilesHereOrClickToBrowse": "Drop files here or click to browse",
         "dropMoreFilesHere": "Drop more files here!",
@@ -1149,6 +1173,7 @@
         "cancel": "Cancel",
         "close": "Close",
         "uploadDocuments": "Upload Documents",
+        "removeFile": "Remove {name}",
         "uploading": "Uploading...",
         "processing": "Processing...",
         "fileTooLarge": "File \"{name}\" is too large. Maximum size is 100MB.",
@@ -1156,6 +1181,20 @@
       },
       "document": {
         "searchChunksPlaceholder": "Search chunks...",
+        "searchingChunks": "Searching chunks...",
+        "batchUpdatePartial": "Updated {updated} of {total} selected chunks. {failed} could not be updated.",
+        "batchUpdateFailed": "Unable to update selected chunks. Try again.",
+        "closeTags": "Close tags",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "enableChunk": "Enable chunk {index}",
+        "disableChunk": "Disable chunk {index}",
+        "deleteChunk": "Delete chunk {index}",
+        "retryDocument": "Retry processing {name}",
+        "enableDocument": "Enable {name}",
+        "disableDocument": "Disable {name}",
+        "manageDocumentTags": "Manage tags for {name}",
+        "deleteDocument": "Delete {name}",
         "createChunk": "Create Chunk",
         "deleteChunkTitle": "Delete chunk?",
         "deleteChunksTitle": "Delete chunks?",
@@ -1172,16 +1211,19 @@
       },
       "tags": {
         "knowledgeBaseTagsTitle": "Knowledge Base Tags",
+        "definitionsLoadFailed": "The tag definitions could not be loaded.",
+        "loadingDefinitions": "Loading tag definitions…",
+        "retry": "Try again",
+        "retrying": "Retrying…",
         "noTagDefinitionsYet": "No tag definitions yet.",
         "viewDocuments": "View Documents",
         "deleteTag": "Delete Tag",
+        "removeTag": "Remove {name}",
         "addTagDefinition": "Add Tag Definition",
         "documentTagsTitle": "Document Tags",
         "unnamedTag": "Unnamed Tag",
         "addTag": "Add Tag",
         "emptyState": "No tags added yet. Click \"Add Tag\" to get started.",
-        "advancedSettings": "Advanced Settings",
-        "tagCount": "{count} tag{count, plural, one {} other {s}}",
         "slotsUsed": "{used} of {total} tag slots used",
         "editTag": "Edit Tag",
         "addNewTag": "Add New Tag",
@@ -1202,10 +1244,9 @@
         "createNewTag": "Create New Tag",
         "creating": "Creating...",
         "save": "Save",
-        "moreTags": "More tags",
-        "showFewerTags": "Show fewer tags",
-        "activeTags": "Active tags:",
-        "tagLabel": "Tag {index}",
+        "savingTag": "Saving tag…",
+        "tagSaved": "Tag saved.",
+        "tagSaveFailed": "The tag could not be saved. Your changes are still here; try again.",
         "deleteTagTitle": "Delete Tag",
         "deleteTagDescription": "Are you sure you want to delete the \"{name}\" tag? This will remove this tag from {count} document{plural}.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
@@ -1234,6 +1275,7 @@
         "dashboard": "Dashboard"
       },
       "searchPlaceholder": "Search logs...",
+      "unsupportedQualifier": "Unsupported qualifier: {qualifiers}",
       "live": "Live",
       "monitorRequirement": "Please configure a workflow that uses an indicator as a trigger and an indicator that emits a trigger to add a monitor.",
       "actions": {
@@ -1241,9 +1283,6 @@
         "refresh": "Refresh",
         "refreshing": "Refreshing...",
         "exportCsv": "Export CSV"
-      },
-      "errors": {
-        "fetchLogs": "Failed to fetch logs"
       },
       "dashboard": {
         "title": "Dashboard",
@@ -1343,8 +1382,13 @@
           "noExecutions": "No executions",
           "loadingMore": "Loading more...",
           "scrollToLoadMore": "Scroll to load more",
+          "detailsLoaded": "{count} execution records loaded.",
+          "loadMoreFailed": "More execution records could not be loaded.",
           "succeeded": "{success}/{total} succeeded",
-          "segment": "Segment {index}",
+          "segmentWithExecutions": "Segment {index}, {range}: {successRate} success, {counts}",
+          "segmentWithoutExecutions": "Segment {index}, {range}: no executions",
+          "timeUnavailable": "Time unavailable",
+          "executionDetails": "Execution details for {timestamp}",
           "allWorkflows": "All workflows",
           "multipleSelected": "{count} workflows selected",
           "durationDay": "{count} day{plural}",
@@ -1366,7 +1410,8 @@
         "scrollToLoadMore": "Scroll to load more",
         "noLogs": "No logs found",
         "unknownWorkflow": "Unknown Workflow",
-        "errorPrefix": "Error: ",
+        "initialLoadFailure": "Failed to load logs. Refresh to try again.",
+        "backgroundLoadFailure": "Logs could not be updated. Showing the last available results.",
         "runningMs": "{value} ms"
       },
       "details": {
@@ -1385,6 +1430,17 @@
         "loading": "Loading details…",
         "workflowState": "Workflow State",
         "viewSnapshot": "View Snapshot",
+        "snapshot": {
+          "enterFullscreen": "Enter full screen",
+          "exitFullscreen": "Exit full screen",
+          "openExpandedData": "Open expanded {section} data",
+          "expandSection": "Expand {section}",
+          "collapseSection": "Collapse {section}",
+          "closeExpandedData": "Close expanded {section}",
+          "closeBlockDetails": "Close block details",
+          "previousIteration": "Previous iteration",
+          "nextIteration": "Next iteration"
+        },
         "toolCalls": "Tool Calls",
         "files": "Files",
         "costBreakdown": "Cost Breakdown",
@@ -1533,6 +1589,13 @@
         "workspace": "No workspace environment variables found matching \"{query}\".",
         "personal": "No personal environment variables found matching \"{query}\"."
       },
+      "status": {
+        "saving": "Saving {scope} variable {key}...",
+        "deleting": "Deleting {scope} variable {key}...",
+        "notConfirmed": "The change to {scope} variable {key} could not be confirmed. Try again.",
+        "refreshRequired": "The change to {scope} variable {key} was committed, but the latest variables could not be loaded.",
+        "refresh": "Refresh variables"
+      },
       "headers": {
         "createdAt": "Created At",
         "variable": "Variable",
@@ -1554,7 +1617,6 @@
     },
     "apiKeys": {
       "title": "API Keys",
-      "cardTitle": "{scope} API Keys",
       "searchPlaceholder": "Search keys...",
       "scope": {
         "workspace": "Workspace",
@@ -1586,25 +1648,19 @@
       },
       "labels": {
         "never": "Never",
-        "billingTier": "Billing tier",
         "lastUsed": "Last used: {date}",
-        "saveName": "Save API key name",
         "rename": "Rename {scope} API key",
-        "reveal": "Reveal {scope} API key",
-        "hide": "Hide {scope} API key",
-        "copy": "Copy {scope} API key",
         "save": "Save {scope} API key",
         "cancelRename": "Cancel rename",
         "delete": "Delete {scope} API key",
         "nameRequired": "Name is required",
         "duplicateName": "A {scope} API key named \"{name}\" already exists.",
-        "failedRename": "Failed to rename {scope} API key.",
         "unableRename": "Unable to rename {scope} API key. Please try again.",
         "failedCreate": "Failed to create {scope} API key. Please try again.",
+        "failedDelete": "Failed to delete {scope} API key. Please try again.",
+        "failedLoad": "Failed to load API keys. Please try again.",
         "workspaceAccess": "This key grants access to all workflows and files within this workspace. Copy it immediately after creation as you will not be able to see it again.",
         "personalAccess": "This key grants access to your personal workflows and files. Copy it immediately after creation as you will not be able to see it again.",
-        "onlyTimeYouWillSee": "This is the only time you will see the full key. Copy and store it securely.",
-        "unableToDetermineWorkspace": "Unable to determine workspace. Please refresh the page and try again.",
         "workspacePermissions": "You need edit or admin access to manage workspace API keys."
       },
       "dialogs": {
@@ -1612,6 +1668,7 @@
         "createNameLabel": "Name",
         "createNamePlaceholder": "e.g., Production MCP Server",
         "createButton": "Create Key",
+        "creating": "Creating...",
         "newKeyTitle": "Your {scope} API key",
         "newKeyDescription": "This is the only time you will see the full key. Copy and store it securely.",
         "deleteTitle": "Delete {scope} API key?",
@@ -1620,11 +1677,8 @@
         "deletePlaceholder": "API key name",
         "cancel": "Cancel",
         "deleteButton": "Delete Key",
+        "deleting": "Deleting...",
         "copyToClipboard": "Copy to clipboard"
-      },
-      "descriptions": {
-        "workspace": "Create workspace-scoped keys for shared workflows and files.",
-        "personal": "Create personal keys for your own workflows and files."
       }
     },
     "records": {
@@ -1730,14 +1784,18 @@
       },
       "otherServices": "Other Services",
       "connect": "Connect",
+      "connecting": "Connecting...",
       "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting...",
       "emptyState": {
         "noConnectible": "No connectible integrations are configured.",
         "noSearchMatches": "No services found matching \"{query}\""
       },
-      "errors": {
-        "loadAvailability": "Failed to load provider availability",
-        "oauth": "Account connection failed. Please try again."
+      "failures": {
+        "load": "Failed to load integrations. Please try again.",
+        "oauth": "Account connection failed. Please try again.",
+        "disconnect": "Failed to disconnect the account. Please try again.",
+        "disconnectInUse": "Delete or reconfigure dependent webhooks before disconnecting this account."
       }
     },
     "files": {
@@ -1747,7 +1805,9 @@
         "idle": "Upload File",
         "uploading": "Uploading...",
         "uploadingWithCount": "Uploading {completed}/{total}...",
-        "button": "Upload File"
+        "button": "Upload File",
+        "failed": "Upload failed",
+        "unsupportedFileType": "Unsupported file type: {files}"
       },
       "headers": {
         "name": "Name",
@@ -1777,11 +1837,7 @@
         "confirm": "Delete",
         "deleting": "Deleting..."
       },
-      "errors": {
-        "billingTier": "Billing tier",
-        "uploadFailed": "Upload failed",
-        "unsupportedFileType": "Unsupported file type: {files}"
-      }
+      "billingTierFallback": "Billing tier"
     },
     "userMenu": {
       "accountDetail": "Account Detail",
@@ -1905,6 +1961,14 @@
           "description": "Generate keys for Market API access."
         },
         "create": "Create",
+        "creating": "Creating…",
+        "deleting": "Deleting…",
+        "loading": "Loading API keys…",
+        "retry": "Retry",
+        "retrying": "Retrying…",
+        "loadError": "Could not load API keys.",
+        "generateError": "Could not create the API key.",
+        "deleteError": "Could not delete the API key. The key was restored.",
         "noKeys": "No API keys yet",
         "generateSuccessTitle": "Your API key has been created",
         "generateSuccessDescription": "This is the only time you will see your API key. Copy it now and store it securely.",
@@ -1934,9 +1998,16 @@
           "customPlan": "Contact your account team for billing tier and usage limit changes",
           "teamMemberView": "Contact your team admin to increase limits"
         },
+        "notifications": {
+          "pending": "Saving usage notification preference…",
+          "error": "Couldn’t update usage notifications. Try the switch again."
+        },
         "limit": {
           "save": "Save limit",
-          "edit": "Edit limit"
+          "edit": "Edit limit",
+          "saving": "Saving limit",
+          "belowUsage": "Limit cannot be below current usage.",
+          "updateFailed": "Could not update the usage limit."
         },
         "billingOwner": {
           "title": "Billing owner",
@@ -2783,6 +2854,10 @@
         "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Save this server to refresh and inspect discovered MCP tools.",
         "refreshTools": "Refresh tools",
         "testConnection": "Test connection",
+        "testingConnection": "Testing connection…",
+        "connectionSuccessful": "Connection successful.",
+        "connectionFailed": "Connection failed",
+        "connectionFailedDescription": "Check the server settings and try again.",
         "resetForm": "Reset form",
         "saveServer": "Save server",
         "clearSelection": "Clear selection",
@@ -2966,8 +3041,11 @@
         "searchFiles": "Search files...",
         "searchItems": "Search {itemName}...",
         "loadingItems": "Loading {itemName}...",
+        "failedToLoadItems": "Could not load {itemName}. Try again.",
         "noItemsFound": "No {itemName} found.",
         "noItemsFoundInService": "No {itemName} were found in your {serviceName}.",
+        "reconnectProviderAccount": "Reconnect your {providerName} account to load {itemName}.",
+        "tryAgain": "Try again",
         "connectProviderAccountToContinue": "Connect a {providerName} account to continue.",
         "connectProviderAccount": "Connect {providerName} account",
         "openInProvider": "Open in {providerName}",
@@ -18326,7 +18404,8 @@
           "searchFailed": "Search failed"
         },
         "wandPromptBar": {
-          "generating": "Generating..."
+          "generating": "Generating...",
+          "generationFailed": "Generation failed. Your prompt is ready to retry."
         },
         "teamsMessageSelector": {
           "errors": {
@@ -18364,11 +18443,17 @@
         },
         "knowledgeTagFilters": {
           "addFilter": "Add Filter",
+          "failedToLoad": "Could not load tag definitions.",
+          "retry": "Try again",
+          "retrying": "Retrying…",
           "appliedCountSingular": "{count} filter applied",
           "appliedCountPlural": "{count} filters applied"
         },
         "documentTagEntry": {
           "typeText": "Text",
+          "failedToLoad": "Could not load tag definitions.",
+          "retry": "Try again",
+          "retrying": "Retrying…",
           "prefillExistingTags": "Prefill Existing Tags",
           "addTag": "Add Tag",
           "tagSlotsUsed": "{used} of {total} tag slots used"
@@ -18479,6 +18564,8 @@
           "selectServerFirst": "Select server first",
           "loadingTools": "Loading tools...",
           "errorLoadingTools": "Error loading tools",
+          "retry": "Try again",
+          "retrying": "Retrying…",
           "noServerSelected": "No server selected",
           "selectServerFirstDescription": "Select an MCP server first to see available tools",
           "noToolsFound": "No tools found",
@@ -18491,129 +18578,6 @@
           "duplicateTitle": "Only one {triggerName} trigger allowed",
           "duplicateDescription": "A workflow can only have one {triggerName} trigger block. Please remove the existing one before adding a new one.",
           "dismiss": "Got it"
-        },
-        "webhookSettings": {
-          "title": "Webhook Notifications",
-          "searchPlaceholder": "Search webhooks...",
-          "emptyState": "Click \"Add Webhook\" below to get started",
-          "webhookLabel": "Webhook {index}",
-          "noSearchMatches": "No webhooks found matching \"{query}\"",
-          "actions": {
-            "copyUrl": "Copy webhook URL",
-            "test": "Test webhook",
-            "edit": "Edit webhook",
-            "delete": "Delete webhook",
-            "generateSecret": "Generate secure secret",
-            "copySecret": "Copy secret",
-            "showSecret": "Show secret",
-            "hideSecret": "Hide secret",
-            "back": "Back",
-            "create": "Create Webhook",
-            "creating": "Creating...",
-            "update": "Update Webhook",
-            "updating": "Updating...",
-            "add": "Add Webhook"
-          },
-          "form": {
-            "createTitle": "Create New Webhook",
-            "editTitle": "Edit Webhook",
-            "description": "Configure webhook notifications for workflow executions",
-            "url": {
-              "label": "Webhook URL",
-              "placeholder": "https://your-app.com/webhook",
-              "hint": "The URL where webhook notifications will be sent"
-            },
-            "secret": {
-              "label": "Secret (optional)",
-              "placeholder": "Webhook secret for signature verification",
-              "hint": "Used to sign webhook payloads with HMAC-SHA256"
-            },
-            "logLevelsTitle": "Log Level Filters",
-            "triggerTypesTitle": "Trigger Type Filters",
-            "payloadTitle": "Include in Payload",
-            "payloadHint": "By default, only basic metadata and cost information is included"
-          },
-          "logLevels": {
-            "info": {
-              "label": "Info logs",
-              "description": "Receive notifications for info level logs"
-            },
-            "error": {
-              "label": "Error logs",
-              "description": "Receive notifications for error level logs"
-            }
-          },
-          "triggers": {
-            "api": {
-              "label": "API triggers",
-              "description": "Notify when workflow is triggered via API"
-            },
-            "webhook": {
-              "label": "Webhook triggers",
-              "description": "Notify when workflow is triggered via webhook"
-            },
-            "schedule": {
-              "label": "Schedule triggers",
-              "description": "Notify when workflow is triggered via schedule"
-            },
-            "manual": {
-              "label": "Manual triggers",
-              "description": "Notify when workflow is triggered manually"
-            },
-            "chat": {
-              "label": "Chat triggers",
-              "description": "Notify when workflow is triggered via chat"
-            }
-          },
-          "payloadOptions": {
-            "finalOutput": {
-              "label": "Final output",
-              "description": "Include workflow execution results",
-              "chip": "output"
-            },
-            "traceSpans": {
-              "label": "Trace spans",
-              "description": "Detailed execution steps",
-              "chip": "traces"
-            },
-            "rateLimits": {
-              "label": "Rate limits",
-              "description": "Workflow execution limits",
-              "chip": "limits"
-            },
-            "usageData": {
-              "label": "Usage data",
-              "description": "Billing period cost and limits",
-              "chip": "usage"
-            }
-          },
-          "validation": {
-            "enterWebhookUrl": "Please enter a webhook URL",
-            "urlProtocol": "URL must start with http:// or https://",
-            "validUrl": "Please enter a valid URL (e.g., https://example.com/webhook)",
-            "logLevelRequired": "Please select at least one log level filter",
-            "triggerRequired": "Please select at least one trigger filter",
-            "duplicateUrl": "A webhook with this URL already exists"
-          },
-          "errors": {
-            "create": "Failed to create webhook",
-            "createRetry": "Failed to create webhook. Please try again.",
-            "update": "Failed to update webhook",
-            "validationFailed": "Validation failed. Review the webhook settings and try again."
-          },
-          "testStatus": {
-            "success": "Test webhook sent successfully ({status})",
-            "failure": "Test webhook failed.",
-            "sendFailed": "Failed to send test webhook"
-          },
-          "deleteDialog": {
-            "title": "Delete webhook?",
-            "description": "This will permanently remove the webhook configuration and stop all notifications.",
-            "warning": "This action cannot be undone.",
-            "cancel": "Cancel",
-            "confirm": "Delete",
-            "deleting": "Deleting..."
-          }
         },
         "triggers": {
           "api": {
@@ -20253,6 +20217,12 @@
         "requiredField": "This field is required",
         "invalidJson": "Invalid JSON",
         "unknownInputType": "Unknown input type: {type}",
+        "dateTimePicker": {
+          "openMonthYearPicker": "Choose month and year",
+          "showCalendar": "Show calendar",
+          "previousMonth": "Previous month",
+          "nextMonth": "Next month"
+        },
         "loop": "Loop",
         "parallel": "Parallel",
         "start": "Start",
@@ -20270,7 +20240,10 @@
           "writePermissionRequiredToRunWorkflows": "Write permission required to run workflows",
           "usageLimitExceeded": "Usage Limit Exceeded",
           "usageLimitExceededDescription": "You've used {currentUsage}$ of {limit}$. Upgrade your plan to continue.",
-          "run": "Run"
+          "run": "Run",
+          "runningWorkflow": "Running workflow…",
+          "workflowCompleted": "Workflow completed.",
+          "workflowFailed": "Workflow failed: {error}"
         },
         "floatingControls": {
           "zoomOut": "Zoom Out",
@@ -20333,7 +20306,6 @@
         "createNew": "Create new",
         "loadingApiKeys": "Loading API keys...",
         "selectAnApiKey": "Select an API key",
-        "selectApiKeyValidation": "Please select an API key",
         "noApiKeysAvailable": "No API keys available",
         "createNewApiKey": "Create new API key",
         "workspaceAccess": "This key will have access to all workflows in this workspace. Make sure to copy it after creation as you won't be able to see it again.",
@@ -20459,6 +20431,13 @@
           "welcomeMessageDescription": "This message is shown when users open the published chat for the first time.",
           "chatLogo": "Chat Logo",
           "chatLogoHint": "Upload a logo for your chat (PNG or JPEG, up to 5MB).",
+          "chatLogoSelect": "Select chat logo",
+          "chatLogoDrop": "or drag and drop a file here",
+          "chatLogoUploading": "Uploading chat logo…",
+          "chatLogoWait": "Please wait",
+          "chatLogoReplace": "Replace chat logo",
+          "chatLogoDelete": "Delete chat logo",
+          "chatLogoRemoveFile": "Remove selected chat logo file",
           "identifierInvalidFormat": "Identifier can only contain lowercase letters, numbers, and hyphens",
           "identifierCheckFailed": "Error checking identifier availability",
           "identifierInUse": "This identifier is already in use",
@@ -20505,7 +20484,12 @@
         "createFolder": "New folder",
         "importWorkflow": "Import workflow",
         "creating": "Creating...",
-        "importing": "Importing..."
+        "creatingFolder": "Creating folder...",
+        "importing": "Importing...",
+        "createFailed": "The workflow could not be created. Try again.",
+        "emptyImportFile": "The selected workflow file is empty.",
+        "importFailed": "The workflow could not be imported. Check the file and try again.",
+        "importPartialFailed": "Imported {count} skills, but the workflow could not be created."
       },
       "providerControls": {
         "marketSelector": {
@@ -20553,6 +20537,17 @@
           "defaultProviderName": "Market"
         }
       },
+      "surface": {
+        "loadingWidget": "Loading widget…",
+        "failedToLoadWidget": "The widget could not be loaded.",
+        "failedToLoadPairSettings": "The shared color settings could not be loaded.",
+        "retry": "Retry",
+        "retrying": "Retrying…"
+      },
+      "stateMessage": {
+        "retry": "Retry",
+        "retrying": "Retrying…"
+      },
       "watchlist": {
         "header": {
           "explorer": "Explorer",
@@ -20564,8 +20559,12 @@
           "defaultWatchlistPrefix": "Watchlist",
           "defaultSectionPrefix": "Section",
           "createList": "Create List",
+          "creatingList": "Creating {name}…",
+          "createListFailed": "Could not create {name}. Try again.",
           "renameList": "Rename List",
           "deleteList": "Delete List",
+          "deletingList": "Deleting {name}…",
+          "deleteListFailed": "Could not delete {name}. Try again.",
           "deleteListDialogTitle": "Delete list?",
           "deleteListDialogDescription": "Deleting this list removes its sections and listings.",
           "cancel": "Cancel",
@@ -20580,6 +20579,7 @@
         },
         "body": {
           "selectWorkspace": "Select a workspace to use watchlists.",
+          "loadingWatchlists": "Loading watchlists…",
           "failedToLoadWatchlists": "Failed to load watchlists.",
           "createWatchlistToGetStarted": "Create a watchlist to get started.",
           "watchlistNotFound": "Watchlist not found.",
@@ -20614,8 +20614,11 @@
           "manageSkills": "Manage skills",
           "importSkills": "Import skills",
           "importingSkills": "Importing skills",
+          "creatingSkill": "Creating skill",
           "newSkill": "New skill",
-          "create": "Create"
+          "create": "Create",
+          "createFailed": "The skill could not be created. Try again.",
+          "importFailed": "The skills could not be imported. Check the file and try again."
         },
         "header": {
           "explorer": "Explorer"
@@ -20633,7 +20636,9 @@
           "deleteDialogDescription": "Deleting this skill will permanently remove its instructions from the workspace.",
           "deleteDialogDescriptionHighlight": "This action cannot be undone.",
           "cancel": "Cancel",
-          "delete": "Delete"
+          "delete": "Delete",
+          "deleting": "Deleting...",
+          "deleteFailed": "The skill could not be deleted. Try again."
         }
       },
       "skillEditor": {
@@ -20678,7 +20683,6 @@
           "createIndicator": "Create indicator",
           "create": "Create",
           "newIndicator": "New indicator",
-          "importingIndicator": "Importing indicator",
           "importIndicator": "Import indicator"
         },
         "header": {
@@ -20687,7 +20691,9 @@
         "body": {
           "selectWorkspace": "Select a workspace to browse its indicators.",
           "noIndicatorsYet": "No indicators yet.",
-          "failedToLoadIndicators": "Failed to load indicators."
+          "failedToLoadIndicators": "Failed to load indicators.",
+          "writePending": "Saving indicator changes…",
+          "writeFailed": "Could not save indicator changes. Try again."
         },
         "listItem": {
           "untitledIndicator": "Untitled indicator",
@@ -20764,8 +20770,11 @@
         "createMenu": {
           "createCustomTool": "Create custom tool",
           "create": "Create",
+          "creatingCustomTool": "Creating custom tool...",
+          "createFailed": "Custom tool creation failed. Try again.",
           "importCustomTools": "Import custom tools",
           "importingCustomTools": "Importing custom tools",
+          "importFailed": "Custom tool import failed. Select the file and try again.",
           "newCustomTool": "New custom tool"
         },
         "header": {
@@ -20784,6 +20793,10 @@
           "deleteDialogDescription": "Deleting this custom tool will permanently remove its code and configuration.",
           "deleteDialogDescriptionHighlight": "This action cannot be undone.",
           "cancel": "Cancel",
+          "renaming": "Renaming...",
+          "renameFailed": "Could not rename this custom tool. Try again.",
+          "deleting": "Deleting...",
+          "deleteFailed": "Could not delete this custom tool. Try again.",
           "delete": "Delete"
         }
       },
@@ -20829,10 +20842,24 @@
       "workflowList": {
         "body": {
           "selectWorkspace": "Select a workspace to browse its workflow folders.",
+          "unableToLoadFolders": "Unable to load folders. Refresh to enable folder changes.",
           "unableToLoadWorkflows": "Unable to load workflows for this workspace."
         },
         "header": {
           "explorer": "Explorer"
+        },
+        "folderWrites": {
+          "createPending": "Creating folder {name}...",
+          "renamePending": "Renaming folder to {name}...",
+          "movePending": "Moving folder {name}...",
+          "deletePending": "Deleting folder {name}...",
+          "createFailed": "Could not create folder {name}. Try again.",
+          "renameFailed": "Could not rename folder to {name}. Try again.",
+          "moveFailed": "Could not move folder {name}. Try again.",
+          "deleteFailed": "Could not delete folder {name}. Try again.",
+          "refreshPending": "Refreshing folders...",
+          "refreshFailed": "The change to folder {name} was saved, but folders could not be refreshed.",
+          "refreshAction": "Refresh folders"
         }
       },
       "mcpList": {
@@ -20987,6 +21014,7 @@
           "noSupportedOrderTypesForThisListing": "No supported order types for this listing.",
           "selectedOrderTypeIsNotSupportedForThisListing": "Selected order type is not supported for this listing.",
           "orderSubmitted": "Order submitted",
+          "orderAcceptedRefreshWarning": "The order was accepted, but refreshed records or portfolio data could not be confirmed.",
           "submitting": "Submitting...",
           "orderPrefix": "Order",
           "sideLabel": "{side}",
@@ -21008,7 +21036,10 @@
             "chooseListingDescription": "Choose a listing to display chart data."
           },
           "errorTitle": "Failed to load data",
-          "errorFallback": "Unable to load chart data."
+          "errorFallback": "Unable to load chart data.",
+          "indicatorLoadFailure": "Unable to load one or more custom indicators.",
+          "retry": "Retry",
+          "retrying": "Retrying…"
         },
         "controls": {
           "intervalAriaLabel": "Select interval",
@@ -21208,6 +21239,7 @@
         "selectListing": "Select listing",
         "flagAlt": "{countryCode} flag",
         "searching": "Searching...",
+        "unableToLoadListings": "Unable to load listings. Try again.",
         "noListingsFound": "No listings found.",
         "searchPlaceholder": "Search listings..."
       },
@@ -21333,6 +21365,7 @@
     "layoutTabs": {
       "createNewLayout": "Create new layout",
       "renameAriaLabel": "Rename {name}",
+      "saveNameAriaLabel": "Save name for {name}",
       "deleteAriaLabel": "Delete {name}"
     },
     "monitor": {
@@ -21354,10 +21387,12 @@
         "cancel": "Cancel",
         "createConfigDescription": "Create a saved config view for this workspace.",
         "createExecutionDescription": "Create a saved execution view for this workspace.",
+        "createNameLabel": "Name for new view",
         "createSubmit": "Create view",
         "createTitle": "Create view",
         "namePlaceholder": "View name",
         "renameDescription": "Rename this saved monitor view.",
+        "renameNameLabel": "New name for this view",
         "renameSubmit": "Save name",
         "renameTitle": "Rename view"
       },
@@ -21481,6 +21516,7 @@
         "viewsUnavailableDescription": "Execution views could not be loaded right now.",
         "loadingExecutions": "Loading executions...",
         "loadingDetails": "Loading execution details...",
+        "detailsTitle": "Execution details",
         "detailsUnavailableTitle": "Execution details unavailable",
         "detailsUnavailableDescription": "The selected execution could not be loaded from the detail route.",
         "closeInspector": "Close inspector",
@@ -21561,15 +21597,13 @@
           "sourceLabel": "Monitor source",
           "sourcePortfolio": "Portfolio state",
           "statusDescription": "New monitors start paused unless enabled here.",
+          "comparisonValue": "Comparison value",
+          "deleteCondition": "Delete condition",
+          "deleteConditionGroup": "Delete condition group",
           "statusTitle": "Monitor status",
           "tradingAccount": "Trading account",
           "tradingProvider": "Trading provider",
           "workflowTargetPlaceholder": "Select workflow target"
-        },
-        "errors": {
-          "delete": "Failed to delete monitor",
-          "save": "Failed to save monitor",
-          "updateState": "Failed to update monitor state"
         }
       },
       "timeline": {
@@ -21626,11 +21660,13 @@
     },
     "message": {
       "copied": "Copied",
-      "copyToClipboard": "Copy to clipboard"
+      "copyToClipboard": "Copy to clipboard",
+      "openAttachment": "Open {name}"
     },
     "input": {
       "fileUploadErrorTitle": "File upload error",
       "attachFiles": "Attach files",
+      "removeFile": "Remove {name}",
       "dropFilesHere": "Drop files here",
       "placeholderMobile": "Enter a message",
       "placeholderDesktop": "Enter a message",
@@ -21803,6 +21839,7 @@
     "registration": {
       "title": "Admin registration",
       "searchPlaceholder": "Search waitlist entries...",
+      "clearSearch": "Clear search",
       "mode": "Mode",
       "loading": "Loading registration settings...",
       "selectedCount": "{count} selected",
@@ -21824,7 +21861,10 @@
       "actions": {
         "approve": "Approve",
         "reject": "Reject",
-        "clear": "Clear"
+        "clear": "Clear",
+        "switching": "Switching to {mode}…",
+        "approving": "Approving…",
+        "rejecting": "Rejecting…"
       },
       "table": {
         "email": "Email",
@@ -21847,6 +21887,7 @@
     "services": {
       "title": "Admin services",
       "searchPlaceholder": "Search services, credentials, and settings...",
+      "clearSearch": "Clear search",
       "loading": "Loading service catalog...",
       "emptyState": "No services match the current search.",
       "headerStats": {
@@ -21856,7 +21897,8 @@
       },
       "status": {
         "ready": "Ready",
-        "review": "Review"
+        "review": "Review",
+        "saving": "Saving changes for {name}…"
       },
       "credentials": {
         "title": "Credentials",
@@ -21897,7 +21939,6 @@
         "missing": "Missing {labels}."
       },
       "footer": {
-        "saving": "Saving changes...",
         "ready": "This service has everything required for runtime use. Changes save immediately.",
         "review": "Review missing credentials or settings. Changes save immediately."
       },
@@ -21906,6 +21947,7 @@
     "integrations": {
       "title": "System-managed OAuth",
       "searchPlaceholder": "Search system-managed OAuth integrations...",
+      "clearSearch": "Clear search",
       "info": "These rows manage system-managed OAuth integrations for runtime services like Google Drive and GitHub repository access. Better Auth social sign-in for GitHub and Google stays env-only in apps/tradinggoose/.env.example and is not edited here.",
       "loading": "Loading integration catalog...",
       "emptyState": "No system-managed OAuth integrations match the current search.",
@@ -21917,7 +21959,8 @@
       },
       "status": {
         "ready": "Ready",
-        "review": "Review"
+        "review": "Review",
+        "saving": "Saving changes for {name}…"
       },
       "credentials": {
         "title": "Provider credentials",
@@ -22016,6 +22059,7 @@
       },
       "overview": {
         "searchPlaceholder": "Search tiers...",
+        "clearSearch": "Clear search",
         "createTier": "Create tier",
         "loadingInventory": "Loading billing inventory...",
         "subscriptionCount": "{count} subscriptions",
@@ -22085,6 +22129,7 @@
         "saving": "Saving…",
         "updated": "Tier updated",
         "delete": "Delete Tier",
+        "deleting": "Deleting…",
         "activeSubscriptionsWarning": "This tier has active subscriptions. Delete is disabled until they are moved off.",
         "loading": "Loading billing tier...",
         "notFoundTitle": "Tier not found",

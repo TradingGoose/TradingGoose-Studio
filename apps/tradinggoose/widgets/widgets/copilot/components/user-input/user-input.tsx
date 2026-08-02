@@ -218,7 +218,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
       checkPosition()
 
-      const scrollContainer = containerRef.current?.closest('[data-radix-scroll-area-viewport]')
+      const scrollContainer = containerRef.current?.closest('[data-slot="scroll-area-viewport"]')
       if (scrollContainer) {
         scrollContainer.addEventListener('scroll', checkPosition, { passive: true })
       }
@@ -305,7 +305,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         updatePosition()
         window.addEventListener('resize', updatePosition)
 
-        const scrollContainer = containerRef.current?.closest('[data-radix-scroll-area-viewport]')
+        const scrollContainer = containerRef.current?.closest('[data-slot="scroll-area-viewport"]')
         if (scrollContainer) {
           scrollContainer.addEventListener('scroll', updatePosition, { passive: true })
         }

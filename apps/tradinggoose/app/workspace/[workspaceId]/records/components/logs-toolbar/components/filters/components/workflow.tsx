@@ -95,16 +95,18 @@ export default function Workflow() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {loading ? t('loadingWorkflows') : getSelectedWorkflowsText()}
-          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass} />
+        }
+      >
+        {loading ? t('loadingWorkflows') : getSelectedWorkflowsText()}
+        <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align='start'
         side='bottom'
-        avoidCollisions={false}
+        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
         sideOffset={4}
         className={dropdownContentClass}
       >

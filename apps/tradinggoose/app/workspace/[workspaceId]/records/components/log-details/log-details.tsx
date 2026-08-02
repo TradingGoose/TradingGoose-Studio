@@ -23,7 +23,7 @@ import type { WorkflowLog } from '@/stores/logs/filters/types'
 interface LogDetailsProps {
   log: WorkflowLog | null
   isOpen: boolean
-  isLoading?: boolean
+  busy?: boolean
   stateContent?: ReactNode
   headerControls?: ReactNode
   onClose: () => void
@@ -43,7 +43,7 @@ const getLevelBadgeVariant = (level?: string | null) => {
 export function LogDetails({
   log,
   isOpen,
-  isLoading = false,
+  busy = false,
   stateContent,
   headerControls,
   onClose,
@@ -123,9 +123,15 @@ export function LogDetails({
     return (
       <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
         <div className='flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
-          <div className='flex h-full min-h-0 items-center justify-center gap-2 p-5 text-center text-muted-foreground text-sm'>
-            {isLoading && <Loader2 className='h-4 w-4 animate-spin' />}
-            {stateContent ?? (isLoading ? t('loading') : t('selectLog'))}
+          <div
+            className='flex h-full min-h-0 items-center justify-center gap-2 p-5 text-center text-muted-foreground text-sm'
+            role='status'
+            aria-live='polite'
+            aria-atomic='true'
+            aria-busy={busy || undefined}
+          >
+            {busy && <Loader2 aria-hidden='true' className='h-4 w-4 animate-spin' />}
+            {stateContent ?? (busy ? t('loading') : t('selectLog'))}
           </div>
         </div>
       </div>
@@ -142,36 +148,40 @@ export function LogDetails({
             {headerControls}
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-7 w-7 p-0'
-                    onClick={onNavigatePrev}
-                    disabled={!hasPrev}
-                    aria-label={t('previous')}
-                  >
-                    <ChevronUp className='h-4 w-4' />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-7 w-7 p-0'
+                      onClick={onNavigatePrev}
+                      disabled={!hasPrev}
+                      aria-label={t('previous')}
+                    >
+                      <ChevronUp className='h-4 w-4' />
+                    </Button>
+                  }
+                />
                 <TooltipContent side='bottom'>{t('previous')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-7 w-7 p-0'
-                    onClick={onNavigateNext}
-                    disabled={!hasNext}
-                    aria-label={t('next')}
-                  >
-                    <ChevronDown className='h-4 w-4' />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-7 w-7 p-0'
+                      onClick={onNavigateNext}
+                      disabled={!hasNext}
+                      aria-label={t('next')}
+                    >
+                      <ChevronDown className='h-4 w-4' />
+                    </Button>
+                  }
+                />
                 <TooltipContent side='bottom'>{t('next')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>

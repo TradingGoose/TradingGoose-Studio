@@ -18,7 +18,10 @@ export default async function Landing() {
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
   const registrationMode = await getRegistrationModeForRender()
-  const workflowDemos = buildTradingAgentWorkflowDemos(locale, copy.landing.preview.workflow.demoCopy)
+  const workflowDemos = buildTradingAgentWorkflowDemos(
+    locale,
+    copy.landing.preview.workflow.demoCopy
+  )
   const marketPreviewMessages = {
     workspace: {
       widgets: {
@@ -35,11 +38,8 @@ export default async function Landing() {
         <Hero registrationMode={registrationMode} />
         <HowItWorks />
         <MonitorSection />
-        <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-          <Feature
-            marketPreviewMessages={marketPreviewMessages}
-            workflowDemos={workflowDemos}
-          />
+        <TooltipProvider delay={100} timeout={0}>
+          <Feature marketPreviewMessages={marketPreviewMessages} workflowDemos={workflowDemos} />
         </TooltipProvider>
         <Integrations />
         <CallToAction />

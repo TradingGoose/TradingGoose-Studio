@@ -23,31 +23,35 @@ export const PaneControl = ({ paneIndex, paneCount, onMoveUp, onMoveDown }: Pane
     <div className='inline-flex min-w-0 max-w-full self-start items-center h-6 gap-1 rounded-sm border border-border/40 text-center text-xs shadow-xs bg-background/40 backdrop-blur-sm hover:bg-background'>
       <div className=' items-center gap-1 p-0.5 flex'>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type='button'
-              className={buttonClass}
-              onClick={onMoveUp}
-              disabled={disableMoveUp}
-            >
-              <ChevronUp className='h-3 w-3' />
-              <span className='sr-only'>{copy.panes.movePaneUp}</span>
-            </button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <button
+                type='button'
+                className={buttonClass}
+                onClick={onMoveUp}
+                disabled={disableMoveUp}
+              >
+                <ChevronUp className='h-3 w-3' />
+                <span className='sr-only'>{copy.panes.movePaneUp}</span>
+              </button>
+            }
+          />
           <TooltipContent side='top'>{copy.panes.moveUp}</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type='button'
-              className={buttonClass}
-              onClick={onMoveDown}
-              disabled={disableMoveDown}
-            >
-              <ChevronDown className='h-3 w-3' />
-              <span className='sr-only'>{copy.panes.movePaneDown}</span>
-            </button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <button
+                type='button'
+                className={buttonClass}
+                onClick={onMoveDown}
+                disabled={disableMoveDown}
+              >
+                <ChevronDown className='h-3 w-3' />
+                <span className='sr-only'>{copy.panes.movePaneDown}</span>
+              </button>
+            }
+          />
           <TooltipContent side='top'>{copy.panes.moveDown}</TooltipContent>
         </Tooltip>
       </div>

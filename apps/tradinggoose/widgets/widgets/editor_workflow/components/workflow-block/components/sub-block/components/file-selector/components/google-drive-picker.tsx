@@ -404,40 +404,43 @@ export function GoogleDrivePicker({
     <>
       <div className='space-y-2'>
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              className='h-10 w-full min-w-0 justify-between'
-              disabled={disabled || isLoading}
-              onClick={() => {
-                if (!selectedCredentialId && credentials.length === 1) {
-                  setSelectedCredentialId(credentials[0].id)
-                } else if (!selectedCredentialId) {
-                  handleAddCredential()
-                }
-              }}
-            >
-              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-                {canShowPreview ? (
-                  <>
-                    {getFileIcon(selectedFile, 'sm')}
-                    <span className='truncate font-normal'>{selectedFile.name}</span>
-                  </>
-                ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
-                  <>
-                    <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
-                  </>
-                ) : (
-                  <>
-                    {getProviderIcon(provider)}
-                    <span className='truncate text-muted-foreground'>{labelText}</span>
-                  </>
-                )}
-              </div>
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={disabled || isLoading}
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                className='h-10 w-full min-w-0 justify-between'
+                disabled={disabled || isLoading}
+                onClick={() => {
+                  if (!selectedCredentialId && credentials.length === 1) {
+                    setSelectedCredentialId(credentials[0].id)
+                  } else if (!selectedCredentialId) {
+                    handleAddCredential()
+                  }
+                }}
+              />
+            }
+          >
+            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+              {canShowPreview ? (
+                <>
+                  {getFileIcon(selectedFile, 'sm')}
+                  <span className='truncate font-normal'>{selectedFile.name}</span>
+                </>
+              ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
+                <>
+                  <RefreshCw className='h-4 w-4 animate-spin' />
+                  <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
+                </>
+              ) : (
+                <>
+                  {getProviderIcon(provider)}
+                  <span className='truncate text-muted-foreground'>{labelText}</span>
+                </>
+              )}
+            </div>
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           {selectedCredentialId && (
             <PopoverContent className='w-[320px] p-0' align='start'>

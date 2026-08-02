@@ -1,4 +1,5 @@
 import { getSessionCookie } from 'better-auth/cookies'
+import { Form } from '@base-ui/react/form'
 import { headers } from 'next/headers'
 import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'
@@ -94,7 +95,7 @@ export default async function McpAuthorizePage({
         title={mcpCopy.confirm.title}
         description={mcpCopy.confirm.description}
       />
-      <form method='post' action='/api/auth/mcp/authorize' className='space-y-3'>
+      <Form method='post' action='/api/auth/mcp/authorize' className='space-y-3'>
         <input type='hidden' name='code' value={code} />
         <input type='hidden' name='approvalToken' value={approvalStatus.approvalToken} />
         <input type='hidden' name='locale' value={locale} />
@@ -112,7 +113,7 @@ export default async function McpAuthorizePage({
             {mcpCopy.confirm.cancel}
           </Button>
         </div>
-      </form>
+      </Form>
       <p className={`${inter.className} text-muted-foreground text-sm`}>
         {mcpCopy.confirm.terminalHint}
       </p>

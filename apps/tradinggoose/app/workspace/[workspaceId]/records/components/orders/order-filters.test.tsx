@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import type { ReactNode } from 'react'
-import { act } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_ORDERS_FILTER_STATE } from '@/lib/records/order-filters'
@@ -11,20 +11,29 @@ import { OrderFilterMenu, OrderFilters } from './order-filters'
 
 vi.mock('@/components/ui/popover', () => ({
   Popover: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  PopoverTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  PopoverTrigger: ({
+    children,
+    render,
+  }: {
+    children?: ReactNode
+    render?: ReactElement<{ children?: ReactNode }>
+  }) => (render ? cloneElement(render, undefined, children) : <>{children}</>),
   PopoverContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('@/components/ui/select', () => ({
   Select: ({ children, onValueChange, value }: any) => (
-    <select value={value} onChange={(event) => onValueChange(event.currentTarget.value)}>
+    <select
+      value={value ?? ''}
+      onChange={(event) => onValueChange(event.currentTarget.value || null)}
+    >
       {children}
     </select>
   ),
   SelectContent: ({ children }: any) => <>{children}</>,
-  SelectItem: ({ children, value }: any) => <option value={value}>{children}</option>,
+  SelectItem: ({ children, value }: any) => <option value={value ?? ''}>{children}</option>,
   SelectTrigger: ({ children }: any) => <>{children}</>,
-  SelectValue: ({ placeholder }: any) => <option value='all'>{placeholder}</option>,
+  SelectValue: () => null,
 }))
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -102,6 +111,14 @@ describe('OrderFilters', () => {
     expect(onChange).toHaveBeenCalledWith({ side: 'buy' })
     expect(onChange).toHaveBeenCalledWith({ orderType: 'limit' })
     expect(onChange).toHaveBeenCalledWith({ timeInForce: 'day' })
+    expect(side.querySelector('option[value="all"]')).toBeNull()
+
+    await act(async () => {
+      side.value = ''
+      side.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    expect(onChange).toHaveBeenCalledWith({ side: '' })
     expect(container.textContent).toContain('Showing 1 of 3')
   })
 })

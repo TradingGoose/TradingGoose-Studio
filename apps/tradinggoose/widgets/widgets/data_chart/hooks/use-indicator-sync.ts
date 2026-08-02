@@ -968,7 +968,7 @@ export const useIndicatorSync = ({
       })
 
       const resultById = new Map<string, ExecuteResult>()
-      const executionErrorById = new Map<string, string>()
+      const executionFailureById = new Map<string, string>()
 
       // Execute chunks serially so chart refreshes do not start multiple PineTS
       // batches over overlapping bar windows at the same time.
@@ -1001,7 +1001,7 @@ export const useIndicatorSync = ({
                 },
               }
             } catch (error) {
-              const errorMessage =
+              const executionFailure =
                 error instanceof Error ? error.message : indicatorCopy.executionErrorFallback
               return {
                 indicatorId: item.id,
@@ -1009,7 +1009,7 @@ export const useIndicatorSync = ({
                 warnings: [],
                 unsupported: { plots: [], styles: [] },
                 counts: { plots: 0, markers: 0, triggers: 0 },
-                executionError: { message: errorMessage, code: 'runtime_error' },
+                executionError: { message: executionFailure, code: 'runtime_error' },
               }
             }
           })
@@ -1042,9 +1042,9 @@ export const useIndicatorSync = ({
 
       resultById.forEach((result, indicatorId) => {
         if (!result.output) {
-          const errorMessage = result.executionError?.message?.trim()
-          if (errorMessage) {
-            executionErrorById.set(indicatorId, errorMessage)
+          const executionFailure = result.executionError?.message?.trim()
+          if (executionFailure) {
+            executionFailureById.set(indicatorId, executionFailure)
           }
           return
         }
@@ -1074,12 +1074,12 @@ export const useIndicatorSync = ({
           cleanupIndicator(indicatorId)
           return
         }
-        const errorMessage = executionErrorById.get(indicatorId)
+        const executionFailure = executionFailureById.get(indicatorId)
         const output = accumulatedOutputRef.current.get(indicatorId)
         if (!output) {
-          if (errorMessage) warnOnce(errorMessage)
+          if (executionFailure) warnOnce(executionFailure)
           cleanupIndicator(indicatorId)
-          if (errorMessage) {
+          if (executionFailure) {
             runtimeEntries.set(indicatorId, {
               id: indicatorId,
               pane: null,
@@ -1087,12 +1087,12 @@ export const useIndicatorSync = ({
               plots: [],
               paneAnchorSeries: null,
               paneAnchorIdentity: null,
-              errorMessage,
+              executionFailure,
             })
           }
           return
         }
-        if (errorMessage) warnOnce(errorMessage)
+        if (executionFailure) warnOnce(executionFailure)
         const indicatorOptions = output.indicator
         const indicatorScale = resolveIndicatorScale(indicatorOptions)
         const signature = buildIndicatorSignature(output)
@@ -1403,7 +1403,7 @@ export const useIndicatorSync = ({
           .map((entry) => {
             const plotKeys = entry.plots.map((plot) => plot.key).join(',')
             const anchorIdentity = entry.paneAnchorIdentity ?? 'none'
-            const errorTag = entry.errorMessage ? `:error:${entry.errorMessage}` : ''
+            const errorTag = entry.executionFailure ? `:error:${entry.executionFailure}` : ''
             return `${entry.id}:${entry.paneIndex}:${plotKeys}:anchor:${anchorIdentity}${errorTag}`
           })
           .join('|')

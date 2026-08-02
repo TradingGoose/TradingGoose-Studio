@@ -117,4 +117,37 @@ describe('AutocompleteSearch', () => {
     expect(container.textContent).toContain('workflow:#wf-1')
     expect(container.textContent).not.toContain('alpha')
   })
+
+  it('associates and clears an invalid qualifier message', async () => {
+    const onChange = vi.fn()
+    await act(async () => {
+      root.render(
+        <AutocompleteSearch value='' onChange={onChange} queryPolicy={MONITOR_QUERY_POLICY} />
+      )
+    })
+    const input = container.querySelector('input') as HTMLInputElement
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+
+    await act(async () => {
+      setValue?.call(input, 'invalid:thing')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
+    })
+
+    const message = container.querySelector('[role="alert"]')
+    expect(message?.textContent).toContain('invalid:thing')
+    expect(message?.id).toBeTruthy()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input).toHaveAttribute('aria-describedby', message?.id)
+    expect(onChange).not.toHaveBeenCalled()
+
+    await act(async () => {
+      setValue?.call(input, 'valid')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(input).not.toHaveAttribute('aria-describedby')
+  })
 })
