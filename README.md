@@ -1,211 +1,311 @@
-<h1 align="center">TradingGoose Studio</h1>
 <p align="center">
-  <b>AI Workflow Platform for Tecnical LLM Trading</b>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/home-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/home-light.png">
+    <img alt="TradingGoose-Studio" src="https://shieldcn.dev/header/grid.svg?title=TradingGoose-Studio&subtitle=Build+your+own+AI+trading+system&logo=https%3A%2F%2Favatars.githubusercontent.com%2Fu%2F226357056%3Fs%3D200%26v%3D4&mode=light&font=roboto&border=false&brand=TradingGoose" width="2559">
+  </picture>
 </p>
 
-
-<p align='center'>
-  <a href="https://discord.gg/wavf5JWhuT" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+<p align="center">
+  <a href="https://docs.tradinggoose.ai"><img src="https://shieldcn.dev/badge/Docs-ffcc00.svg?size=xs&logo=googledocs&logoColor=202020"></a> 
+  <a href="https://discord.gg/wavf5JWhuT"><img src="https://shieldcn.dev/badge/Discord-5865F2.svg?size=xs&logo=discord" alt="Discord"></a> 
+  <a href="https://www.tradinggoose.ai"><img src="https://shieldcn.dev/badge/website-ffcc00.svg?size=xs&logo=ri%3AFaGlobe&logoColor=202020" alt="Website"></a> 
 </p>
 
-<p align='center'>
-  <a href="https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20google%20AI-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white" alt="Gemini"></a>
-<a href="https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20perplexity-088F8F?style=for-the-badge&logo=perplexity&logoColor=ffffff" alt="Perplexity"></a>
+<p align="center">
+  <a href="LICENSE"><img src="https://shieldcn.dev/github/license/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="License"></a>
+  <a href="https://github.com/TradingGoose/TradingGoose-Studio"><img src="https://shieldcn.dev/github/stars/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="GitHub stars"></a>
+  <a href="https://github.com/TradingGoose/TradingGoose-Studio/commits"><img src="https://shieldcn.dev/github/last-commit/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="Last commit"></a>
+  
 </p>
 
+<p align="center">
+  <a href="https://gemini.google.com/app?q=I+am+using+TradingGoose+Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+build+my+own+AI+trading+system+with+TradingGoose+Studio%3F"><img src="https://shieldcn.dev/badge/Ask%20Gemini-8E75B2.svg?variant=branded&amp;logo=googlegemini" alt="Ask Gemini"></a>
+  <a href="https://perplexity.ai?q=I+am+using+TradingGoose+Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+build+my+own+AI+trading+system+with+TradingGoose+Studio%3F"><img src="https://shieldcn.dev/badge/Ask%20Perplexity-088F8F.svg?variant=branded&amp;logo=perplexity" alt="Ask Perplexity"></a>
+</p>
+
+<br />
+
+# Build your own AI trading system
+
+**TradingGoose-Studio is an open-source, AI-native trading analysis and automation system.**
+
+Build your own AI trading system by composing workflows that analyze market signals and portfolio state, then act through approvals, alerts, connected services, or brokers.
+
+**Monitor → Analyze → Execute → Review**
+
+Built for traders, indicator authors, workflow builders, and self-hosting teams that want control over how automation makes and executes decisions.
+
+## How it works
+
+```mermaid
+flowchart LR
+  BUILD["1 · Build & deploy<br/>Create your AI trading workflow"] --> MONITOR["2 · Configure a monitor<br/>Choose a trigger source"]
+  MONITOR --> MARKET["Market signal<br/>Indicator condition"]
+  MONITOR --> PORTFOLIO["Portfolio state<br/>Account or position condition"]
+  MARKET --> RUN["3 · Signal matches<br/>The AI workflow analyzes and decides"]
+  PORTFOLIO --> RUN
+  RUN --> OUTCOME["4 · Configured outcome<br/>Approve · alert · service · broker action"]
+```
 
 <picture>
-  <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/home-light.png">
-  <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/home-dark.png">
-  <!-- Fallback Image (shown if the browser doesn't support themes) -->
-  <img alt="Project Screenshot" src="apps/tradinggoose/public/static/home-light.png" width="2559">
-</picture>
-
----
-
-## What is TradingGoose Studio?
-
-TradingGoose Studio is an **AI workflow platform for technical LLM trading**, it combines both technical + LLM analysis for your trading decision.
-It is built for analytics, research, charting, monitoring, and workflow automation. 
-
-> **Early Stage Notice**
->
-> TradingGoose Studio is still in a very early development stage.
-> You should expect rough edges, incomplete features, and a meaningful number of bugs.
-> Breaking changes are normal at this stage and may happen very frequently, including on a near-weekly basis.
-> If you are building on top of the project, expect to update your setup, workflows, and integrations often.
-
-
-
-<picture>
-  <!-- Image for Dark Mode -->
   <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/preview-dark.png">
-  <!-- Image for Light Mode -->
   <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/preview-light.png">
-  <!-- Fallback Image (Defaults to Light) -->
-  <img alt="Project Overview" src="apps/tradinggoose/public/static/preview-light.png" width="2559">
+  <img alt="TradingGoose workspace with Copilot, charts, indicators, and workflows" src="apps/tradinggoose/public/static/preview-light.png" width="2559">
 </picture>
 
----
 
-### Copilot-MCP
+## The four pillars
 
-You can install TradingGoose MCP to use any local agentic tool like Codex, Claude Code, Cursor, ZCode as Copilot to perform TradingGoose-Studio operations
+Four product surfaces work together to turn market context into a controlled AI trading system.
 
-#### Mac/Linux:
-connect to the hosted instance:
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>📊 Trading workspace</h3>
+      <p>Organize the views and tools for a trading process in saved layouts.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>📡 Monitor system</h3>
+      <p>Use one system for market-data indicator events and connected-broker portfolio or position conditions. Both trigger deployed workflows.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔀 Decision workflows</h3>
+      <p>Compose AI agents with market context, tools, rules, conditions, and approvals on a visual canvas.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎯 Controlled execution</h3>
+      <p>Run the alerts, service calls, or broker actions you configure and review each execution.</p>
+    </td>
+  </tr>
+</table>
+
+## Features
+
+| Capability | What you can do |
+| --- | --- |
+| **Custom market views** | Pair charts, watchlists, portfolios, and orders in saved layouts. |
+| **Indicator authoring** | Use built-in studies or PineTS scripts, then reuse them as signal inputs. |
+| **Context-rich agents** | Give agents market, portfolio, knowledge, memory, and tool context. |
+| **Deterministic controls** | Route, loop, run in parallel, wait, branch on conditions, and require approval. |
+| **Connected actions** | Use Alpaca or Tradier, APIs, SDKs, webhooks, and MCP from the same system. |
+| **Run history** | Inspect streamed outputs, execution logs, and order records after every run. |
+
+## Problems TradingGoose-Studio solves
+
+| Without TradingGoose-Studio | With TradingGoose-Studio |
+| --- | --- |
+| ❌ Market context, portfolio state, AI analysis, and actions live in separate tools. | ✔️ One workspace connects them through monitors and workflows. |
+| ❌ An indicator can tell you something happened, but not what to do next. | ✔️ Monitor events feed a workflow that can analyze, gate, alert, or act. |
+| ❌ AI trading logic is trapped in prompts or one-off scripts. | ✔️ Build and deploy a visual AI trading system you can inspect and change. |
+| ❌ Automation can act without a clear review point. | ✔️ Put rules and approvals in the workflow and inspect each execution. |
+| ❌ You have to accept a fixed strategy or hosted stack. | ✔️ Bring your data, models, tools, and broker connections and define your own system. |
+
+## Ready to build with
+
+This is the build kit already included in TradingGoose-Studio. Canvas types and agent actions are counted separately: the action total only includes built-in tools the Agent runtime can resolve.
+
+|  |  |
+| --- | --- |
+| **151 user-addable canvas types** | 15 core blocks, 124 tool blocks, 10 trigger blocks, and loop and parallel control-flow containers. |
+| **10 trigger types** | Start workflows from manual or input runs, schedules, APIs, chats, webhooks, RSS or IMAP, indicator events, and portfolio-state conditions. |
+| **254 agent-callable actions across 71 integrations** | Give agents market research, data, communications, storage, web access, and configured trading actions. |
+| **86 built-in PineTS studies** | Use them in charts, Copilot, and Function blocks; author or import a trigger-enabled indicator when a market monitor should start a workflow. |
+| **4 market-data providers** | Alpaca, Finnhub, Alpha Vantage and Yahoo Finance. All support series; Alpaca and Finnhub also provide live data. |
+| **2 trading providers** | Alpaca and Tradier provide portfolio context and configured order actions. |
+| **16 AI providers** | Choose from direct, cloud, and local model-provider options for agents. |
+
+Connect the credentials, endpoint, or broker account required by each provider. Custom tools and connected MCP servers are workspace-specific, so they are deliberately not included in the fixed counts above.
+
+### The Systems
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Provider adapters</strong> — AI providers, market-data feeds, and trading services are exposed through consistent interfaces for models, market context, portfolio state, and broker accounts.
+    </td>
+    <td width="50%" valign="top">
+      <strong>Indicator runtime</strong> — PineTS compilation, series normalization, local or sandboxed execution, and trigger detection turn custom indicator code into reusable signals.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Workflow executor</strong> — Versioned definitions run through agent, function, condition, router, loop, parallel, wait, trigger, and response handlers, with background jobs and streamed run events.
+    </td>
+    <td width="50%" valign="top">
+      <strong>Persistence and extension boundary</strong> — PostgreSQL and Drizzle persist workspace, workflow, monitor, run, and order state; Redis, Socket.IO, and Yjs synchronize it; APIs, SDKs, MCP, webhooks, and custom tools extend it.
+    </td>
+  </tr>
+</table>
+
+## Copilot MCP
+
+The Copilot-MCP allows Claude Code, Cursor, OpenCode, Codex, Antigravity, or Gemini CLI to control/edit your TradingGoose workspace. It requires Node.js 18 or newer and access to the TradingGoose instance.
+
+Choose your platform and open only the instructions you need.
+<details>
+<summary><strong>macOS / Linux / WSL</strong></summary>
+
+```bash
+curl -fsSL https://tradinggoose.ai/mcp/setup | sh
 ```
-curl -fsSL https://TradingGoose.ai/mcp/setup | sh
-``` 
 
-connect to self-hosted instance:
+For a self-hosted instance, replace `https://tradinggoose.ai` with its URL, such as `http://localhost:3000`.
+
+</details>
+
+<details>
+<summary><strong>Windows PowerShell</strong></summary>
+
+```powershell
+irm https://tradinggoose.ai/mcp/setup | iex
 ```
-curl -fsSL http://localhost:3000/mcp/setup | sh
-``` 
 
-#### Windows
-connect to the hosted instance:
-```
-irm https://TradingGoose.ai/mcp/setup | iex
-``` 
+For a self-hosted instance, replace `https://tradinggoose.ai` with its URL, such as `http://localhost:3000`.
 
-connect to self-hosted instance:
-```
-irm http://localhost:3000/mcp/setup | iex
-``` 
+</details>
+<br>
+The setup endpoint opens an interactive target picker. Append a supported target to configure it directly—for example, `/mcp/setup/codex`. Self-hosted MCP setup requires `API_ENCRYPTION_KEY`.
 
-## Quick Start
+## FAQ
 
-### Requirements
+<details>
+<summary><strong>What can the Monitor system watch?</strong></summary>
 
-- **Bun** v1.3+
-- **Docker** (for PostgreSQL)
-- **Colima** or **Docker Desktop** (macOS)
+It supports two sources: indicator events from market data, and conditions on a connected broker account's portfolio or positions. Both sources can start a deployed workflow.
 
-### Setup Steps
+</details>
 
-#### 1. Install dependencies
-```
+<details>
+<summary><strong>Can I build my own AI trading system?</strong></summary>
+
+Yes. Compose monitors, AI agents, tools, rules, approvals, and actions into a system shaped around your own strategy. Deterministic conditions and approvals remain available as controls around the AI analysis.
+
+</details>
+
+<details>
+<summary><strong>Can TradingGoose place trades automatically?</strong></summary>
+
+Only when you explicitly configure a workflow and connect a broker account. TradingGoose does not place trades on its own and is not financial advice.
+
+</details>
+
+<details>
+<summary><strong>Can I write my own indicators?</strong></summary>
+
+Yes. Use the built-in studies or author custom indicators with PineTS, then use their events as monitor inputs.
+
+</details>
+
+<details>
+<summary><strong>Can I self-host it?</strong></summary>
+
+Yes. Run the repository locally or deploy it on your own infrastructure with your own database, credentials, and integrations.
+
+</details>
+
+## Development
+
+### Run the repository locally
+
+<details>
+<summary><strong>Installation</strong></summary>
+
+Requires Bun 1.3 or newer, Node.js 20.x, and Docker. The repository pins Bun `1.3.11`.
+
+```bash
+git clone https://github.com/TradingGoose/TradingGoose-Studio.git
+cd TradingGoose-Studio
 bun install
+
+cp apps/tradinggoose/.env.example apps/tradinggoose/.env
+cp packages/db/.env.example packages/db/.env
+
+docker run --name tradinggoose-db --env POSTGRES_USER=postgres --env POSTGRES_PASSWORD=postgres --env POSTGRES_DB=tradinggoose --publish 5432:5432 --detach pgvector/pgvector:pg17
+docker run --name tradinggoose-redis --publish 6379:6379 --detach redis:7.2.1-alpine
 ```
 
-#### 2. Start PostgreSQL database and Redis
-```
-docker run --name tradinggoose-db `
-  -e POSTGRES_USER=tradinggoose `
-  -e POSTGRES_PASSWORD=<your-postgres-password> `
-  -e POSTGRES_DB=tradinggoose `
-  -p 5432:5432 `
-  -d pgvector/pgvector:pg17
+Set `DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tradinggoose"` in both environment files. Replace the `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, and `INTERNAL_API_SECRET` placeholders in `apps/tradinggoose/.env` with separate 64-character hexadecimal values. Set `API_ENCRYPTION_KEY` too if you will use API keys or MCP.
 
-docker run -d --name tradinggoose-redis -p 6379:6379 redis
-```
-
-#### 3. Setup environment variables
-```
-cd apps/tradinggoose && cp .env.example .env
-cd ../../packages/db && cp .env.example .env
-```
-#### Edit .env files (see configuration below)
-
-#### 4. Run database migrations
-```
+```bash
 bun run db:migrate
-```
-#### 5. Start full development servers
-```
 bun run dev:full
 ```
 
-## Docker Compose
+Open [http://localhost:3000](http://localhost:3000). The realtime service runs on port `3002`.
 
-If you use Docker Compose, copy `apps/tradinggoose/.env.example.docker` to
-`apps/tradinggoose/.env` and set the required secrets before running the
-compose manifests. The `.env` must include `POSTGRES_*`,
-`NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SOCKET_URL`, `BETTER_AUTH_SECRET`,
-`ENCRYPTION_KEY`, and `INTERNAL_API_SECRET`. Set `API_ENCRYPTION_KEY` when
-API-key access or MCP token issuance is used; it encrypts API keys at rest in
-the app container.
-`NEXT_PUBLIC_SOCKET_URL` should point at `http://localhost:3002` for local
-Compose runs; production deployments must override it with a browser-reachable
-public URL. The prod and Ollama compose files also require `IMAGE_TAG` and
-`OLLAMA_IMAGE_TAG` respectively.
+</details>
 
+<details>
+<summary><strong>Repository checks</strong></summary>
+
+Run these from the repository root:
+
+```bash
+bun run build
+bun run test
+bun run type-check
+bun run lint:check
+bun run format:check
+bun run docs:audit
 ```
-docker compose --env-file ./apps/tradinggoose/.env -f docker-compose.local.yml up
-```
 
+</details>
+
+<details>
+<summary><strong>Tech stack</strong></summary>
+
+| Area | Technologies |
+| --- | --- |
+| Framework | <a href="https://nextjs.org/"><img src="https://shieldcn.dev/badge/Next.js-18181b.svg?variant=secondary&amp;logo=nextdotjs" alt="Next.js"></a> |
+| Runtime | <a href="https://bun.sh/"><img src="https://shieldcn.dev/badge/Bun-18181b.svg?variant=secondary&amp;logo=bun" alt="Bun"></a> |
+| Database | <a href="https://www.postgresql.org/"><img src="https://shieldcn.dev/badge/PostgreSQL-18181b.svg?variant=secondary&amp;logo=postgresql" alt="PostgreSQL"></a> <a href="https://orm.drizzle.team"><img src="https://shieldcn.dev/badge/Drizzle%20ORM-18181b.svg?variant=secondary&amp;logo=drizzle" alt="Drizzle ORM"></a> |
+| Authentication | <a href="https://better-auth.com"><img src="https://shieldcn.dev/badge/Better%20Auth-18181b.svg?variant=secondary&amp;logo=betterauth" alt="Better Auth"></a> |
+| UI | <a href="https://ui.shadcn.com/"><img src="https://shieldcn.dev/badge/shadcn%20ui-18181b.svg?variant=secondary&amp;logo=shadcnui" alt="shadcn/ui"></a> <a href="https://tailwindcss.com"><img src="https://shieldcn.dev/badge/Tailwind%20CSS-18181b.svg?variant=secondary&amp;logo=tailwindcss" alt="Tailwind CSS"></a> |
+| State | <a href="https://zustand-demo.pmnd.rs/"><img src="https://shieldcn.dev/badge/Zustand-18181b.svg?variant=secondary&amp;logo=ri:GiBearHead" alt="Zustand"></a> |
+| Realtime | <a href="https://socket.io/"><img src="https://shieldcn.dev/badge/Socket.IO-18181b.svg?variant=secondary&amp;logo=socketdotio" alt="Socket.IO"></a> <a href="https://github.com/yjs/yjs"><img src="https://shieldcn.dev/badge/Yjs-18181b.svg?variant=secondary&amp;logo=ri:LuNetwork" alt="Yjs"></a> |
+| Flow editor | <a href="https://reactflow.dev/"><img src="https://shieldcn.dev/badge/React%20Flow-18181b.svg?variant=secondary&amp;logo=xyflow" alt="React Flow"></a> |
+| Documentation | <a href="https://fumadocs.vercel.app/"><img src="https://shieldcn.dev/badge/Fumadocs-18181b.svg?variant=secondary&amp;logo=ri:LuBookOpen" alt="Fumadocs"></a> |
+| Monorepo | <a href="https://turborepo.org/"><img src="https://shieldcn.dev/badge/Turborepo-18181b.svg?variant=secondary&amp;logo=turborepo" alt="Turborepo"></a> |
+| Background jobs | <a href="https://trigger.dev/"><img src="https://shieldcn.dev/badge/Trigger.dev-18181b.svg?variant=secondary&amp;logo=ri:LuZap" alt="Trigger.dev"></a> |
+| Remote execution | <a href="https://www.e2b.dev/"><img src="https://shieldcn.dev/badge/E2B-18181b.svg?variant=secondary&amp;logo=ri:LuSquareTerminal" alt="E2B"></a> |
+| Charting | <a href="https://www.tradingview.com/lightweight-charts/"><img src="https://shieldcn.dev/badge/Lightweight%20Charts-18181b.svg?variant=secondary&amp;logo=tradingview" alt="Lightweight Charts"></a> |
+| Indicator engine | <a href="https://github.com/QuantForgeOrg/PineTS"><img src="https://shieldcn.dev/badge/PineTS-18181b.svg?variant=secondary" alt="PineTS"></a> |
+| Drawing tools | <a href="https://github.com/difurious/lightweight-charts-line-tools-core"><img src="https://shieldcn.dev/badge/Line%20Tools-18181b.svg?variant=secondary" alt="Line Tools"></a> |
+
+</details>
 
 ## Contributing
 
 Pull requests are welcome.
 
-If you want to improve TradingGoose Studio, fix a bug, tighten the docs, or ship
-an idea that makes the platform better for traders and builders, open a PR.
-Small, focused changes are preferred and easier to review.
+If you want to improve TradingGoose-Studio, fix a bug, tighten the docs, or ship an idea that makes the platform better for traders and builders, open a PR. Small, focused changes are preferred and easier to review.
 
-This project is moving quickly and is expected to have bugs and frequent breaking
-changes. Contributors should expect the codebase, interfaces, and workflows to
-change often, sometimes week to week.
+This project is moving quickly and is expected to have bugs and frequent breaking changes. Contributors should expect the codebase, interfaces, and workflows to change often, sometimes week to week.
 
-- Read the [Contributing Guide](.github/CONTRIBUTING.md) for setup, workflow, and PR expectations
-- Review the [Code of Conduct](.github/CODE_OF_CONDUCT.md) before participating in project spaces
-- Open an issue first if you want feedback on larger changes or architecture work
-
-| Tech Stack       |                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework        | <a href="https://nextjs.org/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.JS"></a>                                                                                                                                                                                                                                |
-| Runtime          | <a href="https://bun.sh/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white" alt="Bun"></a>                                                                                                                                                                                                                                     |
-| Database         | <a href="https://www.postgresql.org/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Postgres-black?style=for-the-badge&logo=postgresql&logoColor=blue" alt="Postgres"></a> <a href="https://orm.drizzle.team" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Drizzle-%23000000?style=for-the-badge&logo=drizzle&logoColor=C5F74F" alt="Drizzle ORM"></a> |
-| Authentication   | <a href="https://better-auth.com" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Better%20Auth-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KCTxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xMi4xIDEwLjM2aDMuMDV2My4zMkgxMi4xeiIgLz4KCTxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0zIDN2MThoMThWM3ptMTUuNDggMTAuNjh2M0gxMi4xdi0zSDguNjJ2M0g1LjQ5VjcuMzZoMy4xM3YzaDMuNDh2LTNoNi4zOHoiIC8+Cjwvc3ZnPg==&logoColor=white" alt="Better Auth"></a>                                                                                                                                                                                                                                            |
-| UI               | <a href="https://ui.shadcn.com/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/shadcn-black?style=for-the-badge&logo=shadcnui&logoColor=white" alt="Shadcn"></a> <a href="https://tailwindcss.com" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/TailwindCSS-black?style=for-the-badge&logo=tailwind-css&logoColor=38B2AC" alt="Tailwind CSS"></a>      |
-| State Management | <a href="https://zustand-demo.pmnd.rs/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Z%20Zustand-black?style=for-the-badge" alt="Zustand"></a>                                                                                                                                                                                                                                                |
-| Realtime         | <a href="https://socket.io/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io" alt="Socket.io"></a> <a href="https://github.com/yjs/yjs" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/y%20js-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDE1LjAyNCAxNy43OTYiPjxwYXRoIGQ9Ik0xOTUuMjk3IDE4NC41MzdjLS43Ny4wMDgtMS4zMTkuMzg4LTEuNjUgMS4xNGwtMi4zNzkgNS41NHYuMDIybDEuNzI3IDIuNTkyIDMuOTE0LTYuNzE1Yy4zMjMtLjU1NC4zMDYtMS4xMjQtLjA1LTEuNzExLS4zNTUtLjU3OS0uODY4LS44NjgtMS41MzctLjg2OHoiIHN0eWxlPSJmb250LXN0eWxlOm5vcm1hbDtmb250LXdlaWdodDo0MDA7Zm9udC1zaXplOjEwLjU4MzMzMzAycHg7bGluZS1oZWlnaHQ6MS4yNTtmb250LWZhbWlseTpzYW5zLXNlcmlmO2xldHRlci1zcGFjaW5nOjA7d29yZC1zcGFjaW5nOjA7b3BhY2l0eToxO2ZpbGw6IzZlZWI4MztmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZTtzdHJva2Utd2lkdGg6MC4yNjQ1ODMzMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE4NS4yNTYgLTE4NC41MzcpIj48L3BhdGg+PHBhdGggZD0ibTE5MS4yNjggMTkxLjIyNS0yLjAxNCAyLjcyMS4wMTUuMDI5djQuNDE1YzAgLjYxMi4xODIgMS4xLjU0NiAxLjQ2NGExLjc0IDEuNzQgMCAwIDAgMS4yOS41NDVoLjA1Yy4wNCAwIC4wNzMtLjAyLjExMy0uMDIyem0xLjcyNyAyLjYwNi0xLjcyNy0yLjU5MnY5LjEzOGExLjc2IDEuNzYgMCAwIDAgMS4xNzYtLjUyM2MuMzY0LS4zNTYuNTQ2LS44NDQuNTQ2LTEuNDY0di00LjU1MnoiIHN0eWxlPSJmb250LXN0eWxlOm5vcm1hbDtmb250LXdlaWdodDo0MDA7Zm9udC1zaXplOjEwLjU4MzMzMzAycHg7bGluZS1oZWlnaHQ6MS4yNTtmb250LWZhbWlseTpzYW5zLXNlcmlmO2xldHRlci1zcGFjaW5nOjA7d29yZC1zcGFjaW5nOjA7b3BhY2l0eToxO2ZpbGw6IzMwYmNlZDtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZTtzdHJva2Utd2lkdGg6MC4yNjQ1ODMzMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE4NS4yNTYgLTE4NC41MzcpIj48L3BhdGg+PHBhdGggZD0iTTE4Ny4wNjIgMTg0LjUzN2MtLjY0NS4wMDgtMS4xNS4yOTctMS41MTMuODY4LS4zNjQuNTctLjM4OSAxLjEzNy0uMDc1IDEuNjk5bDMuNzggNi44NDIgMi4wMTQtMi43MjF2LS4wMDhsLS4wMDIuMDA1YTEyOC40NDUgMTI4LjQ0NSAwIDAgMS0yLjM1Ni01LjU0NGMtLjI5OC0uNzYtLjg0OC0xLjE0MS0xLjY1LTEuMTQxeiIgc3R5bGU9ImZvbnQtc3R5bGU6bm9ybWFsO2ZvbnQtd2VpZ2h0OjQwMDtmb250LXNpemU6MTAuNTgzMzMzMDJweDtsaW5lLWhlaWdodDoxLjI1O2ZvbnQtZmFtaWx5OnNhbnMtc2VyaWY7bGV0dGVyLXNwYWNpbmc6MDt3b3JkLXNwYWNpbmc6MDtvcGFjaXR5OjE7ZmlsbDojZmZiYzQyO2ZpbGwtb3BhY2l0eToxO3N0cm9rZTpub25lO3N0cm9rZS13aWR0aDowLjI2NDU4MzMyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTg1LjI1NiAtMTg0LjUzNykiPjwvcGF0aD48ZyBzdHlsZT0iZm9udC1zdHlsZTpub3JtYWw7Zm9udC13ZWlnaHQ6NDAwO2ZvbnQtc2l6ZToxMC41ODMzMzMwMnB4O2xpbmUtaGVpZ2h0OjEuMjU7Zm9udC1mYW1pbHk6c2Fucy1zZXJpZjtsZXR0ZXItc3BhY2luZzowO3dvcmQtc3BhY2luZzowO2ZpbGw6d2hpdGU7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmU7c3Ryb2tlLXdpZHRoOjAuMjY0NTgzMzIiPjxwYXRoIGQ9Ik0xNDMuNDEgMjYyLjAwOXEwIDEuMDk1LS41NDMgMS43OTMtLjYzNS44LTEuNzIuNTg0LS4wOTMtLjAxNi0uMjMzLS4wODMtLjMzLS4xNi0uMzMtLjUyMiAwLS4yMzIuMTUtLjM5OC4xNTQtLjE2NS4zNzEtLjE2NXQuNDAzLS4wOThxLjQ1NS0uMjEyLjQ1LTEuMDA4di0zLjQzMXEwLS4zLjIxMi0uNTEyLjIwMS0uMjA3LjUwNi0uMjA3aC4wMnEuMzA2IDAgLjUwNy4yMDcuMjA3LjIxMi4yMDcuNTEyem0tLjIyNy00Ljc0NHEtLjIyOC4yNDMtLjU2NC4yNDMtLjMyIDAtLjU1OC0uMjM4LS4yMzctLjIzOC0uMjM3LS41NjMgMC0uMzMuMjI3LS41NjMuMjI3LS4yMzguNTY4LS4yMzguMzM2IDAgLjU2NC4yMzguMjI3LjIzNy4yMjcuNTYzLS4wMDUuMzEtLjIyNy41NTh6bS44OTQgNC40NDVxLjA0Ni0uMTk3LjI1My0uMzIxLjE4Ni0uMTE0LjUwMS0uMDEuMzE1LjEwMy42NC4wOTIuNjIxLS4wMS42MjEtLjM4NyAwLS4xNy0uMTM0LS4yOC0uMTM1LS4xMDgtLjU0My0uMjUyLTEuMzQ0LS40NjYtMS4zMzMtMS40MDYuMDEtLjY3Ny41MjctMS4xLjUxMS0uNDI1IDEuMzctLjQyNS40MDItLjAwNS44MzEuMTE0LjE5MS4wNTIuMzA1LjIyOC4xMDkuMTc1LjA1Mi4zNzd2LjAwNXEtLjAzNi4xOTYtLjIyOC4zMTUtLjE5LjExNC0uNDM0LjA0Ny0uMjQ4LS4wNjgtLjQ4LS4wNzgtLjU1My0uMDEtLjU1My4zNjcgMCAuMTU1LjE2LjI3OS4xNi4xMTkuNTk0LjI2OSAxLjI0Ni40MzkgMS4yNSAxLjQyNi4wMTEuNjc3LS41IDEuMS0uNTEyLjQyLTEuNTA0LjQyLS41MjIgMC0xLjAzOS0uMTQtLjE4LS4wNDctLjMtLjI0OC0uMTEzLS4xODYtLjA1Ni0uMzc4eiIgYXJpYS1sYWJlbD0ianMiIHN0eWxlPSJmb250LXN0eWxlOm5vcm1hbDtmb250LXZhcmlhbnQ6bm9ybWFsO2ZvbnQtd2VpZ2h0OjQwMDtmb250LXN0cmV0Y2g6bm9ybWFsO2ZvbnQtZmFtaWx5OkR5dXRoaTtmaWxsOndoaXRlO2ZpbGwtb3BhY2l0eToxO3N0cm9rZS13aWR0aDowLjI2NDU4MzMyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTMyLjQ1MyAtMjQ2LjYzNikiPjwvcGF0aD48L2c+PC9zdmc+&logoColor=white" alt="Yjs"></a>                                                                    |
-| Flow Editor      | <a href="https://reactflow.dev/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/React%20Flow-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KCTxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0yIDBhMiAyIDAgMCAwLTIgMnY2LjY2N2EyIDIgMCAwIDAgMiAyaDYuNjY3YTIgMiAwIDAgMCAyLTJWNy4yMmEyIDIgMCAwIDEtMS4zMzQgMHYxLjQ0N2EuNjY3LjY2NyAwIDAgMS0uNjY2LjY2NkgyYS42NjcuNjY3IDAgMCAxLS42NjctLjY2NlYyYzAtLjM2OC4yOTktLjY2Ny42NjctLjY2N2g2LjY2N2MuMzY4IDAgLjY2Ni4yOTkuNjY2LjY2N3YxLjQ0N2EyIDIgMCAwIDEgMS4zMzQgMFYyYTIgMiAwIDAgMC0yLTJ6bTExLjMzMyAyYTIgMiAwIDAgMSAyLTJIMjJhMiAyIDAgMCAxIDIgMnY2LjY2N2EyIDIgMCAwIDEtMiAyaC0xLjQ0N2EyIDIgMCAwIDAgMC0xLjMzNEgyMmEuNjY3LjY2NyAwIDAgMCAuNjY3LS42NjZWMkEuNjY3LjY2NyAwIDAgMCAyMiAxLjMzM2gtNi42NjdhLjY2Ny42NjcgMCAwIDAtLjY2Ni42Njd2MS40NDdhMiAyIDAgMCAwLTEuMzM0IDB6bTMuNDQ4IDcuMzMzaC0xLjQ0OGEuNjY3LjY2NyAwIDAgMS0uNjY2LS42NjZWNy4yMmEyIDIgMCAwIDEtMS4zMzQgMHYxLjQ0N2EyIDIgMCAwIDAgMiAyaDEuNDQ3YTIgMiAwIDAgMSAwLTEuMzM0bS0xNi43OCA2YTIgMiAwIDAgMSAyLTJoNi42NjdhMiAyIDAgMCAxIDIgMnYxLjQ0N2EyIDIgMCAwIDAtMS4zMzQgMHYtMS40NDdhLjY2Ny42NjcgMCAwIDAtLjY2Ni0uNjY2SDJhLjY2Ny42NjcgMCAwIDAtLjY2Ny42NjZWMjJjMCAuMzY4LjI5OS42NjcuNjY3LjY2N2g2LjY2N0EuNjY3LjY2NyAwIDAgMCA5LjMzMyAyMnYtMS40NDdhMiAyIDAgMCAwIDEuMzM0IDBWMjJhMiAyIDAgMCAxLTIgMkgyYTIgMiAwIDAgMS0yLTJ6bTIyLS42NjZoLTEuNDQ3YTIgMiAwIDAgMCAwLTEuMzM0SDIyYTIgMiAwIDAgMSAyIDJWMjJhMiAyIDAgMCAxLTIgMmgtNi42NjdhMiAyIDAgMCAxLTItMnYtMS40NDdhMiAyIDAgMCAwIDEuMzM0IDBWMjJjMCAuMzY4LjI5OC42NjcuNjY2LjY2N0gyMmEuNjY3LjY2NyAwIDAgMCAuNjY3LS42Njd2LTYuNjY3YS42NjcuNjY3IDAgMCAwLS42NjctLjY2Nm0tNy4zMzMgMi4xMTR2LTEuNDQ4YzAtLjM2OC4yOTgtLjY2Ni42NjYtLjY2NmgxLjQ0N2EyIDIgMCAwIDEgMC0xLjMzNGgtMS40NDdhMiAyIDAgMCAwLTIgMnYxLjQ0N2EyIDIgMCAwIDEgMS4zMzQgME0yMCAxNGExLjMzMyAxLjMzMyAwIDEgMS0xLjY2Ny0xLjI5MVYxMS4yOWExLjMzNCAxLjMzNCAwIDEgMSAuNjY3IDB2MS40MThjLjU3NS4xNDggMSAuNjcgMSAxLjI5MW0tMTAgNmMuNjIxIDAgMS4xNDMtLjQyNSAxLjI5MS0xaDEuNDE4YTEuMzM0IDEuMzM0IDAgMSAwIDAtLjY2N0gxMS4yOUExLjMzNCAxLjMzNCAwIDEgMCAxMCAyMG0xLjI5MS0xNC4zMzNhMS4zMzQgMS4zMzQgMCAxIDEgMC0uNjY3aDEuNDE4YTEuMzM0IDEuMzM0IDAgMSAxIDAgLjY2N3oiIC8+Cjwvc3ZnPg==&badgeColor=black" alt="React Flow"></a>                                                                                                                                                                                                                                               |
-| Docs             | <a href="https://fumadocs.vercel.app/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/fuma%20docs-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+Cgk8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMjAxLjU0IDU0LjQ2QTEwNCAxMDQgMCAwIDAgNTQuNDYgMjAxLjU0QTEwNCAxMDQgMCAwIDAgMjAxLjU0IDU0LjQ2TTE4NCAxOTUuODdhODcgODcgMCAwIDEtMTYgMTAuNVY5OS4zMWwxNi0xNlptLTgwLTMyLjU2bDE2LTE2djY4LjI4YTg4LjQgODguNCAwIDAgMS0xNi0zWm0tMTYgNDMuMDZhODcgODcgMCAwIDEtMTYuMy0xMC43NmwxNi4zLTE2LjNabTQ4LTc1LjA2bDE2LTE2djk3LjMyYTg4LjQgODguNCAwIDAgMS0xNiAzWk00MCAxMjhhODggODggMCAwIDEgMTQ0LjMtNjcuNjFMNjAuMzggMTg0LjMxQTg3LjM0IDg3LjM0IDAgMCAxIDQwIDEyOG0xNjAgNTAuNTlWNzcuNDFhODggODggMCAwIDEgMCAxMDEuMTgiIC8+Cjwvc3ZnPg==&badgeColor=black" alt="Fumadocs"></a>                                                                                                                                                                                                                                               |
-| Monorepo         | <a href="https://turborepo.org/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Turborepo-black?style=for-the-badge&logo=turborepo&logoColor=white" alt="Turborepo"></a>                                                                                                                                                                                                                    |
-| Background Jobs  | <a href="https://trigger.dev/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Trigger.dev-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj4KCTxwYXRoIGZpbGw9IiM0Y2FmNTAiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTExLjE1OCAxMy41MUwxNiA1bDEyIDIxLjA5SDRsNC44NDItOC41MWwzLjQyNSAyLjAwN2wtMS40MTYgMi40OWgxMC4yOThMMTYgMTMuMDI3bC0xLjQxNyAyLjQ5eiIgY2xpcC1ydWxlPSJldmVub2RkIiAvPgo8L3N2Zz4=&badgeColor=black" alt="Trigger.dev"></a>                                                                                                                                                                                                                                                 |
-| Remote Execution | <a href="https://www.e2b.dev/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/E2B-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjYiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAyNiAyOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIxLjg0NTggMTkuMzAyOUMyMS42NjcxIDE5LjMwMjkgMjEuNTU1NSAxOS40OTYzIDIxLjY0NDggMTkuNjUxMUwyMy41MTQxIDIyLjg4OUMyMy42MTc1IDIzLjA2ODEgMjMuNDUyOCAyMy4yODI4IDIzLjI1MyAyMy4yMjkzTDE3LjU4MzYgMjEuNzEwMUMxNy4zMzU5IDIxLjY0MzcgMTcuMDgxMyAyMS43OTA3IDE3LjAxNDkgMjIuMDM4NEwxNS40OTU4IDI3LjcwNzlDMTUuNDQyMiAyNy45MDc3IDE1LjE3MzkgMjcuOTQzIDE1LjA3MDUgMjcuNzYzOUwxMy4yMDA4IDI0LjUyNTRDMTMuMTExNSAyNC4zNzA3IDEyLjg4ODEgMjQuMzcwNyAxMi43OTg3IDI0LjUyNTRMMTAuOTI5IDI3Ljc2MzlDMTAuODI1NiAyNy45NDMgMTAuNTU3MyAyNy45MDc3IDEwLjUwMzggMjcuNzA3OUw4Ljk4NDYgMjIuMDM4NEM4LjkxODI0IDIxLjc5MDcgOC42NjM2NSAyMS42NDM3IDguNDE1OTcgMjEuNzEwMUwyLjc0NjUyIDIzLjIyOTNDMi41NDY3NSAyMy4yODI4IDIuMzgxOTkgMjMuMDY4MSAyLjQ4NTQgMjIuODg5TDQuMzU0NzIgMTkuNjUxMUM0LjQ0NDA2IDE5LjQ5NjMgNC4zMzIzOCAxOS4zMDI5IDQuMTUzNjggMTkuMzAyOUwwLjQxNTIyMiAxOS4zMDI4QzAuMjA4NDA2IDE5LjMwMjggMC4xMDQ4MzQgMTkuMDUyOCAwLjI1MTA3NyAxOC45MDY2TDQuNDAxNDUgMTQuNzU2M0M0LjU4Mjc3IDE0LjU3NDkgNC41ODI3NyAxNC4yODEgNC40MDE0NSAxNC4wOTk3TDAuMjUxMDc5IDkuOTQ5MjdDMC4xMDQ4MzcgOS44MDMwMiAwLjIwODQxNCA5LjU1Mjk3IDAuNDE1MjMyIDkuNTUyOTdMNC4xNTMyOCA5LjU1MzAyQzQuMzMxOTggOS41NTMwMiA0LjQ0MzY4IDkuMzU5NTcgNC4zNTQzMyA5LjIwNDgxTDIuNDg1NCA1Ljk2NzYzQzIuMzgxOTkgNS43ODg1MiAyLjU0Njc2IDUuNTczOCAyLjc0NjUyIDUuNjI3MzNMOC40MTU5NyA3LjE0NjUyQzguNjYzNjUgNy4yMTI4OCA4LjkxODI0IDcuMDY1OSA4Ljk4NDYxIDYuODE4MjJMMTAuNTAzOCAxLjE0ODY5QzEwLjU1NzMgMC45NDg5MTggMTAuODI1NiAwLjkxMzU5MiAxMC45MjkgMS4wOTI3TDEyLjc5ODcgNC4zMzExNkMxMi44ODgxIDQuNDg1OTMgMTMuMTExNCA0LjQ4NTkzIDEzLjIwMDggNC4zMzExNkwxNS4wNzA1IDEuMDkyN0MxNS4xNzM5IDAuOTEzNTkyIDE1LjQ0MjIgMC45NDg5MTcgMTUuNDk1NyAxLjE0ODY5TDE3LjAxNDkgNi44MTgyMkMxNy4wODEzIDcuMDY1OSAxNy4zMzU5IDcuMjEyODggMTcuNTgzNSA3LjE0NjUyTDIzLjI1MyA1LjYyNzMzQzIzLjQ1MjggNS41NzM4IDIzLjYxNzUgNS43ODg1MiAyMy41MTQxIDUuOTY3NjNMMjEuNjQ1MiA5LjIwNDgxQzIxLjU1NTggOS4zNTk1NyAyMS42Njc1IDkuNTUzMDIgMjEuODQ2MiA5LjU1MzAyTDI1LjU4NDQgOS41NTI5N0MyNS43OTEyIDkuNTUyOTcgMjUuODk0OCA5LjgwMzAyIDI1Ljc0ODYgOS45NDkyN0wyMS41OTgyIDE0LjA5OTdDMjEuNDE2OSAxNC4yODEgMjEuNDE2OSAxNC41NzQ5IDIxLjU5ODIgMTQuNzU2M0wyNS43NDg2IDE4LjkwNjZDMjUuODk0OCAxOS4wNTI4IDI1Ljc5MTIgMTkuMzAyOCAyNS41ODQ0IDE5LjMwMjhMMjEuODQ1OCAxOS4zMDI5Wk0yMC40MTkgMTAuNDA0QzIwLjU4NjkgMTAuMjM2IDIwLjQyNDEgOS45NTQxIDIwLjE5NDcgMTAuMDE1NkwxNS4xNDYxIDExLjM2ODRDMTQuODk4NCAxMS40MzQ4IDE0LjY0MzggMTEuMjg3OCAxNC41Nzc1IDExLjA0MDFMMTMuMjI0IDUuOTg4ODhDMTMuMTYyNSA1Ljc1OTQ3IDEyLjgzNyA1Ljc1OTQ3IDEyLjc3NTUgNS45ODg4OEwxMS40MjIgMTEuMDQwMUMxMS4zNTU3IDExLjI4NzggMTEuMTAxMSAxMS40MzQ4IDEwLjg1MzQgMTEuMzY4NEw1LjgwNDk2IDEwLjAxNTZDNS41NzU1NSA5Ljk1NDE0IDUuNDEyNzggMTAuMjM2MSA1LjU4MDcyIDEwLjQwNEw5LjI3NjQzIDE0LjA5OTdDOS40NTc3NCAxNC4yODEgOS40NTc3NCAxNC41NzUgOS4yNzY0MyAxNC43NTYzTDUuNTc5ODUgMTguNDUyOEM1LjQxMTkxIDE4LjYyMDggNS41NzQ2NyAxOC45MDI3IDUuODA0MDkgMTguODQxMkwxMC44NTM0IDE3LjQ4ODJDMTEuMTAxMSAxNy40MjE4IDExLjM1NTcgMTcuNTY4OCAxMS40MjIgMTcuODE2NUwxMi43NzU1IDIyLjg2NzdDMTIuODM3IDIzLjA5NzIgMTMuMTYyNSAyMy4wOTcyIDEzLjIyNCAyMi44Njc3TDE0LjU3NzUgMTcuODE2NUMxNC42NDM5IDE3LjU2ODggMTQuODk4NCAxNy40MjE4IDE1LjE0NjEgMTcuNDg4MkwyMC4xOTU2IDE4Ljg0MTNDMjAuNDI1IDE4LjkwMjcgMjAuNTg3OCAxOC42MjA4IDIwLjQxOTggMTguNDUyOUwxNi43MjMyIDE0Ljc1NjNDMTYuNTQxOSAxNC41NzUgMTYuNTQxOSAxNC4yODEgMTYuNzIzMiAxNC4wOTk3TDIwLjQxOSAxMC40MDRaIiBmaWxsPSJ3aGl0ZSI+PC9wYXRoPgo8L3N2Zz4=&logoColor=white" alt="E2B"></a>                                                                                                                                                                                                                                                                 |
-| Charting         | <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Lightweight%20Charts-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDYiIGhlaWdodD0iNzEiIHZpZXdCb3g9IjAgMCAxMDYgNzEiIGZpbGw9Im5vbmUiPjxwYXRoIGQ9Ik0xMDAuNDQgNi45Yy05LjI4IDI0LjYyLTIzLjQ2IDM1Ljc0LTM0LjEgMzkuMjhhNy4xNCA3LjE0IDAgMCAxLTYuOTcgNi4xM0E3LjE5IDcuMTkgMCAwIDEgNTIuMyA0NWMwLTEuMTUuMjUtMi4yNC43LTMuMkw0Mi44OSAzMS4zYTYuODcgNi44NyAwIDAgMS04LjYtLjIzTDkuMDMgNTAuNTdjNS4wOCA2LjY2IDExLjU5IDEyLjEzIDE4LjgyIDE1LjQ4bC4yNS4xMmguMzJhNS4yNCA1LjI0IDAgMCAwIC4zOC0uMDJjLjI2LS4wMS42Mi0uMDUgMS4wOS0uMWEyNS4xIDI1LjEgMCAwIDAgMy44Ni0uODYgMzUuNSAzNS41IDAgMCAwIDkuNy00LjcyIDE3LjQzIDE3LjQzIDAgMCAxLTYuNDcgOC43OGwyLjkuNmMxMi42MyAyLjYyIDI3LjQ3LTEuMzkgMzguOTYtMTAuOTggMTAuNjYtOC45IDE4LjM4LTIxLjgxIDE4Ljg1LTM5LjQ1IDMuNjQtNi40MiA2LjM3LTE0LjYgNy42Ny0xOC41bC4wNy0uMTktMy4yIDEuNWE4MS40MiA4MS40MiAwIDAgMS0xLjggNC42OHoiIGZpbGw9IiMyMTk2RjMiLz48cGF0aCBkPSJNNy40MSA0OC4zNWE1NS41NiA1NS41NiAwIDAgMS03LjItMTQuNTNMMCAzMy4xOGwuMy0uNThDMTEuOTcgMTAuNzcgMzcuODcgMi40IDU3LjkgMTAuMDNsLjc2LjMuMTEuODdhMjEuNjggMjEuNjggMCAwIDAgMy4xNSA5LjAyIDE5LjEzIDE5LjEzIDAgMCAwIDMuMzIgMy42Yy0zLTYuNTMtMi4zNS0xMS42MS0yLjM1LTExLjYxbDEuODYgMS4yYzguMzcgNS4wNCAxOS43OCA2LjQyIDI5LjUuNDQtOC41MyAxNy44LTE5LjU3IDI2LjM1LTI4LjAyIDI5LjQzYTcuMTIgNy4xMiAwIDAgMC02Ljg2LTUuNiA2LjkgNi45IDAgMCAwLTQuNzIgMS44N2wtOS45NC0xMC4zYTcuNDcgNy40NyAwIDAgMCAxLjA3LTMuODYgNy4xOSA3LjE5IDAgMCAwLTcuMDYtNy4zMiA3LjE5IDcuMTkgMCAwIDAtNy4wNiA3LjMyYzAgMS4yOS4zMiAyLjUuODkgMy41NUw3LjQgNDguMzV6IiBmaWxsPSIjMjE5NkYzIi8+PHBhdGggZD0iTTQzLjEgMjUuMzljMCAyLjUtMS45NyA0LjUyLTQuMzggNC41MmE0LjQ1IDQuNDUgMCAwIDEtNC4zNy00LjUyYzAtMi41IDEuOTYtNC41MyA0LjM3LTQuNTNhNC40NSA0LjQ1IDAgMCAxIDQuMzcgNC41M3pNNjMuNiA0NWE0LjM5IDQuMzkgMCAwIDEtNC4yMyA0LjUyQTQuMzkgNC4zOSAwIDAgMSA1NS4xMyA0NWE0LjM5IDQuMzkgMCAwIDEgNC4yNC00LjUzYzIuMjEgMCA0LjI0IDEuOSA0LjI0IDQuNTN6IiBmaWxsPSIjMjE5NkYzIi8+PC9zdmc+&badgeColor=black" alt="Lightweight Charts"></a>                                                                                                                                                                                                      |
-| Indicator Engine | <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Pinets-black?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KCTxwYXRoIGZpbGw9IiM2NmJiNmEiIGQ9Ik0xMi4wMzggMy4xMTVjLS4xMzQuMDAyLS4yNzEuMDgzLS40MjYuMjRjLS40NjcuNDc4LTYuNzY0IDkuMzg4LTYuNzY0IDkuNTcyYzAgLjI2NC40NTguNjc3Ljc1LjY3N2MuMTU0IDAgLjcyNC0uMjQgMS4yNjgtLjUzNWMuNzEyLS4zODYgMS4wMTItLjYzNSAxLjA3NS0uODkyYy4yNTQtMS4wNC44NzMtMS41NyAxLjgyNy0xLjU3Yy43MyAwIDEuNDk0LjcyMyAxLjYgMS41MTdjLjA3My41NDIuMTc0LjY2IDEuMjU5IDEuNDYzYy42NDkuNDggMS4yNDQuODc0IDEuMzIzLjg3NGMuMDggMCAuMzI4LS4wOTYuNTUzLS4yMTRjLjU0NS0uMjg0Ljg4Ni0uMjcgMS40ODIuMDYzYy4yNzMuMTUyLjU1Ni4yOC42MjcuMjg1Yy4yMi4wMTQgMi4zODktMS4zMDcgMi40NjMtMS41Yy4wMzgtLjEgMC0uMzExLS4wODMtLjQ3Yy0uMTE5LS4yMi01LjI0My03LjQ5NS02LjQyLTkuMTE0Yy0uMTk1LS4yNjctLjM2Mi0uMzk3LS41MzQtLjM5NiIgLz4KCTxwYXRoIGZpbGw9IiMzODhlM2MiIGQ9Im04LjM5MiAxMy41ODRsLTMuNDcyIDEuOTdsLTEuNTM0IDIuMTNjLTEuNjE0IDIuMjQxLTEuODIgMi42NDMtMS41MzQgMi45ODhjLjE1My4xODQgMS40ODguMjEyIDEwLjA2OC4yMTJjNS40NCAwIDkuOTk0LS4wMzkgMTAuMTE4LS4wODZjLjEyNC0uMDQ4LjIyNi0uMjMuMjI2LS40MDdjMC0uMzQxLTMuMzMtNS4xODktMy42NDgtNS4zMWMtLjM4My0uMTQ4LTEuNDkxLjY3NC0xLjg0MSAxLjM2NGMtLjM5Mi43NzMtLjg4MyAxLjA4NS0xLjY3NCAxLjA2NGMtLjY5OC0uMDE4LTEuMzA2LS41NS0xLjU3NC0xLjM3OGMtLjE1NC0uNDc4LS4zOTctLjcyNS0xLjQ1Ny0xLjQ4NWMtLjg2Mi0uNjE4LTEuMzQ1LS44OC0xLjQ5OS0uODExYy0uNTAyLjIyMy0xLjI3NC4yMTctMS43Mi0uMDE0eiIgLz4KPC9zdmc+&logoColor=white" alt="PineTS"></a>                                                                                                                                                                                                                                        |
-| Drawing Tools    | <a href="https://github.com/difurious/lightweight-charts-line-tools-core" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Line%20Tools-black?style=for-the-badge" alt="Line Tools"></a>                                                                                                                                                                                                      |
-
-
-
-## Special Thanks
-
-Special thanks to the [Sim Studio](https://github.com/simstudioai) team for open-sourcing the original project this repository is built on top of.
-TradingGoose Studio started from Sim Studio [`v0.4.25`](https://github.com/simstudioai/sim/releases/tag/v0.4.25).
-
----
+- Read the [Contributing Guide](.github/CONTRIBUTING.md) for setup, workflow, and PR expectations.
+- Review the [Code of Conduct](.github/CODE_OF_CONDUCT.md) before participating in project spaces.
+- Follow the [Security Policy](.github/SECURITY.md) when reporting vulnerabilities.
+- Open an issue first if you want feedback on larger changes or architecture work.
 
 ## License
 
-The combined TradingGoose Studio project is licensed under **AGPL-3.0-only** - see the [LICENSE](LICENSE) file for details.
-This is not because the Sim Studio upstream is Apache-2.0; those upstream notices remain preserved. The combined
-project is AGPL-3.0-only because TradingGoose Studio integrates PineTS under its AGPL terms, and this project is
-intentionally kept as free software so users can use, study, modify, self-host, and redistribute it under the same terms.
-Additional attributions and third-party license texts are in [NOTICE](NOTICE) and [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
-The Apache-2.0 text preserved for Sim Studio and Lightweight Charts is in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt).
-Those Apache-related notices still stay in the repository because this project is derived from Apache-licensed upstream
-code and also distributes Apache-licensed third-party components whose attribution notices must be preserved.
+TradingGoose-Studio is licensed under **AGPL-3.0**. See [LICENSE](LICENSE) for the complete terms and [NOTICE](NOTICE), [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES), and [LICENSES](LICENSES/) for third-party notices and license texts.
 
-The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_chart/plugins/`
-carry their own MPL-2.0 license file at
-`apps/tradinggoose/widgets/widgets/data_chart/plugins/LICENSE`.
-Those vendored modified source files remain covered by the MPL-2.0 at the file level.
-The project's overall AGPL-3.0-only distribution does not replace or remove the MPL-2.0
-terms that continue to apply to that directory.
+The combined project remains AGPL-3.0 so users can use, study, modify, self-host, and redistribute it under the same terms. TradingGoose-Studio integrates PineTS under its AGPL terms; the corresponding attribution and license text are preserved in the repository.
+
+Apache-2.0 notices and the full text for included Apache-licensed components are preserved in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt) and [THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
+
+The chart drawing tools vendored in `apps/tradinggoose/widgets/widgets/data_chart/plugins/` carry their own [MPL-2.0 license](apps/tradinggoose/widgets/widgets/data_chart/plugins/LICENSE). Those modified source files remain covered by MPL-2.0 at the file level; the repository-level AGPL-3.0 distribution does not replace those terms.
 
 ---
 
-<picture>
-  <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/footer-light.png">
-  <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/footer-dark.png">
-  <!-- Fallback Image (shown if the browser doesn't support themes) -->
-  <img alt="Project Footer" src="apps/tradinggoose/public/static/footer-light.png">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/footer-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/footer-light.png">
+    <img alt="TradingGoose" src="apps/tradinggoose/public/static/footer-light.png">
+  </picture>
+</p>
