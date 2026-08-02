@@ -49,7 +49,9 @@ function EditorCustomToolWidgetBody({
   const {
     members: customToolMembers,
     isLoading: isCustomToolListLoading,
+    isRetrying: isCustomToolListRetrying,
     error: customToolListError,
+    retry: retryCustomToolList,
   } = useEntityList('custom_tool', workspaceId)
   const requestedCustomToolMember = hasRequestedCustomTool
     ? customToolMembers.find((member) => member.entityId === normalizedRequestedCustomToolId)
@@ -110,7 +112,14 @@ function EditorCustomToolWidgetBody({
   }
 
   if (customToolListError && customToolMembers.length === 0) {
-    return <WidgetStateMessage message={customToolListError} />
+    return (
+      <WidgetStateMessage
+        message={copy.body.failedToLoadCustomTools}
+        variant='error'
+        onRetry={retryCustomToolList}
+        isRetrying={isCustomToolListRetrying}
+      />
+    )
   }
 
   if (
@@ -124,7 +133,14 @@ function EditorCustomToolWidgetBody({
   }
 
   if (customToolSession.error) {
-    return <WidgetStateMessage message={customToolSession.error} />
+    return (
+      <WidgetStateMessage
+        message={copy.body.failedToLoadCustomTools}
+        variant='error'
+        onRetry={customToolSession.retry}
+        isRetrying={customToolSession.isRetrying}
+      />
+    )
   }
 
   if (isCustomToolListLoading || customToolSession.isLoading) {

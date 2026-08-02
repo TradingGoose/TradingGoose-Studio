@@ -11,8 +11,6 @@ import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('LogsWebhookDelivery')
 
-// Quick retry strategy: 5 attempts over ~15 minutes
-// Most webhook failures are transient and resolve quickly
 const MAX_ATTEMPTS = 5
 const RETRY_DELAYS = [
   5 * 1000, // 5 seconds (1st retry)
@@ -22,7 +20,6 @@ const RETRY_DELAYS = [
   10 * 60 * 1000, // 10 minutes (5th and final retry)
 ]
 
-// Add jitter to prevent thundering herd problem (up to 10% of delay)
 function getRetryDelayWithJitter(baseDelay: number): number {
   const jitter = Math.random() * 0.1 * baseDelay
   return Math.floor(baseDelay + jitter)
@@ -95,7 +92,6 @@ export const logsWebhookDelivery = task({
     const { deliveryId } = params
 
     try {
-      // Atomically claim this delivery row for processing and increment attempts
       const [delivery] = await db
         .update(workflowLogWebhookDelivery)
         .set({
@@ -108,7 +104,6 @@ export const logsWebhookDelivery = task({
           and(
             eq(workflowLogWebhookDelivery.id, deliveryId),
             eq(workflowLogWebhookDelivery.status, 'pending'),
-            // Only claim if not scheduled in the future or schedule has arrived
             or(
               isNull(workflowLogWebhookDelivery.nextAttemptAt),
               lte(workflowLogWebhookDelivery.nextAttemptAt, new Date())
@@ -133,7 +128,7 @@ export const logsWebhookDelivery = task({
             status: 'failed',
             attempts,
             lastAttemptAt: new Date(),
-            errorMessage: 'Webhook delivery is missing subscription snapshot',
+            failureReason: 'Webhook delivery is missing subscription snapshot',
             updatedAt: new Date(),
           })
           .where(
@@ -171,7 +166,7 @@ export const logsWebhookDelivery = task({
             status: 'failed',
             attempts,
             lastAttemptAt: new Date(),
-            errorMessage: 'Workflow execution log not found',
+            failureReason: 'Workflow execution log not found',
             updatedAt: new Date(),
           })
           .where(
@@ -252,7 +247,6 @@ export const logsWebhookDelivery = task({
         },
       }
 
-      // Fetch rate limits and usage data if requested
       if (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) {
         const needsRateLimits =
           subscriptionSnapshot.includeRateLimits && webhookExecutionData.includeRateLimits
@@ -333,7 +327,7 @@ export const logsWebhookDelivery = task({
               lastAttemptAt: new Date(),
               responseStatus: response.status,
               responseBody: truncatedBody,
-              errorMessage: null,
+              failureReason: null,
               updatedAt: new Date(),
             })
             .where(
@@ -362,7 +356,7 @@ export const logsWebhookDelivery = task({
               lastAttemptAt: new Date(),
               responseStatus: response.status,
               responseBody: truncatedBody,
-              errorMessage: `HTTP ${response.status}`,
+              failureReason: `HTTP ${response.status}`,
               updatedAt: new Date(),
             })
             .where(
@@ -394,7 +388,7 @@ export const logsWebhookDelivery = task({
             nextAttemptAt,
             responseStatus: response.status,
             responseBody: truncatedBody,
-            errorMessage: `HTTP ${response.status} - will retry`,
+            failureReason: `HTTP ${response.status} - will retry`,
             updatedAt: new Date(),
           })
           .where(
@@ -404,10 +398,8 @@ export const logsWebhookDelivery = task({
             )
           )
 
-        // Schedule the next retry
         await wait.for({ seconds: delayWithJitter / 1000 })
 
-        // Recursively call the task for retry
         await logsWebhookDelivery.trigger({
           deliveryId,
         })
@@ -435,7 +427,7 @@ export const logsWebhookDelivery = task({
             attempts,
             lastAttemptAt: new Date(),
             nextAttemptAt: attempts >= MAX_ATTEMPTS ? null : nextAttemptAt,
-            errorMessage: error.message,
+            failureReason: error.message,
             updatedAt: new Date(),
           })
           .where(
@@ -453,10 +445,8 @@ export const logsWebhookDelivery = task({
           return { success: false }
         }
 
-        // Schedule the next retry
         await wait.for({ seconds: delayWithJitter / 1000 })
 
-        // Recursively call the task for retry
         await logsWebhookDelivery.trigger({
           deliveryId,
         })
@@ -469,12 +459,11 @@ export const logsWebhookDelivery = task({
         stack: error.stack,
       })
 
-      // Mark as failed for unexpected errors
       await db
         .update(workflowLogWebhookDelivery)
         .set({
           status: 'failed',
-          errorMessage: `Unexpected error: ${error.message}`,
+          failureReason: `Unexpected error: ${error.message}`,
           updatedAt: new Date(),
         })
         .where(

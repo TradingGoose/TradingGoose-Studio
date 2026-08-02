@@ -457,6 +457,7 @@ Current code context: {context}
         isVisible={isPromptVisible}
         isLoading={isAiLoading}
         isStreaming={isAiStreaming}
+        hasFailure={Boolean(wandHook.error)}
         promptValue={promptInputValue}
         onSubmit={(prompt: string) => generateCodeStream({ prompt })}
         onCancel={isAiStreaming ? cancelGeneration : hidePromptInline}

@@ -2,28 +2,26 @@
 
 import { LibraryBig } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Button } from '@/components/ui/button'
 
 interface EmptyStateCardProps {
   title: string
   description: string
-  buttonText: string
-  onClick: () => void
+  actionLabel?: string
+  onAction?: () => void
   icon?: React.ReactNode
 }
 
 export function EmptyStateCard({
   title,
   description,
-  buttonText,
-  onClick,
+  actionLabel,
+  onAction,
   icon,
 }: EmptyStateCardProps) {
   const t = useTranslations('workspace.knowledge')
   return (
-    <div
-      onClick={onClick}
-      className='group flex cursor-pointer flex-col gap-3 rounded-md border border-muted-foreground/25 border-dashed bg-background p-4 transition-colors hover:border-muted-foreground/40 hover:bg-card'
-    >
+    <div className='flex flex-col gap-3 rounded-md border border-muted-foreground/25 border-dashed bg-background p-4'>
       <div className='flex items-center gap-2'>
         {icon || <LibraryBig className='h-4 w-4 flex-shrink-0 text-muted-foreground' />}
         <h3 className='truncate font-medium text-sm leading-tight'>{title}</h3>
@@ -35,6 +33,11 @@ export function EmptyStateCard({
         </div>
 
         <p className='line-clamp-2 overflow-hidden text-muted-foreground text-xs'>{description}</p>
+        {actionLabel && onAction ? (
+          <Button type='button' size='sm' onClick={onAction}>
+            {actionLabel}
+          </Button>
+        ) : null}
       </div>
     </div>
   )

@@ -1,9 +1,5 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createLogger } from '@/lib/logs/console/logger'
-import { startOAuthConnectFlow } from '@/lib/oauth/connect'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
-
-const logger = createLogger('OAuthConnectionsQuery')
 
 /**
  * Query key factories for OAuth connections
@@ -86,97 +82,24 @@ export function useOAuthConnections({ enabled = true }: { enabled?: boolean } = 
   })
 }
 
-/**
- * Connect OAuth service mutation
- */
-interface ConnectServiceParams {
-  providerId: string
-  callbackURL: string
-}
-
-export function useConnectOAuthService() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ providerId, callbackURL }: ConnectServiceParams) => {
-      await startOAuthConnectFlow({
-        providerId,
-        callbackURL,
-      })
-
-      return { success: true }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: oauthConnectionsKeys.connections() })
-    },
-    onError: (error) => {
-      logger.error('OAuth connection error:', error)
-    },
+export async function disconnectOAuthService({ accountId }: { accountId: string }) {
+  const response = await fetch('/api/auth/oauth/disconnect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
   })
-}
 
-/**
- * Disconnect OAuth service mutation
- */
-interface DisconnectServiceParams {
-  accountId: string
-}
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: unknown
+      code?: unknown
+    } | null
+    const error = new Error(
+      typeof body?.error === 'string' ? body.error : 'Failed to disconnect service'
+    ) as Error & { code?: string }
+    if (typeof body?.code === 'string') error.code = body.code
+    throw error
+  }
 
-export function useDisconnectOAuthService() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ accountId }: DisconnectServiceParams) => {
-      const response = await fetch('/api/auth/oauth/disconnect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          accountId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to disconnect service')
-      }
-
-      return response.json()
-    },
-    onMutate: async ({ accountId }) => {
-      await queryClient.cancelQueries({ queryKey: oauthConnectionsKeys.connections() })
-
-      const previousServices = queryClient.getQueryData<ServiceInfo[]>(
-        oauthConnectionsKeys.connections()
-      )
-
-      if (previousServices) {
-        queryClient.setQueryData<ServiceInfo[]>(
-          oauthConnectionsKeys.connections(),
-          previousServices.map((svc) => {
-            const updatedAccounts = svc.accounts?.filter((acc) => acc.id !== accountId) || []
-            if (updatedAccounts.length === (svc.accounts?.length ?? 0)) {
-              return svc
-            }
-            return {
-              ...svc,
-              accounts: updatedAccounts,
-              isConnected: updatedAccounts.length > 0,
-            }
-          })
-        )
-      }
-
-      return { previousServices }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousServices) {
-        queryClient.setQueryData(oauthConnectionsKeys.connections(), context.previousServices)
-      }
-      logger.error('Failed to disconnect service')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: oauthConnectionsKeys.connections() })
-    },
-  })
+  return response.json()
 }

@@ -107,17 +107,20 @@ if (typeof document !== 'undefined') {
 // Link component with preview
 function LinkWithPreview({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <a
-          href={href}
-          className='inline break-all text-blue-600 hover:underline dark:text-blue-400'
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          {children}
-        </a>
-      </TooltipTrigger>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <a
+            href={href}
+            className='inline break-all text-blue-600 hover:underline dark:text-blue-400'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {children}
+          </a>
+        }
+        delay={300}
+      />
       <TooltipContent side='top' align='center' sideOffset={5} className='max-w-sm p-3'>
         <span className='text-sm'>{href}</span>
       </TooltipContent>

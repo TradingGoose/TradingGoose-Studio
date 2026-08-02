@@ -58,6 +58,7 @@ type MonitorConfigWorkspaceProps = {
     next: ConfigMonitorViewConfig | ((current: ConfigMonitorViewConfig) => ConfigMonitorViewConfig)
   ) => void
   onReloadViews: () => void
+  onClearMonitorsError: () => void
 }
 
 export function MonitorConfigWorkspace({
@@ -75,6 +76,7 @@ export function MonitorConfigWorkspace({
   onPanelLayout,
   onUpdateViewConfig,
   onReloadViews,
+  onClearMonitorsError,
 }: MonitorConfigWorkspaceProps) {
   const { copy } = useMonitorCopy()
   const isMobile = useIsMobile()
@@ -183,13 +185,21 @@ export function MonitorConfigWorkspace({
     referenceData,
     monitorActions: wrappedMonitorActions,
     viewConfig: effectiveConfig,
+    onClearOperationMessage: onClearMonitorsError,
   })
   const controlsDisabled =
     viewStateMode !== 'server' || viewStateReloading || referenceData.isLoading
 
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const canReorder = effectiveConfig.sortBy.length === 0
-  const noticeMessage = viewsError ?? referenceData.warning ?? monitorsError ?? summaries.error
+  const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
+  const noticeMessage =
+    viewsError ??
+    referenceData.warning ??
+    (!hasEditorPanel ? monitorsError : null) ??
+    summaries.error
+  const operationMessageIsGlobal =
+    Boolean(monitorsError) && !hasEditorPanel && noticeMessage === monitorsError
 
   const handleFieldSumToggle = (field: ConfigMonitorFieldSum) => {
     onUpdateViewConfig((current) => ({
@@ -236,10 +246,10 @@ export function MonitorConfigWorkspace({
         referenceData,
         sourceCard: card,
       })
-      if (Object.keys(resolution.errors).length > 0) {
+      if (Object.keys(resolution.issues).length > 0) {
         editorState.openRejectedDropProposal(card.sourceMonitor, {
           draftPatch: resolution.draftPatch,
-          errors: resolution.errors,
+          proposalIssues: resolution.issues,
         })
         return
       }
@@ -253,7 +263,7 @@ export function MonitorConfigWorkspace({
       if (!validation.valid) {
         editorState.openRejectedDropProposal(card.sourceMonitor, {
           draftPatch: resolution.draftPatch,
-          errors: validation.errors,
+          showValidationIssues: true,
         })
         return
       }
@@ -435,7 +445,11 @@ export function MonitorConfigWorkspace({
         />
       </MonitorControlBar>
 
-      {noticeMessage ? <Notice variant='warning'>{noticeMessage}</Notice> : null}
+      {noticeMessage ? (
+        <div role={operationMessageIsGlobal ? 'alert' : undefined}>
+          <Notice variant={operationMessageIsGlobal ? 'error' : 'warning'}>{noticeMessage}</Notice>
+        </div>
+      ) : null}
 
       {monitorsLoading ? (
         <MonitorStateCard loadingLabel={copy.config.loadingRecords} className='h-full' />
@@ -457,13 +471,11 @@ export function MonitorConfigWorkspace({
     </div>
   )
 
-  const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
   const editor = hasEditorPanel ? (
     <MonitorEditorPanel
-      workspaceId={workspaceId}
       editorState={editorState}
       referenceData={referenceData}
-      createDisabled={controlsDisabled}
+      operationMessage={monitorsError}
     />
   ) : null
 

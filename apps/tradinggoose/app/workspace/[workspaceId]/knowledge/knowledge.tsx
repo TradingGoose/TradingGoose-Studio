@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Check, ChevronDown, LibraryBig, Plus } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -42,8 +43,14 @@ export function Knowledge() {
   const workspaceId = params.workspaceId as string
   const t = useTranslations('workspace.knowledge')
 
-  const { knowledgeBases, isLoading, error, addKnowledgeBase, refreshList } =
-    useKnowledgeBasesList(workspaceId)
+  const {
+    knowledgeBases,
+    hasLoadFailure,
+    hasResolvedList,
+    isFetching,
+    addKnowledgeBase,
+    refreshList,
+  } = useKnowledgeBasesList(workspaceId)
   const userPermissions = useUserPermissionsContext()
   const canManageKnowledgeBases = userPermissions.canEdit === true
 
@@ -73,8 +80,18 @@ export function Knowledge() {
   }
 
   const handleRetry = () => {
-    refreshList()
+    void refreshList()
   }
+
+  const listStatus = isFetching
+    ? hasLoadFailure
+      ? t('listFeedback.retrying')
+      : hasResolvedList
+        ? t('listFeedback.refreshing')
+        : t('listFeedback.loading')
+    : hasResolvedList
+      ? t('listFeedback.loaded')
+      : ''
 
   const filteredAndSortedKnowledgeBases = useMemo(() => {
     const filtered = filterKnowledgeBases(knowledgeBases, searchQuery)
@@ -107,16 +124,16 @@ export function Knowledge() {
   const headerRightContent = (
     <div className='flex items-center gap-2'>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant='outline' size='sm' className={filterButtonClass}>
-            {currentSortLabel}
-            <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-          </Button>
+        <DropdownMenuTrigger
+          render={<Button variant='outline' size='sm' className={filterButtonClass} />}
+        >
+          {currentSortLabel}
+          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align='end'
           side='bottom'
-          avoidCollisions={false}
+          collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
           sideOffset={4}
           className={dropdownContentClass}
         >
@@ -124,7 +141,7 @@ export function Knowledge() {
             {sortOptions.map((option, index) => (
               <div key={option.value}>
                 <DropdownMenuItem
-                  onSelect={() => handleSortChange(option.value)}
+                  onClick={() => handleSortChange(option.value)}
                   className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                 >
                   <span>{option.label}</span>
@@ -140,15 +157,17 @@ export function Knowledge() {
       </DropdownMenu>
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PrimaryButton
-            onClick={() => setIsCreateModalOpen(true)}
-            disabled={!canManageKnowledgeBases}
-          >
-            <Plus className='h-3.5 w-3.5' />
-            <span>{t('actions.create')}</span>
-          </PrimaryButton>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <PrimaryButton
+              onClick={() => setIsCreateModalOpen(true)}
+              disabled={!canManageKnowledgeBases}
+            >
+              <Plus className='h-3.5 w-3.5' />
+              <span>{t('actions.create')}</span>
+            </PrimaryButton>
+          }
+        />
         {userPermissions.canEdit !== true && (
           <TooltipContent>{t('actions.createTooltip')}</TooltipContent>
         )}
@@ -164,23 +183,31 @@ export function Knowledge() {
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden '>
             <div className='min-h-0 flex-1 overflow-auto'>
               <div className='p-2'>
-                {/* Error State */}
-                {error && (
-                  <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
-                    <p className='text-red-800 text-sm'>{t('errors.load', { error })}</p>
-                    <button
-                      onClick={handleRetry}
-                      className='mt-2 text-red-600 text-sm underline hover:text-red-800'
-                    >
-                      {t('errors.retry')}
-                    </button>
-                  </div>
-                )}
+                <p role='status' aria-live='polite' aria-atomic='true' className='sr-only'>
+                  {listStatus}
+                </p>
 
-                {/* Content Area */}
-                {isLoading ? (
+                {hasLoadFailure ? (
+                  <Alert variant='destructive' aria-atomic='true' className='mb-4'>
+                    <AlertDescription className='flex items-center justify-between gap-3'>
+                      <span>{t('listFeedback.failure')}</span>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='outline'
+                        disabled={isFetching}
+                        aria-busy={isFetching || undefined}
+                        onClick={handleRetry}
+                      >
+                        {isFetching ? t('listFeedback.retrying') : t('listFeedback.retry')}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {!hasResolvedList && isFetching ? (
                   <KnowledgeBaseCardSkeletonGrid count={8} />
-                ) : (
+                ) : !hasResolvedList && hasLoadFailure ? null : (
                   <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
                     {filteredAndSortedKnowledgeBases.length === 0 ? (
                       knowledgeBases.length === 0 ? (
@@ -191,15 +218,11 @@ export function Knowledge() {
                               ? t('emptyState.withEditPermission')
                               : t('emptyState.withoutEditPermission')
                           }
-                          buttonText={
-                            userPermissions.canEdit === true
-                              ? t('emptyState.buttonCreate')
-                              : t('emptyState.buttonContactAdmin')
+                          actionLabel={
+                            canManageKnowledgeBases ? t('emptyState.buttonCreate') : undefined
                           }
-                          onClick={
-                            userPermissions.canEdit === true
-                              ? () => setIsCreateModalOpen(true)
-                              : () => {}
+                          onAction={
+                            canManageKnowledgeBases ? () => setIsCreateModalOpen(true) : undefined
                           }
                           icon={<LibraryBig className='h-4 w-4 text-muted-foreground' />}
                         />

@@ -154,7 +154,9 @@ export function EditorMcpWidgetBody({
   const {
     members: serverMembers,
     isLoading: isServerListLoading,
+    isRetrying: isServerListRetrying,
     error: serverListError,
+    retry: retryServerList,
   } = useEntityList('mcp_server', workspaceId)
 
   const requestedServerId = resolveMcpServerId({
@@ -328,7 +330,14 @@ export function EditorMcpWidgetBody({
   }
 
   if (serverListError && serverMembers.length === 0) {
-    return <WidgetStateMessage message={serverListError} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadMcpServers}
+        variant='error'
+        onRetry={retryServerList}
+        isRetrying={isServerListRetrying}
+      />
+    )
   }
 
   if (
@@ -358,7 +367,14 @@ export function EditorMcpWidgetBody({
   }
 
   if (serverSession.error) {
-    return <WidgetStateMessage message={serverSession.error} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadMcpServers}
+        variant='error'
+        onRetry={serverSession.retry}
+        isRetrying={serverSession.isRetrying}
+      />
+    )
   }
 
   if (serverSession.isLoading) {

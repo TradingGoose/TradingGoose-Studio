@@ -21,20 +21,22 @@ export function WidgetHeaderRefreshButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={onClick}
-            disabled={disabled}
-            aria-label={resolvedLabel}
-          >
-            <RefreshCw className='h-3.5 w-3.5' />
-            <span className='sr-only'>{resolvedLabel}</span>
-          </button>
-        </span>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <span className='inline-flex'>
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={onClick}
+              disabled={disabled}
+              aria-label={resolvedLabel}
+            >
+              <RefreshCw className='h-3.5 w-3.5' />
+              <span className='sr-only'>{resolvedLabel}</span>
+            </button>
+          </span>
+        }
+      />
       <TooltipContent side='top'>{tooltip ?? resolvedLabel}</TooltipContent>
     </Tooltip>
   )

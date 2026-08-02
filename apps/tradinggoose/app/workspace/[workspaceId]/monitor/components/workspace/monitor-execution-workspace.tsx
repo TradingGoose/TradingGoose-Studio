@@ -2,11 +2,12 @@
 
 import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   getMonitorBoardLabels,
   getMonitorExecutionGroupLabels,
@@ -51,7 +52,7 @@ type MonitorExecutionWorkspaceProps = {
   effectiveConfig: ExecutionMonitorViewConfig
   executionItems: MonitorExecutionItem[]
   executionsLoading: boolean
-  executionsError: string | null
+  executionFailureMode: 'initial' | 'background' | null
   selectedExecutionLogId: string | null
   selectedExecution: MonitorExecutionItem | null
   selectedExecutionLog: WorkflowLog | null
@@ -153,7 +154,7 @@ export function MonitorExecutionWorkspace({
   effectiveConfig,
   executionItems,
   executionsLoading,
-  executionsError,
+  executionFailureMode,
   selectedExecutionLogId,
   selectedExecution,
   selectedExecutionLog,
@@ -173,6 +174,7 @@ export function MonitorExecutionWorkspace({
   onReloadViews,
 }: MonitorExecutionWorkspaceProps) {
   const { copy } = useMonitorCopy()
+  const operationCopy = copy.errors
   const isMobile = useIsMobile()
   const GROUP_FIELD_LABELS: Record<ExecutionMonitorGroupField, string> = {
     outcome: copy.fields.outcome,
@@ -212,13 +214,9 @@ export function MonitorExecutionWorkspace({
     monitor: copy.fields.monitor,
   } as const
   const formatColumnLimitLabel = (limit: number) =>
-    limit === 0
-      ? copy.shared.noLimit
-      : formatTemplate(copy.shared.itemsCount, { count: limit })
-  const formatExecutionSortValue = (
-    field: ExecutionMonitorSortField,
-    direction: 'asc' | 'desc'
-  ) => `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
+    limit === 0 ? copy.shared.noLimit : formatTemplate(copy.shared.itemsCount, { count: limit })
+  const formatExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
+    `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
   const summarizeExecutionFieldSums = (fieldSums: ExecutionMonitorFieldSum[]) => {
     if (fieldSums.length === 0) return copy.shared.none
     if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
@@ -517,7 +515,10 @@ export function MonitorExecutionWorkspace({
 
   const inspectorContent = selectedExecution ? (
     inspectorLoading && !resolvedInspectorLog ? (
-      <MonitorStateCard loadingLabel={copy.execution.loadingDetails} className='h-full bg-card/50' />
+      <MonitorStateCard
+        loadingLabel={copy.execution.loadingDetails}
+        className='h-full bg-card/50'
+      />
     ) : inspectorError ? (
       <MonitorStateCard
         title={copy.execution.detailsUnavailableTitle}
@@ -549,6 +550,12 @@ export function MonitorExecutionWorkspace({
       </Card>
     )
   ) : null
+  const inspectorTitle =
+    inspectorLoading && !resolvedInspectorLog
+      ? copy.execution.loadingDetails
+      : inspectorError || !resolvedInspectorLog
+        ? copy.execution.detailsUnavailableTitle
+        : copy.execution.detailsTitle
 
   return (
     <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-1.5'>
@@ -848,17 +855,22 @@ export function MonitorExecutionWorkspace({
                 {viewsError}
               </Notice>
             ) : null}
-            {executionsError ? (
-              <Notice variant='error' className='mb-3'>
-                {executionsError}
-              </Notice>
+            {executionFailureMode ? (
+              <Alert variant='destructive' aria-atomic='true' className='mb-3'>
+                <AlertDescription>{operationCopy.loadExecutions}</AlertDescription>
+              </Alert>
             ) : null}
             {executionsLoading ? (
               <MonitorStateCard
                 loadingLabel={copy.execution.loadingExecutions}
+                role='status'
+                aria-live='polite'
+                aria-atomic='true'
+                aria-busy='true'
                 className='min-h-[320px] flex-1'
               />
-            ) : showDesktopInspector && inspectorContent ? (
+            ) : executionFailureMode === 'initial' ? null : showDesktopInspector &&
+              inspectorContent ? (
               <ResizablePanelGroup
                 direction='horizontal'
                 className='flex min-h-0 w-full min-w-0 max-w-full flex-1 overflow-hidden'
@@ -894,6 +906,7 @@ export function MonitorExecutionWorkspace({
         onOpenChange={(open) => !open && onSelectExecution(null)}
       >
         <SheetContent side='right' className='w-full p-3 sm:max-w-[640px]'>
+          <SheetTitle className='sr-only'>{inspectorTitle}</SheetTitle>
           <div className='flex h-full min-h-0 flex-col overflow-hidden pt-6'>
             {inspectorContent}
           </div>

@@ -21,18 +21,12 @@ import { cn } from '@/lib/utils'
 
 interface IndicatorCreateMenuProps {
   disabled?: boolean
-  canCreate?: boolean
-  canImport?: boolean
-  isImporting?: boolean
   onCreateIndicator?: () => void
-  onImportIndicator?: (content: string, filename?: string) => Promise<void> | void
+  onImportIndicator?: (file: File) => Promise<void> | void
 }
 
 export function IndicatorCreateMenu({
   disabled = false,
-  canCreate = false,
-  canImport = false,
-  isImporting = false,
   onCreateIndicator,
   onImportIndicator,
 }: IndicatorCreateMenuProps) {
@@ -45,9 +39,9 @@ export function IndicatorCreateMenu({
   }, [onCreateIndicator])
 
   const handleImportSelection = useCallback(() => {
-    if (!canImport || isImporting) return
+    if (disabled) return
     fileInputRef.current?.click()
-  }, [canImport, isImporting])
+  }, [disabled])
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -55,8 +49,7 @@ export function IndicatorCreateMenu({
       if (!file) return
 
       try {
-        const content = await file.text()
-        await onImportIndicator?.(content, file.name)
+        await onImportIndicator?.(file)
       } finally {
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
@@ -66,26 +59,28 @@ export function IndicatorCreateMenu({
     [onImportIndicator]
   )
 
-  const isMenuDisabled = disabled
-
   return (
     <>
       <DropdownMenu>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className='inline-flex'>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type='button'
-                  disabled={isMenuDisabled}
-                  className={widgetHeaderIconButtonClassName()}
+          <TooltipTrigger
+            render={
+              <span className='inline-flex'>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type='button'
+                      disabled={disabled}
+                      className={widgetHeaderIconButtonClassName()}
+                    />
+                  }
                 >
                   <Plus className='h-4 w-4' />
                   <span className='sr-only'>{copy.createIndicator}</span>
-                </button>
-              </DropdownMenuTrigger>
-            </span>
-          </TooltipTrigger>
+                </DropdownMenuTrigger>
+              </span>
+            }
+          />
           <TooltipContent side='top'>{copy.create}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
@@ -94,9 +89,9 @@ export function IndicatorCreateMenu({
         >
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canCreate}
-            onSelect={() => {
-              if (!canCreate) return
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
               handleCreateIndicator()
             }}
           >
@@ -105,16 +100,14 @@ export function IndicatorCreateMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canImport || isImporting}
-            onSelect={() => {
-              if (!canImport || isImporting) return
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
               handleImportSelection()
             }}
           >
             <Upload className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? copy.importingIndicator : copy.importIndicator}
-            </span>
+            <span className={widgetHeaderMenuTextClassName}>{copy.importIndicator}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -12,6 +12,7 @@ import { seedDashboardWidgetSession } from '@/lib/yjs/dashboard-layout-session'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { LocalWidgetConfigRuntimeProvider } from '@/widgets/widget-config-runtime'
+import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import { DataChartCandleTypeDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
@@ -21,9 +22,23 @@ vi.mock('@/components/timezone-selector/fetchers', () => ({
   formatTimezoneLabel: (value: string) => value,
 }))
 
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({
+    members: [{ entityId: 'custom-1', entityName: 'Custom indicator', color: '#737373' }],
+    isLoading: false,
+    error: null,
+  }),
+}))
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
+const dispatchMouse = (target: Element, ...types: string[]) =>
+  act(async () => {
+    for (const type of types)
+      target.dispatchEvent(new MouseEvent(type, { bubbles: true, button: 0 }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
 
 describe('data chart localized component copy', () => {
   let container: HTMLDivElement
@@ -92,7 +107,7 @@ describe('data chart localized component copy', () => {
           indicatorId='RSI'
           name='Índice de fuerza relativa'
           isHidden={false}
-          errorMessage='compile failed'
+          executionFailure='compile failed'
           onToggleHidden={vi.fn()}
           onRemove={vi.fn()}
           onOpenSettings={vi.fn()}
@@ -101,5 +116,24 @@ describe('data chart localized component copy', () => {
     })
 
     expect(container.textContent).toContain('Error del indicador')
+  })
+
+  it('keeps the indicator chooser open through its complete trigger click', async () => {
+    await act(() => renderWithLocale(<IndicatorDropdown workspaceId='workspace-1' />))
+
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
+    const input = container.querySelector<HTMLInputElement>('input')
+    if (!trigger || !input) throw new Error('Expected indicator chooser controls to render')
+
+    await dispatchMouse(trigger, 'mousedown')
+    await dispatchMouse(trigger, 'mouseup', 'click')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(input).toHaveFocus()
+
+    await dispatchMouse(input, 'mousedown', 'click')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    await dispatchMouse(trigger, 'click')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 })

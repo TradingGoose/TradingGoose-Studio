@@ -272,6 +272,8 @@ export function VariablesInput({
       {assignments && assignments.length > 0 ? (
         <div className='space-y-2'>
           {assignments.map((assignment) => {
+            const availableVariables = getAvailableVariablesFor(assignment.id)
+
             return (
               <div
                 key={assignment.id}
@@ -299,41 +301,45 @@ export function VariablesInput({
                       )}
                     </div>
                     <Select
-                      value={assignment.variableId || assignment.variableName || ''}
+                      value={assignment.variableId ?? null}
+                      items={availableVariables.map((variable) => ({
+                        value: variable.id,
+                        label: variable.name,
+                      }))}
                       onValueChange={(value) => {
-                        if (value === '__new__') {
+                        if (value === null) {
                           return
                         }
                         handleVariableSelect(assignment.id, value)
                       }}
                       disabled={isPreview || disabled}
                     >
-                      <SelectTrigger className='h-9 border border-input dark:border-input/60 dark:bg-background'>
+                      <SelectTrigger
+                        aria-label='Variable'
+                        className='h-9 border border-input dark:border-input/60 dark:bg-background'
+                      >
                         <SelectValue placeholder='Select a variable...' />
                       </SelectTrigger>
                       <SelectContent>
-                        {(() => {
-                          const availableVars = getAvailableVariablesFor(assignment.id)
-                          return availableVars.length > 0 ? (
-                            availableVars.map((variable) => (
-                              <SelectItem key={variable.id} value={variable.id}>
-                                {variable.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className='p-2 text-center text-muted-foreground text-sm'>
-                              {currentWorkflowVariables.length > 0
-                                ? 'All variables have been assigned.'
-                                : 'No variables defined in this workflow.'}
-                              {currentWorkflowVariables.length === 0 && (
-                                <>
-                                  <br />
-                                  Add them in the Variables panel.
-                                </>
-                              )}
-                            </div>
-                          )
-                        })()}
+                        {availableVariables.length > 0 ? (
+                          availableVariables.map((variable) => (
+                            <SelectItem key={variable.id} value={variable.id}>
+                              {variable.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className='p-2 text-center text-muted-foreground text-sm'>
+                            {currentWorkflowVariables.length > 0
+                              ? 'All variables have been assigned.'
+                              : 'No variables defined in this workflow.'}
+                            {currentWorkflowVariables.length === 0 && (
+                              <>
+                                <br />
+                                Add them in the Variables panel.
+                              </>
+                            )}
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

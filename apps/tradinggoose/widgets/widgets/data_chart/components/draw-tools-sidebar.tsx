@@ -91,14 +91,14 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'lines'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'lines' : null)}
           >
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={groupButtonClass} disabled={!canInteract}>
-                {(() => {
-                  const LinesIcon = DRAW_TOOL_ICONS.TrendLine
-                  return <LinesIcon className='h-4 w-4' />
-                })()}
-                <span className='sr-only'>{copy.drawTools.groups.lines}</span>
-              </button>
+            <DropdownMenuTrigger
+              render={<button type='button' className={groupButtonClass} disabled={!canInteract} />}
+            >
+              {(() => {
+                const LinesIcon = DRAW_TOOL_ICONS.TrendLine
+                return <LinesIcon className='h-4 w-4' />
+              })()}
+              <span className='sr-only'>{copy.drawTools.groups.lines}</span>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
@@ -132,11 +132,11 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'notes'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'notes' : null)}
           >
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={groupButtonClass} disabled={!canInteract}>
-                <TextCursorInput className='h-4 w-4' />
-                <span className='sr-only'>{copy.drawTools.groups.notes}</span>
-              </button>
+            <DropdownMenuTrigger
+              render={<button type='button' className={groupButtonClass} disabled={!canInteract} />}
+            >
+              <TextCursorInput className='h-4 w-4' />
+              <span className='sr-only'>{copy.drawTools.groups.notes}</span>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
@@ -170,11 +170,11 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'freehand'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'freehand' : null)}
           >
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={groupButtonClass} disabled={!canInteract}>
-                <PenTool className='h-4 w-4' />
-                <span className='sr-only'>{copy.drawTools.groups.freehand}</span>
-              </button>
+            <DropdownMenuTrigger
+              render={<button type='button' className={groupButtonClass} disabled={!canInteract} />}
+            >
+              <PenTool className='h-4 w-4' />
+              <span className='sr-only'>{copy.drawTools.groups.freehand}</span>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
@@ -208,11 +208,11 @@ export const DrawToolsSidebar = ({
             open={openGroup === 'shapes'}
             onOpenChange={(nextOpen) => setOpenGroup(nextOpen ? 'shapes' : null)}
           >
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={groupButtonClass} disabled={!canInteract}>
-                <Shapes className='h-4 w-4' />
-                <span className='sr-only'>{copy.drawTools.groups.shapes}</span>
-              </button>
+            <DropdownMenuTrigger
+              render={<button type='button' className={groupButtonClass} disabled={!canInteract} />}
+            >
+              <Shapes className='h-4 w-4' />
+              <span className='sr-only'>{copy.drawTools.groups.shapes}</span>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent side='right' align='start' className='w-44 p-1'>
@@ -245,17 +245,19 @@ export const DrawToolsSidebar = ({
 
           return (
             <Tooltip key={toolType}>
-              <TooltipTrigger asChild>
-                <button
-                  type='button'
-                  className={`${buttonClass} ${isActive ? 'border-border/40 bg-muted text-foreground' : ''}`}
-                  disabled={!canInteract || unavailable}
-                  onClick={() => onSelectTool(toolType)}
-                >
-                  <ToolIcon className='h-4 w-4' />
-                  <span className='sr-only'>{getDataChartDrawToolLabel(copy, toolType)}</span>
-                </button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <button
+                    type='button'
+                    className={`${buttonClass} ${isActive ? 'border-border/40 bg-muted text-foreground' : ''}`}
+                    disabled={!canInteract || unavailable}
+                    onClick={() => onSelectTool(toolType)}
+                  >
+                    <ToolIcon className='h-4 w-4' />
+                    <span className='sr-only'>{getDataChartDrawToolLabel(copy, toolType)}</span>
+                  </button>
+                }
+              />
               <TooltipContent side='right'>{resolveTooltip(toolType)}</TooltipContent>
             </Tooltip>
           )
@@ -263,32 +265,36 @@ export const DrawToolsSidebar = ({
 
         <div className='mt-auto mb-1 flex flex-col items-center gap-1'>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                className={buttonClass}
-                disabled={!canToggleAllVisibility}
-                onClick={onToggleAllVisibility}
-              >
-                <ToggleAllVisibilityIcon className='h-4 w-4' />
-                <span className='sr-only'>{toggleAllVisibilityLabel}</span>
-              </button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <button
+                  type='button'
+                  className={buttonClass}
+                  disabled={!canToggleAllVisibility}
+                  onClick={onToggleAllVisibility}
+                >
+                  <ToggleAllVisibilityIcon className='h-4 w-4' />
+                  <span className='sr-only'>{toggleAllVisibilityLabel}</span>
+                </button>
+              }
+            />
             <TooltipContent side='right'>{toggleAllVisibilityLabel}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                className={buttonClass}
-                disabled={!canInteract}
-                onClick={onClearAll}
-              >
-                <ClearAllIcon className='h-4 w-4' />
-                <span className='sr-only'>{clearAllLabel}</span>
-              </button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <button
+                  type='button'
+                  className={buttonClass}
+                  disabled={!canInteract}
+                  onClick={onClearAll}
+                >
+                  <ClearAllIcon className='h-4 w-4' />
+                  <span className='sr-only'>{clearAllLabel}</span>
+                </button>
+              }
+            />
             <TooltipContent side='right'>{clearAllLabel}</TooltipContent>
           </Tooltip>
         </div>

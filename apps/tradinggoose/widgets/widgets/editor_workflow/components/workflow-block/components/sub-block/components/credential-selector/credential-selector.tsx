@@ -230,24 +230,27 @@ export function CredentialSelector({
   return (
     <>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='relative w-full justify-between'
-            disabled={disabled}
-          >
-            <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-              {getProviderIcon(provider)}
-              <span
-                className={displayName ? 'truncate font-normal' : 'truncate text-muted-foreground'}
-              >
-                {displayName || label}
-              </span>
-            </div>
-            <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={disabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='relative w-full justify-between'
+              disabled={disabled}
+            />
+          }
+        >
+          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
+            {getProviderIcon(provider)}
+            <span
+              className={displayName ? 'truncate font-normal' : 'truncate text-muted-foreground'}
+            >
+              {displayName || label}
+            </span>
+          </div>
+          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[250px] p-0' align='start'>
           <Command>

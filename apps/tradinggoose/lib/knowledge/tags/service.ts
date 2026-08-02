@@ -106,7 +106,7 @@ export async function createOrUpdateTagDefinitionsBulk(
   const { definitions } = bulkData
   const created: DocumentTagDefinition[] = []
   const updated: DocumentTagDefinition[] = []
-  const errors: string[] = []
+  const rejectedDefinitions: string[] = []
 
   // Get existing definitions to check for conflicts and determine operations
   const existingDefinitions = await getDocumentTagDefinitions(knowledgeBaseId)
@@ -120,7 +120,7 @@ export async function createOrUpdateTagDefinitionsBulk(
 
       // Validate field type
       if (!SUPPORTED_FIELD_TYPES.includes(fieldType as (typeof SUPPORTED_FIELD_TYPES)[number])) {
-        errors.push(`Invalid field type: ${fieldType}`)
+        rejectedDefinitions.push(`Invalid field type: ${fieldType}`)
         continue
       }
 
@@ -131,13 +131,15 @@ export async function createOrUpdateTagDefinitionsBulk(
         // Update existing definition
         const existingDef = existingByDisplayName.get(originalDisplayName!)
         if (!existingDef) {
-          errors.push(`Tag definition with display name "${originalDisplayName}" not found`)
+          rejectedDefinitions.push(
+            `Tag definition with display name "${originalDisplayName}" not found`
+          )
           continue
         }
 
         // Check if new display name conflicts with another definition
         if (displayName !== originalDisplayName && existingByDisplayName.has(displayName)) {
-          errors.push(`Display name "${displayName}" already exists`)
+          rejectedDefinitions.push(`Display name "${displayName}" already exists`)
           continue
         }
 
@@ -168,7 +170,7 @@ export async function createOrUpdateTagDefinitionsBulk(
         if (!finalTagSlot || existingBySlot.has(finalTagSlot)) {
           const nextSlot = await getNextAvailableSlot(knowledgeBaseId, fieldType, existingBySlot)
           if (!nextSlot) {
-            errors.push(`No available slots for field type "${fieldType}"`)
+            rejectedDefinitions.push(`No available slots for field type "${fieldType}"`)
             continue
           }
           finalTagSlot = nextSlot
@@ -176,13 +178,13 @@ export async function createOrUpdateTagDefinitionsBulk(
 
         // Check slot conflicts
         if (existingBySlot.has(finalTagSlot)) {
-          errors.push(`Tag slot "${finalTagSlot}" is already in use`)
+          rejectedDefinitions.push(`Tag slot "${finalTagSlot}" is already in use`)
           continue
         }
 
         // Check display name conflicts
         if (existingByDisplayName.has(displayName)) {
-          errors.push(`Display name "${displayName}" already exists`)
+          rejectedDefinitions.push(`Display name "${displayName}" already exists`)
           continue
         }
 
@@ -207,16 +209,17 @@ export async function createOrUpdateTagDefinitionsBulk(
 
         created.push(newDefinition as DocumentTagDefinition)
       }
-    } catch (error) {
-      errors.push(`Error processing definition "${defData.displayName}": ${error}`)
+    } catch (cause) {
+      logger.error(`[${requestId}] Error processing tag definition "${defData.displayName}"`, cause)
+      rejectedDefinitions.push(`Failed to process tag definition "${defData.displayName}"`)
     }
   }
 
   logger.info(
-    `[${requestId}] Bulk tag definitions processed: ${created.length} created, ${updated.length} updated, ${errors.length} errors`
+    `[${requestId}] Bulk tag definitions processed: ${created.length} created, ${updated.length} updated, ${rejectedDefinitions.length} errors`
   )
 
-  return { created, updated, errors }
+  return { created, updated, errors: rejectedDefinitions }
 }
 
 /**

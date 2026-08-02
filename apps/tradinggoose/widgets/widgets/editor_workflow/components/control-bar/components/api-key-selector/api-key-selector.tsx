@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { Check, Copy, Info, Loader2, Plus } from 'lucide-react'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -28,8 +27,8 @@ import {
 } from '@/components/ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ApiKeySelector')
 
@@ -177,6 +176,10 @@ export function ApiKeySelector({
     }
   }
 
+  const selectableApiKeys = apiKeysData
+    ? [...apiKeysData.workspace, ...apiKeysData.personal]
+    : apiKeys
+
   if (isDeployed && deployedApiKeyDisplay) {
     return (
       <div className='space-y-1.5'>
@@ -185,9 +188,7 @@ export function ApiKeySelector({
             <Label className='font-medium text-sm'>{labelText}</Label>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className='h-3.5 w-3.5 text-muted-foreground' />
-                </TooltipTrigger>
+                <TooltipTrigger render={<Info className='h-3.5 w-3.5 text-muted-foreground' />} />
                 <TooltipContent>
                   <p>{copy.ownerIsBilledForUsage}</p>
                 </TooltipContent>
@@ -206,17 +207,17 @@ export function ApiKeySelector({
                 return deployedApiKeyDisplay
               })()}
             </pre>
-              {(() => {
-                const match = deployedApiKeyDisplay.match(/^(.*?)\s+\(([^)]+)\)$/)
-                if (match) {
-                  const type = match[2]
-                  return (
-                    <div className='ml-2 flex-shrink-0'>
-                      <span className='inline-flex items-center rounded-md bg-muted px-2 py-1 font-medium text-muted-foreground text-xs capitalize'>
-                        {getTypeLabel(type)}
-                      </span>
-                    </div>
-                  )
+            {(() => {
+              const match = deployedApiKeyDisplay.match(/^(.*?)\s+\(([^)]+)\)$/)
+              if (match) {
+                const type = match[2]
+                return (
+                  <div className='ml-2 flex-shrink-0'>
+                    <span className='inline-flex items-center rounded-md bg-muted px-2 py-1 font-medium text-muted-foreground text-xs capitalize'>
+                      {getTypeLabel(type)}
+                    </span>
+                  </div>
+                )
               }
               return null
             })()}
@@ -235,9 +236,7 @@ export function ApiKeySelector({
               <Label className='font-medium text-sm'>{labelText}</Label>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className='h-3.5 w-3.5 text-muted-foreground' />
-                  </TooltipTrigger>
+                  <TooltipTrigger render={<Info className='h-3.5 w-3.5 text-muted-foreground' />} />
                   <TooltipContent>
                     <p>{copy.keyOwnerIsBilled}</p>
                   </TooltipContent>
@@ -261,8 +260,18 @@ export function ApiKeySelector({
             )}
           </div>
         )}
-        <Select value={value} onValueChange={onChange} disabled={disabled || !keysLoaded}>
-          <SelectTrigger className={!keysLoaded ? 'opacity-70' : ''}>
+        <Select
+          value={value || null}
+          items={selectableApiKeys.map((apiKey) => ({
+            value: apiKey.id,
+            label: apiKey.name,
+          }))}
+          onValueChange={(keyId) => {
+            if (keyId !== null) onChange(keyId)
+          }}
+          disabled={disabled || !keysLoaded}
+        >
+          <SelectTrigger aria-label={labelText} className={!keysLoaded ? 'opacity-70' : ''}>
             {!keysLoaded ? (
               <div className='flex items-center space-x-2'>
                 <Loader2 className='h-3.5 w-3.5 animate-spin' />
@@ -272,7 +281,7 @@ export function ApiKeySelector({
               <SelectValue placeholder={copy.selectAnApiKey} className='text-sm' />
             )}
           </SelectTrigger>
-          <SelectContent align='start' className='w-[var(--radix-select-trigger-width)] py-1'>
+          <SelectContent align='start' className='w-[var(--anchor-width)] py-1'>
             {apiKeysData && apiKeysData.workspace.length > 0 && (
               <SelectGroup>
                 <SelectLabel className='px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide'>
@@ -282,7 +291,7 @@ export function ApiKeySelector({
                   <SelectItem
                     key={apiKey.id}
                     value={apiKey.id}
-                    className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[state=checked]:bg-muted [&>span.absolute]:hidden'
+                    className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[selected]:bg-muted'
                   >
                     <div className='flex w-full items-center'>
                       <div className='flex w-full items-center justify-between'>
@@ -307,7 +316,7 @@ export function ApiKeySelector({
                   <SelectItem
                     key={apiKey.id}
                     value={apiKey.id}
-                    className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[state=checked]:bg-muted [&>span.absolute]:hidden'
+                    className='my-0.5 flex cursor-pointer items-center rounded-sm px-3 py-2.5 data-[selected]:bg-muted'
                   >
                     <div className='flex w-full items-center'>
                       <div className='flex w-full items-center justify-between'>
@@ -340,8 +349,14 @@ export function ApiKeySelector({
       </div>
 
       {/* Create Key Dialog */}
-      <AlertDialog open={isCreatingKey} onOpenChange={setIsCreatingKey}>
-        <AlertDialogContent className='rounded-md sm:max-w-md'>
+      <AlertDialog
+        open={isCreatingKey}
+        onOpenChange={(open, details) => {
+          if (!open && isSubmittingCreate) details.cancel()
+          else setIsCreatingKey(open)
+        }}
+      >
+        <AlertDialogContent className='rounded-md sm:max-w-md' hideCloseButton={isSubmittingCreate}>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.createNewApiKey}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -408,12 +423,10 @@ export function ApiKeySelector({
             >
               {copy.cancel}
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type='button'
               disabled={isSubmittingCreate || !newKeyName.trim()}
-              onClick={(e) => {
-                e.preventDefault()
-                handleCreateKey()
-              }}
+              onClick={() => void handleCreateKey()}
             >
               {isSubmittingCreate ? (
                 <>
@@ -423,7 +436,7 @@ export function ApiKeySelector({
               ) : (
                 copy.create
               )}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

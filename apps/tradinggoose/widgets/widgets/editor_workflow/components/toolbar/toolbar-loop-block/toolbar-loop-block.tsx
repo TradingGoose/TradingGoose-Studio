@@ -78,7 +78,7 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
   if (disabled) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{blockContent}</TooltipTrigger>
+        <TooltipTrigger render={blockContent} />
         <TooltipContent>
           {getToolbarDisabledReason(Boolean(userPermissions.isOfflineMode))}
         </TooltipContent>

@@ -24,8 +24,8 @@ type MemoryExecutionEventStream = {
 }
 
 type WorkflowExecutionResultState =
-  | { status: 'pending' | 'processing'; result: null; errorMessage: null }
-  | { status: 'completed' | 'failed'; result: ExecutionResult; errorMessage: string | null }
+  | { status: 'pending' | 'processing'; result: null; failureReason: null }
+  | { status: 'completed' | 'failed'; result: ExecutionResult; failureReason: string | null }
 
 type WorkflowExecutionEventState = WorkflowExecutionResultState & {
   events: WorkflowExecutionEventEntry[]
@@ -130,7 +130,7 @@ function readFinalOutput(executionData: unknown): Record<string, unknown> {
   return executionData.finalOutput
 }
 
-function readLogErrorMessage(row: WorkflowExecutionLogStateRow) {
+function readLogFailureReason(row: WorkflowExecutionLogStateRow) {
   const executionData = isRecord(row.executionData) ? row.executionData : {}
   if (typeof executionData.errorMessage === 'string' && executionData.errorMessage.length > 0) {
     return executionData.errorMessage
@@ -211,7 +211,7 @@ export function createWorkflowExecutionResultFromLog(
     return {
       status: 'processing',
       result: null,
-      errorMessage: null,
+      failureReason: null,
     }
   }
 
@@ -221,7 +221,7 @@ export function createWorkflowExecutionResultFromLog(
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
   const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
-  const errorMessage = failed ? readLogErrorMessage(row) : null
+  const failureReason = failed ? readLogFailureReason(row) : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,
     startTime: row.startedAt.toISOString(),
@@ -232,7 +232,7 @@ export function createWorkflowExecutionResultFromLog(
   const result: ExecutionResult & { traceSpans?: unknown[] } = {
     success: !failed,
     output: finalOutput,
-    ...(errorMessage ? { error: errorMessage } : {}),
+    ...(failureReason ? { error: failureReason } : {}),
     ...(traceSpans.length > 0 ? { traceSpans } : {}),
     logs: [],
     metadata,
@@ -241,7 +241,7 @@ export function createWorkflowExecutionResultFromLog(
   return {
     status: failed ? 'failed' : 'completed',
     result,
-    errorMessage,
+    failureReason,
   }
 }
 
@@ -250,16 +250,16 @@ function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionT
     return {
       status: 'completed' as const,
       result: event.data.result,
-      errorMessage: null,
+      failureReason: null,
     }
   }
 
-  const errorMessage =
+  const failureReason =
     event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
   return {
     status: 'failed' as const,
     result: event.data.result,
-    errorMessage,
+    failureReason,
   }
 }
 
@@ -411,7 +411,7 @@ export async function readWorkflowExecutionEventState(params: {
     return {
       status: row.status,
       result: null,
-      errorMessage: null,
+      failureReason: null,
       events: params.afterEventId === undefined ? [] : await readEvents(params.afterEventId),
     }
   }
@@ -447,7 +447,7 @@ export async function readWorkflowExecutionEventState(params: {
       ? {
           status: 'processing' as const,
           result: null,
-          errorMessage: null,
+          failureReason: null,
           events: params.afterEventId === undefined ? [] : events,
         }
       : null

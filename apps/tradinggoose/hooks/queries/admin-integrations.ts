@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type {
   AdminIntegrationDefinition,
   AdminIntegrationSecret,
@@ -6,6 +6,13 @@ import type {
 } from '@/lib/admin/integrations/types'
 
 const ADMIN_INTEGRATIONS_ENDPOINT = '/api/admin/integrations'
+
+export type SaveAdminIntegrationBundleInput = {
+  bundleId: string
+  definition: AdminIntegrationDefinition
+  services: AdminIntegrationDefinition[]
+  secrets: AdminIntegrationSecret[]
+}
 
 export const adminIntegrationsKeys = {
   all: ['admin-integrations'] as const,
@@ -96,48 +103,34 @@ export function useAdminIntegrationsSnapshot() {
   })
 }
 
-export function useSaveAdminIntegrationBundle() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({
+export async function saveAdminIntegrationBundle({
+  bundleId,
+  definition,
+  services,
+  secrets,
+}: SaveAdminIntegrationBundleInput): Promise<AdminIntegrationsSnapshot> {
+  const response = await fetch(ADMIN_INTEGRATIONS_ENDPOINT, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
       bundleId,
       definition,
       services,
       secrets,
-    }: {
-      bundleId: string
-      definition: AdminIntegrationDefinition
-      services: AdminIntegrationDefinition[]
-      secrets: AdminIntegrationSecret[]
-    }): Promise<AdminIntegrationsSnapshot> => {
-      const response = await fetch(ADMIN_INTEGRATIONS_ENDPOINT, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bundleId,
-          definition,
-          services,
-          secrets,
-        }),
-      })
-
-      if (!response.ok) {
-        const payload = await parseResponse(response)
-        const message =
-          typeof payload === 'object' && payload && 'error' in payload
-            ? String(payload.error)
-            : 'Failed to save admin integrations'
-
-        throw new Error(message)
-      }
-
-      return normalizeSnapshot(await parseResponse(response))
-    },
-    onSuccess: async (snapshot) => {
-      queryClient.setQueryData(adminIntegrationsKeys.snapshot(), snapshot)
-    },
+    }),
   })
+
+  if (!response.ok) {
+    const payload = await parseResponse(response)
+    const message =
+      typeof payload === 'object' && payload && 'error' in payload
+        ? String(payload.error)
+        : 'Failed to save admin integrations'
+
+    throw new Error(message)
+  }
+
+  return normalizeSnapshot(await parseResponse(response))
 }

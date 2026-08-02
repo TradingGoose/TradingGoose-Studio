@@ -1,10 +1,13 @@
-import { task } from '@trigger.dev/sdk'
+import { db } from '@tradinggoose/db'
+import { pendingExecution } from '@tradinggoose/db/schema'
+import { schedules, task } from '@trigger.dev/sdk'
 import {
   claimNextPendingExecution,
   completePendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
+import { wakePendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   dispatchQueuedDocumentProcessingJob,
@@ -149,4 +152,22 @@ export const pendingExecutionDrain = task({
   run: async (payload: PendingExecutionDrainPayload) => {
     return drainPendingExecutionsForBillingScope(payload)
   },
+})
+
+export async function recoverPendingExecutionDrains() {
+  const scopes = await db
+    .selectDistinct({ billingScopeId: pendingExecution.billingScopeId })
+    .from(pendingExecution)
+
+  await Promise.all(
+    scopes.map(({ billingScopeId }) => wakePendingExecutionDrain({ billingScopeId }))
+  )
+
+  return { recoveredScopeCount: scopes.length }
+}
+
+export const pendingExecutionRecoverySweep = schedules.task({
+  id: 'pending-execution-recovery-sweep',
+  cron: '*/5 * * * *',
+  run: recoverPendingExecutionDrains,
 })

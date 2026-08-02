@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Pencil, Trash2, Wrench } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,18 +16,19 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import type { LocaleCode } from '@/i18n/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
 interface CustomToolListItemProps {
   tool: CustomToolDefinition
   isSelected: boolean
   onSelect: (customToolId: string) => void
-  onDelete: (customToolId: string) => Promise<void>
-  onRename: (customToolId: string, title: string) => Promise<void>
+  onDelete: (customToolId: string) => Promise<boolean>
+  onRename: (customToolId: string, title: string) => Promise<boolean>
   canEdit: boolean
   canDelete?: boolean
+  writesDisabled?: boolean
   isDeleting?: boolean
+  isRenaming?: boolean
 }
 
 const getCustomToolTitle = (tool: CustomToolDefinition) => tool.title.trim()
@@ -40,16 +41,19 @@ export function CustomToolListItem({
   onRename,
   canEdit,
   canDelete = true,
+  writesDisabled = false,
   isDeleting = false,
+  isRenaming = false,
 }: CustomToolListItemProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(getCustomToolTitle(tool))
-  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameFailed, setRenameFailed] = useState(false)
+  const [deleteFailed, setDeleteFailed] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const renameFailureId = useId()
   const nameLabel = getCustomToolTitle(tool)
   const iconColor = getEntityIconColor(tool.id)
 
@@ -65,34 +69,38 @@ export function CustomToolListItem({
   }, [isEditing])
 
   const handleStartEdit = () => {
-    if (!canEdit) return
+    if (!canEdit || writesDisabled) return
+    setRenameFailed(false)
     setIsEditing(true)
     setEditValue(getCustomToolTitle(tool))
   }
 
   const handleSaveEdit = async () => {
+    if (isRenaming || writesDisabled) return
     const trimmed = editValue.trim()
     if (!trimmed || trimmed === nameLabel) {
       setIsEditing(false)
       setEditValue(nameLabel)
+      setRenameFailed(false)
       return
     }
 
-    setIsRenaming(true)
+    setRenameFailed(false)
     try {
-      await onRename(tool.id, trimmed)
-      setIsEditing(false)
-    } catch (error) {
-      console.error('Failed to rename custom tool', error)
-      setEditValue(nameLabel)
-    } finally {
-      setIsRenaming(false)
+      if (await onRename(tool.id, trimmed)) {
+        setIsEditing(false)
+      }
+    } catch {
+      setRenameFailed(true)
+      inputRef.current?.focus()
     }
   }
 
   const handleCancelEdit = () => {
+    if (isRenaming) return
     setIsEditing(false)
     setEditValue(nameLabel)
+    setRenameFailed(false)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -106,16 +114,19 @@ export function CustomToolListItem({
   }
 
   const handleInputBlur = () => {
+    if (isRenaming) return
     void handleSaveEdit()
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting || !canDelete) return
+    if (isDeleting || writesDisabled || !canDelete) return
+    setDeleteFailed(false)
     try {
-      await onDelete(tool.id)
-      setShowDeleteDialog(false)
-    } catch (error) {
-      console.error('Failed to delete custom tool', error)
+      if (await onDelete(tool.id)) {
+        setShowDeleteDialog(false)
+      }
+    } catch {
+      setDeleteFailed(true)
     }
   }
 
@@ -125,15 +136,20 @@ export function CustomToolListItem({
         <input
           ref={inputRef}
           value={editValue}
-          onChange={(event) => setEditValue(event.target.value)}
+          onChange={(event) => {
+            setEditValue(event.target.value)
+            setRenameFailed(false)
+          }}
           onKeyDown={handleKeyDown}
           onBlur={handleInputBlur}
+          aria-invalid={renameFailed || undefined}
+          aria-describedby={renameFailed ? renameFailureId : undefined}
           className={cn(
             'min-w-0 flex-1 border-0 bg-transparent p-0 font-medium font-sans text-sm outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
             isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
           )}
           maxLength={100}
-          disabled={isRenaming}
+          disabled={isRenaming || writesDisabled}
           onClick={(event) => event.preventDefault()}
           autoComplete='off'
           autoCorrect='off'
@@ -141,17 +157,22 @@ export function CustomToolListItem({
           spellCheck='false'
         />
       ) : (
-        <Tooltip delayDuration={1000}>
-          <TooltipTrigger asChild>
-            <span
-              className={cn(
-                'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
-                isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
-              )}
-            >
-              {nameLabel}
-            </span>
-          </TooltipTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className={cn(
+                  'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
+                  isSelected
+                    ? 'text-foreground'
+                    : 'text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {nameLabel}
+              </span>
+            }
+            delay={1000}
+          />
           <TooltipContent side='top' align='start' sideOffset={10}>
             <p>{nameLabel}</p>
           </TooltipContent>
@@ -205,6 +226,7 @@ export function CustomToolListItem({
                 event.stopPropagation()
                 handleStartEdit()
               }}
+              disabled={writesDisabled}
             >
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameCustomTool}</span>
@@ -213,8 +235,11 @@ export function CustomToolListItem({
               <Button
                 variant='ghost'
                 size='icon'
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={isDeleting}
+                onClick={() => {
+                  setDeleteFailed(false)
+                  setShowDeleteDialog(true)
+                }}
+                disabled={writesDisabled}
                 className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
               >
                 <Trash2 className='!h-3.5 !w-3.5' />
@@ -224,16 +249,26 @@ export function CustomToolListItem({
           </div>
         )}
       </div>
+      {isEditing && isRenaming ? (
+        <p className='px-2 text-muted-foreground text-xs' role='status'>
+          {copy.renaming}
+        </p>
+      ) : null}
+      {isEditing && renameFailed ? (
+        <p id={renameFailureId} className='px-2 text-destructive text-xs' role='alert'>
+          {copy.renameFailed}
+        </p>
+      ) : null}
 
       <AlertDialog
         open={showDeleteDialog}
-        onOpenChange={(open) => {
-          if (!isDeleting) {
-            setShowDeleteDialog((prev) => (prev === open ? prev : open))
-          }
+        onOpenChange={(open, details) => {
+          if (!open && isDeleting) return details.cancel()
+          setShowDeleteDialog((prev) => (prev === open ? prev : open))
+          if (!open) setDeleteFailed(false)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -243,6 +278,11 @@ export function CustomToolListItem({
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteFailed ? (
+            <p className='text-destructive text-sm' role='alert'>
+              {copy.deleteFailed}
+            </p>
+          ) : null}
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
               {copy.cancel}
@@ -253,10 +293,11 @@ export function CustomToolListItem({
                 void handleConfirmDelete()
               }}
               disabled={isDeleting}
+              aria-busy={isDeleting ? 'true' : undefined}
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              {copy.delete}
+              {isDeleting ? copy.deleting : copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

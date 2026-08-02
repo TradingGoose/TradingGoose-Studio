@@ -27,11 +27,12 @@ export function useKnowledgeBaseTagDefinitions(knowledgeBaseId: string | null) {
   const fetchTagDefinitions = useCallback(async () => {
     if (!knowledgeBaseId) {
       setTagDefinitions([])
+      setIsLoading(false)
+      setError(null)
       return
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const response = await fetch(`/api/knowledge/${knowledgeBaseId}/tag-definitions`)
@@ -44,13 +45,14 @@ export function useKnowledgeBaseTagDefinitions(knowledgeBaseId: string | null) {
 
       if (data.success && Array.isArray(data.data)) {
         setTagDefinitions(data.data)
+        setError(null)
       } else {
         throw new Error('Invalid response format')
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      const definitionLoadFailure = err instanceof Error ? err.message : 'Unknown error occurred'
       logger.error('Error fetching tag definitions:', err)
-      setError(errorMessage)
+      setError(definitionLoadFailure)
       setTagDefinitions([])
     } finally {
       setIsLoading(false)

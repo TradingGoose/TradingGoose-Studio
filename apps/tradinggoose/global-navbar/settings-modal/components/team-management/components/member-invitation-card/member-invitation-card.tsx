@@ -62,6 +62,8 @@ interface MemberInvitationCardProps {
   inviteEmail: string
   setInviteEmail: (email: string) => void
   isInviting: boolean
+  actionsDisabled: boolean
+  error?: string | null
   showWorkspaceInvite: boolean
   setShowWorkspaceInvite: (show: boolean) => void
   selectedWorkspaces: Array<{ workspaceId: string; permission: string }>
@@ -86,6 +88,8 @@ export function MemberInvitationCard({
   inviteEmail,
   setInviteEmail,
   isInviting,
+  actionsDisabled,
+  error,
   showWorkspaceInvite,
   setShowWorkspaceInvite,
   selectedWorkspaces,
@@ -129,6 +133,8 @@ export function MemberInvitationCard({
   }
 
   const handleInviteClick = () => {
+    if (actionsDisabled) return
+
     // Validate email before proceeding
     if (inviteEmail.trim()) {
       validateEmailInput(inviteEmail)
@@ -160,7 +166,7 @@ export function MemberInvitationCard({
               placeholder='Enter email address'
               value={inviteEmail}
               onChange={handleEmailChange}
-              disabled={isInviting || !inviteEnabled}
+              disabled={actionsDisabled || !inviteEnabled}
               className={cn('w-full', emailError && 'border-red-500 focus-visible:ring-red-500')}
             />
             <div className='h-4 pt-1'>
@@ -177,7 +183,7 @@ export function MemberInvitationCard({
               onLoadUserWorkspaces()
             }
           }}
-          disabled={isInviting || !inviteEnabled}
+          disabled={actionsDisabled || !inviteEnabled}
           className='h-9 shrink-0 rounded-sm text-sm'
         >
           {showWorkspaceInvite ? 'Hide' : 'Add'} Workspaces
@@ -185,7 +191,9 @@ export function MemberInvitationCard({
         <Button
           size='sm'
           onClick={handleInviteClick}
-          disabled={!inviteEmail || isInviting || !inviteEnabled}
+          disabled={!inviteEmail || actionsDisabled || !inviteEnabled}
+          focusableWhenDisabled={isInviting}
+          aria-busy={isInviting || undefined}
           className='h-9 shrink-0 rounded-sm'
         >
           {isInviting ? <ButtonSkeleton /> : null}
@@ -196,6 +204,12 @@ export function MemberInvitationCard({
       {!canInviteMembers && inviteUnavailableMessage ? (
         <Alert>
           <AlertDescription>{inviteUnavailableMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {error ? (
+        <Alert role='alert' variant='destructive'>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -245,7 +259,7 @@ export function MemberInvitationCard({
                               onWorkspaceToggle(workspace.id, '')
                             }
                           }}
-                          disabled={isInviting}
+                          disabled={actionsDisabled}
                         />
                         <Label
                           htmlFor={`workspace-${workspace.id}`}
@@ -276,7 +290,7 @@ export function MemberInvitationCard({
                               : 'read') as PermissionType
                           }
                           onChange={(permission) => onWorkspaceToggle(workspace.id, permission)}
-                          disabled={isInviting}
+                          disabled={actionsDisabled}
                           className='w-auto'
                         />
                       )}

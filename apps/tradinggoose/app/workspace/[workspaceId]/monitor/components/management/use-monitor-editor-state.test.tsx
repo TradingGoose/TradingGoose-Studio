@@ -9,18 +9,35 @@ import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { useMonitorEditorState } from './use-monitor-editor-state'
 
+const workflowTarget = {
+  source: 'indicator',
+  triggerId: 'indicator_trigger',
+  workflowId: 'workflow-1',
+  blockId: 'block-1',
+  workflowName: 'Workflow One',
+  workflowColor: '#3972F6',
+  isDeployed: true,
+  blockName: 'Indicator Trigger',
+  label: 'Workflow One - Indicator Trigger',
+} as const
+const indicator = { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' } as const
 const referenceData: MonitorReferenceData = {
-  workflowTargets: [],
-  workflowTargetByKey: {},
+  workflowTargets: [workflowTarget],
+  workflowTargetByKey: { 'workflow-1:block-1': workflowTarget },
   workflowOptions: [],
-  indicatorWorkflowTargets: [],
+  indicatorWorkflowTargets: [workflowTarget],
   portfolioWorkflowTargets: [],
-  indicatorOptions: [],
-  indicatorById: {},
+  indicatorOptions: [indicator],
+  indicatorById: { rsi: indicator },
   marketProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   marketProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   providerIntervalsByProviderId: { alpaca: ['1m'] },
-  providerParamDefinitionsByProviderId: {},
+  providerParamDefinitionsByProviderId: {
+    alpaca: [
+      { id: 'apiKey', type: 'string', title: 'API Key', required: true, password: true },
+      { id: 'feed', type: 'string', title: 'Feed', required: true },
+    ],
+  },
   tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   defaultMarketProviderId: '',
@@ -58,6 +75,7 @@ const actions = {
   deleteMonitor: vi.fn(),
 }
 
+let editorState: ReturnType<typeof useMonitorEditorState>
 const Harness = ({ records }: { records: MonitorRecord[] }) => {
   const state = useMonitorEditorState({
     workspaceId: 'workspace-1',
@@ -65,7 +83,9 @@ const Harness = ({ records }: { records: MonitorRecord[] }) => {
     referenceData,
     monitorActions: actions,
     viewConfig: DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
+    onClearOperationMessage: vi.fn(),
   })
+  editorState = state
 
   return (
     <div>
@@ -169,5 +189,36 @@ describe('useMonitorEditorState', () => {
     })
 
     expect(selectedMonitorText()).toBe('none')
+  })
+
+  it('keeps current validation derived while preserving unrelated proposal issues', async () => {
+    actions.updateMonitor.mockResolvedValueOnce(monitor)
+    await act(async () => root.render(<Harness records={[monitor]} />))
+    await act(async () =>
+      editorState.openRejectedDropProposal(monitor, {
+        draftPatch: {},
+        proposalIssues: { listing: ['Dropped listing is unavailable.'] },
+        showValidationIssues: true,
+      })
+    )
+    expect(editorState.editingIssues).toHaveProperty('secret:apiKey')
+    expect(editorState.editingIssues).toHaveProperty('param:feed')
+    expect(editorState.editingIssues.listing).toEqual(['Dropped listing is unavailable.'])
+
+    await act(async () => editorState.updateSecretValue('apiKey', 'secret'))
+    expect(editorState.editingIssues).not.toHaveProperty('secret:apiKey')
+    expect(editorState.editingIssues).toHaveProperty('param:feed')
+    await act(async () => editorState.updateProviderParamValue('feed', 'sip'))
+    expect(editorState.editingIssues).not.toHaveProperty('param:feed')
+    expect(editorState.editingIssues).toHaveProperty('listing')
+
+    await act(async () =>
+      editorState.updateDraft({
+        listing: { listing_type: 'default', listing_id: 'MSFT', base_id: '', quote_id: '' },
+      })
+    )
+    expect(editorState.editingIssues).not.toHaveProperty('listing')
+    await act(async () => editorState.persistDraft())
+    expect(actions.updateMonitor).toHaveBeenCalledTimes(1)
   })
 })

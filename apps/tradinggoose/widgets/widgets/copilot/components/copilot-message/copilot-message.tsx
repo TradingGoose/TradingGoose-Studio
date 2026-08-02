@@ -660,6 +660,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return (
         <div
           className={`w-full max-w-full overflow-hidden py-0.5 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+          role={message.isError ? 'alert' : undefined}
+          aria-atomic={message.isError ? 'true' : undefined}
         >
           <div className='max-w-full space-y-1.5 transition-all duration-200 ease-in-out'>
             {/* Content blocks in chronological order */}

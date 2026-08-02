@@ -1,10 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
-import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Check, ChevronDown, ExternalLink, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { JiraIcon } from '@/components/icons/icons'
-import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -16,15 +15,9 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type Credential,
-  getProviderIdFromServiceId,
-  getServiceIdFromScopes,
-  type OAuthProvider,
-} from '@/lib/oauth'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
+import type { OAuthProvider } from '@/lib/oauth'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('JiraIssueSelector')
 
@@ -34,7 +27,6 @@ export interface JiraIssueInfo {
   mimeType: string
   webViewLink?: string
   modifiedTime?: string
-  spaceId?: string
   url?: string
 }
 
@@ -42,31 +34,31 @@ interface JiraIssueSelectorProps {
   value: string
   onChange: (value: string, issueInfo?: JiraIssueInfo) => void
   provider: OAuthProvider
-  requiredScopes?: string[]
   label?: string
   disabled?: boolean
-  serviceId?: string
   domain: string
   showPreview?: boolean
-  onIssueInfoChange?: (issueInfo: JiraIssueInfo | null) => void
   projectId?: string
-  credentialId?: string
+  credentialId: string
   isForeignCredential?: boolean
   workflowId?: string
   workspaceId?: string
 }
 
+const isAbortError = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'name' in error &&
+  (error as { name?: unknown }).name === 'AbortError'
+
 export function JiraIssueSelector({
   value,
   onChange,
   provider,
-  requiredScopes = [],
   label,
   disabled = false,
-  serviceId,
   domain,
   showPreview = true,
-  onIssueInfoChange,
   projectId,
   credentialId,
   isForeignCredential = false,
@@ -76,115 +68,147 @@ export function JiraIssueSelector({
   const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowLabels
   const selectorCopy = useMessages().workspace.widgets.blockEditor.jiraIssueSelector
+  const feedbackId = useId()
   const [open, setOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credential[]>([])
   const [issues, setIssues] = useState<JiraIssueInfo[]>([])
-  const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
-  const [selectedIssueId, setSelectedIssueId] = useState(value)
-  const [selectedIssue, setSelectedIssue] = useState<JiraIssueInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showOAuthModal, setShowOAuthModal] = useState(false)
+  const [selectedIssue, setSelectedIssue] = useState<{
+    context: string
+    info: JiraIssueInfo | null
+  } | null>(null)
+  const [pendingRequests, setPendingRequests] = useState(0)
   const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
-  const [cloudId, setCloudId] = useState<string | null>(null)
+  const [cloudBinding, setCloudBinding] = useState<{
+    id: string
+    owner: string
+  } | null>(null)
   const labelText = label ?? copy.selectJiraIssue
   const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
+  const isLoading = pendingRequests > 0
+  const announcedError = isLoading ? null : errorMessage
 
-  // Keep local credential state in sync with persisted credentialId prop
-  useEffect(() => {
-    if (credentialId && credentialId !== selectedCredentialId) {
-      setSelectedCredentialId(credentialId)
-    } else if (!credentialId && selectedCredentialId) {
-      setSelectedCredentialId('')
-    }
-  }, [credentialId, selectedCredentialId])
-
-  // Handle search with debounce
+  const normalizedDomain = domain.trim().toLowerCase()
+  const cloudContext = JSON.stringify([
+    provider,
+    workflowId ?? '',
+    workspaceId ?? '',
+    credentialId,
+    normalizedDomain,
+  ])
+  const listContext = JSON.stringify([cloudContext, projectId ?? '', isForeignCredential])
+  const selectionContext = JSON.stringify([cloudContext, value, isForeignCredential])
+  const activeCloudId = cloudBinding?.owner === cloudContext ? cloudBinding.id : undefined
+  const activeIssue =
+    selectedIssue?.context === selectionContext && selectedIssue.info?.id === value
+      ? selectedIssue.info
+      : null
+  const mountedRef = useRef(false)
+  const issuesRequestRef = useRef(0)
+  const selectionRequestRef = useRef(0)
+  const feedbackRequestRef = useRef(0)
+  const searchIntentRef = useRef(0)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleSearch = (value: string) => {
-    // Clear any existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    // Set a new timeout
-    searchTimeoutRef.current = setTimeout(() => {
-      if (value.length >= 1) {
-        // Changed from > 2 to >= 1 to be more responsive
-        fetchIssues(value)
-      } else {
-        setIssues([]) // Clear issues if search is empty
-      }
-    }, 500) // 500ms debounce
+  const issuesAbortRef = useRef<AbortController | null>(null)
+  const selectionAbortRef = useRef<AbortController | null>(null)
+  const selectorContextRef = useRef({
+    cloud: cloudContext,
+    list: listContext,
+    selection: selectionContext,
+  })
+  selectorContextRef.current = {
+    cloud: cloudContext,
+    list: listContext,
+    selection: selectionContext,
   }
+  const previousListContextRef = useRef(listContext)
+  const previousCloudContextRef = useRef(cloudContext)
+  const previousSelectionContextRef = useRef(selectionContext)
 
-  // Clean up the timeout on unmount
   useEffect(() => {
+    mountedRef.current = true
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
+      mountedRef.current = false
+      issuesRequestRef.current += 1
+      selectionRequestRef.current += 1
+      feedbackRequestRef.current += 1
+      searchIntentRef.current += 1
+      issuesAbortRef.current?.abort()
+      selectionAbortRef.current?.abort()
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     }
   }, [])
 
-  // Determine the appropriate service ID based on provider and scopes
-  const getServiceId = (): string => {
-    if (serviceId) return serviceId
-    return getServiceIdFromScopes(provider, requiredScopes)
-  }
+  useEffect(() => {
+    if (previousListContextRef.current === listContext) return
+    previousListContextRef.current = listContext
+    issuesRequestRef.current += 1
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    searchIntentRef.current += 1
+    issuesAbortRef.current?.abort()
+    selectionAbortRef.current?.abort()
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    setIssues([])
+    setSelectedIssue(null)
+    setErrorKey(null)
+  }, [listContext])
 
-  // Determine the appropriate provider ID based on service and scopes (stabilized)
-  const providerId = useMemo(() => {
-    const effectiveServiceId = getServiceId()
-    return getProviderIdFromServiceId(effectiveServiceId)
-  }, [serviceId, provider, requiredScopes])
+  useEffect(() => {
+    if (previousCloudContextRef.current === cloudContext) return
+    previousCloudContextRef.current = cloudContext
+    setCloudBinding(null)
+  }, [cloudContext])
 
-  // Fetch available credentials for this provider
-  const fetchCredentials = useCallback(async () => {
-    if (!providerId) return
-    setIsLoading(true)
-    try {
-      const query = new URLSearchParams({ provider: providerId })
-      if (workflowId) query.set('workflowId', workflowId)
-      else if (workspaceId) query.set('workspaceId', workspaceId)
-      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
+  const handleSearch = (query: string) => {
+    const searchIntent = ++searchIntentRef.current
+    issuesRequestRef.current += 1
+    issuesAbortRef.current?.abort()
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
 
-      if (response.ok) {
-        const data = await response.json()
-        setCredentials(data.credentials)
-      }
-    } catch (error) {
-      logger.error('Error fetching credentials:', error)
-    } finally {
-      setIsLoading(false)
+    if (!query) {
+      setIssues([])
+      return
     }
-  }, [providerId, workflowId, workspaceId])
 
-  // Fetch issue info when we have a selected issue ID
-  const fetchIssueInfo = useCallback(
-    async (issueId: string) => {
-      // Validate domain format
-      const trimmedDomain = domain.trim().toLowerCase()
-      if (!trimmedDomain.includes('.')) {
-        setErrorKey('invalidDomainFormat')
+    const requestContext = selectorContextRef.current.list
+    searchTimeoutRef.current = setTimeout(() => {
+      if (
+        searchIntent !== searchIntentRef.current ||
+        requestContext !== selectorContextRef.current.list
+      ) {
         return
       }
+      void fetchIssues(query, searchIntent)
+    }, 500)
+  }
 
-      setIsLoading(true)
-      setErrorKey(null)
+  const fetchIssueInfo = useCallback(
+    async (issueId: string) => {
+      if (!credentialId || !domain) return
+
+      selectionAbortRef.current?.abort()
+      const controller = new AbortController()
+      selectionAbortRef.current = controller
+      const requestGeneration = ++selectionRequestRef.current
+      const feedbackGeneration = ++feedbackRequestRef.current
+      const requestContext = selectionContext
+      const requestCloudContext = cloudContext
+
+      setPendingRequests((count) => count + 1)
+      if (feedbackGeneration === feedbackRequestRef.current) setErrorKey(null)
 
       try {
         const response = await fetch('/api/tools/jira/issue', {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             domain,
-            credentialId: selectedCredentialId,
+            credentialId,
             ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             issueId,
-            cloudId,
+            cloudId: activeCloudId,
           }),
         })
 
@@ -195,67 +219,97 @@ export function JiraIssueSelector({
         }
 
         const data = await response.json()
+        if (
+          !mountedRef.current ||
+          requestGeneration !== selectionRequestRef.current ||
+          requestContext !== selectorContextRef.current.selection
+        ) {
+          return
+        }
+
         if (data.cloudId) {
           logger.info('Using cloud ID:', data.cloudId)
-          setCloudId(data.cloudId)
+          setCloudBinding({ id: data.cloudId, owner: requestCloudContext })
         }
 
         if (data.issue) {
           logger.info('Successfully fetched issue:', data.issue.name)
-          setSelectedIssue(data.issue)
-          onIssueInfoChange?.(data.issue)
+          setSelectedIssue({ context: requestContext, info: data.issue })
         } else {
           logger.warn('No issue data received in response')
-          setSelectedIssue(null)
-          onIssueInfoChange?.(null)
+          setSelectedIssue({ context: requestContext, info: null })
         }
       } catch (error) {
-        logger.error('Error fetching issue info:', error)
-        setErrorKey('failedToFetchIssueInfo')
-        // Clear selection on error to prevent infinite retry loops
-        setSelectedIssue(null)
-        onIssueInfoChange?.(null)
+        if (!isAbortError(error)) {
+          logger.error('Error fetching issue info:', error)
+          if (
+            mountedRef.current &&
+            requestGeneration === selectionRequestRef.current &&
+            feedbackGeneration === feedbackRequestRef.current &&
+            requestContext === selectorContextRef.current.selection
+          ) {
+            setErrorKey('failedToFetchIssueInfo')
+            setSelectedIssue({ context: requestContext, info: null })
+          }
+        }
       } finally {
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setPendingRequests((count) => Math.max(0, count - 1))
+        }
       }
     },
-    [selectedCredentialId, domain, onIssueInfoChange, cloudId, workflowId, workspaceId]
+    [credentialId, domain, activeCloudId, cloudContext, selectionContext, workflowId, workspaceId]
   )
 
-  // Fetch issues from Jira
   const fetchIssues = useCallback(
-    async (searchQuery?: string) => {
-      if (!selectedCredentialId || !domain) return
+    async (searchQuery?: string, requestIntent?: number) => {
+      if (!credentialId || !domain) return
+      const searchIntent = requestIntent ?? ++searchIntentRef.current
+      if (searchIntent !== searchIntentRef.current) return
+
+      issuesAbortRef.current?.abort()
+      const controller = new AbortController()
+      issuesAbortRef.current = controller
+      const requestGeneration = ++issuesRequestRef.current
+      const feedbackGeneration = ++feedbackRequestRef.current
+      const requestContext = selectorContextRef.current.list
+      const requestCloudContext = selectorContextRef.current.cloud
+      const ownsRequest = () =>
+        mountedRef.current &&
+        requestGeneration === issuesRequestRef.current &&
+        searchIntent === searchIntentRef.current &&
+        requestContext === selectorContextRef.current.list
+
       // If no search query is provided, require a projectId before fetching
       if (!searchQuery && !projectId) {
-        setIssues([])
+        if (ownsRequest()) setIssues([])
         return
       }
 
-      // Validate domain format
-      const trimmedDomain = domain.trim().toLowerCase()
-      if (!trimmedDomain.includes('.')) {
-        setErrorKey('invalidDomainFormat')
-        setIssues([])
-        setIsLoading(false)
+      if (!normalizedDomain.includes('.')) {
+        if (ownsRequest()) setIssues([])
+        if (ownsRequest() && feedbackGeneration === feedbackRequestRef.current) {
+          setErrorKey('invalidDomainFormat')
+        }
         return
       }
 
-      setIsLoading(true)
-      setErrorKey(null)
+      setPendingRequests((count) => count + 1)
+      if (feedbackGeneration === feedbackRequestRef.current) setErrorKey(null)
 
       try {
         const queryParams = new URLSearchParams({
           domain,
-          credentialId: selectedCredentialId,
+          credentialId,
           ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(projectId && { projectId }),
           ...(searchQuery && { query: searchQuery }),
-          ...(cloudId && { cloudId }),
+          ...(activeCloudId && { cloudId: activeCloudId }),
         })
 
         const response = await fetch(`/api/tools/jira/issues?${queryParams.toString()}`, {
           method: 'GET',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -268,17 +322,15 @@ export function JiraIssueSelector({
         }
 
         const data = await response.json()
+        if (!ownsRequest()) return
 
         if (data.cloudId) {
-          setCloudId(data.cloudId)
+          setCloudBinding({ id: data.cloudId, owner: requestCloudContext })
         }
 
-        // Process the issue picker results
         let foundIssues: JiraIssueInfo[] = []
 
-        // Handle the sections returned by the issue picker API
         if (data.sections) {
-          // Combine issues from all sections
           data.sections.forEach((section: any) => {
             if (section.issues && section.issues.length > 0) {
               const sectionIssues = section.issues.map((issue: any) => ({
@@ -295,47 +347,23 @@ export function JiraIssueSelector({
 
         logger.info(`Received ${foundIssues.length} issues from API`)
         setIssues(foundIssues)
-
-        // If we have a selected issue ID, find the issue info
-        if (selectedIssueId) {
-          const issueInfo = foundIssues.find((issue: JiraIssueInfo) => issue.id === selectedIssueId)
-          if (issueInfo) {
-            setSelectedIssue(issueInfo)
-            onIssueInfoChange?.(issueInfo)
-          } else if (!searchQuery && selectedIssueId) {
-            // If we can't find the issue in the list, try to fetch it directly
-            fetchIssueInfo(selectedIssueId)
-          }
-        }
       } catch (error) {
-        logger.error('Error fetching issues:', error)
-        setErrorKey('failedToFetchIssues')
-        setIssues([])
+        if (!isAbortError(error)) {
+          logger.error('Error fetching issues:', error)
+          if (ownsRequest() && feedbackGeneration === feedbackRequestRef.current) {
+            setErrorKey('failedToFetchIssues')
+          }
+          if (ownsRequest()) setIssues([])
+        }
       } finally {
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setPendingRequests((count) => Math.max(0, count - 1))
+        }
       }
     },
-    [
-      selectedCredentialId,
-      domain,
-      selectedIssueId,
-      onIssueInfoChange,
-      fetchIssueInfo,
-      cloudId,
-      projectId,
-      workflowId,
-      workspaceId,
-    ]
+    [credentialId, domain, normalizedDomain, activeCloudId, projectId, workflowId, workspaceId]
   )
 
-  // Fetch credentials when the dropdown opens (avoid fetching on mount with no credential)
-  useEffect(() => {
-    if (open) {
-      fetchCredentials()
-    }
-  }, [open, fetchCredentials])
-
-  // Handle open change
   const handleOpenChange = (isOpen: boolean) => {
     if (disabled || isForeignCredential) {
       setOpen(false)
@@ -343,281 +371,188 @@ export function JiraIssueSelector({
     }
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
 
-    // Only fetch recent/default issues when opening the dropdown
-    if (isOpen && selectedCredentialId && domain && domain.includes('.')) {
-      // Only fetch on open when a project is selected; otherwise wait for user search
+    if (isOpen && credentialId && domain && domain.includes('.')) {
       if (projectId) {
-        fetchIssues('')
+        const searchIntent = ++searchIntentRef.current
+        void fetchIssues('', searchIntent)
       }
     }
   }
 
-  // Fetch selected issue metadata once credentials are ready or changed
   useEffect(() => {
-    if (
-      value &&
-      selectedCredentialId &&
-      domain &&
-      domain.includes('.') &&
-      (!selectedIssue || selectedIssue.id !== value)
-    ) {
-      fetchIssueInfo(value)
-    }
-  }, [value, selectedCredentialId, selectedIssue, domain, fetchIssueInfo])
-
-  // Keep internal selectedIssueId in sync with the value prop
-  useEffect(() => {
-    if (value !== selectedIssueId) {
-      setSelectedIssueId(value)
-    }
-    // When the upstream value is cleared (e.g., project changed or remote user cleared),
-    // clear local selection and preview immediately
-    if (!value) {
-      setSelectedIssue(null)
-      setIssues([])
-      setErrorKey(null)
-      onIssueInfoChange?.(null)
-    }
-  }, [value])
-
-  // Handle issue selection
-  const handleSelectIssue = (issue: JiraIssueInfo) => {
-    setSelectedIssueId(issue.id)
-    setSelectedIssue(issue)
-    onChange(issue.id, issue)
-    onIssueInfoChange?.(issue)
-    setOpen(false)
-  }
-
-  // Handle adding a new credential
-  const handleAddCredential = () => {
-    // Show the OAuth modal
-    setShowOAuthModal(true)
-    setOpen(false)
-  }
-
-  // Clear selection
-  const handleClearSelection = () => {
-    setSelectedIssueId('')
+    if (previousSelectionContextRef.current === selectionContext) return
+    previousSelectionContextRef.current = selectionContext
+    if (activeIssue) return
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
     setSelectedIssue(null)
     setErrorKey(null)
+  }, [selectionContext, activeIssue])
+
+  useEffect(() => {
+    if (value && credentialId && domain && domain.includes('.') && !activeIssue) {
+      void fetchIssueInfo(value)
+    }
+  }, [value, credentialId, activeIssue, domain, fetchIssueInfo])
+
+  const handleSelectIssue = (issue: JiraIssueInfo) => {
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
+    setErrorKey(null)
+    setSelectedIssue({
+      context: JSON.stringify([cloudContext, issue.id, isForeignCredential]),
+      info: issue,
+    })
+    onChange(issue.id, issue)
+    setOpen(false)
+  }
+
+  const handleClearSelection = () => {
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
+    setSelectedIssue({ context: selectionContext, info: null })
+    setErrorKey(null)
     onChange('', undefined)
-    onIssueInfoChange?.(null)
   }
 
   return (
-    <>
-      <div className='space-y-2'>
-        <Popover open={open} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>
+    <div className='space-y-2'>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger
+          disabled={disabled || !domain || !credentialId || isForeignCredential}
+          render={
             <Button
               variant='outline'
               role='combobox'
               aria-expanded={open}
+              aria-busy={isLoading || undefined}
+              aria-describedby={isLoading || announcedError ? feedbackId : undefined}
+              aria-invalid={announcedError ? true : undefined}
+              aria-errormessage={announcedError ? feedbackId : undefined}
               className='h-10 w-full min-w-0 justify-between'
-              disabled={disabled || !domain || !selectedCredentialId || isForeignCredential}
-            >
-              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-                {selectedIssue ? (
-                  <>
-                    <JiraIcon className='h-4 w-4' />
-                    <span className='truncate font-normal'>{selectedIssue.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <JiraIcon className='h-4 w-4' />
-                    <span className='truncate text-muted-foreground'>{labelText}</span>
-                  </>
-                )}
-              </div>
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
-          </PopoverTrigger>
-          {!isForeignCredential && (
-            <PopoverContent className='w-[300px] p-0' align='start'>
-              {/* Current account indicator */}
-              {selectedCredentialId && credentials.length > 0 && (
-                <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-1'>
-                    <JiraIcon className='h-4 w-4' />
-                    <span className='text-muted-foreground text-xs'>
-                      {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        copy.unknown}
-                    </span>
-                  </div>
-                  {credentials.length > 1 && (
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      className='h-6 px-2 text-xs'
-                      onClick={() => setOpen(true)}
-                    >
-                      {copy.switch}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              <Command>
-                <CommandInput
-                  placeholder={copy.searchIssues}
-                  onValueChange={handleSearch}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {isLoading ? (
-                      <div className='flex items-center justify-center p-4'>
-                        <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>{copy.loadingIssues}</span>
-                      </div>
-                    ) : errorMessage ? (
-                      <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{errorMessage}</p>
-                      </div>
-                    ) : credentials.length === 0 ? (
-                      <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
-                        <p className='text-muted-foreground text-xs'>
-                          {formatTemplate(copy.connectProviderAccountToContinue, {
-                            providerName: 'Jira',
-                          })}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>
-                          {formatTemplate(copy.noItemsFound, { itemName: copy.issues.toLowerCase() })}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          {copy.tryDifferentSearchOrAccount}
-                        </p>
-                      </div>
-                    )}
-                  </CommandEmpty>
-
-                  {/* Account selection - only show if we have multiple accounts */}
-                  {credentials.length > 1 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {copy.switchAccount}
-                      </div>
-                      {credentials.map((cred) => (
-                        <CommandItem
-                          key={cred.id}
-                          value={`account-${cred.id}`}
-                          onSelect={() => setSelectedCredentialId(cred.id)}
-                        >
-                          <div className='flex items-center gap-1'>
-                            <JiraIcon className='h-4 w-4' />
-                            <span className='font-normal'>{cred.name}</span>
-                          </div>
-                          {cred.id === selectedCredentialId && (
-                            <Check className='ml-auto h-4 w-4' />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                  {/* Issues list */}
-                  {issues.length > 0 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {copy.issues}
-                      </div>
-                      {issues.map((issue) => (
-                        <CommandItem
-                          key={issue.id}
-                          value={`issue-${issue.id}-${issue.name}`}
-                          onSelect={() => handleSelectIssue(issue)}
-                        >
-                          <div className='flex items-center gap-1 overflow-hidden'>
-                            <JiraIcon className='h-4 w-4' />
-                            <span className='truncate font-normal'>{issue.name}</span>
-                          </div>
-                          {issue.id === selectedIssueId && <Check className='ml-auto h-4 w-4' />}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                  {/* Connect account option - only show if no credentials */}
-                  {credentials.length === 0 && (
-                    <CommandGroup>
-                      <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-1 text-foreground'>
-                          <JiraIcon className='h-4 w-4' />
-                          <span>
-                            {formatTemplate(copy.connectProviderAccount, {
-                              providerName: 'Jira',
-                            })}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    </CommandGroup>
-                  )}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          )}
-        </Popover>
-
-        {/* Issue preview */}
-        {showPreview && selectedIssue && (
-          <div className='relative mt-2 rounded-md border border-muted bg-muted/10 p-2'>
-            <div className='absolute top-2 right-2'>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-5 w-5 hover:bg-card'
-                onClick={handleClearSelection}
-              >
-                <X className='h-3 w-3' />
-              </Button>
-            </div>
-            <div className='flex items-center gap-3 pr-4'>
-              <div className='flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-muted/20'>
+              disabled={disabled || !domain || !credentialId || isForeignCredential}
+            />
+          }
+        >
+          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+            {activeIssue ? (
+              <>
                 <JiraIcon className='h-4 w-4' />
-              </div>
-              <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-1'>
-                  <h4 className='truncate font-medium text-xs'>{selectedIssue.name}</h4>
-                  {selectedIssue.modifiedTime && (
-                    <span className='whitespace-nowrap text-muted-foreground text-xs'>
-                      {new Date(selectedIssue.modifiedTime).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                {selectedIssue.webViewLink ? (
-                  <a
-                    href={selectedIssue.webViewLink}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='flex items-center gap-1 text-foreground text-xs hover:underline'
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span>{copy.openInJira}</span>
-                    <ExternalLink className='h-3 w-3' />
-                  </a>
-                ) : (
-                  <></>
+                <span className='truncate font-normal'>{activeIssue.name}</span>
+              </>
+            ) : (
+              <>
+                <JiraIcon className='h-4 w-4' />
+                <span className='truncate text-muted-foreground'>{labelText}</span>
+              </>
+            )}
+          </div>
+          <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+        </PopoverTrigger>
+        {!isForeignCredential && (
+          <PopoverContent className='w-[300px] p-0' align='start'>
+            <Command>
+              <CommandInput placeholder={copy.searchIssues} onValueChange={handleSearch} />
+              <CommandList>
+                <CommandEmpty>
+                  {!isLoading && !errorMessage ? (
+                    <div className='p-4 text-center'>
+                      <p className='font-medium text-sm'>
+                        {formatTemplate(copy.noItemsFound, {
+                          itemName: copy.issues.toLowerCase(),
+                        })}
+                      </p>
+                    </div>
+                  ) : null}
+                </CommandEmpty>
+
+                {issues.length > 0 && (
+                  <CommandGroup>
+                    <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
+                      {copy.issues}
+                    </div>
+                    {issues.map((issue) => (
+                      <CommandItem
+                        key={issue.id}
+                        value={`issue-${issue.id}-${issue.name}`}
+                        onSelect={() => handleSelectIssue(issue)}
+                      >
+                        <div className='flex items-center gap-1 overflow-hidden'>
+                          <JiraIcon className='h-4 w-4' />
+                          <span className='truncate font-normal'>{issue.name}</span>
+                        </div>
+                        {issue.id === value && <Check className='ml-auto h-4 w-4' />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        )}
+      </Popover>
+
+      {isLoading ? (
+        <p
+          id={feedbackId}
+          role='status'
+          aria-atomic='true'
+          className='text-muted-foreground text-xs'
+        >
+          {copy.loadingIssues}
+        </p>
+      ) : announcedError ? (
+        <p id={feedbackId} role='alert' aria-atomic='true' className='text-destructive text-xs'>
+          {announcedError}
+        </p>
+      ) : null}
+
+      {showPreview && activeIssue && (
+        <div className='relative mt-2 rounded-md border border-muted bg-muted/10 p-2'>
+          <div className='absolute top-2 right-2'>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-5 w-5 hover:bg-card'
+              onClick={handleClearSelection}
+            >
+              <X className='h-3 w-3' />
+            </Button>
+          </div>
+          <div className='flex items-center gap-3 pr-4'>
+            <div className='flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-muted/20'>
+              <JiraIcon className='h-4 w-4' />
+            </div>
+            <div className='min-w-0 flex-1 overflow-hidden'>
+              <div className='flex items-center gap-1'>
+                <h4 className='truncate font-medium text-xs'>{activeIssue.name}</h4>
+                {activeIssue.modifiedTime && (
+                  <span className='whitespace-nowrap text-muted-foreground text-xs'>
+                    {new Date(activeIssue.modifiedTime).toLocaleDateString()}
+                  </span>
                 )}
               </div>
+              {activeIssue.webViewLink ? (
+                <a
+                  href={activeIssue.webViewLink}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='flex items-center gap-1 text-foreground text-xs hover:underline'
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span>{copy.openInJira}</span>
+                  <ExternalLink className='h-3 w-3' />
+                </a>
+              ) : (
+                <></>
+              )}
             </div>
           </div>
-        )}
-      </div>
-
-      {showOAuthModal && (
-        <OAuthRequiredModal
-          isOpen={showOAuthModal}
-          onClose={() => setShowOAuthModal(false)}
-          provider={provider}
-          toolName='Jira'
-          requiredScopes={requiredScopes}
-          serviceId={getServiceId()}
-        />
+        </div>
       )}
-    </>
+    </div>
   )
 }

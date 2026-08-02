@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useMessages } from 'next-intl'
 import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,8 @@ import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identit
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
+import { recordsOrderKeys } from '@/hooks/queries/records-orders'
+import { submitTradingOrder, usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import {
@@ -44,6 +46,7 @@ import {
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
   getQuickOrderSizingModeConfig,
+  getQuickOrderSubmitMutationKey,
   normalizeQuickOrderNumber,
   type QuickOrderNumberParseResult,
   resolveQuickOrderMarketProviderId,
@@ -238,8 +241,10 @@ export function QuickOrderWidgetBody({
   const resetListingSelector = useListingSelectorStore((state) => state.resetInstance)
   const previousProviderRef = useRef<string | undefined>(undefined)
   const orderAttemptIdempotencyRef = useRef<OrderAttemptIdempotency | null>(null)
-  const submitOrder = useSubmitTradingOrder()
-  const resetSubmitOrder = submitOrder.reset
+  const submissionLockRef = useRef(false)
+  const queryClient = useQueryClient()
+  const submitMutationKey = getQuickOrderSubmitMutationKey(panelId)
+  const activeSubmitCount = useIsMutating({ mutationKey: submitMutationKey, exact: true })
 
   const [listing, setListing] = useState<ListingOption | null>(null)
   const [quantityInput, setQuantityInput] = useState('')
@@ -251,6 +256,7 @@ export function QuickOrderWidgetBody({
   const [sizingMode, setSizingMode] = useState<'quantity' | 'notional' | undefined>(undefined)
   const [orderType, setOrderType] = useState('')
   const [timeInForce, setTimeInForce] = useState('')
+  const [isSubmissionActive, setIsSubmissionActive] = useState(false)
 
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getQuickOrderProviderAvailabilityIds()
@@ -281,6 +287,36 @@ export function QuickOrderWidgetBody({
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
   })
+  const submitOrder = useMutation({
+    mutationKey: submitMutationKey,
+    mutationFn: async ({
+      request,
+      refetchPortfolio,
+    }: {
+      request: TradingOrderSubmitRequest
+      refetchPortfolio: typeof accountSnapshotQuery.refetch
+    }) => {
+      const response = await submitTradingOrder(request)
+      const [recordsResult, portfolioResult] = await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: recordsOrderKeys.all }, { throwOnError: true }),
+        refetchPortfolio(),
+      ])
+      const convergenceFailed =
+        recordsResult.status === 'rejected' ||
+        portfolioResult.status === 'rejected' ||
+        Boolean(portfolioResult.value.error)
+      return { response, convergenceFailed }
+    },
+    onSuccess: () => {
+      orderAttemptIdempotencyRef.current = null
+    },
+    onSettled: () => {
+      submissionLockRef.current = false
+      setIsSubmissionActive(false)
+    },
+  })
+  const resetSubmitOrder = submitOrder.reset
+  const isPending = isSubmissionActive || submitOrder.isPending || activeSubmitCount > 0
   const submitResetProviderKey = [
     quickOrderParams?.provider ?? providerId,
     activeServiceId ?? '',
@@ -450,7 +486,9 @@ export function QuickOrderWidgetBody({
     setOrderType('')
     setTimeInForce('')
     setSizingMode(undefined)
-    resetSubmitOrder()
+    if (!submissionLockRef.current) {
+      resetSubmitOrder()
+    }
     updateListingSelector(listingInstanceId, {
       providerId,
       query: '',
@@ -516,7 +554,9 @@ export function QuickOrderWidgetBody({
   ])
 
   useEffect(() => {
-    resetSubmitOrder()
+    if (!submissionLockRef.current) {
+      resetSubmitOrder()
+    }
   }, [
     limitPriceInput,
     listing,
@@ -592,11 +632,15 @@ export function QuickOrderWidgetBody({
     return <CenterState>{copy.body.selectBrokerAccountToSubmitAnOrder}</CenterState>
   }
 
-  const canSubmit = Boolean(workspaceId) && !validationMessage && !submitOrder.isPending
-  const order = submitOrder.data?.order
+  const canSubmit = Boolean(workspaceId) && !validationMessage
+  const acceptedResponse = submitOrder.data?.response
+  const order = acceptedResponse?.order
+  const submittedSide = submitOrder.variables?.request.side ?? side
 
   const handleSubmit = () => {
     if (
+      submissionLockRef.current ||
+      isPending ||
       validationMessage ||
       !providerId ||
       !workspaceId ||
@@ -644,24 +688,21 @@ export function QuickOrderWidgetBody({
         : `trading-order:manual:${crypto.randomUUID()}`
     orderAttemptIdempotencyRef.current = { fingerprint, key: idempotencyKey }
 
-    resetSubmitOrder()
-    submitOrder.mutate(
-      {
+    submissionLockRef.current = true
+    setIsSubmissionActive(true)
+    submitOrder.mutate({
+      request: {
         ...payload,
         idempotencyKey,
       },
-      {
-        onSuccess: () => {
-          orderAttemptIdempotencyRef.current = null
-          void accountSnapshotQuery.refetch()
-        },
-      }
-    )
+      refetchPortfolio: accountSnapshotQuery.refetch,
+    })
   }
 
   return (
     <form
       className='flex h-full min-h-0 flex-col bg-background'
+      aria-busy={isPending || undefined}
       onSubmit={(event) => {
         event.preventDefault()
         handleSubmit()
@@ -675,6 +716,7 @@ export function QuickOrderWidgetBody({
             marketProviderId={marketProviderId || undefined}
             tradingProviderId={providerId || undefined}
             className='w-full'
+            disabled={isPending}
             listingRequired
             onListingChange={(nextListing) => {
               setListing(nextListing)
@@ -701,6 +743,7 @@ export function QuickOrderWidgetBody({
               inputMode='decimal'
               value={selectedSizingMode === 'notional' ? notionalInput : quantityInput}
               placeholder={selectedSizingMode === 'notional' ? '0.00' : '0'}
+              disabled={isPending}
               onChange={(event) => {
                 if (selectedSizingMode === 'notional') {
                   setNotionalInput(event.target.value)
@@ -714,14 +757,21 @@ export function QuickOrderWidgetBody({
           <FieldBlock>
             <Label htmlFor='quick-order-order-type'>{copy.body.orderType}</Label>
             <Select
-              value={orderType || undefined}
+              value={orderType || null}
+              items={orderTypeDefinitions.map((definition) => ({
+                value: definition.id,
+                label: definition.label,
+              }))}
               disabled={
+                isPending ||
                 !listing ||
                 !resolvedAssetClass ||
                 !isListingSupported ||
                 orderTypeDefinitions.length === 0
               }
-              onValueChange={setOrderType}
+              onValueChange={(nextOrderType) => {
+                if (nextOrderType !== null) setOrderType(nextOrderType)
+              }}
             >
               <SelectTrigger id='quick-order-order-type' className='h-9'>
                 <SelectValue placeholder={orderTypePlaceholder} />
@@ -742,6 +792,7 @@ export function QuickOrderWidgetBody({
               <RadioGroup
                 className='flex items-center gap-5'
                 value={selectedSizingMode}
+                disabled={isPending}
                 onValueChange={(value) =>
                   setSizingMode(value === 'notional' ? 'notional' : 'quantity')
                 }
@@ -766,7 +817,17 @@ export function QuickOrderWidgetBody({
 
           <FieldBlock>
             <Label htmlFor='quick-order-time-in-force'>{copy.body.timeInForce}</Label>
-            <Select value={timeInForce || undefined} onValueChange={setTimeInForce}>
+            <Select
+              value={timeInForce || null}
+              items={timeInForceOptions.map((option) => ({
+                value: option,
+                label: option.toUpperCase(),
+              }))}
+              disabled={isPending}
+              onValueChange={(nextTimeInForce) => {
+                if (nextTimeInForce !== null) setTimeInForce(nextTimeInForce)
+              }}
+            >
               <SelectTrigger id='quick-order-time-in-force' className='h-9'>
                 <SelectValue placeholder={copy.body.selectTimeInForce} />
               </SelectTrigger>
@@ -789,6 +850,7 @@ export function QuickOrderWidgetBody({
                 inputMode='decimal'
                 value={limitPriceInput}
                 placeholder='0.00'
+                disabled={isPending}
                 onChange={(event) => setLimitPriceInput(event.target.value)}
               />
             </FieldBlock>
@@ -803,6 +865,7 @@ export function QuickOrderWidgetBody({
                 inputMode='decimal'
                 value={stopPriceInput}
                 placeholder='0.00'
+                disabled={isPending}
                 onChange={(event) => setStopPriceInput(event.target.value)}
               />
             </FieldBlock>
@@ -817,7 +880,7 @@ export function QuickOrderWidgetBody({
                   className='h-9 font-mono'
                   inputMode='decimal'
                   value={trailPriceInput}
-                  disabled={Boolean(trailPercentInput)}
+                  disabled={isPending || Boolean(trailPercentInput)}
                   placeholder='0.00'
                   onChange={(event) => {
                     setTrailPriceInput(event.target.value)
@@ -832,7 +895,7 @@ export function QuickOrderWidgetBody({
                   className='h-9 font-mono'
                   inputMode='decimal'
                   value={trailPercentInput}
-                  disabled={Boolean(trailPriceInput)}
+                  disabled={isPending || Boolean(trailPriceInput)}
                   placeholder='0.00'
                   onChange={(event) => {
                     setTrailPercentInput(event.target.value)
@@ -872,29 +935,60 @@ export function QuickOrderWidgetBody({
             value={formatCurrency(cashBuyingPower, accountCurrency, locale)}
           />
         </div>
-        {submitOrder.error ? (
-          <div className='mb-2 text-destructive text-xs'>{submitOrder.error.message}</div>
-        ) : order ? (
-          <div className='mb-2 text-xs'>
+        {isPending ? (
+          <div role='status' aria-atomic='true' className='mb-2 text-muted-foreground text-xs'>
+            {copy.body.submitting}
+          </div>
+        ) : submitOrder.error ? (
+          <div role='alert' aria-atomic='true' className='mb-2 text-destructive text-xs'>
+            {submitOrder.error.message}
+          </div>
+        ) : acceptedResponse ? (
+          <div role='status' aria-atomic='true' className='mb-2 text-xs'>
             <div className='space-y-0.5 text-muted-foreground'>
               <div className='text-foreground'>
-                {order.id ? `${copy.body.orderPrefix} ${order.id}` : copy.body.orderSubmitted}
-                {order.status ? ` · ${order.status}` : ''}
+                {order
+                  ? `${order.id ? `${copy.body.orderPrefix} ${order.id}` : copy.body.orderSubmitted}${order.status ? ` · ${order.status}` : ''}`
+                  : (acceptedResponse.message ?? copy.body.orderSubmitted)}
               </div>
-              <div>
-                {[submitOrder.data?.provider, submitOrder.data?.accountId]
-                  .filter(Boolean)
-                  .join(' / ')}
-              </div>
-              <div>
-                {[order.symbol, side.toUpperCase(), order.submittedAt].filter(Boolean).join(' · ')}
-              </div>
-              {submitOrder.data?.message ? <div>{submitOrder.data.message}</div> : null}
+              {acceptedResponse.provider || acceptedResponse.accountId ? (
+                <div>
+                  {[acceptedResponse.provider, acceptedResponse.accountId]
+                    .filter(Boolean)
+                    .join(' / ')}
+                </div>
+              ) : null}
+              {order ? (
+                <div>
+                  {[order.symbol, submittedSide.toUpperCase(), order.submittedAt]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </div>
+              ) : null}
+              {order && acceptedResponse.message ? <div>{acceptedResponse.message}</div> : null}
             </div>
           </div>
         ) : null}
-        <Button type='submit' className='h-10 w-full' disabled={!canSubmit}>
-          {submitOrder.isPending
+        {!isPending &&
+        acceptedResponse &&
+        (acceptedResponse.historyWarning || submitOrder.data?.convergenceFailed) ? (
+          <div role='alert' aria-atomic='true' className='mb-2 text-amber-600 text-xs'>
+            {[
+              acceptedResponse.historyWarning,
+              submitOrder.data?.convergenceFailed ? copy.body.orderAcceptedRefreshWarning : null,
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          </div>
+        ) : null}
+        <Button
+          type='submit'
+          className='h-10 w-full'
+          disabled={!canSubmit || isPending}
+          focusableWhenDisabled={isPending}
+          aria-busy={isPending || undefined}
+        >
+          {isPending
             ? copy.body.submitting
             : formatTemplate(copy.body.submitOrder, { side: sideLabel })}
         </Button>

@@ -1,8 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useLocale, useMessages, type Messages } from 'next-intl'
-import { Check, ChevronDown, ChevronRight, KeyRound, Pencil, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  KeyRound,
+  Loader2,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { type Messages, useLocale, useMessages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -22,9 +32,14 @@ import { AdminInlineSecretField } from '@/app/admin/admin-inline-secret-field'
 import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
-import { useAdminServicesSnapshot, useSaveAdminService } from '@/hooks/queries/admin-services'
-import { formatTemplate } from '@/i18n/utils'
+import {
+  adminServicesKeys,
+  type SaveAdminServiceInput,
+  saveAdminService,
+  useAdminServicesSnapshot,
+} from '@/hooks/queries/admin-services'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminSystemServicesSnapshot = {
   services: [],
@@ -49,11 +64,17 @@ type EditingSetting = {
   value: string
 }
 
+type SaveServiceAction = SaveAdminServiceInput & { controlId: string }
+
 export function AdminServices() {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().admin.services
   const servicesQuery = useAdminServicesSnapshot()
-  const saveServiceMutation = useSaveAdminService()
+  const queryClient = useQueryClient()
+  const writeLockRef = useRef(false)
+  const saveServiceMutation = useMutation({
+    mutationFn: ({ controlId: _controlId, ...input }: SaveServiceAction) => saveAdminService(input),
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminSystemServicesSnapshot | null>(null)
   const [expandedServices, setExpandedServices] = useState<Record<string, boolean>>({})
@@ -68,6 +89,9 @@ export function AdminServices() {
   }, [editingSetting, saveServiceMutation.isPending, servicesQuery.data])
 
   const snapshot = draft ?? EMPTY_SNAPSHOT
+  const pendingControlId = saveServiceMutation.isPending
+    ? saveServiceMutation.variables?.controlId
+    : undefined
   const normalizedSearchTerm = searchTerm.trim().toLowerCase()
   const filteredServiceViews = snapshot.services
     .map((service) => {
@@ -102,6 +126,7 @@ export function AdminServices() {
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder={copy.searchPlaceholder}
+          clearLabel={copy.clearSearch}
           className='w-full'
         />
       </div>
@@ -130,12 +155,19 @@ export function AdminServices() {
 
         {saveServiceMutation.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(saveServiceMutation.error, copy.error)}</AlertDescription>
+            <AlertDescription>
+              {getErrorMessage(saveServiceMutation.error, copy.error)}
+            </AlertDescription>
           </Alert>
         ) : null}
 
         {!draft && servicesQuery.isPending ? (
-          <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
+          <div
+            role='status'
+            aria-live='polite'
+            aria-atomic='true'
+            className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'
+          >
             <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
@@ -156,7 +188,11 @@ export function AdminServices() {
                     saveServiceMutation.variables?.serviceId === service.id
 
                   return (
-                    <section key={service.id} className='border-border/60 border-b last:border-b-0'>
+                    <section
+                      key={service.id}
+                      aria-busy={isSaving || undefined}
+                      className='border-border/60 border-b last:border-b-0'
+                    >
                       <Collapsible
                         open={isOpen}
                         onOpenChange={(open) =>
@@ -166,39 +202,59 @@ export function AdminServices() {
                           }))
                         }
                       >
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            type='button'
-                            variant='ghost'
-                            className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
-                          >
-                            <div className='min-w-0 flex-1 space-y-1'>
-                              <div className='flex flex-wrap items-center gap-2'>
-                                <h3 className='font-medium text-sm'>{service.displayName}</h3>
-                                <Badge
-                                  variant='outline'
-                                  className={`${ADMIN_STATUS_BADGE_CLASSNAME} ${SERVICE_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`}
-                                >
-                                  {summary.status === 'ready' ? copy.status.ready : copy.status.review}
-                                </Badge>
-                              </div>
-                              <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
-                                {summary.preview}
+                        <CollapsibleTrigger
+                          render={
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
+                            />
+                          }
+                        >
+                          <div className='min-w-0 flex-1 space-y-1'>
+                            <div className='flex flex-wrap items-center gap-2'>
+                              <h3 className='font-medium text-sm'>{service.displayName}</h3>
+                              <Badge
+                                variant='outline'
+                                className={
+                                  isSaving
+                                    ? ADMIN_META_BADGE_CLASSNAME
+                                    : `${ADMIN_STATUS_BADGE_CLASSNAME} ${SERVICE_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`
+                                }
+                              >
+                                {isSaving ? (
+                                  <>
+                                    <Loader2
+                                      aria-hidden='true'
+                                      className='size-3.5 animate-spin motion-reduce:animate-none'
+                                    />
+                                    {formatTemplate(copy.status.saving, {
+                                      name: service.displayName,
+                                    })}
+                                  </>
+                                ) : summary.status === 'ready' ? (
+                                  copy.status.ready
+                                ) : (
+                                  copy.status.review
+                                )}
+                              </Badge>
+                            </div>
+                            <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
+                              {summary.preview}
+                            </p>
+                            {summary.missing ? (
+                              <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
+                                {summary.missing}
                               </p>
-                              {summary.missing ? (
-                                <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
-                                  {summary.missing}
-                                </p>
-                              ) : null}
-                            </div>
-                            <div className='flex items-center pt-0.5'>
-                              {isOpen ? (
-                                <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                              ) : (
-                                <ChevronRight className='h-4 w-4 text-muted-foreground' />
-                              )}
-                            </div>
-                          </Button>
+                            ) : null}
+                          </div>
+                          <div className='flex items-center pt-0.5'>
+                            {isOpen ? (
+                              <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                            ) : (
+                              <ChevronRight className='h-4 w-4 text-muted-foreground' />
+                            )}
+                          </div>
                         </CollapsibleTrigger>
 
                         <CollapsibleContent className='border-border/60 border-t bg-muted/10 px-4 py-4 sm:px-5'>
@@ -233,7 +289,7 @@ export function AdminServices() {
                                         hasValue={isFilled}
                                         required={credential.required}
                                         statusClassName={ADMIN_STATUS_BADGE_CLASSNAME}
-                                        disabled={isSaving}
+                                        disabled={saveServiceMutation.isPending}
                                         placeholder={
                                           credential.hasValue
                                             ? formatTemplate(copy.placeholders.replaceValue, {
@@ -244,16 +300,26 @@ export function AdminServices() {
                                               })
                                         }
                                         onSave={(value) =>
-                                          persistCredentialPatch(service.id, credential.key, {
-                                            value,
-                                            hasValue: true,
-                                          })
+                                          persistCredentialPatch(
+                                            service.id,
+                                            credential.key,
+                                            {
+                                              value,
+                                              hasValue: true,
+                                            },
+                                            `credential:${service.id}:${credential.key}:save`
+                                          )
                                         }
                                         onClear={() =>
-                                          persistCredentialPatch(service.id, credential.key, {
-                                            value: '',
-                                            hasValue: false,
-                                          })
+                                          persistCredentialPatch(
+                                            service.id,
+                                            credential.key,
+                                            {
+                                              value: '',
+                                              hasValue: false,
+                                            },
+                                            `credential:${service.id}:${credential.key}:clear`
+                                          )
                                         }
                                       />
                                     )
@@ -277,6 +343,13 @@ export function AdminServices() {
                               ) : (
                                 <div className='grid gap-3 md:grid-cols-2'>
                                   {service.settings.map((setting) => {
+                                    const controlPrefix = `setting:${service.id}:${setting.key}`
+                                    const isToggleSaving =
+                                      pendingControlId === `${controlPrefix}:toggle`
+                                    const isClearSaving =
+                                      pendingControlId === `${controlPrefix}:clear`
+                                    const isTextSaving =
+                                      pendingControlId === `${controlPrefix}:save`
                                     const hasEffectiveValue =
                                       setting.hasValue || setting.defaultValue.trim().length > 0
                                     const badgeLabel = setting.hasValue
@@ -331,14 +404,27 @@ export function AdminServices() {
                                                   : copy.settings.notConfigured}
                                             </div>
                                             <div className='flex items-center gap-2'>
+                                              {isToggleSaving ? (
+                                                <Loader2
+                                                  aria-hidden='true'
+                                                  className='size-4 animate-spin motion-reduce:animate-none'
+                                                />
+                                              ) : null}
                                               <Switch
+                                                aria-label={setting.label}
+                                                aria-busy={isToggleSaving || undefined}
                                                 checked={resolveBooleanSettingValue(setting)}
                                                 disabled={saveServiceMutation.isPending}
                                                 onCheckedChange={(checked) =>
-                                                  persistSettingPatch(service.id, setting.key, {
-                                                    value: checked ? 'true' : 'false',
-                                                    hasValue: true,
-                                                  })
+                                                  void persistSettingPatch(
+                                                    service.id,
+                                                    setting.key,
+                                                    {
+                                                      value: checked ? 'true' : 'false',
+                                                      hasValue: true,
+                                                    },
+                                                    `${controlPrefix}:toggle`
+                                                  )
                                                 }
                                               />
                                               <Button
@@ -348,14 +434,27 @@ export function AdminServices() {
                                                 disabled={
                                                   saveServiceMutation.isPending || !setting.hasValue
                                                 }
+                                                aria-busy={isClearSaving || undefined}
                                                 onClick={() =>
-                                                  persistSettingPatch(service.id, setting.key, {
-                                                    value: '',
-                                                    hasValue: false,
-                                                  })
+                                                  void persistSettingPatch(
+                                                    service.id,
+                                                    setting.key,
+                                                    {
+                                                      value: '',
+                                                      hasValue: false,
+                                                    },
+                                                    `${controlPrefix}:clear`
+                                                  )
                                                 }
                                               >
-                                                <Trash2 className='h-4 w-4' />
+                                                {isClearSaving ? (
+                                                  <Loader2
+                                                    aria-hidden='true'
+                                                    className='size-4 animate-spin motion-reduce:animate-none'
+                                                  />
+                                                ) : (
+                                                  <Trash2 className='h-4 w-4' />
+                                                )}
                                                 <span className='sr-only'>
                                                   {formatTemplate(copy.actions.clearField, {
                                                     label: setting.label,
@@ -371,6 +470,13 @@ export function AdminServices() {
                                               editingSetting.key === setting.key
                                             }
                                             isSaving={saveServiceMutation.isPending}
+                                            busyAction={
+                                              isTextSaving
+                                                ? 'save'
+                                                : isClearSaving
+                                                  ? 'clear'
+                                                  : undefined
+                                            }
                                             setting={setting}
                                             editingValue={
                                               editingSetting?.serviceId === service.id &&
@@ -398,14 +504,19 @@ export function AdminServices() {
                                               )
                                             }
                                             onSave={() =>
-                                              persistSettingEdit(service.id, setting.key)
+                                              void persistSettingEdit(service.id, setting.key)
                                             }
                                             onCancel={cancelEditingSetting}
                                             onClear={() =>
-                                              persistSettingPatch(service.id, setting.key, {
-                                                value: '',
-                                                hasValue: false,
-                                              })
+                                              void persistSettingPatch(
+                                                service.id,
+                                                setting.key,
+                                                {
+                                                  value: '',
+                                                  hasValue: false,
+                                                },
+                                                `${controlPrefix}:clear`
+                                              )
                                             }
                                             copy={copy}
                                           />
@@ -419,11 +530,7 @@ export function AdminServices() {
 
                             <div className='flex items-center justify-between gap-3 border-border/60 border-t pt-2'>
                               <p className='text-muted-foreground text-xs'>
-                                {isSaving
-                                  ? copy.footer.saving
-                                  : isConfigured
-                                    ? copy.footer.ready
-                                    : copy.footer.review}
+                                {isConfigured ? copy.footer.ready : copy.footer.review}
                               </p>
                             </div>
                           </div>
@@ -448,23 +555,29 @@ export function AdminServices() {
     setEditingSetting(null)
   }
 
-  function resetDraftToPersisted() {
-    setDraft(servicesQuery.data ? cloneSnapshot(servicesQuery.data) : null)
-    cancelEditingSetting()
-  }
-
   async function persistServiceSnapshot(
     serviceId: string,
-    nextSnapshot: AdminSystemServicesSnapshot
-  ) {
+    nextSnapshot: AdminSystemServicesSnapshot,
+    controlId: string
+  ): Promise<boolean> {
+    if (writeLockRef.current) {
+      return false
+    }
+
     const service = nextSnapshot.services.find((candidate) => candidate.id === serviceId)
     if (!service) {
-      return
+      return false
     }
+
+    const baseline =
+      queryClient.getQueryData<AdminSystemServicesSnapshot>(adminServicesKeys.snapshot()) ??
+      servicesQuery.data
+    writeLockRef.current = true
 
     try {
       const serverSnapshot = await saveServiceMutation.mutateAsync({
         serviceId,
+        controlId,
         credentials: service.credentials.map((credential) => ({
           key: credential.key,
           value: credential.value,
@@ -477,47 +590,49 @@ export function AdminServices() {
         })),
       })
 
+      queryClient.setQueryData(adminServicesKeys.snapshot(), serverSnapshot)
       setDraft(cloneSnapshot(serverSnapshot))
-    } catch (error) {
-      resetDraftToPersisted()
-      throw error
+      return true
+    } catch {
+      setDraft(baseline ? cloneSnapshot(baseline) : null)
+      return false
+    } finally {
+      writeLockRef.current = false
     }
   }
 
   function persistCredentialPatch(
     serviceId: string,
     key: string,
-    patch: { value: string; hasValue: boolean }
+    patch: { value: string; hasValue: boolean },
+    controlId: string
   ) {
     const nextSnapshot = updateCredentialDraft(draft, serviceId, key, {
       value: patch.value,
       hasValue: patch.hasValue,
     })
     if (!nextSnapshot) {
-      return Promise.resolve()
+      return Promise.resolve(false)
     }
 
-    return persistServiceSnapshot(serviceId, nextSnapshot)
+    return persistServiceSnapshot(serviceId, nextSnapshot, controlId)
   }
 
   function persistSettingPatch(
     serviceId: string,
     key: string,
-    patch: { value: string; hasValue: boolean }
-  ) {
+    patch: { value: string; hasValue: boolean },
+    controlId: string
+  ): Promise<boolean> {
     const nextSnapshot = updateSettingDraft(draft, serviceId, key, patch)
     if (!nextSnapshot) {
-      return
+      return Promise.resolve(false)
     }
 
-    if (editingSetting && editingSetting.serviceId === serviceId && editingSetting.key === key) {
-      cancelEditingSetting()
-    }
-
-    void persistServiceSnapshot(serviceId, nextSnapshot)
+    return persistServiceSnapshot(serviceId, nextSnapshot, controlId)
   }
 
-  function persistSettingEdit(serviceId: string, key: string) {
+  async function persistSettingEdit(serviceId: string, key: string) {
     if (!editingSetting || editingSetting.serviceId !== serviceId || editingSetting.key !== key) {
       return
     }
@@ -527,10 +642,18 @@ export function AdminServices() {
       return
     }
 
-    persistSettingPatch(serviceId, key, {
-      value: editingSetting.value,
-      hasValue: true,
-    })
+    const saved = await persistSettingPatch(
+      serviceId,
+      key,
+      {
+        value: editingSetting.value,
+        hasValue: true,
+      },
+      `setting:${serviceId}:${key}:save`
+    )
+    if (saved) {
+      cancelEditingSetting()
+    }
   }
 }
 
@@ -538,6 +661,7 @@ type TextSettingFieldProps = {
   copy: AdminServicesCopy
   isEditing: boolean
   isSaving: boolean
+  busyAction?: 'save' | 'clear'
   setting: AdminSystemService['settings'][number]
   editingValue: string
   onStartEditing: () => void
@@ -551,6 +675,7 @@ function TextSettingField({
   copy,
   isEditing,
   isSaving,
+  busyAction,
   setting,
   editingValue,
   onStartEditing,
@@ -568,9 +693,17 @@ function TextSettingField({
           size='icon'
           className='h-8 w-8 text-muted-foreground'
           disabled={isSaving || !editingValue.trim()}
+          aria-busy={busyAction === 'save' || undefined}
           onClick={onSave}
         >
-          <Check className='h-4 w-4' />
+          {busyAction === 'save' ? (
+            <Loader2
+              aria-hidden='true'
+              className='size-4 animate-spin motion-reduce:animate-none'
+            />
+          ) : (
+            <Check className='h-4 w-4' />
+          )}
           <span className='sr-only'>
             {formatTemplate(copy.actions.saveField, { label: setting.label })}
           </span>
@@ -578,6 +711,7 @@ function TextSettingField({
         <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-2'>
           <Input
             type={setting.type === 'number' ? 'number' : setting.type}
+            aria-label={setting.label}
             className='h-4 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0'
             value={editingValue}
             placeholder={
@@ -648,9 +782,14 @@ function TextSettingField({
         variant='outline'
         size='icon'
         disabled={isSaving || !setting.hasValue}
+        aria-busy={busyAction === 'clear' || undefined}
         onClick={onClear}
       >
-        <Trash2 className='h-4 w-4' />
+        {busyAction === 'clear' ? (
+          <Loader2 aria-hidden='true' className='size-4 animate-spin motion-reduce:animate-none' />
+        ) : (
+          <Trash2 className='h-4 w-4' />
+        )}
         <span className='sr-only'>
           {formatTemplate(copy.actions.clearField, { label: setting.label })}
         </span>
@@ -734,7 +873,9 @@ function getServiceSectionSummary(
 ): ServiceSectionSummary {
   const requiredCredentials = service.credentials.filter((credential) => credential.required)
   const requiredSettings = service.settings.filter((setting) => setting.required)
-  const configuredCredentialCount = requiredCredentials.filter((credential) => credential.hasValue).length
+  const configuredCredentialCount = requiredCredentials.filter(
+    (credential) => credential.hasValue
+  ).length
   const configuredSettingCount = requiredSettings.filter(
     (setting) => setting.hasValue || setting.defaultValue.trim().length > 0
   ).length

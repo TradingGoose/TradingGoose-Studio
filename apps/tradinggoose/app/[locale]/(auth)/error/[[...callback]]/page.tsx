@@ -1,5 +1,5 @@
 import { getLocale } from 'next-intl/server'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { getAuthErrorContent, normalizeAuthErrorCallbackSegments } from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
@@ -64,12 +64,21 @@ export default async function AuthErrorPage({
       </p>
 
       <div className='space-y-3'>
-        <Button asChild className='w-full text-[15px]'>
-          <Link href={content.primaryAction.href}>{content.primaryAction.label}</Link>
-        </Button>
-        <Button variant='outline' asChild className='w-full text-[15px]'>
-          <Link href={content.secondaryAction.href}>{content.secondaryAction.label}</Link>
-        </Button>
+        <Link
+          href={content.primaryAction.href}
+          className={buttonVariants({ className: 'w-full text-[15px]' })}
+        >
+          {content.primaryAction.label}
+        </Link>
+        <Link
+          href={content.secondaryAction.href}
+          className={buttonVariants({
+            variant: 'outline',
+            className: 'w-full text-[15px]',
+          })}
+        >
+          {content.secondaryAction.label}
+        </Link>
       </div>
     </div>
   )

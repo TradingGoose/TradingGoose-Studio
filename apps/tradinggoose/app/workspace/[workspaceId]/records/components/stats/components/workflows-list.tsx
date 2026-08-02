@@ -1,5 +1,7 @@
 import { memo, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
+import { Button } from '@/components/ui/button'
+import { CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import StatusBar, {
   type StatusBarSegment,
@@ -88,28 +90,50 @@ export function WorkflowsList({
           ) : (
             filteredExecutions.map((workflow, idx) => {
               const isSelected = expandedWorkflowId === workflow.workflowId
+              const workflowLabel = (
+                <>
+                  <span
+                    aria-hidden='true'
+                    className='h-[14px] w-[14px] flex-shrink-0 rounded'
+                    style={{
+                      backgroundColor: workflows[workflow.workflowId]?.color || '#64748b',
+                    }}
+                  />
+                  <span className='truncate font-[460] text-sm dark:font-medium'>
+                    {workflow.workflowName}
+                  </span>
+                </>
+              )
 
               return (
                 <div
                   key={workflow.workflowId}
-                  className={`flex cursor-pointer items-center gap-4 rounded-lg px-2 py-1.5 transition-colors ${
+                  className={`flex items-center gap-4 rounded-lg px-2 py-1.5 transition-colors ${
                     isSelected ? 'bg-accent' : 'hover:bg-card/20'
                   }`}
-                  onClick={() => onToggleWorkflow(workflow.workflowId)}
                 >
-                  <div className='w-52 min-w-0 flex-shrink-0'>
-                    <div className='flex items-center gap-2'>
-                      <div
-                        className='h-[14px] w-[14px] flex-shrink-0 rounded'
-                        style={{
-                          backgroundColor: workflows[workflow.workflowId]?.color || '#64748b',
-                        }}
-                      />
-                      <h3 className='truncate font-[460] text-sm dark:font-medium'>
-                        {workflow.workflowName}
-                      </h3>
-                    </div>
-                  </div>
+                  {isSelected ? (
+                    <CollapsibleTrigger
+                      render={
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          className='h-auto w-52 min-w-0 flex-shrink-0 justify-start bg-transparent px-0 py-0 hover:bg-transparent'
+                        />
+                      }
+                    >
+                      {workflowLabel}
+                    </CollapsibleTrigger>
+                  ) : (
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      className='h-auto w-52 min-w-0 flex-shrink-0 justify-start bg-transparent px-0 py-0 hover:bg-transparent'
+                      onClick={() => onToggleWorkflow(workflow.workflowId)}
+                    >
+                      {workflowLabel}
+                    </Button>
+                  )}
 
                   <div className='flex-1'>
                     <StatusBar

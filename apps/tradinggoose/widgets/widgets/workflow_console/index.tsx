@@ -194,21 +194,23 @@ const WorkflowConsoleHeaderControls = ({
       />
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={toggleSort}
-            aria-label={copy.sortByTime}
-            disabled={isDisabled || workflowEntries.length === 0}
-          >
-            {sortConfig.direction === 'desc' ? (
-              <ArrowDown className='h-3.5 w-3.5' />
-            ) : (
-              <ArrowUp className='h-3.5 w-3.5' />
-            )}
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={toggleSort}
+              aria-label={copy.sortByTime}
+              disabled={isDisabled || workflowEntries.length === 0}
+            >
+              {sortConfig.direction === 'desc' ? (
+                <ArrowDown className='h-3.5 w-3.5' />
+              ) : (
+                <ArrowUp className='h-3.5 w-3.5' />
+              )}
+            </button>
+          }
+        />
         <TooltipContent side='top'>{copy.sortByTime}</TooltipContent>
       </Tooltip>
 
@@ -237,32 +239,36 @@ const WorkflowConsoleHeaderControls = ({
       />
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={handleExportConsole}
-            aria-label={copy.downloadConsoleCsv}
-            disabled={isDisabled || !hasEntries}
-          >
-            <ArrowDownToLine className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={handleExportConsole}
+              aria-label={copy.downloadConsoleCsv}
+              disabled={isDisabled || !hasEntries}
+            >
+              <ArrowDownToLine className='h-3.5 w-3.5' />
+            </button>
+          }
+        />
         <TooltipContent side='top'>{copy.downloadCsv}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={handleClearConsole}
-            aria-label={copy.clearConsole}
-            disabled={isDisabled || !hasEntries}
-          >
-            <Trash2 className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={handleClearConsole}
+              aria-label={copy.clearConsole}
+              disabled={isDisabled || !hasEntries}
+            >
+              <Trash2 className='h-3.5 w-3.5' />
+            </button>
+          }
+        />
         <TooltipContent side='top'>{copy.clearConsole}</TooltipContent>
       </Tooltip>
     </div>

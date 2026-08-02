@@ -1,8 +1,10 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react'
-import { Plus, Upload, Wrench } from 'lucide-react'
-import { useMessages } from 'next-intl'
+import { type ChangeEvent, useCallback, useMemo, useRef } from 'react'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Plus, Upload, Wrench } from 'lucide-react'
+import { useMessages, useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,9 +31,11 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
-  useCreateCustomTool,
-  useDeleteCustomTool,
-  useImportCustomTools,
+  createCustomTool,
+  customToolsKeys,
+  customToolWriteScope,
+  deleteCustomTool,
+  importCustomTools,
 } from '@/hooks/queries/custom-tools'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
@@ -68,22 +72,30 @@ const buildNewCustomToolDraft = (title = DEFAULT_CUSTOM_TOOL_NAME) => {
   }
 }
 
+type HeaderCustomToolWrite =
+  | {
+      kind: 'create'
+      workspaceId: string
+      tool: ReturnType<typeof buildNewCustomToolDraft>
+    }
+  | { kind: 'import'; workspaceId: string; file: File }
+
+type BodyCustomToolWrite =
+  | { kind: 'delete'; workspaceId: string; toolId: string }
+  | { kind: 'rename'; workspaceId: string; toolId: string; title: string }
+
 function CustomToolCreateMenu({
   disabled = false,
-  canCreate = false,
-  canImport = false,
-  isImporting = false,
+  pendingLabel,
   onCreateCustomTool,
   onImportCustomTools,
 }: {
   disabled?: boolean
-  canCreate?: boolean
-  canImport?: boolean
-  isImporting?: boolean
+  pendingLabel?: string
   onCreateCustomTool?: () => void
-  onImportCustomTools?: (content: string, filename?: string) => Promise<void> | void
+  onImportCustomTools?: (file: File) => Promise<void> | void
 }) {
-  const copy = useMessages().workspace.widgets.customToolList.createMenu
+  const t = useTranslations('workspace.widgets.customToolList.createMenu')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateCustomTool = useCallback(() => {
@@ -91,9 +103,9 @@ function CustomToolCreateMenu({
   }, [onCreateCustomTool])
 
   const handleImportSelection = useCallback(() => {
-    if (!canImport || isImporting) return
+    if (disabled) return
     fileInputRef.current?.click()
-  }, [canImport, isImporting])
+  }, [disabled])
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -101,8 +113,7 @@ function CustomToolCreateMenu({
       if (!file) return
 
       try {
-        const content = await file.text()
-        await onImportCustomTools?.(content, file.name)
+        await onImportCustomTools?.(file)
       } finally {
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
@@ -116,21 +127,30 @@ function CustomToolCreateMenu({
     <>
       <DropdownMenu>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className='inline-flex'>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type='button'
-                  disabled={disabled}
-                  className={widgetHeaderIconButtonClassName()}
+          <TooltipTrigger
+            render={
+              <span className='inline-flex'>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type='button'
+                      disabled={disabled}
+                      aria-busy={pendingLabel ? 'true' : undefined}
+                      className={widgetHeaderIconButtonClassName()}
+                    />
+                  }
                 >
-                  <Plus className='h-4 w-4' />
-                  <span className='sr-only'>{copy.createCustomTool}</span>
-                </button>
-              </DropdownMenuTrigger>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side='top'>{copy.create}</TooltipContent>
+                  {pendingLabel ? (
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                  ) : (
+                    <Plus className='h-4 w-4' />
+                  )}
+                  <span className='sr-only'>{pendingLabel ?? t('createCustomTool')}</span>
+                </DropdownMenuTrigger>
+              </span>
+            }
+          />
+          <TooltipContent side='top'>{pendingLabel ?? t('create')}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
@@ -138,30 +158,33 @@ function CustomToolCreateMenu({
         >
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canImport || isImporting}
-            onSelect={() => {
-              if (!canImport || isImporting) return
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
               handleImportSelection()
             }}
           >
             <Upload className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? copy.importingCustomTools : copy.importCustomTools}
-            </span>
+            <span className={widgetHeaderMenuTextClassName}>{t('importCustomTools')}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canCreate}
-            onSelect={() => {
-              if (!canCreate) return
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
               handleCreateCustomTool()
             }}
           >
             <Plus className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>{copy.newCustomTool}</span>
+            <span className={widgetHeaderMenuTextClassName}>{t('newCustomTool')}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {pendingLabel ? (
+        <span className='text-muted-foreground text-xs' role='status'>
+          {pendingLabel}
+        </span>
+      ) : null}
 
       <input
         ref={fileInputRef}
@@ -174,16 +197,13 @@ function CustomToolCreateMenu({
   )
 }
 
-function CustomToolListHeaderRight({
-  workspaceId,
-  panelId,
-}: {
-  workspaceId?: string | null
-  panelId?: string
-}) {
+function CustomToolListHeaderRight({ workspaceId }: { workspaceId: string }) {
+  const t = useTranslations('workspace.widgets.customToolList.createMenu')
   const permissions = useUserPermissionsContext()
-  const createToolMutation = useCreateCustomTool()
-  const importMutation = useImportCustomTools()
+  const queryClient = useQueryClient()
+  const writeLockRef = useRef(false)
+  const mutationKey = customToolsKeys.write(workspaceId)
+  const activeWriteCount = useIsMutating({ mutationKey, exact: true })
   const actions = useWidgetConfigRuntimeActions()
   const { members } = useEntityList('custom_tool', workspaceId)
 
@@ -195,71 +215,81 @@ function CustomToolListHeaderRight({
   )
   const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
-  const handleCreateTool = useCallback(() => {
-    if (!workspaceId || !permissions.canEdit) return
-
-    void createToolMutation
-      .mutateAsync({
-        workspaceId,
-        tool: buildNewCustomToolDraft(
-          generateAvailableName(
-            members.map((member) => member.entityName),
-            DEFAULT_CUSTOM_TOOL_NAME
-          )
-        ),
+  const writeMutation = useMutation({
+    mutationKey,
+    scope: { id: customToolWriteScope(workspaceId) },
+    mutationFn: async (operation: HeaderCustomToolWrite) => {
+      if (operation.kind === 'create') {
+        return createCustomTool(operation)
+      }
+      const content = await operation.file.text()
+      const file = parseImportedCustomToolsFile(JSON.parse(content) as unknown)
+      await importCustomTools({ workspaceId: operation.workspaceId, file })
+      return null
+    },
+    onSuccess: async (createdTools, operation) => {
+      await queryClient.invalidateQueries({
+        queryKey: customToolsKeys.list(operation.workspaceId),
       })
-      .then((createdTools) => {
-        const createdTool = createdTools[0]
+      if (operation.kind === 'create') {
+        const createdTool = createdTools?.[0]
         const createdToolId =
           createdTool && typeof createdTool.id === 'string' ? createdTool.id : null
-
         if (!createdToolId) {
           throw new Error('Created custom tool is missing an id')
         }
-
         selectToolWhenListed(createdToolId)
-      })
-      .catch((error) => {
-        console.error('Failed to create custom tool from list widget', error)
-      })
-  }, [createToolMutation, members, permissions.canEdit, selectToolWhenListed, workspaceId])
-
-  const handleImportCustomTools = useCallback(
-    async (content: string) => {
-      if (!workspaceId || importMutation.isPending || !permissions.canEdit) return
-
-      try {
-        const parsedFile = parseImportedCustomToolsFile(JSON.parse(content) as unknown)
-        await importMutation.mutateAsync({
-          workspaceId,
-          file: parsedFile,
-        })
-      } catch (error) {
-        console.error('Failed to import custom tools', error)
       }
     },
-    [importMutation, permissions.canEdit, workspaceId]
+    onError: (error, operation) => {
+      console.error(`Failed to ${operation.kind} custom tools`, error)
+      toast.error(operation.kind === 'create' ? t('createFailed') : t('importFailed'))
+    },
+  })
+
+  const runWrite = useCallback(
+    async (operation: HeaderCustomToolWrite) => {
+      if (writeLockRef.current || activeWriteCount > 0 || !permissions.canEdit) return
+      writeLockRef.current = true
+      try {
+        await writeMutation.mutateAsync(operation)
+      } catch {
+        // The mutation owns error logging and user feedback.
+      } finally {
+        writeLockRef.current = false
+      }
+    },
+    [activeWriteCount, permissions.canEdit, writeMutation]
   )
+
+  const handleCreateTool = useCallback(() => {
+    const tool = buildNewCustomToolDraft(
+      generateAvailableName(
+        members.map((member) => member.entityName),
+        DEFAULT_CUSTOM_TOOL_NAME
+      )
+    )
+    void runWrite({ kind: 'create', workspaceId, tool })
+  }, [members, runWrite, workspaceId])
+
+  const pendingLabel =
+    writeMutation.isPending && writeMutation.variables?.kind === 'create'
+      ? t('creatingCustomTool')
+      : writeMutation.isPending
+        ? t('importingCustomTools')
+        : undefined
 
   return (
     <CustomToolCreateMenu
-      disabled={!workspaceId || !permissions.canEdit || createToolMutation.isPending}
-      canCreate={!createToolMutation.isPending && permissions.canEdit}
-      canImport={Boolean(workspaceId && permissions.canEdit)}
-      isImporting={importMutation.isPending}
+      disabled={!permissions.canEdit || activeWriteCount > 0}
+      pendingLabel={pendingLabel}
       onCreateCustomTool={handleCreateTool}
-      onImportCustomTools={handleImportCustomTools}
+      onImportCustomTools={(file) => runWrite({ kind: 'import', workspaceId, file })}
     />
   )
 }
 
-const ListCustomToolHeaderRight = ({
-  workspaceId,
-  panelId,
-}: {
-  workspaceId?: string | null
-  panelId?: string
-}) => {
+const ListCustomToolHeaderRight = ({ workspaceId }: { workspaceId?: string | null }) => {
   const copy = useMessages().workspace.widgets.customToolList.header
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.explorer}</span>
@@ -268,7 +298,7 @@ const ListCustomToolHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <CustomToolListHeaderRight workspaceId={workspaceId} panelId={panelId} />
+        <CustomToolListHeaderRight workspaceId={workspaceId} />
       </div>
     </WorkspacePermissionsProvider>
   )
@@ -278,14 +308,15 @@ function ListCustomToolWidgetBodyInner({
   context,
   params,
   onWidgetLinkedParamsPatch,
-  panelId,
 }: WidgetComponentProps) {
-  const workspaceId = context?.workspaceId ?? null
+  const workspaceId = context?.workspaceId ?? ''
   const copy = useMessages().workspace.widgets.customToolList.body
   const permissions = useUserPermissionsContext()
-  const { members, isLoading, error } = useEntityList('custom_tool', workspaceId)
-  const deleteToolMutation = useDeleteCustomTool()
-  const [deletingToolIds, setDeletingToolIds] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
+  const writeLockRef = useRef(false)
+  const mutationKey = customToolsKeys.write(workspaceId)
+  const activeWriteCount = useIsMutating({ mutationKey, exact: true })
+  const { members, isLoading, isRetrying, error, retry } = useEntityList('custom_tool', workspaceId)
 
   const tools = useMemo(
     () =>
@@ -319,39 +350,54 @@ function ListCustomToolWidgetBodyInner({
     [onWidgetLinkedParamsPatch]
   )
 
-  const handleDeleteTool = useCallback(
-    async (customToolId: string) => {
-      if (!workspaceId || !permissions.canEdit) return
-      if (!customToolId) return
-
-      setDeletingToolIds((prev) => new Set(prev).add(customToolId))
-
-      try {
-        await deleteToolMutation.mutateAsync({ workspaceId, toolId: customToolId })
-        if (selectedToolId === customToolId) syncSelection(null)
-      } finally {
-        setDeletingToolIds((prev) => {
-          const next = new Set(prev)
-          next.delete(customToolId)
-          return next
-        })
+  const writeMutation = useMutation({
+    mutationKey,
+    scope: { id: customToolWriteScope(workspaceId) },
+    mutationFn: async (operation: BodyCustomToolWrite) => {
+      if (operation.kind === 'delete') {
+        await deleteCustomTool(operation)
+        return
+      }
+      await renameSavedEntityAction({
+        entityKind: 'custom_tool',
+        entityId: operation.toolId,
+        workspaceId: operation.workspaceId,
+        name: operation.title,
+      })
+    },
+    onSuccess: async (_result, operation) => {
+      await queryClient.invalidateQueries({
+        queryKey: customToolsKeys.list(operation.workspaceId),
+      })
+      if (operation.kind === 'delete' && selectedToolId === operation.toolId) {
+        syncSelection(null)
       }
     },
-    [deleteToolMutation, permissions.canEdit, selectedToolId, syncSelection, workspaceId]
+  })
+
+  const runWrite = useCallback(
+    async (operation: BodyCustomToolWrite): Promise<boolean> => {
+      if (writeLockRef.current || activeWriteCount > 0 || !permissions.canEdit) return false
+      writeLockRef.current = true
+      try {
+        await writeMutation.mutateAsync(operation)
+        return true
+      } finally {
+        writeLockRef.current = false
+      }
+    },
+    [activeWriteCount, permissions.canEdit, writeMutation]
+  )
+
+  const handleDeleteTool = useCallback(
+    (customToolId: string) => runWrite({ kind: 'delete', workspaceId, toolId: customToolId }),
+    [runWrite, workspaceId]
   )
 
   const handleRenameTool = useCallback(
-    async (customToolId: string, title: string) => {
-      if (!workspaceId || !permissions.canEdit) return
-
-      await renameSavedEntityAction({
-        entityKind: 'custom_tool',
-        entityId: customToolId,
-        workspaceId,
-        name: title,
-      })
-    },
-    [permissions.canEdit, workspaceId]
+    (customToolId: string, title: string) =>
+      runWrite({ kind: 'rename', workspaceId, toolId: customToolId, title }),
+    [runWrite, workspaceId]
   )
 
   if (isLoading && tools.length === 0) {
@@ -363,7 +409,14 @@ function ListCustomToolWidgetBodyInner({
   }
 
   if (error && tools.length === 0) {
-    return <WidgetStateMessage message={error || copy.failedToLoadCustomTools} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadCustomTools}
+        variant='error'
+        onRetry={retry}
+        isRetrying={isRetrying}
+      />
+    )
   }
 
   return (
@@ -382,7 +435,17 @@ function ListCustomToolWidgetBodyInner({
               onRename={handleRenameTool}
               canEdit={permissions.canEdit}
               canDelete={tools.length > 1}
-              isDeleting={deletingToolIds.has(tool.id)}
+              writesDisabled={activeWriteCount > 0}
+              isDeleting={
+                writeMutation.isPending &&
+                writeMutation.variables?.kind === 'delete' &&
+                writeMutation.variables.toolId === tool.id
+              }
+              isRenaming={
+                writeMutation.isPending &&
+                writeMutation.variables?.kind === 'rename' &&
+                writeMutation.variables.toolId === tool.id
+              }
             />
           ))}
         </div>
@@ -409,7 +472,7 @@ export const listCustomToolWidget: DashboardWidgetDefinition = {
   contract: customToolListWidgetContract,
   icon: Wrench,
   component: (props) => <ListCustomToolWidgetBody {...props} />,
-  renderHeader: ({ context, panelId }) => ({
-    right: <ListCustomToolHeaderRight workspaceId={context?.workspaceId} panelId={panelId} />,
+  renderHeader: ({ context }) => ({
+    right: <ListCustomToolHeaderRight workspaceId={context?.workspaceId} />,
   }),
 }

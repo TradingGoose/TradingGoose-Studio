@@ -28,7 +28,7 @@ vi.mock('@/components/ui/scroll-area', async () => {
   const ScrollArea = React.forwardRef<HTMLDivElement, any>(
     ({ children, className, viewportClassName }, ref) => (
       <div ref={ref} className={className}>
-        <div data-radix-scroll-area-viewport className={viewportClassName}>
+        <div data-slot='scroll-area-viewport' className={viewportClassName}>
           {children}
         </div>
       </div>
@@ -206,7 +206,7 @@ describe('Copilot auto-scroll', () => {
   it('keeps auto-scroll active when an in-flight programmatic scroll emits scroll events', async () => {
     await renderCopilot()
 
-    const viewport = container.querySelector('[data-radix-scroll-area-viewport]')
+    const viewport = container.querySelector('[data-slot="scroll-area-viewport"]')
     expect(viewport).not.toBeNull()
 
     configureViewportScrollMetrics(viewport!)

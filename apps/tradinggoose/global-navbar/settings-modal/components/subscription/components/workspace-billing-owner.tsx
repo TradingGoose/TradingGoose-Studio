@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
@@ -14,14 +15,14 @@ import {
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  useAssignWorkspaceToOrganization,
+  organizationMutationOptions,
   useOrganizationBilling,
   useOrganizations,
 } from '@/hooks/queries/organization'
 import {
-  useUpdateWorkspaceSettings,
   useWorkspaceSettings,
   type WorkspaceBillingOwner,
+  workspaceMutationOptions,
 } from '@/hooks/queries/workspace'
 
 const logger = createLogger('WorkspaceBillingOwnerEditor')
@@ -39,8 +40,10 @@ export function WorkspaceBillingOwnerEditor() {
     ? workspaceIdParam[0]
     : (workspaceIdParam ?? '')
   const { data: workspaceSettings, isLoading } = useWorkspaceSettings(workspaceId)
-  const updateWorkspaceSettings = useUpdateWorkspaceSettings()
   const [error, setError] = useState<string | null>(null)
+  const changeLockRef = useRef(false)
+  const queryClient = useQueryClient()
+  const updateWorkspaceSettings = useMutation(workspaceMutationOptions.updateSettings(queryClient))
 
   const workspace = workspaceSettings?.settings?.workspace
   const currentValue = workspace ? getBillingOwnerValue(workspace.billingOwner) : ''
@@ -49,7 +52,10 @@ export function WorkspaceBillingOwnerEditor() {
   const activeOrganization = organizationsData?.activeOrganization ?? null
   const { data: organizationBilling } = useOrganizationBilling(activeOrganization?.id || '')
   const currentOwnerUser = admins.find((admin) => `user:${admin.userId}` === currentValue) ?? null
-  const assignWorkspaceToOrganization = useAssignWorkspaceToOrganization()
+  const assignWorkspaceToOrganization = useMutation(
+    organizationMutationOptions.assignWorkspace(queryClient)
+  )
+  const isPending = updateWorkspaceSettings.isPending || assignWorkspaceToOrganization.isPending
   const canAssignOrganizationBilling = Boolean(
     organizationBilling?.subscriptionTier?.ownerType === 'organization'
   )
@@ -59,10 +65,9 @@ export function WorkspaceBillingOwnerEditor() {
   }
 
   const handleChange = async (value: string) => {
-    if (value === currentValue) {
-      return
-    }
+    if (value === currentValue || changeLockRef.current || isPending) return
 
+    changeLockRef.current = true
     setError(null)
 
     try {
@@ -101,6 +106,8 @@ export function WorkspaceBillingOwnerEditor() {
         workspaceId: workspace.id,
       })
       setError(message)
+    } finally {
+      changeLockRef.current = false
     }
   }
 
@@ -114,7 +121,7 @@ export function WorkspaceBillingOwnerEditor() {
       </div>
 
       {error ? (
-        <Alert variant='destructive' className='rounded-sm'>
+        <Alert role='alert' variant='destructive' className='rounded-sm'>
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -126,14 +133,30 @@ export function WorkspaceBillingOwnerEditor() {
         </Label>
         <Select
           value={currentValue}
-          onValueChange={handleChange}
-          disabled={
-            isLoading ||
-            updateWorkspaceSettings.isPending ||
-            assignWorkspaceToOrganization.isPending
-          }
+          items={[
+            ...admins.map((admin) => ({
+              value: `user:${admin.userId}`,
+              label: admin.name || admin.email || admin.userId,
+            })),
+            ...(workspace.billingOwner.type === 'user' && !currentOwnerUser
+              ? [{ value: currentValue, label: workspace.billingOwner.userId }]
+              : []),
+            ...(activeOrganization?.id
+              ? [{ value: 'organization', label: activeOrganization.name || 'Organization' }]
+              : workspace.billingOwner.type === 'organization'
+                ? [{ value: 'organization', label: 'Organization' }]
+                : []),
+          ]}
+          onValueChange={(value) => {
+            if (value !== null) void handleChange(value)
+          }}
+          disabled={isLoading || isPending}
         >
-          <SelectTrigger id='workspace-billing-owner' className='rounded-sm'>
+          <SelectTrigger
+            id='workspace-billing-owner'
+            className='rounded-sm'
+            aria-busy={isPending || undefined}
+          >
             <SelectValue placeholder='Select billing owner' />
           </SelectTrigger>
           <SelectContent>
@@ -158,6 +181,11 @@ export function WorkspaceBillingOwnerEditor() {
             ) : null}
           </SelectContent>
         </Select>
+        {isPending ? (
+          <p role='status' className='text-muted-foreground text-xs'>
+            Updating billing owner…
+          </p>
+        ) : null}
         <p className='text-muted-foreground text-xs'>
           User billing must point at a workspace admin. Organization billing requires an active
           organization billing tier.

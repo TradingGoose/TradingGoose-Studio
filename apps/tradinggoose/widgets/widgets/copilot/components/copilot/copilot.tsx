@@ -229,7 +229,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       (behavior: ScrollBehavior = 'smooth') => {
         if (scrollAreaRef.current) {
           const scrollContainer = scrollAreaRef.current.querySelector(
-            '[data-radix-scroll-area-viewport]'
+            '[data-slot="scroll-area-viewport"]'
           )
           if (scrollContainer) {
             markProgrammaticScroll(behavior)
@@ -248,7 +248,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         const scrollArea = scrollAreaRef.current
         if (!scrollArea) return
 
-        const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+        const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
         if (!viewport) return
 
         const { scrollTop, scrollHeight, clientHeight } = viewport
@@ -285,7 +285,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       const scrollArea = scrollAreaRef.current
       if (!scrollArea) return
 
-      const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+      const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
       if (!viewport) return
 
       const resolveScrollSource = () =>

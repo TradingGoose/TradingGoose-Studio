@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
@@ -15,8 +16,6 @@ import WorkflowDetails from '@/app/workspace/[workspaceId]/records/components/st
 import WorkflowsList from '@/app/workspace/[workspaceId]/records/components/stats/components/workflows-list'
 import { formatCost } from '@/providers/ai/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
-
-type TimeFilter = '30m' | '1h' | '6h' | '12h' | '24h' | '3d' | '7d' | '14d' | '30d'
 
 interface WorkflowExecution {
   workflowId: string
@@ -35,8 +34,41 @@ interface WorkflowExecution {
   overallSuccessRate: number
 }
 
+interface LogsPage {
+  offset: number
+  hasMore: boolean
+  key: string
+}
+
+interface LogsResponse {
+  data?: WorkflowLog[]
+  total?: number
+}
+
 const DEFAULT_SEGMENTS = 72
 const MIN_SEGMENT_PX = 10
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+const TIME_RANGE_MS: Record<string, number> = {
+  'Past 30 minutes': HOUR_MS / 2,
+  'Past hour': HOUR_MS,
+  'Past 6 hours': 6 * HOUR_MS,
+  'Past 12 hours': 12 * HOUR_MS,
+  'Past 24 hours': DAY_MS,
+  'Past 3 days': 3 * DAY_MS,
+  'Past 7 days': 7 * DAY_MS,
+  'Past 14 days': 14 * DAY_MS,
+  'Past 30 days': 30 * DAY_MS,
+}
+const createRequestOwner = (key: string) => ({
+  key,
+  query: false,
+  workflows: new Set<string>(),
+  pages: new Map<string, number>(),
+  globalPage: null as number | null,
+})
+const hasMoreLogs = (offset: number, count: number, total?: number) =>
+  typeof total === 'number' ? offset + count < total : count === 50
 
 interface WorkflowDetailsDataLocal {
   errorRates: { timestamp: string; value: number }[]
@@ -44,8 +76,71 @@ interface WorkflowDetailsDataLocal {
   executionCounts: { timestamp: string; value: number }[]
   logs: WorkflowLog[]
   allLogs: WorkflowLog[]
-  __meta?: { offset: number; hasMore: boolean }
+  __meta?: LogsPage
   __loading?: boolean
+}
+
+type WorkflowDetailFailure = 'details' | 'more'
+type DurationMetric = 'avgDurationMs' | 'p50Ms' | 'p90Ms' | 'p99Ms'
+
+export const resolveWorkflowDetailLifecycle = (
+  ids: string[],
+  details: Record<string, WorkflowDetailsDataLocal>,
+  failures: Partial<Record<string, WorkflowDetailFailure>>,
+  key: string
+) => {
+  const failedIds = ids.filter((id) => failures[id] === 'details')
+  return {
+    failedIds,
+    ready:
+      ids.length > 0 &&
+      failedIds.length === 0 &&
+      ids.every((id) => details[id]?.__meta?.key === key),
+  }
+}
+
+export const deriveWorkflowDetailsView = (
+  details: WorkflowDetailsDataLocal,
+  segments: WorkflowExecution['segments'],
+  selectedIndices: number[],
+  logs: WorkflowLog[]
+) => {
+  const selected = new Set(selectedIndices)
+  const segs = selected.size ? segments.filter((_, index) => selected.has(index)) : segments
+  const errorRates = segs.map((segment) => ({
+    timestamp: segment.timestamp,
+    value:
+      segment.totalExecutions > 0
+        ? 100 -
+          Math.min(
+            100,
+            Math.max(0, (segment.successfulExecutions / Math.max(1, segment.totalExecutions)) * 100)
+          )
+        : 0,
+  }))
+  const executionCounts = segs.map((segment) => ({
+    timestamp: segment.timestamp,
+    value: segment.totalExecutions || 0,
+  }))
+  const durationSeries = (metric: DurationMetric) =>
+    segs.map((segment) => ({
+      timestamp: segment.timestamp,
+      value: segment[metric] ?? 0,
+    }))
+  const durations = durationSeries('avgDurationMs')
+  const durationP50 = durationSeries('p50Ms')
+  const durationP90 = durationSeries('p90Ms')
+  const durationP99 = durationSeries('p99Ms')
+  return {
+    ...details,
+    logs,
+    errorRates,
+    executionCounts,
+    durations,
+    durationP50,
+    durationP90,
+    durationP99,
+  }
 }
 
 type StatsProps = {
@@ -62,30 +157,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
   const t = useTranslations('workspace.logs.dashboard')
   const tWorkflows = useTranslations('workspace.logs.dashboard.workflows')
 
-  const getTimeFilterFromRange = (range: string): TimeFilter => {
-    switch (range) {
-      case 'Past 30 minutes':
-        return '30m'
-      case 'Past hour':
-        return '1h'
-      case 'Past 6 hours':
-        return '6h'
-      case 'Past 12 hours':
-        return '12h'
-      case 'Past 24 hours':
-        return '24h'
-      case 'Past 3 days':
-        return '3d'
-      case 'Past 7 days':
-        return '7d'
-      case 'Past 14 days':
-        return '14d'
-      case 'Past 30 days':
-        return '30d'
-      default:
-        return '30d'
-    }
-  }
   const [endTime, setEndTime] = useState<Date>(new Date())
   const [executions, setExecutions] = useState<WorkflowExecution[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,10 +166,14 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
   const [workflowDetails, setWorkflowDetails] = useState<Record<string, WorkflowDetailsDataLocal>>(
     {}
   )
+  const [workflowDetailFailures, setWorkflowDetailFailures] = useState<
+    Partial<Record<string, WorkflowDetailFailure>>
+  >({})
   const [globalDetails, setGlobalDetails] = useState<WorkflowDetailsDataLocal | null>(null)
-  const [globalLogsMeta, setGlobalLogsMeta] = useState<{ offset: number; hasMore: boolean }>({
+  const [globalLogsMeta, setGlobalLogsMeta] = useState<LogsPage>({
     offset: 0,
     hasMore: true,
+    key: '',
   })
   const [globalLoadingMore, setGlobalLoadingMore] = useState(false)
   const [aggregateSegments, setAggregateSegments] = useState<
@@ -112,7 +187,24 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
 
   const { workflowIds, folderIds, triggers, timeRange: sidebarTimeRange } = useFilterStore()
 
-  const timeFilter = getTimeFilterFromRange(sidebarTimeRange)
+  const timeRangeMs = TIME_RANGE_MS[sidebarTimeRange] ?? 30 * DAY_MS
+  const requestKey = [
+    workspaceId,
+    timeRangeMs,
+    endTime.toISOString(),
+    workflowIds.join(','),
+    folderIds.join(','),
+    triggers.join(','),
+    segmentCount,
+    refreshRequest,
+  ].join('|')
+  const requestOwner = useMemo(() => createRequestOwner(requestKey), [requestKey])
+  const requestsRef = useRef(requestOwner)
+  useLayoutEffect(() => {
+    requestsRef.current = requestOwner
+    setWorkflowDetails({})
+    setWorkflowDetailFailures({})
+  }, [requestOwner])
 
   const filteredExecutions = searchQuery.trim()
     ? executions.filter((workflow) =>
@@ -147,53 +239,21 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
     }
   }, [executions])
 
-  const getStartTime = useCallback(() => {
-    const start = new Date(endTime)
-
-    switch (timeFilter) {
-      case '30m':
-        start.setMinutes(endTime.getMinutes() - 30)
-        break
-      case '1h':
-        start.setHours(endTime.getHours() - 1)
-        break
-      case '6h':
-        start.setHours(endTime.getHours() - 6)
-        break
-      case '12h':
-        start.setHours(endTime.getHours() - 12)
-        break
-      case '24h':
-        start.setHours(endTime.getHours() - 24)
-        break
-      case '3d':
-        start.setDate(endTime.getDate() - 3)
-        break
-      case '7d':
-        start.setDate(endTime.getDate() - 7)
-        break
-      case '14d':
-        start.setDate(endTime.getDate() - 14)
-        break
-      case '30d':
-        start.setDate(endTime.getDate() - 30)
-        break
-      default:
-        start.setHours(endTime.getHours() - 24)
-    }
-
-    return start
-  }, [endTime, timeFilter])
+  const getStartTime = useCallback(
+    () => new Date(endTime.getTime() - timeRangeMs),
+    [endTime, timeRangeMs]
+  )
 
   const fetchExecutions = useCallback(
     async (isInitialLoad = false) => {
+      const owner = requestsRef.current
+      if (owner.query) return
+      owner.query = true
       try {
-        if (isInitialLoad) {
-          setLoading(true)
-        } else {
-          setIsRefetching(true)
-        }
+        if (isInitialLoad) setLoading(true)
+        else setIsRefetching(true)
         setError(null)
+        setGlobalLoadingMore(false)
 
         const startTime = getStartTime()
         const params = new URLSearchParams({
@@ -202,27 +262,19 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
           endTime: endTime.toISOString(),
         })
 
-        if (workflowIds.length > 0) {
-          params.set('workflowIds', workflowIds.join(','))
-        }
-
-        if (folderIds.length > 0) {
-          params.set('folderIds', folderIds.join(','))
-        }
-
-        if (triggers.length > 0) {
-          params.set('triggers', triggers.join(','))
-        }
+        if (workflowIds.length > 0) params.set('workflowIds', workflowIds.join(','))
+        if (folderIds.length > 0) params.set('folderIds', folderIds.join(','))
+        if (triggers.length > 0) params.set('triggers', triggers.join(','))
 
         const response = await fetch(
           `/api/workspaces/${workspaceId}/metrics/executions?${params.toString()}`
         )
+        if (requestsRef.current !== owner) return
 
-        if (!response.ok) {
-          throw new Error(t('failedToFetchExecutionHistory'))
-        }
+        if (!response.ok) throw new Error(t('failedToFetchExecutionHistory'))
 
         const data = await response.json()
+        if (requestsRef.current !== owner) return
         const mapped: WorkflowExecution[] = (data.workflows || []).map((wf: any) => {
           const segments = (wf.segments || []).map((s: any) => {
             const total = s.totalExecutions || 0
@@ -306,12 +358,27 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         if (folderIds.length > 0) logsParams.set('folderIds', folderIds.join(','))
         if (triggers.length > 0) logsParams.set('triggers', triggers.join(','))
 
-        const logsResponse = await fetch(`/api/logs?${logsParams.toString()}`)
-        let mappedLogs: WorkflowLog[] = []
-        if (logsResponse.ok) {
-          const logsData = (await logsResponse.json()) as { data?: WorkflowLog[] }
-          mappedLogs = Array.isArray(logsData.data) ? logsData.data : []
+        let logsData: LogsResponse
+        try {
+          const logsResponse = await fetch(`/api/logs?${logsParams.toString()}`)
+          if (requestsRef.current !== owner) return
+          if (!logsResponse.ok) throw new Error(t('failedToFetchExecutionHistory'))
+          logsData = (await logsResponse.json()) as LogsResponse
+        } catch {
+          if (requestsRef.current !== owner) return
+          setGlobalDetails({
+            errorRates,
+            durations: [],
+            executionCounts,
+            logs: [],
+            allLogs: [],
+          })
+          setGlobalLogsMeta({ offset: 0, hasMore: true, key: owner.key })
+          setWorkflowDetailFailures((prev) => ({ ...prev, all: 'details' }))
+          return
         }
+        if (requestsRef.current !== owner) return
+        const mappedLogs = Array.isArray(logsData.data) ? logsData.data : []
 
         setGlobalDetails({
           errorRates,
@@ -320,18 +387,26 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
           logs: mappedLogs,
           allLogs: mappedLogs,
         })
-        setGlobalLogsMeta({ offset: mappedLogs.length, hasMore: mappedLogs.length === 50 })
+        setGlobalLogsMeta({
+          offset: mappedLogs.length,
+          hasMore: hasMoreLogs(0, mappedLogs.length, logsData.total),
+          key: owner.key,
+        })
       } catch (err) {
+        if (requestsRef.current !== owner) return
         console.error('Error fetching executions:', err)
         setError(err instanceof Error ? err.message : t('failedToFetchExecutionHistory'))
       } finally {
-        setLoading(false)
-        setIsRefetching(false)
+        owner.query = false
+        if (requestsRef.current === owner) {
+          setLoading(false)
+          setIsRefetching(false)
+        }
       }
     },
     [
       workspaceId,
-      timeFilter,
+      timeRangeMs,
       endTime,
       getStartTime,
       workflowIds,
@@ -343,18 +418,16 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
   )
 
   const fetchWorkflowDetails = useCallback(
-    async (workflowId: string, silent = false) => {
+    async (workflowId: string) => {
+      if (!workflowId || workflowId === '__multi__') return
+      const owner = requestsRef.current
+      if (owner.workflows.has(workflowId)) return
+      owner.workflows.add(workflowId)
+      setWorkflowDetailFailures((prev) =>
+        prev[workflowId] ? { ...prev, [workflowId]: undefined } : prev
+      )
       try {
         const startTime = getStartTime()
-        const params = new URLSearchParams({
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        })
-
-        if (triggers.length > 0) {
-          params.set('triggers', triggers.join(','))
-        }
-
         const response = await fetch(
           `/api/logs?${new URLSearchParams({
             limit: '50',
@@ -365,15 +438,16 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
             order: 'desc',
             details: 'full',
             workflowIds: workflowId,
+            ...(folderIds.length > 0 ? { folderIds: folderIds.join(',') } : {}),
             ...(triggers.length > 0 ? { triggers: triggers.join(',') } : {}),
           }).toString()}`
         )
+        if (requestsRef.current !== owner) return
 
-        if (!response.ok) {
-          throw new Error(t('failedToFetchExecutionHistory'))
-        }
+        if (!response.ok) throw new Error(t('failedToFetchExecutionHistory'))
 
-        const data = (await response.json()) as { data?: WorkflowLog[] }
+        const data = (await response.json()) as LogsResponse
+        if (requestsRef.current !== owner) return
         const mappedLogs = Array.isArray(data.data) ? data.data : []
 
         setWorkflowDetails((prev) => ({
@@ -384,34 +458,47 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
             executionCounts: [],
             logs: mappedLogs,
             allLogs: mappedLogs,
-            __meta: { offset: mappedLogs.length, hasMore: (data.data || []).length === 50 },
+            __meta: {
+              offset: mappedLogs.length,
+              hasMore: hasMoreLogs(0, mappedLogs.length, data.total),
+              key: owner.key,
+            },
           },
         }))
       } catch (err) {
+        if (requestsRef.current !== owner) return
         console.error('Error fetching workflow details:', err)
+        setWorkflowDetailFailures((prev) => ({ ...prev, [workflowId]: 'details' }))
+      } finally {
+        owner.workflows.delete(workflowId)
       }
     },
-    [workspaceId, endTime, getStartTime, triggers, t]
+    [workspaceId, endTime, getStartTime, folderIds, triggers, t]
   )
 
-  // Infinite scroll for details logs
   const loadMoreLogs = useCallback(
     async (workflowId: string) => {
+      const owner = requestsRef.current
       const details = workflowDetails[workflowId]
-      if (!details) return
-      if (details.__loading) return
-      if (!details.__meta?.hasMore) return
+      const meta = details?.__meta
+      if (!meta?.hasMore || meta.key !== owner.key || owner.pages.get(workflowId) === meta.offset)
+        return
+      const offset = meta.offset
+      owner.pages.set(workflowId, offset)
+      let completed = false
       try {
+        setWorkflowDetailFailures((prev) =>
+          prev[workflowId] ? { ...prev, [workflowId]: undefined } : prev
+        )
         setWorkflowDetails((prev) => {
           const cur = prev[workflowId]
-          if (!cur) return prev
+          if (cur?.__meta?.key !== owner.key) return prev
           return {
             ...prev,
             [workflowId]: { ...cur, __loading: true },
           }
         })
         const startTime = getStartTime()
-        const offset = details.__meta.offset || 0
         const qp = new URLSearchParams({
           limit: '50',
           offset: String(offset),
@@ -422,15 +509,18 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
           details: 'full',
           workflowIds: workflowId,
         })
+        if (folderIds.length > 0) qp.set('folderIds', folderIds.join(','))
         if (triggers.length > 0) qp.set('triggers', triggers.join(','))
         const res = await fetch(`/api/logs?${qp.toString()}`)
-        if (!res.ok) return
-        const data = (await res.json()) as { data?: WorkflowLog[] }
+        if (requestsRef.current !== owner) return
+        if (!res.ok) throw new Error('Workflow log pagination failed')
+        const data = (await res.json()) as LogsResponse
+        if (requestsRef.current !== owner) return
         const more = Array.isArray(data.data) ? data.data : []
 
         setWorkflowDetails((prev) => {
           const cur = prev[workflowId]
-          if (!cur) return prev
+          if (cur?.__meta?.key !== owner.key || cur.__meta.offset !== offset) return prev
           const seen = new Set<string>()
           const dedup = [...cur.allLogs, ...more].filter((x) => {
             const id = x.id
@@ -445,37 +535,56 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
               logs: dedup,
               allLogs: dedup,
               __meta: {
-                offset: (cur.__meta?.offset || 0) + more.length,
-                hasMore: more.length === 50,
+                offset: offset + more.length,
+                hasMore: hasMoreLogs(offset, more.length, data.total),
+                key: owner.key,
               },
             },
           }
         })
+        completed = true
       } catch {
-        // ignore
+        if (requestsRef.current !== owner) return
+        setWorkflowDetailFailures((prev) => ({ ...prev, [workflowId]: 'more' }))
       } finally {
-        setWorkflowDetails((prev) => {
-          const cur = prev[workflowId]
-          if (!cur?.__loading) return prev
-          return {
-            ...prev,
-            [workflowId]: { ...cur, __loading: false },
-          }
-        })
+        if (!completed && owner.pages.get(workflowId) === offset) {
+          owner.pages.delete(workflowId)
+        }
+        if (requestsRef.current === owner) {
+          setWorkflowDetails((prev) => {
+            const cur = prev[workflowId]
+            if (!cur?.__loading || cur.__meta?.key !== owner.key) return prev
+            return {
+              ...prev,
+              [workflowId]: { ...cur, __loading: false },
+            }
+          })
+        }
       }
     },
-    [workspaceId, endTime, getStartTime, triggers, workflowDetails]
+    [workspaceId, endTime, getStartTime, folderIds, triggers, workflowDetails]
   )
 
   const loadMoreGlobalLogs = useCallback(async () => {
-    if (!globalDetails || !globalLogsMeta.hasMore) return
-    if (globalLoadingMore) return
+    const owner = requestsRef.current
+    const offset = globalLogsMeta.offset
+    if (
+      owner.query ||
+      owner.globalPage === offset ||
+      !globalDetails ||
+      !globalLogsMeta.hasMore ||
+      globalLogsMeta.key !== owner.key
+    )
+      return
+    owner.globalPage = offset
+    let completed = false
     try {
+      setWorkflowDetailFailures((prev) => (prev.all ? { ...prev, all: undefined } : prev))
       setGlobalLoadingMore(true)
       const startTime = getStartTime()
       const qp = new URLSearchParams({
         limit: '50',
-        offset: String(globalLogsMeta.offset || 0),
+        offset: String(offset),
         workspaceId,
         startDate: startTime.toISOString(),
         endDate: endTime.toISOString(),
@@ -487,12 +596,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
       if (triggers.length > 0) qp.set('triggers', triggers.join(','))
 
       const res = await fetch(`/api/logs?${qp.toString()}`)
-      if (!res.ok) return
-      const data = (await res.json()) as { data?: WorkflowLog[] }
+      if (requestsRef.current !== owner) return
+      if (!res.ok) throw new Error('Global workflow log pagination failed')
+      const data = (await res.json()) as LogsResponse
+      if (requestsRef.current !== owner) return
       const more = Array.isArray(data.data) ? data.data : []
 
       setGlobalDetails((prev) => {
-        if (!prev) return prev
+        if (!prev || requestsRef.current !== owner) return prev
+        if (offset === 0) return { ...prev, logs: more, allLogs: more }
         const seen = new Set<string>()
         const dedup = [...prev.allLogs, ...more].filter((x) => {
           const id = x.id
@@ -502,19 +614,29 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         })
         return { ...prev, logs: dedup, allLogs: dedup }
       })
-      setGlobalLogsMeta((m) => ({
-        offset: (m.offset || 0) + more.length,
-        hasMore: more.length === 50,
-      }))
+      setGlobalLogsMeta((meta) =>
+        meta.key === owner.key && meta.offset === offset
+          ? {
+              offset: offset + more.length,
+              hasMore: hasMoreLogs(offset, more.length, data.total),
+              key: owner.key,
+            }
+          : meta
+      )
+      completed = true
     } catch {
-      // ignore
+      if (requestsRef.current !== owner) return
+      setWorkflowDetailFailures((prev) => ({
+        ...prev,
+        all: offset === 0 ? 'details' : 'more',
+      }))
     } finally {
-      setGlobalLoadingMore(false)
+      if (!completed && owner.globalPage === offset) owner.globalPage = null
+      if (requestsRef.current === owner) setGlobalLoadingMore(false)
     }
   }, [
     globalDetails,
     globalLogsMeta,
-    globalLoadingMore,
     workspaceId,
     endTime,
     getStartTime,
@@ -523,19 +645,9 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
     triggers,
   ])
 
-  const toggleWorkflow = useCallback(
-    (workflowId: string) => {
-      if (expandedWorkflowId === workflowId) {
-        setExpandedWorkflowId(null)
-      } else {
-        setExpandedWorkflowId(workflowId)
-        if (!workflowDetails[workflowId]) {
-          fetchWorkflowDetails(workflowId)
-        }
-      }
-    },
-    [expandedWorkflowId, workflowDetails, fetchWorkflowDetails]
-  )
+  const toggleWorkflow = useCallback((workflowId: string) => {
+    setExpandedWorkflowId((current) => (current === workflowId ? null : workflowId))
+  }, [])
 
   const handleSegmentClick = useCallback(
     (
@@ -544,13 +656,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
       _timestamp: string,
       mode: 'single' | 'toggle' | 'range'
     ) => {
-      // Fetch workflow details if not already loaded
-      if (!workflowDetails[workflowId]) {
-        fetchWorkflowDetails(workflowId)
-      }
-
       if (mode === 'toggle') {
-        // Toggle mode: Add/remove segment from selection, allowing cross-workflow selection
         setSelectedSegments((prev) => {
           const currentSegments = prev[workflowId] || []
           const exists = currentSegments.includes(segmentIndex)
@@ -560,7 +666,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
 
           if (nextSegments.length === 0) {
             const { [workflowId]: _, ...rest } = prev
-            // If this was the only workflow with selections, clear expanded
             if (Object.keys(rest).length === 0) {
               setExpandedWorkflowId(null)
             }
@@ -569,7 +674,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
 
           const newState = { ...prev, [workflowId]: nextSegments }
 
-          // Set to multi-workflow mode if multiple workflows have selections
           const selectedWorkflowIds = Object.keys(newState)
           if (selectedWorkflowIds.length > 1) {
             setExpandedWorkflowId('__multi__')
@@ -582,12 +686,10 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
 
         setLastAnchorIndices((prev) => ({ ...prev, [workflowId]: segmentIndex }))
       } else if (mode === 'single') {
-        // Single mode: Clear all selections and select only this segment
         setExpandedWorkflowId(workflowId)
         setSelectedSegments({ [workflowId]: [segmentIndex] })
         setLastAnchorIndices({ [workflowId]: segmentIndex })
       } else if (mode === 'range') {
-        // Range mode: Expand selection within the current workflow
         if (expandedWorkflowId === workflowId) {
           setSelectedSegments((prev) => {
             const currentSegments = prev[workflowId] || []
@@ -599,35 +701,41 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
             return { ...prev, [workflowId]: Array.from(union).sort((a, b) => a - b) }
           })
         } else {
-          // If clicking range on a different workflow, treat as single click
           setExpandedWorkflowId(workflowId)
           setSelectedSegments({ [workflowId]: [segmentIndex] })
           setLastAnchorIndices({ [workflowId]: segmentIndex })
         }
       }
     },
-    [expandedWorkflowId, workflowDetails, fetchWorkflowDetails, lastAnchorIndices]
+    [expandedWorkflowId, lastAnchorIndices]
   )
 
   const isInitialMount = useRef(true)
   useEffect(() => {
     const isInitial = isInitialMount.current
-    if (isInitial) {
-      isInitialMount.current = false
-    }
+    isInitialMount.current = false
     fetchExecutions(isInitial)
-  }, [workspaceId, timeFilter, endTime, workflowIds, folderIds, triggers, segmentCount])
+  }, [workspaceId, timeRangeMs, endTime, workflowIds, folderIds, triggers, segmentCount])
 
   useEffect(() => {
-    if (expandedWorkflowId) {
-      fetchWorkflowDetails(expandedWorkflowId)
+    const workflowIdsToLoad =
+      expandedWorkflowId === '__multi__'
+        ? Object.keys(selectedSegments)
+        : expandedWorkflowId
+          ? [expandedWorkflowId]
+          : []
+    for (const workflowId of workflowIdsToLoad) {
+      if (workflowDetails[workflowId]?.__meta?.key !== requestKey) {
+        void fetchWorkflowDetails(workflowId)
+      }
     }
-  }, [expandedWorkflowId, timeFilter, endTime, workflowIds, folderIds, fetchWorkflowDetails])
+  }, [expandedWorkflowId, selectedSegments, workflowDetails, requestKey, fetchWorkflowDetails])
 
   useEffect(() => {
     setSelectedSegments({})
     setLastAnchorIndices({})
-  }, [timeFilter, endTime, workflowIds, folderIds, triggers])
+    setExpandedWorkflowId((current) => (current === '__multi__' ? null : current))
+  }, [timeRangeMs, endTime, workflowIds, folderIds, triggers])
 
   useEffect(() => {
     if (!barsAreaRef.current) return
@@ -658,15 +766,11 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
     return `${start.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' })}`
   }
 
-  const resetToNow = () => {
-    setEndTime(new Date())
-  }
-
   useEffect(() => {
     let interval: any
     if (live) {
       interval = setInterval(() => {
-        resetToNow()
+        setEndTime(new Date())
       }, 5000)
     }
     return () => {
@@ -691,7 +795,12 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
     void fetchExecutions(false)
   }, [fetchExecutions, refreshRequest])
 
-  // Infinite scroll is now handled inside WorkflowDetails
+  const singleExpandedWorkflowId =
+    expandedWorkflowId &&
+    expandedWorkflowId !== '__multi__' &&
+    executions.some((workflow) => workflow.workflowId === expandedWorkflowId)
+      ? expandedWorkflowId
+      : null
 
   return (
     <div className={`flex h-full min-w-0 flex-col ${soehne.className}`}>
@@ -700,7 +809,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
           className='flex flex-1 flex-col overflow-auto p-6'
           style={{ scrollbarGutter: 'stable' }}
         >
-          {/* Content */}
           {loading ? (
             <div className='flex flex-1 items-center justify-center'>
               <div className='flex items-center gap-2 text-muted-foreground'>
@@ -723,10 +831,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
               </div>
             </div>
           ) : (
-            <>
-              {/* Top section pinned */}
+            <Collapsible
+              open={Boolean(singleExpandedWorkflowId)}
+              onOpenChange={(open) => {
+                if (!open && singleExpandedWorkflowId) {
+                  toggleWorkflow(singleExpandedWorkflowId)
+                }
+              }}
+            >
               <div className=' top-0 z-10 mb-1 bg-background pb-1'>
-                {/* Time Range Display */}
                 <div className='mb-3 flex flex-wrap items-center gap-3'>
                   <span className='max-w-[40vw] truncate font-[500] text-muted-foreground text-sm'>
                     {getDateRange()}
@@ -749,7 +862,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                   </div>
                 </div>
 
-                {/* KPIs */}
                 <KPIs aggregate={aggregate} />
 
                 <div ref={barsAreaRef} className='mb-1'>
@@ -768,28 +880,29 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                 </div>
               </div>
 
-              {/* Details section */}
               <div className='min-h-0 flex-1'>
                 {(() => {
-                  // Handle multi-workflow selection view
                   if (expandedWorkflowId === '__multi__') {
                     const selectedWorkflowIds = Object.keys(selectedSegments)
+                    const detailLifecycle = resolveWorkflowDetailLifecycle(
+                      selectedWorkflowIds,
+                      workflowDetails,
+                      workflowDetailFailures,
+                      requestKey
+                    )
                     const totalMs = endTime.getTime() - getStartTime().getTime()
                     const segMs = totalMs / Math.max(1, segmentCount)
 
-                    // Collect all unique segment indices across all workflows
                     const allSegmentIndices = new Set<number>()
                     for (const indices of Object.values(selectedSegments)) {
                       indices.forEach((idx) => allSegmentIndices.add(idx))
                     }
                     const sortedIndices = Array.from(allSegmentIndices).sort((a, b) => a - b)
 
-                    // Aggregate logs from all selected workflows/segments
                     const allLogs: WorkflowLog[] = []
                     let totalExecutions = 0
                     let totalSuccess = 0
 
-                    // Build aggregated chart series
                     const aggregatedSegments: Array<{
                       timestamp: string
                       totalExecutions: number
@@ -798,9 +911,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       durationCount: number
                     }> = []
 
-                    // Initialize aggregated segments for each unique index
                     for (const idx of sortedIndices) {
-                      // Get the timestamp from the first workflow that has this index
                       let timestamp = ''
                       for (const wfId of selectedWorkflowIds) {
                         const wf = executions.find((w) => w.workflowId === wfId)
@@ -819,15 +930,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       })
                     }
 
-                    // Aggregate data from all workflows
                     for (const wfId of selectedWorkflowIds) {
                       const wf = executions.find((w) => w.workflowId === wfId)
-                      const details = workflowDetails[wfId]
+                      const storedDetails = workflowDetails[wfId]
+                      const details =
+                        storedDetails?.__meta?.key === requestKey ? storedDetails : undefined
                       const indices = selectedSegments[wfId] || []
 
-                      if (!wf || !details || indices.length === 0) continue
+                      if (!wf || indices.length === 0) continue
 
-                      // Calculate time windows for this workflow's selected segments
                       const windows = indices
                         .map((idx) => wf.segments[idx])
                         .filter(Boolean)
@@ -842,14 +953,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       const inAnyWindow = (t: number) =>
                         windows.some((w) => t >= w.start && t < w.end)
 
-                      // Filter logs for this workflow's selected segments
-                      const workflowLogs = details.allLogs.filter((log) =>
-                        inAnyWindow(new Date(log.startedAt ?? log.createdAt).getTime())
-                      )
-
-                      allLogs.push(...workflowLogs)
-
-                      // Aggregate segment metrics
                       indices.forEach((idx) => {
                         const segment = wf.segments[idx]
                         if (!segment) return
@@ -865,9 +968,16 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                           }
                         }
                       })
+
+                      if (details) {
+                        allLogs.push(
+                          ...details.allLogs.filter((log) =>
+                            inAnyWindow(new Date(log.startedAt ?? log.createdAt).getTime())
+                          )
+                        )
+                      }
                     }
 
-                    // Build chart series
                     const errorRates = aggregatedSegments.map((seg) => ({
                       timestamp: seg.timestamp,
                       value:
@@ -886,7 +996,6 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       value: seg.durationCount > 0 ? seg.avgDurationMs / seg.durationCount : 0,
                     }))
 
-                    // Sort logs by time (most recent first)
                     allLogs.sort(
                       (a, b) =>
                         new Date(b.startedAt ?? b.createdAt).getTime() -
@@ -911,13 +1020,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                           rate: totalRate,
                         }}
                         details={
-                          {
-                            errorRates,
-                            durations,
-                            executionCounts,
-                            logs: allLogs,
-                            allLogs: allLogs,
-                          } as any
+                          detailLifecycle.ready
+                            ? ({
+                                errorRates,
+                                durations,
+                                executionCounts,
+                                logs: allLogs,
+                                allLogs: allLogs,
+                              } as any)
+                            : undefined
                         }
                         selectedSegmentIndex={[]}
                         selectedSegment={null}
@@ -930,6 +1041,10 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                         onLoadMore={undefined}
                         hasMore={false}
                         isLoadingMore={false}
+                        failureMode={detailLifecycle.failedIds.length ? 'details' : undefined}
+                        onRetry={() =>
+                          detailLifecycle.failedIds.forEach((id) => void fetchWorkflowDetails(id))
+                        }
                       />
                     )
                   }
@@ -945,62 +1060,10 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                     const failures = Math.max(total - success, 0)
                     const rate = total > 0 ? (success / total) * 100 : 100
 
-                    const details = workflowDetails[expandedWorkflowId]
+                    const storedDetails = workflowDetails[expandedWorkflowId]
+                    const details =
+                      storedDetails?.__meta?.key === requestKey ? storedDetails : undefined
                     let logsToDisplay = details?.logs || []
-                    // Helper to construct series from workflow segments
-                    const buildSeriesFromSegments = (
-                      segs: WorkflowExecution['segments']
-                    ): {
-                      errorRates: { timestamp: string; value: number }[]
-                      executionCounts: { timestamp: string; value: number }[]
-                      durations: { timestamp: string; value: number }[]
-                      durationP50?: { timestamp: string; value: number }[]
-                      durationP90?: { timestamp: string; value: number }[]
-                      durationP99?: { timestamp: string; value: number }[]
-                    } => {
-                      const errorRates = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value:
-                          s.totalExecutions > 0
-                            ? 100 -
-                              Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  (s.successfulExecutions / Math.max(1, s.totalExecutions)) * 100
-                                )
-                              )
-                            : 0,
-                      }))
-                      const executionCounts = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value: s.totalExecutions || 0,
-                      }))
-                      const durations = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value: typeof s.avgDurationMs === 'number' ? s.avgDurationMs : 0,
-                      }))
-                      const durationP50 = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value: typeof s.p50Ms === 'number' ? s.p50Ms : 0,
-                      }))
-                      const durationP90 = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value: typeof s.p90Ms === 'number' ? s.p90Ms : 0,
-                      }))
-                      const durationP99 = segs.map((s) => ({
-                        timestamp: s.timestamp,
-                        value: typeof s.p99Ms === 'number' ? s.p99Ms : 0,
-                      }))
-                      return {
-                        errorRates,
-                        executionCounts,
-                        durations,
-                        durationP50,
-                        durationP90,
-                        durationP99,
-                      }
-                    }
 
                     const workflowSelectedIndices = selectedSegments[expandedWorkflowId] || []
                     if (details && workflowSelectedIndices.length > 0) {
@@ -1022,31 +1085,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       logsToDisplay = details.allLogs.filter((log) =>
                         inAnyWindow(new Date(log.startedAt ?? log.createdAt).getTime())
                       )
-
-                      // Build series from selected segments indices
-                      const idxSet = new Set(workflowSelectedIndices)
-                      const selectedSegs = wf.segments.filter((_, i) => idxSet.has(i))
-                      ;(details as any).__filtered = buildSeriesFromSegments(selectedSegs as any)
                     }
 
                     const detailsWithFilteredLogs = details
-                      ? {
-                          ...details,
-                          logs: logsToDisplay,
-                          ...(() => {
-                            const series =
-                              (details as any).__filtered ||
-                              buildSeriesFromSegments(wf.segments as any)
-                            return {
-                              errorRates: series.errorRates,
-                              durations: series.durations,
-                              executionCounts: series.executionCounts,
-                              durationP50: series.durationP50,
-                              durationP90: series.durationP90,
-                              durationP99: series.durationP99,
-                            }
-                          })(),
-                        }
+                      ? deriveWorkflowDetailsView(
+                          details,
+                          wf.segments,
+                          workflowSelectedIndices,
+                          logsToDisplay
+                        )
                       : undefined
 
                     const selectedSegment =
@@ -1055,34 +1102,44 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                         : null
 
                     return (
-                      <WorkflowDetails
-                        workspaceId={workspaceId}
-                        expandedWorkflowId={expandedWorkflowId}
-                        workflowName={wf.workflowName}
-                        overview={{ total, success, failures, rate }}
-                        details={detailsWithFilteredLogs as any}
-                        selectedSegmentIndex={workflowSelectedIndices}
-                        selectedSegment={
-                          selectedSegment
-                            ? {
-                                timestamp: selectedSegment.timestamp,
-                                totalExecutions: selectedSegment.totalExecutions,
-                              }
-                            : null
-                        }
-                        clearSegmentSelection={() => {
-                          setSelectedSegments({})
-                          setLastAnchorIndices({})
-                        }}
-                        formatCost={formatCost}
-                        onLoadMore={() => loadMoreLogs(expandedWorkflowId)}
-                        hasMore={workflowDetails[expandedWorkflowId]?.__meta?.hasMore}
-                        isLoadingMore={workflowDetails[expandedWorkflowId]?.__loading}
-                      />
+                      <CollapsibleContent>
+                        <WorkflowDetails
+                          workspaceId={workspaceId}
+                          expandedWorkflowId={expandedWorkflowId}
+                          workflowName={wf.workflowName}
+                          overview={{ total, success, failures, rate }}
+                          details={detailsWithFilteredLogs as any}
+                          selectedSegmentIndex={workflowSelectedIndices}
+                          selectedSegment={
+                            selectedSegment
+                              ? {
+                                  timestamp: selectedSegment.timestamp,
+                                  totalExecutions: selectedSegment.totalExecutions,
+                                }
+                              : null
+                          }
+                          clearSegmentSelection={() => {
+                            setSelectedSegments({})
+                            setLastAnchorIndices({})
+                          }}
+                          formatCost={formatCost}
+                          onLoadMore={() => loadMoreLogs(expandedWorkflowId)}
+                          hasMore={details?.__meta?.key === requestKey && details.__meta.hasMore}
+                          isLoadingMore={details?.__meta?.key === requestKey && details.__loading}
+                          failureMode={workflowDetailFailures[expandedWorkflowId]}
+                          onRetry={() => {
+                            if (workflowDetailFailures[expandedWorkflowId] === 'more') {
+                              void loadMoreLogs(expandedWorkflowId)
+                            } else {
+                              void fetchWorkflowDetails(expandedWorkflowId)
+                            }
+                          }}
+                        />
+                      </CollapsibleContent>
                     )
                   }
 
-                  if (!globalDetails) return null
+                  const details = globalLogsMeta.key === requestKey ? globalDetails : undefined
                   const totals = aggregateSegments.reduce(
                     (acc, s) => {
                       acc.total += s.totalExecutions
@@ -1100,7 +1157,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       expandedWorkflowId={'all'}
                       workflowName={tWorkflows('allWorkflows')}
                       overview={{ total: totals.total, success: totals.success, failures, rate }}
-                      details={globalDetails as any}
+                      details={details as any}
                       selectedSegmentIndex={[]}
                       selectedSegment={null}
                       clearSegmentSelection={() => {
@@ -1109,13 +1166,15 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       }}
                       formatCost={formatCost}
                       onLoadMore={loadMoreGlobalLogs}
-                      hasMore={globalLogsMeta.hasMore}
-                      isLoadingMore={globalLoadingMore}
+                      hasMore={globalLogsMeta.key === requestKey && globalLogsMeta.hasMore}
+                      isLoadingMore={globalLogsMeta.key === requestKey && globalLoadingMore}
+                      failureMode={workflowDetailFailures.all}
+                      onRetry={() => void loadMoreGlobalLogs()}
                     />
                   )
                 })()}
               </div>
-            </>
+            </Collapsible>
           )}
         </div>
       </div>

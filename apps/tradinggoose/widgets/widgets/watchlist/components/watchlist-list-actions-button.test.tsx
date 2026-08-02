@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from 'react'
-import { act } from 'react'
+import type { ButtonHTMLAttributes, ComponentProps, ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,24 +12,38 @@ import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/componen
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({ children, render }: { children?: ReactNode; render: ReactElement }) =>
+    cloneElement(render, undefined, children),
   DropdownMenuContent: ({ children }: { children: ReactNode }) => (
     <div data-testid='menu-content'>{children}</div>
   ),
   DropdownMenuItem: ({
     children,
-    onSelect,
+    closeOnClick: _closeOnClick,
+    render,
     ...props
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: (event: Event) => void }) => (
-    <button type='button' {...props} onClick={(event) => onSelect?.(event.nativeEvent)}>
-      {children}
-    </button>
-  ),
+  }: ButtonHTMLAttributes<HTMLButtonElement> & {
+    closeOnClick?: boolean
+    render?: ReactElement
+  }) =>
+    render ? (
+      cloneElement(render, props, children)
+    ) : (
+      <button type='button' {...props}>
+        {children}
+      </button>
+    ),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 

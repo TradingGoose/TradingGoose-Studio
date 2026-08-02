@@ -161,26 +161,27 @@ export function ToolCredentialSelector({
   return (
     <>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='h-10 w-full min-w-0 justify-between'
-            disabled={disabled}
-          >
-            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-              {getProviderIcon(provider)}
-              <span
-                className={
-                  selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'
-                }
-              >
-                {selectedLabel || labelText}
-              </span>
-            </div>
-            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={disabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='h-10 w-full min-w-0 justify-between'
+              disabled={disabled}
+            />
+          }
+        >
+          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+            {getProviderIcon(provider)}
+            <span
+              className={selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'}
+            >
+              {selectedLabel || labelText}
+            </span>
+          </div>
+          <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>

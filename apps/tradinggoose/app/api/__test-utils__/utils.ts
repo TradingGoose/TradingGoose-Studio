@@ -40,26 +40,26 @@ export interface MockDatabaseOptions {
   select?: {
     results?: any[][]
     throwError?: boolean
-    errorMessage?: string
+    failureText?: string
   }
   insert?: {
     results?: any[]
     throwError?: boolean
-    errorMessage?: string
+    failureText?: string
   }
   update?: {
     results?: any[]
     throwError?: boolean
-    errorMessage?: string
+    failureText?: string
   }
   delete?: {
     results?: any[]
     throwError?: boolean
-    errorMessage?: string
+    failureText?: string
   }
   transaction?: {
     throwError?: boolean
-    errorMessage?: string
+    failureText?: string
   }
 }
 
@@ -69,15 +69,6 @@ export interface CapturedFolderValues {
   parentId?: string | null
   isExpanded?: boolean
   sortOrder?: number
-  updatedAt?: Date
-}
-
-export interface CapturedWorkflowValues {
-  name?: string
-  description?: string
-  color?: string
-  folderId?: string | null
-  state?: any
   updatedAt?: Date
 }
 
@@ -152,15 +143,10 @@ export const globalMockData = {
   webhooks: [] as any[],
   workflows: [] as any[],
   schedules: [] as any[],
-  shouldThrowError: false,
-  errorMessage: 'Database error',
 }
 
 export const mockDb = {
   select: vi.fn().mockImplementation(() => {
-    if (globalMockData.shouldThrowError) {
-      throw new Error(globalMockData.errorMessage)
-    }
     return {
       from: vi.fn().mockImplementation(() => ({
         innerJoin: vi.fn().mockImplementation(() => ({
@@ -226,84 +212,6 @@ export const mockLogger = {
 export const mockUser = {
   id: 'user-123',
   email: 'test@example.com',
-}
-
-export const mockSubscription = {
-  id: 'sub-123',
-  billingTierId: 'tier_org_individual',
-  status: 'active',
-  seats: 5,
-  referenceType: 'organization' as const,
-  referenceId: 'org-456',
-  tier: {
-    id: 'tier_org_individual',
-    displayName: 'Enterprise',
-    ownerType: 'organization',
-    usageScope: 'individual',
-    seatMode: 'fixed',
-  },
-  metadata: {
-    perSeatAllowance: 100,
-    totalAllowance: 500,
-    updatedAt: '2023-01-01T00:00:00.000Z',
-  },
-}
-
-export const mockOrganization = {
-  id: 'org-456',
-  name: 'Test Organization',
-  slug: 'test-org',
-}
-
-export const mockAdminMember = {
-  id: 'member-123',
-  userId: 'user-123',
-  organizationId: 'org-456',
-  role: 'admin',
-}
-
-export const mockRegularMember = {
-  id: 'member-456',
-  userId: 'user-123',
-  organizationId: 'org-456',
-  role: 'member',
-}
-
-export const mockTeamSubscription = {
-  id: 'sub-456',
-  billingTierId: 'tier_org_adjustable',
-  status: 'active',
-  seats: 5,
-  referenceType: 'organization' as const,
-  referenceId: 'org-123',
-  tier: {
-    id: 'tier_org_adjustable',
-    displayName: 'Team',
-    ownerType: 'organization',
-    usageScope: 'pooled',
-    seatMode: 'adjustable',
-  },
-}
-
-export const mockPersonalSubscription = {
-  id: 'sub-789',
-  billingTierId: 'tier_user_fixed',
-  status: 'active',
-  seats: 5,
-  referenceType: 'user' as const,
-  referenceId: 'user-123',
-  tier: {
-    id: 'tier_user_fixed',
-    displayName: 'Pro',
-    ownerType: 'user',
-    usageScope: 'individual',
-    seatMode: 'fixed',
-  },
-  metadata: {
-    perSeatAllowance: 100,
-    totalAllowance: 500,
-    updatedAt: '2023-01-01T00:00:00.000Z',
-  },
 }
 
 export const mockEnvironmentVars = {
@@ -445,59 +353,6 @@ export function mockExecutionDependencies() {
   }))
 }
 
-/**
- * Mock Trigger.dev SDK (tasks.trigger and task factory) for tests that import background modules
- */
-export function mockTriggerDevSdk() {
-  vi.mock('@trigger.dev/sdk', () => ({
-    tasks: {
-      trigger: vi.fn().mockResolvedValue({ id: 'mock-task-id' }),
-    },
-    task: vi.fn().mockReturnValue({}),
-  }))
-}
-
-export function mockWorkflowAccessValidation(shouldSucceed = true) {
-  if (shouldSucceed) {
-    vi.mock('@/app/api/workflows/middleware', () => ({
-      validateWorkflowAccess: vi.fn().mockResolvedValue({
-        workflow: {
-          id: 'workflow-id',
-          userId: 'user-id',
-          state: sampleWorkflowState,
-        },
-      }),
-    }))
-  } else {
-    vi.mock('@/app/api/workflows/middleware', () => ({
-      validateWorkflowAccess: vi.fn().mockResolvedValue({
-        error: {
-          message: 'Access denied',
-          status: 403,
-        },
-      }),
-    }))
-  }
-}
-
-export async function getMockedDependencies() {
-  const utilsServerModule = await import('@/lib/utils-server')
-  const traceSpansModule = await import('@/lib/logs/execution/trace-spans/trace-spans')
-  const workflowUtilsModule = await import('@/lib/workflows/utils')
-  const executorModule = await import('@/executor')
-  const serializerModule = await import('@/serializer')
-  const dbModule = await import('@tradinggoose/db')
-
-  return {
-    decryptSecret: utilsServerModule.decryptSecret,
-    buildTraceSpans: traceSpansModule.buildTraceSpans,
-    updateWorkflowRunCounts: workflowUtilsModule.updateWorkflowRunCounts,
-    Executor: executorModule.Executor,
-    Serializer: serializerModule.Serializer,
-    db: dbModule.db,
-  }
-}
-
 export function mockScheduleStatusDb({
   schedule = [
     {
@@ -538,71 +393,6 @@ export function mockScheduleStatusDb({
     return {
       db: { select },
     }
-  })
-}
-
-export function mockScheduleExecuteDb({
-  schedules = [] as any[],
-  workflowRecord = {
-    id: 'workflow-id',
-    userId: 'user-id',
-    state: sampleWorkflowState,
-  },
-  envRecord = {
-    userId: 'user-id',
-    variables: {
-      OPENAI_API_KEY: 'encrypted:openai-api-key',
-      SERPER_API_KEY: 'encrypted:serper-api-key',
-    },
-  },
-}: {
-  schedules?: any[]
-  workflowRecord?: any
-  envRecord?: any
-}): void {
-  vi.doMock('@tradinggoose/db', () => {
-    const select = vi.fn().mockImplementation(() => ({
-      from: vi.fn().mockImplementation((table: any) => {
-        const tbl = String(table)
-        if (tbl === 'workflow_schedule' || tbl === 'schedule') {
-          return {
-            where: vi.fn().mockImplementation(() => ({
-              limit: vi.fn().mockImplementation(() => schedules),
-            })),
-          }
-        }
-
-        if (tbl === 'workflow') {
-          return {
-            where: vi.fn().mockImplementation(() => ({
-              limit: vi.fn().mockImplementation(() => [workflowRecord]),
-            })),
-          }
-        }
-
-        if (tbl === 'environment_variables') {
-          return {
-            where: vi.fn().mockImplementation(() => ({
-              limit: vi.fn().mockImplementation(() => [envRecord]),
-            })),
-          }
-        }
-
-        return {
-          where: vi.fn().mockImplementation(() => ({
-            limit: vi.fn().mockImplementation(() => []),
-          })),
-        }
-      }),
-    }))
-
-    const update = vi.fn().mockImplementation(() => ({
-      set: vi.fn().mockImplementation(() => ({
-        where: vi.fn().mockResolvedValue([]),
-      })),
-    }))
-
-    return { db: { select, update } }
   })
 }
 
@@ -841,7 +631,7 @@ export interface StorageProviderMockOptions {
   provider?: 's3' | 'azure' | 'vercel' | 'local'
   isCloudEnabled?: boolean
   throwError?: boolean
-  errorMessage?: string
+  failureText?: string
   presignedUrl?: string
   uploadHeaders?: Record<string, string>
 }
@@ -854,7 +644,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
     provider = 's3',
     isCloudEnabled = true,
     throwError = false,
-    errorMessage = 'Storage error',
+    failureText: storageFailureText = 'Storage error',
     presignedUrl = 'https://example.com/presigned-url',
     uploadHeaders = {},
   } = options
@@ -1006,7 +796,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
     vi.doMock('@aws-sdk/s3-request-presigner', () => ({
       getSignedUrl: vi.fn().mockImplementation(() => {
         if (throwError) {
-          return Promise.reject(new Error(errorMessage))
+          return Promise.reject(new Error(storageFailureText))
         }
         return Promise.resolve(presignedUrl)
       }),
@@ -1022,7 +812,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
     const mockBlobServiceClient = {
       getContainerClient: vi.fn(() => {
         if (throwError) {
-          throw new Error(errorMessage)
+          throw new Error(storageFailureText)
         }
         return mockContainerClient
       }),
@@ -1206,7 +996,7 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
     groupBy: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockImplementation(() => {
       if (selectOptions.throwError) {
-        return Promise.reject(createDbError('select', selectOptions.errorMessage))
+        return Promise.reject(createDbError('select', selectOptions.failureText))
       }
       const result = selectOptions.results?.[selectCallCount] || selectOptions.results?.[0] || []
       selectCallCount++
@@ -1214,7 +1004,7 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
     }),
     limit: vi.fn().mockImplementation(() => {
       if (selectOptions.throwError) {
-        return Promise.reject(createDbError('select', selectOptions.errorMessage))
+        return Promise.reject(createDbError('select', selectOptions.failureText))
       }
       const result = selectOptions.results?.[selectCallCount] || selectOptions.results?.[0] || []
       selectCallCount++
@@ -1226,13 +1016,13 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
     values: vi.fn().mockImplementation(() => ({
       returning: vi.fn().mockImplementation(() => {
         if (insertOptions.throwError) {
-          return Promise.reject(createDbError('insert', insertOptions.errorMessage))
+          return Promise.reject(createDbError('insert', insertOptions.failureText))
         }
         return Promise.resolve(insertOptions.results)
       }),
       onConflictDoUpdate: vi.fn().mockImplementation(() => {
         if (insertOptions.throwError) {
-          return Promise.reject(createDbError('insert', insertOptions.errorMessage))
+          return Promise.reject(createDbError('insert', insertOptions.failureText))
         }
         return Promise.resolve(insertOptions.results)
       }),
@@ -1244,13 +1034,13 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
       where: vi.fn().mockImplementation(() => ({
         returning: vi.fn().mockImplementation(() => {
           if (updateOptions.throwError) {
-            return Promise.reject(createDbError('update', updateOptions.errorMessage))
+            return Promise.reject(createDbError('update', updateOptions.failureText))
           }
           return Promise.resolve(updateOptions.results)
         }),
         then: vi.fn().mockImplementation((resolve) => {
           if (updateOptions.throwError) {
-            return Promise.reject(createDbError('update', updateOptions.errorMessage))
+            return Promise.reject(createDbError('update', updateOptions.failureText))
           }
           return Promise.resolve(updateOptions.results).then(resolve)
         }),
@@ -1261,7 +1051,7 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
   const createDeleteChain = () => ({
     where: vi.fn().mockImplementation(() => {
       if (deleteOptions.throwError) {
-        return Promise.reject(createDbError('delete', deleteOptions.errorMessage))
+        return Promise.reject(createDbError('delete', deleteOptions.failureText))
       }
       return Promise.resolve(deleteOptions.results)
     }),
@@ -1270,7 +1060,7 @@ export function createMockDatabase(options: MockDatabaseOptions = {}) {
   const createTransactionMock = () => {
     return vi.fn().mockImplementation(async (callback: any) => {
       if (transactionOptions.throwError) {
-        throw createDbError('transaction', transactionOptions.errorMessage)
+        throw createDbError('transaction', transactionOptions.failureText)
       }
 
       const tx = {
@@ -1482,34 +1272,6 @@ export function setupAuthApiMocks(options: { operations?: AuthApiMockOptions['op
     auth: { authenticated: false }, // Auth routes typically don't require authentication
     authApi: { operations: options.operations },
   })
-}
-
-/**
- * Setup for knowledge base API routes
- */
-export function setupKnowledgeApiMocks(
-  options: {
-    authenticated?: boolean
-    withDocumentProcessing?: boolean
-    withEmbedding?: boolean
-  } = {}
-) {
-  const mocks = setupComprehensiveTestMocks({
-    auth: { authenticated: options.authenticated ?? true },
-    database: {
-      select: { results: [[]] },
-    },
-  })
-
-  const knowledgeMocks = setupKnowledgeMocks({
-    withDocumentProcessing: options.withDocumentProcessing,
-    withEmbedding: options.withEmbedding,
-  })
-
-  return {
-    ...mocks,
-    knowledge: knowledgeMocks,
-  }
 }
 
 export function setupApiTestMocks(

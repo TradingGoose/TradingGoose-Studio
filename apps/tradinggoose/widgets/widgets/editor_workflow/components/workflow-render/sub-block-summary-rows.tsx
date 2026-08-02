@@ -47,7 +47,7 @@ function SummaryTooltip({ content, children }: { content?: string; children: Rea
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent side='top'>
         <span className='block max-w-[320px] whitespace-normal break-words text-left'>
           {tooltipContent}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
@@ -65,6 +65,7 @@ export function useUserInputMentionSources({
   )
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([])
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false)
+  const knowledgeLoadOwnerRef = useRef({ generation: 0, pending: false })
   const [blocksList, setBlocksList] = useState<BlockItem[]>([])
   const [isLoadingBlocks, setIsLoadingBlocks] = useState(false)
   const [logsList, setLogsList] = useState<LogItem[]>([])
@@ -162,13 +163,16 @@ export function useUserInputMentionSources({
   )
 
   const ensureKnowledgeLoaded = useCallback(async () => {
-    if (isLoadingKnowledge || knowledgeBases.length > 0) {
-      return
-    }
+    const owner = knowledgeLoadOwnerRef.current
+    if (owner.pending || knowledgeBases.length > 0) return
+    const generation = ++owner.generation
+    owner.pending = true
+    const lifecycle = workspaceLifecycle
 
     try {
       setIsLoadingKnowledge(true)
       const items = await fetchWorkspaceKnowledgeBases(workspaceId)
+      if (!lifecycle.active || generation !== owner.generation) return
       const sorted = [...items].sort((a: any, b: any) => {
         const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime()
         const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime()
@@ -183,9 +187,12 @@ export function useUserInputMentionSources({
       )
     } catch {
     } finally {
-      setIsLoadingKnowledge(false)
+      if (lifecycle.active && generation === owner.generation) {
+        owner.pending = false
+        setIsLoadingKnowledge(false)
+      }
     }
-  }, [isLoadingKnowledge, knowledgeBases.length, workspaceId])
+  }, [knowledgeBases.length, workspaceId, workspaceLifecycle])
 
   const ensureBlocksLoaded = useCallback(async () => {
     if (isLoadingBlocks || blocksList.length > 0) {
@@ -326,6 +333,9 @@ export function useUserInputMentionSources({
   }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntityState.workflow])
 
   useLayoutEffect(() => {
+    const knowledgeOwner = knowledgeLoadOwnerRef.current
+    knowledgeOwner.generation += 1
+    knowledgeOwner.pending = false
     workspaceLifecycle.active = true
     setPastChats([])
     setIsLoadingPastChats(false)
@@ -336,6 +346,8 @@ export function useUserInputMentionSources({
     setIsLoadingLogs(false)
 
     return () => {
+      knowledgeOwner.generation += 1
+      knowledgeOwner.pending = false
       workspaceLifecycle.active = false
     }
   }, [workspaceLifecycle])

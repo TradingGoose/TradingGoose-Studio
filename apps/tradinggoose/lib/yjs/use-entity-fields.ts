@@ -37,13 +37,13 @@ import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
-import { skillsKeys } from '@/hooks/queries/skills'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 
 type SavedEntityYjsSessionState = {
   key: string | null
   result: YjsProviderBootstrapResult | null
   error: (Error & { retryable?: boolean }) | null
+  isRetrying: boolean
 }
 
 type SavedEntityYjsCollectionState = {
@@ -74,6 +74,7 @@ function readSharedYjsSessionEntry(entry: SharedYjsSessionEntry): SavedEntityYjs
     key: entry.key,
     result: entry.result,
     error: entry.error,
+    isRetrying: Boolean(entry.error && entry.initPromise),
   }
 }
 
@@ -81,7 +82,12 @@ function areSavedEntityYjsSessionStatesEqual(
   left: SavedEntityYjsSessionState,
   right: SavedEntityYjsSessionState
 ): boolean {
-  return left.key === right.key && left.result === right.result && left.error === right.error
+  return (
+    left.key === right.key &&
+    left.result === right.result &&
+    left.error === right.error &&
+    left.isRetrying === right.isRetrying
+  )
 }
 
 function emitSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
@@ -109,12 +115,17 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
 function initializeSharedYjsSessionEntry(
   entry: SharedYjsSessionEntry,
   openSession: OpenYjsSession,
-  errorMessage: string
+  fallbackReason: string,
+  retryTerminalFailure = false
 ): void {
-  if (entry.error?.retryable === false || entry.initPromise || entry.result) return
+  if (
+    (!retryTerminalFailure && entry.error?.retryable === false) ||
+    entry.initPromise ||
+    entry.result
+  ) {
+    return
+  }
 
-  entry.error = null
-  emitSharedYjsSessionEntry(entry)
   entry.initPromise = openSession(entry.pendingLocalEdits)
     .then((next) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
@@ -132,7 +143,7 @@ function initializeSharedYjsSessionEntry(
           entry.result = null
           next.dispose()
           emitSharedYjsSessionEntry(entry)
-          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+          scheduleSharedYjsSessionReopen(entry, openSession, fallbackReason)
         } else {
           entry.result = null
           entry.error = event.error
@@ -143,9 +154,9 @@ function initializeSharedYjsSessionEntry(
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      const error = (nextError instanceof Error ? nextError : new Error(errorMessage)) as Error & {
-        retryable?: boolean
-      }
+      const error = (
+        nextError instanceof Error ? nextError : new Error(fallbackReason)
+      ) as Error & { retryable?: boolean }
       entry.error = error
     })
     .finally(() => {
@@ -153,9 +164,10 @@ function initializeSharedYjsSessionEntry(
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
       if (entry.error?.retryable !== false && !entry.result) {
-        scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+        scheduleSharedYjsSessionReopen(entry, openSession, fallbackReason)
       }
     })
+  emitSharedYjsSessionEntry(entry)
 }
 
 const SESSION_REOPEN_RETRY_MS = 1_000
@@ -163,11 +175,11 @@ const SESSION_REOPEN_RETRY_MS = 1_000
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: OpenYjsSession,
-  errorMessage: string
+  fallbackReason: string
 ): void {
   setTimeout(() => {
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+    initializeSharedYjsSessionEntry(entry, openSession, fallbackReason)
   }, SESSION_REOPEN_RETRY_MS)
 }
 
@@ -186,7 +198,7 @@ function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
 function retainSharedYjsSession(
   sessionKey: string,
   openSession: OpenYjsSession,
-  errorMessage: string,
+  fallbackReason: string,
   listener: (entry: SharedYjsSessionEntry) => void
 ): () => void {
   const entry = getSharedYjsSessionEntry(sessionKey)
@@ -194,7 +206,7 @@ function retainSharedYjsSession(
   entry.refCount += 1
   entry.listeners.add(notify)
   notify()
-  initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+  initializeSharedYjsSessionEntry(entry, openSession, fallbackReason)
   return () => {
     entry.listeners.delete(notify)
     releaseSharedYjsSessionEntry(entry)
@@ -210,7 +222,6 @@ function invalidateSavedEntityQueries(
 
   switch (entityKind) {
     case 'skill':
-      void queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
       return
     case 'custom_tool':
       void queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
@@ -235,34 +246,46 @@ function invalidateSavedEntityQueries(
 function useYjsSession(
   sessionKey: string | null,
   openSession: OpenYjsSession | null,
-  errorMessage: string
+  fallbackReason: string
 ) {
   const [state, setState] = useState<SavedEntityYjsSessionState>({
     key: null,
     result: null,
     error: null,
+    isRetrying: false,
   })
 
   useEffect(() => {
     if (!sessionKey || !openSession) {
-      const next = { key: sessionKey, result: null, error: null }
+      const next = { key: sessionKey, result: null, error: null, isRetrying: false }
       setState((current) => (areSavedEntityYjsSessionStatesEqual(current, next) ? current : next))
       return
     }
 
-    return retainSharedYjsSession(sessionKey, openSession, errorMessage, (entry) => {
+    return retainSharedYjsSession(sessionKey, openSession, fallbackReason, (entry) => {
       const next = readSharedYjsSessionEntry(entry)
       setState((current) => (areSavedEntityYjsSessionStatesEqual(current, next) ? current : next))
     })
-  }, [errorMessage, openSession, sessionKey])
+  }, [fallbackReason, openSession, sessionKey])
 
-  return state.key === sessionKey ? state : null
+  const retry = useCallback(() => {
+    if (!sessionKey || !openSession) return
+    const entry = sharedYjsSessionEntries.get(sessionKey)
+    if (!entry) return
+    initializeSharedYjsSessionEntry(entry, openSession, fallbackReason, true)
+  }, [fallbackReason, openSession, sessionKey])
+
+  const current =
+    state.key === sessionKey
+      ? state
+      : { key: sessionKey, result: null, error: null, isRetrying: false }
+  return { ...current, retry }
 }
 
 export function useYjsTargetSession(
   descriptor: ReviewTargetDescriptor | null,
   accessMode: ReviewAccessMode,
-  errorMessage = 'Failed to open Yjs session'
+  fallbackReason = 'Failed to open Yjs session'
 ) {
   const sessionKey = descriptor
     ? [
@@ -278,13 +301,15 @@ export function useYjsTargetSession(
       bootstrapYjsProvider(descriptor!, undefined, accessMode, pendingLocalEdits),
     [accessMode, descriptor]
   )
-  const activeState = useYjsSession(sessionKey, sessionKey ? openSession : null, errorMessage)
+  const activeState = useYjsSession(sessionKey, sessionKey ? openSession : null, fallbackReason)
   return {
-    result: activeState?.result ?? null,
-    doc: activeState?.result?.doc ?? null,
-    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error?.message ?? null,
-    isTerminalError: activeState?.error?.retryable === false,
+    result: activeState.result,
+    doc: activeState.result?.doc ?? null,
+    isLoading: Boolean(sessionKey && !activeState.result && !activeState.error),
+    isRetrying: activeState.isRetrying,
+    error: activeState.error?.message ?? null,
+    isTerminalError: activeState.error?.retryable === false,
+    retry: activeState.retry,
   }
 }
 
@@ -323,8 +348,10 @@ export function useSavedEntityYjsSession(
     doc: targetSession.doc,
     save,
     isLoading: targetSession.isLoading,
+    isRetrying: targetSession.isRetrying,
     error: targetSession.error,
     isTerminalError: targetSession.isTerminalError,
+    retry: targetSession.retry,
   }
 }
 
@@ -422,12 +449,45 @@ export function useSavedEntityYjsSessionCollection(
   }, [accessMode, collectionKey, descriptors, entityKind])
 
   const current = state.key === collectionKey ? state : null
+  const retry = useCallback(() => {
+    for (const descriptor of descriptors) {
+      const sessionKey = [
+        descriptor.entityKind,
+        accessMode,
+        descriptor.workspaceId ?? '',
+        descriptor.ownerUserId ?? '',
+        descriptor.yjsSessionId,
+      ].join(':')
+      const entry = sharedYjsSessionEntries.get(sessionKey)
+      if (!entry) continue
+      initializeSharedYjsSessionEntry(
+        entry,
+        (pendingLocalEdits) =>
+          bootstrapYjsProvider(descriptor, undefined, accessMode, pendingLocalEdits),
+        `Failed to open ${entityKind} entity session`,
+        true
+      )
+    }
+  }, [accessMode, descriptors, entityKind])
+  const isRetrying = descriptors.some((descriptor) => {
+    const sessionKey = [
+      descriptor.entityKind,
+      accessMode,
+      descriptor.workspaceId ?? '',
+      descriptor.ownerUserId ?? '',
+      descriptor.yjsSessionId,
+    ].join(':')
+    const entry = sharedYjsSessionEntries.get(sessionKey)
+    return Boolean(entry?.error && entry.initPromise)
+  })
   return {
     documents: current?.documents ?? new Map<string, Y.Doc>(),
     isLoading: Boolean(
       collectionKey && !current?.error && current?.documents.size !== entityIds.length
     ),
+    isRetrying,
     error: current?.error ?? null,
+    retry,
   }
 }
 
@@ -493,9 +553,11 @@ export function useEntityList(
   return {
     members: memberSnapshot.current.members,
     hasLiveSnapshot: memberSnapshot.current.hasLiveSnapshot,
-    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error?.message ?? null,
+    isLoading: Boolean(sessionKey && !activeState.result && !activeState.error),
+    isRetrying: activeState.isRetrying,
+    error: activeState.error?.message ?? null,
     isTerminalError,
+    retry: activeState.retry,
   }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { type KeyboardEvent, useState } from 'react'
+import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,20 +27,12 @@ interface PasswordAuthProps {
 
 export default function PasswordAuth({ identifier, onAuthSuccess, copy }: PasswordAuthProps) {
   const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showValidationError, setShowValidationError] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAuthenticate()
-    }
-  }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newPassword = e.target.value
@@ -49,15 +41,16 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
     setPasswordErrors([])
   }
 
-  const handleAuthenticate = async () => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
     if (!password.trim()) {
       setPasswordErrors([copy.auth.password.validation.required])
       setShowValidationError(true)
       return
     }
 
-    setAuthError(null)
-    setIsAuthenticating(true)
+    setIsSubmitting(true)
 
     try {
       const response = await fetch(`/api/chat/${identifier}`, {
@@ -86,9 +79,10 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
       setPasswordErrors([copy.auth.password.errors.authenticationError])
       setShowValidationError(true)
     } finally {
-      setIsAuthenticating(false)
+      setIsSubmitting(false)
     }
   }
+  const hasPasswordError = showValidationError && passwordErrors.length > 0
 
   return (
     <div className=''>
@@ -106,10 +100,8 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleAuthenticate()
-              }}
+              onSubmit={handleSubmit}
+              aria-busy={isSubmitting}
               className={`${inter.className} mt-8 w-full space-y-8`}
             >
               <div className='space-y-6'>
@@ -121,7 +113,9 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
                     <Input
                       id='password'
                       name='password'
-                      required
+                      aria-invalid={hasPasswordError}
+                      aria-describedby={hasPasswordError ? 'chat-password-auth-error' : undefined}
+                      required={true}
                       type={showPassword ? 'text' : 'password'}
                       autoCapitalize='none'
                       autoComplete='new-password'
@@ -129,11 +123,9 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
                       placeholder={copy.auth.password.placeholder}
                       value={password}
                       onChange={handlePasswordChange}
-                      onKeyDown={handleKeyDown}
                       className={cn(
                         'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                        showValidationError &&
-                          passwordErrors.length > 0 &&
+                        hasPasswordError &&
                           'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                       )}
                       autoFocus
@@ -142,23 +134,31 @@ export default function PasswordAuth({ identifier, onAuthSuccess, copy }: Passwo
                       type='button'
                       onClick={() => setShowPassword(!showPassword)}
                       className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                      aria-label={showPassword ? copy.auth.password.hidePassword : copy.auth.password.showPassword}
+                      aria-label={
+                        showPassword
+                          ? copy.auth.password.hidePassword
+                          : copy.auth.password.showPassword
+                      }
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  {showValidationError && passwordErrors.length > 0 && (
-                    <div className='mt-1 space-y-1 text-red-400 text-xs'>
-                      {passwordErrors.map((error, index) => (
-                        <p key={index}>{error}</p>
+                  {hasPasswordError && (
+                    <div
+                      id='chat-password-auth-error'
+                      role='alert'
+                      className='mt-1 space-y-1 text-red-400 text-xs'
+                    >
+                      {passwordErrors.map((error) => (
+                        <p key={error}>{error}</p>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
 
-              <Button type='submit' className={primaryButtonClasses} disabled={isAuthenticating}>
-                {isAuthenticating ? copy.auth.password.submitting : copy.auth.password.submit}
+              <Button type='submit' className={primaryButtonClasses} disabled={isSubmitting}>
+                {isSubmitting ? copy.auth.password.submitting : copy.auth.password.submit}
               </Button>
             </form>
           </div>

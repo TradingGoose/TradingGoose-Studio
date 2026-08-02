@@ -296,9 +296,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
       } catch (error) {
         helpLogger.error('Error submitting help request:', { error })
         setSubmitStatus('error')
-        setErrorMessage(
-          error instanceof Error ? error.message : tHelp('errorMessages.unknown')
-        )
+        setErrorMessage(error instanceof Error ? error.message : tHelp('errorMessages.unknown'))
       } finally {
         setIsSubmitting(false)
       }
@@ -318,16 +316,27 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
       contentClassName='flex h-[75vh] flex-col p-0'
     >
       <form onSubmit={handleSubmit(onSubmit)} className='flex min-h-0 flex-1 flex-col'>
-        <div ref={scrollContainerRef} className='scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-20'>
+        <div
+          ref={scrollContainerRef}
+          className='scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-20'
+        >
           <div className='px-6'>
             <div className='space-y-4'>
               <div className='space-y-1'>
                 <Label htmlFor='type'>{tHelp('requestType')}</Label>
                 <Select
                   defaultValue={DEFAULT_REQUEST_TYPE}
-                  onValueChange={(value) =>
-                    setValue('type', value as FormValues['type'], { shouldValidate: true })
-                  }
+                  items={{
+                    bug: tHelp('requestTypes.bug'),
+                    feedback: tHelp('requestTypes.feedback'),
+                    feature_request: tHelp('requestTypes.feature_request'),
+                    other: tHelp('requestTypes.other'),
+                  }}
+                  onValueChange={(value) => {
+                    if (value !== null) {
+                      setValue('type', value as FormValues['type'], { shouldValidate: true })
+                    }
+                  }}
                 >
                   <SelectTrigger
                     id='type'

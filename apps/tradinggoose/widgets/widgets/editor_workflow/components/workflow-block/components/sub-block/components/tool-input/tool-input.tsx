@@ -884,46 +884,48 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                       {/* Only render the tool usage control if the provider supports it */}
                       {supportsToolControl && (
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Toggle
-                              className='group flex h-6 items-center justify-center rounded-sm px-2 py-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=on]:bg-transparent'
-                              pressed={true}
-                              onPressedChange={() => {}}
-                              onClick={(e: React.MouseEvent) => {
-                                e.stopPropagation()
-                                // Cycle through the states: auto -> force -> none -> auto
-                                const currentState = tool.usageControl || 'auto'
-                                const nextState =
-                                  currentState === 'auto'
-                                    ? 'force'
-                                    : currentState === 'force'
-                                      ? 'none'
-                                      : 'auto'
-                                handleUsageControlChange(toolIndex, nextState)
-                              }}
-                              aria-label={copy.toggleToolUsageControl}
-                            >
-                              <span
-                                className={`font-medium text-xs ${
-                                  tool.usageControl === 'auto'
-                                    ? 'block text-muted-foreground'
-                                    : 'hidden'
-                                }`}
+                          <TooltipTrigger
+                            render={
+                              <Toggle
+                                className='group flex h-6 items-center justify-center rounded-sm px-2 py-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 data-[pressed]:bg-transparent'
+                                pressed={true}
+                                onPressedChange={() => {}}
+                                onClick={(e: React.MouseEvent) => {
+                                  e.stopPropagation()
+                                  // Cycle through the states: auto -> force -> none -> auto
+                                  const currentState = tool.usageControl || 'auto'
+                                  const nextState =
+                                    currentState === 'auto'
+                                      ? 'force'
+                                      : currentState === 'force'
+                                        ? 'none'
+                                        : 'auto'
+                                  handleUsageControlChange(toolIndex, nextState)
+                                }}
+                                aria-label={copy.toggleToolUsageControl}
                               >
-                                {copy.usageControl.auto}
-                              </span>
-                              <span
-                                className={`font-medium text-xs ${tool.usageControl === 'force' ? 'block text-muted-foreground' : 'hidden'}`}
-                              >
-                                {copy.usageControl.force}
-                              </span>
-                              <span
-                                className={`font-medium text-xs ${tool.usageControl === 'none' ? 'block text-muted-foreground' : 'hidden'}`}
-                              >
-                                {copy.usageControl.none}
-                              </span>
-                            </Toggle>
-                          </TooltipTrigger>
+                                <span
+                                  className={`font-medium text-xs ${
+                                    tool.usageControl === 'auto'
+                                      ? 'block text-muted-foreground'
+                                      : 'hidden'
+                                  }`}
+                                >
+                                  {copy.usageControl.auto}
+                                </span>
+                                <span
+                                  className={`font-medium text-xs ${tool.usageControl === 'force' ? 'block text-muted-foreground' : 'hidden'}`}
+                                >
+                                  {copy.usageControl.force}
+                                </span>
+                                <span
+                                  className={`font-medium text-xs ${tool.usageControl === 'none' ? 'block text-muted-foreground' : 'hidden'}`}
+                                >
+                                  {copy.usageControl.none}
+                                </span>
+                              </Toggle>
+                            }
+                          />
                           <TooltipContent className='max-w-[280px] p-2' side='top'>
                             <p className='text-xs'>
                               {tool.usageControl === 'auto' && (

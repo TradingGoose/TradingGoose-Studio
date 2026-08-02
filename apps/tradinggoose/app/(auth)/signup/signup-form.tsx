@@ -3,29 +3,28 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { client } from '@/lib/auth-client'
-import { quickValidateEmail } from '@/lib/email/validation'
-import { getEnv, isTruthy } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
 import {
   isRegistrationDisabledReason,
   isRegistrationWaitlistReason,
   normalizeAuthErrorCode,
 } from '@/lib/auth/auth-error-copy'
-import { type RegistrationMode } from '@/lib/registration/shared'
+import { client } from '@/lib/auth-client'
+import { quickValidateEmail } from '@/lib/email/validation'
+import { getEnv, isTruthy } from '@/lib/env'
+import { createLogger } from '@/lib/logs/console/logger'
+import type { RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
-import { Link, useRouter } from '@/i18n/navigation'
-import { useMessages } from 'next-intl'
-import { normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
-import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
-import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
+import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
+import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
+import { Link, useRouter } from '@/i18n/navigation'
+import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SignupForm')
 
@@ -57,19 +56,19 @@ const validateEmailField = (
     invalid: string
   }
 ): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push(messages.required)
-    return errors
+    validationMessages.push(messages.required)
+    return validationMessages
   }
 
   const validation = quickValidateEmail(emailValue.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(messages.invalid)
+    validationMessages.push(messages.invalid)
   }
 
-  return errors
+  return validationMessages
 }
 
 function SignupFormContent({
@@ -143,61 +142,61 @@ function SignupFormContent({
   }, [searchParams])
 
   const validatePassword = (passwordValue: string): string[] => {
-    const errors: string[] = []
+    const validationMessages: string[] = []
 
     if (!PASSWORD_VALIDATIONS.minLength.test(passwordValue)) {
-      errors.push(signupCopy.validation.passwordMinLength)
+      validationMessages.push(signupCopy.validation.passwordMinLength)
     }
 
     if (!PASSWORD_VALIDATIONS.uppercase.test(passwordValue)) {
-      errors.push(signupCopy.validation.passwordUppercase)
+      validationMessages.push(signupCopy.validation.passwordUppercase)
     }
 
     if (!PASSWORD_VALIDATIONS.lowercase.test(passwordValue)) {
-      errors.push(signupCopy.validation.passwordLowercase)
+      validationMessages.push(signupCopy.validation.passwordLowercase)
     }
 
     if (!PASSWORD_VALIDATIONS.number.test(passwordValue)) {
-      errors.push(signupCopy.validation.passwordNumber)
+      validationMessages.push(signupCopy.validation.passwordNumber)
     }
 
     if (!PASSWORD_VALIDATIONS.special.test(passwordValue)) {
-      errors.push(signupCopy.validation.passwordSpecial)
+      validationMessages.push(signupCopy.validation.passwordSpecial)
     }
 
-    return errors
+    return validationMessages
   }
 
   const validateName = (nameValue: string): string[] => {
-    const errors: string[] = []
+    const validationMessages: string[] = []
 
     if (!NAME_VALIDATIONS.required(nameValue)) {
-      errors.push(signupCopy.validation.nameRequired)
-      return errors
+      validationMessages.push(signupCopy.validation.nameRequired)
+      return validationMessages
     }
 
     if (!NAME_VALIDATIONS.notEmpty(nameValue)) {
-      errors.push(signupCopy.validation.nameEmpty)
-      return errors
+      validationMessages.push(signupCopy.validation.nameEmpty)
+      return validationMessages
     }
 
     if (!NAME_VALIDATIONS.validCharacters.test(nameValue.trim())) {
-      errors.push(signupCopy.validation.nameCharacters)
+      validationMessages.push(signupCopy.validation.nameCharacters)
     }
 
     if (!NAME_VALIDATIONS.noConsecutiveSpaces.test(nameValue)) {
-      errors.push(signupCopy.validation.nameSpaces)
+      validationMessages.push(signupCopy.validation.nameSpaces)
     }
 
-    return errors
+    return validationMessages
   }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newPassword = e.target.value
     setPassword(newPassword)
 
-    const errors = validatePassword(newPassword)
-    setPasswordErrors(errors)
+    const passwordValidationMessages = validatePassword(newPassword)
+    setPasswordErrors(passwordValidationMessages)
     setShowValidationError(false)
   }
 
@@ -205,8 +204,8 @@ function SignupFormContent({
     const rawValue = e.target.value
     setName(rawValue)
 
-    const errors = validateName(rawValue)
-    setNameErrors(errors)
+    const nameValidationMessages = validateName(rawValue)
+    setNameErrors(nameValidationMessages)
     setShowNameValidationError(false)
   }
 
@@ -214,11 +213,11 @@ function SignupFormContent({
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail, {
+    const emailValidationMessages = validateEmailField(newEmail, {
       required: signupCopy.validation.emailRequired,
       invalid: signupCopy.validation.emailInvalid,
     })
-    setEmailErrors(errors)
+    setEmailErrors(emailValidationMessages)
     setShowEmailValidationError(false)
 
     if (emailError) {
@@ -249,16 +248,16 @@ function SignupFormContent({
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
 
-    const errors = validatePassword(passwordValue)
-    setPasswordErrors(errors)
+    const passwordValidationErrors = validatePassword(passwordValue)
+    setPasswordErrors(passwordValidationErrors)
 
-    setShowValidationError(errors.length > 0)
+    setShowValidationError(passwordValidationErrors.length > 0)
 
     try {
       if (
         nameValidationErrors.length > 0 ||
         emailValidationErrors.length > 0 ||
-        errors.length > 0
+        passwordValidationErrors.length > 0
       ) {
         if (nameValidationErrors.length > 0) {
           setNameErrors([nameValidationErrors[0]])
@@ -268,8 +267,8 @@ function SignupFormContent({
           setEmailErrors([emailValidationErrors[0]])
           setShowEmailValidationError(true)
         }
-        if (errors.length > 0) {
-          setPasswordErrors([errors[0]])
+        if (passwordValidationErrors.length > 0) {
+          setPasswordErrors([passwordValidationErrors[0]])
           setShowValidationError(true)
         }
         setIsLoading(false)
@@ -390,7 +389,12 @@ function SignupFormContent({
 
       {registrationMode === 'waitlist' && !isInviteFlow ? <AuthWaitlistNote /> : null}
 
-      <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        aria-busy={isLoading}
+        className={`${inter.className} mt-8 space-y-8`}
+      >
         <div className='space-y-6'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
@@ -401,11 +405,16 @@ function SignupFormContent({
               name='name'
               placeholder={commonCopy.enterYourName}
               type='text'
+              required
               autoCapitalize='words'
               autoComplete='name'
               title={signupCopy.nameTitle}
               value={name}
               onChange={handleNameChange}
+              aria-invalid={showNameValidationError && nameErrors.length > 0}
+              aria-describedby={
+                showNameValidationError && nameErrors.length > 0 ? 'signup-name-errors' : undefined
+              }
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showNameValidationError &&
@@ -414,7 +423,11 @@ function SignupFormContent({
               )}
             />
             {showNameValidationError && nameErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='signup-name-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {nameErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}
@@ -429,11 +442,21 @@ function SignupFormContent({
               id='email'
               name='email'
               placeholder={commonCopy.enterYourEmail}
+              type='email'
+              required
               autoCapitalize='none'
               autoComplete='email'
               autoCorrect='off'
               value={email}
               onChange={handleEmailChange}
+              aria-invalid={
+                Boolean(emailError) || (showEmailValidationError && emailErrors.length > 0)
+              }
+              aria-describedby={
+                emailError || (showEmailValidationError && emailErrors.length > 0)
+                  ? 'signup-email-errors'
+                  : undefined
+              }
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 (emailError || (showEmailValidationError && emailErrors.length > 0)) &&
@@ -441,14 +464,18 @@ function SignupFormContent({
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='signup-email-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {emailErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}
               </div>
             )}
             {emailError && !showEmailValidationError && (
-              <div className='mt-1 text-red-400 text-xs'>
+              <div id='signup-email-errors' role='alert' className='mt-1 text-red-400 text-xs'>
                 <p>{emailError}</p>
               </div>
             )}
@@ -462,12 +489,20 @@ function SignupFormContent({
                 id='password'
                 name='password'
                 type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
                 autoCapitalize='none'
                 autoComplete='new-password'
                 placeholder={commonCopy.enterYourPassword}
                 autoCorrect='off'
                 value={password}
                 onChange={handlePasswordChange}
+                aria-invalid={showValidationError && passwordErrors.length > 0}
+                aria-describedby={
+                  showValidationError && passwordErrors.length > 0
+                    ? 'signup-password-errors'
+                    : undefined
+                }
                 className={cn(
                   'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   showValidationError &&
@@ -485,7 +520,11 @@ function SignupFormContent({
               </button>
             </div>
             {showValidationError && passwordErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='signup-password-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {passwordErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}

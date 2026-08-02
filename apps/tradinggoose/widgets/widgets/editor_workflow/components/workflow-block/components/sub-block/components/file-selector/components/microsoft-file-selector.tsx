@@ -715,36 +715,41 @@ export function MicrosoftFileSelector({
             }
           }}
         >
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='h-10 w-full min-w-0 justify-between'
-              disabled={
-                disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
-              }
-            >
-              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-                {canShowPreview ? (
-                  <>
-                    {getFileIcon(selectedFile, 'sm')}
-                    <span className='truncate font-normal'>{selectedFile.name}</span>
-                  </>
-                ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
-                  <>
-                    <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
-                  </>
-                ) : (
-                  <>
-                    {getProviderIcon(provider)}
-                    <span className='truncate text-muted-foreground'>{labelText}</span>
-                  </>
-                )}
-              </div>
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={
+              disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
+            }
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={open}
+                className='h-10 w-full min-w-0 justify-between'
+                disabled={
+                  disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
+                }
+              />
+            }
+          >
+            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+              {canShowPreview ? (
+                <>
+                  {getFileIcon(selectedFile, 'sm')}
+                  <span className='truncate font-normal'>{selectedFile.name}</span>
+                </>
+              ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
+                <>
+                  <RefreshCw className='h-4 w-4 animate-spin' />
+                  <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
+                </>
+              ) : (
+                <>
+                  {getProviderIcon(provider)}
+                  <span className='truncate text-muted-foreground'>{labelText}</span>
+                </>
+              )}
+            </div>
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           {!isForeignCredential && (
             <PopoverContent className='w-[300px] p-0' align='start'>
@@ -891,11 +896,11 @@ export function MicrosoftFileSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           {getProviderIcon(provider)}
-                        <span>
-                          {formatTemplate(copy.connectProviderAccount, {
-                            providerName: getProviderName(provider),
-                          })}
-                        </span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: getProviderName(provider),
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { AdminRegistrationSnapshot } from '@/lib/admin/registration/types'
 import {
   DEFAULT_REGISTRATION_MODE,
@@ -7,6 +7,17 @@ import {
 } from '@/lib/registration/shared'
 
 const ADMIN_REGISTRATION_ENDPOINT = '/api/admin/registration'
+
+export type AdminRegistrationMutationInput =
+  | {
+      type: 'settings'
+      registrationMode: RegistrationMode
+    }
+  | {
+      type: 'waitlist'
+      ids: string[]
+      status: Extract<WaitlistStatus, 'approved' | 'rejected'>
+    }
 
 export const adminRegistrationKeys = {
   all: ['admin-registration'] as const,
@@ -43,9 +54,11 @@ function normalizeSnapshot(payload: unknown): AdminRegistrationSnapshot {
                 ? item.status
                 : ('pending' as WaitlistStatus),
             approvedAt: typeof item.approvedAt === 'string' ? item.approvedAt : null,
-            approvedByUserId: typeof item.approvedByUserId === 'string' ? item.approvedByUserId : null,
+            approvedByUserId:
+              typeof item.approvedByUserId === 'string' ? item.approvedByUserId : null,
             rejectedAt: typeof item.rejectedAt === 'string' ? item.rejectedAt : null,
-            rejectedByUserId: typeof item.rejectedByUserId === 'string' ? item.rejectedByUserId : null,
+            rejectedByUserId:
+              typeof item.rejectedByUserId === 'string' ? item.rejectedByUserId : null,
             signedUpAt: typeof item.signedUpAt === 'string' ? item.signedUpAt : null,
             userId: typeof item.userId === 'string' ? item.userId : null,
             createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
@@ -86,71 +99,25 @@ export function useAdminRegistrationSnapshot() {
   })
 }
 
-export function useSaveRegistrationMode() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (registrationMode: RegistrationMode) => {
-      const response = await fetch(ADMIN_REGISTRATION_ENDPOINT, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'settings',
-          registrationMode,
-        }),
-      })
-
-      const payload = await parseResponse(response)
-      if (!response.ok) {
-        const message =
-          payload && typeof payload === 'object' && 'error' in payload
-            ? String(payload.error)
-            : 'Failed to update registration mode'
-        throw new Error(message)
-      }
-
-      return normalizeSnapshot(payload)
-    },
-    onSuccess: (snapshot) => {
-      queryClient.setQueryData(adminRegistrationKeys.snapshot(), snapshot)
-    },
+export async function updateAdminRegistration(
+  input: AdminRegistrationMutationInput
+): Promise<AdminRegistrationSnapshot> {
+  const response = await fetch(ADMIN_REGISTRATION_ENDPOINT, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
   })
-}
 
-export function useUpdateWaitlistStatuses() {
-  const queryClient = useQueryClient()
+  const payload = await parseResponse(response)
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === 'object' && 'error' in payload
+        ? String(payload.error)
+        : input.type === 'settings'
+          ? 'Failed to update registration mode'
+          : 'Failed to update waitlist entry'
+    throw new Error(message)
+  }
 
-  return useMutation({
-    mutationFn: async ({
-      ids,
-      status,
-    }: {
-      ids: string[]
-      status: Extract<WaitlistStatus, 'approved' | 'rejected'>
-    }) => {
-      const response = await fetch(ADMIN_REGISTRATION_ENDPOINT, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'waitlist',
-          ids,
-          status,
-        }),
-      })
-
-      const payload = await parseResponse(response)
-      if (!response.ok) {
-        const message =
-          payload && typeof payload === 'object' && 'error' in payload
-            ? String(payload.error)
-            : 'Failed to update waitlist entry'
-        throw new Error(message)
-      }
-
-      return normalizeSnapshot(payload)
-    },
-    onSuccess: (snapshot) => {
-      queryClient.setQueryData(adminRegistrationKeys.snapshot(), snapshot)
-    },
-  })
+  return normalizeSnapshot(payload)
 }

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { webhook as webhookTable, workflow as workflowTable } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
           `https://graph.microsoft.com/v1.0/subscriptions/${externalSubscriptionId}`,
           {
             method: 'PATCH',
+            signal: AbortSignal.timeout(30_000),
             headers: {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
@@ -115,16 +116,25 @@ export async function GET(request: NextRequest) {
 
         const payload = await res.json()
 
-        // Update webhook config with new expiration
-        const updatedConfig = {
-          ...config,
-          subscriptionExpiration: payload.expirationDateTime,
-        }
-
-        await db
+        const [updated] = await db
           .update(webhookTable)
-          .set({ providerConfig: updatedConfig, updatedAt: new Date() })
-          .where(eq(webhookTable.id, webhook.id))
+          .set({
+            providerConfig: sql`jsonb_set(coalesce(${webhookTable.providerConfig}::jsonb, '{}'::jsonb), '{subscriptionExpiration}', to_jsonb(${payload.expirationDateTime}::text), true)::json`,
+            updatedAt: sql`date_trunc('milliseconds', greatest(clock_timestamp(), ${webhookTable.updatedAt} + interval '1 millisecond'))`,
+          })
+          .where(
+            and(
+              eq(webhookTable.id, webhook.id),
+              eq(webhookTable.provider, 'microsoftteams'),
+              eq(webhookTable.isActive, true),
+              sql`${webhookTable.providerConfig}->>'externalSubscriptionId' = ${externalSubscriptionId}`
+            )
+          )
+          .returning({ id: webhookTable.id })
+        if (!updated) {
+          totalFailed++
+          continue
+        }
 
         logger.info(
           `Successfully renewed Teams subscription for webhook ${webhook.id}. New expiration: ${payload.expirationDateTime}`

@@ -44,7 +44,7 @@ describe('ListingSelectorDropdownContent localized copy', () => {
             activeGroupId='all'
             onActiveGroupChange={vi.fn()}
             results={[]}
-            isLoading={false}
+            busy={false}
             highlightedIndex={-1}
             onHighlightChange={vi.fn()}
             onSelect={vi.fn()}
@@ -56,7 +56,7 @@ describe('ListingSelectorDropdownContent localized copy', () => {
   }
 
   it('renders the loading state in Spanish from centralized listing selector copy', async () => {
-    await renderWithLocale('es', { isLoading: true })
+    await renderWithLocale('es', { busy: true })
 
     expect(container.textContent).toContain(
       getPublicCopy('es').workspace.widgets.listingSelector.searching

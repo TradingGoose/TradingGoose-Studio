@@ -32,7 +32,9 @@ export function EditorSkillWidgetBody({
   const {
     members: skillMembers,
     isLoading: isSkillListLoading,
+    isRetrying: isSkillListRetrying,
     error: skillListError,
+    retry: retrySkillList,
   } = useEntityList('skill', workspaceId)
   const requestedSkillMember = hasRequestedSkill
     ? skillMembers.find((member) => member.entityId === normalizedRequestedSkillId)
@@ -56,7 +58,14 @@ export function EditorSkillWidgetBody({
   }
 
   if (skillListError && skillMembers.length === 0) {
-    return <WidgetStateMessage message={skillListError} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadSkills}
+        variant='error'
+        onRetry={retrySkillList}
+        isRetrying={isSkillListRetrying}
+      />
+    )
   }
 
   if (
@@ -70,7 +79,14 @@ export function EditorSkillWidgetBody({
   }
 
   if (skillSession.error) {
-    return <WidgetStateMessage message={skillSession.error} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadSkills}
+        variant='error'
+        onRetry={skillSession.retry}
+        isRetrying={skillSession.isRetrying}
+      />
+    )
   }
 
   if (isSkillListLoading || skillSession.isLoading) {

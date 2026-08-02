@@ -347,9 +347,9 @@ export function UserMenu({
   const menuContent = (
     <DropdownMenuContent
       className={cn(
-        'max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto overflow-x-hidden',
+        'max-h-[var(--available-height)] overflow-y-auto overflow-x-hidden',
         sidebarTrigger
-          ? 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
+          ? 'w-[var(--anchor-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
           : 'w-64 rounded-lg'
       )}
       sideOffset={6}
@@ -357,29 +357,31 @@ export function UserMenu({
       <DropdownMenuGroup>
         <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-haspopup='menu'
-                aria-label={currentThemeAriaLabel}
-                className={widgetHeaderControlClassName(
-                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                )}
-                disabled={isThemeLoading || isGeneralLoading}
-                title={currentThemeLabel}
-              >
-                <span className='flex min-w-0 items-center gap-1.5'>
-                  <currentThemeOption.Icon
-                    className='h-4 w-4 shrink-0 text-muted-foreground'
-                    aria-hidden='true'
-                  />
-                  <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
-                </span>
-                <ChevronDown
-                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  aria-haspopup='menu'
+                  aria-label={currentThemeAriaLabel}
+                  className={widgetHeaderControlClassName(
+                    'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  )}
+                  disabled={isThemeLoading || isGeneralLoading}
+                  title={currentThemeLabel}
+                />
+              }
+            >
+              <span className='flex min-w-0 items-center gap-1.5'>
+                <currentThemeOption.Icon
+                  className='h-4 w-4 shrink-0 text-muted-foreground'
                   aria-hidden='true'
                 />
-              </button>
+                <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
+              </span>
+              <ChevronDown
+                className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
+                aria-hidden='true'
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               sideOffset={6}
@@ -394,11 +396,8 @@ export function UserMenu({
                     key={value}
                     className={cn(widgetHeaderMenuItemClassName, 'items-center')}
                     disabled={isThemeLoading || isGeneralLoading}
-                    onSelect={(event) => {
-                      if (isActive) {
-                        event.preventDefault()
-                        return
-                      }
+                    closeOnClick={!isActive}
+                    onClick={() => {
                       void handleThemeChange(value)
                     }}
                   >
@@ -414,22 +413,24 @@ export function UserMenu({
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-haspopup='menu'
-                aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
-                className={widgetHeaderControlClassName(
-                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                )}
-                title={getLocaleDisplayName(locale)}
-              >
-                <span className='min-w-0 truncate text-left'>{getLocaleDisplayName(locale)}</span>
-                <ChevronDown
-                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-                  aria-hidden='true'
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  aria-haspopup='menu'
+                  aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
+                  className={widgetHeaderControlClassName(
+                    'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  )}
+                  title={getLocaleDisplayName(locale)}
                 />
-              </button>
+              }
+            >
+              <span className='min-w-0 truncate text-left'>{getLocaleDisplayName(locale)}</span>
+              <ChevronDown
+                className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
+                aria-hidden='true'
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               sideOffset={6}
@@ -442,11 +443,8 @@ export function UserMenu({
                   <DropdownMenuItem
                     key={code}
                     className={cn(widgetHeaderMenuItemClassName, 'items-center')}
-                    onSelect={(event) => {
-                      if (isActive) {
-                        event.preventDefault()
-                        return
-                      }
+                    closeOnClick={!isActive}
+                    onClick={() => {
                       handleLocaleChange(code)
                     }}
                   >
@@ -462,8 +460,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem
-          onSelect={(event) => {
-            event.preventDefault()
+          closeOnClick={false}
+          onClick={() => {
             onOpenSettings('account')
           }}
         >
@@ -472,8 +470,8 @@ export function UserMenu({
         </DropdownMenuItem>
         {isHosted ? (
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
+            closeOnClick={false}
+            onClick={() => {
               onOpenSettings('service')
             }}
           >
@@ -487,8 +485,8 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 onOpenSettings('subscription')
               }}
             >
@@ -497,8 +495,8 @@ export function UserMenu({
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isOpeningBillingPortal || isSubscriptionLoading}
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 void handleOpenBillingPortal()
               }}
             >
@@ -514,8 +512,8 @@ export function UserMenu({
           <DropdownMenuGroup>
             {canOpenTeamSettings ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
+                closeOnClick={false}
+                onClick={() => {
                   onOpenSettings('team')
                 }}
               >
@@ -525,8 +523,8 @@ export function UserMenu({
             ) : null}
             {canManageSSOSettings ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
+                closeOnClick={false}
+                onClick={() => {
                   onOpenSettings('sso')
                 }}
               >
@@ -542,8 +540,8 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 router.push('/admin')
               }}
             >
@@ -556,8 +554,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem
-          onSelect={(event) => {
-            event.preventDefault()
+          closeOnClick={false}
+          onClick={() => {
             setIsHelpModalOpen(true)
           }}
         >
@@ -568,8 +566,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         disabled={isSigningOut}
-        onSelect={(event) => {
-          event.preventDefault()
+        closeOnClick={false}
+        onClick={() => {
           void handleSignOut()
         }}
         className='text-destructive focus:text-destructive'
@@ -586,32 +584,36 @@ export function UserMenu({
         {sidebarTrigger ? (
           <SidebarMenu>
             <SidebarMenuItem>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  variant='default'
-                  size='lg'
-                  aria-label={triggerLabel}
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-                >
-                  {avatar}
-                  <div className='grid flex-1 text-left text-sm leading-tight'>
-                    <span className='truncate font-semibold'>{displayUserName}</span>
-                    <span className='truncate text-xs'>{userEmail}</span>
-                  </div>
-                  <ChevronsUpDown className='ml-auto size-4' />
-                </SidebarMenuButton>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    variant='default'
+                    size='lg'
+                    aria-label={triggerLabel}
+                    className='data-[popup-open]:bg-sidebar-accent data-[popup-open]:text-sidebar-accent-foreground'
+                  />
+                }
+              >
+                {avatar}
+                <div className='grid flex-1 text-left text-sm leading-tight'>
+                  <span className='truncate font-semibold'>{displayUserName}</span>
+                  <span className='truncate text-xs'>{userEmail}</span>
+                </div>
+                <ChevronsUpDown className='ml-auto size-4' />
               </DropdownMenuTrigger>
             </SidebarMenuItem>
           </SidebarMenu>
         ) : (
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              aria-label={triggerLabel}
-              className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-            >
-              {avatar}
-            </button>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type='button'
+                aria-label={triggerLabel}
+                className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              />
+            }
+          >
+            {avatar}
           </DropdownMenuTrigger>
         )}
         {menuContent}

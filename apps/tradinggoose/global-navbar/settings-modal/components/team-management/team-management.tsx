@@ -1,27 +1,24 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
 import { Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
 import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import {
-  useAssignWorkspaceToOrganization,
+  organizationMutationOptions,
   useAvailableOrganizationBillingWorkspaces,
-  useCancelInvitation,
-  useCreateOrganization,
-  useInviteMember,
   useOrganization,
   useOrganizationBilling,
   useOrganizationBillingWorkspaces,
   useOrganizations,
-  useReleaseWorkspaceFromOrganization,
-  useRemoveMember,
-  useUpdateSeats,
 } from '@/hooks/queries/organization'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -79,6 +76,8 @@ type TeamSubscriptionData = {
 export function TeamManagement() {
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
+  const locale = useLocale() as LocaleCode
+  const queryClient = useQueryClient()
 
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
@@ -104,17 +103,22 @@ export function TeamManagement() {
   } = useOrganizationBilling(activeOrgId || '')
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
 
-  const inviteMutation = useInviteMember()
-  const removeMemberMutation = useRemoveMember()
-  const updateSeatsMutation = useUpdateSeats()
-  const createOrgMutation = useCreateOrganization()
-  const assignWorkspaceToOrganizationMutation = useAssignWorkspaceToOrganization()
-  const cancelInvitationMutation = useCancelInvitation()
-  const releaseWorkspaceFromOrganizationMutation = useReleaseWorkspaceFromOrganization()
-  const {
-    data: adminWorkspaces = [],
-    refetch: refetchAdminWorkspaces,
-  } = useAdminWorkspaces(session?.user?.id)
+  const inviteMutation = useMutation(organizationMutationOptions.inviteMember(queryClient, locale))
+  const removeMemberMutation = useMutation(organizationMutationOptions.removeMember(queryClient))
+  const updateSeatsMutation = useMutation(organizationMutationOptions.updateSeats(queryClient))
+  const createOrgMutation = useMutation(organizationMutationOptions.createOrganization(queryClient))
+  const assignWorkspaceToOrganizationMutation = useMutation(
+    organizationMutationOptions.assignWorkspace(queryClient)
+  )
+  const cancelInvitationMutation = useMutation(
+    organizationMutationOptions.cancelInvitation(queryClient)
+  )
+  const releaseWorkspaceFromOrganizationMutation = useMutation(
+    organizationMutationOptions.releaseWorkspace(queryClient)
+  )
+  const { data: adminWorkspaces = [], refetch: refetchAdminWorkspaces } = useAdminWorkspaces(
+    session?.user?.id
+  )
   const {
     data: organizationBillingWorkspaces = [],
     isLoading: isLoadingOrganizationBillingWorkspaces,
@@ -144,7 +148,42 @@ export function TeamManagement() {
   const [orgSlug, setOrgSlug] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
   const [newSeatCount, setNewSeatCount] = useState(1)
-  const [isUpdatingSeats, setIsUpdatingSeats] = useState(false)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<{ action: string; message: string } | null>(null)
+  const actionLockRef = useRef(false)
+
+  const isPending =
+    Boolean(pendingAction) ||
+    inviteMutation.isPending ||
+    removeMemberMutation.isPending ||
+    updateSeatsMutation.isPending ||
+    createOrgMutation.isPending ||
+    assignWorkspaceToOrganizationMutation.isPending ||
+    cancelInvitationMutation.isPending ||
+    releaseWorkspaceFromOrganizationMutation.isPending
+
+  const runAction = useCallback(
+    async (action: string, operation: () => Promise<unknown>) => {
+      if (actionLockRef.current || isPending) return false
+
+      actionLockRef.current = true
+      setPendingAction(action)
+      setActionError(null)
+      try {
+        await operation()
+        return true
+      } catch (cause) {
+        const failure = cause instanceof Error ? cause.message : 'The organization action failed'
+        logger.error('Organization action failed', { action, error: cause })
+        setActionError({ action, message: failure })
+        return false
+      } finally {
+        actionLockRef.current = false
+        setPendingAction(null)
+      }
+    },
+    [isPending]
+  )
 
   const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
   const organizationSubscriptionTier = organizationBillingData?.subscriptionTier ?? null
@@ -266,55 +305,43 @@ export function TeamManagement() {
   const handleCreateOrganization = useCallback(async () => {
     if (!session?.user || !orgName.trim()) return
 
-    try {
-      await createOrgMutation.mutateAsync({
+    const succeeded = await runAction('create', () =>
+      createOrgMutation.mutateAsync({
         name: orgName.trim(),
         slug: orgSlug.trim(),
       })
-
+    )
+    if (succeeded) {
       setOrgName('')
       setOrgSlug('')
-    } catch (error) {
-      logger.error('Failed to create organization', error)
     }
-  }, [session?.user?.id, orgName, orgSlug, createOrgMutation])
+  }, [session?.user?.id, orgName, orgSlug, createOrgMutation, runAction])
 
   const handleInviteMember = useCallback(async () => {
     if (!session?.user || !activeOrgId || !inviteEmail.trim()) return
 
-    try {
-      const workspaceInvitations =
-        selectedWorkspaces.length > 0
-          ? selectedWorkspaces.map((w) => ({
-              workspaceId: w.workspaceId,
-              permission: w.permission as 'admin' | 'write' | 'read',
-            }))
-          : undefined
-
-      await inviteMutation.mutateAsync({
+    const workspaceInvitations =
+      selectedWorkspaces.length > 0
+        ? selectedWorkspaces.map((w) => ({
+            workspaceId: w.workspaceId,
+            permission: w.permission as 'admin' | 'write' | 'read',
+          }))
+        : undefined
+    const succeeded = await runAction('invite', () =>
+      inviteMutation.mutateAsync({
         email: inviteEmail.trim(),
         orgId: activeOrgId,
         workspaceInvitations,
       })
-
+    )
+    if (succeeded) {
       setInviteSuccess(true)
       setTimeout(() => setInviteSuccess(false), 3000)
-
       setInviteEmail('')
       setSelectedWorkspaces([])
       setShowWorkspaceInvite(false)
-    } catch (error) {
-      logger.error('Failed to invite member', error)
     }
-  }, [
-    session?.user?.id,
-    activeOrgId,
-    inviteEmail,
-    selectedWorkspaces,
-    adminWorkspaces,
-    subscriptionData,
-    inviteMutation,
-  ])
+  }, [session?.user?.id, activeOrgId, inviteEmail, selectedWorkspaces, inviteMutation, runAction])
 
   const handleWorkspaceToggle = useCallback((workspaceId: string, permission: string) => {
     setSelectedWorkspaces((prev) => {
@@ -362,23 +389,23 @@ export function TeamManagement() {
       const { memberId } = removeMemberDialog
       if (!session?.user || !activeOrgId || !memberId) return
 
-      try {
-        await removeMemberMutation.mutateAsync({
+      const succeeded = await runAction('remove', () =>
+        removeMemberMutation.mutateAsync({
           memberId,
           orgId: activeOrgId,
           shouldReduceSeats,
         })
+      )
+      if (succeeded) {
         setRemoveMemberDialog({
           open: false,
           memberId: '',
           memberName: '',
           shouldReduceSeats: false,
         })
-      } catch (error) {
-        logger.error('Failed to remove member', error)
       }
     },
-    [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation]
+    [removeMemberDialog.memberId, session?.user?.id, activeOrgId, removeMemberMutation, runAction]
   )
 
   const handleReduceSeats = useCallback(async () => {
@@ -395,15 +422,20 @@ export function TeamManagement() {
 
     if (usedSeats.used >= currentSeats) return
 
-    try {
-      await updateSeatsMutation.mutateAsync({
+    await runAction('reduce-seats', () =>
+      updateSeatsMutation.mutateAsync({
         orgId: activeOrgId,
         seats: currentSeats - 1,
       })
-    } catch (error) {
-      logger.error('Failed to reduce seats', error)
-    }
-  }, [session?.user?.id, activeOrgId, subscriptionData, usedSeats.used, updateSeatsMutation])
+    )
+  }, [
+    session?.user?.id,
+    activeOrgId,
+    subscriptionData,
+    usedSeats.used,
+    updateSeatsMutation,
+    runAction,
+  ])
 
   const handleAddSeatDialog = useCallback(() => {
     if (
@@ -428,21 +460,17 @@ export function TeamManagement() {
       }
 
       const seatsToUse = selectedSeats || newSeatCount
-      setIsUpdatingSeats(true)
-
-      try {
-        await updateSeatsMutation.mutateAsync({
+      const succeeded = await runAction('update-seats', () =>
+        updateSeatsMutation.mutateAsync({
           orgId: activeOrgId,
           seats: seatsToUse,
         })
+      )
+      if (succeeded) {
         setIsAddSeatDialogOpen(false)
-      } catch (error) {
-        logger.error('Failed to add seats', error)
-      } finally {
-        setIsUpdatingSeats(false)
       }
     },
-    [subscriptionData, activeOrgId, newSeatCount, updateSeatsMutation]
+    [subscriptionData, activeOrgId, newSeatCount, updateSeatsMutation, runAction]
   )
 
   const handleAssignWorkspaceBilling = useCallback(
@@ -451,20 +479,14 @@ export function TeamManagement() {
         return
       }
 
-      try {
-        await assignWorkspaceToOrganizationMutation.mutateAsync({
+      await runAction(`assign:${workspaceId}`, () =>
+        assignWorkspaceToOrganizationMutation.mutateAsync({
           organizationId: activeOrgId,
           workspaceId,
         })
-      } catch (error) {
-        logger.error('Failed to assign workspace to organization billing', {
-          error,
-          organizationId: activeOrgId,
-          workspaceId,
-        })
-      }
+      )
     },
-    [activeOrgId, assignWorkspaceToOrganizationMutation]
+    [activeOrgId, assignWorkspaceToOrganizationMutation, runAction]
   )
 
   const handleReleaseWorkspaceBilling = useCallback(
@@ -473,20 +495,14 @@ export function TeamManagement() {
         return
       }
 
-      try {
-        await releaseWorkspaceFromOrganizationMutation.mutateAsync({
+      await runAction(`release:${workspaceId}`, () =>
+        releaseWorkspaceFromOrganizationMutation.mutateAsync({
           organizationId: activeOrgId,
           workspaceId,
         })
-      } catch (error) {
-        logger.error('Failed to release workspace from organization billing', {
-          error,
-          organizationId: activeOrgId,
-          workspaceId,
-        })
-      }
+      )
     },
-    [activeOrgId, releaseWorkspaceFromOrganizationMutation]
+    [activeOrgId, releaseWorkspaceFromOrganizationMutation, runAction]
   )
 
   const confirmTeamUpgrade = useCallback(
@@ -521,14 +537,9 @@ export function TeamManagement() {
   )
 
   const queryError = orgError || organizationBillingError || subscriptionError
-  const errorMessage = queryError instanceof Error ? queryError.message : null
-  const workspaceBillingError =
-    (assignWorkspaceToOrganizationMutation.error instanceof Error
-      ? assignWorkspaceToOrganizationMutation.error.message
-      : null) ||
-    (releaseWorkspaceFromOrganizationMutation.error instanceof Error
-      ? releaseWorkspaceFromOrganizationMutation.error.message
-      : null)
+  const queryFailure = queryError instanceof Error ? queryError.message : null
+  const actionFailure = (action: string) =>
+    actionError?.action === action ? actionError.message : null
 
   if (isLoading && !displayOrganization) {
     return (
@@ -552,7 +563,7 @@ export function TeamManagement() {
         onOrgNameChange={handleOrgNameChange}
         onCreateOrganization={handleCreateOrganization}
         isCreatingOrg={createOrgMutation.isPending}
-        error={errorMessage}
+        error={queryFailure || actionFailure('create')}
       />
     )
   }
@@ -593,9 +604,16 @@ export function TeamManagement() {
             isLoadingOrganizationBillingWorkspaces ||
             isLoadingAvailableOrganizationBillingWorkspaces
           }
-          isAssigning={assignWorkspaceToOrganizationMutation.isPending}
-          isReleasing={releaseWorkspaceFromOrganizationMutation.isPending}
-          error={workspaceBillingError}
+          isPending={isPending}
+          pendingAction={pendingAction}
+          error={
+            pendingAction?.startsWith('assign:') || pendingAction?.startsWith('release:')
+              ? null
+              : actionError?.action.startsWith('assign:') ||
+                  actionError?.action.startsWith('release:')
+                ? actionError.message
+                : null
+          }
           onAssignWorkspace={handleAssignWorkspaceBilling}
           onReleaseWorkspace={handleReleaseWorkspaceBilling}
         />
@@ -607,6 +625,9 @@ export function TeamManagement() {
             isLoadingSubscription={isLoadingSubscription}
             usedSeats={usedSeats.used}
             isLoading={isLoading}
+            actionsDisabled={isPending}
+            isReducing={pendingAction === 'reduce-seats'}
+            error={actionFailure('reduce-seats')}
             onConfirmTeamUpgrade={confirmTeamUpgrade}
             onReduceSeats={handleReduceSeats}
             onAddSeatDialog={handleAddSeatDialog}
@@ -618,13 +639,20 @@ export function TeamManagement() {
           organization={displayOrganization}
           currentUserEmail={session?.user?.email ?? ''}
           isAdminOrOwner={adminOrOwner}
+          actionsDisabled={isPending}
+          pendingInvitationId={
+            pendingAction?.startsWith('cancel:') ? pendingAction.slice('cancel:'.length) : null
+          }
+          error={actionError?.action.startsWith('cancel:') ? actionError.message : null}
           onRemoveMember={handleRemoveMember}
           onCancelInvitation={async (invitationId: string) => {
             if (!displayOrganization?.id) return
-            await cancelInvitationMutation.mutateAsync({
-              invitationId,
-              orgId: displayOrganization.id,
-            })
+            await runAction(`cancel:${invitationId}`, () =>
+              cancelInvitationMutation.mutateAsync({
+                invitationId,
+                orgId: displayOrganization.id,
+              })
+            )
           }}
         />
 
@@ -644,6 +672,8 @@ export function TeamManagement() {
             inviteEmail={inviteEmail}
             setInviteEmail={setInviteEmail}
             isInviting={inviteMutation.isPending}
+            actionsDisabled={isPending}
+            error={actionFailure('invite')}
             showWorkspaceInvite={showWorkspaceInvite}
             setShowWorkspaceInvite={setShowWorkspaceInvite}
             selectedWorkspaces={selectedWorkspaces}
@@ -686,6 +716,8 @@ export function TeamManagement() {
         shouldReduceSeats={removeMemberDialog.shouldReduceSeats}
         canReduceSeats={isAdjustableSeatTier}
         isSelfRemoval={removeMemberDialog.isSelfRemoval}
+        isPending={pendingAction === 'remove' || removeMemberMutation.isPending}
+        error={actionFailure('remove')}
         onOpenChange={(open: boolean) => {
           if (!open) {
             setRemoveMemberDialog((prev) => (prev.open ? { ...prev, open: false } : prev))
@@ -722,7 +754,10 @@ export function TeamManagement() {
         maximumSeats={seatMaximum}
         currentSeats={subscriptionData?.seats || 1}
         initialSeats={newSeatCount}
-        isLoading={isUpdatingSeats || updateSeatsMutation.isPending}
+        isLoading={
+          pendingAction === 'update-seats' || (isAddSeatDialogOpen && updateSeatsMutation.isPending)
+        }
+        error={actionFailure('update-seats')}
         onConfirm={async (selectedSeats: number) => {
           setNewSeatCount(selectedSeats)
           await confirmAddSeats(selectedSeats)

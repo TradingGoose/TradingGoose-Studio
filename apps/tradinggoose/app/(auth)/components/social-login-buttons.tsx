@@ -164,7 +164,11 @@ export function SocialLoginButtons({
       {googleAvailable && googleButton}
       {githubAvailable && githubButton}
       {errorMessage ? (
-        <Alert variant='destructive' className='border-destructive/30 bg-destructive/10'>
+        <Alert
+          role='alert'
+          variant='destructive'
+          className='border-destructive/30 bg-destructive/10'
+        >
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}

@@ -35,7 +35,7 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
   blocks: Record<string, any>
   warnings: string[]
 } {
-  const warnings: string[] = []
+  const toolSanitizationWarnings: string[] = []
 
   // Shallow clone to avoid mutating callers
   const sanitizedBlocks: Record<string, any> = { ...blocks }
@@ -50,7 +50,9 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       const value = toolsSubBlock.value
 
       if (!Array.isArray(value)) {
-        warnings.push(`Block ${block.name || blockId}: tools value is not an array; resetting`)
+        toolSanitizationWarnings.push(
+          `Block ${block.name || blockId}: tools value is not an array; resetting`
+        )
         toolsSubBlock.value = []
         continue
       }
@@ -84,7 +86,7 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
         })
 
       if (cleaned.length !== originalLength) {
-        warnings.push(
+        toolSanitizationWarnings.push(
           `Block ${block.name || blockId}: removed ${originalLength - cleaned.length} invalid tool(s)`
         )
       }
@@ -92,14 +94,13 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       toolsSubBlock.value = cleaned
       // Reassign in case caller uses object identity
       sanitizedBlocks[blockId] = { ...block, subBlocks: { ...subBlocks, tools: toolsSubBlock } }
-    } catch (err: any) {
-      warnings.push(
-        `Block ${block?.name || blockId}: tools sanitation failed: ${err?.message || String(err)}`
-      )
+    } catch (cause) {
+      logger.error('Workflow agent tool sanitation failed', { blockId }, cause)
+      toolSanitizationWarnings.push(`Block ${blockId}: tools sanitation could not be completed.`)
     }
   }
 
-  return { blocks: sanitizedBlocks, warnings }
+  return { blocks: sanitizedBlocks, warnings: toolSanitizationWarnings }
 }
 
 export interface WorkflowValidationResult {
@@ -117,20 +118,20 @@ export function validateWorkflowState(
   workflowState: WorkflowState,
   options: { sanitize?: boolean } = {}
 ): WorkflowValidationResult {
-  const errors: string[] = []
-  const warnings: string[] = []
+  const workflowIssues: string[] = []
+  const workflowWarnings: string[] = []
   let sanitizedState = workflowState
 
   try {
     // Basic structure validation
     if (!workflowState || typeof workflowState !== 'object') {
-      errors.push('Invalid workflow state: must be an object')
-      return { valid: false, errors, warnings }
+      workflowIssues.push('Invalid workflow state: must be an object')
+      return { valid: false, errors: workflowIssues, warnings: workflowWarnings }
     }
 
     if (!workflowState.blocks || typeof workflowState.blocks !== 'object') {
-      errors.push('Invalid workflow state: missing blocks')
-      return { valid: false, errors, warnings }
+      workflowIssues.push('Invalid workflow state: missing blocks')
+      return { valid: false, errors: workflowIssues, warnings: workflowWarnings }
     }
 
     // Validate each block
@@ -139,7 +140,7 @@ export function validateWorkflowState(
 
     for (const [blockId, block] of Object.entries(workflowState.blocks)) {
       if (!block || typeof block !== 'object') {
-        errors.push(`Block ${blockId}: invalid block structure`)
+        workflowIssues.push(`Block ${blockId}: invalid block structure`)
         continue
       }
 
@@ -154,7 +155,7 @@ export function validateWorkflowState(
       }
 
       if (!blockConfig) {
-        errors.push(`Block ${block.name || blockId}: unknown block type '${block.type}'`)
+        workflowIssues.push(`Block ${block.name || blockId}: unknown block type '${block.type}'`)
         if (options.sanitize) {
           hasChanges = true
           continue // Skip this block in sanitized output
@@ -170,9 +171,9 @@ export function validateWorkflowState(
           // API block has static tool access
           const toolIds = blockConfig.tools.access
           for (const toolId of toolIds) {
-            const validationError = validateToolReference(toolId, block.type, block.name)
-            if (validationError) {
-              errors.push(validationError)
+            const toolReferenceIssue = validateToolReference(toolId, block.type, block.name)
+            if (toolReferenceIssue) {
+              workflowIssues.push(toolReferenceIssue)
             }
           }
         }
@@ -185,7 +186,7 @@ export function validateWorkflowState(
       // Special validation for agent blocks
       if (block.type === 'agent' && block.subBlocks?.tools?.value) {
         const toolsSanitization = sanitizeAgentToolsInBlocks({ [blockId]: block })
-        warnings.push(...toolsSanitization.warnings)
+        workflowWarnings.push(...toolsSanitization.warnings)
         if (toolsSanitization.warnings.length > 0) {
           sanitizedBlocks[blockId] = toolsSanitization.blocks[blockId]
           hasChanges = true
@@ -205,7 +206,7 @@ export function validateWorkflowState(
 
       for (const edge of workflowState.edges) {
         if (!edge || typeof edge !== 'object') {
-          errors.push('Invalid edge structure')
+          workflowIssues.push('Invalid edge structure')
           continue
         }
 
@@ -216,10 +217,10 @@ export function validateWorkflowState(
           blockIds.has(edge.target) || loopIds.has(edge.target) || parallelIds.has(edge.target)
 
         if (!sourceExists) {
-          errors.push(`Edge references non-existent source block '${edge.source}'`)
+          workflowIssues.push(`Edge references non-existent source block '${edge.source}'`)
         }
         if (!targetExists) {
-          errors.push(`Edge references non-existent target block '${edge.target}'`)
+          workflowIssues.push(`Edge references non-existent target block '${edge.target}'`)
         }
       }
     }
@@ -232,17 +233,17 @@ export function validateWorkflowState(
       }
     }
 
-    const valid = errors.length === 0
+    const valid = workflowIssues.length === 0
     return {
       valid,
-      errors,
-      warnings,
+      errors: workflowIssues,
+      warnings: workflowWarnings,
       sanitizedState: options.sanitize ? sanitizedState : undefined,
     }
-  } catch (err) {
-    logger.error('Workflow validation failed with exception', err)
-    errors.push(`Validation failed: ${err instanceof Error ? err.message : String(err)}`)
-    return { valid: false, errors, warnings }
+  } catch (cause) {
+    logger.error('Workflow validation failed with exception', cause)
+    workflowIssues.push('Workflow validation could not be completed.')
+    return { valid: false, errors: workflowIssues, warnings: workflowWarnings }
   }
 }
 

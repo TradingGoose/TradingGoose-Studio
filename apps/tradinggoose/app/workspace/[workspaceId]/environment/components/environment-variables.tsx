@@ -9,24 +9,17 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, Eye, EyeOff, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { WorkspaceEnvironmentData } from '@/lib/environment/api'
+import { deleteEnvironmentVariable, saveEnvironmentVariable } from '@/lib/environment/api'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  environmentKeys,
-  useRemovePersonalEnvironment,
-  useRemoveWorkspaceEnvironment,
-  useUpsertPersonalEnvironment,
-  useUpsertWorkspaceEnvironment,
-  useWorkspaceEnvironment,
-} from '@/hooks/queries/environment'
-import type { EnvironmentVariable } from '@/stores/settings/environment/types'
-import { type LocaleCode } from '@/i18n/utils'
+import { refreshEnvironmentQueries, useWorkspaceEnvironment } from '@/hooks/queries/environment'
+import { usePathname } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 
 type Scope = 'workspace' | 'personal'
 
@@ -47,6 +40,26 @@ interface RenderRow extends Row {
   id: string
   originalKey: string
   isEditing: boolean
+}
+
+type EnvironmentWrite =
+  | {
+      kind: 'save'
+      scope: Scope
+      originalKey: string | null
+      key: string
+      value: string
+    }
+  | {
+      kind: 'delete'
+      scope: Scope
+      key: string
+    }
+
+type EnvironmentWriteSummary = Pick<EnvironmentWrite, 'kind' | 'scope' | 'key'>
+
+type EnvironmentFailure = EnvironmentWriteSummary & {
+  phase: 'transport' | 'refresh'
 }
 
 interface EnvironmentVariablesProps {
@@ -119,68 +132,15 @@ const buildRowsForScope = (rows: Row[], draft: DraftRow | null, scope: Scope): R
   return baseRows.map((row) =>
     row.originalKey === draft.originalKey
       ? {
-        ...row,
-        key: draft.key,
-        value: draft.value,
-        createdAt: draft.createdAt ?? row.createdAt,
-        updatedAt: draft.updatedAt ?? row.updatedAt,
-        isEditing: true,
-      }
+          ...row,
+          key: draft.key,
+          value: draft.value,
+          createdAt: draft.createdAt ?? row.createdAt,
+          updatedAt: draft.updatedAt ?? row.updatedAt,
+          isEditing: true,
+        }
       : row
   )
-}
-
-const rowsToRecord = (rows: Row[]): Record<string, string> =>
-  Object.fromEntries(rows.map((row) => [row.key, row.value]))
-
-const applyWorkspaceCachePatch = (
-  data: WorkspaceEnvironmentData,
-  scope: Scope,
-  action:
-    | { type: 'upsert'; originalKey: string; nextKey: string; value: string }
-    | { type: 'delete'; key: string }
-) => {
-  const workspaceRows = [...data.workspaceRows]
-  const personalRows = [...data.personalRows]
-  const targetRows = scope === 'workspace' ? workspaceRows : personalRows
-  const now = new Date().toISOString()
-
-  let nextTargetRows = targetRows
-  if (action.type === 'upsert') {
-    const existing = targetRows.find(
-      (row) => row.key === action.originalKey || row.key === action.nextKey
-    )
-    const createdAt =
-      action.originalKey && action.originalKey === action.nextKey
-        ? (existing?.createdAt ?? now)
-        : now
-
-    nextTargetRows = targetRows.filter(
-      (row) => row.key !== action.originalKey && row.key !== action.nextKey
-    )
-    nextTargetRows.push({
-      key: action.nextKey,
-      value: action.value,
-      createdAt,
-      updatedAt: now,
-    })
-  } else {
-    nextTargetRows = targetRows.filter((row) => row.key !== action.key)
-  }
-
-  const nextWorkspaceRows = scope === 'workspace' ? nextTargetRows : workspaceRows
-  const nextPersonalRows = scope === 'personal' ? nextTargetRows : personalRows
-  const workspaceKeySet = new Set(nextWorkspaceRows.map((row) => row.key))
-  const conflicts = nextPersonalRows.map((row) => row.key).filter((key) => workspaceKeySet.has(key))
-
-  return {
-    ...data,
-    workspace: rowsToRecord(nextWorkspaceRows),
-    personal: rowsToRecord(nextPersonalRows),
-    workspaceRows: nextWorkspaceRows,
-    personalRows: nextPersonalRows,
-    conflicts,
-  }
 }
 
 const EnvironmentVariablesComponent = (
@@ -194,27 +154,58 @@ const EnvironmentVariablesComponent = (
 ) => {
   const locale = useLocale() as LocaleCode
   const t = useTranslations('workspace.environment')
+  const pathname = usePathname()
   const queryClient = useQueryClient()
-  const { data, isPending: isWorkspaceLoading } = useWorkspaceEnvironment(workspaceId)
-  const upsertWorkspaceMutation = useUpsertWorkspaceEnvironment()
-  const removeWorkspaceMutation = useRemoveWorkspaceEnvironment()
-  const upsertPersonalMutation = useUpsertPersonalEnvironment()
-  const removePersonalMutation = useRemovePersonalEnvironment()
+  const {
+    data,
+    isPending: isWorkspaceLoading,
+    isPlaceholderData,
+  } = useWorkspaceEnvironment(workspaceId)
 
   const [draft, setDraft] = useState<DraftRow | null>(null)
+  const [writeError, setWriteError] = useState<EnvironmentFailure | null>(null)
+  const [isRefreshPending, setIsRefreshPending] = useState(false)
   const [revealedValues, setRevealedValues] = useState<Record<string, boolean>>({})
   const [copiedRowId, setCopiedRowId] = useState<string | null>(null)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const editValueInputRef = useRef<HTMLInputElement | null>(null)
+  const writeLockRef = useRef(false)
+  const environmentMutation = useMutation({
+    mutationFn: (write: EnvironmentWrite) => {
+      const target =
+        write.scope === 'workspace'
+          ? { scope: write.scope, workspaceId, callbackPathname: pathname }
+          : { scope: write.scope, callbackPathname: pathname }
 
-  const isMutating =
-    upsertWorkspaceMutation.isPending ||
-    removeWorkspaceMutation.isPending ||
-    upsertPersonalMutation.isPending ||
-    removePersonalMutation.isPending
-
-  const isBusy = isWorkspaceLoading || isMutating
+      return write.kind === 'save'
+        ? saveEnvironmentVariable({
+            ...target,
+            originalKey: write.originalKey,
+            key: write.key,
+            value: write.value,
+          })
+        : deleteEnvironmentVariable({ ...target, key: write.key })
+    },
+    onSuccess: async (_data, write) => {
+      setDraft((current) =>
+        write.kind === 'save' ||
+        (current?.scope === write.scope && current.originalKey === write.key)
+          ? null
+          : current
+      )
+      const result = await refreshEnvironmentQueries(queryClient, write.scope, workspaceId)
+      if (!result.ok) {
+        logger.error('Environment variable change committed but refresh failed:', result.error)
+        setWriteError({ kind: write.kind, scope: write.scope, key: write.key, phase: 'refresh' })
+      }
+    },
+  })
+  const isRefreshRequired = writeError?.phase === 'refresh'
+  const isPending = environmentMutation.isPending || isRefreshPending
+  const controlsBlocked = isWorkspaceLoading || isPlaceholderData || isRefreshRequired
+  const activeWrite = environmentMutation.isPending ? environmentMutation.variables : null
+  const isBusy = controlsBlocked || isPending
 
   useEffect(() => {
     onLoadingChange?.(isBusy)
@@ -249,28 +240,13 @@ const EnvironmentVariablesComponent = (
     }, 0)
   }
 
-  const upsertVariable = async (scope: Scope, key: string, value: string) => {
-    if (scope === 'workspace') {
-      await upsertWorkspaceMutation.mutateAsync({ workspaceId, variables: { [key]: value } })
-      return
-    }
-
-    await upsertPersonalMutation.mutateAsync({ key, value })
-  }
-
-  const removeVariable = async (scope: Scope, key: string) => {
-    if (scope === 'workspace') {
-      await removeWorkspaceMutation.mutateAsync({ workspaceId, keys: [key] })
-      return
-    }
-
-    await removePersonalMutation.mutateAsync({ key })
-  }
-
   const addVariable = (scope?: Scope) => {
+    if (isBusy || writeLockRef.current) return
+
     const targetScope = scope ?? keyScope
     const now = new Date().toISOString()
 
+    setWriteError(null)
     setDraft({
       scope: targetScope,
       originalKey: '',
@@ -286,6 +262,9 @@ const EnvironmentVariablesComponent = (
   useImperativeHandle(ref, () => ({ addVariable }))
 
   const startEditingRow = (scope: Scope, row: RenderRow) => {
+    if (isBusy || writeLockRef.current) return
+
+    setWriteError(null)
     setDraft({
       scope,
       originalKey: row.originalKey,
@@ -299,57 +278,68 @@ const EnvironmentVariablesComponent = (
   }
 
   const cancelEditing = () => {
+    if (isBusy || writeLockRef.current) return
+    setWriteError(null)
     setDraft(null)
   }
 
-  const saveEditingRow = async () => {
-    if (!draft || isMutating) return
+  const runWrite = async (write: EnvironmentWrite) => {
+    if (isBusy || writeLockRef.current) return
+
+    const summary: EnvironmentWriteSummary = {
+      kind: write.kind,
+      scope: write.scope,
+      key: write.key,
+    }
+    writeLockRef.current = true
+    setWriteError(null)
+
+    try {
+      await environmentMutation.mutateAsync(write)
+    } catch (error) {
+      logger.error(`Failed to ${write.kind} environment variable:`, error)
+      setWriteError({ ...summary, phase: 'transport' })
+    } finally {
+      writeLockRef.current = false
+    }
+  }
+
+  const retryRefresh = async () => {
+    if (writeError?.phase !== 'refresh' || writeLockRef.current) return
+
+    writeLockRef.current = true
+    setIsRefreshPending(true)
+    try {
+      const result = await refreshEnvironmentQueries(queryClient, writeError.scope, workspaceId)
+      if (result.ok) {
+        setWriteError(null)
+      } else {
+        logger.error('Failed to refresh environment variables:', result.error)
+      }
+    } finally {
+      writeLockRef.current = false
+      setIsRefreshPending(false)
+    }
+  }
+
+  const saveEditingRow = () => {
+    if (!draft || isBusy || writeLockRef.current) return
 
     const nextKey = draft.key.trim()
     if (!nextKey || !draft.value) return
 
-    try {
-      await upsertVariable(draft.scope, nextKey, draft.value)
-
-      if (draft.originalKey && draft.originalKey !== nextKey) {
-        await removeVariable(draft.scope, draft.originalKey)
-      }
-
-      queryClient.setQueryData(
-        environmentKeys.workspace(workspaceId),
-        (current: WorkspaceEnvironmentData | undefined) =>
-          current
-            ? applyWorkspaceCachePatch(current, draft.scope, {
-              type: 'upsert',
-              originalKey: draft.originalKey,
-              nextKey,
-              value: draft.value,
-            })
-            : current
-      )
-
-      if (draft.scope === 'personal') {
-        queryClient.setQueryData(
-          environmentKeys.personal(),
-          (current: Record<string, EnvironmentVariable> | undefined) => {
-            const next = { ...(current ?? {}) }
-            if (draft.originalKey && draft.originalKey !== nextKey) {
-              delete next[draft.originalKey]
-            }
-            next[nextKey] = { key: nextKey, value: draft.value }
-            return next
-          }
-        )
-      }
-
-      setDraft(null)
-    } catch (error) {
-      logger.error('Failed to save environment variable:', error)
+    const write: EnvironmentWrite = {
+      kind: 'save',
+      scope: draft.scope,
+      originalKey: draft.originalKey || null,
+      key: nextKey,
+      value: draft.value,
     }
+    void runWrite(write)
   }
 
-  const deleteRow = async (scope: Scope, row: RenderRow) => {
-    if (isMutating) return
+  const deleteRow = (scope: Scope, row: RenderRow) => {
+    if (isBusy || writeLockRef.current) return
 
     if (row.isEditing && draft?.isNew && draft.scope === scope && !row.originalKey) {
       setDraft(null)
@@ -359,42 +349,11 @@ const EnvironmentVariablesComponent = (
     const keyToDelete = row.originalKey || row.key
     if (!keyToDelete) return
 
-    try {
-      await removeVariable(scope, keyToDelete)
-
-      queryClient.setQueryData(
-        environmentKeys.workspace(workspaceId),
-        (current: WorkspaceEnvironmentData | undefined) =>
-          current
-            ? applyWorkspaceCachePatch(current, scope, {
-              type: 'delete',
-              key: keyToDelete,
-            })
-            : current
-      )
-
-      if (scope === 'personal') {
-        queryClient.setQueryData(
-          environmentKeys.personal(),
-          (current: Record<string, EnvironmentVariable> | undefined) => {
-            if (!current) return current
-            if (!(keyToDelete in current)) return current
-            const next = { ...current }
-            delete next[keyToDelete]
-            return next
-          }
-        )
-      }
-
-      if (draft?.scope === scope && draft.originalKey === keyToDelete) {
-        setDraft(null)
-      }
-    } catch (error) {
-      logger.error('Failed to delete environment variable:', error)
-    }
+    void runWrite({ kind: 'delete', scope, key: keyToDelete })
   }
 
   const toggleReveal = (rowId: string) => {
+    if (isBusy || writeLockRef.current) return
     setRevealedValues((prev) => ({
       ...prev,
       [rowId]: !prev[rowId],
@@ -402,7 +361,7 @@ const EnvironmentVariablesComponent = (
   }
 
   const copyValue = async (value: string, rowId: string) => {
-    if (!value) return
+    if (!value || isBusy || writeLockRef.current) return
 
     try {
       await navigator.clipboard.writeText(value)
@@ -445,7 +404,7 @@ const EnvironmentVariablesComponent = (
           <td colSpan={5} className='px-4 py-12 text-center'>
             <p className='font-medium text-lg'>{t(`emptyState.${keyScope}.title`)}</p>
             <p className='mt-2 text-muted-foreground'>{t(`emptyState.${keyScope}.description`)}</p>
-            <Button className='mt-6' onClick={() => addVariable(keyScope)}>
+            <Button className='mt-6' disabled={isBusy} onClick={() => addVariable(keyScope)}>
               <Plus className='mr-2 h-4 w-4' />
               {t(`create.${keyScope}`)}
             </Button>
@@ -479,10 +438,13 @@ const EnvironmentVariablesComponent = (
           <td className='px-4 py-2 align-middle'>
             {row.isEditing ? (
               <Input
+                aria-label={t('headers.variable')}
+                disabled={isBusy}
                 value={draft?.key ?? ''}
-                onChange={(event) =>
+                onChange={(event) => {
+                  if (writeLockRef.current) return
                   setDraft((prev) => (prev ? { ...prev, key: event.target.value } : prev))
-                }
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
@@ -513,13 +475,16 @@ const EnvironmentVariablesComponent = (
           <td className='px-4 py-2 align-middle'>
             {row.isEditing ? (
               <Input
+                aria-label={t('headers.value')}
+                disabled={isBusy}
                 ref={(element) => {
                   if (row.isEditing) editValueInputRef.current = element
                 }}
                 value={draft?.value ?? ''}
-                onChange={(event) =>
+                onChange={(event) => {
+                  if (writeLockRef.current) return
                   setDraft((prev) => (prev ? { ...prev, value: event.target.value } : prev))
-                }
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
@@ -541,11 +506,11 @@ const EnvironmentVariablesComponent = (
                   type='button'
                   variant='ghost'
                   size='icon'
-                  disabled={!row.value}
+                  disabled={!row.value || isBusy}
                   className='h-8 w-8 text-muted-foreground'
                   onClick={() => toggleReveal(row.id)}
-                  >
-                    {isRevealed ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
+                >
+                  {isRevealed ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                   <span className='sr-only'>
                     {isRevealed ? t('labels.hideValue') : t('labels.revealValue')}
                   </span>
@@ -557,12 +522,12 @@ const EnvironmentVariablesComponent = (
                   type='button'
                   variant='ghost'
                   size='icon'
-                  disabled={!row.value}
+                  disabled={!row.value || isBusy}
                   className='h-8 w-8 text-muted-foreground'
                   onClick={() => {
                     void copyValue(row.value, row.id)
                   }}
-                  >
+                >
                   {isCopied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
                   <span className='sr-only'>{t('labels.copyValue')}</span>
                 </Button>
@@ -583,7 +548,12 @@ const EnvironmentVariablesComponent = (
                     variant='ghost'
                     size='icon'
                     className='h-8 w-8 text-muted-foreground'
-                    disabled={!draft?.key.trim() || !draft?.value || isMutating}
+                    disabled={!draft?.key.trim() || !draft?.value || controlsBlocked || isPending}
+                    aria-busy={
+                      activeWrite?.kind === 'save' &&
+                      activeWrite.scope === keyScope &&
+                      activeWrite.key === draft?.key.trim()
+                    }
                     onClick={() => {
                       void saveEditingRow()
                     }}
@@ -596,6 +566,7 @@ const EnvironmentVariablesComponent = (
                     variant='ghost'
                     size='icon'
                     className='h-8 w-8 text-muted-foreground'
+                    disabled={isBusy}
                     onClick={cancelEditing}
                   >
                     <X className='h-4 w-4' />
@@ -609,6 +580,7 @@ const EnvironmentVariablesComponent = (
                     variant='ghost'
                     size='icon'
                     className='h-8 w-8 text-muted-foreground'
+                    disabled={isBusy}
                     onClick={() => startEditingRow(keyScope, row)}
                   >
                     <Pencil className='h-4 w-4' />
@@ -619,6 +591,12 @@ const EnvironmentVariablesComponent = (
                     variant='ghost'
                     size='icon'
                     className='h-8 w-8 text-destructive'
+                    disabled={controlsBlocked || isPending}
+                    aria-busy={
+                      activeWrite?.kind === 'delete' &&
+                      activeWrite.scope === keyScope &&
+                      activeWrite.key === (row.originalKey || row.key)
+                    }
                     onClick={() => {
                       void deleteRow(keyScope, row)
                     }}
@@ -637,6 +615,47 @@ const EnvironmentVariablesComponent = (
 
   return (
     <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
+      {activeWrite && (
+        <p
+          role='status'
+          aria-atomic='true'
+          className='border-b bg-muted/30 px-4 py-2 text-muted-foreground text-sm'
+        >
+          {t(activeWrite.kind === 'save' ? 'status.saving' : 'status.deleting', {
+            scope: t(`scope.${activeWrite.scope}`),
+            key: activeWrite.key,
+          })}
+        </p>
+      )}
+      {writeError && (
+        <div
+          role='alert'
+          aria-atomic='true'
+          className='flex items-center justify-between gap-3 border-b bg-destructive/10 px-4 py-2 text-destructive text-sm'
+        >
+          <span>
+            {t(writeError.phase === 'refresh' ? 'status.refreshRequired' : 'status.notConfirmed', {
+              scope: t(`scope.${writeError.scope}`),
+              key: writeError.key,
+            })}
+          </span>
+          {writeError.phase === 'refresh' ? (
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='shrink-0'
+              disabled={isPending}
+              aria-busy={isPending}
+              onClick={() => {
+                void retryRefresh()
+              }}
+            >
+              {t('status.refresh')}
+            </Button>
+          ) : null}
+        </div>
+      )}
       <div ref={scrollContainerRef} className='min-h-0 flex-1 overflow-auto'>
         <table className='w-full min-w-[960px] table-fixed'>
           <colgroup>

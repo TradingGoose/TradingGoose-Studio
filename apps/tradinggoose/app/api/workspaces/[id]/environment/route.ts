@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { environmentVariables, workspace } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -12,12 +12,29 @@ import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 const logger = createLogger('WorkspaceEnvironmentAPI')
 
 const UpsertSchema = z.object({
-  variables: z.record(z.string(), z.string()),
+  originalKey: z.string().min(1).nullable(),
+  key: z.string().min(1),
+  value: z.string().min(1),
 })
 
 const DeleteSchema = z.object({
-  keys: z.array(z.string()).min(1),
+  key: z.string().min(1),
 })
+
+function isWorkspaceKeyConflict(error: unknown) {
+  const seen = new Set<unknown>()
+  while (error && typeof error === 'object' && !seen.has(error)) {
+    seen.add(error)
+    const record = error as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (
+      record.code === '23505' &&
+      record.constraint_name === 'environment_variables_workspace_key_unique'
+    )
+      return true
+    error = record.cause
+  }
+  return false
+}
 
 async function decryptValue(value: string) {
   try {
@@ -141,40 +158,57 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { variables } = UpsertSchema.parse(body)
+    const { originalKey, key, value } = UpsertSchema.parse(await request.json())
+    const { encrypted } = await encryptSecret(value)
 
-    await db.transaction(async (tx) => {
-      for (const [key, value] of Object.entries(variables)) {
-        const { encrypted } = await encryptSecret(value)
-
-        await tx
-          .insert(environmentVariables)
-          .values({
-            id: crypto.randomUUID(),
-            workspaceId,
-            key,
+    if (originalKey === null) {
+      await db
+        .insert(environmentVariables)
+        .values({
+          id: crypto.randomUUID(),
+          workspaceId,
+          key,
+          value: encrypted,
+        })
+        .onConflictDoUpdate({
+          target: [environmentVariables.workspaceId, environmentVariables.key],
+          set: {
             value: encrypted,
-            createdAt: new Date(),
             updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: [environmentVariables.workspaceId, environmentVariables.key],
-            set: {
-              value: encrypted,
-              updatedAt: new Date(),
-            },
-          })
+          },
+        })
+    } else {
+      const [renamed] = await db
+        .update(environmentVariables)
+        .set({ key, value: encrypted, updatedAt: new Date() })
+        .where(
+          and(
+            eq(environmentVariables.workspaceId, workspaceId),
+            eq(environmentVariables.key, originalKey)
+          )
+        )
+        .returning({ id: environmentVariables.id })
+      if (!renamed) {
+        return NextResponse.json({ error: 'Environment variable not found' }, { status: 404 })
       }
-    })
+    }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.issues },
+        { status: 400 }
+      )
+    }
+    if (isWorkspaceKeyConflict(error)) {
+      return NextResponse.json(
+        { error: 'Environment variable key already exists' },
+        { status: 409 }
+      )
+    }
     logger.error(`[${requestId}] Workspace env PUT error`, error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to update environment' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update environment' }, { status: 500 })
   }
 }
 
@@ -199,15 +233,12 @@ export async function DELETE(
     }
 
     const body = await request.json()
-    const { keys } = DeleteSchema.parse(body)
+    const { key } = DeleteSchema.parse(body)
 
     await db
       .delete(environmentVariables)
       .where(
-        and(
-          eq(environmentVariables.workspaceId, workspaceId),
-          inArray(environmentVariables.key, keys)
-        )
+        and(eq(environmentVariables.workspaceId, workspaceId), eq(environmentVariables.key, key))
       )
 
     return NextResponse.json({ success: true })

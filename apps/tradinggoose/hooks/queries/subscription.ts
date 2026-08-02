@@ -1,4 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  mutationOptions,
+  type QueryClient,
+  useQuery,
+} from '@tanstack/react-query'
 
 /**
  * Query key factories for subscription-related queries
@@ -66,73 +71,74 @@ interface UpdateUsageLimitParams {
   limit: number
 }
 
-export function useUpdateUsageLimit() {
-  const queryClient = useQueryClient()
+export const subscriptionMutationOptions = {
+  updateUsageLimit(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ limit }: UpdateUsageLimitParams) => {
+        const response = await fetch('/api/usage?context=user', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit }),
+        })
 
-  return useMutation({
-    mutationFn: async ({ limit }: UpdateUsageLimitParams) => {
-      const response = await fetch('/api/usage?context=user', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit }),
-      })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || error.message || 'Failed to update usage limit')
+        }
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || error.message || 'Failed to update usage limit')
-      }
+        return response.json()
+      },
+      onMutate: async ({ limit }) => {
+        await queryClient.cancelQueries({ queryKey: subscriptionKeys.user() })
+        await queryClient.cancelQueries({ queryKey: subscriptionKeys.usage() })
 
-      return response.json()
-    },
-    onMutate: async ({ limit }) => {
-      await queryClient.cancelQueries({ queryKey: subscriptionKeys.user() })
-      await queryClient.cancelQueries({ queryKey: subscriptionKeys.usage() })
+        const previousSubscriptionData = queryClient.getQueryData(subscriptionKeys.user())
+        const previousUsageData = queryClient.getQueryData(subscriptionKeys.usage())
 
-      const previousSubscriptionData = queryClient.getQueryData(subscriptionKeys.user())
-      const previousUsageData = queryClient.getQueryData(subscriptionKeys.usage())
+        queryClient.setQueryData(subscriptionKeys.user(), (old: any) => {
+          if (!old) return old
+          const currentUsage = old.data?.usage?.current || 0
+          const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
 
-      queryClient.setQueryData(subscriptionKeys.user(), (old: any) => {
-        if (!old) return old
-        const currentUsage = old.data?.usage?.current || 0
-        const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
-
-        return {
-          ...old,
-          data: {
-            ...old.data,
-            usage: {
-              ...old.data?.usage,
-              limit,
-              percentUsed: newPercentUsed,
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              usage: {
+                ...old.data?.usage,
+                limit,
+                percentUsed: newPercentUsed,
+              },
             },
-          },
-        }
-      })
+          }
+        })
 
-      queryClient.setQueryData(subscriptionKeys.usage(), (old: any) => {
-        if (!old) return old
-        return {
-          ...old,
-          data: {
-            ...old.data,
-            currentLimit: limit,
-          },
-        }
-      })
+        queryClient.setQueryData(subscriptionKeys.usage(), (old: any) => {
+          if (!old) return old
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              currentLimit: limit,
+            },
+          }
+        })
 
-      return { previousSubscriptionData, previousUsageData }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousSubscriptionData) {
-        queryClient.setQueryData(subscriptionKeys.user(), context.previousSubscriptionData)
-      }
-      if (context?.previousUsageData) {
-        queryClient.setQueryData(subscriptionKeys.usage(), context.previousUsageData)
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.user() })
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() })
-    },
-  })
+        return { previousSubscriptionData, previousUsageData }
+      },
+      onError: (_err, _variables, context) => {
+        if (context?.previousSubscriptionData) {
+          queryClient.setQueryData(subscriptionKeys.user(), context.previousSubscriptionData)
+        }
+        if (context?.previousUsageData) {
+          queryClient.setQueryData(subscriptionKeys.usage(), context.previousUsageData)
+        }
+      },
+      onSettled: () =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: subscriptionKeys.user() }),
+          queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() }),
+        ]),
+    })
+  },
 }

@@ -23,6 +23,13 @@ export interface TagDefinitionInput {
   _originalDisplayName?: string
 }
 
+export interface BulkTagDefinitionsResult {
+  created: TagDefinition[]
+  updated: TagDefinition[]
+}
+
+type BulkTagDefinitionsWireResult = BulkTagDefinitionsResult & { errors: unknown }
+
 /**
  * Hook for managing KB-scoped tag definitions
  * @param knowledgeBaseId - The knowledge base ID
@@ -39,11 +46,12 @@ export function useTagDefinitions(
   const fetchTagDefinitions = useCallback(async () => {
     if (!knowledgeBaseId || !documentId) {
       setTagDefinitions([])
+      setIsLoading(false)
+      setError(null)
       return
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const response = await fetch(
@@ -58,13 +66,15 @@ export function useTagDefinitions(
 
       if (data.success && Array.isArray(data.data)) {
         setTagDefinitions(data.data)
+        setError(null)
       } else {
         throw new Error('Invalid response format')
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      const tagDefinitionLoadFailure =
+        err instanceof Error ? err.message : 'Unknown error occurred'
       logger.error('Error fetching tag definitions:', err)
-      setError(errorMessage)
+      setError(tagDefinitionLoadFailure)
       setTagDefinitions([])
     } finally {
       setIsLoading(false)
@@ -82,38 +92,34 @@ export function useTagDefinitions(
         (def) => def?.tagSlot && def.displayName && def.displayName.trim()
       )
 
-      try {
-        const response = await fetch(
-          `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/tag-definitions`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ definitions: validDefinitions }),
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error(`Failed to save tag definitions: ${response.statusText}`)
+      const response = await fetch(
+        `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/tag-definitions`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definitions: validDefinitions }),
         }
-
-        const data = await response.json()
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to save tag definitions')
-        }
-
-        // Refresh the definitions after saving
-        await fetchTagDefinitions()
-
-        return data.data
-      } catch (err) {
-        logger.error('Error saving tag definitions:', err)
-        throw err
+      )
+      const data = await response.json()
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to save tag definitions')
       }
+      const {
+        created,
+        updated,
+        errors: rejectedDefinitions,
+      } = data.data as BulkTagDefinitionsWireResult
+      if (
+        !Array.isArray(created) ||
+        !Array.isArray(updated) ||
+        !Array.isArray(rejectedDefinitions)
+      ) {
+        throw new Error('Invalid tag definitions response')
+      }
+      if (rejectedDefinitions.length > 0) throw new Error('Failed to save tag definitions')
+      return { created, updated }
     },
-    [knowledgeBaseId, documentId, fetchTagDefinitions]
+    [knowledgeBaseId, documentId]
   )
 
   const deleteTagDefinitions = useCallback(async () => {

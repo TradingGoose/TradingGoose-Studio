@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import { getMonitorOutcomeLabel, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { formatTemplate } from '@/i18n/utils'
 import type { MonitorReferenceData } from '../shared/types'
@@ -94,7 +94,8 @@ export function buildConfigSearchSuggestionSet(
 
   ;(['active', 'paused'] as const).forEach((status) =>
     add({
-      label: status === 'active' ? copy.configSearch.activeMonitors : copy.configSearch.pausedMonitors,
+      label:
+        status === 'active' ? copy.configSearch.activeMonitors : copy.configSearch.pausedMonitors,
       filter: { field: 'status', operator: '=', values: [status] },
     })
   )
@@ -106,15 +107,17 @@ export function buildConfigSearchSuggestionSet(
       filter: { field: 'lastOutcome', operator: '=', values: [outcome] },
     })
   )
-  ;([
-    ['lastExecutionAt', copy.configSearch.hasLastExecution, copy.configSearch.noLastExecution],
-    ['lastOutcome', copy.configSearch.hasLastOutcome, copy.configSearch.noLastOutcome],
+  ;(
     [
-      'lastExecutionLogId',
-      copy.configSearch.hasLastExecutionLog,
-      copy.configSearch.noLastExecutionLog,
-    ],
-  ] as const).forEach(([field, hasLabel, noLabel]) => {
+      ['lastExecutionAt', copy.configSearch.hasLastExecution, copy.configSearch.noLastExecution],
+      ['lastOutcome', copy.configSearch.hasLastOutcome, copy.configSearch.noLastOutcome],
+      [
+        'lastExecutionLogId',
+        copy.configSearch.hasLastExecutionLog,
+        copy.configSearch.noLastExecutionLog,
+      ],
+    ] as const
+  ).forEach(([field, hasLabel, noLabel]) => {
     add({
       label: hasLabel,
       filter: { field: field as ConfigMonitorFilter['field'], operator: 'has', values: [] },
@@ -217,79 +220,79 @@ export function ConfigMonitorSearch({
           setIsOpen(open)
         }}
       >
-        <PopoverTrigger asChild>
-          <div
-            ref={inputContainerRef}
-            className='relative flex h-9 w-full items-center rounded-md border border-border bg-background px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'
-          >
-            <Search className='mr-2 h-4 w-4 shrink-0 text-muted-foreground' />
-            <div className='flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-              {config.quickFilters.map((filter) => {
-                const rawFilter = filterKey(filter)
-                return (
-                  <Button
-                    key={rawFilter}
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    className='h-6 shrink-0 gap-1 rounded-sm px-2 text-[11px]'
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      searchState.removeFilter(filter)
-                    }}
-                  >
-                    <span>{suggestionLabelByKey.get(rawFilter) ?? rawFilter}</span>
-                    <X className='h-3 w-3' />
-                  </Button>
-                )
-              })}
-              <input
-                value={searchState.rawQuery}
-                placeholder={!hasQuickFilters ? copy.configSearch.placeholder : ''}
-                className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
-                autoComplete='off'
-                autoCorrect='off'
-                autoCapitalize='off'
-                spellCheck='false'
-                onFocus={() => setIsOpen(true)}
-                onChange={(event) => {
-                  searchState.setRawQuery(event.target.value)
-                  setIsOpen(true)
-                }}
-                onBlur={() => searchState.commitRawQuery()}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    searchState.commitRawQuery()
-                    setIsOpen(false)
-                  }
-                  if (event.key === 'Escape') {
-                    setIsOpen(false)
-                  }
-                }}
-              />
-            </div>
-            {(hasQuery || hasQuickFilters) && (
-              <Button
-                type='button'
-                variant='ghost'
-                size='icon'
-                className='ml-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  clearSearch()
-                }}
-              >
-                <X className='h-3.5 w-3.5' />
-                <span className='sr-only'>{copy.configSearch.clearSearch}</span>
-              </Button>
-            )}
+        <div
+          ref={inputContainerRef}
+          className='relative flex h-9 w-full items-center rounded-md border border-border bg-background px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'
+        >
+          <Search className='mr-2 h-4 w-4 shrink-0 text-muted-foreground' />
+          <div className='flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
+            {config.quickFilters.map((filter) => {
+              const rawFilter = filterKey(filter)
+              return (
+                <Button
+                  key={rawFilter}
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='h-6 shrink-0 gap-1 rounded-sm px-2 text-[11px]'
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    searchState.removeFilter(filter)
+                  }}
+                >
+                  <span>{suggestionLabelByKey.get(rawFilter) ?? rawFilter}</span>
+                  <X className='h-3 w-3' />
+                </Button>
+              )
+            })}
+            <input
+              value={searchState.rawQuery}
+              placeholder={!hasQuickFilters ? copy.configSearch.placeholder : ''}
+              aria-label={copy.configSearch.placeholder}
+              className='h-full min-w-[120px] flex-1 bg-transparent placeholder:text-muted-foreground'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
+              spellCheck='false'
+              onFocus={() => setIsOpen(true)}
+              onChange={(event) => {
+                searchState.setRawQuery(event.target.value)
+                setIsOpen(true)
+              }}
+              onBlur={() => searchState.commitRawQuery()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  searchState.commitRawQuery()
+                  setIsOpen(false)
+                }
+                if (event.key === 'Escape') {
+                  setIsOpen(false)
+                }
+              }}
+            />
           </div>
-        </PopoverTrigger>
+          {(hasQuery || hasQuickFilters) && (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='ml-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
+              onMouseDown={(event) => {
+                event.preventDefault()
+                clearSearch()
+              }}
+            >
+              <X className='h-3.5 w-3.5' />
+              <span className='sr-only'>{copy.configSearch.clearSearch}</span>
+            </Button>
+          )}
+        </div>
         <PopoverContent
           align='start'
+          anchor={inputContainerRef}
           className='p-1'
           style={{ width: dropdownWidth }}
-          onOpenAutoFocus={(event) => event.preventDefault()}
+          initialFocus={false}
         >
           <div className='max-h-[300px] overflow-y-auto'>
             {visibleSuggestions.length > 0 ? (

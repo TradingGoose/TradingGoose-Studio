@@ -6,16 +6,15 @@ import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { useLocale, useMessages } from 'next-intl'
 import { GithubIcon } from '@/components/icons/icons'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useSession } from '@/lib/auth-client'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -74,18 +73,20 @@ function LanguageSwitcher() {
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant='outline' size='sm' className='rounded-md px-3 font-medium text-sm'>
-          <LanguagesIcon className='h-4 w-4' />
-          <span>{getLocaleDisplayName(locale)}</span>
-          <ChevronDownIcon className='h-4 w-4' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button variant='outline' size='sm' className='rounded-md px-3 font-medium text-sm' />
+        }
+      >
+        <LanguagesIcon className='h-4 w-4' />
+        <span>{getLocaleDisplayName(locale)}</span>
+        <ChevronDownIcon className='h-4 w-4' />
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-48'>
         {locales.map((code) => (
           <DropdownMenuItem
             key={code}
-            onSelect={() => {
+            onClick={() => {
               void changeLocale(code)
             }}
             className='flex items-center gap-2'
@@ -112,6 +113,7 @@ export default function Nav({
   const { data: session } = useSession()
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const hasResolvedRegistrationMode = registrationMode !== null
   const registrationPrimaryHref = registrationMode
     ? getRegistrationPrimaryHref(registrationMode)
@@ -155,7 +157,16 @@ export default function Nav({
     return () => clearTimeout(timeoutId)
   }, [variant])
 
+  useEffect(() => {
+    const closeMobileMenuOnDesktop = () => {
+      if (window.innerWidth >= 768) setIsMobileMenuOpen(false)
+    }
+    window.addEventListener('resize', closeMobileMenuOnDesktop)
+    return () => window.removeEventListener('resize', closeMobileMenuOnDesktop)
+  }, [])
+
   const navigateToLogin = useCallback(() => {
+    setIsMobileMenuOpen(false)
     router.push('/login')
   }, [router])
 
@@ -164,6 +175,7 @@ export default function Nav({
       return
     }
 
+    setIsMobileMenuOpen(false)
     router.push(registrationPrimaryHref)
   }, [registrationPrimaryHref, router])
 
@@ -181,11 +193,16 @@ export default function Nav({
 
   const authenticatedDashboardAction =
     !hideAuthButtons && isAuthenticated ? (
-      <Button asChild size='sm' className='rounded-md text-base'>
-        <Link href='/workspace' prefetch={false}>
-          {copy.nav.goToDashboard}
-        </Link>
-      </Button>
+      <Link
+        href='/workspace'
+        prefetch={false}
+        className={buttonVariants({
+          size: 'sm',
+          className: 'rounded-md text-base',
+        })}
+      >
+        {copy.nav.goToDashboard}
+      </Link>
     ) : null
 
   const desktopNavLinks = variant === 'landing' && (
@@ -298,59 +315,85 @@ export default function Nav({
             ) : null}
 
             {variant === 'landing' ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className='md:hidden' asChild>
-                  <Button variant='outline' size='icon'>
-                    <MenuIcon className='h-5 w-5' />
-                    <span className='sr-only'>{copy.nav.menu}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className='w-64'>
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger
+                  render={
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='md:hidden'
+                      aria-label={copy.nav.menu}
+                      title={copy.nav.menu}
+                    />
+                  }
+                >
+                  <MenuIcon className='h-5 w-5' />
+                </SheetTrigger>
+                <SheetContent className='w-64'>
+                  <SheetTitle className='sr-only'>{copy.nav.mobileNavigation}</SheetTitle>
+                  <nav aria-label={copy.nav.mobileNavigation} className='mt-8'>
+                    <div className='flex flex-col gap-2'>
                       <a
                         href={localizeDocsUrl(locale)}
                         target='_blank'
                         rel='noopener noreferrer'
-                        className='w-full'
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={buttonVariants({
+                          variant: 'ghost',
+                          className: 'w-full justify-start',
+                        })}
                       >
                         {copy.nav.docs}
                       </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Link href='/blog' className='w-full' prefetch={false}>
+                      <Link
+                        href='/blog'
+                        prefetch={false}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={buttonVariants({
+                          variant: 'ghost',
+                          className: 'w-full justify-start',
+                        })}
+                      >
                         {copy.nav.blog}
                       </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
                       <a
                         href='https://github.com/TradingGoose/TradingGoose-Studio'
                         target='_blank'
                         rel='noopener noreferrer'
-                        className='flex w-full items-center gap-2'
+                        aria-label={formatTemplate(copy.nav.githubRepositoryAriaLabel, {
+                          stars: githubStars,
+                        })}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={buttonVariants({
+                          variant: 'ghost',
+                          className: 'w-full justify-start',
+                        })}
                       >
                         <GithubIcon className='h-4 w-4' aria-hidden='true' />
                         <span aria-live='polite'>{githubStars}</span>
                       </a>
-                    </DropdownMenuItem>
-                    {isAuthenticated && !hideAuthButtons ? (
-                      <DropdownMenuItem asChild>
-                        <Link href='/workspace' className='w-full' prefetch={false}>
+                      {isAuthenticated && !hideAuthButtons ? (
+                        <Link
+                          href='/workspace'
+                          prefetch={false}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={buttonVariants({
+                            variant: 'ghost',
+                            className: 'w-full justify-start',
+                          })}
+                        >
                           {copy.nav.goToDashboard}
                         </Link>
-                      </DropdownMenuItem>
-                    ) : null}
-                    {registrationActions ? (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className='!bg-transparent'>
-                          <div className='flex w-full flex-col gap-2'>{registrationActions}</div>
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      ) : null}
+                      {registrationActions ? (
+                        <div className='mt-2 flex flex-col gap-2 border-t pt-4'>
+                          {registrationActions}
+                        </div>
+                      ) : null}
+                    </div>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             ) : null}
           </div>
         </div>

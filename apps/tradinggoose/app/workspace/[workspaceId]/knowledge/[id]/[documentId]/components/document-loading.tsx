@@ -48,6 +48,7 @@ export function DocumentLoading({
         <input
           type='text'
           placeholder={t('chunkModal.searchChunksPlaceholder')}
+          aria-label={t('chunkModal.searchChunksPlaceholder')}
           value=''
           disabled
           className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'

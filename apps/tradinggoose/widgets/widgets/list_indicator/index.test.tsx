@@ -2,14 +2,19 @@
  * @vitest-environment jsdom
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { act } from 'react'
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useIndicatorWriteStore } from '@/hooks/queries/indicators'
 import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 
-const mockCreateIndicatorMutation = vi.fn()
-const mockImportIndicatorsMutation = vi.fn()
+const indicatorMocks = vi.hoisted(() => ({
+  create: vi.fn(),
+  import: vi.fn(),
+  delete: vi.fn(),
+  members: [] as Array<{ entityId: string; entityName: string }>,
+}))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
   WorkspacePermissionsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -19,14 +24,12 @@ vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
   }),
 }))
 
-vi.mock('@/hooks/queries/indicators', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/indicators')
-  return {
-    ...actual,
-    useCreateIndicator: () => mockCreateIndicatorMutation(),
-    useImportIndicators: () => mockImportIndicatorsMutation(),
-  }
-})
+vi.mock('@/hooks/queries/indicators', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/queries/indicators')>()),
+  createIndicator: indicatorMocks.create,
+  importIndicators: indicatorMocks.import,
+  deleteIndicator: indicatorMocks.delete,
+}))
 
 vi.mock('@/widgets/widget-config-runtime', () => ({
   useWidgetConfigRuntimeActions: () => ({
@@ -35,27 +38,51 @@ vi.mock('@/widgets/widget-config-runtime', () => ({
   }),
 }))
 
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({ members: indicatorMocks.members, isLoading: false, error: null }),
+}))
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({ children, render }: { children?: ReactNode; render: ReactElement }) =>
+    cloneElement(render, undefined, children),
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuItem: ({
     children,
     disabled,
-    onSelect,
+    closeOnClick: _closeOnClick,
+    render,
+    ...props
   }: ButtonHTMLAttributes<HTMLButtonElement> & {
-    onSelect?: (event: Event) => void
-  }) => (
-    <button type='button' disabled={disabled} onClick={() => onSelect?.(new Event('select'))}>
-      {children}
-    </button>
-  ),
+    closeOnClick?: boolean
+    render?: ReactElement
+  }) =>
+    render ? (
+      cloneElement(
+        render as ReactElement<ButtonHTMLAttributes<HTMLButtonElement>>,
+        {
+          disabled,
+          ...props,
+        },
+        children
+      )
+    ) : (
+      <button type='button' disabled={disabled} {...props}>
+        {children}
+      </button>
+    ),
 }))
 
 vi.mock('@/components/widget-header-control', () => ({
@@ -71,11 +98,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const createMutationState = (mutateAsync = vi.fn()) => ({
-  isPending: false,
-  mutateAsync,
-})
-
 describe('Indicator List header controls', () => {
   let container: HTMLDivElement
   let root: Root
@@ -87,8 +109,11 @@ describe('Indicator List header controls', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockCreateIndicatorMutation.mockReturnValue(createMutationState())
-    mockImportIndicatorsMutation.mockReturnValue(createMutationState())
+    indicatorMocks.create.mockReset()
+    indicatorMocks.import.mockReset()
+    indicatorMocks.delete.mockReset()
+    indicatorMocks.members.length = 0
+    useIndicatorWriteStore.setState({ activeWrite: null, failedWrite: null })
   })
 
   afterEach(() => {
@@ -114,9 +139,131 @@ describe('Indicator List header controls', () => {
     expect(buttons[2]?.textContent).toContain('Import indicator')
   })
 
+  it('claims one synchronous panel write and keeps its feedback in that panel', async () => {
+    let resolveCreate!: (value: Array<{ id: string }>) => void
+    indicatorMocks.create.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve
+      })
+    )
+    const header = listIndicatorWidget.renderHeader?.({
+      context: { workspaceId: 'workspace-1' } as any,
+      channelId: 'pair-red',
+      panelId: 'panel-1',
+    } as any)
+
+    await act(async () => root.render(header?.right as ReactNode))
+    const create = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('New indicator')
+    )!
+    act(() => {
+      create.click()
+      create.click()
+    })
+
+    expect(indicatorMocks.create).toHaveBeenCalledOnce()
+    expect(useIndicatorWriteStore.getState().activeWrite).toMatchObject({
+      kind: 'create',
+      workspaceId: 'workspace-1',
+      ownerId: 'panel-1',
+    })
+
+    const Body = listIndicatorWidget.component
+    await act(async () => {
+      root.render(
+        <>
+          <div data-panel='panel-1'>
+            <Body channelId='pair-red' panelId='panel-1' context={{ workspaceId: 'workspace-1' }} />
+          </div>
+          <div data-panel='panel-2'>
+            <Body channelId='pair-red' panelId='panel-2' context={{ workspaceId: 'workspace-1' }} />
+          </div>
+        </>
+      )
+    })
+    expect(container.querySelector('[data-panel="panel-1"] [role="status"]')).toBeTruthy()
+    expect(container.querySelector('[data-panel="panel-2"] [role="status"]')).toBeNull()
+
+    await act(async () => resolveCreate([{ id: 'indicator-1' }]))
+  })
+
+  it('retains one owner-scoped alert after a rejected write', async () => {
+    await useIndicatorWriteStore
+      .getState()
+      .runWrite({ kind: 'import', workspaceId: 'workspace-1', ownerId: 'panel-1' }, async () => {
+        throw new Error('failed')
+      })
+    const Body = listIndicatorWidget.component
+    await act(async () => {
+      root.render(
+        <Body channelId='pair-red' panelId='panel-1' context={{ workspaceId: 'workspace-1' }} />
+      )
+    })
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not save indicator changes'
+    )
+  })
+
+  it('keeps delete confirmation open after failure and closes it after retry', async () => {
+    indicatorMocks.members.push(
+      { entityId: 'indicator-1', entityName: 'RSI' },
+      { entityId: 'indicator-2', entityName: 'MACD' }
+    )
+    indicatorMocks.delete
+      .mockRejectedValueOnce(new Error('failed'))
+      .mockResolvedValueOnce(undefined)
+    const onWidgetLinkedParamsPatch = vi.fn()
+    const Body = listIndicatorWidget.component
+
+    await act(async () => {
+      root.render(
+        <Body
+          channelId='pair-red'
+          panelId='panel-1'
+          context={{ workspaceId: 'workspace-1' }}
+          params={{ indicatorId: 'indicator-1' }}
+          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
+        />
+      )
+    })
+    await act(async () => {
+      container
+        .querySelector('.group')
+        ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    })
+    const deleteTrigger = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Delete indicator')
+    )!
+    await act(async () => {
+      deleteTrigger.click()
+    })
+
+    const getDialog = () => document.body.querySelector('[role="alertdialog"]')
+    const clickDelete = async () => {
+      const action = Array.from(getDialog()!.querySelectorAll('button')).find(
+        (button) => button.textContent === 'Delete'
+      )!
+      await act(async () => {
+        action.click()
+        await Promise.resolve()
+      })
+    }
+
+    await clickDelete()
+    expect(getDialog()).toBeTruthy()
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not save indicator changes'
+    )
+    expect(onWidgetLinkedParamsPatch).not.toHaveBeenCalled()
+
+    await clickDelete()
+    expect(indicatorMocks.delete).toHaveBeenCalledTimes(2)
+    expect(getDialog()).toHaveAttribute('data-closed')
+    expect(onWidgetLinkedParamsPatch).toHaveBeenCalledWith({ indicatorId: null })
+  })
+
   it('imports valid unified indicator files', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockImportIndicatorsMutation.mockReturnValue(createMutationState(mutateAsync))
+    indicatorMocks.import.mockResolvedValue({})
 
     const header = listIndicatorWidget.renderHeader?.({
       context: { workspaceId: 'workspace-1' } as any,
@@ -167,7 +314,7 @@ describe('Indicator List header controls', () => {
       await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
+    expect(indicatorMocks.import).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       file: {
         ...filePayload,
@@ -182,9 +329,7 @@ describe('Indicator List header controls', () => {
   })
 
   it('rejects invalid unified indicator files before calling the mutation', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockImportIndicatorsMutation.mockReturnValue(createMutationState(mutateAsync))
+    indicatorMocks.import.mockResolvedValue({})
 
     const header = listIndicatorWidget.renderHeader?.({
       context: { workspaceId: 'workspace-1' } as any,
@@ -229,8 +374,6 @@ describe('Indicator List header controls', () => {
       await Promise.resolve()
     })
 
-    expect(mutateAsync).not.toHaveBeenCalled()
-    expect(consoleError).toHaveBeenCalled()
-    consoleError.mockRestore()
+    expect(indicatorMocks.import).not.toHaveBeenCalled()
   })
 })

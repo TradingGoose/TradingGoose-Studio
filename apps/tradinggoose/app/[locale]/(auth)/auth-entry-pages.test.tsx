@@ -1,4 +1,4 @@
-import type React from 'react'
+import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
@@ -53,10 +53,6 @@ vi.mock('@/lib/registration/service', () => ({
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
   AuthPageHeader: () => null,
-}))
-
-vi.mock('@/components/ui/button', () => ({
-  Button: ({ children }: { children?: React.ReactNode }) => <button>{children}</button>,
 }))
 
 vi.mock('@/app/(auth)/login/login-form', () => ({
@@ -170,8 +166,15 @@ describe('localized auth entry pages', () => {
     const markup = renderToStaticMarkup(result)
 
     expect(markup).toContain(
-      '/login?reauth=1&amp;callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
+      'href="/login?reauth=1&amp;callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token"'
     )
+    expect(markup).toContain('href="/"')
+    expect(markup).toContain('Volver a iniciar sesión')
+    expect(markup).toContain('Volver al inicio')
+    expect(markup).toContain('bg-primary')
+    expect(markup).toContain('border-input')
+    expect(markup).not.toContain('role="button"')
+    expect(markup).not.toContain('tabindex=')
     expect(markup).not.toContain('document.cookie')
   })
 })

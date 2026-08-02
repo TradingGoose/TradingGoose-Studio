@@ -32,17 +32,21 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={disabled}
-                className={widgetHeaderControlClassName(
-                  'mx-2 border-transparent bg-transparent p-0 hover:border-transparent hover:bg-transparent hover:opacity-70'
-                )}
-                aria-label={tooltipText}
-                aria-haspopup='listbox'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    disabled={disabled}
+                    className={widgetHeaderControlClassName(
+                      'mx-2 border-transparent bg-transparent p-0 hover:border-transparent hover:bg-transparent hover:opacity-70'
+                    )}
+                    aria-label={tooltipText}
+                    aria-haspopup='listbox'
+                  />
+                }
               >
                 <span className='flex items-center'>
                   <span
@@ -51,15 +55,14 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
                     aria-hidden
                   />
                 </span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         sideOffset={6}
-        avoidCollisions
         collisionPadding={12}
         className={cn(widgetHeaderMenuContentClassName, 'min-w-[180px]')}
       >
@@ -68,7 +71,7 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
             key={option.value}
             className={widgetHeaderMenuItemClassName}
             disabled={!onChange || option.value === color}
-            onSelect={() => {
+            onClick={() => {
               if (!onChange || option.value === color) return
               onChange(option.value)
             }}

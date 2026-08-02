@@ -38,17 +38,19 @@ export function FilterPopover({
   const copy = useWorkflowConsoleMessages()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant='ghost'
-          size='icon'
-          className={cn('h-6 w-6', triggerClassName)}
-          onClick={(event) => event.stopPropagation()}
-          aria-label={copy.filters}
-          disabled={disabled}
-        >
-          <Filter className={cn('h-4 w-4', hasActiveFilters && 'text-primary')} />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant='ghost'
+            size='icon'
+            className={cn('h-6 w-6', triggerClassName)}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={copy.filters}
+            disabled={disabled}
+          />
+        }
+      >
+        <Filter className={cn('h-4 w-4', hasActiveFilters && 'text-primary')} />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className='w-64 max-h-[18rem] overflow-hidden p-0'
@@ -61,8 +63,8 @@ export function FilterPopover({
               {copy.status}
             </DropdownMenuLabel>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 toggleStatus('error')
               }}
               className='gap-2'
@@ -72,8 +74,8 @@ export function FilterPopover({
               {filters.statuses.has('error') && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 toggleStatus('info')
               }}
               className='gap-2'
@@ -103,8 +105,8 @@ export function FilterPopover({
                       return (
                         <DropdownMenuItem
                           key={block.blockId}
-                          onSelect={(event) => {
-                            event.preventDefault()
+                          closeOnClick={false}
+                          onClick={() => {
                             toggleBlock(block.blockId)
                           }}
                           className='gap-2'

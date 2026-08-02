@@ -375,29 +375,31 @@ const PermissionsTable = ({
                       user.invitationId &&
                       onResendInvitation && (
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className='inline-flex'>
-                              <Button
-                                variant='ghost'
-                                size='icon'
-                                onClick={() => onResendInvitation(user.invitationId!, user.email)}
-                                disabled={
-                                  disabled ||
-                                  isSaving ||
-                                  resendingInvitationIds?.[user.invitationId!] ||
-                                  (resendCooldowns && resendCooldowns[user.invitationId!] > 0)
-                                }
-                                className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                              >
-                                {resendingInvitationIds?.[user.invitationId!] ? (
-                                  <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                                ) : (
-                                  <RotateCw className='h-3.5 w-3.5' />
-                                )}
-                                <span className='sr-only'>Resend invite</span>
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <span className='inline-flex'>
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  onClick={() => onResendInvitation(user.invitationId!, user.email)}
+                                  disabled={
+                                    disabled ||
+                                    isSaving ||
+                                    resendingInvitationIds?.[user.invitationId!] ||
+                                    (resendCooldowns && resendCooldowns[user.invitationId!] > 0)
+                                  }
+                                  className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                                >
+                                  {resendingInvitationIds?.[user.invitationId!] ? (
+                                    <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                                  ) : (
+                                    <RotateCw className='h-3.5 w-3.5' />
+                                  )}
+                                  <span className='sr-only'>Resend invite</span>
+                                </Button>
+                              </span>
+                            }
+                          />
                           <TooltipContent>
                             <p>
                               {resendCooldowns?.[user.invitationId!]
@@ -413,30 +415,32 @@ const PermissionsTable = ({
                         user.invitationId &&
                         onRemoveInvitation)) && (
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant='ghost'
-                            size='icon'
-                            onClick={() => {
-                              if (canShowRemoveButton && onRemoveMember) {
-                                onRemoveMember(user.userId!, user.email)
-                              } else if (
-                                isPendingInvitation &&
-                                user.invitationId &&
-                                onRemoveInvitation
-                              ) {
-                                onRemoveInvitation(user.invitationId, user.email)
-                              }
-                            }}
-                            disabled={disabled || isSaving}
-                            className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                          >
-                            <X className='h-3.5 w-3.5' />
-                            <span className='sr-only'>
-                              {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
-                            </span>
-                          </Button>
-                        </TooltipTrigger>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              variant='ghost'
+                              size='icon'
+                              onClick={() => {
+                                if (canShowRemoveButton && onRemoveMember) {
+                                  onRemoveMember(user.userId!, user.email)
+                                } else if (
+                                  isPendingInvitation &&
+                                  user.invitationId &&
+                                  onRemoveInvitation
+                                ) {
+                                  onRemoveInvitation(user.invitationId, user.email)
+                                }
+                              }}
+                              disabled={disabled || isSaving}
+                              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                            >
+                              <X className='h-3.5 w-3.5' />
+                              <span className='sr-only'>
+                                {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
+                              </span>
+                            </Button>
+                          }
+                        />
                         <TooltipContent>
                           <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
                         </TooltipContent>

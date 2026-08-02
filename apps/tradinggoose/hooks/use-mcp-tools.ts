@@ -153,18 +153,19 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       }
 
       setIsLoading(true)
-      setError(null)
 
       try {
         logger.info('Discovering MCP tools', { workspaceId: normalizedWorkspaceId })
         const tools = await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force)
         if (loadId !== loadIdRef.current) return
         setMcpTools(tools)
+        setError(null)
       } catch (err) {
         if (loadId !== loadIdRef.current) return
-        const errorMessage = err instanceof Error ? err.message : 'Failed to discover MCP tools'
+        const toolDiscoveryFailure =
+          err instanceof Error ? err.message : 'Failed to discover MCP tools'
         logger.error('Error discovering MCP tools:', err)
-        setError(errorMessage)
+        setError(toolDiscoveryFailure)
         setMcpTools([])
       } finally {
         if (loadId === loadIdRef.current) {

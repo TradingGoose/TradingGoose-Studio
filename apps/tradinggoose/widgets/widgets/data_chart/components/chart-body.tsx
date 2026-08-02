@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { InputMetaMap } from '@/lib/indicators/types'
@@ -202,15 +203,43 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     () => resolveIndicatorIds(dataParams.view),
     [dataParams.view?.pineIndicators]
   )
-  const { members: customIndicatorMembers } = useEntityList('indicator', workspaceId)
+  const {
+    members: customIndicatorMembers,
+    error: customIndicatorListError,
+    isRetrying: isCustomIndicatorListRetrying,
+    retry: retryCustomIndicatorList,
+  } = useEntityList('indicator', workspaceId)
   const [connectedCustomIndicators, setConnectedCustomIndicators] = useState(
     () => new Map<string, IndicatorDocumentRuntimeSource>()
+  )
+  const [customIndicatorFailures, setCustomIndicatorFailures] = useState(
+    () => new Map<string, { retry: () => void; isRetrying: boolean }>()
   )
   const handleCustomIndicatorChange = useCallback(
     (key: string, indicator: IndicatorDocumentRuntimeSource | null) => {
       setConnectedCustomIndicators((current) => {
         const next = new Map(current)
         if (indicator) next.set(key, indicator)
+        else next.delete(key)
+        return next
+      })
+    },
+    []
+  )
+  const handleCustomIndicatorFailureChange = useCallback(
+    (key: string, recovery: { retry: () => void; isRetrying: boolean } | null) => {
+      setCustomIndicatorFailures((current) => {
+        const previous = current.get(key)
+        if (
+          (!recovery && !previous) ||
+          (recovery &&
+            previous?.retry === recovery.retry &&
+            previous.isRetrying === recovery.isRetrying)
+        ) {
+          return current
+        }
+        const next = new Map(current)
+        if (recovery) next.set(key, recovery)
         else next.delete(key)
         return next
       })
@@ -430,7 +459,21 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
   const hasProvider = Boolean(providerId)
   const hasListing = Boolean(listing)
   const showEmptyState = !hasProvider || !hasListing
-  const showErrorState = !showEmptyState && Boolean(chartError) && !isLoading
+  const referencesCustomIndicator = pineIndicatorIds.some(
+    (indicatorId) => !DEFAULT_INDICATOR_MAP.has(indicatorId)
+  )
+  const hasCustomIndicatorFailure = Boolean(
+    (referencesCustomIndicator && customIndicatorListError) || customIndicatorFailures.size > 0
+  )
+  const isRetryingCustomIndicators =
+    (referencesCustomIndicator && isCustomIndicatorListRetrying) ||
+    [...customIndicatorFailures.values()].some(({ isRetrying }) => isRetrying)
+  const retryCustomIndicators = () => {
+    if (referencesCustomIndicator && customIndicatorListError) retryCustomIndicatorList()
+    for (const { retry } of customIndicatorFailures.values()) retry()
+  }
+  const showErrorState =
+    !showEmptyState && Boolean(chartError || hasCustomIndicatorFailure) && !isLoading
 
   if (!workspaceId) {
     return (
@@ -452,7 +495,9 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
     : copy.body.empty.chooseListingDescription
 
   const errorTitle = copy.body.errorTitle
-  const errorDescription = chartError ?? copy.body.errorFallback
+  const errorDescription = hasCustomIndicatorFailure
+    ? copy.body.indicatorLoadFailure
+    : (chartError ?? copy.body.errorFallback)
 
   return (
     <div className='relative flex h-full w-full flex-col'>
@@ -461,6 +506,7 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
         indicatorIds={pineIndicatorIds}
         members={customIndicatorMembers}
         onChange={handleCustomIndicatorChange}
+        onFailureChange={handleCustomIndicatorFailureChange}
       />
       <div className='relative flex-1 overflow-hidden'>
         {!showEmptyState && !showErrorState && (
@@ -520,10 +566,27 @@ export const DataChartWidgetBody = ({ params, context, panelId, widget }: Widget
         )}
         {showErrorState && (
           <div className='absolute inset-0 z-10 flex'>
-            <Empty className='h-full w-full border-border/40 bg-background/60'>
+            <Empty
+              className='h-full w-full border-border/40 bg-background/60'
+              role='alert'
+              aria-atomic='true'
+              aria-busy={isRetryingCustomIndicators || undefined}
+            >
               <EmptyHeader>
                 <EmptyTitle>{errorTitle}</EmptyTitle>
                 <EmptyDescription>{errorDescription}</EmptyDescription>
+                {hasCustomIndicatorFailure ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={retryCustomIndicators}
+                    disabled={isRetryingCustomIndicators}
+                    focusableWhenDisabled={isRetryingCustomIndicators}
+                  >
+                    {isRetryingCustomIndicators ? copy.body.retrying : copy.body.retry}
+                  </Button>
+                ) : null}
               </EmptyHeader>
             </Empty>
           </div>

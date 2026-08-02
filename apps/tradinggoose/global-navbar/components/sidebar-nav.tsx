@@ -86,15 +86,19 @@ function renderNavGroup(label: string, items: NavSection[]) {
 
           return (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-                <Link
-                  href={item.url}
-                  target={isExternal ? '_blank' : undefined}
-                  rel={isExternal ? 'noopener noreferrer' : undefined}
-                >
-                  <item.icon />
-                  <span>{item.title}</span>
-                </Link>
+              <SidebarMenuButton
+                isActive={item.isActive}
+                tooltip={item.title}
+                render={
+                  <Link
+                    href={item.url}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'noopener noreferrer' : undefined}
+                  />
+                }
+              >
+                <item.icon />
+                <span>{item.title}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )

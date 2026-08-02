@@ -490,6 +490,7 @@ export function DashboardClient({
       <div ref={searchContainerRef} className='relative flex flex-1'>
         <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
+          aria-label={t('searchPlaceholder')}
           placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(event) => {
@@ -599,9 +600,10 @@ export function DashboardClient({
     />
   )
 
+  const layoutDocumentBusy = layoutDocument.isLoading
   const layoutDocumentState = layoutDocument.error
     ? 'error'
-    : layoutDocument.isLoading
+    : layoutDocumentBusy
       ? 'loading'
       : 'empty'
   const layoutDocumentMessage =

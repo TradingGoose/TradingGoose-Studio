@@ -132,13 +132,7 @@ const resolveWarmSandboxTimeoutMs = (
     keepWarmMs + Math.max(0, executionTimeoutMs) + WARM_SANDBOX_TIMEOUT_BUFFER_MS
   )
 
-const buildWarmCacheKey = ({
-  template,
-  language,
-}: {
-  template?: string
-  language: CodeLanguage
-}) =>
+const buildWarmCacheKey = ({ template, language }: { template?: string; language: CodeLanguage }) =>
   `${template ?? '__default_template__'}::${language}::pool`
 
 const clearWarmKillTimer = (entry: WarmSandboxEntry) => {
@@ -189,7 +183,11 @@ const removeWarmSandboxEntry = (cacheKey: string, entry: WarmSandboxEntry) => {
   warmSandboxEntries.set(cacheKey, next)
 }
 
-const destroyWarmSandboxEntry = async (cacheKey: string, entry: WarmSandboxEntry, reason: string) => {
+const destroyWarmSandboxEntry = async (
+  cacheKey: string,
+  entry: WarmSandboxEntry,
+  reason: string
+) => {
   if (entry.disposed) return
   entry.disposed = true
   clearWarmKillTimer(entry)
@@ -265,7 +263,9 @@ const createWarmSandboxEntry = async ({
 }
 
 const selectLeastBusyWarmSandbox = (entries: WarmSandboxEntry[]) =>
-  entries.reduce((leastBusy, entry) => (entry.pendingRuns < leastBusy.pendingRuns ? entry : leastBusy))
+  entries.reduce((leastBusy, entry) =>
+    entry.pendingRuns < leastBusy.pendingRuns ? entry : leastBusy
+  )
 
 const selectLeastBusyWarmSandboxForScope = (entries: WarmSandboxEntry[], scope: string) => {
   const scopeEntries = entries.filter((entry) => (entry.pendingRunsByScope.get(scope) ?? 0) > 0)
@@ -394,18 +394,18 @@ const runCodeInSandbox = async ({
   })
 
   if (execution.error) {
-    const errorMessage = `${execution.error.name}: ${execution.error.value}`
+    const sandboxFailureDetail = `${execution.error.name}: ${execution.error.value}`
     logger.error(`E2B execution error`, {
       sandboxId,
       error: execution.error,
-      errorMessage,
+      sandboxFailureDetail,
     })
 
-    const errorOutput = execution.error.traceback || errorMessage
+    const errorOutput = execution.error.traceback || sandboxFailureDetail
     return {
       result: null,
       stdout: errorOutput,
-      error: errorMessage,
+      error: sandboxFailureDetail,
       sandboxId,
     }
   }

@@ -1,11 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import * as PopoverPrimitive from '@radix-ui/react-popover'
+import { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 import { cn } from '@/lib/utils'
 
+type PopoverPortalProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Portal>
+
 type PopoverEnvironment = {
-  container?: React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Portal>['container'] | null
+  container?: PopoverPortalProps['container']
   scale?: number
   zIndex?: number
 }
@@ -22,28 +24,52 @@ export const PopoverEnvironmentProvider = ({
 const Popover = PopoverPrimitive.Root
 
 const PopoverTrigger = PopoverPrimitive.Trigger
-const PopoverAnchor = PopoverPrimitive.Anchor
 
-type PopoverContentProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
-  container?: React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Portal>['container']
-  scale?: number
-  zIndex?: number
-}
+type PopoverPositionerProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Positioner>
+type PopoverPopupProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Popup>
+
+type PopoverContentProps = Omit<PopoverPopupProps, 'className' | 'style'> &
+  Pick<
+    PopoverPositionerProps,
+    | 'align'
+    | 'alignOffset'
+    | 'anchor'
+    | 'collisionAvoidance'
+    | 'collisionBoundary'
+    | 'collisionPadding'
+    | 'positionMethod'
+    | 'side'
+    | 'sideOffset'
+    | 'sticky'
+  > & {
+    className?: string
+    container?: PopoverPortalProps['container']
+    scale?: number
+    style?: React.CSSProperties
+    zIndex?: number
+  }
 
 const PopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
+  React.ElementRef<typeof PopoverPrimitive.Popup>,
   PopoverContentProps
 >(
   (
     {
-      className,
       align = 'center',
-      sideOffset = 4,
+      alignOffset,
+      anchor,
+      className,
+      collisionAvoidance,
+      collisionBoundary,
       collisionPadding = 8,
       container,
+      positionMethod,
       scale,
-      zIndex,
+      side = 'bottom',
+      sideOffset = 4,
+      sticky,
       style,
+      zIndex,
       ...props
     },
     ref
@@ -59,33 +85,42 @@ const PopoverContent = React.forwardRef<
     const scaledStyle = shouldScale
       ? {
           scale: resolvedScale,
-          transformOrigin: 'var(--radix-popper-transform-origin)',
+          transformOrigin: 'var(--transform-origin)',
         }
       : undefined
-    const scaledSideOffset = shouldScale ? sideOffset * resolvedScale : sideOffset
+    const scaledSideOffset =
+      shouldScale && typeof sideOffset === 'number' ? sideOffset * resolvedScale : sideOffset
 
     return (
       <PopoverPrimitive.Portal container={resolvedContainer ?? undefined}>
-        <PopoverPrimitive.Content
-          ref={ref}
+        <PopoverPrimitive.Positioner
           align={align}
-          sideOffset={scaledSideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          className='pointer-events-auto isolate z-50'
+          collisionAvoidance={collisionAvoidance}
+          collisionBoundary={collisionBoundary}
           collisionPadding={collisionPadding}
-          className={cn(
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-            className
-          )}
-          style={{
-            ...style,
-            ...(typeof resolvedZIndex === 'number' ? { zIndex: resolvedZIndex } : null),
-            ...(scaledStyle ?? {}),
-          }}
-          {...props}
-        />
+          positionMethod={positionMethod}
+          side={side}
+          sideOffset={scaledSideOffset}
+          sticky={sticky}
+          style={typeof resolvedZIndex === 'number' ? { zIndex: resolvedZIndex } : undefined}
+        >
+          <PopoverPrimitive.Popup
+            ref={ref}
+            className={cn(
+              'data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 w-72 origin-[var(--transform-origin)] rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[ending-style]:animate-out data-[starting-style]:animate-in',
+              className
+            )}
+            style={{ ...style, ...(scaledStyle ?? {}) }}
+            {...props}
+          />
+        </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>
     )
   }
 )
-PopoverContent.displayName = PopoverPrimitive.Content.displayName
+PopoverContent.displayName = 'PopoverContent'
 
-export { Popover, PopoverAnchor, PopoverTrigger, PopoverContent }
+export { Popover, PopoverTrigger, PopoverContent }

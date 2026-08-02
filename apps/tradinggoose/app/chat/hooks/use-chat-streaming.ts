@@ -1,11 +1,11 @@
 'use client'
 
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react'
+import type { Messages } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ChatMessage } from '@/app/chat/components/message/message'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { getChatErrorMessage } from '@/app/chat/errors'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
 
@@ -35,9 +35,7 @@ export function useChatStreaming(chatCopy: ChatMessages) {
   const audioStreamingActiveRef = useRef<boolean>(false)
   const lastDisplayedPositionRef = useRef<number>(0) // Track displayed text in synced mode
 
-  const stopStreaming = (
-    setMessages: Dispatch<SetStateAction<ChatMessage[]>>
-  ) => {
+  const stopStreaming = (setMessages: Dispatch<SetStateAction<ChatMessage[]>>) => {
     if (abortControllerRef.current) {
       // Abort the fetch request
       abortControllerRef.current.abort()
@@ -163,7 +161,7 @@ export function useChatStreaming(chatCopy: ChatMessages) {
               const { blockId, chunk: contentChunk, event: eventType } = json
 
               if (eventType === 'error' || json.event === 'error') {
-                const errorMessage = getChatErrorMessage(
+                const streamFailureReply = getChatErrorMessage(
                   chatCopy,
                   json.code || json.error || CHAT_ERROR_CODES.GENERIC_ERROR
                 )
@@ -172,8 +170,9 @@ export function useChatStreaming(chatCopy: ChatMessages) {
                     msg.id === messageId
                       ? {
                           ...msg,
-                          content: errorMessage,
+                          content: streamFailureReply,
                           isStreaming: false,
+                          isError: true,
                           type: 'assistant' as const,
                         }
                       : msg

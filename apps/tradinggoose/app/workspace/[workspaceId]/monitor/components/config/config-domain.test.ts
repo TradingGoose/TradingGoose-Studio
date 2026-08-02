@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { getPublicCopy } from '@/i18n/public-copy'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildConfigBoardSections } from './config-board-state'
 import { buildConfigMonitorCards } from './config-card-model'
@@ -261,7 +261,7 @@ describe('config monitor domain', () => {
       sourceCard: card,
     })
 
-    expect(resolution.errors).not.toHaveProperty('interval')
+    expect(resolution.issues).not.toHaveProperty('interval')
     expect(resolution.draftPatch).toMatchObject({
       providerId: 'tradier',
       interval: '5m',
@@ -303,7 +303,7 @@ describe('config monitor domain', () => {
       sourceCard: card,
     })
 
-    expect(resolution.errors).not.toHaveProperty('interval')
+    expect(resolution.issues).not.toHaveProperty('interval')
     expect(resolution.draftPatch).toMatchObject({
       providerId: 'tradier',
       interval: '15m',
@@ -316,6 +316,18 @@ describe('config monitor domain', () => {
 
   it('rejects explicit invalid interval drops instead of rewriting them', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
+    const nextReferenceData = {
+      ...referenceData,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
+        tradier: { id: 'tradier', name: 'Tradier' },
+      },
+      providerIntervalsByProviderId: {
+        ...referenceData.providerIntervalsByProviderId,
+        tradier: ['5m'],
+      },
+    }
     const resolution = resolveConfigBoardContextPatch({
       decodedContext: {
         version: 1,
@@ -329,28 +341,20 @@ describe('config monitor domain', () => {
         groupBy: 'provider',
         verticalGroupBy: 'interval',
       },
-      referenceData: {
-        ...referenceData,
-        marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
-        marketProviderById: {
-          ...referenceData.marketProviderById,
-          tradier: { id: 'tradier', name: 'Tradier' },
-        },
-        providerIntervalsByProviderId: {
-          ...referenceData.providerIntervalsByProviderId,
-          tradier: ['5m'],
-        },
-      },
+      referenceData: nextReferenceData,
       sourceCard: card,
     })
 
-    expect(resolution.errors).toMatchObject({
-      interval: 'Selected interval is not supported for this provider.',
+    expect(resolution.issues).toMatchObject({
+      interval: ['Selected interval is not supported for this provider.'],
     })
     expect(resolution.draftPatch).toMatchObject({
       providerId: 'tradier',
       interval: '1m',
     })
+    expect(
+      buildDraftFromMonitorWithPatch(monitor, resolution.draftPatch, nextReferenceData).interval
+    ).toBe('1m')
   })
 
   it('clears provider-bound draft state when a monitor edit changes provider', () => {
@@ -401,10 +405,10 @@ describe('config monitor domain', () => {
       providerParamValues: {},
       existingEncryptedSecretFieldIds: [],
     })
-    expect(validation.errors).toMatchObject({
-      listing: 'Listing is required.',
-      'secret:token': 'Token is required.',
-      'param:feed': 'Feed is required.',
+    expect(validation.issues).toMatchObject({
+      listing: ['Listing is required.'],
+      'secret:token': ['Token is required.'],
+      'param:feed': ['Feed is required.'],
     })
   })
 
@@ -433,7 +437,7 @@ describe('config monitor domain', () => {
       providerId: 'tradier',
       interval: '15m',
     })
-    expect(validation.errors).not.toHaveProperty('interval')
+    expect(validation.issues).not.toHaveProperty('interval')
   })
 
   it('builds provider-change updates only from the new provider draft state', () => {
@@ -536,8 +540,8 @@ describe('config monitor domain', () => {
       })
     ).toMatchObject({ auth: { secrets: {} } })
     expect(
-      validateMonitorDraft({ draft: partialActiveDraft, referenceData: nextReferenceData }).errors
-    ).toMatchObject({ 'secret:apiSecret': 'API Secret is required.' })
+      validateMonitorDraft({ draft: partialActiveDraft, referenceData: nextReferenceData }).issues
+    ).toMatchObject({ 'secret:apiSecret': ['API Secret is required.'] })
   })
 
   it('clears stale indicator inputs when an indicator board drop changes indicators', () => {

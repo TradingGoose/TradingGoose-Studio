@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useId, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useMessages, useTranslations } from 'next-intl'
 import { DashboardLayoutPreviewCanvas } from '@/components/dashboard-layout-preview'
@@ -55,6 +55,34 @@ interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
   onStateChange?: (state: ClientToolCallState) => void
+}
+
+function readToolFailureDetails(toolCall: CopilotToolCall) {
+  if (
+    toolCall.state !== ClientToolCallState.error ||
+    !toolCall.result ||
+    typeof toolCall.result !== 'object'
+  ) {
+    return undefined
+  }
+
+  const result = toolCall.result as {
+    hint?: unknown
+    issues?: Array<{ path?: unknown; message?: unknown }>
+  }
+  const hint =
+    typeof result.hint === 'string' && result.hint.trim() ? result.hint.trim() : undefined
+  const issues = Array.isArray(result.issues)
+    ? result.issues.filter(
+        (issue): issue is { path: string; message: string } =>
+          typeof issue?.path === 'string' &&
+          issue.path.trim().length > 0 &&
+          typeof issue.message === 'string' &&
+          issue.message.trim().length > 0
+      )
+    : []
+
+  return hint || issues.length > 0 ? { hint, issues } : undefined
 }
 
 const ACTION_VERBS = [
@@ -655,6 +683,7 @@ export function InlineToolCall({
     (toolName === 'make_api_request' || toolName === 'set_environment_variables')
 
   const [expanded, setExpanded] = useState(isExpandablePending)
+  const pendingDetailsId = useId()
   const isExpandableTool =
     toolName === 'make_api_request' || toolName === 'set_environment_variables'
 
@@ -672,6 +701,7 @@ export function InlineToolCall({
   }
 
   const displayName = getDisplayName(toolCall)
+  const failureDetails = readToolFailureDetails(toolCall)
   const params = toolCall.params ?? {}
   const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
   const watchlistReviewPayload = readWatchlistVisualReviewPayload(toolCall)
@@ -805,23 +835,41 @@ export function InlineToolCall({
   const isLoadingState =
     toolCall.state === ClientToolCallState.pending ||
     toolCall.state === ClientToolCallState.executing
+  const terminalRole =
+    toolCall.state === ClientToolCallState.error
+      ? 'alert'
+      : toolCall.state === ClientToolCallState.success
+        ? 'status'
+        : undefined
 
-  const isToolNameClickable = isExpandableTool
+  const toolNameContent = (
+    <>
+      <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
+      <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
+    </>
+  )
 
   return (
-    <div className='flex w-full flex-col gap-1 py-1'>
-      <div
-        className={`flex items-center justify-between gap-2 ${isToolNameClickable ? 'cursor-pointer' : ''}`}
-        onClick={() => {
-          if (isExpandableTool) {
-            setExpanded((e) => !e)
-          }
-        }}
-      >
-        <div className='flex items-center gap-2 text-muted-foreground'>
-          <div className='flex-shrink-0'>{renderDisplayIcon()}</div>
-          <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
-        </div>
+    <div
+      role={terminalRole}
+      aria-live={terminalRole === 'status' ? 'polite' : undefined}
+      aria-atomic={terminalRole ? 'true' : undefined}
+      className='flex w-full flex-col gap-1 py-1'
+    >
+      <div className='flex items-center justify-between gap-2'>
+        {isExpandableTool ? (
+          <button
+            type='button'
+            aria-expanded={expanded}
+            aria-controls={pendingDetailsId}
+            className='flex items-center gap-2 rounded-sm text-left text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {toolNameContent}
+          </button>
+        ) : (
+          <div className='flex items-center gap-2 text-muted-foreground'>{toolNameContent}</div>
+        )}
         {showButtons ? (
           <ToolActionButtons toolCall={toolCall} onStateChange={handleStateChange} />
         ) : showMoveToBackground ? (
@@ -846,7 +894,25 @@ export function InlineToolCall({
           </Button>
         ) : null}
       </div>
-      {isExpandableTool && expanded && <div className='px-1'>{renderPendingDetails()}</div>}
+      {failureDetails ? (
+        <div className='space-y-1 px-5 text-destructive text-xs'>
+          {failureDetails.issues.length > 0 ? (
+            <ul className='list-disc space-y-0.5 pl-4'>
+              {failureDetails.issues.map((issue) => (
+                <li key={`${issue.path}:${issue.message}`}>
+                  <span className='font-medium'>{issue.path}:</span> {issue.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {failureDetails.hint ? <p>{failureDetails.hint}</p> : null}
+        </div>
+      ) : null}
+      {isExpandableTool && (
+        <div id={pendingDetailsId} hidden={!expanded} className='px-1'>
+          {expanded ? renderPendingDetails() : null}
+        </div>
+      )}
       {dashboardLayoutReviewPayload ? (
         <VisualReview
           currentLabel={currentLabel}

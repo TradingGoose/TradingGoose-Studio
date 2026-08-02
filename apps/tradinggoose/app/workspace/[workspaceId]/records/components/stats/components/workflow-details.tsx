@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info, Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
 import {
@@ -62,6 +65,8 @@ export function WorkflowDetails({
   onLoadMore,
   hasMore,
   isLoadingMore,
+  failureMode,
+  onRetry,
 }: {
   workspaceId: string
   expandedWorkflowId: string
@@ -75,9 +80,12 @@ export function WorkflowDetails({
   onLoadMore?: () => void
   hasMore?: boolean
   isLoadingMore?: boolean
+  failureMode?: 'details' | 'more'
+  onRetry?: () => void
 }) {
   const router = useRouter()
   const locale = useLocale()
+  const tDashboard = useTranslations('workspace.logs.dashboard')
   const t = useTranslations('workspace.logs.dashboard.workflows')
   const tFilters = useTranslations('workspace.logs.dashboard.filters')
   const { workflows } = useWorkflowRegistry()
@@ -88,44 +96,40 @@ export function WorkflowDetails({
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const loaderRef = useRef<HTMLDivElement | null>(null)
+  const initialLoading = !details && failureMode !== 'details'
+  const regionBusy = initialLoading || Boolean(isLoadingMore)
+  const statusText = failureMode
+    ? ''
+    : initialLoading
+      ? tDashboard('loadingExecutionHistory')
+      : isLoadingMore
+        ? t('loadingMore')
+        : t('detailsLoaded', { count: details?.logs.length ?? 0 })
 
   useEffect(() => {
     const rootEl = listRef.current
     const sentinel = loaderRef.current
-    if (!rootEl || !sentinel || !onLoadMore || !hasMore) return
+    if (
+      typeof IntersectionObserver === 'undefined' ||
+      !rootEl ||
+      !sentinel ||
+      !onLoadMore ||
+      !hasMore ||
+      failureMode
+    )
+      return
 
-    let ticking = false
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        if (entry?.isIntersecting && hasMore && !ticking && !isLoadingMore) {
-          ticking = true
-          setTimeout(() => {
-            onLoadMore()
-            ticking = false
-          }, 50)
-        }
+        if (entry?.isIntersecting && hasMore && !isLoadingMore) onLoadMore()
       },
       { root: rootEl, threshold: 0.1, rootMargin: '200px 0px 0px 0px' }
     )
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [onLoadMore, hasMore, isLoadingMore])
-
-  // Fallback: if IntersectionObserver fails (older browsers), use scroll position
-  useEffect(() => {
-    const el = listRef.current
-    if (!el || !onLoadMore || !hasMore) return
-
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el
-      const pct = (scrollTop / Math.max(1, scrollHeight - clientHeight)) * 100
-      if (pct > 80 && !isLoadingMore) onLoadMore()
-    }
-    el.addEventListener('scroll', onScroll)
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [onLoadMore, hasMore, isLoadingMore])
+  }, [onLoadMore, hasMore, isLoadingMore, failureMode])
 
   return (
     <div className='mt-1 rounded-lg border bg-card shadow-sm'>
@@ -161,7 +165,34 @@ export function WorkflowDetails({
           </div>
         </div>
       </div>
-      <div className='p-4'>
+      <div className='p-4' aria-busy={regionBusy || undefined}>
+        <div
+          role='status'
+          aria-live='polite'
+          aria-atomic='true'
+          className={
+            initialLoading
+              ? 'flex items-center justify-center gap-2 py-12 text-muted-foreground'
+              : 'sr-only'
+          }
+        >
+          {initialLoading && <Loader2 aria-hidden='true' className='h-6 w-6 animate-spin' />}
+          <span>{statusText}</span>
+        </div>
+        {failureMode && onRetry && (
+          <Alert variant='destructive' className='mb-3'>
+            <AlertDescription className='flex items-center justify-between gap-3'>
+              <span>
+                {failureMode === 'details'
+                  ? tDashboard('failedToFetchExecutionHistory')
+                  : t('loadMoreFailed')}
+              </span>
+              <Button type='button' variant='outline' size='sm' onClick={onRetry}>
+                {tDashboard('refresh')}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         {details ? (
           <>
             {Array.isArray(selectedSegmentIndex) &&
@@ -336,19 +367,31 @@ export function WorkflowDetails({
                       const isExpanded = expandedRowId === log.id
                       const levelOption = getLogLevelOption(log.level)
                       const triggerOption = getLogTriggerOption(log.trigger)
+                      const timestampLabel =
+                        logDate && !Number.isNaN(logDate.getTime())
+                          ? logDate.toLocaleString(locale)
+                          : t('timeUnavailable')
 
                       return (
-                        <div
+                        <Collapsible
                           key={log.id}
+                          open={isExpanded}
+                          onOpenChange={(open) => setExpandedRowId(open ? log.id : null)}
                           className={cn(
-                            'cursor-pointer border-border border-b transition-all duration-200',
+                            'border-border border-b transition-all duration-200',
                             isExpanded ? 'bg-accent/30' : 'hover:bg-card/20'
                           )}
-                          onClick={() =>
-                            setExpandedRowId((prev) => (prev === log.id ? null : log.id))
-                          }
                         >
-                          <div className='grid min-w-[980px] grid-cols-[140px_90px_90px_90px_180px_1fr_100px] items-center gap-2 px-2 py-3 md:gap-3 lg:min-w-0 lg:gap-4'>
+                          <CollapsibleTrigger
+                            render={
+                              <Button
+                                type='button'
+                                variant='ghost'
+                                aria-label={t('executionDetails', { timestamp: timestampLabel })}
+                                className='grid h-auto w-full min-w-[980px] grid-cols-[140px_90px_90px_90px_180px_1fr_100px] items-center gap-2 rounded-none bg-transparent px-2 py-3 text-left hover:bg-card/20 md:gap-3 lg:min-w-0 lg:gap-4'
+                              />
+                            }
+                          >
                             <div>
                               <div className='text-[13px]'>
                                 <span className='font-sm text-muted-foreground'>
@@ -447,17 +490,15 @@ export function WorkflowDetails({
                                 {typeof log.durationMs === 'number' ? `${log.durationMs}ms` : '—'}
                               </div>
                             </div>
-                          </div>
-                          {isExpanded && (
-                            <div className='px-2 pt-0 pb-4'>
-                              <div className='rounded-md border bg-muted/30 p-2'>
-                                <pre className='max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs'>
-                                  {log.level === 'error' && errorStr ? errorStr : outputsStr}
-                                </pre>
-                              </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className='px-2 pt-0 pb-4'>
+                            <div className='rounded-md border bg-muted/30 p-2'>
+                              <pre className='max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs'>
+                                {log.level === 'error' && errorStr ? errorStr : outputsStr}
+                              </pre>
                             </div>
-                          )}
-                        </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       )
                     })
                   })()}
@@ -467,7 +508,7 @@ export function WorkflowDetails({
                       <div ref={loaderRef} className='flex items-center gap-2'>
                         {isLoadingMore ? (
                           <>
-                            <Loader2 className='h-4 w-4 animate-spin' />
+                            <Loader2 aria-hidden='true' className='h-4 w-4 animate-spin' />
                             <span className='text-sm'>{t('loadingMore')}</span>
                           </>
                         ) : (
@@ -480,11 +521,7 @@ export function WorkflowDetails({
               </div>
             </div>
           </>
-        ) : (
-          <div className='flex items-center justify-center py-12'>
-            <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

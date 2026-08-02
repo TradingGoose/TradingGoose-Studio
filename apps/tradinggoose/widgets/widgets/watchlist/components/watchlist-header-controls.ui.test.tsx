@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { act } from 'react'
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
@@ -136,23 +136,37 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-list-actions-button', 
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({ children, render }: { children?: ReactNode; render: ReactElement }) =>
+    cloneElement(render, undefined, children),
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuItem: ({
     children,
-    onSelect,
+    closeOnClick: _closeOnClick,
+    render,
     ...props
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: (event: Event) => void }) => (
-    <button type='button' {...props} onClick={(event) => onSelect?.(event.nativeEvent)}>
-      {children}
-    </button>
-  ),
+  }: ButtonHTMLAttributes<HTMLButtonElement> & {
+    closeOnClick?: boolean
+    render?: ReactElement
+  }) =>
+    render ? (
+      cloneElement(render, props, children)
+    ) : (
+      <button type='button' {...props}>
+        {children}
+      </button>
+    ),
 }))
 
 vi.mock('@/components/ui/alert-dialog', () => ({
@@ -508,5 +522,139 @@ describe('watchlist header controls', () => {
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: 'watchlist-2' })
+  })
+
+  it('announces a failed list creation with its retry context and clears it after retry', async () => {
+    let settleFirstRequest: ((response: Response) => void) | undefined
+    const firstRequest = new Promise<Response>((resolve) => {
+      settleFirstRequest = resolve
+    })
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstRequest)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ watchlist: { id: 'watchlist-2' } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-create-feedback'
+          widget={createWidget({ key: 'watchlist', params: { watchlistId: rootWatchlist.id } })}
+          canEditWidgetParams
+        />
+      )
+    })
+
+    const createButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (candidate) => candidate.textContent?.includes('Create List')
+    )!
+
+    await act(async () => createButton.click())
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      'Creating Watchlist 2'
+    )
+
+    await act(async () => {
+      settleFirstRequest?.(
+        new Response(JSON.stringify({ error: 'provider detail' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      await firstRequest
+    })
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Could not create Watchlist 2'
+    )
+    expect(container.textContent).not.toContain('provider detail')
+
+    await act(async () => createButton.click())
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: 'watchlist-2' })
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('keeps failed deletion context in the dialog and clears it after retry', async () => {
+    const secondWatchlist: WatchlistRecord = {
+      ...rootWatchlist,
+      id: 'watchlist-2',
+      name: 'Secondary',
+    }
+    currentWatchlists = [rootWatchlist, secondWatchlist]
+    let settleFirstRequest: ((response: Response) => void) | undefined
+    const firstRequest = new Promise<Response>((resolve) => {
+      settleFirstRequest = resolve
+    })
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstRequest)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await act(async () => {
+      root.render(
+        <WatchlistHeaderRightControls
+          workspaceId='workspace-1'
+          panelId='panel-delete-feedback'
+          widget={createWidget({
+            key: 'watchlist',
+            params: { watchlistId: rootWatchlist.id },
+          })}
+          canEditWidgetParams
+        />
+      )
+    })
+
+    const deleteButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+      .filter((candidate) => !candidate.querySelector('button'))
+      .find((candidate) => /delete list/i.test(candidate.textContent ?? ''))!
+    await act(async () => deleteButton.click())
+
+    const findConfirm = () =>
+      Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((candidate) =>
+        /^delete$/i.test(candidate.textContent?.trim() ?? '')
+      )
+
+    const confirm = findConfirm()
+    await act(async () => {
+      confirm?.click()
+      await Promise.resolve()
+    })
+    expect(confirm).toBeDisabled()
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Deleting Watchlist')
+
+    await act(async () => {
+      settleFirstRequest?.(
+        new Response(JSON.stringify({ error: 'private server detail' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      await firstRequest
+    })
+    await vi.waitFor(() =>
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+        'Could not delete Watchlist'
+      )
+    )
+    expect(container.textContent).not.toContain('private server detail')
+    expect(findConfirm()).toBeTruthy()
+
+    await act(async () => findConfirm()?.click())
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(mockPatchWidgetLinkedParams).toHaveBeenCalledWith({ watchlistId: 'watchlist-2' })
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

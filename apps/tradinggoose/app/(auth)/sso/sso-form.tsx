@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { resolveSsoAuthErrorMessage } from '@/lib/auth/auth-error-copy'
@@ -28,19 +28,19 @@ const validateEmailField = (
     invalid: string
   }
 ): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push(messages.required)
-    return errors
+    validationMessages.push(messages.required)
+    return validationMessages
   }
 
   const validation = quickValidateEmail(emailValue.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(messages.invalid)
+    validationMessages.push(messages.invalid)
   }
 
-  return errors
+  return validationMessages
 }
 
 export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
@@ -88,11 +88,11 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail, {
+    const emailValidationMessages = validateEmailField(newEmail, {
       required: ssoCopy.validation.emailRequired,
       invalid: ssoCopy.validation.emailInvalid,
     })
-    setEmailErrors(errors)
+    setEmailErrors(emailValidationMessages)
     setShowEmailValidationError(false)
   }
 
@@ -143,7 +143,12 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
 
       {registrationMode === 'waitlist' ? <AuthWaitlistNote /> : null}
 
-      <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        aria-busy={isLoading}
+        className={`${inter.className} mt-8 space-y-8`}
+      >
         <div className='space-y-6'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
@@ -152,6 +157,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
             <Input
               id='email'
               name='email'
+              type='email'
               placeholder={commonCopy.enterYourWorkEmail}
               required
               autoCapitalize='none'
@@ -160,6 +166,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
               autoFocus
               value={email}
               onChange={handleEmailChange}
+              aria-invalid={showEmailValidationError && emailErrors.length > 0}
+              aria-describedby={
+                showEmailValidationError && emailErrors.length > 0 ? 'sso-email-errors' : undefined
+              }
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showEmailValidationError &&
@@ -168,7 +178,11 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='sso-email-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {emailErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}
@@ -194,14 +208,14 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       </div>
 
       <div className={`${inter.className} space-y-3`}>
-        <Link href={`/login${callbackUrl ? `?callbackUrl=${callbackUrlParam}` : ''}`}>
-          <Button
-            variant='outline'
-            className='w-full rounded-md shadow-sm hover:bg-gray-50'
-            type='button'
-          >
-            {commonCopy.signInWithEmail}
-          </Button>
+        <Link
+          href={`/login${callbackUrl ? `?callbackUrl=${callbackUrlParam}` : ''}`}
+          className={buttonVariants({
+            variant: 'outline',
+            className: 'w-full rounded-md shadow-sm hover:bg-gray-50',
+          })}
+        >
+          {commonCopy.signInWithEmail}
         </Link>
       </div>
 

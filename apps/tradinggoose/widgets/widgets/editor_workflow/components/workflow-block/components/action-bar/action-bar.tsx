@@ -68,8 +68,11 @@ export const ActionBar = memo(
     isScheduleDisabled = false,
     onScheduleToggle,
   }: ActionBarProps) {
-    const { actionBarCopy: copy, getLocalizedBlockLongDescription, getToolbarDisabledReason } =
-      useWorkflowI18n()
+    const {
+      actionBarCopy: copy,
+      getLocalizedBlockLongDescription,
+      getToolbarDisabledReason,
+    } = useWorkflowI18n()
     const {
       collaborativeRemoveBlock,
       collaborativeToggleBlockEnabled,
@@ -80,21 +83,28 @@ export const ActionBar = memo(
 
     // Optimized: derive all block data from Yjs blocks
     const blocks = useWorkflowBlocks()
-    const { isEnabled, horizontalHandles, parentId, parentType, isLocked, isParentLocked, isParentDisabled } =
-      useMemo(() => {
-        const block = blocks[blockId]
-        const pid = block?.data?.parentId
-        const parentBlock = pid ? blocks[pid] : undefined
-        return {
-          isEnabled: block?.enabled ?? true,
-          horizontalHandles: block?.horizontalHandles ?? true,
-          parentId: pid,
-          parentType: parentBlock?.type,
-          isLocked: block?.locked ?? false,
-          isParentLocked: parentBlock?.locked ?? false,
-          isParentDisabled: parentBlock ? !parentBlock.enabled : false,
-        }
-      }, [blocks, blockId])
+    const {
+      isEnabled,
+      horizontalHandles,
+      parentId,
+      parentType,
+      isLocked,
+      isParentLocked,
+      isParentDisabled,
+    } = useMemo(() => {
+      const block = blocks[blockId]
+      const pid = block?.data?.parentId
+      const parentBlock = pid ? blocks[pid] : undefined
+      return {
+        isEnabled: block?.enabled ?? true,
+        horizontalHandles: block?.horizontalHandles ?? true,
+        parentId: pid,
+        parentType: parentBlock?.type,
+        isLocked: block?.locked ?? false,
+        isParentLocked: parentBlock?.locked ?? false,
+        isParentDisabled: parentBlock ? !parentBlock.enabled : false,
+      }
+    }, [blocks, blockId])
 
     const userPermissions = useUserPermissionsContext()
 
@@ -106,9 +116,7 @@ export const ActionBar = memo(
 
     const getTooltipMessage = (defaultMessage: string) => {
       if (disabled) {
-        return userPermissions.isOfflineMode
-          ? getToolbarDisabledReason(true)
-          : copy.readOnlyMode
+        return userPermissions.isOfflineMode ? getToolbarDisabledReason(true) : copy.readOnlyMode
       }
       return defaultMessage
     }
@@ -172,22 +180,24 @@ export const ActionBar = memo(
         onPointerDown={stopActionBarEvent}
       >
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => {
-                const cantEnable = !isEnabled && isParentDisabled
-                if (canMutate && !cantEnable) {
-                  collaborativeToggleBlockEnabled(blockId)
-                }
-              }}
-              className={actionButtonClass}
-              disabled={disableEnableToggle}
-            >
-              {isEnabled ? <Circle className='h-2 w-2' /> : <CircleOff className='h-2 w-2' />}
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => {
+                  const cantEnable = !isEnabled && isParentDisabled
+                  if (canMutate && !cantEnable) {
+                    collaborativeToggleBlockEnabled(blockId)
+                  }
+                }}
+                className={actionButtonClass}
+                disabled={disableEnableToggle}
+              >
+                {isEnabled ? <Circle className='h-2 w-2' /> : <CircleOff className='h-2 w-2' />}
+              </Button>
+            }
+          />
           <TooltipContent side={tooltipSide}>
             {isActionLocked
               ? copy.blockLocked
@@ -199,21 +209,23 @@ export const ActionBar = memo(
 
         {userPermissions.canAdmin && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => {
-                  if (!disabled && !isUnlockBlockedByParent) {
-                    collaborativeToggleBlockLocked(blockId)
-                  }
-                }}
-                className={actionButtonClass}
-                disabled={disabled || isUnlockBlockedByParent}
-              >
-                {isLocked ? <Unlock className='h-2 w-2' /> : <Lock className='h-2 w-2' />}
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => {
+                    if (!disabled && !isUnlockBlockedByParent) {
+                      collaborativeToggleBlockLocked(blockId)
+                    }
+                  }}
+                  className={actionButtonClass}
+                  disabled={disabled || isUnlockBlockedByParent}
+                >
+                  {isLocked ? <Unlock className='h-2 w-2' /> : <Lock className='h-2 w-2' />}
+                </Button>
+              }
+            />
             <TooltipContent side={tooltipSide}>
               {isUnlockBlockedByParent
                 ? copy.parentContainerLocked
@@ -225,41 +237,47 @@ export const ActionBar = memo(
         )}
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => {
-                if (canMutate) {
-                  collaborativeDuplicateBlock(blockId)
-                }
-              }}
-              className={actionButtonClass}
-              disabled={disableMutatingActions}
-            >
-              <Copy className='h-2 w-2' />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.duplicateBlock)}</TooltipContent>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => {
+                  if (canMutate) {
+                    collaborativeDuplicateBlock(blockId)
+                  }
+                }}
+                className={actionButtonClass}
+                disabled={disableMutatingActions}
+              >
+                <Copy className='h-2 w-2' />
+              </Button>
+            }
+          />
+          <TooltipContent side={tooltipSide}>
+            {getLockedTooltip(copy.duplicateBlock)}
+          </TooltipContent>
         </Tooltip>
 
         {showScheduleBadge && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                className={cn(actionButtonClass, statusToneClasses[scheduleTone].text)}
-                onClick={() => {
-                  if (canMutate) {
-                    onScheduleToggle?.()
-                  }
-                }}
-                disabled={disableMutatingActions}
-              >
-                {renderStatusDot(scheduleTone)}
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  className={cn(actionButtonClass, statusToneClasses[scheduleTone].text)}
+                  onClick={() => {
+                    if (canMutate) {
+                      onScheduleToggle?.()
+                    }
+                  }}
+                  disabled={disableMutatingActions}
+                >
+                  {renderStatusDot(scheduleTone)}
+                </Button>
+              }
+            />
             <TooltipContent side={tooltipSide} className='max-w-[300px] p-4'>
               <p className='text-sm'>{scheduleTooltip}</p>
             </TooltipContent>
@@ -268,11 +286,13 @@ export const ActionBar = memo(
 
         {showWebhookIndicator && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant='ghost' size='sm' className={actionButtonClass} disabled={disabled}>
-                {renderStatusDot('green')}
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button variant='ghost' size='sm' className={actionButtonClass} disabled={disabled}>
+                  {renderStatusDot('green')}
+                </Button>
+              }
+            />
             <TooltipContent side={tooltipSide} className='max-w-[300px] p-4'>
               <p className='text-muted-foreground text-sm'>{copy.webhookTrigger}</p>
             </TooltipContent>
@@ -281,30 +301,39 @@ export const ActionBar = memo(
 
         {blockConfig?.docsLink ? (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                className={actionButtonClass}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  window.open(blockConfig.docsLink, '_target', 'noopener,noreferrer')
-                }}
-                disabled={disabled}
-              >
-                <BookOpen className='h-2 w-2' />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  className={actionButtonClass}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(blockConfig.docsLink, '_target', 'noopener,noreferrer')
+                  }}
+                  disabled={disabled}
+                >
+                  <BookOpen className='h-2 w-2' />
+                </Button>
+              }
+            />
             <TooltipContent side={tooltipSide}>{copy.seeDocs}</TooltipContent>
           </Tooltip>
         ) : (
           blockLongDescription && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant='ghost' size='sm' className={actionButtonClass} disabled={disabled}>
-                  <Info className='h-2 w-2' />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    className={actionButtonClass}
+                    disabled={disabled}
+                  >
+                    <Info className='h-2 w-2' />
+                  </Button>
+                }
+              />
               <TooltipContent side={tooltipSide} className='max-w-[300px] p-4'>
                 <div className='space-y-3'>
                   <div>
@@ -339,73 +368,81 @@ export const ActionBar = memo(
         {/* Remove from subflow - only show when inside loop/parallel */}
         {!isTriggerBlock && parentId && (parentType === 'loop' || parentType === 'parallel') && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => {
-                  if (canMutate && userPermissions.canEdit) {
-                    emitRemoveFromSubflow({
-                      blockId,
-                      workflowId,
-                      channelId,
-                    })
-                  }
-                }}
-                className={cn(
-                  actionButtonClass,
-                  disableSubflowRemoval && 'cursor-not-allowed opacity-50'
-                )}
-                disabled={disableSubflowRemoval}
-              >
-                <LogOut className='h-2 w-2' />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.removeFromSubflow)}</TooltipContent>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => {
+                    if (canMutate && userPermissions.canEdit) {
+                      emitRemoveFromSubflow({
+                        blockId,
+                        workflowId,
+                        channelId,
+                      })
+                    }
+                  }}
+                  className={cn(
+                    actionButtonClass,
+                    disableSubflowRemoval && 'cursor-not-allowed opacity-50'
+                  )}
+                  disabled={disableSubflowRemoval}
+                >
+                  <LogOut className='h-2 w-2' />
+                </Button>
+              }
+            />
+            <TooltipContent side={tooltipSide}>
+              {getLockedTooltip(copy.removeFromSubflow)}
+            </TooltipContent>
           </Tooltip>
         )}
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => {
-                if (canMutate) {
-                  collaborativeToggleBlockHandles(blockId)
-                }
-              }}
-              className={actionButtonClass}
-              disabled={disableMutatingActions}
-            >
-              {horizontalHandles ? (
-                <ArrowLeftRight className='h-2 w-2' />
-              ) : (
-                <ArrowUpDown className='h-2 w-2' />
-              )}
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => {
+                  if (canMutate) {
+                    collaborativeToggleBlockHandles(blockId)
+                  }
+                }}
+                className={actionButtonClass}
+                disabled={disableMutatingActions}
+              >
+                {horizontalHandles ? (
+                  <ArrowLeftRight className='h-2 w-2' />
+                ) : (
+                  <ArrowUpDown className='h-2 w-2' />
+                )}
+              </Button>
+            }
+          />
           <TooltipContent side={tooltipSide}>
             {getLockedTooltip(horizontalHandles ? copy.verticalPorts : copy.horizontalPorts)}
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => {
-                if (canMutate) {
-                  collaborativeRemoveBlock(blockId)
-                }
-              }}
-              className={destructiveActionButtonClass}
-              disabled={disableMutatingActions}
-            >
-              <Trash2 className='h-2 w-2' />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => {
+                  if (canMutate) {
+                    collaborativeRemoveBlock(blockId)
+                  }
+                }}
+                className={destructiveActionButtonClass}
+                disabled={disableMutatingActions}
+              >
+                <Trash2 className='h-2 w-2' />
+              </Button>
+            }
+          />
           <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.deleteBlock)}</TooltipContent>
         </Tooltip>
       </div>

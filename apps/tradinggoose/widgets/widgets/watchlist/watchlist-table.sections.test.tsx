@@ -5,9 +5,7 @@
 import {
   act,
   type ButtonHTMLAttributes,
-  Children,
   cloneElement,
-  isValidElement,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -120,22 +118,19 @@ vi.mock('@/components/ui/sortable', () => ({
   },
   SortableContent: ({ children, withoutSlot }: { children: ReactNode; withoutSlot?: boolean }) =>
     withoutSlot ? <>{children}</> : <div>{children}</div>,
-  SortableItem: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
-    if (!asChild) {
+  SortableItem: ({ children, render }: { children: ReactNode; render?: ReactElement }) => {
+    if (!render) {
       return <div>{children}</div>
     }
 
-    const child = Children.only(children)
-    if (!isValidElement(child)) {
-      return child
-    }
-
-    const element = child as ReactElement<{
+    const element = render as ReactElement<{
+      children?: ReactNode
       onMouseDown?: (event: MouseEvent<HTMLElement>) => void
       onTouchStart?: (event: TouchEvent<HTMLElement>) => void
     }>
 
     return cloneElement(element, {
+      children,
       onMouseDown: (event) => {
         element.props.onMouseDown?.(event)
         if (!event.isPropagationStopped()) {
@@ -155,11 +150,6 @@ vi.mock('@/components/ui/sortable', () => ({
 vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
     open ? <div>{children}</div> : null,
-  AlertDialogAction: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button data-testid='confirm-delete-section' type='button' {...props}>
-      {children}
-    </button>
-  ),
   AlertDialogCancel: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type='button' {...props}>
       {children}
@@ -484,7 +474,9 @@ describe('WatchlistTable section interactions', () => {
 
     expect(container.textContent).toContain('Delete section?')
 
-    const confirmButton = container.querySelector('[data-testid="confirm-delete-section"]')
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button !== deleteButton && button.textContent?.trim() === 'Delete section'
+    )
 
     await act(async () => {
       confirmButton?.dispatchEvent(

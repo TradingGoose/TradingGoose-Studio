@@ -106,10 +106,12 @@ export function NoOrganizationView({
             <Button
               onClick={onCreateOrganization}
               disabled={!orgName || !orgSlug || isCreatingOrg}
+              focusableWhenDisabled={isCreatingOrg}
+              aria-busy={isCreatingOrg || undefined}
               className='h-9 rounded-sm'
             >
-              {isCreatingOrg ? <RefreshCw className='mr-2 h-4 w-4 animate-spin' /> : null}
-              Create Team Workspace
+              {isCreatingOrg ? <RefreshCw className='h-4 w-4 animate-spin' /> : null}
+              {isCreatingOrg ? 'Creating…' : 'Create Team Workspace'}
             </Button>
           </div>
         </div>

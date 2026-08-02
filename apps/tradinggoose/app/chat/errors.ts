@@ -4,127 +4,144 @@ import type { Messages } from 'next-intl'
 type ChatMessages = Messages['chat']
 
 function normalizeChatErrorCode(code: string | null | undefined): string {
-  return (code || '')
-    .trim()
-    .toLowerCase()
-    .replaceAll('-', '_')
-    .replaceAll(' ', '_')
+  return (code || '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_')
 }
 
-export function getChatErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
+export function getChatErrorMessage(
+  { errors: chatFailureCopy }: ChatMessages,
+  codeOrMessage: string | null | undefined
+) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.CHAT_NOT_FOUND:
     case CHAT_ERROR_CODES.CHAT_UNAVAILABLE:
-      return copy.errors.chatUnavailable
+      return chatFailureCopy.chatUnavailable
     case CHAT_ERROR_CODES.NO_CHAT_TRIGGER:
-      return copy.errors.noChatTrigger
+      return chatFailureCopy.noChatTrigger
     case CHAT_ERROR_CODES.USAGE_LIMIT_EXCEEDED:
-      return copy.errors.usageLimitExceeded
+      return chatFailureCopy.usageLimitExceeded
     case CHAT_ERROR_CODES.FAILED_TO_LOAD_CONFIG:
     case CHAT_ERROR_CODES.FAILED_TO_FETCH_CHAT_INFORMATION:
-      return copy.errors.failedToLoadConfig
+      return chatFailureCopy.failedToLoadConfig
     case CHAT_ERROR_CODES.FAILED_TO_SEND_MESSAGE:
-      return copy.errors.failedToSendMessage
+      return chatFailureCopy.failedToSendMessage
     case CHAT_ERROR_CODES.FAILED_TO_GET_RESPONSE:
-      return copy.errors.failedToGetResponse
+      return chatFailureCopy.failedToGetResponse
     case CHAT_ERROR_CODES.RESPONSE_BODY_MISSING:
-      return copy.errors.responseBodyMissing
+      return chatFailureCopy.responseBodyMissing
     case CHAT_ERROR_CODES.REQUEST_TIMED_OUT:
-      return copy.errors.timeout
+      return chatFailureCopy.timeout
     case CHAT_ERROR_CODES.RESPONSE_STOPPED_BY_USER:
-      return copy.errors.responseStoppedByUser
+      return chatFailureCopy.responseStoppedByUser
     case CHAT_ERROR_CODES.API_KEY_REQUIRED:
-      return copy.errors.chatUnavailable
+      return chatFailureCopy.chatUnavailable
     case CHAT_ERROR_CODES.PENDING_EXECUTION_BACKLOG_FULL:
-      return copy.errors.usageLimitExceeded
+      return chatFailureCopy.usageLimitExceeded
     case CHAT_ERROR_CODES.GENERIC_ERROR:
-      return copy.errors.generic
+      return chatFailureCopy.generic
     default:
-      return copy.errors.generic
+      return chatFailureCopy.generic
   }
 }
 
 export function getChatPasswordAuthErrorMessage(
-  copy: ChatMessages,
+  {
+    auth: {
+      password: { errors: passwordFailureCopy, validation: passwordValidationCopy },
+    },
+  }: ChatMessages,
   codeOrMessage: string | null | undefined
 ) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.AUTH_REQUIRED_PASSWORD:
-      return copy.auth.password.errors.authRequired
+      return passwordFailureCopy.authRequired
     case CHAT_ERROR_CODES.PASSWORD_REQUIRED:
-      return copy.auth.password.validation.required
+      return passwordValidationCopy.required
     case CHAT_ERROR_CODES.INVALID_PASSWORD:
-      return copy.auth.password.errors.invalidPassword
+      return passwordFailureCopy.invalidPassword
     case CHAT_ERROR_CODES.AUTH_CONFIGURATION_ERROR:
-      return copy.auth.password.errors.configurationError
+      return passwordFailureCopy.configurationError
     case CHAT_ERROR_CODES.AUTHENTICATION_ERROR:
-      return copy.auth.password.errors.authenticationError
+      return passwordFailureCopy.authenticationError
     default:
-      return copy.auth.password.errors.authenticationError
+      return passwordFailureCopy.authenticationError
   }
 }
 
 export function getChatEmailAuthErrorMessage(
-  copy: ChatMessages,
+  {
+    auth: {
+      email: { errors: emailFailureCopy, validation: emailValidationCopy },
+    },
+  }: ChatMessages,
   codeOrMessage: string | null | undefined
 ) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.AUTH_REQUIRED_EMAIL:
-      return copy.auth.email.errors.authRequired
+      return emailFailureCopy.authRequired
     case CHAT_ERROR_CODES.EMAIL_REQUIRED:
-      return copy.auth.email.validation.required
+      return emailValidationCopy.required
     case CHAT_ERROR_CODES.INVALID_EMAIL:
-      return copy.auth.email.validation.invalid
+      return emailValidationCopy.invalid
     case CHAT_ERROR_CODES.EMAIL_NOT_AUTHORIZED:
-      return copy.auth.email.errors.notAuthorized
+      return emailFailureCopy.notAuthorized
     case CHAT_ERROR_CODES.OTP_REQUIRED:
-      return copy.auth.email.errors.otpRequired
+      return emailFailureCopy.otpRequired
     case CHAT_ERROR_CODES.OTP_NOT_FOUND:
-      return copy.auth.email.errors.noCodeFound
+      return emailFailureCopy.noCodeFound
     case CHAT_ERROR_CODES.OTP_INVALID:
-      return copy.auth.email.errors.invalidCode
+      return emailFailureCopy.invalidCode
     case CHAT_ERROR_CODES.OTP_SEND_FAILED:
     case CHAT_ERROR_CODES.VERIFICATION_CODE_SEND_FAILED:
-      return copy.auth.email.errors.sendFailed
+      return emailFailureCopy.sendFailed
     case CHAT_ERROR_CODES.OTP_RESEND_FAILED:
     case CHAT_ERROR_CODES.VERIFICATION_CODE_RESEND_FAILED:
-      return copy.auth.email.errors.resendFailed
+      return emailFailureCopy.resendFailed
     case CHAT_ERROR_CODES.OTP_VERIFY_FAILED:
     case CHAT_ERROR_CODES.VERIFICATION_CODE_VERIFY_FAILED:
-      return copy.auth.email.errors.verifyFailed
+      return emailFailureCopy.verifyFailed
     case CHAT_ERROR_CODES.AUTHENTICATION_ERROR:
-      return copy.auth.email.errors.authenticationError
+      return emailFailureCopy.authenticationError
     default:
-      return copy.auth.email.errors.authenticationError
+      return emailFailureCopy.authenticationError
   }
 }
 
-export function getChatSsoAuthErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
+export function getChatSsoAuthErrorMessage(
+  {
+    auth: {
+      sso: { errors: ssoFailureCopy, validation: ssoValidationCopy },
+    },
+  }: ChatMessages,
+  codeOrMessage: string | null | undefined
+) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.AUTH_REQUIRED_SSO:
     case CHAT_ERROR_CODES.SSO_AUTHENTICATION_REQUIRED:
-      return copy.auth.sso.errors.authRequired
+      return ssoFailureCopy.authRequired
     case CHAT_ERROR_CODES.EMAIL_REQUIRED:
-      return copy.auth.sso.validation.required
+      return ssoValidationCopy.required
     case CHAT_ERROR_CODES.INVALID_EMAIL:
-      return copy.auth.sso.validation.invalid
+      return ssoValidationCopy.invalid
     case CHAT_ERROR_CODES.SSO_EMAIL_NOT_AUTHORIZED:
-      return copy.auth.sso.errors.notAuthorized
+      return ssoFailureCopy.notAuthorized
     case CHAT_ERROR_CODES.SSO_SESSION_MISSING_EMAIL:
-      return copy.auth.sso.errors.sessionMissingEmail
+      return ssoFailureCopy.sessionMissingEmail
     case CHAT_ERROR_CODES.SSO_AUTHENTICATION_ERROR:
     case CHAT_ERROR_CODES.AUTHENTICATION_ERROR:
-      return copy.auth.sso.errors.authenticationError
+      return ssoFailureCopy.authenticationError
     default:
-      return copy.auth.sso.errors.authenticationError
+      return ssoFailureCopy.authenticationError
   }
 }
 
-export function getChatInputErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
+export function getChatInputErrorMessage(
+  { errors: chatFailureCopy }: ChatMessages,
+  codeOrMessage: string | null | undefined
+) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.RESPONSE_STOPPED_BY_USER:
-      return copy.errors.responseStoppedByUser
+      return chatFailureCopy.responseStoppedByUser
     default:
-      return copy.errors.generic
+      return chatFailureCopy.generic
   }
 }

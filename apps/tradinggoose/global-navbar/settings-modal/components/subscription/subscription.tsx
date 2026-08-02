@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Skeleton, Switch } from '@/components/ui'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { Skeleton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
@@ -13,7 +16,11 @@ import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscri
 import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
-import { useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
+import {
+  type GeneralSettings,
+  generalSettingsKeys,
+  patchBillingUsageNotifications,
+} from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
@@ -34,6 +41,88 @@ const CONSTANTS = {
 
 const safeNumber = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
+
+function BillingUsageNotificationsToggle({ userId }: { userId: string | null }) {
+  const copy = useTranslations('workspace.settingsModal.subscription')
+  const queryClient = useQueryClient()
+  const titleId = useId()
+  const descriptionId = useId()
+  const feedbackId = useId()
+  const writeLockRef = useRef(false)
+  const enabled = useGeneralStore((state) => state.isBillingUsageNotificationsEnabled)
+  const settingsKey = generalSettingsKeys.settings(userId)
+  const mutation = useMutation<void, Error, boolean, { previousEnabled: boolean }>({
+    mutationFn: patchBillingUsageNotifications,
+    onMutate: async (value) => {
+      await queryClient.cancelQueries({ queryKey: settingsKey })
+      const previousEnabled = useGeneralStore.getState().isBillingUsageNotificationsEnabled
+      useGeneralStore.setState({ isBillingUsageNotificationsEnabled: value })
+      queryClient.setQueryData<GeneralSettings>(settingsKey, (settings) =>
+        settings ? { ...settings, billingUsageNotificationsEnabled: value } : settings
+      )
+      return { previousEnabled }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKey }),
+    onError: (_error, _value, context) => {
+      if (!context) return
+      useGeneralStore.setState({
+        isBillingUsageNotificationsEnabled: context.previousEnabled,
+      })
+      queryClient.setQueryData<GeneralSettings>(settingsKey, (settings) =>
+        settings
+          ? { ...settings, billingUsageNotificationsEnabled: context.previousEnabled }
+          : settings
+      )
+    },
+    onSettled: () => {
+      writeLockRef.current = false
+    },
+  })
+  const handleCheckedChange = (value: boolean) => {
+    if (!userId || writeLockRef.current || value === enabled) return
+    writeLockRef.current = true
+    mutation.reset()
+    mutation.mutate(value)
+  }
+  const feedback = mutation.isPending
+    ? copy('notifications.pending')
+    : mutation.isError
+      ? copy('notifications.error')
+      : null
+
+  return (
+    <div className='mt-4 flex items-start justify-between gap-4'>
+      <div className='flex flex-col'>
+        <span id={titleId} className='font-medium text-sm'>
+          {copy('titles.usageNotifications')}
+        </span>
+        <span id={descriptionId} className='text-muted-foreground text-xs'>
+          {copy('descriptions.usageNotifications')}
+        </span>
+        {feedback && (
+          <span
+            id={feedbackId}
+            role={mutation.isError ? 'alert' : 'status'}
+            aria-atomic='true'
+            className={
+              mutation.isError ? 'text-destructive text-xs' : 'text-muted-foreground text-xs'
+            }
+          >
+            {feedback}
+          </span>
+        )}
+      </div>
+      <Switch
+        checked={enabled}
+        disabled={!userId || mutation.isPending}
+        aria-busy={mutation.isPending || undefined}
+        aria-labelledby={titleId}
+        aria-describedby={`${descriptionId}${feedback ? ` ${feedbackId}` : ''}`}
+        onCheckedChange={handleCheckedChange}
+      />
+    </div>
+  )
+}
 
 interface SubscriptionProps {
   onOpenChange: (open: boolean) => void
@@ -171,11 +260,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrgId = activeOrganization?.id
-  const {
-    data: organizationBillingData,
-    isLoading: isOrgBillingLoading,
-    refetch: refetchOrgBilling,
-  } = useOrganizationBilling(activeOrgId || '')
+  const { data: organizationBillingData, isLoading: isOrgBillingLoading } = useOrganizationBilling(
+    activeOrgId || ''
+  )
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
@@ -472,13 +559,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                   organizationId={
                     surfaceState.isAdjustableSeatPlan && isTeamAdmin ? activeOrgId : undefined
                   }
-                  onLimitUpdated={async () => {
-                    if (surfaceState.isAdjustableSeatPlan && isTeamAdmin && activeOrgId) {
-                      await refetchOrgBilling()
-                    } else {
-                      await refetchUsageLimit()
-                    }
-                  }}
                 />
               ) : undefined
             }
@@ -563,7 +643,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           )}
 
         {(subscription.isPaid || showPersonalSubscriptionManagement) && (
-          <BillingUsageNotificationsToggle />
+          <BillingUsageNotificationsToggle userId={session?.user?.id ?? null} />
         )}
 
         <WorkspaceBillingOwnerEditor />
@@ -608,32 +688,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function BillingUsageNotificationsToggle() {
-  const enabled = useGeneralStore((s) => s.isBillingUsageNotificationsEnabled)
-  const updateSetting = useUpdateGeneralSetting()
-  const isLoading = updateSetting.isPending
-
-  return (
-    <div className='mt-4 flex items-center justify-between'>
-      <div className='flex flex-col'>
-        <span className='font-medium text-sm'>Usage notifications</span>
-        <span className='text-muted-foreground text-xs'>
-          Email me when usage reaches the billing warning threshold
-        </span>
-      </div>
-      <Switch
-        checked={!!enabled}
-        disabled={isLoading}
-        onCheckedChange={(v: boolean) => {
-          if (v !== enabled) {
-            updateSetting.mutate({ key: 'billingUsageNotificationsEnabled', value: v })
-          }
-        }}
-      />
     </div>
   )
 }

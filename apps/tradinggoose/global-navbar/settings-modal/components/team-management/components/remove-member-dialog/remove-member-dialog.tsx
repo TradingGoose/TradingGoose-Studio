@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,6 +15,8 @@ interface RemoveMemberDialogProps {
   shouldReduceSeats: boolean
   canReduceSeats: boolean
   isSelfRemoval?: boolean
+  isPending: boolean
+  error?: string | null
   onOpenChange: (open: boolean) => void
   onShouldReduceSeatsChange: (shouldReduce: boolean) => void
   onConfirmRemove: (shouldReduceSeats: boolean) => Promise<void>
@@ -30,10 +33,18 @@ export function RemoveMemberDialog({
   onConfirmRemove,
   onCancel,
   isSelfRemoval = false,
+  isPending,
+  error,
 }: RemoveMemberDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen, details) => {
+        if (!nextOpen && isPending) return details.cancel()
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent hideCloseButton={isPending}>
         <DialogHeader>
           <DialogTitle>{isSelfRemoval ? 'Leave Organization' : 'Remove Team Member'}</DialogTitle>
           <DialogDescription>
@@ -53,6 +64,7 @@ export function RemoveMemberDialog({
                 className='rounded-sm'
                 checked={shouldReduceSeats}
                 onChange={(e) => onShouldReduceSeatsChange(e.target.checked)}
+                disabled={isPending}
               />
               <label htmlFor='reduce-seats' className='text-xs'>
                 Also reduce seat count in my subscription
@@ -64,16 +76,30 @@ export function RemoveMemberDialog({
           </div>
         )}
 
+        {error ? (
+          <Alert role='alert' variant='destructive'>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
         <DialogFooter>
-          <Button variant='outline' onClick={onCancel} className='h-9 rounded-sm'>
+          <Button
+            variant='outline'
+            onClick={onCancel}
+            disabled={isPending}
+            className='h-9 rounded-sm'
+          >
             Cancel
           </Button>
           <Button
             variant='destructive'
             onClick={() => onConfirmRemove(shouldReduceSeats)}
+            disabled={isPending}
+            focusableWhenDisabled={isPending}
+            aria-busy={isPending || undefined}
             className='h-9 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
           >
-            {isSelfRemoval ? 'Leave Organization' : 'Remove'}
+            {isPending ? 'Removing…' : isSelfRemoval ? 'Leave Organization' : 'Remove'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -50,8 +50,6 @@ const isDefault = (state: OrdersFilterState) =>
     (key) => state[key] === DEFAULT_ORDERS_FILTER_STATE[key]
   )
 
-const selectValue = (value: string) => value || 'all'
-const selectedValue = (value: string) => (value === 'all' ? '' : value)
 const timeInForceLabel = (value: string) =>
   value === 'extended_hours' ? 'Extended Hours' : uppercase(value)
 
@@ -115,8 +113,12 @@ function FilterSelect({
     <div className='min-w-0 space-y-1.5'>
       <div className='font-medium text-muted-foreground text-xs'>{label}</div>
       <Select
-        value={selectValue(value)}
-        onValueChange={(next) => onValueChange(selectedValue(next))}
+        value={value || null}
+        items={options.map((option) => ({
+          value: option || null,
+          label: option ? (labelFor?.(option) ?? titleCase(option)) : placeholder,
+        }))}
+        onValueChange={(next) => onValueChange(next ?? '')}
       >
         <SelectTrigger
           aria-label={label}
@@ -126,7 +128,7 @@ function FilterSelect({
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option || 'all'} value={option || 'all'}>
+            <SelectItem key={option || 'all'} value={option || null}>
               {option ? (labelFor?.(option) ?? titleCase(option)) : placeholder}
             </SelectItem>
           ))}
@@ -141,10 +143,14 @@ export function OrderFilters({ searchValue, onSearchChange }: OrderFiltersProps)
   return (
     <div className='flex min-w-0 flex-1'>
       <div className='relative min-w-[160px] flex-1'>
-        <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
+        <Search
+          aria-hidden='true'
+          className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground'
+        />
         <Input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
+          aria-label={t('searchPlaceholder')}
           placeholder={t('searchPlaceholder')}
           className='h-9 rounded-md bg-background pl-9'
         />
@@ -169,25 +175,27 @@ export function OrderFilterMenu({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type='button'
-          variant={advancedFilterCount ? 'secondary' : 'outline'}
-          size='sm'
-          className='h-9 shrink-0 rounded-md px-3'
-          aria-label={t('filters')}
-        >
-          <SlidersHorizontal className='h-4 w-4' />
-          <span className='hidden lg:inline'>{t('filters')}</span>
-          {advancedFilterCount ? (
-            <Badge
-              variant='outline'
-              className='ml-0.5 h-5 min-w-[1.25rem] justify-center rounded-sm px-1.5 text-[10px]'
-            >
-              {advancedFilterCount}
-            </Badge>
-          ) : null}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type='button'
+            variant={advancedFilterCount ? 'secondary' : 'outline'}
+            size='sm'
+            className='h-9 shrink-0 rounded-md px-3'
+            aria-label={t('filters')}
+          />
+        }
+      >
+        <SlidersHorizontal className='h-4 w-4' />
+        <span className='hidden lg:inline'>{t('filters')}</span>
+        {advancedFilterCount ? (
+          <Badge
+            variant='outline'
+            className='ml-0.5 h-5 min-w-[1.25rem] justify-center rounded-sm px-1.5 text-[10px]'
+          >
+            {advancedFilterCount}
+          </Badge>
+        ) : null}
       </PopoverTrigger>
       <PopoverContent className='w-[360px] p-0' align='end'>
         <div className='flex items-center justify-between gap-3 border-b px-4 py-3'>

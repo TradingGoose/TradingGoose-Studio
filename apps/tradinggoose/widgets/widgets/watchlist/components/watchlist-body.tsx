@@ -6,15 +6,10 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { moveWatchlistItem } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist-table'
 import { useWatchlistWidgetState } from '@/widgets/widgets/watchlist/hooks/use-watchlist-widget-state'
-
-const WatchlistMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
-    {message}
-  </div>
-)
 
 export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   const copy = useMessages().workspace.widgets.watchlist.body
@@ -117,32 +112,41 @@ export const WatchlistWidgetBody = (props: WidgetComponentProps) => {
   )
 
   if (!workspaceId) {
-    return <WatchlistMessage message={copy.selectWorkspace} />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (isLoading || selectedDocument.isLoading) {
     return (
-      <div className='flex h-full items-center justify-center'>
+      <div
+        className='flex h-full items-center justify-center'
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        aria-busy='true'
+      >
         <LoadingAgent size='md' />
+        <span className='sr-only'>{copy.loadingWatchlists}</span>
       </div>
     )
   }
 
   if (error || selectedDocument.error) {
-    const displayError = error ?? selectedDocument.error
     return (
-      <WatchlistMessage
-        message={displayError ? String(displayError) : copy.failedToLoadWatchlists}
+      <WidgetStateMessage
+        message={copy.failedToLoadWatchlists}
+        variant='error'
+        onRetry={selectedDocument.retry}
+        isRetrying={selectedDocument.isRetrying}
       />
     )
   }
 
   if (selectedDocument.members.length === 0) {
-    return <WatchlistMessage message={copy.createWatchlistToGetStarted} />
+    return <WidgetStateMessage message={copy.createWatchlistToGetStarted} />
   }
 
   if (!selectedWatchlist) {
-    return <WatchlistMessage message={copy.watchlistNotFound} />
+    return <WidgetStateMessage message={copy.watchlistNotFound} />
   }
 
   return (

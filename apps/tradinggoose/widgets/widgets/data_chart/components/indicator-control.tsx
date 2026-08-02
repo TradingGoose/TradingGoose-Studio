@@ -28,7 +28,7 @@ type IndicatorControlProps = {
   indicatorInputs?: Record<string, unknown>
   plotValues?: IndicatorPlotValue[]
   isHidden: boolean
-  errorMessage?: string
+  executionFailure?: string
   onToggleHidden: (indicatorId: string) => void
   onRemove: (indicatorId: string) => void
   onOpenSettings: (indicatorId: string) => void
@@ -57,7 +57,7 @@ export const IndicatorControl = ({
   indicatorInputs,
   plotValues,
   isHidden,
-  errorMessage,
+  executionFailure,
   onToggleHidden,
   onRemove,
   onOpenSettings,
@@ -85,7 +85,7 @@ export const IndicatorControl = ({
   )
 
   const hasSettings = inputEntries.length > 0
-  const hasError = Boolean(errorMessage?.trim())
+  const hasError = Boolean(executionFailure?.trim())
 
   return (
     <div
@@ -122,49 +122,55 @@ export const IndicatorControl = ({
 
         <div className={cn('hidden items-center gap-1 p-0.5 pr-1', isHoveringData && 'flex')}>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                className={controlButtonClass}
-                onClick={() => onToggleHidden(indicatorId)}
-              >
-                {isHidden ? <EyeOff className='h-3 w-3' /> : <Eye className='h-3 w-3' />}
-                <span className='sr-only'>
-                  {isHidden ? copy.indicator.showIndicator : copy.indicator.hideIndicator}
-                </span>
-              </button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <button
+                  type='button'
+                  className={controlButtonClass}
+                  onClick={() => onToggleHidden(indicatorId)}
+                >
+                  {isHidden ? <EyeOff className='h-3 w-3' /> : <Eye className='h-3 w-3' />}
+                  <span className='sr-only'>
+                    {isHidden ? copy.indicator.showIndicator : copy.indicator.hideIndicator}
+                  </span>
+                </button>
+              }
+            />
             <TooltipContent side='top'>
               {isHidden ? copy.indicator.show : copy.indicator.hide}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                className={controlButtonClass}
-                onClick={() => onOpenSettings(indicatorId)}
-                disabled={!hasSettings}
-              >
-                <Settings2 className='h-3 w-3' />
-                <span className='sr-only'>{copy.indicator.settingsAriaLabel}</span>
-              </button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <button
+                  type='button'
+                  className={controlButtonClass}
+                  onClick={() => onOpenSettings(indicatorId)}
+                  disabled={!hasSettings}
+                >
+                  <Settings2 className='h-3 w-3' />
+                  <span className='sr-only'>{copy.indicator.settingsAriaLabel}</span>
+                </button>
+              }
+            />
             <TooltipContent side='top'>
               {hasSettings ? copy.indicator.settingsTooltip : copy.indicator.noSettings}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                className={controlButtonClass}
-                onClick={() => onRemove(indicatorId)}
-              >
-                <Trash2 className='h-3 w-3' />
-                <span className='sr-only'>{copy.indicator.removeIndicator}</span>
-              </button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <button
+                  type='button'
+                  className={controlButtonClass}
+                  onClick={() => onRemove(indicatorId)}
+                >
+                  <Trash2 className='h-3 w-3' />
+                  <span className='sr-only'>{copy.indicator.removeIndicator}</span>
+                </button>
+              }
+            />
             <TooltipContent side='top'>{copy.indicator.remove}</TooltipContent>
           </Tooltip>
         </div>
@@ -196,20 +202,24 @@ export const IndicatorControl = ({
         <div className='pointer-events-auto flex items-center gap-1 p-0.5'>
           <Dialog open={isErrorOpen} onOpenChange={setIsErrorOpen}>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <button
-                    type='button'
-                    className={cn(
-                      controlButtonClass,
-                      'bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive'
-                    )}
-                  >
-                    <TriangleAlert className='h-3 w-3' />
-                    <span className='sr-only'>{copy.indicator.errorTitle}</span>
-                  </button>
-                </DialogTrigger>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <DialogTrigger
+                    render={
+                      <button
+                        type='button'
+                        className={cn(
+                          controlButtonClass,
+                          'bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive'
+                        )}
+                      >
+                        <TriangleAlert className='h-3 w-3' />
+                        <span className='sr-only'>{copy.indicator.errorTitle}</span>
+                      </button>
+                    }
+                  />
+                }
+              />
               <TooltipContent side='top'>{copy.indicator.errorTitle}</TooltipContent>
             </Tooltip>
             <DialogContent className='max-w-md p-0'>
@@ -226,7 +236,7 @@ export const IndicatorControl = ({
               </div>
               <div className='px-5 py-4'>
                 <div className='max-h-48 overflow-auto rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-[12px] text-destructive whitespace-pre-wrap break-words'>
-                  {errorMessage}
+                  {executionFailure}
                 </div>
                 <p className='mt-3 text-xs text-muted-foreground'>{copy.indicator.errorGuidance}</p>
               </div>

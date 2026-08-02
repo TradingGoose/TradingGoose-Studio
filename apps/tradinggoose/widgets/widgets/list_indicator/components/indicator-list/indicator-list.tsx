@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
@@ -9,11 +9,12 @@ import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session
 import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
+import { createIndicator, deleteIndicator } from '@/hooks/queries/indicators'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
+import { useIndicatorWriteStore } from '@/hooks/queries/indicators'
 import { IndicatorListItem } from './components/indicator-list-item'
 
 export const IndicatorListMessage = ({ message }: { message: string }) => (
@@ -23,18 +24,20 @@ export const IndicatorListMessage = ({ message }: { message: string }) => (
 )
 
 export function IndicatorList({
+  channelId,
+  panelId,
   context,
   params,
   onWidgetLinkedParamsPatch,
 }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
+  const ownerId = panelId ?? channelId
   const permissions = useUserPermissionsContext()
-  const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { members, isLoading, error } = useEntityList('indicator', workspaceId)
-  const createMutation = useCreateIndicator()
-  const deleteMutation = useDeleteIndicator()
+  const activeWrite = useIndicatorWriteStore((state) => state.activeWrite)
+  const failedWrite = useIndicatorWriteStore((state) => state.failedWrite)
+  const runWrite = useIndicatorWriteStore((state) => state.runWrite)
 
   const requestedIndicatorId = getIndicatorIdFromParams(params)
   const selectedIndicatorId = resolveEntityIdFromList({
@@ -53,106 +56,90 @@ export function IndicatorList({
 
   const handleDelete = useCallback(
     async (indicatorId: string) => {
-      if (!workspaceId || !permissions.canEdit) return
-      if (!indicatorId) return
-
-      setDeletingIds((prev) => new Set(prev).add(indicatorId))
-
-      try {
-        await deleteMutation.mutateAsync({ workspaceId, indicatorId })
+      if (!workspaceId || !permissions.canEdit || !indicatorId) return false
+      return runWrite({ kind: 'delete', workspaceId, ownerId, indicatorId }, async () => {
+        await deleteIndicator({ workspaceId, indicatorId })
         if (selectedIndicatorId === indicatorId) handleSelect(null)
-      } finally {
-        setDeletingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(indicatorId)
-          return next
-        })
-      }
+      })
     },
-    [deleteMutation, handleSelect, permissions.canEdit, selectedIndicatorId, workspaceId]
+    [handleSelect, ownerId, permissions.canEdit, runWrite, selectedIndicatorId, workspaceId]
   )
 
   const handleRename = useCallback(
     async (indicatorId: string, name: string) => {
-      if (!workspaceId || !permissions.canEdit) return
-      await renameSavedEntityAction({
-        entityKind: 'indicator',
-        entityId: indicatorId,
-        workspaceId,
-        name,
+      if (!workspaceId || !permissions.canEdit) return false
+      return runWrite({ kind: 'rename', workspaceId, ownerId, indicatorId }, async () => {
+        await renameSavedEntityAction({
+          entityKind: 'indicator',
+          entityId: indicatorId,
+          workspaceId,
+          name,
+        })
       })
     },
-    [permissions.canEdit, workspaceId]
+    [ownerId, permissions.canEdit, runWrite, workspaceId]
   )
 
   const handleCopy = useCallback(
     async (indicator: EntityListMember) => {
-      if (!workspaceId || !permissions.canEdit) return
-      if (!indicator.entityId) return
+      if (!workspaceId || !permissions.canEdit || !indicator.entityId) return false
+      return runWrite(
+        { kind: 'copy', workspaceId, ownerId, indicatorId: indicator.entityId },
+        async () => {
+          const copiedName = `${indicator.entityName || copy.listItem.untitledIndicator} (Copy)`
+          const sourceSession = await bootstrapYjsProvider(
+            buildSavedEntityDescriptor('indicator', indicator.entityId, workspaceId),
+            undefined,
+            'read'
+          )
+          let pineCode = ''
+          try {
+            pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
+          } finally {
+            sourceSession.dispose()
+          }
 
-      setCopyingIds((prev) => new Set(prev).add(indicator.entityId))
+          const createdIndicators = await createIndicator({
+            workspaceId,
+            indicator: {
+              name: copiedName,
+              pineCode,
+            },
+          })
+          const copiedIndicatorId =
+            createdIndicators[0] && typeof createdIndicators[0].id === 'string'
+              ? createdIndicators[0].id
+              : null
 
-      try {
-        const copiedName = `${indicator.entityName || copy.listItem.untitledIndicator} (Copy)`
-        const sourceSession = await bootstrapYjsProvider(
-          buildSavedEntityDescriptor('indicator', indicator.entityId, workspaceId),
-          undefined,
-          'read'
-        )
-        let pineCode = ''
-        try {
-          pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
-        } finally {
-          sourceSession.dispose()
+          if (!copiedIndicatorId) {
+            throw new Error('Created indicator copy is missing an id')
+          }
+
+          selectIndicatorWhenListed(copiedIndicatorId)
         }
-
-        const createdIndicators = await createMutation.mutateAsync({
-          workspaceId,
-          indicator: {
-            name: copiedName,
-            pineCode,
-          },
-        })
-        const copiedIndicatorId =
-          createdIndicators[0] && typeof createdIndicators[0].id === 'string'
-            ? createdIndicators[0].id
-            : null
-
-        if (!copiedIndicatorId) {
-          throw new Error('Created indicator copy is missing an id')
-        }
-
-        selectIndicatorWhenListed(copiedIndicatorId)
-      } finally {
-        setCopyingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(indicator.entityId)
-          return next
-        })
-      }
+      )
     },
     [
       copy.listItem.untitledIndicator,
-      createMutation,
+      ownerId,
       selectIndicatorWhenListed,
       permissions.canEdit,
+      runWrite,
       workspaceId,
     ]
   )
 
-  if (isLoading) {
-    return (
-      <div className='flex h-full w-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
-  if (error) {
-    return <IndicatorListMessage message={error} />
-  }
-
-  return (
+  const writeMatchesOwner = (write: typeof activeWrite) =>
+    write?.workspaceId === workspaceId && write.ownerId === ownerId
+  const ownedActiveWrite = writeMatchesOwner(activeWrite) ? activeWrite : null
+  const ownedFailedWrite = writeMatchesOwner(failedWrite) ? failedWrite : null
+  const content = isLoading ? (
+    <div className='flex h-full w-full items-center justify-center'>
+      <LoadingAgent size='md' />
+    </div>
+  ) : error ? (
+    <IndicatorListMessage message={error} />
+  ) : (
     <div className='h-full w-full overflow-hidden p-2'>
       {members.length === 0 ? (
         <IndicatorListMessage message={copy.body.noIndicatorsYet} />
@@ -169,12 +156,30 @@ export function IndicatorList({
               onRename={handleRename}
               canEdit={permissions.canEdit}
               canDelete={members.length > 1}
-              isCopying={copyingIds.has(indicator.entityId)}
-              isDeleting={deletingIds.has(indicator.entityId)}
+              writesDisabled={Boolean(activeWrite)}
+              isDeleting={
+                ownedActiveWrite?.kind === 'delete' &&
+                ownedActiveWrite.indicatorId === indicator.entityId
+              }
             />
           ))}
         </div>
       )}
+    </div>
+  )
+
+  return (
+    <div className='flex h-full min-h-0 flex-col'>
+      {ownedActiveWrite ? (
+        <div className='px-2 pt-2 text-muted-foreground text-xs' role='status'>
+          {copy.body.writePending}
+        </div>
+      ) : ownedFailedWrite ? (
+        <div className='px-2 pt-2 text-destructive text-xs' role='alert'>
+          {copy.body.writeFailed}
+        </div>
+      ) : null}
+      <div className='min-h-0 flex-1'>{content}</div>
     </div>
   )
 }

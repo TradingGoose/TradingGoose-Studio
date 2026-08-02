@@ -109,20 +109,28 @@ const McpCreateMenu = ({
 }) => (
   <DropdownMenu>
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <DropdownMenuTrigger asChild>
-            <button type='button' disabled={disabled} className={widgetHeaderIconButtonClassName()}>
+      <TooltipTrigger
+        render={
+          <span className='inline-flex'>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  disabled={disabled}
+                  className={widgetHeaderIconButtonClassName()}
+                />
+              }
+            >
               <Plus className='h-4 w-4' />
               <span className='sr-only'>{copy.createMcpServer}</span>
-            </button>
-          </DropdownMenuTrigger>
-        </span>
-      </TooltipTrigger>
+            </DropdownMenuTrigger>
+          </span>
+        }
+      />
       <TooltipContent side='top'>{copy.create}</TooltipContent>
     </Tooltip>
     <DropdownMenuContent sideOffset={6} className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
-      <DropdownMenuItem className={widgetHeaderMenuItemClassName} onSelect={onCreateServer}>
+      <DropdownMenuItem className={widgetHeaderMenuItemClassName} onClick={onCreateServer}>
         <Plus className={widgetHeaderMenuIconClassName} />
         <span className={widgetHeaderMenuTextClassName}>{copy.newMcpServer}</span>
       </DropdownMenuItem>
@@ -467,19 +475,22 @@ const McpServerListItem = ({
               spellCheck='false'
             />
           ) : (
-            <Tooltip delayDuration={1000}>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
-                    isSelected
-                      ? 'text-foreground'
-                      : 'text-muted-foreground group-hover:text-foreground'
-                  )}
-                >
-                  {displayName}
-                </span>
-              </TooltipTrigger>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span
+                    className={cn(
+                      'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
+                      isSelected
+                        ? 'text-foreground'
+                        : 'text-muted-foreground group-hover:text-foreground'
+                    )}
+                  >
+                    {displayName}
+                  </span>
+                }
+                delay={1000}
+              />
               <TooltipContent side='top' align='start' sideOffset={10}>
                 <p>{displayName}</p>
               </TooltipContent>
@@ -522,13 +533,12 @@ const McpServerListItem = ({
 
       <AlertDialog
         open={showDeleteDialog}
-        onOpenChange={(open) => {
-          if (!isDeleting) {
-            setShowDeleteDialog((prev) => (prev === open ? prev : open))
-          }
+        onOpenChange={(open, details) => {
+          if (!open && isDeleting) return details.cancel()
+          setShowDeleteDialog((prev) => (prev === open ? prev : open))
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>

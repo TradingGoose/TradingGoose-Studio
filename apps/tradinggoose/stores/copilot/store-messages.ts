@@ -455,6 +455,7 @@ export function createErrorMessage(messageId: string, content: string): CopilotM
     role: 'assistant',
     content,
     timestamp: new Date().toISOString(),
+    isError: true,
     contentBlocks: [
       {
         type: 'text',

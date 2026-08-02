@@ -92,7 +92,7 @@ export const extractEnhancedError = (
 }
 
 export const formatE2BError = (
-  errorMessage: string,
+  sandboxFailureText: string,
   userCode: string,
   prologueLineCount: number,
   wrapperLineCount = 3
@@ -103,8 +103,9 @@ export const formatE2BError = (
   let cleanErrorType = ''
   let cleanErrorMsg = ''
 
-  const firstLineEnd = errorMessage.indexOf('\n')
-  const firstLine = firstLineEnd > 0 ? errorMessage.substring(0, firstLineEnd) : errorMessage
+  const firstLineEnd = sandboxFailureText.indexOf('\n')
+  const firstLine =
+    firstLineEnd > 0 ? sandboxFailureText.substring(0, firstLineEnd) : sandboxFailureText
 
   const jsErrorMatch = firstLine.match(/^(\w+Error):\s*[^:]+:\s*([^(]+)\.\s*\((\d+):(\d+)\)/)
   if (jsErrorMatch) {
@@ -113,7 +114,7 @@ export const formatE2BError = (
     const originalLine = Number.parseInt(jsErrorMatch[3], 10)
     userLine = originalLine - totalOffset
   } else {
-    const arrowMatch = errorMessage.match(/^>\s*(\d+)\s*\|/m)
+    const arrowMatch = sandboxFailureText.match(/^>\s*(\d+)\s*\|/m)
     if (arrowMatch) {
       const originalLine = Number.parseInt(arrowMatch[1], 10)
       userLine = originalLine - totalOffset
@@ -134,7 +135,7 @@ export const formatE2BError = (
   const finalErrorMsg =
     cleanErrorType && cleanErrorMsg
       ? `${cleanErrorType}: ${cleanErrorMsg}`
-      : cleanErrorMsg || errorMessage
+      : cleanErrorMsg || sandboxFailureText
 
   let formattedError = finalErrorMsg
   if (userLine && userLine > 0) {
@@ -157,7 +158,7 @@ export const createUserFriendlyErrorMessage = (
   enhanced: EnhancedError,
   userCode?: string
 ): string => {
-  let errorMessage = enhanced.message
+  let userFacingFailureText = enhanced.message
 
   if (enhanced.line !== undefined) {
     let lineInfo = `Line ${enhanced.line}${enhanced.column !== undefined ? `:${enhanced.column}` : ''}`
@@ -166,7 +167,7 @@ export const createUserFriendlyErrorMessage = (
       lineInfo += `: \`${enhanced.lineContent}\``
     }
 
-    errorMessage = `${lineInfo} - ${errorMessage}`
+    userFacingFailureText = `${lineInfo} - ${userFacingFailureText}`
   } else if (enhanced.stack) {
     const stackMatch = enhanced.stack.match(/user-function\.js:(\d+)(?::(\d+))?/)
     if (stackMatch) {
@@ -184,7 +185,7 @@ export const createUserFriendlyErrorMessage = (
         }
       }
 
-      errorMessage = `${lineInfo} - ${errorMessage}`
+      userFacingFailureText = `${lineInfo} - ${userFacingFailureText}`
     }
   }
 
@@ -198,29 +199,29 @@ export const createUserFriendlyErrorMessage = (
             ? 'Reference Error'
             : enhanced.name
 
-    if (!errorMessage.toLowerCase().includes(errorTypePrefix.toLowerCase())) {
-      errorMessage = `${errorTypePrefix}: ${errorMessage}`
+    if (!userFacingFailureText.toLowerCase().includes(errorTypePrefix.toLowerCase())) {
+      userFacingFailureText = `${errorTypePrefix}: ${userFacingFailureText}`
     }
   }
 
   if (enhanced.name === 'SyntaxError') {
-    if (errorMessage.includes('Invalid or unexpected token')) {
-      errorMessage += ' (Check for missing quotes, brackets, or semicolons)'
-    } else if (errorMessage.includes('Unexpected end of input')) {
-      errorMessage += ' (Check for missing closing brackets or braces)'
-    } else if (errorMessage.includes('Unexpected token')) {
+    if (userFacingFailureText.includes('Invalid or unexpected token')) {
+      userFacingFailureText += ' (Check for missing quotes, brackets, or semicolons)'
+    } else if (userFacingFailureText.includes('Unexpected end of input')) {
+      userFacingFailureText += ' (Check for missing closing brackets or braces)'
+    } else if (userFacingFailureText.includes('Unexpected token')) {
       if (
         enhanced.lineContent &&
         ((enhanced.lineContent.includes('(') && !enhanced.lineContent.includes(')')) ||
           (enhanced.lineContent.includes('[') && !enhanced.lineContent.includes(']')) ||
           (enhanced.lineContent.includes('{') && !enhanced.lineContent.includes('}')))
       ) {
-        errorMessage += ' (Check for missing closing parentheses, brackets, or braces)'
+        userFacingFailureText += ' (Check for missing closing parentheses, brackets, or braces)'
       } else {
-        errorMessage += ' (Check your syntax)'
+        userFacingFailureText += ' (Check your syntax)'
       }
     }
   }
 
-  return errorMessage
+  return userFacingFailureText
 }

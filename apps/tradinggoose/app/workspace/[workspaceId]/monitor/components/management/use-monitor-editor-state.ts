@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { areListingIdentitiesEqual } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
-import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { ConfigBoardContext } from '../config/config-board-state'
 import {
@@ -10,6 +10,7 @@ import {
   buildDraftFromMonitorWithPatch,
   buildMonitorCreatePayloadFromDraft,
   buildMonitorUpdatePayloadFromDraft,
+  type MonitorDraftIssues,
   mergeMonitorDraftPatch,
   validateMonitorDraft,
 } from '../config/config-draft'
@@ -25,29 +26,40 @@ import type { ConfigMonitorViewConfig } from '../view/view-config'
 
 export type MonitorEditorState = ReturnType<typeof useMonitorEditorState>
 
+const mergeIssues = (...groups: MonitorDraftIssues[]) => {
+  const merged: MonitorDraftIssues = {}
+  for (const group of groups) {
+    for (const [key, messages] of Object.entries(group)) {
+      merged[key] = Array.from(new Set([...(merged[key] ?? []), ...messages]))
+    }
+  }
+  return merged
+}
+
 export function useMonitorEditorState({
   workspaceId,
   monitorRecords,
   referenceData,
   monitorActions,
   viewConfig,
+  onClearOperationMessage,
 }: {
   workspaceId: string
   monitorRecords: MonitorRecord[]
   referenceData: MonitorReferenceData
   monitorActions: MonitorRecordActions
   viewConfig: ConfigMonitorViewConfig
+  onClearOperationMessage: () => void
 }) {
-  const { copy } = useMonitorCopy()
   const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null)
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingDraft, setEditingDraft] = useState<MonitorDraft | null>(null)
-  const [editingErrors, setEditingErrors] = useState<Record<string, string>>({})
+  const [showValidationIssues, setShowValidationIssues] = useState(false)
+  const [editingProposalIssues, setEditingProposalIssues] = useState<MonitorDraftIssues>({})
   const [saving, setSaving] = useState(false)
   const [togglingMonitorId, setTogglingMonitorId] = useState<string | null>(null)
   const [deletingMonitorId, setDeletingMonitorId] = useState<string | null>(null)
-  const [panelError, setPanelError] = useState<string | null>(null)
 
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)
@@ -62,17 +74,32 @@ export function useMonitorEditorState({
     }
   }, [monitorRecords, selectedMonitorId])
 
-  const selectMonitorId = useCallback((monitorId: string | null) => {
-    setSelectedMonitorId(monitorId)
-  }, [])
+  const selectMonitorId = useCallback(
+    (monitorId: string | null) => {
+      onClearOperationMessage()
+      setSelectedMonitorId(monitorId)
+    },
+    [onClearOperationMessage]
+  )
 
   const clearSelection = useCallback(() => {
-    setSelectedMonitorId(null)
-  }, [])
+    selectMonitorId(null)
+  }, [selectMonitorId])
 
   const selectedMonitor = useMemo(
     () => monitorRecords.find((monitor) => monitor.monitorId === selectedMonitorId) ?? null,
     [monitorRecords, selectedMonitorId]
+  )
+  const editingValidation = useMemo(
+    () =>
+      editingDraft
+        ? validateMonitorDraft({ draft: editingDraft, referenceData })
+        : { valid: true, issues: {} },
+    [editingDraft, referenceData]
+  )
+  const editingIssues = useMemo(
+    () => mergeIssues(editingProposalIssues, showValidationIssues ? editingValidation.issues : {}),
+    [editingProposalIssues, editingValidation.issues, showValidationIssues]
   )
 
   const editingIndicatorInputMeta = editingDraft?.indicatorId
@@ -84,29 +111,18 @@ export function useMonitorEditorState({
     return referenceData.providerParamDefinitionsByProviderId[editingDraft.providerId] ?? []
   }, [editingDraft?.providerId, referenceData.providerParamDefinitionsByProviderId])
 
-  const editingSecretDefinitions = useMemo(
-    () =>
-      editingProviderDefinitions.filter(
-        (definition) =>
-          definition.required &&
-          isAuthParamDefinition(definition) &&
-          definition.visibility !== 'hidden' &&
-          definition.visibility !== 'llm-only'
-      ),
-    [editingProviderDefinitions]
-  )
-
-  const editingNonSecretDefinitions = useMemo(
-    () =>
-      editingProviderDefinitions.filter(
-        (definition) =>
-          definition.required &&
-          !isAuthParamDefinition(definition) &&
-          definition.visibility !== 'hidden' &&
-          definition.visibility !== 'llm-only'
-      ),
-    [editingProviderDefinitions]
-  )
+  const [editingSecretDefinitions, editingNonSecretDefinitions] = useMemo(() => {
+    const definitions = editingProviderDefinitions.filter(
+      (definition) =>
+        definition.required &&
+        definition.visibility !== 'hidden' &&
+        definition.visibility !== 'llm-only'
+    )
+    return [
+      definitions.filter(isAuthParamDefinition),
+      definitions.filter((definition) => !isAuthParamDefinition(definition)),
+    ]
+  }, [editingProviderDefinitions])
 
   const editingListingInstanceId =
     isEditorOpen && editingDraft?.source === INDICATOR_MONITOR_PROVIDER
@@ -135,7 +151,12 @@ export function useMonitorEditorState({
   ])
 
   const openDraft = useCallback(
-    (key: string | null, draft: MonitorDraft, errors: Record<string, string> = {}) => {
+    (
+      key: string | null,
+      draft: MonitorDraft,
+      proposalIssues: MonitorDraftIssues = {},
+      showCurrentValidation = false
+    ) => {
       if (draft.source === INDICATOR_MONITOR_PROVIDER) {
         const instanceId = `monitor-edit-${key ?? 'new'}`
         ensureListingSelectorInstance(instanceId, {
@@ -146,19 +167,15 @@ export function useMonitorEditorState({
           results: [],
           error: undefined,
         })
-        updateListingSelectorInstance(instanceId, {
-          providerId: draft.providerId,
-          selectedListingValue: draft.listing,
-          selectedListing: draft.listing as any,
-        })
       }
       setEditingKey(key)
       setEditingDraft(draft)
-      setEditingErrors(errors)
-      setPanelError(null)
+      setShowValidationIssues(showCurrentValidation)
+      setEditingProposalIssues(proposalIssues)
+      onClearOperationMessage()
       setIsEditorOpen(true)
     },
-    [ensureListingSelectorInstance, updateListingSelectorInstance]
+    [ensureListingSelectorInstance, onClearOperationMessage]
   )
 
   const openEdit = useCallback(
@@ -179,7 +196,7 @@ export function useMonitorEditorState({
       openDraft(
         null,
         { ...buildBlankMonitorDraft(referenceData), ...resolution.draftPatch },
-        resolution.errors
+        resolution.issues
       )
     },
     [openDraft, referenceData, viewConfig]
@@ -188,13 +205,18 @@ export function useMonitorEditorState({
   const openRejectedDropProposal = useCallback(
     (
       monitor: MonitorRecord,
-      proposal: { draftPatch: Partial<MonitorDraft>; errors: Record<string, string> }
+      proposal: {
+        draftPatch: Partial<MonitorDraft>
+        proposalIssues?: MonitorDraftIssues
+        showValidationIssues?: boolean
+      }
     ) => {
       selectMonitorId(monitor.monitorId)
       openDraft(
         monitor.monitorId,
         buildDraftFromMonitorWithPatch(monitor, proposal.draftPatch, referenceData),
-        proposal.errors
+        proposal.proposalIssues,
+        proposal.showValidationIssues
       )
     },
     [openDraft, referenceData, selectMonitorId]
@@ -207,60 +229,77 @@ export function useMonitorEditorState({
     setIsEditorOpen(false)
     setEditingKey(null)
     setEditingDraft(null)
-    setEditingErrors({})
-  }, [editingListingInstanceId, resetListingSelectorInstance])
+    setShowValidationIssues(false)
+    setEditingProposalIssues({})
+    onClearOperationMessage()
+  }, [editingListingInstanceId, onClearOperationMessage, resetListingSelectorInstance])
 
   const updateDraft = useCallback(
     (patch: Partial<MonitorDraft>) => {
-      setEditingDraft((current) => {
-        if (!current) return current
+      if (!editingDraft) return
+      const nextDraft = mergeMonitorDraftPatch({ draft: editingDraft, patch, referenceData })
+      const resolvedKeys = new Set<string>()
+      if (
+        nextDraft.workflowId !== editingDraft.workflowId ||
+        nextDraft.blockId !== editingDraft.blockId
+      ) {
+        resolvedKeys.add('workflowTarget')
+      }
+      if (nextDraft.providerId !== editingDraft.providerId) {
+        resolvedKeys.add('providerId')
+      }
+      if (nextDraft.indicatorId !== editingDraft.indicatorId) resolvedKeys.add('indicatorId')
+      if (
+        nextDraft.listing !== editingDraft.listing &&
+        !areListingIdentitiesEqual(nextDraft.listing, editingDraft.listing)
+      ) {
+        resolvedKeys.add('listing')
+      }
+      if (nextDraft.interval !== editingDraft.interval) resolvedKeys.add('interval')
+      if (
+        nextDraft.serviceId !== editingDraft.serviceId ||
+        nextDraft.credentialId !== editingDraft.credentialId ||
+        nextDraft.accountId !== editingDraft.accountId
+      ) {
+        resolvedKeys.add('tradingAccount')
+      }
 
-        return mergeMonitorDraftPatch({ draft: current, patch, referenceData })
-      })
+      setEditingDraft(nextDraft)
+      if (nextDraft.source !== editingDraft.source) {
+        setEditingProposalIssues({})
+      } else if (resolvedKeys.size > 0) {
+        setEditingProposalIssues((current) =>
+          Object.fromEntries(Object.entries(current).filter(([key]) => !resolvedKeys.has(key)))
+        )
+      }
     },
-    [referenceData]
+    [editingDraft, referenceData]
   )
 
-  const updateSecretValue = useCallback((fieldId: string, value: string) => {
-    setEditingDraft((current) =>
-      current
-        ? {
-            ...current,
-            secretValues: {
-              ...current.secretValues,
-              [fieldId]: value,
-            },
-          }
-        : current
-    )
-  }, [])
+  const updateSecretValue = useCallback(
+    (fieldId: string, value: string) =>
+      updateDraft({ secretValues: { ...editingDraft?.secretValues, [fieldId]: value } }),
+    [editingDraft?.secretValues, updateDraft]
+  )
 
-  const updateProviderParamValue = useCallback((fieldId: string, value: string) => {
-    setEditingDraft((current) =>
-      current
-        ? {
-            ...current,
-            providerParamValues: {
-              ...current.providerParamValues,
-              [fieldId]: value,
-            },
-          }
-        : current
-    )
-  }, [])
+  const updateProviderParamValue = useCallback(
+    (fieldId: string, value: string) =>
+      updateDraft({
+        providerParamValues: { ...editingDraft?.providerParamValues, [fieldId]: value },
+      }),
+    [editingDraft?.providerParamValues, updateDraft]
+  )
 
   const persistDraft = useCallback(async () => {
     if (!editingDraft) return
 
-    const validation = validateMonitorDraft({ draft: editingDraft, referenceData })
-    setEditingErrors(validation.errors)
-    if (!validation.valid) return
+    setShowValidationIssues(true)
+    if (!editingValidation.valid || Object.keys(editingProposalIssues).length > 0) return
 
     const sourceMonitor = editingKey
       ? (monitorRecords.find((monitor) => monitor.monitorId === editingKey) ?? null)
       : null
     setSaving(true)
-    setPanelError(null)
 
     try {
       const savedMonitor = sourceMonitor
@@ -281,18 +320,18 @@ export function useMonitorEditorState({
 
       if (savedMonitor) selectMonitorId(savedMonitor.monitorId)
       closeEditor()
-    } catch (error) {
-      setPanelError(error instanceof Error ? error.message : copy.editor.errors.save)
+    } catch {
+      return
     } finally {
       setSaving(false)
     }
   }, [
-    copy.editor.errors.save,
     editingDraft,
+    editingProposalIssues,
+    editingValidation.valid,
     editingKey,
     monitorActions,
     monitorRecords,
-    referenceData,
     closeEditor,
     selectMonitorId,
     workspaceId,
@@ -302,24 +341,22 @@ export function useMonitorEditorState({
     async (monitor: MonitorRecord) => {
       const nextIsActive = !monitor.isActive
       setTogglingMonitorId(monitor.monitorId)
-      setPanelError(null)
 
       try {
         const savedMonitor = await monitorActions.toggleMonitorState(monitor, nextIsActive)
         if (savedMonitor) selectMonitorId(savedMonitor.monitorId)
-      } catch (error) {
-        setPanelError(error instanceof Error ? error.message : copy.editor.errors.updateState)
+      } catch {
+        return
       } finally {
         setTogglingMonitorId(null)
       }
     },
-    [copy.editor.errors.updateState, monitorActions, selectMonitorId]
+    [monitorActions, selectMonitorId]
   )
 
   const removeMonitor = useCallback(
     async (monitorId: string) => {
       setDeletingMonitorId(monitorId)
-      setPanelError(null)
 
       try {
         await monitorActions.deleteMonitor(monitorId)
@@ -327,13 +364,13 @@ export function useMonitorEditorState({
           selectMonitorId(null)
         }
         closeEditor()
-      } catch (error) {
-        setPanelError(error instanceof Error ? error.message : copy.editor.errors.delete)
+      } catch {
+        return
       } finally {
         setDeletingMonitorId(null)
       }
     },
-    [closeEditor, copy.editor.errors.delete, monitorActions, selectMonitorId, selectedMonitorId]
+    [closeEditor, monitorActions, selectMonitorId, selectedMonitorId]
   )
 
   return {
@@ -342,11 +379,10 @@ export function useMonitorEditorState({
     isEditorOpen,
     editingKey,
     editingDraft,
-    editingErrors,
+    editingIssues,
     saving,
     togglingMonitorId,
     deletingMonitorId,
-    panelError,
     editingIndicatorInputMeta,
     editingSecretDefinitions,
     editingNonSecretDefinitions,

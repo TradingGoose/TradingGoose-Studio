@@ -2,6 +2,9 @@
 
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
@@ -60,6 +63,7 @@ function WorkspacePermissionsProviderInner({
   userId: string
 }) {
   const router = useRouter()
+  const t = useTranslations('workspace.permissionsFeedback')
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
@@ -123,12 +127,15 @@ function WorkspacePermissionsProviderInner({
   const isAccessDeniedError = normalizedError
     ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
     : false
+  const isPermissionLoadFailure = Boolean(
+    permissionsError && !isAuthRecoveryError && !isAccessDeniedError
+  )
   const shouldTriggerRedirect = Boolean(
     workspaceId &&
       !isAuthRecoveryError &&
       !permissionsLoading &&
       !userPermissions.isLoading &&
-      (isAccessDeniedError || !userPermissions.canRead)
+      (isAccessDeniedError || (!combinedError && !userPermissions.canRead))
   )
 
   useEffect(() => {
@@ -149,7 +156,28 @@ function WorkspacePermissionsProviderInner({
   return (
     <WorkspaceAuthenticatedUserContext.Provider value={userId}>
       <WorkspacePermissionsContext.Provider value={contextValue}>
-        {shouldBlockRender ? null : children}
+        {shouldBlockRender ? null : isPermissionLoadFailure ? (
+          <Alert variant='destructive' role='alert' aria-atomic='true' className='m-4'>
+            <AlertTitle>{t('title')}</AlertTitle>
+            <AlertDescription>{t('description')}</AlertDescription>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='mt-3'
+              disabled={permissionsLoading}
+              focusableWhenDisabled={permissionsLoading}
+              aria-busy={permissionsLoading || undefined}
+              onClick={() => {
+                void refetchPermissions()
+              }}
+            >
+              {permissionsLoading ? t('retrying') : t('retry')}
+            </Button>
+          </Alert>
+        ) : (
+          children
+        )}
       </WorkspacePermissionsContext.Provider>
     </WorkspaceAuthenticatedUserContext.Provider>
   )

@@ -6,6 +6,7 @@ import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { pollingIdempotency } from '@/lib/idempotency/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { getWebhookRevision, WebhookRevisionConflictError } from '@/lib/webhooks/webhook-helpers'
 import type { GmailAttachment } from '@/tools/gmail/types'
 import { downloadAttachments, extractAttachmentInfo } from '@/tools/gmail/utils'
 
@@ -119,7 +120,7 @@ export async function pollGmailWebhooks() {
         if (!emails || !emails.length) {
           // Update last checked timestamp
           await updateWebhookLastChecked(
-            webhookId,
+            webhookData,
             now.toISOString(),
             latestHistoryId || config.historyId
           )
@@ -144,7 +145,11 @@ export async function pollGmailWebhooks() {
         )
 
         // Update webhook with latest history ID and timestamp
-        await updateWebhookData(webhookId, now.toISOString(), latestHistoryId || config.historyId)
+        await updateWebhookLastChecked(
+          webhookData,
+          now.toISOString(),
+          latestHistoryId || config.historyId
+        )
 
         return {
           success: true,
@@ -153,9 +158,9 @@ export async function pollGmailWebhooks() {
           emailsProcessed: processed,
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const gmailWebhookFailureDetail = error instanceof Error ? error.message : 'Unknown error'
         logger.error(`[${requestId}] Error processing Gmail webhook ${webhookId}:`, error)
-        return { success: false, webhookId, error: errorMessage }
+        return { success: false, webhookId, error: gmailWebhookFailureDetail }
       }
     }
 
@@ -196,8 +201,8 @@ export async function pollGmailWebhooks() {
 
     return summary
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error('Error in Gmail polling service:', errorMessage)
+    const gmailPollingFailureDetail = error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Error in Gmail polling service:', gmailPollingFailureDetail)
     throw error
   }
 }
@@ -291,8 +296,8 @@ async function fetchNewEmails(accessToken: string, config: GmailWebhookConfig, r
 
     return { emails, latestHistoryId }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error(`[${requestId}] Error fetching new emails:`, errorMessage)
+    const gmailFetchFailureDetail = error instanceof Error ? error.message : 'Unknown error'
+    logger.error(`[${requestId}] Error fetching new emails:`, gmailFetchFailureDetail)
     return { emails: [], latestHistoryId: config.historyId }
   }
 }
@@ -452,8 +457,8 @@ async function searchEmails(accessToken: string, config: GmailWebhookConfig, req
 
     return { emails, latestHistoryId }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error(`[${requestId}] Error searching emails:`, errorMessage)
+    const gmailSearchFailureDetail = error instanceof Error ? error.message : 'Unknown error'
+    logger.error(`[${requestId}] Error searching emails:`, gmailSearchFailureDetail)
     return { emails: [], latestHistoryId: config.historyId }
   }
 }
@@ -646,8 +651,11 @@ async function processEmails(
       )
       processedCount++
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      logger.error(`[${requestId}] Error processing email ${email.id}:`, errorMessage)
+      const emailProcessingFailureDetail = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(
+        `[${requestId}] Error processing email ${email.id}:`,
+        emailProcessingFailureDetail
+      )
       // Continue processing other emails even if one fails
     }
   }
@@ -681,35 +689,27 @@ async function markEmailAsRead(accessToken: string, messageId: string) {
   }
 }
 
-async function updateWebhookLastChecked(webhookId: string, timestamp: string, historyId?: string) {
-  const existingConfig =
-    (await db.select().from(webhook).where(eq(webhook.id, webhookId)))[0]?.providerConfig || {}
-  await db
+async function updateWebhookLastChecked(
+  current: Pick<typeof webhook.$inferSelect, 'id' | 'providerConfig' | 'updatedAt'>,
+  timestamp: string,
+  historyId?: string
+) {
+  const revision = getWebhookRevision(
+    current,
+    eq(webhook.provider, 'gmail'),
+    eq(webhook.isActive, true)
+  )
+  const [updated] = await db
     .update(webhook)
     .set({
       providerConfig: {
-        ...existingConfig,
+        ...((current.providerConfig as Record<string, unknown>) || {}),
         lastCheckedTimestamp: timestamp,
         ...(historyId ? { historyId } : {}),
       },
-      updatedAt: new Date(),
+      updatedAt: revision.updatedAt,
     })
-    .where(eq(webhook.id, webhookId))
-}
-
-async function updateWebhookData(webhookId: string, timestamp: string, historyId?: string) {
-  const existingConfig =
-    (await db.select().from(webhook).where(eq(webhook.id, webhookId)))[0]?.providerConfig || {}
-
-  await db
-    .update(webhook)
-    .set({
-      providerConfig: {
-        ...existingConfig,
-        lastCheckedTimestamp: timestamp,
-        ...(historyId ? { historyId } : {}),
-      },
-      updatedAt: new Date(),
-    })
-    .where(eq(webhook.id, webhookId))
+    .where(revision.where)
+    .returning({ id: webhook.id })
+  if (!updated) throw new WebhookRevisionConflictError()
 }

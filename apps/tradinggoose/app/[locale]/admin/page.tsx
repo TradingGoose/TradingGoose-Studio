@@ -1,14 +1,14 @@
 import { getLocale } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBillingGateState } from '@/lib/billing/settings'
-import { Link } from '@/i18n/navigation'
-import { getPublicCopy } from '@/i18n/public-copy'
-import type { LocaleCode } from '@/i18n/utils'
 import { ADMIN_META_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { AdminSystemSettingsSection } from '@/app/admin/system-settings-section'
+import { Link } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
 export default async function AdminHomePage() {
   const locale = (await getLocale()) as LocaleCode
@@ -43,9 +43,9 @@ export default async function AdminHomePage() {
               </CardHeader>
               <CardContent className='flex items-center justify-between gap-4'>
                 <p className='text-muted-foreground text-sm'>{copy.cards.billing.body}</p>
-                <Button asChild>
-                  <Link href='/admin/billing'>{copy.cards.billing.action}</Link>
-                </Button>
+                <Link href='/admin/billing' className={buttonVariants()}>
+                  {copy.cards.billing.action}
+                </Link>
               </CardContent>
             </Card>
           ) : null}
@@ -57,9 +57,9 @@ export default async function AdminHomePage() {
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>{copy.cards.services.body}</p>
-              <Button asChild>
-                <Link href='/admin/services'>{copy.cards.services.action}</Link>
-              </Button>
+              <Link href='/admin/services' className={buttonVariants()}>
+                {copy.cards.services.action}
+              </Link>
             </CardContent>
           </Card>
 
@@ -70,9 +70,9 @@ export default async function AdminHomePage() {
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>{copy.cards.integrations.body}</p>
-              <Button asChild>
-                <Link href='/admin/integrations'>{copy.cards.integrations.action}</Link>
-              </Button>
+              <Link href='/admin/integrations' className={buttonVariants()}>
+                {copy.cards.integrations.action}
+              </Link>
             </CardContent>
           </Card>
 
@@ -83,9 +83,9 @@ export default async function AdminHomePage() {
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
               <p className='text-muted-foreground text-sm'>{copy.cards.registration.body}</p>
-              <Button asChild>
-                <Link href='/admin/registration'>{copy.cards.registration.action}</Link>
-              </Button>
+              <Link href='/admin/registration' className={buttonVariants()}>
+                {copy.cards.registration.action}
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -417,8 +417,29 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
         </div>
 
         <div className='space-y-2'>
-          <Label className='font-medium text-sm'>{copy.chatLogo}</Label>
+          <Label
+            id='chat-logo-upload-label'
+            htmlFor='chat-logo-upload-control'
+            className='font-medium text-sm'
+          >
+            {copy.chatLogo}
+          </Label>
           <ImageUpload
+            id='chat-logo-upload-control'
+            labelledBy='chat-logo-upload-label'
+            describedBy={
+              !draftConfig.imageUrl && !isImageUploading ? 'chat-logo-upload-hint' : undefined
+            }
+            labels={{
+              select: copy.chatLogoSelect,
+              drop: copy.chatLogoDrop,
+              uploading: copy.chatLogoUploading,
+              wait: copy.chatLogoWait,
+              replace: copy.chatLogoReplace,
+              delete: copy.chatLogoDelete,
+              removeFile: copy.chatLogoRemoveFile,
+              previewAlt: copy.chatLogo,
+            }}
             value={draftConfig.imageUrl}
             onUpload={(url) => {
               setImageUrlValue(url || '')
@@ -429,10 +450,11 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
             onUploadStart={setIsImageUploading}
             uploadToServer={true}
             height='h-32'
-            hideHeader={true}
           />
           {!draftConfig.imageUrl && !isImageUploading && (
-            <p className='text-muted-foreground text-xs'>{copy.chatLogoHint}</p>
+            <p id='chat-logo-upload-hint' className='text-muted-foreground text-xs'>
+              {copy.chatLogoHint}
+            </p>
           )}
         </div>
       </div>

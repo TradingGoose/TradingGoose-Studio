@@ -15,7 +15,7 @@ type ListingSelectorDropdownContentProps = {
   activeGroupId: string
   onActiveGroupChange: (groupId: string) => void
   results: ListingOption[]
-  isLoading: boolean
+  busy: boolean
   error?: string
   highlightedIndex: number
   onHighlightChange: (index: number) => void
@@ -30,7 +30,7 @@ export function ListingSelectorDropdownContent({
   activeGroupId,
   onActiveGroupChange,
   results,
-  isLoading,
+  busy,
   error,
   highlightedIndex,
   onHighlightChange,
@@ -79,7 +79,7 @@ export function ListingSelectorDropdownContent({
           const listing = results[Number(item.id)]
           if (listing) onSelect(listing)
         }}
-        loadingContent={isLoading ? copy.searching : null}
+        loadingContent={busy ? copy.searching : null}
         emptyContent={error || copy.noListingsFound}
       />
     </div>

@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 
 const mockUseResolvedListings = vi.fn()
@@ -14,6 +15,7 @@ const mockUseOAuthConnections = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
 const mockHeatmapTreemapChart = vi.fn()
+const retryWatchlistDocuments = vi.fn()
 let currentWatchlists: Array<{
   id: string
   workspaceId: string
@@ -25,6 +27,26 @@ let currentWatchlists: Array<{
 }> = []
 let loadingWatchlistDocumentIds = new Set<string>()
 let erroredWatchlistDocuments = new Map<string, string>()
+
+const setWatchlist = (items: (typeof currentWatchlists)[number]['items']) => {
+  currentWatchlists = [
+    {
+      id: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      name: 'Watchlist',
+      items,
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      createdAt: '',
+      updatedAt: '',
+    },
+  ]
+}
+
+const watchlistItem = (id = 'watchlist-item', symbol = 'AAPL') => ({
+  id,
+  type: 'listing' as const,
+  listing: createListing(symbol),
+})
 
 const portfolioIdentity = {
   providerId: 'alpaca',
@@ -109,7 +131,9 @@ vi.mock('@/widgets/utils/watchlist-yjs', () => ({
     return {
       records: isLoading || error ? [] : currentWatchlists,
       isLoading,
+      isRetrying: false,
       error: error ?? null,
+      retry: retryWatchlistDocuments,
     }
   },
 }))
@@ -175,7 +199,29 @@ describe('HeatmapWidgetBody', () => {
       root.unmount()
     })
     container.remove()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
+
+  const renderBody = (
+    params: ComponentProps<typeof HeatmapWidgetBody>['params'],
+    props: Partial<ComponentProps<typeof HeatmapWidgetBody>> = {}
+  ) =>
+    act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          channelId='heatmap-panel-1'
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          {...props}
+          params={params}
+        />
+      )
+    })
+
+  const renderWatchlist = (props?: Partial<ComponentProps<typeof HeatmapWidgetBody>>) =>
+    renderBody({ sourceMode: 'watchlist', marketProvider: 'alpaca' }, props)
 
   it('caps watchlist-mode identities before the shared quote and chart pipeline', async () => {
     const watchlistItems = Array.from({ length: 201 }, (_, index) => ({
@@ -183,32 +229,9 @@ describe('HeatmapWidgetBody', () => {
       type: 'listing' as const,
       listing: createListing(`SYM${index}`),
     }))
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: watchlistItems,
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist(watchlistItems)
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(container.textContent).toContain('Showing first 200 of 201 listings.')
     expect(container.textContent).toContain('heatmap-chart:200')
@@ -234,20 +257,7 @@ describe('HeatmapWidgetBody', () => {
   it('does not render watchlist chart data while the Yjs entity list is empty', async () => {
     currentWatchlists = []
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
     expect(mockUseResolvedListings.mock.calls.at(-1)?.[0].listings).toEqual([])
@@ -255,33 +265,10 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('waits for watchlist Yjs documents before rendering the watchlist empty state', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([])
     loadingWatchlistDocumentIds.add('watchlist-1')
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(container.querySelector('svg')).toBeTruthy()
     expect(container.textContent).not.toContain('No watchlist listings found.')
@@ -290,39 +277,10 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('does not render watchlist data while the root Yjs document is loading', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'root-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem('root-item')])
     loadingWatchlistDocumentIds.add('watchlist-1')
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(container.querySelector('svg')).toBeTruthy()
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
@@ -331,97 +289,29 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('surfaces watchlist Yjs document subscription errors', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'watchlist-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem()])
     erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed')
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
-    expect(container.textContent).toContain('watchlist document failed')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Failed to load watchlists.'
+    )
+    expect(container.textContent).not.toContain('watchlist document failed')
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
   })
 
   it('does not reuse stale watchlist chart data when a loaded document returns to loading or error', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'watchlist-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem()])
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(mockHeatmapTreemapChart).toHaveBeenCalled()
     mockHeatmapTreemapChart.mockClear()
 
     loadingWatchlistDocumentIds.add('watchlist-1')
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(container.querySelector('svg')).toBeTruthy()
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
@@ -429,22 +319,12 @@ describe('HeatmapWidgetBody', () => {
 
     loadingWatchlistDocumentIds.delete('watchlist-1')
     erroredWatchlistDocuments.set('watchlist-1', 'watchlist document failed again')
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
-    expect(container.textContent).toContain('watchlist document failed again')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Failed to load watchlists.'
+    )
+    expect(container.textContent).not.toContain('watchlist document failed again')
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([])
     expect(container.textContent).not.toContain('heatmap-chart')
   })
@@ -461,21 +341,7 @@ describe('HeatmapWidgetBody', () => {
       })
     )
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'portfolio',
-            tradingProvider: 'alpaca',
-            portfolioIdentity,
-          }}
-        />
-      )
-    })
+    await renderBody({ sourceMode: 'portfolio', tradingProvider: 'alpaca', portfolioIdentity })
 
     expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -489,23 +355,7 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('switches source modes through the same source-neutral chart props', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'watchlist-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem()])
     mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
         data: [portfolioIdentity],
@@ -537,20 +387,7 @@ describe('HeatmapWidgetBody', () => {
       })
     )
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
-    })
+    await renderWatchlist()
 
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
@@ -564,21 +401,11 @@ describe('HeatmapWidgetBody', () => {
       })
     )
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'portfolio',
-            marketProvider: 'alpaca',
-            tradingProvider: 'alpaca',
-            portfolioIdentity,
-          }}
-        />
-      )
+    await renderBody({
+      sourceMode: 'portfolio',
+      marketProvider: 'alpaca',
+      tradingProvider: 'alpaca',
+      portfolioIdentity,
     })
 
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
@@ -603,23 +430,7 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('uses raw volume for watchlist tile size when selected', async () => {
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'watchlist-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem()])
     mockUseMarketQuoteSnapshots.mockReturnValue(
       createQueryResult({
         data: {
@@ -635,20 +446,10 @@ describe('HeatmapWidgetBody', () => {
       })
     )
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'watchlist',
-            watchlistSizeMetric: 'volume',
-            marketProvider: 'alpaca',
-          }}
-        />
-      )
+    await renderBody({
+      sourceMode: 'watchlist',
+      watchlistSizeMetric: 'volume',
+      marketProvider: 'alpaca',
     })
 
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).toEqual(
@@ -666,40 +467,12 @@ describe('HeatmapWidgetBody', () => {
   it('writes selected heatmap listings through the linked-parameter callback', async () => {
     const onWidgetParamsPatch = vi.fn()
     const onWidgetLinkedParamsPatch = vi.fn()
-    currentWatchlists = [
-      {
-        id: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        name: 'Watchlist',
-        items: [
-          {
-            id: 'watchlist-item',
-            type: 'listing' as const,
-            listing: createListing('AAPL'),
-          },
-        ],
-        settings: { showLogo: true, showTicker: true, showDescription: true },
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]
+    setWatchlist([watchlistItem()])
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          pairColor='blue'
-          params={{
-            sourceMode: 'watchlist',
-            marketProvider: 'alpaca',
-          }}
-          onWidgetParamsPatch={onWidgetParamsPatch}
-          onWidgetLinkedParamsPatch={onWidgetLinkedParamsPatch}
-        />
-      )
+    await renderWatchlist({
+      pairColor: 'blue',
+      onWidgetParamsPatch,
+      onWidgetLinkedParamsPatch,
     })
 
     const onListingSelect = mockHeatmapTreemapChart.mock.calls.at(-1)?.[0].onListingSelect
@@ -721,24 +494,83 @@ describe('HeatmapWidgetBody', () => {
     )
     mockUsePortfolioDetail.mockReturnValue(createQueryResult({ data: createPortfolioDetail() }))
 
-    await act(async () => {
-      root.render(
-        <HeatmapWidgetBody
-          channelId='heatmap-panel-1'
-          context={{ workspaceId: 'workspace-1' }}
-          widget={{ key: 'heatmap' } as any}
-          panelId='panel-1'
-          params={{
-            sourceMode: 'portfolio',
-            marketProvider: 'alpaca',
-            tradingProvider: 'alpaca',
-            portfolioIdentity,
-          }}
-        />
-      )
+    await renderBody({
+      sourceMode: 'portfolio',
+      marketProvider: 'alpaca',
+      tradingProvider: 'alpaca',
+      portfolioIdentity,
     })
 
     expect(container.textContent).toContain('No holdings listings found for this account.')
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
+  })
+
+  it('keeps compact measurements across loading, error, and content', async () => {
+    const { HeatmapTreemapChart } = await vi.importActual<
+      typeof import('@/widgets/widgets/heatmap/components/heatmap-treemap-chart')
+    >('@/widgets/widgets/heatmap/components/heatmap-treemap-chart')
+    const compactItem = {
+      key: 'default|AAPL||',
+      listing: createListing('AAPL'),
+      resolvedListing: {
+        ...createListing('AAPL'),
+        base: 'AAPL',
+        name: 'Apple Inc.',
+        iconUrl: 'https://example.com/aapl.svg',
+      },
+    }
+    const frames: FrameRequestCallback[] = []
+    let observerCount = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback)
+      return frames.length
+    })
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        private callback: ResizeObserverCallback
+
+        constructor(callback: ResizeObserverCallback) {
+          observerCount += 1
+          this.callback = callback
+        }
+
+        observe(target: Element) {
+          this.callback(
+            [{ target, contentRect: { height: 40, width: 40 } } as ResizeObserverEntry],
+            this as ResizeObserver
+          )
+        }
+
+        disconnect() {}
+        unobserve() {}
+      }
+    )
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      height: 0,
+      width: 0,
+    } as DOMRect)
+    const renderChart = (props: ComponentProps<typeof HeatmapTreemapChart>) =>
+      act(async () => {
+        root.render(
+          <TooltipProvider>
+            <HeatmapTreemapChart {...props} />
+          </TooltipProvider>
+        )
+      })
+
+    await renderChart({ items: [compactItem], isLoading: true })
+    const measuredContainer = container.firstElementChild
+
+    await renderChart({ items: [compactItem], errorMessage: 'Quotes unavailable' })
+    expect(container.firstElementChild).toBe(measuredContainer)
+
+    frames.shift()?.(0)
+    await renderChart({ items: [compactItem] })
+
+    expect(observerCount).toBe(1)
+    expect(container.firstElementChild).toBe(measuredContainer)
+    expect(container.querySelector('button')?.textContent?.trim()).toBe('')
+    expect((container.querySelector('img') as HTMLImageElement | null)?.style.width).toBe('16px')
   })
 })

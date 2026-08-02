@@ -1,6 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import {
   type Announcements,
   closestCenter,
@@ -8,8 +10,6 @@ import {
   DndContext,
   type DndContextProps,
   type DragEndEvent,
-  type DraggableAttributes,
-  type DraggableSyntheticListeners,
   DragOverlay,
   type DragStartEvent,
   type DropAnimation,
@@ -37,7 +37,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Slot } from '@radix-ui/react-slot'
 import * as ReactDOM from 'react-dom'
 import { useComposedRefs } from '@/lib/compose-refs'
 import { cn } from '@/lib/utils'
@@ -63,7 +62,6 @@ const orientationConfig = {
 const ROOT_NAME = 'Sortable'
 const CONTENT_NAME = 'SortableContent'
 const ITEM_NAME = 'SortableItem'
-const ITEM_HANDLE_NAME = 'SortableItemHandle'
 const OVERLAY_NAME = 'SortableOverlay'
 
 interface SortableRootContextValue<T> {
@@ -296,16 +294,13 @@ const SortableContentContext = React.createContext<boolean>(false)
 interface SortableContentProps extends React.ComponentProps<'div'> {
   strategy?: SortableContextProps['strategy']
   children: React.ReactNode
-  asChild?: boolean
   withoutSlot?: boolean
 }
 
 function SortableContent(props: SortableContentProps) {
-  const { strategy: strategyProp, asChild, withoutSlot, children, ref, ...contentProps } = props
+  const { strategy: strategyProp, withoutSlot, children, ref, ...contentProps } = props
 
   const context = useSortableContext(CONTENT_NAME)
-
-  const ContentPrimitive = asChild ? Slot : 'div'
 
   return (
     <SortableContentContext.Provider value={true}>
@@ -313,43 +308,23 @@ function SortableContent(props: SortableContentProps) {
         {withoutSlot ? (
           children
         ) : (
-          <ContentPrimitive data-slot='sortable-content' {...contentProps} ref={ref}>
+          <div data-slot='sortable-content' {...contentProps} ref={ref}>
             {children}
-          </ContentPrimitive>
+          </div>
         )}
       </SortableContext>
     </SortableContentContext.Provider>
   )
 }
 
-interface SortableItemContextValue {
-  id: string
-  attributes: DraggableAttributes
-  listeners: DraggableSyntheticListeners | undefined
-  setActivatorNodeRef: (node: HTMLElement | null) => void
-  isDragging?: boolean
-  disabled?: boolean
-}
-
-const SortableItemContext = React.createContext<SortableItemContextValue | null>(null)
-
-function useSortableItemContext(consumerName: string) {
-  const context = React.useContext(SortableItemContext)
-  if (!context) {
-    throw new Error(`\`${consumerName}\` must be used within \`${ITEM_NAME}\``)
-  }
-  return context
-}
-
-interface SortableItemProps extends React.ComponentProps<'div'> {
+interface SortableItemProps extends useRender.ComponentProps<'div'> {
   value: UniqueIdentifier
   asHandle?: boolean
-  asChild?: boolean
   disabled?: boolean
 }
 
 function SortableItem(props: SortableItemProps) {
-  const { value, style, asHandle, asChild, disabled, className, ref, ...itemProps } = props
+  const { value, style, asHandle, render, disabled, className, ref, ...itemProps } = props
 
   const inSortableContent = React.useContext(SortableContentContext)
   const inSortableOverlay = React.useContext(SortableOverlayContext)
@@ -365,7 +340,6 @@ function SortableItem(props: SortableItemProps) {
   }
 
   const context = useSortableContext(ITEM_NAME)
-  const id = React.useId()
   const {
     attributes,
     listeners,
@@ -395,92 +369,38 @@ function SortableItem(props: SortableItemProps) {
     }
   }, [transform, transition, style])
 
-  const itemContext = React.useMemo<SortableItemContextValue>(
-    () => ({
-      id,
-      attributes,
-      listeners,
-      setActivatorNodeRef,
-      isDragging,
-      disabled,
-    }),
-    [id, attributes, listeners, setActivatorNodeRef, isDragging, disabled]
-  )
-
-  const ItemPrimitive = asChild ? Slot : 'div'
-
-  return (
-    <SortableItemContext.Provider value={itemContext}>
-      <ItemPrimitive
-        id={id}
-        data-disabled={disabled}
-        data-dragging={isDragging ? '' : undefined}
-        data-slot='sortable-item'
-        {...itemProps}
-        {...(asHandle && !disabled ? attributes : {})}
-        {...(asHandle && !disabled ? listeners : {})}
-        ref={composedRef}
-        style={composedStyle}
-        className={cn(
+  return useRender({
+    defaultTagName: 'div',
+    render,
+    ref: composedRef,
+    props: mergeProps(
+      {
+        'data-disabled': disabled,
+        'data-dragging': isDragging ? '' : undefined,
+        'data-slot': 'sortable-item',
+        style: composedStyle,
+        className: cn(
           'focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
           {
             'touch-none select-none': asHandle,
             'cursor-default': context.flatCursor,
-            'data-dragging:cursor-grabbing': !context.flatCursor,
+            'data-[dragging]:cursor-grabbing': !context.flatCursor,
             'cursor-grab': !isDragging && asHandle && !context.flatCursor,
             'opacity-50': isDragging,
             'pointer-events-none opacity-50': disabled,
           },
           className
-        )}
-      />
-    </SortableItemContext.Provider>
-  )
-}
-
-interface SortableItemHandleProps extends React.ComponentProps<'button'> {
-  asChild?: boolean
-}
-
-function SortableItemHandle(props: SortableItemHandleProps) {
-  const { asChild, disabled, className, ref, ...itemHandleProps } = props
-
-  const context = useSortableContext(ITEM_HANDLE_NAME)
-  const itemContext = useSortableItemContext(ITEM_HANDLE_NAME)
-
-  const isDisabled = disabled ?? itemContext.disabled
-
-  const handleRef = React.useCallback(
-    (node: HTMLElement | null) => {
-      if (isDisabled) return
-      itemContext.setActivatorNodeRef(node)
+        ),
+      },
+      itemProps,
+      asHandle && !disabled ? attributes : {},
+      asHandle && !disabled ? listeners : {}
+    ),
+    state: {
+      disabled,
+      dragging: isDragging,
     },
-    [isDisabled, itemContext]
-  )
-
-  const composedRef = useComposedRefs(ref, handleRef)
-
-  const HandlePrimitive = asChild ? Slot : 'button'
-
-  return (
-    <HandlePrimitive
-      type='button'
-      aria-controls={itemContext.id}
-      data-disabled={isDisabled}
-      data-dragging={itemContext.isDragging ? '' : undefined}
-      data-slot='sortable-item-handle'
-      {...itemHandleProps}
-      {...(isDisabled ? {} : itemContext.attributes)}
-      {...(isDisabled ? {} : itemContext.listeners)}
-      ref={composedRef}
-      className={cn(
-        'select-none disabled:pointer-events-none disabled:opacity-50',
-        context.flatCursor ? 'cursor-default' : 'cursor-grab data-dragging:cursor-grabbing',
-        className
-      )}
-      disabled={isDisabled}
-    />
-  )
+  })
 }
 
 const SortableOverlayContext = React.createContext(false)
@@ -531,16 +451,4 @@ function SortableOverlay(props: SortableOverlayProps) {
   )
 }
 
-export {
-  SortableRoot as Sortable,
-  SortableContent,
-  SortableItem,
-  SortableItemHandle,
-  SortableOverlay,
-  //
-  SortableRoot as Root,
-  SortableContent as Content,
-  SortableItem as Item,
-  SortableItemHandle as ItemHandle,
-  SortableOverlay as Overlay,
-}
+export { SortableRoot as Sortable, SortableContent, SortableItem, SortableOverlay }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -18,7 +19,6 @@ export type WorkflowListEntry = WorkflowMetadataSeed
 interface FolderSectionProps {
   folder: FolderTreeNode
   level: number
-  onCreateWorkflow: (folderId?: string) => void
   onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
   workflowsByFolder: Record<string, WorkflowListEntry[]>
@@ -28,13 +28,10 @@ interface FolderSectionProps {
     id: string,
     updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
   ) => Promise<void>
-  updateFolder: (id: string, updates: any) => Promise<any>
+  moveFolder: (id: string, name: string, parentId: string | null) => Promise<void>
+  ownerId: string
+  folderWritesDisabled: boolean
   canDeleteWorkflow: boolean
-  renderFolderTree: (
-    nodes: FolderTreeNode[],
-    level: number,
-    parentDragOver?: boolean
-  ) => React.ReactNode[]
   parentDragOver?: boolean
 }
 
@@ -77,23 +74,25 @@ const countVisibleItemsForLine = (
 function FolderSection({
   folder,
   level,
-  onCreateWorkflow,
   onWorkflowSelect,
   disableNavigation = false,
   workflowsByFolder,
   expandedFolders,
   activeWorkflowId,
   updateWorkflow,
-  updateFolder,
+  moveFolder,
+  ownerId,
+  folderWritesDisabled,
   canDeleteWorkflow,
-  renderFolderTree,
   parentDragOver = false,
 }: FolderSectionProps) {
   const { isDragOver, isInvalidDrop, handleDragOver, handleDragLeave, handleDrop } =
     useDragHandlers(
       updateWorkflow,
-      updateFolder,
+      moveFolder,
       folder.id,
+      folder.workspaceId,
+      folderWritesDisabled,
       `Moved workflow(s) to folder ${folder.id}`
     )
 
@@ -120,12 +119,11 @@ function FolderSection({
       <div style={{ paddingLeft: `${level * 20}px` }}>
         <FolderItem
           folder={folder}
-          onCreateWorkflow={onCreateWorkflow}
           dragOver={isDragOver}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          level={level}
+          ownerId={ownerId}
         />
       </div>
 
@@ -187,6 +185,7 @@ function FolderSection({
                       onSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
                       canDelete={canDeleteWorkflow}
+                      folderWritesDisabled={folderWritesDisabled}
                     />
                   </div>
                 </div>
@@ -230,16 +229,16 @@ function FolderSection({
                       key={childFolder.id}
                       folder={childFolder}
                       level={level + 1}
-                      onCreateWorkflow={onCreateWorkflow}
                       onWorkflowSelect={onWorkflowSelect}
                       disableNavigation={disableNavigation}
                       workflowsByFolder={workflowsByFolder}
                       expandedFolders={expandedFolders}
                       activeWorkflowId={activeWorkflowId}
                       updateWorkflow={updateWorkflow}
-                      updateFolder={updateFolder}
+                      moveFolder={moveFolder}
+                      ownerId={ownerId}
+                      folderWritesDisabled={folderWritesDisabled}
                       canDeleteWorkflow={canDeleteWorkflow}
-                      renderFolderTree={renderFolderTree}
                       parentDragOver={isAnyDragOver}
                     />
                   </div>
@@ -259,14 +258,28 @@ function useDragHandlers(
     id: string,
     updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
   ) => Promise<void>,
-  updateFolder: (id: string, updates: any) => Promise<any>,
+  moveFolder: (id: string, name: string, parentId: string | null) => Promise<void>,
   targetFolderId: string | null, // null for root
+  workspaceId: string | null,
+  folderWritesDisabled: boolean,
   logMessage?: string
 ) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isInvalidDrop, setIsInvalidDrop] = useState(false)
 
   const handleDragOver = (e: React.DragEvent) => {
+    const folderState = useFolderStore.getState()
+    if (
+      folderWritesDisabled ||
+      !workspaceId ||
+      folderState.activeWrite ||
+      folderState.folderDataReady[workspaceId] !== true
+    ) {
+      setIsDragOver(false)
+      setIsInvalidDrop(false)
+      return
+    }
+
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -308,6 +321,16 @@ function useDragHandlers(
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(false)
+    setIsInvalidDrop(false)
+
+    const folderState = useFolderStore.getState()
+    if (
+      !workspaceId ||
+      folderState.activeWrite ||
+      folderState.folderDataReady[workspaceId] !== true
+    ) {
+      return
+    }
 
     // Handle workflow drops
     const workflowIdsData = e.dataTransfer.getData('workflow-ids')
@@ -362,7 +385,8 @@ function useDragHandlers(
         }
 
         // Safe to nest - either dropping into root or into a root-level folder
-        await updateFolder(folderIdData, { parentId: targetFolderId })
+        const folderName = folderStore.getFolderById(folderIdData)?.name ?? folderIdData
+        await moveFolder(folderIdData, folderName, targetFolderId)
         logger.info(`Moved folder to ${targetFolderId ? `folder ${targetFolderId}` : 'root'}`)
       } catch (error) {
         logger.error('Failed to move folder:', error)
@@ -382,9 +406,9 @@ function useDragHandlers(
 interface FolderTreeProps {
   regularWorkflows: WorkflowListEntry[]
   isLoading?: boolean
-  onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
   workflowIdOverride?: string | null
+  ownerId: string
   onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
 }
@@ -392,36 +416,44 @@ interface FolderTreeProps {
 export function FolderTree({
   regularWorkflows,
   isLoading = false,
-  onCreateWorkflow,
   workspaceIdOverride = null,
   workflowIdOverride = null,
+  ownerId,
   onWorkflowSelect,
   disableNavigation = false,
 }: FolderTreeProps) {
   const routeContext = useOptionalWorkflowRoute()
+  const queryClient = useQueryClient()
   const workspaceId = workspaceIdOverride ?? routeContext?.workspaceId ?? null
   const workflowId = workflowIdOverride ?? routeContext?.workflowId ?? null
   const expandedFolders = useFolderStore((state) => state.expandedFolders)
-  const fetchFolders = useFolderStore((state) => state.fetchFolders)
-  const foldersLoading = useFolderStore((state) => state.isLoading)
   const clearSelection = useFolderStore((state) => state.clearSelection)
-  const updateFolderAPI = useFolderStore((state) => state.updateFolderAPI)
   const getFolderPath = useFolderStore((state) => state.getFolderPath)
   const setExpanded = useFolderStore((state) => state.setExpanded)
+  const activeFolderWrite = useFolderStore((state) => state.activeWrite)
+  const folderDataReady = useFolderStore((state) =>
+    workspaceId ? state.folderDataReady[workspaceId] === true : false
+  )
+  const writeFolder = useFolderStore((state) => state.writeFolder)
   const folderTree = useFolderStore(
     useCallback((state) => (workspaceId ? state.getFolderTree(workspaceId) : []), [workspaceId])
   )
-  const hasLoadedFolders = useFolderStore((state) =>
-    workspaceId ? Boolean(state.loadedWorkspaces[workspaceId]) : false
-  )
   const { updateWorkflow } = useWorkflowRegistry()
+  const folderWritesDisabled = Boolean(activeFolderWrite) || !folderDataReady
+  const moveFolder = useCallback(
+    async (id: string, name: string, parentId: string | null) => {
+      if (!workspaceId) return
+      await writeFolder({ kind: 'move', workspaceId, ownerId, id, name, parentId }, queryClient)
+    },
+    [ownerId, queryClient, workspaceId, writeFolder]
+  )
 
   // Memoize the active workflow's folder ID to avoid unnecessary re-runs
   const activeWorkflowFolderId = useMemo(() => {
-    if (!workflowId || isLoading || foldersLoading) return null
+    if (!workflowId || isLoading) return null
     const activeWorkflow = regularWorkflows.find((workflow) => workflow.id === workflowId)
     return activeWorkflow?.folderId || null
-  }, [workflowId, regularWorkflows, isLoading, foldersLoading])
+  }, [workflowId, regularWorkflows, isLoading])
 
   // Auto-expand folders when a workflow is active
   useEffect(() => {
@@ -437,70 +469,6 @@ export function FolderTree({
       }
     })
   }, [activeWorkflowFolderId, getFolderPath, setExpanded])
-
-  // Clean up any existing folders with 3+ levels of nesting
-  const cleanupDeepNesting = useCallback(async () => {
-    if (!workspaceId) return
-    const { getFolderTree, updateFolderAPI } = useFolderStore.getState()
-    const folderTree = getFolderTree(workspaceId)
-
-    const findDeepFolders = (nodes: FolderTreeNode[], currentLevel = 0): FolderTreeNode[] => {
-      let deepFolders: FolderTreeNode[] = []
-
-      for (const node of nodes) {
-        if (currentLevel >= 2) {
-          // This folder is at level 2+ (triple nested), add it to cleanup list
-          // Level 0: root folders, Level 1: nested in root folders (allowed)
-          // Level 2+: triple nested (not allowed)
-          deepFolders.push(node)
-        } else {
-          // Recursively check children
-          deepFolders = deepFolders.concat(findDeepFolders(node.children, currentLevel + 1))
-        }
-      }
-
-      return deepFolders
-    }
-
-    const deepFolders = findDeepFolders(folderTree)
-
-    // Move deeply nested folders to root level
-    for (const folder of deepFolders) {
-      try {
-        await updateFolderAPI(folder.id, { parentId: null })
-        logger.info(`Moved deeply nested folder "${folder.name}" to root level`)
-      } catch (error) {
-        logger.error(`Failed to move folder "${folder.name}":`, error)
-      }
-    }
-  }, [workspaceId])
-
-  // Fetch folders when workspace changes (only if not already loaded)
-  useEffect(() => {
-    if (!workspaceId || hasLoadedFolders) {
-      return
-    }
-
-    let cancelled = false
-
-    fetchFolders(workspaceId).then(() => {
-      if (!cancelled) {
-        cleanupDeepNesting()
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [workspaceId, hasLoadedFolders, fetchFolders, cleanupDeepNesting])
-
-  // Run cleanup when folders were already loaded from another component
-  useEffect(() => {
-    if (!workspaceId || !hasLoadedFolders) {
-      return
-    }
-    cleanupDeepNesting()
-  }, [workspaceId, hasLoadedFolders, cleanupDeepNesting])
 
   useEffect(() => {
     clearSelection()
@@ -524,7 +492,14 @@ export function FolderTree({
     handleDragOver: handleRootDragOver,
     handleDragLeave: handleRootDragLeave,
     handleDrop: handleRootDrop,
-  } = useDragHandlers(updateWorkflow, updateFolderAPI, null, 'Moved workflow(s) to root')
+  } = useDragHandlers(
+    updateWorkflow,
+    moveFolder,
+    null,
+    workspaceId,
+    folderWritesDisabled,
+    'Moved workflow(s) to root'
+  )
 
   const renderFolderTree = (
     nodes: FolderTreeNode[],
@@ -536,22 +511,22 @@ export function FolderTree({
         key={folder.id}
         folder={folder}
         level={level}
-        onCreateWorkflow={onCreateWorkflow}
         onWorkflowSelect={onWorkflowSelect}
         disableNavigation={disableNavigation}
         workflowsByFolder={workflowsByFolder}
         expandedFolders={expandedFolders}
         activeWorkflowId={workflowId}
         updateWorkflow={updateWorkflow}
-        updateFolder={updateFolderAPI}
+        moveFolder={moveFolder}
+        ownerId={ownerId}
+        folderWritesDisabled={folderWritesDisabled}
         canDeleteWorkflow={canDeleteWorkflow}
-        renderFolderTree={renderFolderTree}
         parentDragOver={parentDragOver}
       />
     ))
   }
 
-  const showLoading = isLoading || foldersLoading
+  const showLoading = isLoading
   const rootWorkflows = workflowsByFolder.root || []
 
   // Render skeleton loading state
@@ -602,6 +577,7 @@ export function FolderTree({
               onSelect={onWorkflowSelect}
               disableNavigation={disableNavigation}
               canDelete={canDeleteWorkflow}
+              folderWritesDisabled={folderWritesDisabled}
             />
           ))}
 

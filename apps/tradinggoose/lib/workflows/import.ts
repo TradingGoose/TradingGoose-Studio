@@ -3,7 +3,6 @@ import {
   resolveImportedWorkflowName,
   type WorkflowTransferRecord,
 } from '@/lib/workflows/import-export'
-import { parseWorkflowJson } from '@/stores/workflows/json/importer'
 
 const logger = createLogger('WorkflowImport')
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
@@ -21,8 +20,8 @@ type CreateWorkflowParams = {
   initialWorkflowState: ImportedWorkflowState
 }
 
-type ImportWorkflowFromJsonContentParams = {
-  content: string
+type ImportParsedWorkflowParams = {
+  workflowData: WorkflowTransferRecord
   workspaceId: string
   existingWorkflowNames: Iterable<string>
   importedSkillsBySourceName?: Map<string, ImportedWorkflowSkill>
@@ -88,43 +87,36 @@ function relinkWorkflowSkillValues(
   return clonedState
 }
 
-export async function importWorkflowFromJsonContent({
-  content,
+export async function importParsedWorkflow({
+  workflowData,
   workspaceId,
   existingWorkflowNames,
   importedSkillsBySourceName,
   createWorkflow,
-}: ImportWorkflowFromJsonContentParams): Promise<string> {
+}: ImportParsedWorkflowParams): Promise<string> {
   if (!workspaceId) {
     throw new Error('Workspace ID is required to import workflows')
   }
 
-  const { data: parsedWorkflowData, errors } = parseWorkflowJson(content, true)
+  let resolvedWorkflowData = workflowData
 
-  if (!parsedWorkflowData || errors.length > 0) {
-    const message = errors[0] ?? 'Failed to parse workflow import file'
-    throw new Error(message)
-  }
-
-  let workflowData: WorkflowTransferRecord = parsedWorkflowData
-
-  if (workflowData.skills.length > 0) {
+  if (resolvedWorkflowData.skills.length > 0) {
     if (!importedSkillsBySourceName || importedSkillsBySourceName.size === 0) {
       throw new Error('Workflow import includes skills but no imported skills were provided')
     }
 
-    workflowData = {
-      ...workflowData,
-      state: relinkWorkflowSkillValues(workflowData.state, importedSkillsBySourceName),
+    resolvedWorkflowData = {
+      ...resolvedWorkflowData,
+      state: relinkWorkflowSkillValues(resolvedWorkflowData.state, importedSkillsBySourceName),
     }
   }
 
-  const resolvedName = resolveImportedWorkflowName(workflowData.name, existingWorkflowNames)
+  const resolvedName = resolveImportedWorkflowName(resolvedWorkflowData.name, existingWorkflowNames)
   const workflowId = await createWorkflow({
     name: resolvedName,
-    description: workflowData.description,
+    description: resolvedWorkflowData.description,
     workspaceId,
-    initialWorkflowState: workflowData.state,
+    initialWorkflowState: resolvedWorkflowData.state,
   })
 
   logger.info('Created workflow row for imported workflow', {

@@ -6,7 +6,7 @@ import { MarketProviderSelector } from '@/components/market-selector/provider-se
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { Label, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
-import { DateTimePicker } from '@/components/ui/datetime-picker'
+import { DateTimePicker, type DateTimePickerProps } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
 import { Switch as UISwitch } from '@/components/ui/switch'
@@ -119,6 +119,7 @@ function SubBlockSwitchField({
 function SubBlockSliderField({
   blockId,
   subBlockId,
+  title,
   min = 0,
   max = 100,
   defaultValue,
@@ -128,6 +129,7 @@ function SubBlockSliderField({
 }: {
   blockId: string
   subBlockId: string
+  title: string
   min?: number
   max?: number
   defaultValue?: number
@@ -152,6 +154,7 @@ function SubBlockSliderField({
   return (
     <div className='relative pt-2 pb-6'>
       <Slider
+        aria-label={title}
         value={[normalizedValue]}
         min={min}
         max={max}
@@ -162,7 +165,7 @@ function SubBlockSliderField({
           }
         }}
         disabled={disabled}
-        className='[&_[class*=SliderTrack]]:h-1 [&_[role=slider]]:h-4 [&_[role=slider]]:w-4'
+        className='[&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-thumb]]:size-4'
       />
       <div
         className='absolute text-muted-foreground text-sm'
@@ -221,11 +224,13 @@ function SubBlockTimeField({
 function SubBlockDateTimeField({
   blockId,
   subBlockId,
+  labels,
   disabled = false,
   config,
 }: {
   blockId: string
   subBlockId: string
+  labels: DateTimePickerProps['labels']
   disabled?: boolean
   config?: SubBlockConfig
 }) {
@@ -234,6 +239,7 @@ function SubBlockDateTimeField({
 
   return (
     <DateTimePicker
+      labels={labels}
       value={dateValue}
       onChange={(nextDate) => {
         if (disabled) return
@@ -532,6 +538,7 @@ export const SubBlock = memo(
             <SubBlockSliderField
               blockId={blockId}
               subBlockId={config.id}
+              title={config.title ?? config.id}
               min={config.min}
               max={config.max}
               defaultValue={(config.min || 0) + ((config.max || 100) - (config.min || 0)) / 2}
@@ -680,6 +687,7 @@ export const SubBlock = memo(
             <SubBlockDateTimeField
               blockId={blockId}
               subBlockId={config.id}
+              labels={editorCopy.dateTimePicker}
               disabled={isDisabled}
               config={config}
             />
@@ -844,9 +852,7 @@ export const SubBlock = memo(
             {config.title}
             {required && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className='cursor-help text-red-500'>*</span>
-                </TooltipTrigger>
+                <TooltipTrigger render={<span className='cursor-help text-red-500'>*</span>} />
                 <TooltipContent side='top'>
                   <p>{editorCopy.requiredField}</p>
                 </TooltipContent>
@@ -854,14 +860,16 @@ export const SubBlock = memo(
             )}
             {config.id === 'responseFormat' && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertTriangle
-                    className={cn(
-                      'h-4 w-4 cursor-pointer text-destructive',
-                      !isValidJson ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <AlertTriangle
+                      className={cn(
+                        'h-4 w-4 cursor-pointer text-destructive',
+                        !isValidJson ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                  }
+                />
                 <TooltipContent side='top'>
                   <p>{editorCopy.invalidJson}</p>
                 </TooltipContent>
@@ -869,9 +877,9 @@ export const SubBlock = memo(
             )}
             {tooltipText && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className='h-4 w-4 cursor-pointer text-muted-foreground' />
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={<Info className='h-4 w-4 cursor-pointer text-muted-foreground' />}
+                />
                 <TooltipContent
                   side='top'
                   className='max-w-[400px] select-text whitespace-pre-wrap'

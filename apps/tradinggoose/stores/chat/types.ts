@@ -11,6 +11,7 @@ export interface ChatMessage {
   content: string | any
   workflowId: string
   type: 'user' | 'workflow'
+  isExecutionFailure?: boolean
   timestamp: string
   blockId?: string
   attachments?: ChatAttachment[]

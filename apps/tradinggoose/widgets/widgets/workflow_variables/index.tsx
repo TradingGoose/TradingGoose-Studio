@@ -107,17 +107,19 @@ const WorkflowVariablesHeaderActions = ({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type='button'
-          className={widgetHeaderIconButtonClassName()}
-          disabled={isDisabled}
-          onClick={handleAddVariable}
-        >
-          <Plus className='h-3.5 w-3.5' />
-          <span className='sr-only'>{copy.addVariable}</span>
-        </button>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <button
+            type='button'
+            className={widgetHeaderIconButtonClassName()}
+            disabled={isDisabled}
+            onClick={handleAddVariable}
+          >
+            <Plus className='h-3.5 w-3.5' />
+            <span className='sr-only'>{copy.addVariable}</span>
+          </button>
+        }
+      />
       <TooltipContent side='top'>
         {isDisabled ? copy.selectWorkflowToAddVariables : copy.addWorkflowVariable}
       </TooltipContent>

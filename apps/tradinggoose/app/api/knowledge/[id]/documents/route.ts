@@ -147,13 +147,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const userId = await getUserId(requestId, workflowId)
 
     if (!userId) {
-      const errorMessage = workflowId ? 'Workflow not found' : 'Unauthorized'
+      const authenticationFailure = workflowId ? 'Workflow not found' : 'Unauthorized'
       const statusCode = workflowId ? 404 : 401
-      logger.warn(`[${requestId}] Authentication failed: ${errorMessage}`, {
+      logger.warn(`[${requestId}] Authentication failed: ${authenticationFailure}`, {
         workflowId,
         hasWorkflowId: !!workflowId,
       })
-      return NextResponse.json({ error: errorMessage }, { status: statusCode })
+      return NextResponse.json({ error: authenticationFailure }, { status: statusCode })
     }
 
     const accessCheck = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, userId)
@@ -339,11 +339,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     logger.error(`[${requestId}] Error creating document`, error)
 
     // Check if it's a storage limit error
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create document'
+    const documentCreationFailure =
+      error instanceof Error ? error.message : 'Failed to create document'
     const isStorageLimitError =
-      errorMessage.includes('Storage limit exceeded') || errorMessage.includes('storage limit')
+      documentCreationFailure.includes('Storage limit exceeded') ||
+      documentCreationFailure.includes('storage limit')
 
-    return NextResponse.json({ error: errorMessage }, { status: isStorageLimitError ? 413 : 500 })
+    return NextResponse.json(
+      { error: documentCreationFailure },
+      { status: isStorageLimitError ? 413 : 500 }
+    )
   }
 }
 

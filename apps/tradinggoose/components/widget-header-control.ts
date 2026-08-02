@@ -16,15 +16,15 @@ const MENU_TIMERS = {
 } as const
 
 export const widgetHeaderMenuContentClassName = cn(
-  'fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+  'data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95',
   'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
   'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-  'z-50 animate-in overflow-hidden rounded-sm border bg-background p-1 text-popover-foreground shadow-sm',
-  'data-[state=closed]:animate-out'
+  'z-50 overflow-hidden rounded-sm border bg-background p-1 text-popover-foreground shadow-sm',
+  'data-[starting-style]:animate-in data-[ending-style]:animate-out'
 )
 
 export const widgetHeaderMenuItemClassName =
-  'group flex w-full cursor-pointer items-center gap-1 rounded-sm p-1.5 font-medium text-muted-foreground text-sm outline-none transition-colors hover:bg-card focus:bg-muted disabled:cursor-not-allowed disabled:opacity-60 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60 '
+  'group flex w-full cursor-pointer items-center gap-1 rounded-sm p-1.5 font-medium text-muted-foreground text-sm outline-none transition-colors hover:bg-card data-[highlighted]:bg-muted data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60'
 
 export const widgetHeaderMenuIconClassName =
   'h-3.5 w-3.5 text-muted-foreground hover:text-foreground'

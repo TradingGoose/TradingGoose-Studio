@@ -793,7 +793,7 @@ export const createManualLineToolsAttachmentController = (
       const runtime = resolveIndicatorRuntime(requestedIndicatorId)
       if (!runtime) continue
       const { runtimeEntry } = runtime
-      if (runtimeEntry.errorMessage) continue
+      if (runtimeEntry.executionFailure) continue
 
       const runtimePaneIndex = resolveRuntimePaneIndex(runtimeEntry, mainPaneIndex)
       if (!Number.isFinite(runtimePaneIndex) || runtimePaneIndex === mainPaneIndex) {

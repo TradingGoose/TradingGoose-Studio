@@ -18,7 +18,7 @@ export type IndicatorRuntimeEntry = {
   plots: IndicatorRuntimePlot[]
   paneAnchorSeries?: ISeriesApi<any> | null
   paneAnchorIdentity?: string | null
-  errorMessage?: string
+  executionFailure?: string
 }
 
 export type IndicatorDocumentRuntimeSource = {

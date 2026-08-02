@@ -188,6 +188,7 @@ describe('MonitorConfigWorkspace', () => {
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
+          onClearMonitorsError={vi.fn()}
         />
       )
     })
@@ -233,6 +234,7 @@ describe('MonitorConfigWorkspace', () => {
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
+          onClearMonitorsError={vi.fn()}
         />
       )
     })
@@ -281,6 +283,7 @@ describe('MonitorConfigWorkspace', () => {
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
+          onClearMonitorsError={vi.fn()}
         />
       )
     })
@@ -316,6 +319,7 @@ describe('MonitorConfigWorkspace', () => {
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
+          onClearMonitorsError={vi.fn()}
         />
       )
     })
@@ -348,6 +352,7 @@ describe('MonitorConfigWorkspace', () => {
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
+          onClearMonitorsError={vi.fn()}
         />
       )
     })

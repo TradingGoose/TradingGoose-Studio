@@ -1,6 +1,8 @@
 'use client'
 
 import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
+import { useMessages } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -39,6 +41,7 @@ function WidgetSurfaceComponent({
   onWidgetParamsPatch,
   onWidgetLinkedParamsPatch,
 }: WidgetSurfaceProps) {
+  const copy = useMessages().workspace.widgets.surface
   const renderState = useDashboardWidgetRenderState()
   const renderWidget = renderState.renderWidget
   const widgetKey = renderState.widgetKey ?? 'empty'
@@ -141,13 +144,35 @@ function WidgetSurfaceComponent({
         </header>
 
         <div className='flex flex-1 flex-col overflow-hidden'>
-          {renderState.error ? (
-            <div className='flex h-full items-center justify-center px-4 text-center text-destructive text-sm'>
-              {renderState.error}
+          {renderState.loadFailure ? (
+            <div className='flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm'>
+              <p className='text-destructive' role='alert' aria-atomic='true'>
+                {renderState.loadFailure === 'pair'
+                  ? copy.failedToLoadPairSettings
+                  : copy.failedToLoadWidget}
+              </p>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={renderState.retry}
+                disabled={renderState.isRetrying}
+                focusableWhenDisabled={renderState.isRetrying}
+                aria-busy={renderState.isRetrying || undefined}
+              >
+                {renderState.isRetrying ? copy.retrying : copy.retry}
+              </Button>
             </div>
           ) : !renderState.isEffectiveParamsReady ? (
-            <div className='flex h-full items-center justify-center'>
+            <div
+              className='flex h-full items-center justify-center'
+              role='status'
+              aria-live='polite'
+              aria-atomic='true'
+              aria-busy='true'
+            >
               <LoadingAgent size='md' />
+              <span className='sr-only'>{copy.loadingWidget}</span>
             </div>
           ) : WidgetComponent ? (
             <RenderWidgetComponent
