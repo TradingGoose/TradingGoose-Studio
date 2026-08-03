@@ -13,15 +13,10 @@ const closeRedisConnectionMock = vi.fn().mockResolvedValue(undefined)
 const acquireLockMock = vi.fn().mockResolvedValue(true)
 const handleWhatsAppVerificationMock = vi.fn().mockResolvedValue(null)
 const handleSlackChallengeMock = vi.fn().mockReturnValue(null)
-const processWhatsAppDeduplicationMock = vi.fn().mockResolvedValue(null)
-const processGenericDeduplicationMock = vi.fn().mockResolvedValue(null)
 const enqueuePendingExecutionMock = vi.fn().mockResolvedValue({
   pendingExecutionId: 'pending-webhook-1',
   billingScopeId: 'billing-scope-1',
 })
-const processWebhookMock = vi
-  .fn()
-  .mockResolvedValue(new Response('Webhook processed', { status: 200 }))
 
 const createWebhookProcessorMock = (findWebhookAndWorkflow: ReturnType<typeof vi.fn>) => ({
   checkUsageLimits: vi.fn(),
@@ -45,9 +40,6 @@ vi.mock('@/lib/webhooks/utils', () => ({
   handleWhatsAppVerification: handleWhatsAppVerificationMock,
   handleSlackChallenge: handleSlackChallengeMock,
   verifyProviderWebhook: vi.fn().mockReturnValue(null),
-  processWhatsAppDeduplication: processWhatsAppDeduplicationMock,
-  processGenericDeduplication: processGenericDeduplicationMock,
-  processWebhook: processWebhookMock,
 }))
 
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
@@ -123,8 +115,6 @@ describe('Webhook Trigger API Route', () => {
     markMessageAsProcessedMock.mockResolvedValue(true)
     acquireLockMock.mockResolvedValue(true)
     handleWhatsAppVerificationMock.mockResolvedValue(null)
-    processGenericDeduplicationMock.mockResolvedValue(null)
-    processWebhookMock.mockResolvedValue(new Response('Webhook processed', { status: 200 }))
     enqueuePendingExecutionMock.mockReset()
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-webhook-1',
@@ -195,6 +185,67 @@ describe('Webhook Trigger API Route', () => {
       }
     }
   )
+
+  describe('Microsoft Teams chat notification authentication', () => {
+    const webhookId = 'teams-chat-webhook-id'
+
+    beforeEach(() => {
+      vi.doMock('@/lib/billing', () => ({
+        checkServerSideUsageLimits: vi.fn().mockResolvedValue({ isExceeded: false }),
+      }))
+
+      globalMockData.webhooks.push({
+        id: webhookId,
+        provider: 'microsoftteams',
+        path: 'teams-chat-path',
+        isActive: true,
+        providerConfig: { triggerId: 'microsoftteams_chat_subscription' },
+        workflowId: 'test-workflow-id',
+        blockId: 'teams-chat-trigger-id',
+      })
+    })
+
+    it('queues a notification batch owned by the stored subscription', async () => {
+      const body = {
+        value: [
+          { clientState: webhookId, subscriptionId: 'subscription-1', id: 'notification-1' },
+          { clientState: webhookId, subscriptionId: 'subscription-1', id: 'notification-2' },
+        ],
+      }
+      const request = createMockRequest('POST', body)
+      const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
+
+      const response = await POST(request, {
+        params: Promise.resolve({ path: 'teams-chat-path' }),
+      })
+
+      expect(response.status).toBe(202)
+      expect(enqueuePendingExecutionMock).toHaveBeenCalledOnce()
+    })
+
+    it.each([
+      ['missing batch', { value: null }],
+      ['empty batch', { value: [] }],
+      ['missing client state', { value: [{ subscriptionId: 'subscription-1' }] }],
+      ['non-string client state', { value: [{ clientState: { id: webhookId } }] }],
+      ['forged client state', { value: [{ clientState: 'forged-webhook-id' }] }],
+      [
+        'mixed ownership',
+        { value: [{ clientState: webhookId }, { clientState: 'forged-webhook-id' }] },
+      ],
+    ])('rejects a %s without queueing it', async (_name, body) => {
+      const request = createMockRequest('POST', body)
+      const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
+
+      const response = await POST(request, {
+        params: Promise.resolve({ path: 'teams-chat-path' }),
+      })
+
+      expect(response.status).toBe(401)
+      await expect(response.text()).resolves.toBe('Unauthorized - Invalid client state')
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+    })
+  })
 
   it('should handle 404 for non-existent webhooks', async () => {
     vi.doMock('@/lib/webhooks/processor', () =>
@@ -446,7 +497,7 @@ describe('Webhook Trigger API Route', () => {
 
       expect(response.status).toBe(401)
       expect(await response.text()).toContain('Unauthorized - Invalid authentication token')
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     /**
@@ -478,7 +529,7 @@ describe('Webhook Trigger API Route', () => {
 
       expect(response.status).toBe(401)
       expect(await response.text()).toContain('Unauthorized - Invalid authentication token')
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     /**
@@ -502,7 +553,7 @@ describe('Webhook Trigger API Route', () => {
 
       expect(response.status).toBe(401)
       expect(await response.text()).toContain('Unauthorized - Invalid authentication token')
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     /**
@@ -534,7 +585,7 @@ describe('Webhook Trigger API Route', () => {
 
       expect(response.status).toBe(401)
       expect(await response.text()).toContain('Unauthorized - Invalid authentication token')
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     /**
@@ -566,7 +617,7 @@ describe('Webhook Trigger API Route', () => {
 
       expect(response.status).toBe(401)
       expect(await response.text()).toContain('Unauthorized - Invalid authentication token')
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
 
     /**
@@ -597,7 +648,7 @@ describe('Webhook Trigger API Route', () => {
       expect(await response.text()).toContain(
         'Unauthorized - Authentication required but not configured'
       )
-      expect(processWebhookMock).not.toHaveBeenCalled()
+      expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
     })
   })
 })

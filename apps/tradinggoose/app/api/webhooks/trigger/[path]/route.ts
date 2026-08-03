@@ -99,7 +99,7 @@ export async function POST(
     return challengeResponse
   }
 
-  const authError = await verifyProviderAuth(foundWebhook, request, rawBody, requestId)
+  const authError = await verifyProviderAuth(foundWebhook, request, body, rawBody, requestId)
   if (authError) {
     return authError
   }
