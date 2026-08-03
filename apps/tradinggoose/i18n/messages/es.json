@@ -21438,9 +21438,13 @@
         },
         "assetTypes": {
           "stock": "Acción",
+          "etf": "ETF",
+          "indice": "Índice",
+          "mutualfund": "Fondo mutuo",
+          "future": "Futuro",
           "crypto": "Cripto",
           "currency": "Moneda",
-          "default": "Predeterminado",
+          "portfolio": "Cartera",
           "unknown": "Desconocido"
         }
       },

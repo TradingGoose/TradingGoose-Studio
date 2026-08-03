@@ -15,27 +15,6 @@ export interface MockAuthResult {
   setUnauthenticated: () => void
 }
 
-export interface DatabaseSelectResult {
-  id: string
-  [key: string]: any
-}
-
-export interface DatabaseInsertResult {
-  id: string
-  [key: string]: any
-}
-
-export interface DatabaseUpdateResult {
-  id: string
-  updatedAt?: Date
-  [key: string]: any
-}
-
-export interface DatabaseDeleteResult {
-  id: string
-  [key: string]: any
-}
-
 export interface MockDatabaseOptions {
   select?: {
     results?: any[][]
@@ -1348,43 +1327,4 @@ export function mockUploadUtils(
       region: 'test-region',
     },
   }))
-}
-
-export function createMockTransaction(
-  mockData: {
-    selectData?: DatabaseSelectResult[]
-    insertResult?: DatabaseInsertResult[]
-    updateResult?: DatabaseUpdateResult[]
-    deleteResult?: DatabaseDeleteResult[]
-  } = {}
-) {
-  const { selectData = [], insertResult = [], updateResult = [], deleteResult = [] } = mockData
-
-  return vi.fn().mockImplementation(async (callback: any) => {
-    const tx = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue(selectData),
-            }),
-          }),
-        }),
-      }),
-      insert: vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockReturnValue(insertResult),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue(updateResult),
-        }),
-      }),
-      delete: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue(deleteResult),
-      }),
-    }
-    return await callback(tx)
-  })
 }

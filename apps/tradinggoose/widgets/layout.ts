@@ -1,4 +1,4 @@
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
@@ -36,11 +36,6 @@ export const createDefaultColorPairsState = (): PersistedColorPairsState => ({
   pairs: [],
 })
 
-export function normalizeListingIdentity(value: unknown): ListingIdentity | null {
-  if (!value || typeof value !== 'object') return null
-  return toListingValueObject(value as any) ?? null
-}
-
 export function normalizePersistedColorPairFields(
   source: PersistedColorPairSource
 ): Omit<PersistedColorPair, 'color'> {
@@ -51,8 +46,8 @@ export function normalizePersistedColorPairFields(
 
   for (const key of PERSISTED_COLOR_PAIR_FIELDS) {
     if (key === 'listing') {
-      const listing = normalizeListingIdentity((source as { listing?: unknown }).listing)
-      if (listing) next.listing = listing
+      const listing = ListingIdentitySchema.safeParse((source as { listing?: unknown }).listing)
+      if (listing.success) next.listing = listing.data
       continue
     }
 

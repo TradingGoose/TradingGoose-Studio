@@ -1,8 +1,4 @@
-import {
-  buildListingDisplayOption,
-  toListingValueObject,
-  type ListingOption,
-} from '@/lib/listing/identity'
+import { getListingIdentitySymbol, toListingValueObject } from '@/lib/listing/identity'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
 import type { SubBlockConfig } from '@/blocks/types'
@@ -86,18 +82,6 @@ function readSubBlockStateValue(entry: unknown): unknown {
 
 function formatSummaryOverflow(template: string, count: number): string {
   return formatWorkflowTemplate(template, { count })
-}
-
-function getListingDisplaySymbol(listing: ListingOption): string {
-  const base = listing.base?.trim()
-  const quote = listing.quote?.trim()
-
-  if (base) {
-    return quote ? `${base}/${quote}` : base
-  }
-
-  const name = listing.name?.trim()
-  return name || 'Listing'
 }
 
 export function formatSubBlockSummaryValue(value: unknown, objectItemLabel: string): string {
@@ -337,7 +321,7 @@ export function formatPreviewListingValue(value: unknown, objectItemLabel: strin
     return formatSubBlockSummaryValue(value, objectItemLabel)
   }
 
-  return getListingDisplaySymbol(buildListingDisplayOption(identity))
+  return getListingIdentitySymbol(identity)
 }
 
 export function buildPreviewSummaryRows({

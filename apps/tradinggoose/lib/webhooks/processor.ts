@@ -185,11 +185,30 @@ export async function findWebhookAndWorkflow(
 export async function verifyProviderAuth(
   foundWebhook: any,
   request: NextRequest,
+  body: any,
   rawBody: string,
   requestId: string
 ): Promise<NextResponse | null> {
   if (foundWebhook.provider === 'microsoftteams') {
     const providerConfig = (foundWebhook.providerConfig as Record<string, any>) || {}
+
+    if (providerConfig.triggerId === 'microsoftteams_chat_subscription') {
+      const notifications = body?.value
+      const hasInvalidClientState =
+        !Array.isArray(notifications) ||
+        notifications.length === 0 ||
+        notifications.some(
+          (notification) =>
+            !notification ||
+            typeof notification !== 'object' ||
+            notification.clientState !== foundWebhook.id
+        )
+
+      if (hasInvalidClientState) {
+        logger.warn(`[${requestId}] Microsoft Teams client state verification failed`)
+        return new NextResponse('Unauthorized - Invalid client state', { status: 401 })
+      }
+    }
 
     if (providerConfig.hmacSecret) {
       const authHeader = request.headers.get('authorization')

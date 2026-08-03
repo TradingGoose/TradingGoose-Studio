@@ -6,7 +6,6 @@ export {
   createDefaultColorPairsState,
   type LinkedPairColor,
   normalizeColorPairsState,
-  normalizeListingIdentity,
   type PersistedColorPair,
   type PersistedColorPairsState,
 } from '@/widgets/layout'

@@ -34,8 +34,10 @@ vi.mock('@/hooks/queries/listing-resolution', () => ({
 }))
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
-  MarketListingRow: ({ listing }: any) => (
-    <div data-testid='market-listing-row'>{listing?.base ?? listing?.name ?? ''}</div>
+  MarketListingRow: ({ listing, placeholderTitle, placeholderSubtitle }: any) => (
+    <div data-testid='market-listing-row' data-placeholder-subtitle={placeholderSubtitle}>
+      {listing?.base ?? listing?.name ?? placeholderTitle ?? ''}
+    </div>
   ),
 }))
 
@@ -486,6 +488,11 @@ describe('InlineToolCall', () => {
       expect(container.textContent).toContain('徽标')
       expect(container.textContent).toContain('代码')
       expect(container.textContent).toMatch(/Other.*Semiconductors.*NVDA/)
+      expect(
+        Array.from(container.querySelectorAll('[data-testid="market-listing-row"]')).every(
+          (row) => row.getAttribute('data-placeholder-subtitle') === '—'
+        )
+      ).toBe(true)
       expect(container.textContent).not.toContain('Logo')
       expect(container.textContent).not.toContain('Ticker')
       expect(container.textContent).not.toContain('listing_id')

@@ -31,10 +31,6 @@ vi.mock('@/lib/environment/utils', () => ({
   getEffectiveDecryptedEnv: getEffectiveDecryptedEnvMock,
 }))
 
-vi.mock('@/lib/listing/identity', () => ({
-  areListingIdentitiesEqual: vi.fn(() => false),
-}))
-
 vi.mock('@/lib/market/quote-snapshots', () => ({
   buildMarketQuoteSnapshot: buildMarketQuoteSnapshotMock,
 }))

@@ -3,7 +3,7 @@
 import type { RefObject } from 'react'
 import type { IPaneApi } from 'lightweight-charts'
 import type { InputMetaMap } from '@/lib/indicators/types'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { ChartLegend } from '@/widgets/widgets/data_chart/components/chart-legend'
 import { DrawControl } from '@/widgets/widgets/data_chart/components/draw-control'
 import { IndicatorControl } from '@/widgets/widgets/data_chart/components/indicator-control'
@@ -28,7 +28,7 @@ type ChartPaneOverlaysProps = {
   legendOffset: number
   legendData: LegendData | null
   listingLabel: string | null
-  resolvedListing: ListingOption | null
+  resolvedListing: ListingResolved | null
   intervalLabel: string
   isResolving: boolean
   legendContainerRef: RefObject<HTMLDivElement | null>

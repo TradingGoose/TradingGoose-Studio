@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MONITOR_ASSET_TYPES } from '@/lib/monitors/sources'
 import type { MonitorExecutionItem } from '../data/execution-ordering'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildMonitorBoardSections } from './board-state'
@@ -57,6 +58,18 @@ describe('buildMonitorBoardSections', () => {
       'Unknown',
     ])
     expect(sections[0]?.columns.every((column) => column.items.length === 0)).toBe(true)
+  })
+
+  it('returns an empty column for every emitted monitor asset type', () => {
+    const sections = buildMonitorBoardSections([], {
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      kanban: {
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
+        columnField: 'assetType',
+      },
+    })
+
+    expect(sections[0]?.columns.map((column) => column.fieldId)).toEqual(MONITOR_ASSET_TYPES)
   })
 
   it('uses groupBy as the section field when sliceBy is not set', () => {

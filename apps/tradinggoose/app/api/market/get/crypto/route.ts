@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { MARKET_BATCH_ID_LIMIT } from '@/lib/market/client/constants'
 import { proxyMarketRequest } from '@/app/api/market/proxy'
 import { parseListParam } from '@/app/api/market/search/validation'
 
@@ -9,9 +10,9 @@ export async function GET(request: NextRequest) {
   if (!cryptoIds.length) {
     return NextResponse.json({ error: 'crypto_id is required.' }, { status: 400 })
   }
-  if (cryptoIds.length > 200) {
+  if (cryptoIds.length > MARKET_BATCH_ID_LIMIT) {
     return NextResponse.json(
-      { error: 'crypto_id supports up to 200 values.' },
+      { error: `crypto_id supports up to ${MARKET_BATCH_ID_LIMIT} values.` },
       { status: 400 }
     )
   }

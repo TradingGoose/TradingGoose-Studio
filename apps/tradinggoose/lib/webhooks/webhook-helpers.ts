@@ -17,6 +17,8 @@ const teamsLogger = createLogger('TeamsSubscription')
 const webflowLogger = createLogger('WebflowSubscription')
 const telegramLogger = createLogger('TelegramWebhook')
 const airtableLogger = createLogger('AirtableWebhook')
+const MICROSOFT_TEAMS_CHAT_CALLBACK_PATH =
+  /^microsoftteams-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 type AirtableWebhookCleanup = {
   baseId: string
   externalId: string
@@ -26,6 +28,11 @@ export class AirtableWebhookRejectedError extends Error {}
 export class WebhookRevisionConflictError extends Error {}
 export class ExternalSubscriptionCredentialUnavailableError extends Error {}
 const EXTERNAL_SUBSCRIPTION_CREDENTIAL_LOCK_NAMESPACE = 29_403
+
+export const generateMicrosoftTeamsChatCallbackPath = () => `microsoftteams-${crypto.randomUUID()}`
+export const isMicrosoftTeamsChatCallbackPath = (path: string) =>
+  MICROSOFT_TEAMS_CHAT_CALLBACK_PATH.test(path)
+
 const toConfig = (value: unknown) =>
   value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)

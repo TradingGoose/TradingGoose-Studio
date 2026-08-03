@@ -1,4 +1,3 @@
-import type { ListingOption } from '@/lib/listing/identity'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 
 export const titleCase = (value: string | null | undefined) =>
@@ -92,20 +91,4 @@ export function getExecutionPrice(
 
 export function orderIdentifier(order: RecordsOrder) {
   return order.providerOrderId ?? order.id
-}
-
-export function getOrderListingFallback(order: RecordsOrder): ListingOption | null {
-  const symbol = order.listing.symbol?.trim()
-  const name = order.listing.name?.trim()
-  if (!symbol && !name) return null
-
-  return {
-    listing_id: symbol ?? name ?? '',
-    base_id: '',
-    quote_id: '',
-    listing_type: 'default',
-    base: symbol ?? name ?? 'Listing',
-    name: name ?? symbol ?? null,
-    assetClass: order.listing.listingType,
-  }
 }

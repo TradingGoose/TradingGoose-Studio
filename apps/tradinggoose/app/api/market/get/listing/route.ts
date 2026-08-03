@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { MARKET_BATCH_ID_LIMIT } from '@/lib/market/client/constants'
 import { proxyMarketRequest } from '@/app/api/market/proxy'
 import { parseListParam } from '@/app/api/market/search/validation'
 
@@ -9,9 +10,9 @@ export async function GET(request: NextRequest) {
   if (!listingIds.length) {
     return NextResponse.json({ error: 'listing_id is required.' }, { status: 400 })
   }
-  if (listingIds.length > 200) {
+  if (listingIds.length > MARKET_BATCH_ID_LIMIT) {
     return NextResponse.json(
-      { error: 'listing_id supports up to 200 values.' },
+      { error: `listing_id supports up to ${MARKET_BATCH_ID_LIMIT} values.` },
       { status: 400 }
     )
   }

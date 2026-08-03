@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toListingValue } from '@/lib/listing/identity'
 import {
   getPortfolioConditionOperatorsForMetric,
   isPortfolioConditionValuelessOperator,
@@ -324,8 +323,7 @@ function ConditionRuleEditor({
   useEffect(() => {
     if (!ruleListingInstanceId) return
     updateListingSelectorInstance(ruleListingInstanceId, {
-      selectedListingValue: rule.listing ?? null,
-      selectedListing: rule.listing as any,
+      selectedListing: rule.listing ?? null,
       query: '',
       results: [],
       error: undefined,
@@ -410,7 +408,7 @@ function ConditionRuleEditor({
           compact
           onListingChange={(listing) =>
             onUpdate(path, (node) =>
-              isGroup(node) ? node : { ...node, listing: toListingValue(listing) }
+              isGroup(node) ? node : { ...node, listing: listing?.listingIdentity ?? null }
             )
           }
           onListingValueChange={() =>

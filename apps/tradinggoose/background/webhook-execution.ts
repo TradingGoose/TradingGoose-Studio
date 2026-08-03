@@ -9,6 +9,7 @@ import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
 import {
   type AirtablePollResult,
+  AirtableStageIntegrityError,
   formatWebhookInput,
   getAirtableContinuationExecutionId,
   getAirtablePollContinuation,
@@ -140,33 +141,29 @@ async function logWebhookFailure(params: {
   triggerData: Record<string, unknown>
   error: Error
 }) {
-  try {
-    const loggingSession = new LoggingSession(
-      params.payload.workflowId,
-      params.executionId,
-      'webhook',
-      params.requestId
-    )
+  const loggingSession = new LoggingSession(
+    params.payload.workflowId,
+    params.executionId,
+    'webhook',
+    params.requestId
+  )
 
-    await loggingSession.start({
-      userId: params.payload.userId,
-      workspaceId: params.workspaceId,
-      workflowState: params.workflowState,
-      triggerData: params.triggerData,
-    })
+  await loggingSession.start({
+    userId: params.payload.userId,
+    workspaceId: params.workspaceId,
+    workflowState: params.workflowState,
+    triggerData: params.triggerData,
+  })
 
-    await loggingSession.completeWithError({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: 0,
-      error: {
-        message: params.error.message || 'Webhook execution failed',
-        stackTrace: params.error.stack,
-      },
-      traceSpans: [],
-    })
-  } catch (loggingError) {
-    logger.error(`[${params.requestId}] Failed to complete webhook failure logging`, loggingError)
-  }
+  await loggingSession.completeWithError({
+    endedAt: new Date().toISOString(),
+    totalDurationMs: 0,
+    error: {
+      message: params.error.message || 'Webhook execution failed',
+      stackTrace: params.error.stack,
+    },
+    traceSpans: [],
+  })
 }
 
 export async function executeWebhookJob(payload: WebhookExecutionPayload) {
@@ -401,16 +398,35 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       provider: payload.provider,
     })
 
-    if (!executionLogOwned && error instanceof Error && workspaceId && workflowState) {
-      await logWebhookFailure({
-        payload,
+    if (
+      !executionLogOwned &&
+      !(error instanceof AirtableStageIntegrityError) &&
+      error instanceof Error &&
+      workspaceId &&
+      workflowState
+    ) {
+      try {
+        await logWebhookFailure({
+          payload,
+          executionId,
+          requestId,
+          workspaceId,
+          workflowState,
+          triggerData,
+          error,
+        })
+      } catch (loggingError) {
+        logger.error(`[${requestId}] Failed to complete webhook failure logging`, loggingError)
+        throw error
+      }
+      return {
+        success: false,
+        workflowId: payload.workflowId,
         executionId,
-        requestId,
-        workspaceId,
-        workflowState,
-        triggerData,
-        error,
-      })
+        output: {},
+        executedAt: new Date().toISOString(),
+        provider: payload.provider,
+      }
     }
 
     throw error

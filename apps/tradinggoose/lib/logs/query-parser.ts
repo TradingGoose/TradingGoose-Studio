@@ -1,4 +1,4 @@
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import type {
   ParsedQuery,
   QueryFieldPolicy,
@@ -181,11 +181,11 @@ const parseFieldValue = (
 
     if (policy.valueKind === 'listing') {
       try {
-        const normalized = toListingValueObject(JSON.parse(unquote(trimmed)))
-        if (normalized) {
+        const listing = ListingIdentitySchema.safeParse(JSON.parse(unquote(trimmed)))
+        if (listing.success) {
           return {
             valueMode: 'listing' as const,
-            value: JSON.stringify(normalized),
+            value: JSON.stringify(listing.data),
           }
         }
       } catch {
@@ -553,9 +553,9 @@ export function queryToApiParams(
     if (clause.field === 'listing') {
       clause.values.forEach((value) => {
         try {
-          const normalized = toListingValueObject(JSON.parse(value))
-          if (!normalized) return
-          const encoded = JSON.stringify(normalized)
+          const listing = ListingIdentitySchema.safeParse(JSON.parse(value))
+          if (!listing.success) return
+          const encoded = JSON.stringify(listing.data)
           if (clause.negated) {
             excludedListingValues.add(encoded)
           } else {

@@ -3,6 +3,7 @@ import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shar
 import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
+  resolveMonitorListingPresentation,
 } from '@/lib/copilot/tools/server/monitor/shared'
 import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
 
@@ -25,6 +26,10 @@ export const readMonitorServerTool: BaseServerTool<ReadMonitorArgs> = {
     await verifyWorkspaceContext(withWorkspaceArgContext(context, { workspaceId }), 'read')
 
     const monitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
-    return { ...buildMonitorDocumentEnvelope(monitor), workspaceId }
+    const resolvedListing = await resolveMonitorListingPresentation(
+      monitor.providerConfig.monitor.listing,
+      context?.signal
+    )
+    return { ...buildMonitorDocumentEnvelope(monitor, resolvedListing), workspaceId }
   },
 }

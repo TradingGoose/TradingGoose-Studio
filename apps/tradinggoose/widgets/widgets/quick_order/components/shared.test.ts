@@ -8,67 +8,81 @@ import {
 } from '@/widgets/widgets/quick_order/components/shared'
 
 const stockListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock',
 }
 
 const cryptoListing: ListingResolved = {
-  listing_type: 'crypto' as const,
-  listing_id: '',
-  base_id: 'BTC',
-  quote_id: 'USD',
+  listingIdentity: {
+    listing_type: 'crypto' as const,
+    listing_id: '',
+    base_id: 'BTC',
+    quote_id: 'USD',
+  },
   base: 'BTC',
   quote: 'USD',
 }
 
 const assetlessListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'MSFT',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'MSFT',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'MSFT',
   quote: 'USD',
 }
 
 const currencyListing: ListingResolved = {
-  listing_type: 'currency' as const,
-  listing_id: '',
-  base_id: 'EUR',
-  quote_id: 'USD',
+  listingIdentity: {
+    listing_type: 'currency' as const,
+    listing_id: '',
+    base_id: 'EUR',
+    quote_id: 'USD',
+  },
   base: 'EUR',
   quote: 'USD',
 }
 
 const futureListing = {
-  listing_type: 'default',
-  listing_id: 'ES',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'ES',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'ES',
   quote: 'USD',
   assetClass: 'future',
 } as const
 
 const indiceListing = {
-  listing_type: 'default',
-  listing_id: 'SPX',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'SPX',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'SPX',
   quote: 'USD',
   assetClass: 'indice',
 } as const
 
 const mutualFundListing = {
-  listing_type: 'default',
-  listing_id: 'VTSAX',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'VTSAX',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'VTSAX',
   quote: 'USD',
   assetClass: 'mutualfund',

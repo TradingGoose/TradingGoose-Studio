@@ -11,7 +11,7 @@ import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilo
 import { parseEntityDocument } from '@/lib/copilot/entity-documents'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { buildListingDisplayOption, getListingIdentityKey } from '@/lib/listing/identity'
+import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useCopilotStore } from '@/stores/copilot/store'
@@ -644,10 +644,9 @@ function WatchlistReview({
                       key={item.id ?? `${getListingIdentityKey(item.listing)}-${index}`}
                     >
                       <MarketListingRow
-                        listing={buildListingDisplayOption(
-                          item.listing,
-                          resolved?.[getListingIdentityKey(item.listing)] ?? null
-                        )}
+                        listing={resolved?.[getListingIdentityKey(item.listing)] ?? null}
+                        placeholderTitle={getListingIdentitySymbol(item.listing)}
+                        placeholderSubtitle='—'
                         showAssetClass
                         className='w-full'
                       />

@@ -21425,9 +21425,13 @@
         },
         "assetTypes": {
           "stock": "股票",
+          "etf": "ETF",
+          "indice": "指数",
+          "mutualfund": "共同基金",
+          "future": "期货",
           "crypto": "加密货币",
           "currency": "货币",
-          "default": "默认",
+          "portfolio": "投资组合",
           "unknown": "未知"
         }
       },

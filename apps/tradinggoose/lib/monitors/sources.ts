@@ -1,3 +1,5 @@
+import { MARKET_ASSET_CLASSES } from '@/providers/market/types'
+
 export const INDICATOR_MONITOR_PROVIDER = 'indicator' as const
 export const PORTFOLIO_MONITOR_PROVIDER = 'portfolio' as const
 
@@ -17,10 +19,24 @@ export const MONITOR_SOURCES = [
 
 export const MONITOR_WEBHOOK_PROVIDERS = MONITOR_SOURCES.map((source) => source.provider)
 export const MONITOR_TRIGGER_IDS = MONITOR_SOURCES.map((source) => source.triggerId)
+export const MONITOR_ASSET_TYPES = [...MARKET_ASSET_CLASSES, 'portfolio', 'unknown'] as const
 
 export type MonitorWebhookProvider = (typeof MONITOR_WEBHOOK_PROVIDERS)[number]
 export type MonitorTriggerId = (typeof MONITOR_TRIGGER_IDS)[number]
+export type MonitorAssetType = (typeof MONITOR_ASSET_TYPES)[number]
 export type MonitorSourceDefinition = (typeof MONITOR_SOURCES)[number]
+
+export const MONITOR_ASSET_TYPE_LABELS: Record<MonitorAssetType, string> = {
+  stock: 'Stock',
+  etf: 'ETF',
+  indice: 'Index',
+  mutualfund: 'Mutual Fund',
+  future: 'Future',
+  crypto: 'Crypto',
+  currency: 'Currency',
+  portfolio: 'Portfolio',
+  unknown: 'Unknown',
+}
 export type MonitorProviderConfigEnvelope = {
   triggerId: MonitorTriggerId
   version: 1

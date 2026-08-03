@@ -1,5 +1,10 @@
-import type { ListingIdentity, ListingInputValue, ListingType } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import {
+  type ListingIdentity,
+  type ListingInputValue,
+  ListingResolvedSchema,
+  type ListingType,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import type { AssetClass } from '@/providers/market/types'
 import type {
   TradingProviderConfig,
@@ -18,17 +23,6 @@ const TRADING_ASSET_CLASS_SET = new Set<AssetClass>([
   'indice',
   'mutualfund',
 ])
-
-const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
-  const value = record[key]
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim()
-  }
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return String(value)
-  }
-  return undefined
-}
 
 interface TradingListingContext {
   listing?: ListingIdentity | null
@@ -68,18 +62,15 @@ export function resolveTradingListingAssetClass(
   explicitAssetClass?: AssetClass | null
 ): AssetClass | undefined {
   const listingIdentity = toListingValueObject(listing)
-  const record = (listing || {}) as Record<string, unknown>
-  const listingType = typeof record.listing_type === 'string' ? record.listing_type : undefined
+  const parsed = ListingResolvedSchema.safeParse(listing)
+  const resolved = parsed.success ? parsed.data : null
 
   return (
     normalizeTradingListingAssetClass(explicitAssetClass) ||
-    normalizeTradingListingAssetClass(record.assetClass) ||
-    normalizeTradingListingAssetClass(record.base_asset_class) ||
-    normalizeTradingListingAssetClass(record.quote_asset_class) ||
-    inferAssetClassFromListing(listingIdentity) ||
-    (listingType === 'crypto' || listingType === 'currency'
-      ? (listingType as AssetClass)
-      : undefined)
+    normalizeTradingListingAssetClass(resolved?.assetClass) ||
+    normalizeTradingListingAssetClass(resolved?.base_asset_class) ||
+    normalizeTradingListingAssetClass(resolved?.quote_asset_class) ||
+    inferAssetClassFromListing(listingIdentity)
   )
 }
 
@@ -95,14 +86,14 @@ export function isTradingOrderListingSupported(
 }
 
 function buildTradingListingContext(input: TradingSymbolInput): TradingListingContext {
-  const listingValue = input.listing as ListingInputValue | undefined
-  const record = (listingValue || {}) as Record<string, unknown>
-
+  const listingValue = input.listing
   const listingIdentity = toListingValueObject(listingValue)
+  const parsed = ListingResolvedSchema.safeParse(listingValue)
+  const resolved = parsed.success ? parsed.data : null
 
   const base =
     input.base ||
-    readListingField(record, 'base') ||
+    resolved?.base ||
     (listingIdentity?.listing_type === 'default'
       ? listingIdentity.listing_id || undefined
       : listingIdentity?.base_id || undefined)
@@ -113,19 +104,19 @@ function buildTradingListingContext(input: TradingSymbolInput): TradingListingCo
 
   const quote =
     input.quote ||
-    readListingField(record, 'quote') ||
+    resolved?.quote?.trim() ||
     (listingIdentity && listingIdentity.listing_type !== 'default'
       ? listingIdentity.quote_id || undefined
       : undefined)
 
   const assetClass =
     input.assetClass ||
-    (readListingField(record, 'assetClass') as AssetClass | undefined) ||
+    normalizeTradingListingAssetClass(resolved?.assetClass) ||
     inferAssetClassFromListing(listingIdentity)
 
-  const marketCode = readListingField(record, 'marketCode') || input.marketCode
-  const countryCode = readListingField(record, 'countryCode') || input.countryCode
-  const cityName = readListingField(record, 'cityName') || input.cityName
+  const marketCode = resolved?.marketCode?.trim() || input.marketCode
+  const countryCode = resolved?.countryCode?.trim() || input.countryCode
+  const cityName = resolved?.cityName?.trim() || input.cityName
 
   return {
     listing: listingIdentity,

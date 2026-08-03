@@ -5,6 +5,8 @@ import {
   buildMonitorListEntry,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
+import { getListingIdentityKey } from '@/lib/listing/identity'
+import { resolveListingIdentities } from '@/lib/listing/resolve'
 import { listMonitorRows, toMonitorRecord } from '@/app/api/monitors/shared'
 
 type ListMonitorsArgs = {
@@ -27,7 +29,18 @@ export const listMonitorsServerTool: BaseServerTool<ListMonitorsArgs> = {
     const monitors = (await Promise.all(
       rows.map((row) => toMonitorRecord(row.webhook))
     )) as MonitorRecord[]
-    const monitorEntries = monitors.map(buildMonitorListEntry)
+    const listings = monitors.flatMap((monitor) => {
+      const listing = monitor.providerConfig.monitor.listing
+      return listing ? [listing] : []
+    })
+    const resolvedListings = await resolveListingIdentities(listings, context?.signal)
+    const monitorEntries = monitors.map((monitor) => {
+      const listing = monitor.providerConfig.monitor.listing
+      const resolvedListing = listing
+        ? (resolvedListings[getListingIdentityKey(listing)] ?? null)
+        : null
+      return buildMonitorListEntry(monitor, resolvedListing)
+    })
 
     return {
       surfaceKind: 'monitor' as const,

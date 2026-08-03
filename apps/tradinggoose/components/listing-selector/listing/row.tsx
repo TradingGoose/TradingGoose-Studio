@@ -1,35 +1,20 @@
 'use client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 
-const resolveListingFallbackLabel = (listing: ListingOption): string => {
-  const base = listing.base?.trim()
-  if (base) return base
+export function getListingPrimary(listing: ListingResolved): string {
+  return listing.base
+}
+
+export function getListingDisplaySymbol(listing: ListingResolved): string {
+  const base = listing.base
   const quote = listing.quote?.trim()
-  if (quote) return quote
-  const name = listing.name?.trim()
-  if (name) return name
-  return 'Listing'
+  return quote ? `${base}/${quote}` : base
 }
 
-export function getListingPrimary(listing: ListingOption): string {
-  return resolveListingFallbackLabel(listing)
-}
-
-export function getListingDisplaySymbol(listing: ListingOption): string {
-  const base = listing.base?.trim()
-  const quote = listing.quote?.trim()
-  if (base) {
-    return quote ? `${base}/${quote}` : base
-  }
-  const name = listing.name?.trim()
-  if (name) return name
-  return 'Listing'
-}
-
-export function getListingSecondary(listing: ListingOption): string | null {
+export function getListingSecondary(listing: ListingResolved): string | null {
   const base = listing.base?.trim()
   const name = listing.name?.trim()
   if (!name) return null
@@ -37,7 +22,7 @@ export function getListingSecondary(listing: ListingOption): string | null {
   return name
 }
 
-export function getListingDisplayCompanyName(listing: ListingOption): string | null {
+export function getListingDisplayCompanyName(listing: ListingResolved): string | null {
   const name = listing.name?.trim()
   if (!name) return null
   const symbol = getListingDisplaySymbol(listing).trim()
@@ -45,26 +30,12 @@ export function getListingDisplayCompanyName(listing: ListingOption): string | n
   return name
 }
 
-export function getListingFallback(listing: ListingOption): string {
-  const base = resolveListingFallbackLabel(listing)
-  return base.slice(0, 2).toUpperCase()
+export function getListingFallback(listing: ListingResolved): string {
+  return listing.base.slice(0, 2).toUpperCase()
 }
 
-export function getListingDisplayFallback(listing: ListingOption): string {
-  const symbol = getListingDisplaySymbol(listing).trim()
-  if (!symbol) return '??'
-  return symbol.slice(0, 2).toUpperCase()
-}
-
-export function hasListingDisplayDetails(listing?: ListingOption | null): boolean {
-  if (!listing) return false
-
-  const base = listing.base?.trim()
-  if (!base) return false
-
-  if (listing.listing_type === 'default') return true
-
-  return Boolean(listing.quote?.trim())
+export function getListingDisplayFallback(listing: ListingResolved): string {
+  return getListingDisplaySymbol(listing).slice(0, 2).toUpperCase()
 }
 
 export function getFlagData(
@@ -88,7 +59,7 @@ export function getFlagData(
 }
 
 export interface MarketListingRowProps {
-  listing?: ListingOption | null
+  listing?: ListingResolved | null
   placeholderTitle?: string
   placeholderSubtitle?: string
   showAssetClass?: boolean
@@ -97,7 +68,7 @@ export interface MarketListingRowProps {
 }
 
 export interface ListingDisplayRowProps {
-  listing?: ListingOption | null
+  listing?: ListingResolved | null
   showSecondary?: boolean
   className?: string
 }
@@ -147,9 +118,7 @@ export function ListingDisplayRow({
           />
         ) : null}
         {assetClassLabel && listing ? (
-          <span className='p-1 font-semibold text-muted-foreground text-xs'>
-            {assetClassLabel}
-          </span>
+          <span className='p-1 font-semibold text-muted-foreground text-xs'>{assetClassLabel}</span>
         ) : null}
       </span>
     </div>

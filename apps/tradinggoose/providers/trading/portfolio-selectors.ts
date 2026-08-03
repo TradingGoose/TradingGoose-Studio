@@ -1,5 +1,4 @@
-import type { ListingIdentity } from '@/lib/listing/identity'
-import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
+import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -24,7 +23,7 @@ export const getPortfolioListingExposures = (
   >()
 
   for (const position of portfolioDetail.positions) {
-    const listing = toListingValueObject(position.listingIdentity)
+    const listing = position.listingIdentity
     if (!listing) continue
 
     const key = getListingIdentityKey(listing)

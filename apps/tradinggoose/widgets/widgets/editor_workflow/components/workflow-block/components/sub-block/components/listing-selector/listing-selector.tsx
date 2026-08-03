@@ -3,8 +3,8 @@ import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import {
   areListingIdentitiesEqual,
   type ListingInputValue,
-  type ListingOption,
-  toListingValue,
+  type ListingResolved,
+  ListingResolvedSchema,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
@@ -60,22 +60,7 @@ const readContextValue = (contextValues: Record<string, any> | undefined, field:
   return contextValues[field]
 }
 
-const toFetchedListingOption = (option: { value?: unknown }) => {
-  const identity = toListingValueObject(option.value)
-  if (
-    !identity ||
-    !option.value ||
-    typeof option.value !== 'object' ||
-    Array.isArray(option.value)
-  ) {
-    return null
-  }
-
-  return option.value as ListingOption
-}
-
-const isListingOption = (value: ListingOption | null): value is ListingOption => Boolean(value)
-const EMPTY_LISTING_OPTIONS: ListingOption[] = []
+const EMPTY_LISTING_OPTIONS: ListingResolved[] = []
 
 export function ListingSelectorInput({
   blockId,
@@ -131,7 +116,7 @@ export function ListingSelectorInput({
     Boolean(fetchOptions) &&
     evaluateSubBlockConditionValues(config?.fetchOptionsCondition, contextValues ?? {})
   const finalDisabled = dependsOnDisabled
-  const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[] | null>(null)
+  const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingResolved[] | null>(null)
   const [isLoadingListingOptions, setIsLoadingListingOptions] = useState(false)
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()
 
@@ -148,17 +133,10 @@ export function ListingSelectorInput({
   const hasPropValue = value !== undefined
   const currentValue = (hasPropValue ? normalizedValue : storeValue) ?? null
   const currentListingIdentity = toListingValueObject(currentValue)
-  const currentListing =
-    currentValue && typeof currentValue === 'object'
-      ? (() => {
-          const record = currentValue as Record<string, unknown>
-          const hasDisplayFields =
-            typeof record.base === 'string' ||
-            typeof record.name === 'string' ||
-            typeof record.iconUrl === 'string'
-          return hasDisplayFields ? (currentValue as ListingOption) : null
-        })()
-      : null
+  const currentListing = useMemo(() => {
+    const parsed = ListingResolvedSchema.safeParse(currentValue)
+    return parsed.success ? parsed.data : null
+  }, [currentValue])
 
   useEffect(() => {
     if (!usesFetchedListingOptions || finalDisabled || !fetchOptions) {
@@ -181,7 +159,12 @@ export function ListingSelectorInput({
     })
       .then((options) => {
         if (cancelled) return
-        setFetchedListingOptions(options.map(toFetchedListingOption).filter(isListingOption))
+        setFetchedListingOptions(
+          options.flatMap((option) => {
+            const parsed = ListingResolvedSchema.safeParse(option.value)
+            return parsed.success ? [parsed.data] : []
+          })
+        )
       })
       .catch((error) => {
         if (cancelled) return
@@ -212,13 +195,13 @@ export function ListingSelectorInput({
     if (typeof currentValue === 'string' && isVariableListingInput(currentValue)) return
     if (
       fetchedListingOptions.some((listing) =>
-        areListingIdentitiesEqual(listing, currentListingIdentity)
+        areListingIdentitiesEqual(listing.listingIdentity, currentListingIdentity)
       )
     ) {
       return
     }
 
-    updateInstance(instanceId, { query: '', selectedListingValue: null, selectedListing: null })
+    updateInstance(instanceId, { query: '', selectedListing: null })
     if (onChange) {
       onChange(null)
     } else {
@@ -237,14 +220,9 @@ export function ListingSelectorInput({
 
   useEffect(() => {
     if (typeof currentValue === 'string' && isVariableListingInput(currentValue)) {
-      if (
-        safeInstance.selectedListingValue ||
-        safeInstance.selectedListing ||
-        safeInstance.query !== currentValue
-      ) {
+      if (safeInstance.selectedListing || safeInstance.query !== currentValue) {
         updateInstance(instanceId, {
           query: currentValue,
-          selectedListingValue: null,
           selectedListing: null,
         })
       }
@@ -256,36 +234,33 @@ export function ListingSelectorInput({
       return
     }
 
-    const selectedListingValue = toListingValueObject(safeInstance.selectedListingValue)
+    const selectedListingIdentity = toListingValueObject(safeInstance.selectedListing)
+    const hasResolvedSelection = Boolean(
+      safeInstance.selectedListing && 'listingIdentity' in safeInstance.selectedListing
+    )
     const currentListingValue = currentListingIdentity
 
     if (
       currentListingValue &&
-      !areListingIdentitiesEqual(currentListingValue, selectedListingValue)
+      !areListingIdentitiesEqual(currentListingValue, selectedListingIdentity)
     ) {
       updateInstance(instanceId, {
-        selectedListingValue: currentListingValue,
-        ...(currentListing ? { selectedListing: currentListing } : null),
+        selectedListing: currentListing ?? currentListingValue,
       })
       return
     }
 
-    if (
-      currentListing &&
-      (!safeInstance.selectedListing ||
-        !areListingIdentitiesEqual(safeInstance.selectedListing, currentListing))
-    ) {
+    if (currentListing && !hasResolvedSelection) {
       updateInstance(instanceId, { selectedListing: currentListing })
       return
     }
 
-    if (!currentListingValue && safeInstance.selectedListingValue) {
-      updateInstance(instanceId, { selectedListingValue: null, selectedListing: null })
+    if (!currentListingValue && safeInstance.selectedListing) {
+      updateInstance(instanceId, { selectedListing: null })
     }
   }, [
     currentListingIdentity,
     currentListing,
-    safeInstance.selectedListingValue,
     safeInstance.selectedListing,
     safeInstance.query,
     instanceId,
@@ -317,7 +292,6 @@ export function ListingSelectorInput({
         query: '',
         results: [],
         error: undefined,
-        selectedListingValue: null,
         selectedListing: null,
       })
 
@@ -359,12 +333,12 @@ export function ListingSelectorInput({
       listingRequired={config?.required === true}
       onListingChange={(listing) => {
         if (finalDisabled) return
-        const normalizedListing = toListingValue(listing)
+        const listingIdentity = listing?.listingIdentity
         if (onChange) {
-          onChange(normalizedListing ?? null)
+          onChange(listingIdentity ?? null)
           return
         }
-        setStoreValue(normalizedListing ?? null)
+        setStoreValue(listingIdentity ?? null)
       }}
       onListingValueChange={(value) => {
         if (finalDisabled) return

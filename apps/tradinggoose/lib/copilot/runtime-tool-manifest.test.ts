@@ -408,7 +408,7 @@ describe('copilot runtime tool manifest', () => {
     const renameWatchlist = manifest.tools.find((tool) => tool.name === 'rename_watchlist')
     expect(createWatchlist).toMatchObject({ kind: 'create', entityKind: 'watchlist' })
     expect(renameWatchlist).toMatchObject({ kind: 'rename', entityKind: 'watchlist' })
-    expect(editWatchlist?.description).not.toContain('listingIdentity')
+    expect(editWatchlist?.description).toContain("result's `listingIdentity`")
     expect(editWatchlist?.description).toContain('`listing`')
   })
 })

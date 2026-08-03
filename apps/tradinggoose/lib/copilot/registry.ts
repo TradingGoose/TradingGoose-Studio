@@ -10,7 +10,7 @@ import {
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
-import { ListingIdentitySchema } from '@/lib/listing/identity'
+import { ListingResolvedSchema } from '@/lib/listing/identity'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
@@ -1012,7 +1012,11 @@ export const ToolResultSchemas = {
   [CopilotTool.get_indicator_catalog]: GetIndicatorCatalogResult,
   [CopilotTool.get_indicator_metadata]: GetIndicatorMetadataResult,
   search_documentation: z.object({ results: z.array(z.any()) }),
-  search_listing: z.object({ results: z.array(ListingIdentitySchema) }),
+  search_listing: z
+    .object({
+      results: z.array(ListingResolvedSchema),
+    })
+    .strict(),
   search_online: z.object({
     results: z.array(z.any()),
     query: z.string().optional(),

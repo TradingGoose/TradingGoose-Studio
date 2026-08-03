@@ -302,7 +302,8 @@ function useDragHandlers(
       // targetFolderPath includes the target folder itself, so:
       // - length 1: root folder (allow drop - creates 2 levels: target -> dropped)
       // - length 2: nested folder (prevent drop - would create 3 levels: grandparent -> target -> dropped)
-      const wouldBeTripleNested = targetFolderPath.length >= 2
+      const wouldBeTripleNested =
+        targetFolderPath.length >= 2 || folderStore.getChildFolders(draggedFolderId).length > 0
 
       setIsInvalidDrop(isCircular || wouldBeTripleNested)
     } else {
@@ -382,6 +383,11 @@ function useDragHandlers(
             'Cannot nest folder: Maximum 2 levels of nesting allowed (folder -> folder). Triple nesting prevented.'
           )
           return // Prevent the drop entirely
+        }
+
+        if (targetFolderId && folderStore.getChildFolders(folderIdData).length > 0) {
+          logger.info('Cannot nest folder: The dragged folder already contains subfolders')
+          return
         }
 
         // Safe to nest - either dropping into root or into a root-level folder

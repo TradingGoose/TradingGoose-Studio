@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { createLogger } from '@/lib/logs/console/logger'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { ListingIdentityPassthroughSchema, type ListingIdentity } from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
+import { createLogger } from '@/lib/logs/console/logger'
 import { executeProviderRequest } from '@/providers/market'
 import { MarketProviderError, normalizeMarketProviderError } from '@/providers/market/errors'
 import type { MarketProviderRequest } from '@/providers/market/providers'
@@ -70,7 +70,7 @@ export async function handleMarketProviderRequest({
 
     const MarketProviderRequestSchema = z.object({
       kind: z.enum(MARKET_DATA_TYPES).default('series'),
-      listing: ListingIdentityPassthroughSchema,
+      listing: ListingIdentitySchema,
       auth: z
         .object({
           apiKey: z.string().optional(),

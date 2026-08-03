@@ -493,6 +493,24 @@ describe('logs route', () => {
     ).toBe(true)
   })
 
+  it('filters asset types by the canonical monitor snapshot field', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&assetTypes=stock')
+    )
+
+    expect(response.status).toBe(200)
+    const assetTypeCondition = getLatestWhereConditions().find(
+      (condition) =>
+        condition.type === 'inArray' &&
+        Array.isArray(condition.value) &&
+        condition.value.includes('stock')
+    )
+    const assetTypeSql = stringifySql(assetTypeCondition?.field)
+    expect(assetTypeSql).toContain("->>'assetType'")
+    expect(assetTypeSql).not.toContain("->>'listing_type'")
+  })
+
   it('serializes full-detail responses without createdAt and synthesizes trace spans', async () => {
     const { GET } = await import('./route')
     const response = await GET(

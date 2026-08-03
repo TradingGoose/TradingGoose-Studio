@@ -48,6 +48,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
       layout: 'full',
       placeholder: 'Enter Note ID (optional)',
       condition: { field: 'operation', value: ['read_note'] },
+      dependsOn: ['credential'],
     },
     {
       id: 'contactId',
@@ -61,6 +62,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
       mode: 'basic',
       canonicalParamId: 'contactId',
       condition: { field: 'operation', value: ['read_contact', 'write_task', 'write_note'] },
+      dependsOn: ['credential'],
     },
     {
       id: 'manualContactId',
@@ -71,6 +73,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
       placeholder: 'Enter Contact ID',
       mode: 'advanced',
       condition: { field: 'operation', value: ['read_contact', 'write_task', 'write_note'] },
+      dependsOn: ['credential'],
     },
     {
       id: 'taskId',
@@ -81,6 +84,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
       mode: 'basic',
       canonicalParamId: 'taskId',
       condition: { field: 'operation', value: ['read_task'] },
+      dependsOn: ['credential'],
     },
     {
       id: 'manualTaskId',
@@ -91,6 +95,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
       placeholder: 'Enter Task ID',
       mode: 'advanced',
       condition: { field: 'operation', value: ['read_task'] },
+      dependsOn: ['credential'],
     },
     {
       id: 'title',

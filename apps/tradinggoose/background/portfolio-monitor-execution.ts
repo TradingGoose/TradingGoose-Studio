@@ -93,6 +93,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
         providerId: payload.monitor.providerId,
         serviceId: payload.monitor.serviceId,
         accountId: payload.monitor.accountId,
+        assetType: 'portfolio',
       },
     },
   })

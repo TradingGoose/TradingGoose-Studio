@@ -43,6 +43,7 @@ describe('trading listing resolution', () => {
               base: 'AMZN',
               quote: 'USD',
               assetClass: 'stock',
+              rank: 40,
             },
           ],
         }),

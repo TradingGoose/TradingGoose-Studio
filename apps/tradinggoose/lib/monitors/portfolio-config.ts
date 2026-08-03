@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   isPortfolioConditionOperatorCompatible,
   isPortfolioConditionValuelessOperator,
@@ -20,13 +20,13 @@ const PortfolioConditionRuleSchema: z.ZodType<any> = z
     metric: z.enum(PORTFOLIO_CONDITION_METRICS),
     operator: z.enum(PORTFOLIO_CONDITION_OPERATORS),
     value: z.union([z.number().finite(), z.string(), z.boolean(), z.null()]).optional(),
-    listing: z.unknown().nullish(),
+    listing: ListingIdentitySchema.nullish(),
   })
   .refine(
     (rule) =>
       isPortfolioConditionOperatorCompatible(rule.metric, rule.operator) &&
       (portfolioConditionRequiresListing(rule.metric)
-        ? Boolean(toListingValueObject(rule.listing))
+        ? rule.listing != null
         : rule.listing == null),
     { message: 'Invalid portfolio condition rule' }
   )
@@ -35,9 +35,7 @@ const PortfolioConditionRuleSchema: z.ZodType<any> = z
     metric: rule.metric,
     operator: rule.operator,
     value: isPortfolioConditionValuelessOperator(rule.operator) ? null : rule.value,
-    listing: portfolioConditionRequiresListing(rule.metric)
-      ? toListingValueObject(rule.listing)
-      : null,
+    listing: portfolioConditionRequiresListing(rule.metric) ? rule.listing : null,
   }))
 
 const PortfolioConditionNodeSchema: z.ZodType<any> = z.lazy(() =>

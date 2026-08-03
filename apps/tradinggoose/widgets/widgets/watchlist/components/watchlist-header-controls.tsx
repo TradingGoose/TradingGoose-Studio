@@ -38,7 +38,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { type ListingResolved, toListingValueObject } from '@/lib/listing/identity'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
@@ -253,7 +253,7 @@ export const WatchlistHeaderCenterControls = ({
   const updateSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
   const selectorInstance = useListingSelectorStore((state) => state.instances[selectorInstanceId])
   const [isAddingListing, setIsAddingListing] = useState(false)
-  const pendingListing = selectorInstance?.selectedListingValue ?? null
+  const pendingListing = toListingValueObject(selectorInstance?.selectedListing)
   const selectorProviderId = workspaceId && selectedWatchlist ? providerId : undefined
 
   const clearPendingListing = useCallback(
@@ -264,7 +264,6 @@ export const WatchlistHeaderCenterControls = ({
         results: [],
         isLoading: false,
         error: undefined,
-        selectedListingValue: null,
         selectedListing: null,
       })
     },
@@ -296,11 +295,8 @@ export const WatchlistHeaderCenterControls = ({
     previousWatchlistIdRef.current = nextWatchlistId
   }, [clearPendingListing, selectedWatchlist?.id])
 
-  const handleListingChange = (listing: ListingOption | null) => {
-    updateSelectorInstance(selectorInstanceId, {
-      selectedListingValue: toListingValue(listing),
-      selectedListing: listing,
-    })
+  const handleListingChange = (listing: ListingResolved | null) => {
+    updateSelectorInstance(selectorInstanceId, { selectedListing: listing })
   }
 
   const handleAddListing = async () => {

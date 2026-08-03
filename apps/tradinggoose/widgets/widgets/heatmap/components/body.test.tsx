@@ -509,11 +509,12 @@ describe('HeatmapWidgetBody', () => {
     const { HeatmapTreemapChart } = await vi.importActual<
       typeof import('@/widgets/widgets/heatmap/components/heatmap-treemap-chart')
     >('@/widgets/widgets/heatmap/components/heatmap-treemap-chart')
+    const compactListing = createListing('AAPL')
     const compactItem = {
       key: 'default|AAPL||',
-      listing: createListing('AAPL'),
+      listing: compactListing,
       resolvedListing: {
-        ...createListing('AAPL'),
+        listingIdentity: compactListing,
         base: 'AAPL',
         name: 'Apple Inc.',
         iconUrl: 'https://example.com/aapl.svg',

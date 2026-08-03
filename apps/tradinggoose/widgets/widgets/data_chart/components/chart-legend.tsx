@@ -1,7 +1,7 @@
 'use client'
 
 import type { Ref } from 'react'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { ListingOverlay } from '@/widgets/widgets/data_chart/components/listing-overlay'
 import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import type { LegendData } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
@@ -23,7 +23,7 @@ export const ChartLegend = ({
 }: {
   legend: LegendData | null
   listingLabel?: string | null
-  listing?: ListingOption | null
+  listing?: ListingResolved | null
   intervalLabel?: string | null
   isResolving?: boolean
   containerRef?: Ref<HTMLDivElement>

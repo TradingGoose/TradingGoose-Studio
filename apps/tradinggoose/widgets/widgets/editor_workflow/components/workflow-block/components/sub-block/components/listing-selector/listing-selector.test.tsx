@@ -120,6 +120,54 @@ describe('ListingSelectorInput', () => {
     )
   })
 
+  it('rejects enriched flat listing values', () => {
+    const listingIdentity = {
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default' as const,
+    }
+    subBlockValues.set('listing', { ...listingIdentity, base: 'AAPL', name: 'Apple Inc.' })
+
+    act(() => {
+      root.render(
+        <ListingSelectorInput blockId='block-1' subBlockId='listing' config={unscopedConfig} />
+      )
+    })
+
+    expect(useListingSelectorStore.getState().instances['block-1-listing']).toMatchObject({
+      selectedListing: null,
+    })
+  })
+
+  it('clears stale resolved data when the stored listing identity changes', () => {
+    const aapl = {
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default' as const,
+    }
+    const msft = { ...aapl, listing_id: 'MSFT' }
+    subBlockValues.set('listing', msft)
+    useListingSelectorStore.getState().ensureInstance('block-1-listing', {
+      selectedListing: {
+        listingIdentity: aapl,
+        base: 'AAPL',
+        name: 'Apple Inc.',
+      },
+    })
+
+    act(() => {
+      root.render(
+        <ListingSelectorInput blockId='block-1' subBlockId='listing' config={unscopedConfig} />
+      )
+    })
+
+    expect(useListingSelectorStore.getState().instances['block-1-listing']).toMatchObject({
+      selectedListing: msft,
+    })
+  })
+
   it('keeps empty fetched listing candidates stable while options load', () => {
     const fetchedConfig = {
       ...unscopedConfig,

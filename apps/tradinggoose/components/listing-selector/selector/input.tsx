@@ -10,11 +10,9 @@ import {
 } from '@/components/listing-selector/listing/rank-updates'
 import {
   getListingDisplaySymbol,
-  hasListingDisplayDetails,
   ListingDisplayRow,
   MarketListingRow,
 } from '@/components/listing-selector/listing/row'
-import { SUPPORTED_MARKET_ASSET_CLASSES } from '@/components/listing-selector/search-utils'
 import { ListingSelectorDropdownContent } from '@/components/listing-selector/selector/dropdown'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
@@ -24,18 +22,19 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import {
   areListingIdentitiesEqual,
+  getListingIdentitySymbol,
   LISTING_IDENTITY_VALUE_TYPE,
-  type ListingOption,
-  toListingValue,
+  type ListingResolved,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import { MARKET_ASSET_CLASSES } from '@/providers/market/types'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
 export interface ListingSearchInputProps {
   instanceId: string
@@ -49,10 +48,10 @@ export interface ListingSearchInputProps {
   marketProviderId?: string
   tradingProviderId?: string
   activateOnMount?: boolean
-  candidateListings?: ListingOption[]
+  candidateListings?: ListingResolved[]
   candidateListingsLoading?: boolean
   candidateListingsError?: string
-  onListingChange?: (listing: ListingOption | null) => void
+  onListingChange?: (listing: ListingResolved | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
 }
@@ -63,7 +62,7 @@ const LISTING_DROPDOWN_VIEWPORT_PADDING = 8
 
 const LISTING_ASSET_CLASS_GROUPS = [
   { id: ALL_ASSET_CLASS_FILTER_ID, label: 'All' },
-  ...SUPPORTED_MARKET_ASSET_CLASSES.map((assetClass) => ({
+  ...MARKET_ASSET_CLASSES.map((assetClass) => ({
     id: assetClass,
     label:
       assetClass === 'mutualfund'
@@ -122,12 +121,18 @@ export function ListingSearchInput({
   }, [ensureInstance, instanceId])
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
-  const { query, results, isLoading, error, selectedListing, providerId } = safeInstance
+  const { query, results, isLoading, error, providerId } = safeInstance
+  const selectedListingIdentity = toListingValueObject(safeInstance.selectedListing)
+  const selectedListing =
+    safeInstance.selectedListing && 'listingIdentity' in safeInstance.selectedListing
+      ? safeInstance.selectedListing
+      : null
   const searchBusy = isLoading
-  const selectedLabel = selectedListing ? getListingDisplaySymbol(selectedListing) : ''
-  const selectedListingIdentity = toListingValueObject(
-    safeInstance.selectedListingValue ?? selectedListing ?? null
-  )
+  const selectedLabel = selectedListing
+    ? getListingDisplaySymbol(selectedListing)
+    : selectedListingIdentity
+      ? getListingIdentitySymbol(selectedListingIdentity)
+      : ''
   const hasUnresolvedSelection = Boolean(selectedListingIdentity) && !selectedListing
   const displayValue = open ? query : selectedLabel || query
   const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
@@ -147,7 +152,6 @@ export function ListingSearchInput({
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingValue: null,
       selectedListing: null,
     })
     setVariableCommitted(true)
@@ -165,17 +169,15 @@ export function ListingSearchInput({
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingValue: null,
       selectedListing: null,
     })
     setVariableCommitted(false)
     onListingValueChange?.(null)
   }
 
-  const handleSelect = (listing: ListingOption) => {
+  const handleSelect = (listing: ListingResolved) => {
     const nextLabel = getListingDisplaySymbol(listing)
     updateInstance(instanceId, {
-      selectedListingValue: toListingValue(listing),
       selectedListing: listing,
       query: nextLabel,
       results: [],
@@ -186,14 +188,14 @@ export function ListingSearchInput({
     setShowTags(false)
     setVariableCommitted(false)
 
-    if (listing.listing_type === 'default') {
+    if (listing.listingIdentity.listing_type === 'default') {
       triggerListingRankUpdate(listing)
     }
-    if (listing.listing_type === 'crypto' && listing.base_id) {
-      triggerCryptoRankUpdate(listing.base_id)
+    if (listing.listingIdentity.listing_type === 'crypto' && listing.listingIdentity.base_id) {
+      triggerCryptoRankUpdate(listing.listingIdentity.base_id)
     }
-    if (listing.listing_type === 'currency' && listing.base_id) {
-      triggerCurrencyRankUpdate(listing.base_id)
+    if (listing.listingIdentity.listing_type === 'currency' && listing.listingIdentity.base_id) {
+      triggerCurrencyRankUpdate(listing.listingIdentity.base_id)
     }
 
     onListingChange?.(listing)
@@ -250,9 +252,9 @@ export function ListingSearchInput({
     setOpen(true)
     setHighlightedIndex(-1)
     const patch: Partial<typeof safeInstance> = { query: nextValue }
-    if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
-      patch.selectedListingValue = null
+    if (selectedListingIdentity && nextValue.trim() !== selectedLabel) {
       patch.selectedListing = null
+      onListingValueChange?.(null)
     }
     updateInstance(instanceId, patch)
   }
@@ -369,7 +371,7 @@ export function ListingSearchInput({
   }, [activateOnMount, disabled, instanceId, query, selectedLabel, updateInstance])
 
   useEffect(() => {
-    const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
+    const selectedValue = safeInstance.selectedListing
     if (!selectedValue) {
       hydrateRequestRef.current += 1
       return
@@ -381,7 +383,7 @@ export function ListingSearchInput({
       return
     }
 
-    if (safeInstance.selectedListing && hasListingDisplayDetails(safeInstance.selectedListing)) {
+    if (selectedListing) {
       hydrateRequestRef.current += 1
       return
     }
@@ -394,21 +396,16 @@ export function ListingSearchInput({
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
         const currentInstance = useListingSelectorStore.getState().instances[instanceId]
-        const currentIdentity = toListingValueObject(
-          currentInstance?.selectedListingValue ?? currentInstance?.selectedListing ?? null
-        )
+        const currentIdentity = toListingValueObject(currentInstance?.selectedListing)
         if (!areListingIdentitiesEqual(currentIdentity, identity)) return
-        updateInstance(instanceId, {
-          selectedListing: resolved,
-          selectedListingValue: identity,
-        })
+        updateInstance(instanceId, { selectedListing: resolved })
       })
       .catch(() => {})
 
     return () => {
       cancelled = true
     }
-  }, [safeInstance.selectedListing, safeInstance.selectedListingValue, instanceId, updateInstance])
+  }, [safeInstance.selectedListing, selectedListing, instanceId, updateInstance])
 
   useEffect(() => {
     if (open) return

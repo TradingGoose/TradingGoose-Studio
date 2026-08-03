@@ -1,10 +1,7 @@
-import type { ListingInputValue } from '@/lib/listing/identity'
+import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
 
 export function triggerListingRankUpdate(listing: ListingInputValue) {
-  const listingId =
-    listing && typeof listing === 'object' && 'listing_id' in listing
-      ? (listing as { listing_id?: string | null }).listing_id ?? null
-      : null
+  const listingId = toListingValueObject(listing)?.listing_id
   if (!listingId) return
   const query = new URLSearchParams({ listing_id: listingId })
   void fetch(`/api/market/update/listing-rank?${query.toString()}`, {
