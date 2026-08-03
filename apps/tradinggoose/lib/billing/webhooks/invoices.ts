@@ -60,31 +60,31 @@ export async function handleInvoiceCreated(event: Stripe.Event) {
       idempotencyKey: `renewal-rejection:cancel:${stripeSubscriptionId}:${invoice.id}`,
     })
   }
-  let terminalError: Error | null = null
   switch (invoice.status) {
     case 'draft':
-      await stripe.invoices.del(invoice.id, {
-        idempotencyKey: `renewal-rejection:delete:${invoice.id}`,
+      await stripe.invoices.finalizeInvoice(
+        invoice.id,
+        { auto_advance: false },
+        { idempotencyKey: `renewal-rejection:finalize:${invoice.id}` }
+      )
+      await stripe.invoices.voidInvoice(invoice.id, {
+        idempotencyKey: `renewal-rejection:void:${invoice.id}`,
       })
-      break
+      return
     case 'open':
       await stripe.invoices.voidInvoice(invoice.id, {
         idempotencyKey: `renewal-rejection:void:${invoice.id}`,
       })
-      break
+      return
     case 'void':
-      break
+      return
     case 'paid':
-      terminalError = new Error(
+      throw new Error(
         `Renewal invoice ${invoice.id} was paid before availability enforcement`
       )
-      break
     default:
-      terminalError = new Error(
-        `Unsupported renewal invoice status: ${invoice.status ?? 'unknown'}`
-      )
+      throw new Error(`Unsupported renewal invoice status: ${invoice.status ?? 'unknown'}`)
   }
-  if (terminalError) throw terminalError
 }
 
 function parseDecimal(value: string | number | null | undefined): number {

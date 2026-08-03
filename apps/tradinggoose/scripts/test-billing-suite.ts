@@ -15,6 +15,7 @@ const testFiles = [
   'lib/billing/tier-availability-policy.test.ts',
   'lib/billing/tiers.test.ts',
   'lib/billing/subscription-tier-display.test.ts',
+  'lib/billing/catalog.test.ts',
   'global-navbar/settings-modal/components/subscription/subscription-permissions.test.ts',
   'global-navbar/settings-modal/components/subscription/subscription.test.tsx',
   'app/api/billing/public-catalog/route.test.ts',

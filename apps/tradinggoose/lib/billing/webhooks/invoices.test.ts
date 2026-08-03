@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { cancel, deleteInvoice, getSubscription, renewalEligibility, voidInvoice } = vi.hoisted(
+const { cancel, finalizeInvoice, getSubscription, renewalEligibility, voidInvoice } = vi.hoisted(
   () => ({
     cancel: vi.fn(),
-    deleteInvoice: vi.fn(),
+    finalizeInvoice: vi.fn(),
     getSubscription: vi.fn(),
     renewalEligibility: vi.fn(),
     voidInvoice: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('@/lib/billing/tier-availability-policy', () => ({
 vi.mock('@/lib/billing/stripe-client', () => ({
   requireStripeClient: () => ({
     invoices: {
-      del: deleteInvoice,
+      finalizeInvoice,
       voidInvoice,
     },
     subscriptions: {
@@ -67,35 +67,59 @@ describe('handleInvoiceCreated renewal rejection', () => {
       tier: { id: 'tier-private', status: 'archived' },
     })
     renewalEligibility.mockReturnValue({ isRenewable: false })
-    deleteInvoice.mockResolvedValue({})
+    finalizeInvoice.mockResolvedValue({})
     voidInvoice.mockResolvedValue({})
     cancel.mockResolvedValue({})
   })
 
-  it('cancels before deleting a draft invoice with stable idempotency keys', async () => {
-    const { handleInvoiceCreated } = await import('./invoices')
+  it(
+    'cancels, finalizes without auto-advance, and voids a draft invoice in order',
+    async () => {
+      const { handleInvoiceCreated } = await import('./invoices')
 
-    await handleInvoiceCreated(createEvent('draft') as any)
+      await handleInvoiceCreated(createEvent('draft') as any)
 
-    expect(deleteInvoice).toHaveBeenCalledWith('in_renewal', {
-      idempotencyKey: 'renewal-rejection:delete:in_renewal',
-    })
-    expect(cancel).toHaveBeenCalledWith('sub_renewal', {
-      idempotencyKey: 'renewal-rejection:cancel:sub_renewal:in_renewal',
-    })
-    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteInvoice.mock.invocationCallOrder[0]
-    )
-  })
+      expect(cancel).toHaveBeenCalledWith('sub_renewal', {
+        idempotencyKey: 'renewal-rejection:cancel:sub_renewal:in_renewal',
+      })
+      expect(finalizeInvoice).toHaveBeenCalledWith(
+        'in_renewal',
+        { auto_advance: false },
+        { idempotencyKey: 'renewal-rejection:finalize:in_renewal' }
+      )
+      expect(voidInvoice).toHaveBeenCalledWith('in_renewal', {
+        idempotencyKey: 'renewal-rejection:void:in_renewal',
+      })
+      expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(
+        finalizeInvoice.mock.invocationCallOrder[0]
+      )
+      expect(finalizeInvoice.mock.invocationCallOrder[0]).toBeLessThan(
+        voidInvoice.mock.invocationCallOrder[0]
+      )
+    },
+    15_000
+  )
 
-  it('throws after cancellation when draft invoice suppression fails', async () => {
-    deleteInvoice.mockRejectedValue(new Error('Stripe delete failed'))
+  it('throws after cancellation when draft invoice finalization fails', async () => {
+    finalizeInvoice.mockRejectedValue(new Error('Stripe finalization failed'))
     const { handleInvoiceCreated } = await import('./invoices')
 
     await expect(handleInvoiceCreated(createEvent('draft') as any)).rejects.toThrow(
-      'Stripe delete failed'
+      'Stripe finalization failed'
     )
     expect(cancel).toHaveBeenCalledOnce()
+    expect(voidInvoice).not.toHaveBeenCalled()
+  })
+
+  it('throws when voiding a finalized draft invoice fails', async () => {
+    voidInvoice.mockRejectedValue(new Error('Stripe void failed'))
+    const { handleInvoiceCreated } = await import('./invoices')
+
+    await expect(handleInvoiceCreated(createEvent('draft') as any)).rejects.toThrow(
+      'Stripe void failed'
+    )
+    expect(finalizeInvoice).toHaveBeenCalledOnce()
+    expect(voidInvoice).toHaveBeenCalledOnce()
   })
 
   it('cancels before voiding an open invoice', async () => {
@@ -164,7 +188,7 @@ describe('handleInvoiceCreated renewal rejection', () => {
     renewalEligibility.mockReturnValue({ isRenewable: true })
 
     await handleInvoiceCreated(createEvent('draft') as any)
-    expect(deleteInvoice).not.toHaveBeenCalled()
+    expect(finalizeInvoice).not.toHaveBeenCalled()
     expect(cancel).not.toHaveBeenCalled()
   })
 })

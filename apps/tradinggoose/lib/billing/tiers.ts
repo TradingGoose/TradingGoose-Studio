@@ -366,6 +366,23 @@ export async function getPublicBillingTiers(): Promise<BillingTierRecord[]> {
     .orderBy(asc(systemBillingTier.displayOrder))
 }
 
+export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierRecord | null> {
+  const rows = await db
+    .select()
+    .from(systemBillingTier)
+    .where(
+      and(
+        eq(systemBillingTier.status, 'active'),
+        eq(systemBillingTier.isPublic, false),
+        eq(systemBillingTier.ownerType, 'organization')
+      )
+    )
+    .orderBy(asc(systemBillingTier.displayOrder))
+    .limit(1)
+
+  return rows[0] ?? null
+}
+
 export async function getActiveStripeBackedBillingTiers(): Promise<BillingTierRecord[]> {
   return db
     .select()
