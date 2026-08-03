@@ -12,7 +12,7 @@ const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
 const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use `tg-knowledge-base-document-v1` content JSON with exactly `description` and `chunkingConfig`. Identity is outside the document: supply `name` to create and use `rename_knowledge_base` to rename. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
-  'Use `tg-watchlist-document-v1` content JSON with exactly `settings` and flat ordered `items`. Identity is outside the document: supply `name` to create and use `rename_watchlist` to rename. Items are explicit `type: "section"` or `type: "listing"` entries. Submitted item ids are document-local references; use a section id as its listings\' `parentId`, and the persisted result will return generated item ids. Sections cannot nest and always use `parentId: null`; root listings use `parentId: null`, and listings under a section use that section id. Each listing item must use `listing` with a canonical listing identity object returned by `search_listing`.'
+  'Use `tg-watchlist-document-v1` content JSON with exactly `settings` and flat ordered `items`. Identity is outside the document: supply `name` to create and use `rename_watchlist` to rename. Items are explicit `type: "section"` or `type: "listing"` entries. Submitted item ids are document-local references; use a section id as its listings\' `parentId`, and the persisted result will return generated item ids. Sections cannot nest and always use `parentId: null`; root listings use `parentId: null`, and listings under a section use that section id. Each listing item must use `listing` with a canonical `search_listing` result\'s `listingIdentity` value.'
 const DASHBOARD_COLOR_STORE_GUIDANCE =
   'The layout color store is `colorPairs`: each non-gray color is one layout-scoped shared channel, while `gray` means the widget is unlinked and uses only local `params`. Widgets synchronize a field only when they select the same non-gray `pairColor` and both list that field in `get_widgets_metadata.linkedParamFields`; other fields remain local. Set both widgets to the same `pairColor`, then update shared fields through `colorPair`, not `params`. Changing `pairColor` only changes the subscription and preserves both local params and stored color channels.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
@@ -115,7 +115,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   search_listing: {
     description:
-      'Search companies, tickers, crypto pairs, and currencies and return canonical listing identity objects. Takes only `query`; in watchlist listing items, put the returned object under the `listing` key.',
+      "Search companies, tickers, crypto pairs, and currencies. Each result is a resolved listing with display details and a strict canonical `listingIdentity` object for Copilot to use in listing inputs. Takes only `query`; in watchlist listing items, put the selected result's `listingIdentity` value under the `listing` key.",
     kind: 'search',
     entityKind: 'listing',
   },

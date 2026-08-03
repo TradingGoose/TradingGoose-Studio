@@ -7,7 +7,7 @@ import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { buildIndexMaps, mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineOutput } from '@/lib/indicators/types'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import {
   buildNextMockMarketBar,
   evolveMockMarketBar,
@@ -56,11 +56,13 @@ const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
 const LANDING_MARKET_WIDGET_KEY = 'data_chart' as const
-const LANDING_MARKET_LISTING: ListingOption = {
-  listing_id: 'tradinggoose-data-chart',
-  base_id: '',
-  quote_id: '',
-  listing_type: 'default',
+const LANDING_MARKET_LISTING: ListingResolved = {
+  listingIdentity: {
+    listing_id: 'tradinggoose-data-chart',
+    base_id: '',
+    quote_id: '',
+    listing_type: 'default',
+  },
   base: MARKET_LISTING_LABEL,
   name: null,
   iconUrl: '/favicon/goose.png',

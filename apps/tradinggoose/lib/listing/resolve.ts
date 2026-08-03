@@ -2,25 +2,12 @@ import {
   getListingIdentityKey,
   type ListingIdentity,
   type ListingResolved,
-  toListingValueObject,
+  ListingResolvedSchema,
 } from '@/lib/listing/identity'
-import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { MARKET_API_VERSION, MARKET_BATCH_ID_LIMIT } from '@/lib/market/client/constants'
 import { getBaseUrl } from '@/lib/urls/utils'
 
-export type ResolvedListingDetails = {
-  base?: string
-  quote?: string | null
-  name?: string | null
-  iconUrl?: string | null
-  assetClass?: string | null
-  base_asset_class?: string | null
-  quote_asset_class?: string | null
-  primaryMicCode?: string | null
-  marketCode?: string | null
-  countryCode?: string | null
-  cityName?: string | null
-  timeZoneName?: string | null
-}
+type ResolvedListingDetails = Partial<Omit<ListingResolved, 'listingIdentity'>>
 
 type MarketSearchResponse<T> = {
   data?: T
@@ -101,17 +88,38 @@ export const fetchMarketBatch = async <T>(
   path: string,
   paramName: string,
   ids: string[],
+  failureMode: 'strict' | 'partial',
   signal?: AbortSignal
 ): Promise<Record<string, T | null>> => {
   const uniqueIds = uniqueNonEmpty(ids)
   const result: Record<string, T | null> = {}
   if (!uniqueIds.length) return result
 
+  if (uniqueIds.length > MARKET_BATCH_ID_LIMIT) {
+    const batches = Array.from(
+      { length: Math.ceil(uniqueIds.length / MARKET_BATCH_ID_LIMIT) },
+      (_, index) =>
+        fetchMarketBatch<T>(
+          path,
+          paramName,
+          uniqueIds.slice(index * MARKET_BATCH_ID_LIMIT, (index + 1) * MARKET_BATCH_ID_LIMIT),
+          failureMode,
+          signal
+        )
+    )
+    return Object.assign(result, ...(await Promise.all(batches)))
+  }
+
   const params = new URLSearchParams()
   uniqueIds.forEach((id) => params.append(paramName, id))
-  const data = await fetchMarketSearch<any>(path, params, signal)
+  const data = await fetchMarketSearch<any>(path, params, signal).catch((error) => {
+    if (signal?.aborted) throw signal.reason
+    if ((error as { name?: unknown })?.name === 'AbortError' || failureMode === 'strict')
+      throw error
+    return null
+  })
 
-  if (!data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
     uniqueIds.forEach((id) => {
       result[id] = null
     })
@@ -119,15 +127,7 @@ export const fetchMarketBatch = async <T>(
   }
 
   if (uniqueIds.length === 1) {
-    const single = data && typeof data === 'object' ? (data as T) : null
-    result[uniqueIds[0]] = single
-    return result
-  }
-
-  if (typeof data !== 'object' || Array.isArray(data)) {
-    uniqueIds.forEach((id) => {
-      result[id] = null
-    })
+    result[uniqueIds[0]] = data as T
     return result
   }
 
@@ -145,7 +145,7 @@ export const getBatchRow = async <T>(
   id: string,
   signal?: AbortSignal
 ): Promise<T | null> => {
-  const records = await fetchMarketBatch<T>(path, paramName, [id], signal)
+  const records = await fetchMarketBatch<T>(path, paramName, [id], 'strict', signal)
   return records[id] ?? null
 }
 
@@ -241,11 +241,9 @@ export async function resolveListingIdentity(
   listing: ListingIdentity,
   signal?: AbortSignal
 ): Promise<ListingResolved | null> {
-  const normalized = toListingValueObject(listing)
-  if (!normalized) return null
-  const rowMaps = await fetchListingResolutionRowMaps([normalized], signal)
+  const rowMaps = await fetchListingResolutionRowMaps([listing], 'strict', signal)
   try {
-    return buildResolvedListingFromRows(normalized, rowMaps)
+    return buildResolvedListingFromRows(listing, rowMaps)
   } catch {
     return null
   }
@@ -253,24 +251,14 @@ export async function resolveListingIdentity(
 
 const fetchListingResolutionRowMaps = async (
   listings: readonly ListingIdentity[],
+  failureMode: 'strict' | 'partial',
   signal?: AbortSignal
 ): Promise<ListingResolutionRowMaps> => {
-  const identities = new Map<string, ListingIdentity>()
-
-  for (const listing of listings) {
-    const normalized = toListingValueObject(listing)
-    if (!normalized) continue
-    const key = getListingIdentityKey(normalized)
-    if (!identities.has(key)) {
-      identities.set(key, normalized)
-    }
-  }
-
   const listingIds: string[] = []
   const currencyIds: string[] = []
   const cryptoIds: string[] = []
 
-  identities.forEach((listing) => {
+  listings.forEach((listing) => {
     if (listing.listing_type === 'default') {
       listingIds.push(listing.listing_id)
       return
@@ -290,9 +278,9 @@ const fetchListingResolutionRowMaps = async (
   })
 
   const [listingRows, currencyRows, cryptoRows] = await Promise.all([
-    fetchMarketBatch<any>('listing', 'listing_id', listingIds, signal),
-    fetchMarketBatch<any>('currency', 'currency_id', currencyIds, signal),
-    fetchMarketBatch<any>('crypto', 'crypto_id', cryptoIds, signal),
+    fetchMarketBatch<any>('listing', 'listing_id', listingIds, failureMode, signal),
+    fetchMarketBatch<any>('currency', 'currency_id', currencyIds, failureMode, signal),
+    fetchMarketBatch<any>('crypto', 'crypto_id', cryptoIds, failureMode, signal),
   ])
 
   return {
@@ -309,15 +297,17 @@ export async function resolveListingIdentities(
   const identities = new Map<string, ListingIdentity>()
 
   for (const listing of listings) {
-    const normalized = toListingValueObject(listing)
-    if (!normalized) continue
-    const key = getListingIdentityKey(normalized)
+    const key = getListingIdentityKey(listing)
     if (!identities.has(key)) {
-      identities.set(key, normalized)
+      identities.set(key, listing)
     }
   }
 
-  const rowMaps = await fetchListingResolutionRowMaps(Array.from(identities.values()), signal)
+  const rowMaps = await fetchListingResolutionRowMaps(
+    Array.from(identities.values()),
+    'partial',
+    signal
+  )
 
   const resolved: Record<string, ListingResolved | null> = {}
   identities.forEach((listing, key) => {
@@ -338,34 +328,10 @@ function buildResolvedListing(
   const base = details.base?.trim()
   if (!base) return null
 
-  const normalizedIdentity: ListingIdentity =
-    listing.listing_type === 'default'
-      ? {
-          listing_id: listing.listing_id?.trim() ?? '',
-          base_id: '',
-          quote_id: '',
-          listing_type: listing.listing_type,
-        }
-      : {
-          listing_id: '',
-          base_id: listing.base_id?.trim() ?? '',
-          quote_id: listing.quote_id?.trim() ?? '',
-          listing_type: listing.listing_type,
-        }
-
-  return {
-    ...normalizedIdentity,
+  const parsed = ListingResolvedSchema.safeParse({
+    ...details,
+    listingIdentity: listing,
     base,
-    quote: details.quote ?? null,
-    name: details.name ?? null,
-    iconUrl: details.iconUrl ?? null,
-    assetClass: details.assetClass ?? null,
-    base_asset_class: details.base_asset_class ?? null,
-    quote_asset_class: details.quote_asset_class ?? null,
-    primaryMicCode: details.primaryMicCode ?? null,
-    marketCode: details.marketCode ?? null,
-    countryCode: details.countryCode ?? null,
-    cityName: details.cityName ?? null,
-    timeZoneName: details.timeZoneName ?? null,
-  }
+  })
+  return parsed.success ? parsed.data : null
 }

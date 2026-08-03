@@ -21438,9 +21438,13 @@
         },
         "assetTypes": {
           "stock": "Stock",
+          "etf": "ETF",
+          "indice": "Index",
+          "mutualfund": "Mutual Fund",
+          "future": "Future",
           "crypto": "Crypto",
           "currency": "Currency",
-          "default": "Default",
+          "portfolio": "Portfolio",
           "unknown": "Unknown"
         }
       },

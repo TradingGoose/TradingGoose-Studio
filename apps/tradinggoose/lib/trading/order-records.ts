@@ -3,8 +3,8 @@ import { and, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle
 import {
   getListingIdentityKey,
   type ListingIdentity,
+  ListingIdentitySchema,
   type ListingResolved,
-  toListingValueObject,
 } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import {
@@ -38,7 +38,7 @@ export type SerializedOrderRecord = {
   recordedAt: string
   submissionSource: string
   logId: string | null
-  listingIdentity: unknown
+  listingIdentity: ListingIdentity | null
   listing: {
     symbol: string | null
     name: string | null
@@ -194,8 +194,12 @@ const normalizeText = (value: unknown) =>
         .replace(/[\s-]+/g, '_')
     : null
 
-const readListing = (listingIdentity: unknown, normalized: JsonRecord, response: JsonRecord) => {
-  const listing = toRecord(listingIdentity)
+const readListing = (
+  listingIdentity: ListingIdentity | null,
+  normalized: JsonRecord,
+  response: JsonRecord
+) => {
+  const listing = listingIdentity
   const raw = toRecord(response.raw)
   const rawOrder = toRecord(raw.order)
   const symbol = readString(
@@ -203,13 +207,13 @@ const readListing = (listingIdentity: unknown, normalized: JsonRecord, response:
     response.symbol,
     raw.symbol,
     rawOrder.symbol,
-    listing.listing_id,
-    listing.base_id
+    listing?.listing_id,
+    listing?.base_id
   )
   return {
     symbol,
-    name: readString(listing.name, listing.provider_symbol, listing.base, listing.base_id),
-    listingType: readString(listing.listing_type),
+    name: null,
+    listingType: listing?.listing_type ?? null,
   }
 }
 
@@ -264,7 +268,9 @@ export function serializeOrderRecord(
   const raw = toRecord(response.raw)
   const rawOrder = toRecord(raw.order)
   const normalized = toRecord(row.normalizedOrder)
-  const listing = readListing(row.listingIdentity, normalized, response)
+  const parsedListing = ListingIdentitySchema.safeParse(row.listingIdentity)
+  const listingIdentity = parsedListing.success ? parsedListing.data : null
+  const listing = readListing(listingIdentity, normalized, response)
   const linkedSummary = row.linkedLog?.workflowSummary as { name?: string } | null | undefined
 
   const providerOrderId = readString(
@@ -288,7 +294,7 @@ export function serializeOrderRecord(
     recordedAt: row.recordedAt.toISOString(),
     submissionSource: row.submissionSource,
     logId: row.logId,
-    listingIdentity: row.listingIdentity,
+    listingIdentity,
     listing,
     providerOrderId,
     clientOrderId: readString(
@@ -382,7 +388,7 @@ export async function serializeOrderSearchOptions(
   return Promise.all(
     rows.map(async (row) => {
       const record = serializeOrderRecord(row)
-      const listingIdentity = toListingValueObject((row.listingIdentity ?? undefined) as any)
+      const listingIdentity = record.listingIdentity
       const resolvedListing = await resolveOrderSearchListing(listingIdentity, listingCache)
       const symbolAndQuote = splitSymbolAndQuote(
         readString(resolvedListing?.base, record.listing.symbol),
@@ -400,14 +406,10 @@ export async function serializeOrderSearchOptions(
         recordedAt: record.recordedAt,
         symbol: symbolAndQuote.symbol,
         quote: symbolAndQuote.quote,
-        companyName: readString(resolvedListing?.name, record.listing.name),
+        companyName: readString(resolvedListing?.name),
         iconUrl: readString(resolvedListing?.iconUrl),
         assetClass: readString(resolvedListing?.assetClass),
-        listingType: readString(
-          listingIdentity?.listing_type,
-          resolvedListing?.listing_type,
-          record.listing.listingType
-        ),
+        listingType: listingIdentity?.listing_type ?? null,
       }
     })
   )

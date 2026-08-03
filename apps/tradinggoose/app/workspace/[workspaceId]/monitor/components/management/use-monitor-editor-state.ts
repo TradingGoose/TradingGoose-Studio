@@ -139,8 +139,7 @@ export function useMonitorEditorState({
     }
     updateListingSelectorInstance(editingListingInstanceId, {
       providerId: editingDraft.providerId,
-      selectedListingValue: editingDraft.listing,
-      selectedListing: editingDraft.listing as any,
+      selectedListing: editingDraft.listing,
     })
   }, [
     editingDraft?.listing,
@@ -161,8 +160,7 @@ export function useMonitorEditorState({
         const instanceId = `monitor-edit-${key ?? 'new'}`
         ensureListingSelectorInstance(instanceId, {
           providerId: draft.providerId,
-          selectedListingValue: draft.listing,
-          selectedListing: draft.listing as any,
+          selectedListing: draft.listing,
           query: '',
           results: [],
           error: undefined,

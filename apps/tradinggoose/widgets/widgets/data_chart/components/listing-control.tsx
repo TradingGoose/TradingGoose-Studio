@@ -1,14 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { hasListingDisplayDetails } from '@/components/listing-selector/listing/row'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import {
   areListingIdentitiesEqual,
   type ListingIdentity,
-  type ListingOption,
-  toListingValue,
-  toListingValueObject,
+  ListingIdentitySchema,
+  type ListingResolved,
 } from '@/lib/listing/identity'
 import {
   createEmptyListingSelectorInstance,
@@ -26,7 +24,7 @@ type DataChartListingControlProps = {
 type DataChartListingSelectorProps = {
   instanceId: string
   providerId?: string
-  onListingChange: (selected: ListingOption | null) => void
+  onListingChange: (selected: ListingResolved | null) => void
 }
 
 export const DataChartListingSelector = ({
@@ -50,16 +48,8 @@ export const DataChartListingControl = ({
   params,
 }: DataChartListingControlProps) => {
   const providerId = params.data?.provider
-  const rawListing = params.listing ?? null
-  const listingIdentity = useMemo(() => {
-    if (!rawListing || typeof rawListing !== 'object') return null
-    return toListingValueObject(rawListing)
-  }, [rawListing])
-  const displayListing = useMemo(() => {
-    if (!rawListing || typeof rawListing !== 'object') return null
-    const candidate = rawListing as ListingOption
-    return hasListingDisplayDetails(candidate) ? candidate : null
-  }, [rawListing])
+  const parsedListing = ListingIdentitySchema.safeParse(params.listing)
+  const listingIdentity = parsedListing.success ? parsedListing.data : null
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instanceId = useMemo(
@@ -116,22 +106,20 @@ export const DataChartListingControl = ({
 
     if (listingIdentity) {
       updateInstance(instanceId, {
-        selectedListingValue: listingIdentity ?? null,
-        selectedListing: displayListing,
+        selectedListing: listingIdentity,
         query: '',
       })
       return
     }
 
     updateInstance(instanceId, {
-      selectedListingValue: null,
       selectedListing: null,
       query: '',
     })
-  }, [listingIdentity, displayListing, instanceId, updateInstance])
+  }, [listingIdentity, instanceId, updateInstance])
 
-  const handleListingChange = (selected: ListingOption | null) => {
-    const normalized = toListingValue(selected)
+  const handleListingChange = (selected: ListingResolved | null) => {
+    const normalized = selected?.listingIdentity
     actions.patchWidgetLinkedParams?.({ listing: normalized ?? null })
   }
 

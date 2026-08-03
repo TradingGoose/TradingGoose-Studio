@@ -3,6 +3,17 @@ import type { ListingIdentity } from '@/lib/listing/identity'
 export const MARKET_DATA_TYPES = ['series', 'live'] as const
 export type MarketDataType = (typeof MARKET_DATA_TYPES)[number]
 
+export const MARKET_ASSET_CLASSES = [
+  'stock',
+  'etf',
+  'indice',
+  'mutualfund',
+  'future',
+  'crypto',
+  'currency',
+] as const
+export type AssetClass = (typeof MARKET_ASSET_CLASSES)[number]
+
 export const MARKET_INTERVALS = [
   '1m',
   '2m',
@@ -36,15 +47,6 @@ export type MarketDataAvailability = {
   availableCryptoBase?: string[]
   availableCryptoQuote?: string[]
 } & Record<MarketDataType, boolean>
-
-export type AssetClass =
-  | 'stock'
-  | 'etf'
-  | 'future'
-  | 'currency'
-  | 'crypto'
-  | 'indice'
-  | 'mutualfund'
 
 export interface MarketProviderParams {
   interval?: string

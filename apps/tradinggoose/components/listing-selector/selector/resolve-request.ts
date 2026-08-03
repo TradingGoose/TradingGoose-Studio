@@ -1,7 +1,5 @@
 import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
-import { resolveListingIdentity, type ResolvedListingDetails } from '@/lib/listing/resolve'
-
-export type { ResolvedListingDetails }
+import { resolveListingIdentity } from '@/lib/listing/resolve'
 
 export async function requestListingResolution(
   listing: ListingIdentity,

@@ -68,20 +68,24 @@ const createDeferred = <T,>() => {
 }
 
 const stockListing = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock',
 }
 
 const assetlessListing = {
-  listing_type: 'default',
-  listing_id: 'MSFT',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'MSFT',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'MSFT',
   quote: 'USD',
 }
@@ -365,7 +369,6 @@ describe('QuickOrderWidgetBody', () => {
       providerId: undefined,
       query: '',
       results: [],
-      selectedListingValue: null,
       selectedListing: null,
     })
   })
@@ -432,7 +435,7 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([
       expect.objectContaining({
-        listing: stockListing,
+        listing: stockListing.listingIdentity,
       }),
     ])
   })

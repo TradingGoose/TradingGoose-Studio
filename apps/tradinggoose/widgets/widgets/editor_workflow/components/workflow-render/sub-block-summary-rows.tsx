@@ -8,9 +8,10 @@ import {
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  buildListingDisplayOption,
   getListingIdentityKey,
-  type ListingOption,
+  getListingIdentitySymbol,
+  type ListingResolved,
+  ListingResolvedSchema,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
@@ -144,9 +145,9 @@ function SummaryListingRow({
   valueClassName?: string
 }) {
   const identity = useMemo(() => toListingValueObject(value), [value])
-  const valueListing =
-    value && typeof value === 'object' && !Array.isArray(value) ? (value as ListingOption) : null
-  const [resolvedListing, setResolvedListing] = useState<ListingOption | null>(null)
+  const parsedListing = ListingResolvedSchema.safeParse(value)
+  const valueListing = parsedListing.success ? parsedListing.data : null
+  const [resolvedListing, setResolvedListing] = useState<ListingResolved | null>(null)
 
   useEffect(() => {
     setResolvedListing(null)
@@ -156,7 +157,7 @@ function SummaryListingRow({
     requestListingResolution(identity)
       .then((resolved) => {
         if (cancelled) return
-        setResolvedListing(resolved ? buildListingDisplayOption(identity, resolved) : null)
+        setResolvedListing(resolved)
       })
       .catch(() => {})
 
@@ -176,13 +177,21 @@ function SummaryListingRow({
     )
   }
 
-  const displayListing = buildListingDisplayOption(identity, resolvedListing ?? valueListing)
-  const displayTitle = getListingDisplaySymbol(displayListing)
+  const displayListing = resolvedListing ?? valueListing
+  const displayTitle = displayListing
+    ? getListingDisplaySymbol(displayListing)
+    : getListingIdentitySymbol(identity)
 
   return (
     <SummaryRow
       title={title}
-      value={<ListingDisplayRow listing={displayListing} className='justify-end' />}
+      value={
+        displayListing ? (
+          <ListingDisplayRow listing={displayListing} className='justify-end' />
+        ) : (
+          displayTitle
+        )
+      }
       valueTitle={displayTitle || getListingIdentityKey(identity)}
       labelClassName={labelClassName}
       valueClassName={valueClassName}

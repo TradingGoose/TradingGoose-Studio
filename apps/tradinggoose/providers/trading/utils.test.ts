@@ -9,30 +9,36 @@ import {
 } from '@/providers/trading/utils'
 
 const stockListing: ListingResolved = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock',
 }
 
 const etfListing: ListingResolved = {
-  listing_type: 'default',
-  listing_id: 'SPY',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'SPY',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'SPY',
   quote: 'USD',
   assetClass: 'etf',
 }
 
 const assetlessListing: ListingResolved = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
 }
@@ -60,31 +66,51 @@ describe('trading listing utility helpers', () => {
     ).toBe('currency')
     expect(
       resolveTradingListingAssetClass({
-        listing_type: 'default',
-        listing_id: 'ES',
+        listingIdentity: {
+          listing_type: 'default',
+          listing_id: 'ES',
+          base_id: '',
+          quote_id: '',
+        },
+        base: 'ES',
         base_asset_class: 'future',
-      } as any)
+      })
     ).toBe('future')
     expect(
       resolveTradingListingAssetClass({
-        listing_type: 'default',
-        listing_id: 'SPX',
+        listingIdentity: {
+          listing_type: 'default',
+          listing_id: 'SPX',
+          base_id: '',
+          quote_id: '',
+        },
+        base: 'SPX',
         assetClass: 'indice',
-      } as any)
+      })
     ).toBe('indice')
     expect(
       resolveTradingListingAssetClass({
-        listing_type: 'default',
-        listing_id: 'VTSAX',
+        listingIdentity: {
+          listing_type: 'default',
+          listing_id: 'VTSAX',
+          base_id: '',
+          quote_id: '',
+        },
+        base: 'VTSAX',
         assetClass: 'mutualfund',
-      } as any)
+      })
     ).toBe('mutualfund')
     expect(
       resolveTradingListingAssetClass({
-        listing_type: 'default',
-        listing_id: 'SPX',
+        listingIdentity: {
+          listing_type: 'default',
+          listing_id: 'SPX',
+          base_id: '',
+          quote_id: '',
+        },
+        base: 'SPX',
         assetClass: 'us_equity',
-      } as any)
+      })
     ).toBeUndefined()
     expect(resolveTradingListingAssetClass({ listing_type: 'equity' } as any)).toBeUndefined()
   })
@@ -111,10 +137,15 @@ describe('trading listing utility helpers', () => {
     ).toBe(false)
     expect(
       isTradingOrderListingSupported('tradier', {
-        listing_type: 'default',
-        listing_id: 'ES',
+        listingIdentity: {
+          listing_type: 'default',
+          listing_id: 'ES',
+          base_id: '',
+          quote_id: '',
+        },
+        base: 'ES',
         assetClass: 'future',
-      } as any)
+      })
     ).toBe(false)
   })
 

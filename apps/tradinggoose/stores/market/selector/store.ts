@@ -1,14 +1,13 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 
 export interface ListingSelectorInstance {
   providerId?: string
   query: string
   isLoading: boolean
   error?: string
-  results: ListingOption[]
-  selectedListingValue?: ListingIdentity | null
-  selectedListing?: ListingOption | null
+  results: ListingResolved[]
+  selectedListing: ListingIdentity | ListingResolved | null
 }
 
 export const createEmptyListingSelectorInstance = (
@@ -19,7 +18,6 @@ export const createEmptyListingSelectorInstance = (
   isLoading: false,
   error: undefined,
   results: [],
-  selectedListingValue: null,
   selectedListing: null,
   ...overrides,
 })
@@ -72,7 +70,6 @@ export const useListingSelectorStore = create<ListingSelectorStore>((set) => ({
         ...state.instances,
         [id]: {
           ...(state.instances[id] ?? createEmptyListingSelectorInstance()),
-          selectedListingValue: null,
           selectedListing: null,
         },
       },

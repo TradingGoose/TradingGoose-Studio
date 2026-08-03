@@ -1,23 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   getListingIdentityKey,
   type ListingIdentity,
-  type ListingInputValue,
-  type ListingOption,
-  toListingValueObject,
+  type ListingResolved,
 } from '@/lib/listing/identity'
 
 type UseListingStateArgs = {
-  listingValue: ListingInputValue
+  listingValue: ListingIdentity | null | undefined
 }
 
 export type ListingState = {
   listing: ListingIdentity | null
   listingIdentitySignature: string | null
-  resolvedListing: ListingOption | null
+  resolvedListing: ListingResolved | null
   isResolving: boolean
 }
 
@@ -25,7 +23,7 @@ const RESOLVE_RETRY_MS = 1000
 
 type ResolvedEntry = {
   signature: string
-  listing: ListingOption
+  listing: ListingResolved
 }
 
 /**
@@ -39,7 +37,7 @@ type ResolvedEntry = {
  * an in-flight resolution.
  */
 export const useListingState = ({ listingValue }: UseListingStateArgs): ListingState => {
-  const listing = useMemo(() => toListingValueObject(listingValue), [listingValue])
+  const listing = listingValue ?? null
   const listingIdentitySignature = listing ? getListingIdentityKey(listing) : null
 
   const [resolved, setResolved] = useState<ResolvedEntry | null>(null)

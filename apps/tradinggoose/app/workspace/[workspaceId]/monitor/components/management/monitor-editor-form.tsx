@@ -19,7 +19,6 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { InputMetaMap } from '@/lib/indicators/types'
-import { toListingValue } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { cn } from '@/lib/utils'
 import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
@@ -308,7 +307,9 @@ function IndicatorMonitorFields({
               <ListingSearchInput
                 instanceId={listingInstanceId}
                 providerType='market'
-                onListingChange={(listing) => onUpdateDraft({ listing: toListingValue(listing) })}
+                onListingChange={(listing) =>
+                  onUpdateDraft({ listing: listing?.listingIdentity ?? null })
+                }
               />
             ) : null}
           </div>

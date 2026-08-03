@@ -62,21 +62,7 @@ describe('normalizeExecutionMonitorViewConfig', () => {
     expect(normalized).toEqual({
       ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
       filterQuery: 'workflow:#wf-1 provider:#alpaca',
-      quickFilters: [
-        { field: 'workflow', operator: 'include', values: ['wf-1'] },
-        {
-          field: 'listing',
-          operator: 'include',
-          values: [
-            JSON.stringify({
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
-            }),
-          ],
-        },
-      ],
+      quickFilters: [{ field: 'workflow', operator: 'include', values: ['wf-1'] }],
       sortBy: [],
       fieldSums: ['count'],
       kanban: {

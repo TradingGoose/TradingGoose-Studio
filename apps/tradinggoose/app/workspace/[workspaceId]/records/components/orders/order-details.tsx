@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
+import {
+  getListingIdentityKey,
+  getListingIdentitySymbol,
+  type ListingIdentity,
+} from '@/lib/listing/identity'
 import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import {
@@ -19,14 +23,7 @@ import {
 import { getTradingProviderOAuthServiceIds } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
-import {
-  formatDateTime,
-  formatMoney,
-  formatNumber,
-  getOrderListingFallback,
-  titleCase,
-  uppercase,
-} from './order-formatters'
+import { formatDateTime, formatMoney, formatNumber, titleCase, uppercase } from './order-formatters'
 import { OrderStatusBadge } from './order-status-badge'
 import type { RecordsOrder, RecordsOrderDetailMode } from './types'
 
@@ -123,21 +120,15 @@ const changedProviderRows = (
   return rows.filter(([, saved, latest]) => latest !== '—' && latest !== saved)
 }
 
-function useResolvedOrderListing(listingIdentityValue: unknown) {
-  const listingIdentity = useMemo(
-    () => toListingValueObject(listingIdentityValue),
-    [listingIdentityValue]
-  )
+function useResolvedOrderListing(listingIdentity: ListingIdentity | null) {
   const listings = useMemo(() => (listingIdentity ? [listingIdentity] : []), [listingIdentity])
   const resolvedListingsQuery = useResolvedListings({
     listings,
     enabled: Boolean(listingIdentity),
   })
-  const listing = listingIdentity
+  return listingIdentity
     ? (resolvedListingsQuery.data?.[getListingIdentityKey(listingIdentity)] ?? null)
     : null
-
-  return { listing, listingIdentity }
 }
 
 function ResolvedOrderListing({
@@ -151,17 +142,21 @@ function ResolvedOrderListing({
   showAssetClass?: boolean
   className?: string
 }) {
-  const { listing, listingIdentity } = useResolvedOrderListing(order.listingIdentity)
-  const displayListing = listing ?? getOrderListingFallback(order)
+  const listing = useResolvedOrderListing(order.listingIdentity)
 
   return (
     <MarketListingRow
-      listing={displayListing}
+      listing={listing}
       compact={compact}
       showAssetClass={showAssetClass}
       className={className}
-      placeholderTitle={listingIdentity ? 'Resolving listing' : 'Unknown listing'}
-      placeholderSubtitle={listingIdentity ? 'Loading listing metadata' : 'No listing identity'}
+      placeholderTitle={
+        order.listing.symbol ??
+        (order.listingIdentity
+          ? getListingIdentitySymbol(order.listingIdentity)
+          : 'Unknown listing')
+      }
+      placeholderSubtitle={order.listing.name ?? '—'}
     />
   )
 }

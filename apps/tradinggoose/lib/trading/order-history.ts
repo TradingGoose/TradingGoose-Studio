@@ -1,5 +1,6 @@
 import { db, orderHistoryTable, workflowExecutionLogs } from '@tradinggoose/db'
 import { and, eq, gte, lte } from 'drizzle-orm'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { serializeOrderRecord } from '@/lib/trading/order-records'
@@ -16,7 +17,7 @@ type OrderHistoryInput = {
   environment?: string | null
   submissionSource: OrderSubmissionSource
   logId: string | null
-  listingIdentity?: unknown
+  listingIdentity: ListingIdentity
   request: Record<string, unknown>
   response: Record<string, unknown>
   normalizedOrder?: Record<string, unknown>

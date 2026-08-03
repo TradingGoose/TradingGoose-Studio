@@ -29,6 +29,7 @@ type IndicatorMonitorExecutionMonitor = {
   interval: string
   intervalMs: number | null
   indicatorId: string
+  assetType: string
   listing: ListingIdentity
 }
 
@@ -69,6 +70,8 @@ const isMonitor = (value: unknown): value is IndicatorMonitorExecutionMonitor =>
     typeof value.interval === 'string' &&
     (typeof value.intervalMs === 'number' || value.intervalMs === null) &&
     typeof value.indicatorId === 'string' &&
+    typeof value.assetType === 'string' &&
+    value.assetType.trim().length > 0 &&
     isRecord(value.listing)
   )
 }
@@ -284,6 +287,7 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
           providerId: payload.monitor.providerId,
           interval: payload.monitor.interval,
           indicatorId: payload.monitor.indicatorId,
+          assetType: payload.monitor.assetType,
         },
       },
     },

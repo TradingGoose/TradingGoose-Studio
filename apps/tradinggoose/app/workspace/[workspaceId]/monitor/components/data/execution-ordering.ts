@@ -1,4 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { MONITOR_ASSET_TYPE_LABELS } from '@/lib/monitors/sources'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import type {
   ExecutionMonitorFieldSum,
@@ -69,13 +70,7 @@ const OUTCOME_ORDER: Record<MonitorExecutionItem['outcome'], number> = {
 const normalize = (value: string | null | undefined) => value?.trim() || ''
 
 const DEFAULT_GROUP_LABELS: MonitorExecutionGroupLabels = {
-  assetTypeLabels: {
-    stock: 'Stock',
-    crypto: 'Crypto',
-    currency: 'Currency',
-    default: 'Default',
-    unknown: 'Unknown',
-  },
+  assetTypeLabels: MONITOR_ASSET_TYPE_LABELS,
   outcomeLabels: {
     running: 'Running',
     success: 'Success',
@@ -127,7 +122,9 @@ export const getExecutionGroupValue = (
       return {
         id: item.trigger || 'unknown',
         label:
-          (item.trigger && labels.triggerLabels[item.trigger]) || item.trigger || labels.unknownLabel,
+          (item.trigger && labels.triggerLabels[item.trigger]) ||
+          item.trigger ||
+          labels.unknownLabel,
         sortValue: item.trigger || 'unknown',
       }
     case 'listing':

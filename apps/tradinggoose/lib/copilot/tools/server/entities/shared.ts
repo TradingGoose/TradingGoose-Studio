@@ -238,7 +238,7 @@ function parseEntityMutationDocument(
       body: {
         code: 'invalid_watchlist_document',
         error: error.message,
-        hint: 'For edits, start from read_watchlist, then send a complete tg-watchlist-document-v1. Use canonical listing identities from search_listing, keep item ids unique, keep each listing identity unique within its parent, and set listing parentId only to a section id.',
+        hint: 'For edits, start from read_watchlist, then send a complete tg-watchlist-document-v1. Use search_listing results[].listingIdentity values, keep item ids unique, keep each listing identity unique within its parent, and set listing parentId only to a section id.',
         retryable: true,
         issues: [{ path: 'entityDocument', message: error.message }],
       },

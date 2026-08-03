@@ -1,4 +1,4 @@
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 
 export const CONFIG_MONITOR_OUTCOMES = [
   'running',
@@ -20,8 +20,8 @@ const normalizeListingFilterValue = (rawValue: string) => {
 
   try {
     const parsed = JSON.parse(rawValue)
-    const normalized = toListingValueObject(parsed)
-    return normalized ? JSON.stringify(normalized) : null
+    const listing = ListingIdentitySchema.safeParse(parsed)
+    return listing.success ? JSON.stringify(listing.data) : null
   } catch {
     return null
   }
@@ -73,6 +73,6 @@ export const normalizeConfigFilterValues = (field: string, rawValues: unknown): 
 }
 
 export const canonicalizeListingValue = (value: unknown): string | null => {
-  const normalized = toListingValueObject(value as any)
-  return normalized ? JSON.stringify(normalized) : null
+  const listing = ListingIdentitySchema.safeParse(value)
+  return listing.success ? JSON.stringify(listing.data) : null
 }

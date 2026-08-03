@@ -5,6 +5,7 @@
 import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getListingIdentityKey } from '@/lib/listing/identity'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 import { OrdersTable } from './orders-table'
 
@@ -92,7 +93,9 @@ describe('OrdersTable', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockUseResolvedListings.mockReturnValue({ data: {} })
+    mockUseResolvedListings.mockReturnValue({
+      data: { [getListingIdentityKey(listingIdentity)]: null },
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)

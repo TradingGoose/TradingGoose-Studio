@@ -3,7 +3,7 @@ import { stableStringifyJsonValue } from '@/lib/json/stable'
 import {
   getListingIdentityKey,
   type ListingIdentity,
-  toListingValueObject,
+  ListingIdentitySchema,
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { useSocket } from '@/contexts/socket-context'
@@ -78,7 +78,7 @@ export const useMarketQuoteSnapshots = ({
     const aliasesByIdentity = new Map<string, string[]>()
 
     for (const entry of items) {
-      const listing = toListingValueObject(entry.listing)
+      const listing = entry.listing
       if (!listing) continue
       const identityKey = getListingIdentityKey(listing)
       const key = typeof entry.key === 'string' && entry.key.trim() ? entry.key.trim() : identityKey
@@ -164,8 +164,8 @@ export const useMarketQuoteSnapshots = ({
         : undefined
       if (byClientId) return byClientId
 
-      const listing = toListingValueObject(payload.listing)
-      return listing ? getListingIdentityKey(listing) : null
+      const listing = ListingIdentitySchema.safeParse(payload.listing)
+      return listing.success ? getListingIdentityKey(listing.data) : null
     }
 
     const isRelevantProvider = (payloadProvider?: string) =>

@@ -26,9 +26,8 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
-import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
+import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
-import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -42,10 +41,10 @@ import { Button } from '@/components/ui/button'
 import { Sortable, SortableContent, SortableItem } from '@/components/ui/sortable'
 import {
   areListingIdentitiesEqual,
-  buildListingDisplayOption,
+  getListingIdentityKey,
+  getListingIdentitySymbol,
   type ListingIdentity,
-  type ListingOption,
-  toListingValue,
+  type ListingResolved,
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
@@ -54,6 +53,7 @@ import type {
   WatchlistListingItem,
   WatchlistRecord,
 } from '@/lib/watchlists/types'
+import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -67,6 +67,7 @@ import {
 } from '@/widgets/widgets/watchlist/components/watchlist-reorder'
 import {
   resolveWatchlistAssetClass,
+  resolveWatchlistListingLabel,
   resolveWatchlistValueColorClass,
 } from '@/widgets/widgets/watchlist/components/watchlist-table-utils'
 
@@ -98,11 +99,6 @@ type WatchlistTableBlock =
 type ContainerBlock = {
   container: WatchlistContainerItem
   children: ListingRowEntry[]
-}
-
-type ResolvedListingEntry = {
-  identity: ListingIdentity
-  resolved: ListingOption | null
 }
 
 type ListingToDelete = {
@@ -158,7 +154,6 @@ export const WatchlistTable = ({
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)
-  const [resolvedByItemId, setResolvedByItemId] = useState<Record<string, ResolvedListingEntry>>({})
   const [expandedContainers, setExpandedContainers] = useState<Record<string, boolean>>({})
   const [dropTarget, setDropTarget] = useState<WatchlistDropTarget | null>(null)
   const [listingToDelete, setListingToDelete] = useState<ListingToDelete | null>(null)
@@ -221,6 +216,8 @@ export const WatchlistTable = ({
   }, [watchlist])
 
   const listingRows = parsedRows.allRows
+  const listingIdentities = useMemo(() => listingRows.map((entry) => entry.listing), [listingRows])
+  const resolvedByListingKey = useResolvedListings({ listings: listingIdentities }).data ?? {}
 
   useEffect(() => {
     setExpandedContainers((current) => {
@@ -231,43 +228,6 @@ export const WatchlistTable = ({
       return next
     })
   }, [parsedRows.allContainers])
-
-  useEffect(() => {
-    const pending = listingRows.filter((entry) => {
-      const cached = resolvedByItemId[entry.itemId]
-      return !cached || !areListingIdentitiesEqual(cached.identity, entry.listing)
-    })
-    if (pending.length === 0) return
-
-    let cancelled = false
-    const resolveAll = async () => {
-      const resolvedEntries = await Promise.all(
-        pending.map(async (entry) => ({
-          itemId: entry.itemId,
-          identity: entry.listing,
-          resolved: await requestListingResolution(entry.listing).catch(() => null),
-        }))
-      )
-
-      if (cancelled) return
-      setResolvedByItemId((current) => {
-        const next = { ...current }
-        resolvedEntries.forEach((entry) => {
-          next[entry.itemId] = {
-            identity: entry.identity,
-            resolved: entry.resolved,
-          }
-        })
-        return next
-      })
-    }
-
-    void resolveAll()
-
-    return () => {
-      cancelled = true
-    }
-  }, [listingRows, resolvedByItemId])
 
   useEffect(() => {
     if (!activeContainerId) return
@@ -290,20 +250,15 @@ export const WatchlistTable = ({
   const startListingEdit = (row: ListingRowEntry) => {
     if (isMutating) return
     const instanceId = buildListingEditorInstanceId(row.item.id)
+    const resolved = resolvedByListingKey[getListingIdentityKey(row.listing)] ?? null
     ensureListingSelectorInstance(instanceId, { providerId })
     updateListingSelectorInstance(instanceId, {
       providerId,
-      query: '',
+      query: resolveWatchlistListingLabel(row.listing, resolved),
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingValue: row.item.listing,
-      selectedListing: buildListingDisplayOption(
-        row.listing,
-        areListingIdentitiesEqual(resolvedByItemId[row.itemId]?.identity, row.listing)
-          ? resolvedByItemId[row.itemId]?.resolved
-          : null
-      ),
+      selectedListing: resolved ?? row.listing,
     })
     setEditingListingId(row.item.id)
   }
@@ -316,8 +271,8 @@ export const WatchlistTable = ({
     [resetListingEditor]
   )
 
-  const commitListingSelection = async (itemId: string, listingOption: ListingOption | null) => {
-    const listing = toListingValue(listingOption)
+  const commitListingSelection = async (itemId: string, listingOption: ListingResolved | null) => {
+    const listing = listingOption?.listingIdentity
     if (!listing) return
     const previousListing = watchlist.items.find(
       (item): item is WatchlistListingItem => item.type === 'listing' && item.id === itemId
@@ -556,15 +511,8 @@ export const WatchlistTable = ({
 
   const renderListingRow = (row: ListingRowEntry) => {
     const quote = quotes[row.itemId]
-    const resolved =
-      resolvedByItemId[row.itemId] &&
-      areListingIdentitiesEqual(resolvedByItemId[row.itemId]?.identity, row.listing)
-        ? resolvedByItemId[row.itemId]?.resolved
-        : null
-    const listing = buildListingDisplayOption(row.listing, resolved)
-    const listingLabel = listing.quote?.trim()
-      ? `${getListingPrimary(listing)}/${listing.quote.trim()}`
-      : getListingPrimary(listing)
+    const resolved = resolvedByListingKey[getListingIdentityKey(row.listing)] ?? null
+    const listingLabel = resolveWatchlistListingLabel(row.listing, resolved)
     const assetClass = resolveWatchlistAssetClass(row.listing, resolved)
     const isDropPosition = dropTarget?.type === 'position' && dropTarget.itemId === row.item.id
     const sortableId = createWatchlistListingSortableId(row.item.id)
@@ -601,7 +549,12 @@ export const WatchlistTable = ({
               className='flex items-center'
               style={row.isSectionChild ? { paddingLeft: 16 } : undefined}
             >
-              <MarketListingRow listing={listing} className='w-full pl-1' />
+              <MarketListingRow
+                listing={resolved}
+                placeholderTitle={getListingIdentitySymbol(row.listing)}
+                placeholderSubtitle='—'
+                className='w-full pl-1'
+              />
             </div>
           )}
         </td>

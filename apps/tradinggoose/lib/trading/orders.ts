@@ -1,7 +1,10 @@
 import { createHash } from 'crypto'
 import { IdempotencyService } from '@/lib/idempotency'
-import type { ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import {
+  type ListingResolved,
+  ListingResolvedSchema,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -63,7 +66,7 @@ const resolveTimeInForce = (providerId: string, requested: string | undefined): 
 const resolveOrderType = (
   providerId: string,
   data: TradingOrderSubmitRequest,
-  listing: ListingInputValue
+  listing: ListingResolved
 ): TradingOrderTypeDefinition => {
   const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, {
     listing,
@@ -182,37 +185,29 @@ const toRecord = (value: unknown): Record<string, any> | undefined =>
     ? (value as Record<string, any>)
     : undefined
 
-const readRecordText = (record: Record<string, unknown> | undefined, key: string) => {
-  const value = record?.[key]
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}
-
 const compactRecord = (record: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined))
 
-const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => {
-  const listingType = typeof record.listing_type === 'string' ? record.listing_type : null
-  if (!listingType) return false
-  const base = typeof record.base === 'string' ? record.base.trim() : ''
-  if (!base) return false
-  if (listingType === 'default') {
-    return Boolean(resolveTradingListingAssetClass(record as ListingInputValue))
+const hasResolvedListingDetails = (listing: ListingResolved): boolean => {
+  if (listing.listingIdentity.listing_type === 'default') {
+    return Boolean(resolveTradingListingAssetClass(listing))
   }
-  const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
-  return Boolean(quote)
+  return Boolean(listing.quote?.trim())
 }
 
-const resolveOrderListing = async (listing: ListingInputValue): Promise<ListingInputValue> => {
-  const record = toRecord(listing)
-  if (record && hasResolvedListingDetails(record)) return listing
+const resolveOrderListing = async (
+  listing: TradingOrderSubmitRequest['listing']
+): Promise<ListingResolved> => {
+  const parsed = ListingResolvedSchema.safeParse(listing)
+  if (parsed.success && hasResolvedListingDetails(parsed.data)) return parsed.data
 
   const identity = toListingValueObject(listing)
   if (!identity) throw new TradingServiceError('Resolved listing is required')
 
   const tradingIdentity = await resolveTradingListingIdentity({
     listing: identity,
-    base: readRecordText(record, 'base'),
-    quote: readRecordText(record, 'quote'),
+    base: parsed.success ? parsed.data.base : undefined,
+    quote: parsed.success ? (parsed.data.quote ?? undefined) : undefined,
     assetClass: resolveTradingListingAssetClass(listing),
   }).catch(() => null)
   if (!tradingIdentity) {
@@ -240,7 +235,7 @@ const buildOrderRequest = ({
 }: {
   providerId: string
   data: TradingOrderSubmitRequest
-  listing: ListingInputValue
+  listing: ListingResolved
   accountId: string
   clientOrderId: string
   accessToken: string
@@ -360,11 +355,8 @@ export async function submitTradingOrder({
     accountProviderId: connectionAuthorization.accountProviderId,
   })
 
-  const resolvedListing = await resolveOrderListing(requestData.listing as ListingInputValue)
-  const listingIdentity = toListingValueObject(resolvedListing)
-  if (!listingIdentity) {
-    throw new TradingServiceError('Resolved listing is required')
-  }
+  const resolvedListing = await resolveOrderListing(requestData.listing)
+  const listingIdentity = resolvedListing.listingIdentity
 
   const assetClass = resolveTradingListingAssetClass(resolvedListing)
   if (!assetClass) {

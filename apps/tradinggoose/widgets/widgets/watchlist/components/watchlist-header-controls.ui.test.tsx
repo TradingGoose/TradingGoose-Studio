@@ -6,6 +6,7 @@ import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react'
 import { act, cloneElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ListingResolved } from '@/lib/listing/identity'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
@@ -80,23 +81,20 @@ vi.mock('@/widgets/widget-config-runtime', () => ({
 vi.mock('@/components/listing-selector/selector/input', () => ({
   ListingSearchInput: (props: {
     disabled?: boolean
-    onListingChange?: (listing: {
-      listing_id: string
-      base_id: string
-      quote_id: string
-      listing_type: 'default'
-      name?: string
-    }) => void
+    onListingChange?: (listing: ListingResolved | null) => void
   }) => (
     <button
       type='button'
       disabled={props.disabled}
       onClick={() =>
         props.onListingChange?.({
-          listing_id: 'BTCUSD',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          listingIdentity: {
+            listing_id: 'BTCUSD',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+          base: 'BTC/USD',
           name: 'BTC/USD',
         })
       }

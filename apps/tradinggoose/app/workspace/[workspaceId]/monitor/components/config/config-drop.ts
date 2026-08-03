@@ -1,4 +1,4 @@
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import type { MonitorDraft, MonitorReferenceData, MonitorUpdateInput } from '../shared/types'
 import type { ConfigMonitorViewConfig } from '../view/view-config'
 import type { ConfigBoardContext } from './config-board-state'
@@ -64,12 +64,12 @@ const applyDimension = ({
   }
 
   if (field === 'listing') {
-    const listing = toListingValueObject(JSON.parse(value))
-    if (!listing) {
+    const listing = ListingIdentitySchema.safeParse(JSON.parse(value))
+    if (!listing.success) {
       addMonitorDraftIssue(issues, 'listing', 'Listing is invalid.')
       return
     }
-    draftPatch.listing = listing
+    draftPatch.listing = listing.data
   }
 }
 

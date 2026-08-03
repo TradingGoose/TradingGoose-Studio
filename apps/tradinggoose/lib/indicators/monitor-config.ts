@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import { encryptSecret } from '@/lib/utils-server'
 import {
@@ -31,7 +30,7 @@ export const IndicatorMonitorCreateSchema = z.object({
   providerId: z.string().min(1),
   interval: z.string().min(1),
   indicatorId: z.string().min(1),
-  listing: z.any(),
+  listing: ListingIdentitySchema,
   auth: MonitorAuthCreateInputSchema,
   providerParams: ProviderParamsInputSchema,
   indicatorInputs: IndicatorInputsInputSchema,
@@ -46,7 +45,7 @@ export const IndicatorMonitorUpdateSchema = z.object({
   providerId: z.string().min(1).optional(),
   interval: z.string().min(1).optional(),
   indicatorId: z.string().min(1).optional(),
-  listing: z.any().optional(),
+  listing: ListingIdentitySchema.optional(),
   auth: MonitorAuthUpdateInputSchema,
   providerParams: ProviderParamsInputSchema,
   indicatorInputs: IndicatorInputsInputSchema,
@@ -207,7 +206,7 @@ type NormalizeMonitorConfigInput = {
   triggerBlockId: string
   providerId: string
   interval: string
-  listingInput: unknown
+  listingInput: ListingIdentity
   indicatorId: string
   authInput?: {
     secrets?: Record<string, string>
@@ -225,11 +224,6 @@ export const normalizeIndicatorMonitorConfig = async (
   const intervalOptions = getMarketProviderIntervals(input.providerId)
   if (!intervalOptions.includes(input.interval as any)) {
     throw new Error(`Interval ${input.interval} is not supported for provider ${input.providerId}.`)
-  }
-
-  const listing = toListingValueObject(input.listingInput as ListingInputValue)
-  if (!listing) {
-    throw new Error('Invalid listing value.')
   }
 
   const requiredSecretParamIds = getRequiredMonitorSecretParamIds(input.providerId)
@@ -275,7 +269,7 @@ export const normalizeIndicatorMonitorConfig = async (
       triggerBlockId: input.triggerBlockId,
       providerId: input.providerId,
       interval: input.interval,
-      listing,
+      listing: input.listingInput,
       indicatorId: input.indicatorId,
       ...(auth ? { auth } : {}),
       ...(providerParams ? { providerParams } : {}),

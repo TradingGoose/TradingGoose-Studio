@@ -5,7 +5,7 @@ import {
   useMarketProviderSearchConfig,
   useTradingProviderSearchConfig,
 } from '@/components/listing-selector/selector/use-provider-config'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { fetchListings } from '@/lib/listing/search'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { ListingSelectorInstance } from '@/stores/market/selector/store'
@@ -22,22 +22,22 @@ type UseMarketListingSearchOptions = {
   assetClassFilter?: string | null
   instanceId: string
   updateInstance: UpdateInstance
-  candidateListings?: ListingOption[]
+  candidateListings?: ListingResolved[]
   candidateListingsLoading?: boolean
   candidateListingsError?: string
 }
 
-const listingMatchesQuery = (listing: ListingOption, query: string): boolean => {
+const listingMatchesQuery = (listing: ListingResolved, query: string): boolean => {
   if (!query) return true
   return [
     listing.base,
     listing.quote,
     listing.name,
     listing.assetClass,
-    listing.listing_id,
-    listing.base_id,
-    listing.quote_id,
-    listing.listing_type,
+    listing.listingIdentity.listing_id,
+    listing.listingIdentity.base_id,
+    listing.listingIdentity.quote_id,
+    listing.listingIdentity.listing_type,
   ]
     .filter(Boolean)
     .join(' ')
@@ -46,14 +46,14 @@ const listingMatchesQuery = (listing: ListingOption, query: string): boolean => 
 }
 
 const listingMatchesAssetClass = (
-  listing: ListingOption,
+  listing: ListingResolved,
   assetClassFilter?: string | null
 ): boolean => {
   if (!assetClassFilter) return true
   const normalizedFilter = assetClassFilter.trim().toLowerCase()
   const listingAssetClass = listing.assetClass?.trim().toLowerCase()
   if (listingAssetClass) return listingAssetClass === normalizedFilter
-  return listing.listing_type === normalizedFilter
+  return listing.listingIdentity.listing_type === normalizedFilter
 }
 
 export function useMarketListingSearch({

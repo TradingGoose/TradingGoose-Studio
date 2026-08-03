@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
+import { getListingIdentitySymbol, ListingIdentitySchema } from '@/lib/listing/identity'
 import { createSearchClause, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import type { SearchClause } from '@/lib/logs/query-types'
@@ -52,6 +52,7 @@ type MonitorExecutionSnapshot = {
   accountId?: unknown
   interval?: unknown
   indicatorId?: unknown
+  assetType?: unknown
   listing?: unknown
 }
 type MonitorWorkflowLog = WorkflowLog & {
@@ -68,17 +69,6 @@ type MonitorWorkflowLog = WorkflowLog & {
       }
     }
   }
-}
-
-const getListingLabel = (listing: unknown, unknownListingLabel: string) => {
-  const normalized = toListingValueObject(listing as ListingInputValue)
-  if (!normalized) return unknownListingLabel
-
-  if (normalized.listing_type === 'default') {
-    return normalized.listing_id || unknownListingLabel
-  }
-
-  return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || unknownListingLabel
 }
 
 const parseDurationMs = (duration: string | null | undefined) => {
@@ -195,7 +185,8 @@ const toExecutionItem = (
   const durationMs = getDurationMs(log)
   const endedAt = getEndedAt(startedAt, log.endedAt, durationMs)
   const rawListing = snapshot?.listing ?? null
-  const listing = toListingValueObject(rawListing as ListingInputValue)
+  const parsedListing = ListingIdentitySchema.safeParse(rawListing)
+  const listing = parsedListing.success ? parsedListing.data : null
   const source =
     typeof log.executionData?.trigger?.source === 'string' ? log.executionData.trigger.source : null
   const monitorId = typeof snapshot?.id === 'string' ? snapshot.id : null
@@ -204,22 +195,11 @@ const toExecutionItem = (
   const accountId = typeof snapshot?.accountId === 'string' ? snapshot.accountId : null
   const interval = typeof snapshot?.interval === 'string' ? snapshot.interval : null
   const indicatorId = typeof snapshot?.indicatorId === 'string' ? snapshot.indicatorId : null
-  const listingWithAssetClass = rawListing as {
-    assetClass?: string
-    base_asset_class?: string
-    listing_type?: string
-  } | null
   const assetType =
-    (typeof listingWithAssetClass?.assetClass === 'string' &&
-      listingWithAssetClass.assetClass.trim()) ||
-    (typeof listingWithAssetClass?.base_asset_class === 'string' &&
-      listingWithAssetClass.base_asset_class.trim()) ||
-    (typeof listingWithAssetClass?.listing_type === 'string' &&
-      listingWithAssetClass.listing_type.trim()) ||
-    (source === PORTFOLIO_MONITOR_TRIGGER_ID ? 'portfolio' : '') ||
+    (typeof snapshot?.assetType === 'string' && snapshot.assetType.trim().toLowerCase()) ||
     'unknown'
   const listingLabel = listing
-    ? getListingLabel(listing, labels.unknownListing)
+    ? getListingIdentitySymbol(listing)
     : accountId || 'Portfolio account'
   const isPartial =
     !monitorId ||
@@ -248,7 +228,7 @@ const toExecutionItem = (
     accountId,
     interval,
     indicatorId,
-    assetType: assetType.toLowerCase(),
+    assetType,
     listing,
     listingLabel,
     cost: typeof log.cost?.total === 'number' ? log.cost.total : null,

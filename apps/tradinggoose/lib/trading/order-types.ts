@@ -2,17 +2,13 @@ import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import type { TradingOrder, TradingOrderSizingMode } from '@/providers/trading/types'
 
-export type TradingOrderSubmitListing =
-  | ListingResolved
-  | (ListingIdentity & Record<string, unknown>)
-
 export type TradingOrderSubmissionSource = 'manual' | 'copilot' | 'workflow'
 
 export interface TradingOrderSubmitRequest {
   workspaceId: string
   workflowId?: string
   portfolioIdentity: PortfolioIdentity
-  listing: TradingOrderSubmitListing
+  listing: ListingIdentity | ListingResolved
   side: 'buy' | 'sell'
   quantity?: number
   notional?: number

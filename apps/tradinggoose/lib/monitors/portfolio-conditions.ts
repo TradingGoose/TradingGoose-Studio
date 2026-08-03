@@ -1,8 +1,4 @@
-import {
-  areListingIdentitiesEqual,
-  type ListingIdentity,
-  toListingValueObject,
-} from '@/lib/listing/identity'
+import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 
 export type PortfolioConditionSnapshot = Pick<PortfolioDetail, 'summary' | 'positions'>
@@ -98,14 +94,15 @@ export const getPortfolioConditionOperatorsForMetric = (metric: PortfolioConditi
     isPortfolioConditionOperatorCompatible(metric, operator)
   )
 
-const findPosition = (portfolio: PortfolioConditionSnapshot, listingInput: unknown) => {
-  const listing = toListingValueObject(listingInput)
+const findPosition = (
+  portfolio: PortfolioConditionSnapshot,
+  listing: ListingIdentity | null | undefined
+) => {
   if (!listing) return null
   return (
-    portfolio.positions.find((position) => {
-      const positionListing = toListingValueObject(position.listingIdentity)
-      return areListingIdentitiesEqual(positionListing, listing)
-    }) ?? null
+    portfolio.positions.find((position) =>
+      areListingIdentitiesEqual(position.listingIdentity, listing)
+    ) ?? null
   )
 }
 
@@ -149,7 +146,7 @@ const getMetricValue = (
 
 const evaluateRule = (rule: PortfolioConditionRule, context: EvaluationContext) => {
   if (!isPortfolioConditionOperatorCompatible(rule.metric, rule.operator)) return false
-  if (portfolioConditionRequiresListing(rule.metric) && !toListingValueObject(rule.listing)) {
+  if (portfolioConditionRequiresListing(rule.metric) && !rule.listing) {
     return false
   }
 

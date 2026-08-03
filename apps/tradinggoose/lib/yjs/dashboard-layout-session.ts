@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import {
@@ -215,7 +215,7 @@ function isNestedWidgetParamsRecord(value: unknown): value is Record<string, unk
     value !== null &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
-    toListingValueObject(value) === null &&
+    !ListingIdentitySchema.safeParse(value).success &&
     toPortfolioValueObject(value) === null
   )
 }

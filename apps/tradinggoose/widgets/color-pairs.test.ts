@@ -21,7 +21,7 @@ describe('color-pair linked context helpers', () => {
     expect(context.channelId).toBeUndefined()
   })
 
-  it('stores only canonical listing identity fields in linked color context', () => {
+  it('rejects noncanonical listing values in linked color context', () => {
     const state = upsertPairColorContext(createDefaultColorPairsState(), 'blue', {
       listing: {
         listing_id: 'AAPL',
@@ -37,15 +37,7 @@ describe('color-pair linked context helpers', () => {
 
     const listing = readPairColorContext(state, 'blue').listing
 
-    expect(listing).toEqual({
-      listing_id: 'AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
-    for (const key of ['provider', 'marketProvider', 'accountId', 'providerParams']) {
-      expect(listing).not.toHaveProperty(key)
-    }
+    expect(listing).toBeUndefined()
   })
 
   it('preserves untouched shared entity ids while patched ids change', () => {

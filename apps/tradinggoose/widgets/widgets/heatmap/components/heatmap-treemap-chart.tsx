@@ -62,7 +62,7 @@ const resolveTileDisplay = (tile: HeatmapTreemapTile) => {
 
   const { listingSymbolParts, listingSymbolText } = buildListingDisplay(tile.resolvedListing)
   const flagData =
-    tile.resolvedListing.listing_type === 'default'
+    tile.resolvedListing.listingIdentity.listing_type === 'default'
       ? getFlagData(tile.resolvedListing.countryCode)
       : null
   return {

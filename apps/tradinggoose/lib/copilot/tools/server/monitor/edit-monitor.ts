@@ -15,6 +15,8 @@ import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shar
 import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
+  resolveMonitorListingPresentation,
+  toMonitorDocumentFields,
 } from '@/lib/copilot/tools/server/monitor/shared'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
@@ -50,19 +52,21 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
     )
 
     const nextFields = parseMonitorDocument(args.monitorDocument)
+    const nextListing = 'listing' in nextFields ? nextFields.listing : undefined
     const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
-    const currentDocument = buildMonitorDocumentEnvelope(currentMonitor).monitorDocument
+    const currentDocument = serializeMonitorDocument(toMonitorDocumentFields(currentMonitor))
     const reviewBaseStateHash = hashServerToolReviewBase(currentDocument)
 
     if (shouldStageServerToolMutationForReview(context)) {
       const nextDocument = serializeMonitorDocument(nextFields)
+      const resolvedListing = await resolveMonitorListingPresentation(nextListing, context?.signal)
       return {
         requiresReview: true,
         success: true,
         surfaceKind: 'monitor' as const,
         workspaceId: row.workflow.workspaceId,
         monitorId: args.monitorId,
-        monitorName: readMonitorDocumentName(nextFields),
+        monitorName: readMonitorDocumentName(nextFields, resolvedListing),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
         monitorDocument: nextDocument,
         reviewBaseStateHash,
@@ -86,9 +90,10 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
       requestId: crypto.randomUUID(),
       logger,
     })) as MonitorRecord
+    const resolvedListing = await resolveMonitorListingPresentation(nextListing, context?.signal)
 
     return {
-      ...buildMonitorDocumentEnvelope(updatedMonitor, true),
+      ...buildMonitorDocumentEnvelope(updatedMonitor, resolvedListing, true),
       workspaceId: row.workflow.workspaceId,
     }
   },

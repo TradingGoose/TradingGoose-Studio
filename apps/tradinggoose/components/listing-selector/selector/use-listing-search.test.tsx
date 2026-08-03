@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SUPPORTED_MARKET_ASSET_CLASSES } from '@/components/listing-selector/search-utils'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
+import { MARKET_ASSET_CLASSES } from '@/providers/market/types'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -70,7 +70,7 @@ describe('useMarketListingSearch', () => {
     expect(fetchListingsMock).toHaveBeenCalledTimes(1)
     expect(fetchListingsMock).toHaveBeenCalledWith(
       {
-        filters: JSON.stringify({ limit: 50, asset_class: [...SUPPORTED_MARKET_ASSET_CLASSES] }),
+        filters: JSON.stringify({ limit: 50, asset_class: [...MARKET_ASSET_CLASSES] }),
       },
       expect.any(AbortSignal)
     )
@@ -168,10 +168,12 @@ describe('useMarketListingSearch', () => {
 
     fetchListingsMock.mockResolvedValue([
       {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
+        listingIdentity: {
+          listing_id: 'AAPL',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
         base: 'AAPL',
         quote: 'USD',
         name: 'Apple Inc.',
@@ -223,7 +225,7 @@ describe('useMarketListingSearch', () => {
     expect(fetchListingsMock).toHaveBeenCalledTimes(1)
     expect(fetchListingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        filters: JSON.stringify({ limit: 50, asset_class: [...SUPPORTED_MARKET_ASSET_CLASSES] }),
+        filters: JSON.stringify({ limit: 50, asset_class: [...MARKET_ASSET_CLASSES] }),
         search_query: 'AAPL',
       }),
       expect.any(AbortSignal)
@@ -240,10 +242,12 @@ describe('useMarketListingSearch', () => {
     expect(updateInstance).toHaveBeenCalledWith('test-selector', {
       results: [
         {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
+          listingIdentity: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
           base: 'AAPL',
           quote: 'USD',
           name: 'Apple Inc.',
@@ -327,19 +331,23 @@ describe('useMarketListingSearch', () => {
           updateInstance={updateInstance}
           candidateListings={[
             {
-              listing_id: 'AAPL',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
+              listingIdentity: {
+                listing_id: 'AAPL',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
               base: 'AAPL',
               quote: null,
               name: 'Apple Inc.',
             },
             {
-              listing_id: '',
-              base_id: 'BTC',
-              quote_id: 'USD',
-              listing_type: 'crypto',
+              listingIdentity: {
+                listing_id: '',
+                base_id: 'BTC',
+                quote_id: 'USD',
+                listing_type: 'crypto',
+              },
               base: 'BTC',
               quote: 'USD',
               name: 'BTC/USD',
@@ -354,10 +362,12 @@ describe('useMarketListingSearch', () => {
     expect(updateInstance).toHaveBeenCalledWith('test-selector', {
       results: [
         {
-          listing_id: '',
-          base_id: 'BTC',
-          quote_id: 'USD',
-          listing_type: 'crypto',
+          listingIdentity: {
+            listing_id: '',
+            base_id: 'BTC',
+            quote_id: 'USD',
+            listing_type: 'crypto',
+          },
           base: 'BTC',
           quote: 'USD',
           name: 'BTC/USD',

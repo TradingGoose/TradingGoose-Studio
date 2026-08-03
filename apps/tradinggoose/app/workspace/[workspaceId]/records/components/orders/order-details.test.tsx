@@ -5,6 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getListingIdentityKey } from '@/lib/listing/identity'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 import { OrderDetails } from './order-details'
 
@@ -92,7 +93,9 @@ describe('OrderDetails', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockUseResolvedListings.mockReturnValue({ data: {} })
+    mockUseResolvedListings.mockReturnValue({
+      data: { [getListingIdentityKey(listingIdentity)]: null },
+    })
     mockUseProviderOrderDetail.mockReturnValue({
       data: null,
       error: null,
@@ -141,7 +144,7 @@ describe('OrderDetails', () => {
 
     expect(container.textContent).toContain('AAPL')
     expect(container.textContent).toContain('Apple Inc.')
-    expect(container.textContent).toContain('STOCK')
+    expect(container.textContent).not.toContain('STOCK')
     expect(container.textContent).not.toContain('DEFAULT')
     expect(container.textContent).not.toContain('Resolving listing')
     expect(container.textContent).not.toContain('App order id')

@@ -1,13 +1,14 @@
 'use client'
 
-import { useLocale, useMessages, type Messages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
+import { type Messages, useLocale, useMessages } from 'next-intl'
+import { MONITOR_ASSET_TYPES, type MonitorAssetType } from '@/lib/monitors/sources'
 import type { MonitorExecutionGroupLabels } from '@/app/workspace/[workspaceId]/monitor/components/data/execution-ordering'
 import type {
   ConfigMonitorDimensionField,
   ConfigMonitorStatus,
   ExecutionMonitorGroupField,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
+import type { LocaleCode } from '@/i18n/utils'
 
 export type MonitorCopy = Messages['workspace']['monitor']
 
@@ -35,10 +36,7 @@ export function useMonitorCopy() {
   }
 }
 
-export function getMonitorModeLabel(
-  copy: MonitorCopy,
-  mode: 'executions' | 'config'
-) {
+export function getMonitorModeLabel(copy: MonitorCopy, mode: 'executions' | 'config') {
   return mode === 'executions' ? copy.mode.executions : copy.mode.config
 }
 
@@ -78,21 +76,20 @@ export function getMonitorTriggerLabel(copy: MonitorCopy, trigger: string) {
   }
 }
 
+const getMonitorAssetTypeLabels = (copy: MonitorCopy): Record<MonitorAssetType, string> => ({
+  stock: copy.values.assetTypes.stock,
+  etf: copy.values.assetTypes.etf,
+  indice: copy.values.assetTypes.indice,
+  mutualfund: copy.values.assetTypes.mutualfund,
+  future: copy.values.assetTypes.future,
+  crypto: copy.values.assetTypes.crypto,
+  currency: copy.values.assetTypes.currency,
+  portfolio: copy.values.assetTypes.portfolio,
+  unknown: copy.values.assetTypes.unknown,
+})
+
 export function getMonitorAssetTypeLabel(copy: MonitorCopy, assetType: string) {
-  switch (assetType) {
-    case 'stock':
-      return copy.values.assetTypes.stock
-    case 'crypto':
-      return copy.values.assetTypes.crypto
-    case 'currency':
-      return copy.values.assetTypes.currency
-    case 'default':
-      return copy.values.assetTypes.default
-    case 'unknown':
-      return copy.values.assetTypes.unknown
-    default:
-      return assetType.toUpperCase()
-  }
+  return getMonitorAssetTypeLabels(copy)[assetType as MonitorAssetType] ?? assetType.toUpperCase()
 }
 
 export function getMonitorExecutionGroupLabels(copy: MonitorCopy): MonitorExecutionGroupLabels {
@@ -112,13 +109,7 @@ export function getMonitorExecutionGroupLabels(copy: MonitorCopy): MonitorExecut
       schedule: copy.values.triggers.schedule,
       unknown: copy.values.triggers.unknown,
     },
-    assetTypeLabels: {
-      stock: copy.values.assetTypes.stock,
-      crypto: copy.values.assetTypes.crypto,
-      currency: copy.values.assetTypes.currency,
-      default: copy.values.assetTypes.default,
-      unknown: copy.values.assetTypes.unknown,
-    },
+    assetTypeLabels: getMonitorAssetTypeLabels(copy),
     unknownLabel: copy.execution.unknown,
     unknownListingLabel: copy.execution.unknownListing,
     removedMonitorLabel: copy.execution.removedMonitor,
@@ -192,29 +183,11 @@ export function getMonitorBoardLabels(copy: MonitorCopy): MonitorBoardLabels {
           sortValue: 'unknown',
         },
       ],
-      assetType: [
-        { id: 'stock', label: copy.values.assetTypes.stock, sortValue: 'stock' },
-        {
-          id: 'crypto',
-          label: copy.values.assetTypes.crypto,
-          sortValue: 'crypto',
-        },
-        {
-          id: 'currency',
-          label: copy.values.assetTypes.currency,
-          sortValue: 'currency',
-        },
-        {
-          id: 'default',
-          label: copy.values.assetTypes.default,
-          sortValue: 'default',
-        },
-        {
-          id: 'unknown',
-          label: copy.values.assetTypes.unknown,
-          sortValue: 'unknown',
-        },
-      ],
+      assetType: MONITOR_ASSET_TYPES.map((id) => ({
+        id,
+        label: getMonitorAssetTypeLabel(copy, id),
+        sortValue: id,
+      })),
     },
     groupValueLabels,
   }

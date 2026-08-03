@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
+import { getListingIdentityKey, type ListingResolved } from '@/lib/listing/identity'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
@@ -123,7 +123,7 @@ const getValidationMessage = ({
 }: {
   providerId?: string
   accountId?: string
-  listing: ListingOption | null
+  listing: ListingResolved | null
   orderType?: string
   orderTypeDefinition?: TradingOrderTypeDefinition | null
   timeInForce?: string
@@ -246,7 +246,7 @@ export function QuickOrderWidgetBody({
   const submitMutationKey = getQuickOrderSubmitMutationKey(panelId)
   const activeSubmitCount = useIsMutating({ mutationKey: submitMutationKey, exact: true })
 
-  const [listing, setListing] = useState<ListingOption | null>(null)
+  const [listing, setListing] = useState<ListingResolved | null>(null)
   const [quantityInput, setQuantityInput] = useState('')
   const [notionalInput, setNotionalInput] = useState('')
   const [limitPriceInput, setLimitPriceInput] = useState('')
@@ -405,8 +405,8 @@ export function QuickOrderWidgetBody({
       listing
         ? [
             {
-              key: getListingIdentityKey(listing),
-              listing,
+              key: getListingIdentityKey(listing.listingIdentity),
+              listing: listing.listingIdentity,
             },
           ]
         : [],
@@ -495,7 +495,6 @@ export function QuickOrderWidgetBody({
       results: [],
       isLoading: false,
       error: undefined,
-      selectedListingValue: null,
       selectedListing: null,
     })
   }, [listingInstanceId, providerId, resetSubmitOrder, updateListingSelector])

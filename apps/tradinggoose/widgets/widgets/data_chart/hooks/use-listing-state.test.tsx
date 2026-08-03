@@ -3,7 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ListingIdentity, ListingInputValue, ListingOption } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import { type ListingState, useListingState } from './use-listing-state'
 
 const mockResolve = vi.hoisted(() => vi.fn())
@@ -18,8 +18,8 @@ const APPLE_IDENTITY: ListingIdentity = {
   quote_id: '',
   listing_type: 'default',
 }
-const APPLE_OPTION: ListingOption = {
-  ...APPLE_IDENTITY,
+const APPLE_OPTION: ListingResolved = {
+  listingIdentity: APPLE_IDENTITY,
   base: 'AAPL',
   quote: null,
   name: 'Apple Inc.',
@@ -30,15 +30,15 @@ const MSFT_IDENTITY: ListingIdentity = {
   quote_id: '',
   listing_type: 'default',
 }
-const MSFT_OPTION: ListingOption = {
-  ...MSFT_IDENTITY,
+const MSFT_OPTION: ListingResolved = {
+  listingIdentity: MSFT_IDENTITY,
   base: 'MSFT',
   quote: null,
   name: 'Microsoft Corp.',
 }
 
 let latest: ListingState
-function Harness({ listingValue }: { listingValue: ListingInputValue }) {
+function Harness({ listingValue }: { listingValue: ListingIdentity | null }) {
   latest = useListingState({ listingValue })
   return null
 }
@@ -50,14 +50,14 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 describe('useListingState', () => {
   let container: HTMLDivElement
   let root: Root
-  let pending: Array<(value: ListingOption | null) => void>
+  let pending: Array<(value: ListingResolved | null) => void>
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     pending = []
     mockResolve.mockReset()
     mockResolve.mockImplementation(
-      () => new Promise<ListingOption | null>((resolve) => pending.push(resolve))
+      () => new Promise<ListingResolved | null>((resolve) => pending.push(resolve))
     )
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -70,13 +70,13 @@ describe('useListingState', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const render = async (listingValue: ListingInputValue) => {
+  const render = async (listingValue: ListingIdentity | null) => {
     await act(async () => {
       root.render(<Harness listingValue={listingValue} />)
     })
   }
 
-  const settleNextResolution = async (value: ListingOption | null) => {
+  const settleNextResolution = async (value: ListingResolved | null) => {
     await act(async () => {
       pending.shift()?.(value)
       await Promise.resolve()

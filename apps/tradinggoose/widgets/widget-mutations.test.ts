@@ -6,12 +6,6 @@ import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 const listing = {
   listing_type: 'default',
   listing_id: 'AAPL',
-  base_id: 'AAPL',
-  quote_id: 'USD',
-}
-const normalizedListing = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
   base_id: '',
   quote_id: '',
 } as const
@@ -44,7 +38,7 @@ const widget = (
 
 describe('applyWidgetConfigMutation', () => {
   it('keeps params-only edits local and produces no shared pair diff', () => {
-    const colorPairs = { pairs: [{ color: 'red' as const, listing: normalizedListing }] }
+    const colorPairs = { pairs: [{ color: 'red' as const, listing }] }
     const result = apply({
       colorPairs,
       patch: { params: { view: { interval: '1h' } } },
@@ -66,7 +60,7 @@ describe('applyWidgetConfigMutation', () => {
   })
 
   it('keeps linked params local for a gray widget', () => {
-    const colorPairs = { pairs: [{ color: 'red' as const, listing: normalizedListing }] }
+    const colorPairs = { pairs: [{ color: 'red' as const, listing }] }
     const result = apply({
       widgetKey: 'watchlist',
       widget: widget('gray', { provider: 'alpaca' }),
@@ -77,7 +71,7 @@ describe('applyWidgetConfigMutation', () => {
     expect(widgetOf(result)).toEqual({
       key: 'watchlist',
       pairColor: 'gray',
-      params: { provider: 'alpaca', listing: normalizedListing },
+      params: { provider: 'alpaca', listing },
     })
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
@@ -92,25 +86,25 @@ describe('applyWidgetConfigMutation', () => {
       params: { data: { provider: 'alpaca' } },
     })
     expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'red', listing: normalizedListing }],
+      pairs: [{ color: 'red', listing }],
     })
     expect(result.colorPairDiff).toEqual([
       {
         color: 'red',
         before: {},
-        after: { listing: normalizedListing },
+        after: { listing },
         changedFields: ['listing'],
       },
     ])
     expect(resolveEffectiveWidgetParams(widgetOf(result), result.colorPairs)).toMatchObject({
-      listing: normalizedListing,
+      listing,
     })
   })
 
   it('uses explicit colorPair null as the only whole-pair clear path', () => {
     const result = apply({
       colorPairs: {
-        pairs: [{ color: 'red', workflowId: 'workflow-red', listing: normalizedListing }],
+        pairs: [{ color: 'red', workflowId: 'workflow-red', listing }],
       },
       patch: { colorPair: null },
     })
@@ -125,7 +119,7 @@ describe('applyWidgetConfigMutation', () => {
       widgetKey: 'watchlist',
       widget: widget('red'),
       colorPairs: {
-        pairs: [{ color: 'red', watchlistId: 'watchlist-red', listing: normalizedListing }],
+        pairs: [{ color: 'red', watchlistId: 'watchlist-red', listing }],
       },
       patch: { colorPair: { listing: null } },
     })
@@ -138,7 +132,7 @@ describe('applyWidgetConfigMutation', () => {
   it('changes pairColor without copying, clearing, or dirtying shared pair state', () => {
     const colorPairs = {
       pairs: [
-        { color: 'blue' as const, listing: normalizedListing },
+        { color: 'blue' as const, listing },
         { color: 'red' as const, workflowId: 'workflow-red' },
       ],
     }
@@ -158,14 +152,14 @@ describe('applyWidgetConfigMutation', () => {
     expect(result.changedPaths).toEqual(['widget.pairColor'])
     expect(result.reviewBase).toEqual({
       pairColor: 'red',
-      colorPair: { color: 'blue', context: { listing: normalizedListing } },
+      colorPair: { color: 'blue', context: { listing } },
     })
   })
 
   it('preserves gray local linked params when selecting a shared pair', () => {
     const result = apply({
       widgetKey: 'watchlist',
-      widget: widget('gray', { listing: normalizedListing }),
+      widget: widget('gray', { listing }),
       colorPairs: { pairs: [{ color: 'blue', watchlistId: 'watchlist-blue' }] },
       patch: { pairColor: 'blue' },
     })
@@ -173,7 +167,7 @@ describe('applyWidgetConfigMutation', () => {
     expect(widgetOf(result)).toEqual({
       key: 'watchlist',
       pairColor: 'blue',
-      params: { listing: normalizedListing },
+      params: { listing },
     })
     expect(result.colorPairs).toEqual({
       pairs: [{ color: 'blue', watchlistId: 'watchlist-blue' }],
