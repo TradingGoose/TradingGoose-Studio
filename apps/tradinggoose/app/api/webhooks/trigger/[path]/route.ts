@@ -11,6 +11,7 @@ import {
   queueWebhookExecution,
   verifyProviderAuth,
 } from '@/lib/webhooks/processor'
+import { isMicrosoftTeamsChatCallbackPath } from '@/lib/webhooks/webhook-helpers'
 import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('WebhookTriggerAPI')
@@ -39,16 +40,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const url = new URL(request.url)
-  const validationToken = url.searchParams.get('validationToken')
-  if (validationToken) {
-    logger.info(`[${requestId}] Microsoft Graph subscription validation for path: ${path}`)
-    return new NextResponse(validationToken, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    })
-  }
-
   const challengeResponse = await handleProviderChallenges({}, request, requestId, path)
   if (challengeResponse) {
     return challengeResponse
@@ -64,14 +55,29 @@ export async function POST(
   const requestId = generateRequestId()
   const { path } = await params
 
+  const validationToken = new URL(request.url).searchParams.get('validationToken')
   const findResult = await findWebhookAndWorkflow({ requestId, path })
+  const foundWebhook = findResult?.webhook
+  const isMicrosoftTeamsChatSubscription =
+    foundWebhook?.provider === 'microsoftteams' &&
+    foundWebhook.providerConfig?.triggerId === 'microsoftteams_chat_subscription'
+  if (
+    validationToken &&
+    (isMicrosoftTeamsChatSubscription || (!findResult && isMicrosoftTeamsChatCallbackPath(path)))
+  ) {
+    logger.info(`[${requestId}] Microsoft Graph subscription validation (POST) for path: ${path}`)
+    return new NextResponse(validationToken, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+    })
+  }
 
   if (!findResult) {
     logger.warn(`[${requestId}] Webhook or workflow not found for path: ${path}`)
     return new NextResponse('Not Found', { status: 404 })
   }
 
-  const { webhook: foundWebhook, workflow: foundWorkflow } = findResult
+  const { workflow: foundWorkflow } = findResult
 
   if (isMonitorProvider(foundWebhook.provider)) {
     logger.warn(`[${requestId}] Blocked external trigger request for monitor webhook`, {
@@ -79,20 +85,6 @@ export async function POST(
       webhookId: foundWebhook.id,
     })
     return new NextResponse('Forbidden', { status: 403 })
-  }
-
-  try {
-    const url = new URL(request.url)
-    const validationToken = url.searchParams.get('validationToken')
-    if (validationToken) {
-      logger.info(`[${requestId}] Microsoft Graph subscription validation (POST) for path: ${path}`)
-      return new NextResponse(validationToken, {
-        status: 200,
-        headers: { 'Content-Type': 'text/plain' },
-      })
-    }
-  } catch {
-    // ignore URL parsing errors; proceed to standard body processing
   }
 
   const parseResult = await parseWebhookBody(request, requestId)

@@ -16,6 +16,7 @@ import {
   getExternalSubscriptionCredentialIds,
   getWebhookRevision,
   getWebhookSnapshotRevision,
+  isMicrosoftTeamsChatCallbackPath,
   processAirtableWebhookCleanup,
   sweepAirtableWebhookCleanup,
   toPublicAirtableWebhook,
@@ -43,6 +44,7 @@ const {
   loadBlueprintMock,
   runWorkflowMock,
   loggingCompleteMock,
+  loggingFailureMock,
   tables,
 } = vi.hoisted(() => {
   const table = () => new Proxy({}, { get: (_target, key) => String(key) })
@@ -64,6 +66,7 @@ const {
     loadBlueprintMock: vi.fn(),
     runWorkflowMock: vi.fn(),
     loggingCompleteMock: vi.fn(),
+    loggingFailureMock: vi.fn(),
     tables: {
       credential: table(),
       environmentVariables: table(),
@@ -250,6 +253,7 @@ vi.mock('@/lib/environment/api', () => ({
 vi.mock('@/lib/credentials/oauth', () => ({
   getOAuthAccessTokenForStoredCredential: tokenMock,
   getOAuthAccessTokenForUserCredential: tokenMock,
+  resolveOAuthCredentialAccountForUser: vi.fn().mockResolvedValue({ id: 'credential-1' }),
 }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
@@ -260,6 +264,7 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 vi.mock('@/lib/logs/execution/logging-session', () => ({
   LoggingSession: class {
     complete = loggingCompleteMock
+    completeWithError = loggingFailureMock
     start = vi.fn().mockResolvedValue('log-1')
   },
 }))
@@ -539,6 +544,13 @@ describe('Airtable payload durability', () => {
   })
   const page = (payloads: unknown[], cursor: number, mightHaveMore: boolean) =>
     Response.json({ payloads, cursor, mightHaveMore })
+  const interruptedPage = () =>
+    new Response(
+      new ReadableStream({
+        start: (controller) => controller.error(new Error('stream interrupted')),
+      })
+    )
+  const retryableFailure = () => new Response(null, { status: 503 })
   const poll = (snapshot: Row, executionId: string) =>
     formatWebhookInput(
       snapshot,
@@ -572,10 +584,14 @@ describe('Airtable payload durability', () => {
     })
     runWorkflowMock.mockReset()
     loggingCompleteMock.mockReset().mockResolvedValue(undefined)
+    loggingFailureMock.mockReset().mockResolvedValue(undefined)
     vi.stubGlobal('fetch', fetchMock)
   })
 
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   it('returns each execution owned pages when a competing poll wins the next cursor', async () => {
     let releaseCompetingPage!: (response: Response) => void
@@ -603,34 +619,89 @@ describe('Airtable payload durability', () => {
     expect(state.pendingExecutions[1].payload.airtablePollStage.payloads).toEqual([{ id: 'P2' }])
   })
 
-  it('retries from the live cursor without duplicating a durable receipt', async () => {
+  it('retries an interrupted response stream without duplicating the durable receipt', async () => {
+    vi.useFakeTimers()
     fetchMock
       .mockResolvedValueOnce(page([{ id: 'P1' }], 1, true))
-      .mockRejectedValueOnce(new Error('worker crashed'))
+      .mockResolvedValueOnce(interruptedPage())
       .mockResolvedValueOnce(page([{ id: 'P2' }], 2, false))
-      .mockResolvedValueOnce(page([], 2, false))
 
-    await expect(poll(structuredClone(state.webhooks[0]), 'execution-a')).rejects.toThrow(
-      'worker crashed'
-    )
-    const secondResult = await poll(structuredClone(state.webhooks[0]), 'execution-b')
-    const retriedResult = await poll(structuredClone(state.webhooks[0]), 'execution-a')
+    const polling = poll(structuredClone(state.webhooks[0]), 'execution-a')
+    await vi.advanceTimersByTimeAsync(1_000)
+    const result = await polling
 
-    expect(secondResult.input.payloads).toEqual([{ id: 'P2' }])
-    expect(retriedResult.input.payloads).toEqual([{ id: 'P1' }])
-    expect(String(fetchMock.mock.calls[3][0])).toContain('cursor=2')
+    expect(result.input?.payloads).toEqual([{ id: 'P1' }, { id: 'P2' }])
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBe(2)
-    expect(state.pendingExecutions[0].payload.airtablePollStage.payloads).toEqual([{ id: 'P1' }])
   })
 
-  it('rejects payloads that reuse a cursor without mutating the durable receipt', async () => {
+  it('executes a durable prefix and admits its continuation after retry exhaustion', async () => {
+    vi.useFakeTimers()
+    fetchMock
+      .mockResolvedValueOnce(page([{ id: 'P1' }], 1, true))
+      .mockImplementation(retryableFailure)
+    runWorkflowMock.mockResolvedValueOnce({ result: { success: true, output: {} } })
+
+    const execution = execute()
+    await vi.advanceTimersByTimeAsync(31_000)
+    await expect(execution).resolves.toMatchObject({ success: true })
+
+    expect(runWorkflowMock.mock.calls[0][0].workflowInput.payloads).toEqual([{ id: 'P1' }])
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(enqueueExecutionMock.mock.calls[0][0].pendingExecutionId).toBe(
+      'webhook_execution:webhook-1:airtable:remote:1'
+    )
+    expect(loggingFailureMock).not.toHaveBeenCalled()
+  })
+
+  it('does not execute staged data after losing pending-row ownership', async () => {
+    fetchMock.mockResolvedValueOnce(page([{ id: 'P1' }], 1, true)).mockImplementationOnce(() => {
+      state.pendingExecutions = []
+      return page([{ id: 'P2' }], 2, false)
+    })
+
+    await expect(poll(structuredClone(state.webhooks[0]), 'execution-a')).rejects.toThrow(
+      'lost processing ownership'
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('bounds an unstaged retryable failure with the normal terminal execution log', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockImplementation(retryableFailure)
+
+    const execution = execute()
+    await vi.advanceTimersByTimeAsync(31_000)
+    await expect(execution).resolves.toMatchObject({ success: false })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(loggingFailureMock).toHaveBeenCalledOnce()
+  })
+
+  it('terminally logs a revoked Airtable credential and bounds its queue lifetime', async () => {
+    tokenMock.mockResolvedValueOnce(null)
+
+    await expect(execute()).resolves.toMatchObject({ success: false })
+    expect(loggingFailureMock).toHaveBeenCalledOnce()
+  })
+
+  it('retains crash recovery when terminal failure logging cannot persist', async () => {
+    tokenMock.mockResolvedValueOnce(null)
+    loggingFailureMock.mockRejectedValueOnce(new Error('logging unavailable'))
+
+    await expect(execute()).rejects.toThrow('connection required')
+  })
+
+  it('executes a durable receipt when a later response permanently fails', async () => {
     fetchMock
       .mockResolvedValueOnce(page([{ id: 'P1' }], 1, true))
       .mockResolvedValueOnce(page([{ id: 'P2' }], 1, true))
 
-    await expect(poll(structuredClone(state.webhooks[0]), 'execution-a')).rejects.toThrow(
-      'returned payloads without advancing its cursor'
-    )
+    const result = await poll(structuredClone(state.webhooks[0]), 'execution-a')
+
+    expect(result).toMatchObject({
+      input: { payloads: [{ id: 'P1' }] },
+      continuation: { externalId: 'remote', cursor: 1 },
+    })
     expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBe(1)
     expect(state.pendingExecutions[0].payload.airtablePollStage).toMatchObject({
       apiCallCount: 1,
@@ -906,6 +977,10 @@ describe('generic webhook provider identity', () => {
   beforeEach(() => {
     state.webhooks = []
   })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    fetchMock.mockReset()
+  })
   it.each([undefined, null, 42, '', '   '])(
     'rejects invalid POST provider %j',
     async (provider) => {
@@ -942,6 +1017,34 @@ describe('generic webhook provider identity', () => {
     const patch = await patchGenericWebhook({ provider: ' portfolio ' })
     expect(patch.status).toBe(409)
     expect(state.webhooks).toEqual(before)
+  })
+  it('owns Microsoft Graph callback paths instead of accepting the editor path', async () => {
+    fetchMock.mockReset()
+    tokenMock.mockResolvedValueOnce('token')
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ id: 'teams-remote', expirationDateTime: 'later' })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await postWebhook(
+      request({
+        workflowId: 'workflow-1',
+        blockId: 'block-1',
+        path: 'editor-path',
+        provider: 'microsoftteams',
+        providerConfig: {
+          triggerId: 'microsoftteams_chat_subscription',
+          credentialId: 'credential-1',
+          chatId: 'chat-1',
+        },
+      })
+    )
+
+    expect(response.status).toBe(201)
+    expect(isMicrosoftTeamsChatCallbackPath(state.webhooks[0].path)).toBe(true)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).notificationUrl).toContain(
+      `/api/webhooks/trigger/${state.webhooks[0].path}`
+    )
   })
   it('requires POST to repair provider-null rows but still allows deletion', async () => {
     state.webhooks = [{ ...webhookRow(), provider: null }]

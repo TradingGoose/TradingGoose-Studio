@@ -1,8 +1,5 @@
-/**
- * Integration tests for webhook trigger API route
- *
- * @vitest-environment node
- */
+// @vitest-environment node
+import { NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createMockRequest,
@@ -14,8 +11,6 @@ const hasProcessedMessageMock = vi.fn().mockResolvedValue(false)
 const markMessageAsProcessedMock = vi.fn().mockResolvedValue(true)
 const closeRedisConnectionMock = vi.fn().mockResolvedValue(undefined)
 const acquireLockMock = vi.fn().mockResolvedValue(true)
-const generateRequestHashMock = vi.fn().mockResolvedValue('test-hash-123')
-const validateSlackSignatureMock = vi.fn().mockResolvedValue(true)
 const handleWhatsAppVerificationMock = vi.fn().mockResolvedValue(null)
 const handleSlackChallengeMock = vi.fn().mockReturnValue(null)
 const processWhatsAppDeduplicationMock = vi.fn().mockResolvedValue(null)
@@ -27,15 +22,15 @@ const enqueuePendingExecutionMock = vi.fn().mockResolvedValue({
 const processWebhookMock = vi
   .fn()
   .mockResolvedValue(new Response('Webhook processed', { status: 200 }))
-const executeMock = vi.fn().mockResolvedValue({
-  success: true,
-  output: { response: 'Webhook execution success' },
-  logs: [],
-  metadata: {
-    duration: 100,
-    startTime: new Date().toISOString(),
-    endTime: new Date().toISOString(),
-  },
+
+const createWebhookProcessorMock = (findWebhookAndWorkflow: ReturnType<typeof vi.fn>) => ({
+  checkUsageLimits: vi.fn(),
+  findWebhookAndWorkflow,
+  handleProviderChallenges: vi.fn(),
+  mapDispatchGateResultToHttpResponse: vi.fn(),
+  parseWebhookBody: vi.fn(),
+  queueWebhookExecution: vi.fn(),
+  verifyProviderAuth: vi.fn(),
 })
 
 vi.mock('@/lib/redis', () => ({
@@ -55,45 +50,20 @@ vi.mock('@/lib/webhooks/utils', () => ({
   processWebhook: processWebhookMock,
 }))
 
-vi.mock('@/app/api/webhooks/utils', () => ({
-  generateRequestHash: generateRequestHashMock,
-}))
-
-vi.mock('@/app/api/webhooks/utils', () => ({
-  validateSlackSignature: validateSlackSignatureMock,
-}))
-
-vi.mock('@/executor', () => ({
-  Executor: vi.fn().mockImplementation(function () {
-    void new.target
-    return {
-      execute: executeMock,
-    }
-  }),
-}))
-
-// Set up environment before any imports
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
 
-// Mock postgres dependencies
 vi.mock('drizzle-orm/postgres-js', () => ({
   drizzle: vi.fn().mockReturnValue({}),
 }))
 
 vi.mock('postgres', () => vi.fn().mockReturnValue({}))
 
-// The @tradinggoose/db mock is handled in test utils via mockExecutionDependencies()
-
-// (removed duplicate utils mock - defined above with specific handlers)
-
 describe('Webhook Trigger API Route', () => {
   beforeEach(() => {
-    // Ensure a fresh module graph so per-test vi.doMock() takes effect before imports
     vi.resetModules()
     vi.clearAllMocks()
     vi.doUnmock('@/lib/webhooks/processor')
 
-    // Clear global mock data
     globalMockData.webhooks.length = 0
     globalMockData.workflows.length = 0
     globalMockData.schedules.length = 0
@@ -172,47 +142,72 @@ describe('Webhook Trigger API Route', () => {
     vi.clearAllMocks()
   })
 
-  // Removed: WhatsApp verification test has complex mock setup issues
+  const found = (provider: string, triggerId?: string) => ({
+    webhook: { id: `${provider}-webhook`, provider, providerConfig: { triggerId } },
+    workflow: { id: 'workflow-1' },
+  })
+  const callbackPath = 'microsoftteams-00000000-0000-4000-8000-000000000000'
 
-  /**
-   * Test POST webhook with workflow execution
-   * Verifies that a webhook trigger properly initiates workflow execution
-   */
-  // TODO: Fix failing test - returns 500 instead of 200
-  // it('should trigger workflow execution via POST', async () => { ... })
+  it.each([
+    ['uncommitted Graph callback', 'POST', callbackPath, null, 200, false],
+    [
+      'committed Graph callback',
+      'POST',
+      'teams-path',
+      found('microsoftteams', 'microsoftteams_chat_subscription'),
+      200,
+      false,
+    ],
+    ['generic webhook collision', 'POST', 'generic-path', found('generic'), 418, true],
+    [
+      'Teams outgoing webhook collision',
+      'POST',
+      'teams-outgoing-path',
+      found('microsoftteams', 'microsoftteams_webhook'),
+      418,
+      true,
+    ],
+    ['monitor collision', 'POST', 'monitor-path', found('indicator'), 403, false],
+    ['unknown path collision', 'POST', 'unknown-path', null, 404, false],
+    ['GET callback collision', 'GET', callbackPath, null, 404, false],
+  ] as const)(
+    '%s follows its provider-specific route',
+    { timeout: 10_000 },
+    async (_name, method, path, findResult, status, parses) => {
+      const findWebhookAndWorkflowMock = vi.fn().mockResolvedValue(findResult)
+      const processor = createWebhookProcessorMock(findWebhookAndWorkflowMock)
+      processor.parseWebhookBody.mockResolvedValue(new NextResponse('Parsed', { status: 418 }))
+      vi.doMock('@/lib/webhooks/processor', () => processor)
 
-  /**
-   * Test 404 handling for non-existent webhooks
-   */
+      const req = createMockRequest(method)
+      Object.defineProperty(req, 'url', {
+        value: `http://localhost:3000/api/webhooks/trigger/${path}?validationToken=token%2Bvalue`,
+      })
+      const route = await import('@/app/api/webhooks/trigger/[path]/route')
+      const response = await route[method](req, { params: Promise.resolve({ path }) })
+
+      expect(response.status).toBe(status)
+      expect(findWebhookAndWorkflowMock).toHaveBeenCalledOnce()
+      expect(processor.parseWebhookBody).toHaveBeenCalledTimes(parses ? 1 : 0)
+      if (status === 200) {
+        expect(response.headers.get('content-type')).toBe('text/plain')
+        await expect(response.text()).resolves.toBe('token+value')
+      }
+    }
+  )
+
   it('should handle 404 for non-existent webhooks', async () => {
-    vi.doMock('@/lib/webhooks/processor', () => ({
-      checkUsageLimits: vi.fn(),
-      findWebhookAndWorkflow: vi.fn().mockResolvedValue(null),
-      handleProviderChallenges: vi.fn(),
-      mapDispatchGateResultToHttpResponse: vi.fn(),
-      parseWebhookBody: vi.fn(),
-      queueWebhookExecution: vi.fn(),
-      verifyProviderAuth: vi.fn(),
-    }))
+    vi.doMock('@/lib/webhooks/processor', () =>
+      createWebhookProcessorMock(vi.fn().mockResolvedValue(null))
+    )
 
-    // Create a mock request
     const req = createMockRequest('POST', { event: 'test' })
-
-    // Mock the path param
     const params = Promise.resolve({ path: 'non-existent-path' })
-
-    // Import the handler
     const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
-
-    // Call the handler
     const response = await POST(req, { params })
-
-    // Check response - expect 404 since our implementation returns 404 when webhook is not found
     expect(response.status).toBe(404)
-
-    // Parse the response body
     const text = await response.text()
-    expect(text).toMatch(/not found/i) // Response should contain "not found" message
+    expect(text).toMatch(/not found/i)
   }, 10000)
 
   describe('Generic Webhook Authentication', () => {
@@ -294,12 +289,16 @@ describe('Webhook Trigger API Route', () => {
         Authorization: 'Bearer test-token-123',
       }
       const req = createMockRequest('POST', { event: 'bearer.test' }, headers)
+      Object.defineProperty(req, 'url', {
+        value: 'http://localhost:3000/api/webhooks/trigger/test-path?validationToken=collision',
+      })
       const params = Promise.resolve({ path: 'test-path' })
 
       const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
       const response = await POST(req, { params })
 
       expect(response.status).toBe(200)
+      expect(enqueuePendingExecutionMock).toHaveBeenCalledOnce()
     })
 
     /**
@@ -437,6 +436,9 @@ describe('Webhook Trigger API Route', () => {
         Authorization: 'Bearer wrong-token',
       }
       const req = createMockRequest('POST', { event: 'wrong.token.test' }, headers)
+      Object.defineProperty(req, 'url', {
+        value: 'http://localhost:3000/api/webhooks/trigger/test-path?validationToken=collision',
+      })
       const params = Promise.resolve({ path: 'test-path' })
 
       const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')

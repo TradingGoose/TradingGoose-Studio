@@ -1236,6 +1236,7 @@ export function verifyProviderWebhook(
 
 const AIRTABLE_POLL_STAGE_KEY = 'airtablePollStage'
 const AIRTABLE_POLL_PAGE_LIMIT = 10
+const AIRTABLE_POLL_RETRY_DELAYS_MS = [1_000, 30_000] as const
 
 type AirtablePollStage = {
   externalId: string
@@ -1248,6 +1249,21 @@ type AirtablePollStage = {
 export type AirtablePollResult = {
   input: Record<string, unknown> | undefined
   continuation: { externalId: string; cursor: number } | null
+}
+
+export class AirtableStageIntegrityError extends Error {}
+
+async function retryAirtablePoll<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      if (attempt >= AIRTABLE_POLL_RETRY_DELAYS_MS.length) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, AIRTABLE_POLL_RETRY_DELAYS_MS[attempt]))
+    }
+  }
 }
 
 export const getAirtableContinuationExecutionId = (
@@ -1271,7 +1287,7 @@ function parseAirtablePollStage(value: unknown): AirtablePollStage | null {
     (stage.cursor !== null && !Number.isInteger(stage.cursor)) ||
     typeof stage.mightHaveMore !== 'boolean'
   ) {
-    throw new Error('Invalid durable Airtable poll stage')
+    throw new AirtableStageIntegrityError('Invalid durable Airtable poll stage')
   }
   return stage as AirtablePollStage
 }
@@ -1281,10 +1297,7 @@ function getAirtablePollStage(payload: unknown) {
 }
 
 function getStageContinuation(stage: AirtablePollStage | null): AirtablePollResult['continuation'] {
-  return stage &&
-    stage.apiCallCount >= AIRTABLE_POLL_PAGE_LIMIT &&
-    stage.mightHaveMore &&
-    Number.isInteger(stage.cursor)
+  return stage?.mightHaveMore && Number.isInteger(stage.cursor)
     ? { externalId: stage.externalId, cursor: stage.cursor as number }
     : null
 }
@@ -1296,11 +1309,11 @@ export function getAirtablePollContinuation(executionPayload: unknown) {
 function assertAirtablePendingExecution(payload: unknown, webhookId: string, externalId: string) {
   const executionPayload = toJsonRecord(payload)
   if (executionPayload.webhookId !== webhookId || executionPayload.provider !== 'airtable') {
-    throw new Error('Airtable poll does not own this pending execution')
+    throw new AirtableStageIntegrityError('Airtable poll does not own this pending execution')
   }
   const stage = getAirtablePollStage(executionPayload)
   if (stage && stage.externalId !== externalId) {
-    throw new Error('Airtable poll stage belongs to a different subscription')
+    throw new AirtableStageIntegrityError('Airtable poll stage belongs to a different subscription')
   }
   return { executionPayload, stage }
 }
@@ -1321,7 +1334,7 @@ async function readAirtablePollStage(
       )
     )
     .limit(1)
-  if (!row) throw new Error('Airtable pending execution is not processing')
+  if (!row) throw new AirtableStageIntegrityError('Airtable pending execution is not processing')
   return assertAirtablePendingExecution(row.payload, webhookId, externalId).stage
 }
 
@@ -1347,7 +1360,8 @@ async function commitAirtablePollPage(params: {
       )
       .for('update')
       .limit(1)
-    if (!row) throw new Error('Airtable pending execution lost processing ownership')
+    if (!row)
+      throw new AirtableStageIntegrityError('Airtable pending execution lost processing ownership')
 
     const { executionPayload, stage: durableStage } = assertAirtablePendingExecution(
       row.payload,
@@ -1407,7 +1421,8 @@ async function commitAirtablePollPage(params: {
         )
       )
       .returning({ id: pendingExecution.id })
-    if (!updatedExecution) throw new Error('Failed to persist Airtable poll stage')
+    if (!updatedExecution)
+      throw new AirtableStageIntegrityError('Failed to persist Airtable poll stage')
     return { stage: nextStage, committed: true }
   })
 }
@@ -1515,60 +1530,77 @@ async function formatAirtableWebhookInput(
   const storedCursor = providerConfig.externalWebhookCursor
   let currentCursor = Number.isInteger(storedCursor) ? storedCursor : null
 
-  const accessToken = await getOAuthAccessTokenForStoredCredential({
-    credentialId,
-    workspaceId: workflowData.workspaceId,
-    requestId,
-  })
-  if (!accessToken) throw new Error('Airtable account connection required')
+  let accessToken: string | null | undefined
 
   while ((stage?.mightHaveMore ?? true) && (stage?.apiCallCount ?? 0) < AIRTABLE_POLL_PAGE_LIMIT) {
-    const queryParams = new URLSearchParams()
-    if (currentCursor !== null) queryParams.set('cursor', currentCursor.toString())
-    const response = await fetch(
-      `https://api.airtable.com/v0/bases/${baseId}/webhooks/${externalId}/payloads?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+    try {
+      accessToken ??= await getOAuthAccessTokenForStoredCredential({
+        credentialId,
+        workspaceId: workflowData.workspaceId,
+        requestId,
+      })
+      if (!accessToken) throw new Error('Airtable account connection required')
+
+      const queryParams = new URLSearchParams()
+      if (currentCursor !== null) queryParams.set('cursor', currentCursor.toString())
+      const { response, responseText } = await retryAirtablePoll(async () => {
+        const response = await fetch(
+          `https://api.airtable.com/v0/bases/${baseId}/webhooks/${externalId}/payloads?${queryParams.toString()}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        if (response.status === 429 || response.status >= 500) {
+          throw new Error(`Airtable API error ${response.status}`)
+        }
+        return { response, responseText: await response.text() }
+      })
+      let responseBody: Record<string, any>
+      try {
+        responseBody = toJsonRecord(JSON.parse(responseText))
+      } catch (error) {
+        throw new Error('Airtable payload response is malformed', { cause: error })
       }
-    )
-    const responseBody = toJsonRecord(await response.json())
-    if (!response.ok || responseBody.error) {
-      const detail =
-        toJsonRecord(responseBody.error).message ||
-        responseBody.error ||
-        `Airtable API error Status ${response.status}`
-      throw new Error(String(detail))
-    }
-    if (!Array.isArray(responseBody.payloads)) {
-      throw new Error('Airtable payload response is malformed')
-    }
-    const nextCursor = responseBody.cursor
-    if (!Number.isInteger(nextCursor)) {
-      throw new Error('Airtable payload response did not advance its cursor')
-    }
-    if (nextCursor === currentCursor) {
-      if (responseBody.payloads.length) {
-        throw new Error('Airtable payload response returned payloads without advancing its cursor')
+      if (!response.ok || responseBody.error) {
+        const detail =
+          toJsonRecord(responseBody.error).message ||
+          responseBody.error ||
+          `Airtable API error Status ${response.status}`
+        throw new Error(String(detail))
       }
+      if (!Array.isArray(responseBody.payloads) || !Number.isInteger(responseBody.cursor)) {
+        throw new Error('Airtable payload response is malformed')
+      }
+      const nextCursor = responseBody.cursor
+      if (nextCursor === currentCursor) {
+        if (responseBody.payloads.length) {
+          throw new Error('Airtable payload cursor did not advance')
+        }
+        break
+      }
+
+      const committed = await commitAirtablePollPage({
+        pendingExecutionId,
+        webhookId: webhookData.id,
+        externalId,
+        currentCursor,
+        nextCursor,
+        receivedPayloads: responseBody.payloads,
+        mightHaveMore: responseBody.mightHaveMore === true,
+      })
+      stage = committed.stage
+      if (!committed.committed) break
+      currentCursor = nextCursor
+    } catch (error) {
+      if (error instanceof AirtableStageIntegrityError) throw error
+      if (!stage?.payloads.length) throw error
+      logger.warn(`[${requestId}] Airtable polling stopped; executing durable payloads`, error)
       break
     }
-
-    const committed = await commitAirtablePollPage({
-      pendingExecutionId,
-      webhookId: webhookData.id,
-      externalId,
-      currentCursor,
-      nextCursor,
-      receivedPayloads: responseBody.payloads,
-      mightHaveMore: responseBody.mightHaveMore === true,
-    })
-    stage = committed.stage
-    if (!committed.committed) break
-    currentCursor = nextCursor
   }
 
   const durableStage =

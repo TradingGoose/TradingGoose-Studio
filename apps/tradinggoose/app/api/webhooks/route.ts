@@ -18,6 +18,7 @@ import {
   createAirtableWebhookSubscription,
   createTeamsSubscription,
   createWebflowWebhookSubscription,
+  generateMicrosoftTeamsChatCallbackPath,
   getAirtableDeclarativeProviderConfig,
   getAirtableWebhookCleanup,
   getAirtableWebhookLifecycle,
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
       provider === 'microsoftteams' &&
       typeof providerConfig === 'object' &&
       providerConfig?.triggerId === 'microsoftteams_chat_subscription'
+    if (isMicrosoftTeamsChatSubscription) finalPath = ''
     if (!finalPath || finalPath.trim() === '') {
       if (isCredentialBased || isMicrosoftTeamsChatSubscription) {
         if (blockId) {
@@ -175,7 +177,9 @@ export async function POST(request: NextRequest) {
           }
         }
         if (!finalPath || finalPath.trim() === '') {
-          finalPath = `${provider}-${crypto.randomUUID()}`
+          finalPath = isMicrosoftTeamsChatSubscription
+            ? generateMicrosoftTeamsChatCallbackPath()
+            : `${provider}-${crypto.randomUUID()}`
           logger.info(`[${requestId}] Generated webhook path for ${provider} trigger: ${finalPath}`)
         }
       } else {
