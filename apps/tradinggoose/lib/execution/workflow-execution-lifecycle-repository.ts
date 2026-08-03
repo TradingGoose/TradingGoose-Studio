@@ -88,9 +88,10 @@ async function createWorkflowStartupOperation(
 }
 
 function terminalWorkflowOperationObservation(incoming?: Record<string, unknown>) {
+  const observation = sql.param(incoming ?? {}, workflowExecutionOperation.observation)
   return sql`(
     coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-    || ${incoming ?? {}}::jsonb
+    || ${observation}::jsonb
   ) - '_credentialLease'`
 }
 
@@ -696,15 +697,19 @@ export async function completeWorkflowOperation(params: {
       .limit(1)
     if (!operation) return
     if (params.state === 'local_abort' && operation.capability !== 'local') {
+      const observation = sql.param(
+        {
+          ...params.observation,
+          outcome: 'local_abort_remote_settlement_unknown',
+        },
+        workflowExecutionOperation.observation
+      )
       const [requested] = await tx
         .update(workflowExecutionOperation)
         .set({
           state: 'cancel_requested',
           observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-            || ${{
-              ...params.observation,
-              outcome: 'local_abort_remote_settlement_unknown',
-            }}::jsonb`,
+            || ${observation}::jsonb`,
           nextReconcileAt: completedAt,
           updatedAt: completedAt,
         })
@@ -791,6 +796,9 @@ export async function publishWorkflowOperationIdentity(params: {
     }
     const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
     const observedAt = requireDatabaseDate(databaseClock?.now, 'operation identity timestamp')
+    const observation = params.observation
+      ? sql.param(params.observation, workflowExecutionOperation.observation)
+      : null
     if (operation?.participantId) {
       const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
         rootExecutionId: operation.rootExecutionId,
@@ -813,8 +821,8 @@ export async function publishWorkflowOperationIdentity(params: {
         adapterKind: params.adapterKind,
         capability: params.capability,
         remoteOperationId: params.remoteOperationId,
-        observation: params.observation
-          ? sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb) || ${params.observation}::jsonb`
+        observation: observation
+          ? sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb) || ${observation}::jsonb`
           : workflowExecutionOperation.observation,
         updatedAt: observedAt,
       })
@@ -868,6 +876,10 @@ export async function sealWorkflowOperationCredential(
     if (!operation || !['registered', 'running'].includes(operation.state)) return
     const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
     const observedAt = requireDatabaseDate(databaseClock?.now, 'operation credential timestamp')
+    const credential = sql.param(
+      { _credentialLease: encrypted },
+      workflowExecutionOperation.observation
+    )
     if (operation?.participantId) {
       const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
         rootExecutionId: operation.rootExecutionId,
@@ -888,7 +900,7 @@ export async function sealWorkflowOperationCredential(
       .update(workflowExecutionOperation)
       .set({
         observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-          || ${{ _credentialLease: encrypted }}::jsonb`,
+          || ${credential}::jsonb`,
         updatedAt: observedAt,
       })
       .where(
@@ -1676,6 +1688,8 @@ export async function recordWorkflowOperationObservation(params: {
     }
     const [databaseClock] = await tx.execute<{ now: unknown }>(sql`select clock_timestamp() as now`)
     const observedAt = requireDatabaseDate(databaseClock?.now, 'operation observation timestamp')
+    const observation = sql.param(params.observation ?? {}, workflowExecutionOperation.observation)
+    const nextReconcileAt = sql.param(observedAt, workflowExecutionOperation.nextReconcileAt)
     if (operation?.participantId) {
       const evidence = await transitionWorkflowExecutionParticipantInTransaction(tx, {
         rootExecutionId: operation.rootExecutionId,
@@ -1707,10 +1721,10 @@ export async function recordWorkflowOperationObservation(params: {
             }
           : {
               observation: sql`coalesce(${workflowExecutionOperation.observation}, '{}'::jsonb)
-                || ${params.observation ?? {}}::jsonb`,
+                || ${observation}::jsonb`,
               leaseExpiresAt: null,
               fencingToken: null,
-              nextReconcileAt: sql`${observedAt} + interval '10 seconds'`,
+              nextReconcileAt: sql`${nextReconcileAt}::timestamptz + interval '10 seconds'`,
               updatedAt: observedAt,
             }
       )

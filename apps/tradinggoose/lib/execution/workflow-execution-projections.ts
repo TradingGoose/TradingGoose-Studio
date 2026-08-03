@@ -155,7 +155,10 @@ export async function projectChildWorkflowExecution(params: {
         level: result.success ? 'info' : 'error',
         endedAt: sql`coalesce(${workflowExecutionLogs.endedAt}, clock_timestamp())`,
         executionData: sql`coalesce(${workflowExecutionLogs.executionData}, '{}'::jsonb)
-          || jsonb_build_object('canonicalResult', ${result}::jsonb)`,
+          || jsonb_build_object(
+            'canonicalResult',
+            ${sql.param(result, workflowExecutionLogs.executionData)}::jsonb
+          )`,
       })
       .where(eq(workflowExecutionLogs.executionId, params.pendingExecutionId))
     const [deleted] = await tx
