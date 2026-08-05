@@ -125,6 +125,7 @@ def test_sync_execution_preserves_workflow_deadline_diagnostic(mock_post):
     """Deadline failures retain their canonical code and immutable policy snapshot."""
     deadline = {
         "appliedTierId": "tier-pro",
+        "appliedTierName": "Pro",
         "limitSeconds": "300.5",
         "processingStartedAt": "2026-01-01T00:00:00.000Z",
         "terminatedAt": "2026-01-01T00:05:00.500Z",

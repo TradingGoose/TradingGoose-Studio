@@ -492,6 +492,7 @@ export const workflowExecutionTerminal = pgTable(
     state: workflowExecutionTerminalStateEnum('state').notNull().default('running'),
     dispatchOpen: boolean('dispatch_open').notNull().default(true),
     appliedTierId: text('applied_tier_id'),
+    appliedTierName: text('applied_tier_name'),
     limitSeconds: decimal('limit_seconds'),
     processingStartedAt: timestamp('processing_started_at', {
       withTimezone: true,
@@ -528,9 +529,9 @@ export const workflowExecutionTerminal = pgTable(
     policyShape: check(
       'workflow_execution_terminal_policy_shape_check',
       sql`(
-        (${table.policyState} = 'uncaptured' and ${table.appliedTierId} is null and ${table.processingStartedAt} is null and ${table.limitSeconds} is null)
-        or (${table.policyState} = 'unlimited' and ${table.appliedTierId} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} is null)
-        or (${table.policyState} = 'bounded' and ${table.appliedTierId} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} > 0 and ${table.limitSeconds} < 'Infinity'::numeric)
+        (${table.policyState} = 'uncaptured' and ${table.appliedTierId} is null and ${table.appliedTierName} is null and ${table.processingStartedAt} is null and ${table.limitSeconds} is null)
+        or (${table.policyState} = 'unlimited' and ${table.appliedTierId} is not null and ${table.appliedTierName} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} is null)
+        or (${table.policyState} = 'bounded' and ${table.appliedTierId} is not null and ${table.appliedTierName} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} > 0 and ${table.limitSeconds} < 'Infinity'::numeric)
       )`
     ),
     lifecycleShape: check(

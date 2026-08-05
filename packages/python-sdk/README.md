@@ -64,7 +64,7 @@ result = client.execute_workflow(
 
 Failed results may include `code`. A tier deadline uses
 `WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED` and includes `deadline` with the exact
-`appliedTierId`, configured decimal-string `limitSeconds`, `processingStartedAt`,
+`appliedTierId`, captured `appliedTierName`, configured decimal-string `limitSeconds`, `processingStartedAt`,
 and `terminatedAt` values.
 
 ##### get_workflow_status(workflow_id)

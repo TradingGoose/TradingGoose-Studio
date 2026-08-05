@@ -12,13 +12,13 @@ const {
   mockEnsureDefaultUserSubscription,
   mockEq,
   mockGetBilledOverageForSubscription,
-  mockGetResolvedBillingSettings,
   mockGetSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
   mockRequireStripeClient,
   mockResetUsageForSubscription,
   mockResetUserDefaultUsageToOnboardingAllowanceBalance,
+  mockSyncSubscriptionBillingTierFromStripeSubscription,
   mockSyncSubscriptionUsageLimits,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
@@ -32,13 +32,13 @@ const {
   mockEnsureDefaultUserSubscription: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
-  mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockRequireStripeClient: vi.fn(),
   mockResetUsageForSubscription: vi.fn(),
   mockResetUserDefaultUsageToOnboardingAllowanceBalance: vi.fn(),
+  mockSyncSubscriptionBillingTierFromStripeSubscription: vi.fn(),
   mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
 
@@ -77,12 +77,13 @@ vi.mock('@/lib/billing/core/subscription', () => ({
   getSubscriptionByStripeSubscriptionId: mockGetSubscriptionByStripeSubscriptionId,
 }))
 
-vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: mockGetResolvedBillingSettings,
-}))
-
 vi.mock('@/lib/billing/tiers', () => ({
   isPaidBillingTier: mockIsPaidBillingTier,
+}))
+
+vi.mock('@/lib/billing/tiers/persistence', () => ({
+  syncSubscriptionBillingTierFromStripeSubscription:
+    mockSyncSubscriptionBillingTierFromStripeSubscription,
 }))
 
 vi.mock('@/lib/billing/organization', () => ({
@@ -204,7 +205,6 @@ describe('handleSubscriptionCreated', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockRequireStripeClient.mockReturnValue({})
     mockIsPaidBillingTier.mockReturnValue(false)
   })
@@ -283,12 +283,12 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
-    mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     mockGetSubscriptionByStripeSubscriptionId.mockReset().mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionUsageLimits.mockResolvedValue(undefined)
     mockResetUserDefaultUsageToOnboardingAllowanceBalance.mockResolvedValue(undefined)
     mockResetUsageForSubscription.mockResolvedValue(undefined)
+    mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
   })
 
   it('settles a deleted Stripe PAYG subscription by Stripe subscription id before restoring default PAYG', async () => {
@@ -305,7 +305,7 @@ describe('handleStripeSubscriptionDeleted', () => {
 
     expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockEq).not.toHaveBeenCalledWith('subscription.id', 'metadata_is_not_identity')
-    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledTimes(1)
+    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledTimes(2)
     expect(mockCalculateSubscriptionOverage).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'sub_default_user-1',
@@ -349,7 +349,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(updateCalls).toEqual([])
   })
 
-  it('settles a nullable-tier subscription without provider tier re-resolution', async () => {
+  it('re-resolves the provider tier before settling a nullable-tier subscription', async () => {
     const stripeBackedSubscription = createDefaultSubscription({
       status: 'canceled',
       stripeSubscriptionId: 'sub_stripe_123',
@@ -361,7 +361,11 @@ describe('handleStripeSubscriptionDeleted', () => {
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
 
-    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledTimes(1)
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledWith(
+      stripeBackedSubscription.id,
+      expect.objectContaining({ id: 'sub_stripe_123' })
+    )
+    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledTimes(2)
     expect(updateCalls).toContainEqual(
       expect.objectContaining({
         status: 'canceled',

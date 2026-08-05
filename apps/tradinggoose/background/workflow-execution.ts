@@ -16,6 +16,7 @@ import {
   type WorkflowExecutionBlueprint,
   type WorkflowTriggerTarget,
 } from '@/lib/workflows/execution-runner'
+import type { ExecutionResult } from '@/executor/types'
 import type { TriggerType } from '@/services/queue'
 import { disableMonitor } from './monitor-disable'
 
@@ -41,6 +42,30 @@ export type WorkflowExecutionPayload = {
   selectedOutputs?: string[]
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
+  adapter?: WorkflowExecutionAdapter
+}
+
+export type WorkflowExecutionAdapter = {
+  prepare?: (context: {
+    executionId: string
+    requestId: string
+    signal?: AbortSignal
+  }) => Promise<
+    | Partial<Omit<WorkflowExecutionPayload, 'adapter' | 'workflowExecutionLifecycle'>>
+    | { skipResult: ExecutionResult }
+  >
+  complete?: (context: {
+    executionId: string
+    requestId: string
+    result: Awaited<ReturnType<typeof runWorkflowExecution>>['result']
+    signal?: AbortSignal
+  }) => Promise<void>
+  error?: (context: {
+    executionId: string
+    requestId: string
+    error: unknown
+    signal?: AbortSignal
+  }) => Promise<boolean | undefined>
 }
 
 function resolveWorkflowTriggerTargetType(triggerType: TriggerType): WorkflowTriggerTargetType {
@@ -72,25 +97,73 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     payload.workflowExecutionLifecycle,
     (error) => logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
   )
+  let effectivePayload = payload
+  let runnerInvoked = false
+  let authoritativeResult: ExecutionResult | null | undefined
   try {
     await deadlineRuntime.start()
     deadlineRuntime.signal?.throwIfAborted()
+    if (payload.adapter?.prepare) {
+      const preparation = await payload.adapter.prepare({
+        executionId,
+        requestId,
+        signal: deadlineRuntime.signal,
+      })
+      deadlineRuntime.signal?.throwIfAborted()
+      if ('skipResult' in preparation) {
+        await deadlineRuntime.settleStartup('completed')
+        if (payload.workflowExecutionLifecycle.isRoot) {
+          authoritativeResult = await finalizeWorkflowExecution({
+            rootExecutionId: payload.workflowExecutionLifecycle.policy.rootExecutionId,
+            attemptId: payload.workflowExecutionLifecycle.attemptId,
+            result: preparation.skipResult,
+          })
+        } else {
+          await completeWorkflowExecutionAttempt({
+            attemptId: payload.workflowExecutionLifecycle.attemptId,
+            result: preparation.skipResult,
+          })
+          authoritativeResult = preparation.skipResult
+        }
+        if (!authoritativeResult) {
+          throw new Error(`Workflow execution ${executionId} terminal reconciliation is pending`)
+        }
+        await payload.adapter.complete?.({
+          executionId,
+          requestId,
+          result: authoritativeResult,
+          signal: deadlineRuntime.signal,
+        })
+        return {
+          ...authoritativeResult,
+          workflowId,
+          executionId,
+          traceSpans: [],
+          executedAt: new Date().toISOString(),
+          metadata: {
+            ...(authoritativeResult.metadata ?? {}),
+            queuedExecution: payload.metadata,
+          },
+        }
+      }
+      effectivePayload = { ...payload, ...preparation }
+    }
     const eventWriter =
-      payload.stream === true
+      effectivePayload.stream === true
         ? await createWorkflowExecutionEventWriter({
             pendingExecutionId: executionId,
             workflowId,
           })
         : null
     deadlineRuntime.signal?.throwIfAborted()
-    const executionTarget = payload.executionTarget ?? 'deployed'
+    const executionTarget = effectivePayload.executionTarget ?? 'deployed'
     const isLiveExecution = executionTarget === 'live'
-    const isChildExecution = payload.metadata?.source === 'workflow_block'
-    const triggerType = payload.triggerType ?? 'manual'
-    const triggerTarget: WorkflowTriggerTarget = payload.triggerBlockId
+    const isChildExecution = effectivePayload.metadata?.source === 'workflow_block'
+    const triggerType = effectivePayload.triggerType ?? 'manual'
+    const triggerTarget: WorkflowTriggerTarget = effectivePayload.triggerBlockId
       ? {
           kind: 'block',
-          blockId: payload.triggerBlockId,
+          blockId: effectivePayload.triggerBlockId,
         }
       : {
           kind: 'trigger',
@@ -98,7 +171,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
         }
 
     logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
-      userId: payload.userId,
+      userId: effectivePayload.userId,
       triggerType,
       executionId,
     })
@@ -112,38 +185,42 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     deadlineRuntime.signal?.throwIfAborted()
 
     const triggerData =
-      payload.metadata === undefined
-        ? payload.triggerData
-        : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
+      effectivePayload.metadata === undefined
+        ? effectivePayload.triggerData
+        : {
+            ...(effectivePayload.triggerData ?? {}),
+            queuedExecution: effectivePayload.metadata,
+          }
+    runnerInvoked = true
     const { result, dispatchFailureReason } = await runWorkflowExecution({
       workflowId,
-      actorUserId: payload.userId,
+      actorUserId: effectivePayload.userId,
       requestId,
       executionId,
       lifecycle: payload.workflowExecutionLifecycle,
       deadlineRuntime,
       executionTarget,
       triggerType,
-      workflowInput: payload.input ?? {},
+      workflowInput: effectivePayload.input ?? {},
       workflowContext:
-        payload.workspaceId || (isLiveExecution && payload.workflowVariables)
+        effectivePayload.workspaceId || (isLiveExecution && effectivePayload.workflowVariables)
           ? {
-              workspaceId: payload.workspaceId,
-              variables: isLiveExecution ? payload.workflowVariables : undefined,
+              workspaceId: effectivePayload.workspaceId,
+              variables: isLiveExecution ? effectivePayload.workflowVariables : undefined,
             }
           : undefined,
-      workflowData: isLiveExecution ? payload.workflowData : undefined,
+      workflowData: isLiveExecution ? effectivePayload.workflowData : undefined,
       triggerTarget,
       triggerData,
       contextExtensions: {
-        workflowDepth: payload.workflowDepth ?? 0,
+        workflowDepth: effectivePayload.workflowDepth ?? 0,
         isChildExecution,
-        stream: payload.stream === true,
-        selectedOutputs: payload.selectedOutputs ?? [],
+        stream: effectivePayload.stream === true,
+        selectedOutputs: effectivePayload.selectedOutputs ?? [],
         workflowExecutionTimePolicy: isWorkflowExecutionTimePolicy(
-          payload.metadata?.workflowExecutionTimePolicy
+          effectivePayload.metadata?.workflowExecutionTimePolicy
         )
-          ? payload.metadata.workflowExecutionTimePolicy
+          ? effectivePayload.metadata.workflowExecutionTimePolicy
           : undefined,
         shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
         ...(eventWriter
@@ -155,7 +232,13 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
           : {}),
       },
     })
-    deadlineRuntime.signal?.throwIfAborted()
+    authoritativeResult = result
+    await effectivePayload.adapter?.complete?.({
+      executionId,
+      requestId,
+      result,
+      signal: deadlineRuntime.signal,
+    })
     if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
       const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
       if (typeof monitorId === 'string') {
@@ -173,7 +256,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     const queuedResult = {
       ...result,
       success: result.success,
-      workflowId: payload.workflowId,
+      workflowId: effectivePayload.workflowId,
       executionId,
       output: result.output,
       error: result.error,
@@ -181,7 +264,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       executedAt: new Date().toISOString(),
       metadata: {
         ...(result.metadata ?? {}),
-        queuedExecution: payload.metadata,
+        queuedExecution: effectivePayload.metadata,
       },
     }
 
@@ -193,25 +276,47 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
 
     return queuedResult
   } catch (error) {
+    if (authoritativeResult) throw error
+    const errorHandled = await effectivePayload.adapter?.error?.({
+      executionId,
+      requestId,
+      error,
+      signal: deadlineRuntime.signal,
+    })
     const deadlineAborted = deadlineRuntime.signal?.aborted === true
     await deadlineRuntime.settleStartup(deadlineAborted ? 'local_abort' : 'failed')
-    if (deadlineAborted) {
-      const result = {
+    if (!runnerInvoked) {
+      const proposedResult = {
         success: false,
         output: {},
         error: error instanceof Error ? error.message : String(error),
       }
-      if (payload.workflowExecutionLifecycle.isRoot) {
-        await finalizeWorkflowExecution({
-          rootExecutionId: payload.workflowExecutionLifecycle.policy.rootExecutionId,
-          attemptId: payload.workflowExecutionLifecycle.attemptId,
-          result,
+      if (effectivePayload.workflowExecutionLifecycle!.isRoot) {
+        authoritativeResult = await finalizeWorkflowExecution({
+          rootExecutionId: effectivePayload.workflowExecutionLifecycle!.policy.rootExecutionId,
+          attemptId: effectivePayload.workflowExecutionLifecycle!.attemptId,
+          result: proposedResult,
         })
       } else {
         await completeWorkflowExecutionAttempt({
-          attemptId: payload.workflowExecutionLifecycle.attemptId,
-          result,
+          attemptId: effectivePayload.workflowExecutionLifecycle!.attemptId,
+          result: proposedResult,
         })
+        authoritativeResult = proposedResult
+      }
+    }
+    if (errorHandled) {
+      if (!authoritativeResult) throw error
+      return {
+        ...authoritativeResult,
+        workflowId: effectivePayload.workflowId,
+        executionId,
+        traceSpans: [],
+        executedAt: new Date().toISOString(),
+        metadata: {
+          ...(authoritativeResult.metadata ?? {}),
+          queuedExecution: effectivePayload.metadata,
+        },
       }
     }
     throw error

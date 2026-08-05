@@ -12,9 +12,9 @@ import {
   resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
+import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
@@ -279,37 +279,79 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
 
+  let settlementError: unknown = null
+
+  try {
+    await syncSubscriptionBillingTierFromStripeSubscription(
+      resolvedSubscription.id,
+      stripeSubscription
+    )
+  } catch (error) {
+    settlementError = error
+    logger.error('Failed to sync billing tier for a cancelled subscription', {
+      subscriptionId: resolvedSubscription.id,
+      stripeSubscriptionId,
+      error,
+    })
+  }
+
+  const hydratedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+  if (!hydratedSubscription) {
+    throw new Error(
+      `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`
+    )
+  }
+
   const subscriptionToSettle = {
-    ...resolvedSubscription,
-    ...getStripeSubscriptionPeriod(stripeSubscription),
+    ...hydratedSubscription,
     stripeSubscriptionId,
     status: 'canceled',
-    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
   }
   let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
 
-  await handleSubscriptionDeleted(subscriptionToSettle)
+  if (settlementError) {
+    logger.error('Skipping final settlement because the billing tier could not be verified', {
+      subscriptionId: subscriptionToSettle.id,
+      referenceType: subscriptionToSettle.referenceType,
+      referenceId: subscriptionToSettle.referenceId,
+    })
+  } else {
+    try {
+      await handleSubscriptionDeleted(subscriptionToSettle)
+    } catch (error) {
+      settlementError = error
+      logger.error('Failed to settle a cancelled subscription; restoring entitlement anyway', {
+        subscriptionId: subscriptionToSettle.id,
+        referenceType: subscriptionToSettle.referenceType,
+        referenceId: subscriptionToSettle.referenceId,
+        error,
+      })
+    }
+  }
 
   if (subscriptionToSettle.referenceType === 'user') {
-    const { billingEnabled } = await getResolvedBillingSettings()
+    subscriptionForUsageLimits = await db.transaction(async (tx) => {
+      const nextSubscription = await ensureDefaultUserSubscription(
+        subscriptionToSettle.referenceId,
+        tx
+      )
 
-    if (billingEnabled) {
-      subscriptionForUsageLimits = await db.transaction(async (tx) => {
-        const nextSubscription = await ensureDefaultUserSubscription(
+      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+        await resetUserDefaultUsageToOnboardingAllowanceBalance(
           subscriptionToSettle.referenceId,
           tx
         )
+      }
 
-        if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-          await resetUserDefaultUsageToOnboardingAllowanceBalance(
-            subscriptionToSettle.referenceId,
-            tx
-          )
-        }
+      if (settlementError) {
+        await tx
+          .update(subscription)
+          .set({ stripeSubscriptionId })
+          .where(eq(subscription.id, nextSubscription.id))
+      }
 
-        return nextSubscription
-      })
-    }
+      return nextSubscription
+    })
   }
 
   await syncSubscriptionUsageLimits(subscriptionForUsageLimits)
@@ -320,5 +362,10 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     referenceType: subscriptionToSettle.referenceType,
     referenceId: subscriptionToSettle.referenceId,
     stripeSubscriptionId,
+    settlementFailed: Boolean(settlementError),
   })
+
+  if (settlementError) {
+    throw settlementError
+  }
 }

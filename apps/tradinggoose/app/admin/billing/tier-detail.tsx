@@ -229,8 +229,8 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
           <EmptyStateCard
             title={copy.tierDetail.notFoundTitle}
             description={copy.tierDetail.notFoundDescription}
-            buttonText={copy.tierDetail.notFoundButton}
-            onClick={() => router.push('/admin/billing')}
+            actionLabel={copy.tierDetail.notFoundButton}
+            onAction={() => router.push('/admin/billing')}
             icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
           />
         ) : null}

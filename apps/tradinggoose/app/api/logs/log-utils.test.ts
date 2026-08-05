@@ -142,6 +142,7 @@ describe('serializeWorkflowLog executionData', () => {
       logs: [{ output: { token: 'do-not-expose' } }],
       deadline: {
         appliedTierId: 'tier-1',
+        appliedTierName: 'Tier 1',
         limitSeconds: '10',
         processingStartedAt: '2026-05-05T00:00:00.000Z',
         terminatedAt: '2026-05-05T00:00:10.000Z',
@@ -157,6 +158,7 @@ describe('serializeWorkflowLog executionData', () => {
       code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
       deadline: {
         appliedTierId: 'tier-1',
+        appliedTierName: 'Tier 1',
         limitSeconds: '10',
         processingStartedAt: '2026-05-05T00:00:00.000Z',
         terminatedAt: '2026-05-05T00:00:10.000Z',

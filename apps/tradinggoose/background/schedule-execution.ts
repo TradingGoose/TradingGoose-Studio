@@ -1,13 +1,8 @@
 import { db, workflow, workflowSchedule } from '@tradinggoose/db'
 import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
-import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import {
-  finalizeWorkflowExecution,
-  type WorkflowExecutionLifecycle,
-} from '@/lib/execution/workflow-execution-lifecycle-repository'
-import { createWorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
+import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -19,9 +14,9 @@ import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import {
   loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
   WorkflowUsageLimitError,
 } from '@/lib/workflows/execution-runner'
+import { executeWorkflowJob } from './workflow-execution'
 
 const logger = createLogger('TriggerScheduleExecution')
 
@@ -128,26 +123,14 @@ async function resolveFallbackNextRunAt(params: {
 }
 
 export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
-  const executionId = payload.executionId ?? uuidv4()
+  const executionId = payload.executionId
+  if (!executionId) throw new Error('Schedule workflow execution requires an executionId')
   const requestId = executionId.slice(0, 8)
   if (!payload.workflowExecutionLifecycle) {
     throw new Error(`Schedule workflow execution ${executionId} is missing its claimed lifecycle`)
   }
-  const lifecycle = payload.workflowExecutionLifecycle
-  const deadlineRuntime = createWorkflowExecutionRuntime(lifecycle, (error) =>
-    logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
-  )
   const now = new Date(payload.now)
-  let runnerInvoked = false
-  let runnerRejected = false
-  const settlePreparationFailure = async (message: string) => {
-    await deadlineRuntime.settleStartup(deadlineRuntime.signal?.aborted ? 'local_abort' : 'failed')
-    await finalizeWorkflowExecution({
-      rootExecutionId: lifecycle.policy.rootExecutionId,
-      attemptId: lifecycle.attemptId,
-      result: { success: false, output: {}, error: message },
-    })
-  }
+  let scheduleBlocks: Record<string, BlockState> | undefined
 
   logger.info(`[${requestId}] Starting schedule execution`, {
     scheduleId: payload.scheduleId,
@@ -176,175 +159,112 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     }
   }
 
-  try {
-    await deadlineRuntime.start()
-    deadlineRuntime.signal?.throwIfAborted()
-    const [workflowRecord] = await db
-      .select()
-      .from(workflow)
-      .where(eq(workflow.id, payload.workflowId))
-      .limit(1)
-    deadlineRuntime.signal?.throwIfAborted()
-
-    if (!workflowRecord) {
-      logger.warn(`[${requestId}] Workflow ${payload.workflowId} not found`)
-      await settlePreparationFailure(`Workflow ${payload.workflowId} not found`)
-      return
-    }
-
-    if (!workflowRecord.workspaceId) {
-      logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
-      await settlePreparationFailure(`Workflow ${payload.workflowId} is missing workspaceId`)
-      return
-    }
-
-    const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
-    deadlineRuntime.signal?.throwIfAborted()
-
-    if (!actorUserId) {
-      logger.warn(
-        `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`
-      )
-      await settlePreparationFailure('Pinned API key is required to attribute schedule usage')
-      return
-    }
-
-    const blueprint = await loadWorkflowExecutionBlueprint({
-      workflowId: payload.workflowId,
-      workflowContext: workflowRecord,
-      executionTarget: 'deployed',
-    })
-    deadlineRuntime.signal?.throwIfAborted()
-    const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
-
-    if (!scheduleBlocks[payload.blockId]) {
-      logger.warn(
-        `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
-      )
-      deadlineRuntime.signal?.throwIfAborted()
-      await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
-      await settlePreparationFailure(`Schedule trigger block ${payload.blockId} was not found`)
-      return
-    }
-
-    runnerInvoked = true
-    deadlineRuntime.signal?.throwIfAborted()
-    const { result } = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId,
-      requestId,
-      executionId,
-      lifecycle,
-      deadlineRuntime,
-      triggerType: 'schedule',
-      workflowInput: {
-        _context: {
-          workflowId: payload.workflowId,
-        },
-      },
-      triggerTarget: {
-        kind: 'block',
-        blockId: payload.blockId,
-      },
-    }).catch((error) => {
-      runnerRejected = true
-      throw error
-    })
-    deadlineRuntime.signal?.throwIfAborted()
-
-    if (result.success) {
-      logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
-
-      const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
-
-      await updateScheduleNextRun({
-        scheduleId: payload.scheduleId,
-        now,
-        nextRunAt,
-        lastRanAt: now,
-        failedCount: 0,
-      })
-
-      return
-    }
-
-    logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
-
-    const newFailedCount = (payload.failedCount || 0) + 1
-    const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-    const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
-
-    if (shouldDisable) {
-      logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
-      )
-    }
-
-    await updateScheduleNextRun({
-      scheduleId: payload.scheduleId,
-      now,
-      nextRunAt,
-      failedCount: newFailedCount,
-      lastFailedAt: now,
-      status: shouldDisable ? 'disabled' : 'active',
-    })
-  } catch (error: any) {
-    if (deadlineRuntime.signal?.aborted) {
-      if (!runnerInvoked)
-        await settlePreparationFailure(error.message || 'Workflow deadline reached')
-      throw error
-    }
-    if (runnerRejected) throw error
-    if (error instanceof WorkflowUsageLimitError) {
-      logger.warn(
-        `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
-        {
-          workflowId: payload.workflowId,
-          message: error.message,
+  return executeWorkflowJob({
+    workflowId: payload.workflowId,
+    userId: '',
+    executionId,
+    drainRunId: payload.drainRunId,
+    workflowExecutionLifecycle: payload.workflowExecutionLifecycle,
+    triggerType: 'schedule',
+    triggerBlockId: payload.blockId,
+    input: { _context: { workflowId: payload.workflowId } },
+    adapter: {
+      prepare: async ({ signal }) => {
+        signal?.throwIfAborted()
+        const [workflowRecord] = await db
+          .select()
+          .from(workflow)
+          .where(eq(workflow.id, payload.workflowId))
+          .limit(1)
+        signal?.throwIfAborted()
+        if (!workflowRecord) throw new Error(`Workflow ${payload.workflowId} not found`)
+        if (!workflowRecord.workspaceId) {
+          throw new Error(`Workflow ${payload.workflowId} is missing workspaceId`)
         }
-      )
-      await rescheduleSkippedExecution()
-      if (!runnerInvoked) await settlePreparationFailure(error.message)
-      return
-    }
+        const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
+        signal?.throwIfAborted()
+        if (!actorUserId) {
+          throw new Error('Pinned API key is required to attribute schedule usage')
+        }
+        const blueprint = await loadWorkflowExecutionBlueprint({
+          workflowId: payload.workflowId,
+          workflowContext: workflowRecord,
+          executionTarget: 'deployed',
+        })
+        signal?.throwIfAborted()
+        scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
+        if (!scheduleBlocks[payload.blockId]) {
+          await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
+          throw new Error(`Schedule trigger block ${payload.blockId} was not found`)
+        }
+        return { userId: actorUserId, workspaceId: workflowRecord.workspaceId }
+      },
+      complete: async ({ result }) => {
+        if (!scheduleBlocks) throw new Error('Schedule execution preparation was not completed')
+        if (result.success) {
+          logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
+          const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
+          await updateScheduleNextRun({
+            scheduleId: payload.scheduleId,
+            now,
+            nextRunAt,
+            lastRanAt: now,
+            failedCount: 0,
+          })
 
-    logger.error(`[${requestId}] Error executing scheduled workflow ${payload.workflowId}`, error)
-
-    const [workflowRecord] = await db
-      .select()
-      .from(workflow)
-      .where(eq(workflow.id, payload.workflowId))
-      .limit(1)
-
-    const nextRunAt = await resolveFallbackNextRunAt({
-      payload,
-      workflowIsDeployed: workflowRecord?.isDeployed,
-      now,
-    })
-
-    const newFailedCount = (payload.failedCount || 0) + 1
-    const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-
-    if (shouldDisable) {
-      logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
-      )
-    }
-
-    await updateScheduleNextRun({
-      scheduleId: payload.scheduleId,
-      now,
-      nextRunAt,
-      failedCount: newFailedCount,
-      lastFailedAt: now,
-      status: shouldDisable ? 'disabled' : 'active',
-    })
-    if (!runnerInvoked) {
-      await settlePreparationFailure(
-        error instanceof Error ? error.message : 'Scheduled workflow preparation failed'
-      )
-    }
-  } finally {
-    deadlineRuntime.close()
-  }
+          return
+        }
+        const newFailedCount = (payload.failedCount || 0) + 1
+        const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
+        const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
+        await updateScheduleNextRun({
+          scheduleId: payload.scheduleId,
+          now,
+          nextRunAt,
+          failedCount: newFailedCount,
+          lastFailedAt: now,
+          status: shouldDisable ? 'disabled' : 'active',
+        })
+      },
+      error: async ({ error, signal }) => {
+        if (signal?.aborted) return false
+        if (error instanceof WorkflowUsageLimitError) {
+          logger.warn(
+            `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
+            {
+              workflowId: payload.workflowId,
+              message: error.message,
+            }
+          )
+          await rescheduleSkippedExecution()
+          return true
+        }
+        logger.error(
+          `[${requestId}] Error executing scheduled workflow ${payload.workflowId}`,
+          error
+        )
+        const [workflowRecord] = await db
+          .select()
+          .from(workflow)
+          .where(eq(workflow.id, payload.workflowId))
+          .limit(1)
+        const nextRunAt = await resolveFallbackNextRunAt({
+          payload,
+          workflowIsDeployed: workflowRecord?.isDeployed,
+          now,
+        })
+        const newFailedCount = (payload.failedCount || 0) + 1
+        const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
+        await updateScheduleNextRun({
+          scheduleId: payload.scheduleId,
+          now,
+          nextRunAt,
+          failedCount: newFailedCount,
+          lastFailedAt: now,
+          status: shouldDisable ? 'disabled' : 'active',
+        })
+        return true
+      },
+    },
+  })
 }

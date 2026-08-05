@@ -18,20 +18,21 @@ export const workflowExecutionProject = task({
     const { rootExecutionId, kind, version } = claim
     const payload = claim.payload
     try {
-      const projected = kind.startsWith('child_pending:')
-        ? await projectChildWorkflowExecution({
-            rootExecutionId,
-            ...(payload as {
-              pendingExecutionId: string
-              attemptId: string
-              result: ExecutionResult
-            }),
-          })
-        : await projectWorkflowExecutionTerminal(
-            rootExecutionId,
-            version,
-            kind as WorkflowExecutionProjectionKind
-          )
+      const projected =
+        kind.startsWith('child_pending:') || kind.startsWith('child_terminal:')
+          ? await projectChildWorkflowExecution({
+              rootExecutionId,
+              ...(payload as {
+                pendingExecutionId: string
+                attemptId: string
+                result: ExecutionResult
+              }),
+            })
+          : await projectWorkflowExecutionTerminal(
+              rootExecutionId,
+              version,
+              kind as WorkflowExecutionProjectionKind
+            )
       if (!projected) throw new Error('Workflow projection is not ready')
       await completeWorkflowExecutionOutbox(claim)
       return { projected: true }

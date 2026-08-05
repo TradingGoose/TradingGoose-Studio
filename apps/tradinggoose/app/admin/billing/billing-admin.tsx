@@ -626,8 +626,8 @@ export function AdminBilling() {
                 <EmptyStateCard
                   title={copy.overview.emptyTitle}
                   description={copy.overview.emptyDescription}
-                  buttonText={copy.overview.emptyButton}
-                  onClick={() => router.push('/admin/billing/create')}
+                  actionLabel={copy.overview.emptyButton}
+                  onAction={() => router.push('/admin/billing/create')}
                   icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
                 />
               ) : filteredTiers.length === 0 ? (

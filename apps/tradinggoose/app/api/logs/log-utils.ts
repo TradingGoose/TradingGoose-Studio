@@ -2,7 +2,11 @@ import {
   isWorkflowDeadlineMetadata,
   WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
 } from '@/lib/execution/workflow-execution-time-policy'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  type ListingIdentity,
+  ListingIdentitySchema,
+} from '@/lib/listing/identity'
 import { splitQueryParamValues } from '@/lib/logs/query-parser'
 import type {
   TraceSpan,
@@ -21,12 +25,13 @@ const readWorkflowDeadlineResult = (value: unknown): WorkflowDeadlineLogResult |
   if (value.code !== WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED) return undefined
   const error = normalizeOptionalString(value.error)
   if (!error || !isWorkflowDeadlineMetadata(value.deadline)) return undefined
-  const { appliedTierId, limitSeconds, processingStartedAt, terminatedAt } = value.deadline
+  const { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt } =
+    value.deadline
   return {
     success: false,
     error,
     code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
-    deadline: { appliedTierId, limitSeconds, processingStartedAt, terminatedAt },
+    deadline: { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt },
   }
 }
 
@@ -37,14 +42,7 @@ const MONITOR_FIELDS = [
   'accountId',
   'interval',
   'indicatorId',
-] as const
-const MONITOR_LISTING_FIELDS = [
-  'listing_type',
-  'listing_id',
-  'base_id',
-  'quote_id',
-  'assetClass',
-  'base_asset_class',
+  'assetType',
 ] as const
 
 const pickStringFields = (record: Record<string, unknown>, fields: readonly string[]) =>
@@ -67,7 +65,8 @@ export const parseListingFilter = (
 
   try {
     const parsed = JSON.parse(normalized)
-    return toListingValueObject(parsed)
+    const listing = ListingIdentitySchema.safeParse(parsed)
+    return listing.success ? listing.data : null
   } catch {
     return null
   }
@@ -87,9 +86,9 @@ export const parseListingFilters = (
 
     const listings: ListingIdentity[] = []
     for (const entry of parsed) {
-      const listing = toListingValueObject(entry)
-      if (!listing) return null
-      listings.push(listing)
+      const listing = ListingIdentitySchema.safeParse(entry)
+      if (!listing.success) return null
+      listings.push(listing.data)
     }
 
     return listings
@@ -109,12 +108,10 @@ const toPublicMonitorTrigger = (storedExecutionData: Record<string, unknown>) =>
   if (!isRecord(data) || !isRecord(data.monitor)) return undefined
 
   const monitor: Record<string, unknown> = pickStringFields(data.monitor, MONITOR_FIELDS)
-  const listing = isRecord(data.monitor.listing)
-    ? pickStringFields(data.monitor.listing, MONITOR_LISTING_FIELDS)
-    : undefined
+  const listing = ListingIdentitySchema.safeParse(data.monitor.listing)
 
-  if (listing && Object.keys(listing).length > 0) {
-    monitor.listing = listing
+  if (listing.success) {
+    monitor.listing = listing.data
   }
 
   if (Object.keys(monitor).length === 0) {
@@ -374,29 +371,11 @@ export const serializeWorkflowLog = (row: RawLogRow, details: 'basic' | 'full'):
   }
 }
 
-const compareListingIdentity = (
-  left: ListingIdentity | null | undefined,
-  right: ListingIdentity
-) => {
-  const normalizedLeft = toListingValueObject(left ?? null)
-  const normalizedRight = toListingValueObject(right)
+const compareListingIdentity = (left: ListingIdentity | null | undefined, right: ListingIdentity) =>
+  areListingIdentitiesEqual(left, right)
 
-  if (!normalizedLeft || !normalizedRight) {
-    return false
-  }
-
-  return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight)
-}
-
-const toMonitorAssetType = (snapshot: any) => {
-  const value =
-    normalizeOptionalString(snapshot?.listing?.assetClass) ??
-    normalizeOptionalString(snapshot?.listing?.base_asset_class) ??
-    normalizeOptionalString(snapshot?.listing?.listing_type) ??
-    'unknown'
-
-  return value.toLowerCase()
-}
+const toMonitorAssetType = (snapshot: any) =>
+  normalizeOptionalString(snapshot?.assetType)?.toLowerCase() ?? 'unknown'
 
 const matchesValueList = (value: string | null | undefined, list: string[]) => {
   if (!value) return false

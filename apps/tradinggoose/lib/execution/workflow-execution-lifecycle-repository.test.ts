@@ -65,6 +65,7 @@ vi.mock('./workflow-execution-deadline-repository', () => ({
 }))
 
 import {
+  admitNestedWorkflowExecutionInTransaction,
   cancelWorkflowExecutionAtomically,
   completeWorkflowExecutionAttempt,
   completeWorkflowOperation,
@@ -111,6 +112,61 @@ describe('workflow lifecycle raw database clocks', () => {
         select: mocks.select,
       })
     )
+  })
+
+  it('rejects a nested policy whose captured tier name differs from the durable root', async () => {
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: null,
+          remoteOperationId: null,
+          rootExecutionId: 'root-1',
+          state: 'registered',
+        },
+      ],
+      [{ id: 'attempt-1' }],
+      [{ id: 'attempt-1' }],
+      [
+        {
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Renamed tier',
+          dispatchOpen: true,
+          policyState: 'unlimited',
+          processingStartedAt: new Date('2026-01-01T00:00:00.000Z'),
+          state: 'running',
+        },
+      ],
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: null,
+          remoteOperationId: null,
+          rootExecutionId: 'root-1',
+          state: 'registered',
+        },
+      ],
+    ]
+    const update = vi.fn()
+    const tx = {
+      select: mocks.select,
+      update,
+    } as unknown as Parameters<typeof admitNestedWorkflowExecutionInTransaction>[0]
+
+    await expect(
+      admitNestedWorkflowExecutionInTransaction(tx, {
+        operationId: 'operation-1',
+        pendingExecutionId: 'pending-1',
+        policy: {
+          kind: 'unlimited',
+          rootExecutionId: 'root-1',
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Original tier',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+        },
+      })
+    ).rejects.toThrow('Nested workflow admission is closed')
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('normalizes the durable cancellation-request clock before mutation', async () => {

@@ -44,12 +44,14 @@ export type WorkflowExecutionTimePolicy =
       kind: 'unlimited'
       rootExecutionId: string
       appliedTierId: string
+      appliedTierName: string
       processingStartedAt: string
     }
   | {
       kind: 'bounded'
       rootExecutionId: string
       appliedTierId: string
+      appliedTierName: string
       processingStartedAt: string
       limitSeconds: string
       limitMicroseconds: string
@@ -67,11 +69,14 @@ export function isWorkflowExecutionTimePolicy(
     return false
   }
   if (candidate.kind === 'unlimited') {
-    return typeof candidate.appliedTierId === 'string'
+    return (
+      typeof candidate.appliedTierId === 'string' && typeof candidate.appliedTierName === 'string'
+    )
   }
   return (
     candidate.kind === 'bounded' &&
     typeof candidate.appliedTierId === 'string' &&
+    typeof candidate.appliedTierName === 'string' &&
     typeof candidate.limitSeconds === 'string' &&
     typeof candidate.limitMicroseconds === 'string'
   )
@@ -89,6 +94,7 @@ export function createWorkflowExecutionTimePolicy(params: {
       kind: 'unlimited',
       rootExecutionId: params.rootExecutionId,
       appliedTierId: tier.id,
+      appliedTierName: tier.displayName,
       processingStartedAt: params.processingStartedAt,
     }
   }
@@ -97,6 +103,7 @@ export function createWorkflowExecutionTimePolicy(params: {
     kind: 'bounded',
     rootExecutionId: params.rootExecutionId,
     appliedTierId: tier.id,
+    appliedTierName: tier.displayName,
     processingStartedAt: params.processingStartedAt,
     limitSeconds,
     limitMicroseconds: secondsToCeilMicroseconds(limitSeconds),
@@ -105,6 +112,7 @@ export function createWorkflowExecutionTimePolicy(params: {
 
 export type WorkflowDeadlineMetadata = {
   appliedTierId: string
+  appliedTierName: string
   limitSeconds: string
   processingStartedAt: string
   terminatedAt: string
@@ -115,6 +123,7 @@ export function isWorkflowDeadlineMetadata(value: unknown): value is WorkflowDea
   const candidate = value as Record<string, unknown>
   return [
     candidate.appliedTierId,
+    candidate.appliedTierName,
     candidate.limitSeconds,
     candidate.processingStartedAt,
     candidate.terminatedAt,
@@ -135,6 +144,7 @@ export function createWorkflowDeadlineResult(params: {
     logs: params.logs ?? [],
     deadline: {
       appliedTierId: params.policy.appliedTierId,
+      appliedTierName: params.policy.appliedTierName,
       limitSeconds: params.policy.limitSeconds,
       processingStartedAt: params.policy.processingStartedAt,
       terminatedAt: params.terminatedAt,

@@ -12,6 +12,7 @@ export interface WorkflowExecutionResult {
   code?: string
   deadline?: {
     appliedTierId: string
+    appliedTierName: string
     limitSeconds: string
     processingStartedAt: string
     terminatedAt: string

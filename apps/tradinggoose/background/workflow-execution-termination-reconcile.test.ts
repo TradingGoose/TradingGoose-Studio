@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   attempts: vi.fn(),
   retrieve: vi.fn(),
-  refreshAttempt: vi.fn(),
+  cancelRun: vi.fn(),
   infrastructure: vi.fn(),
   terminalAttempt: vi.fn(),
   decrypt: vi.fn(),
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@trigger.dev/sdk', () => ({
   task: (configuration: unknown) => configuration,
-  runs: { retrieve: mocks.retrieve },
+  runs: { cancel: mocks.cancelRun, retrieve: mocks.retrieve },
 }))
 
 vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
@@ -30,10 +30,6 @@ vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
   recordWorkflowOperationObservation: mocks.observe,
   reconcileWorkflowDeadlineTermination: mocks.arbitrate,
   scheduleWorkflowTerminationReconcile: mocks.schedule,
-}))
-
-vi.mock('@/lib/execution/workflow-execution-deadline-repository', () => ({
-  refreshWorkflowExecutionAttemptParticipant: mocks.refreshAttempt,
 }))
 
 vi.mock('@/lib/utils-server', () => ({
@@ -49,6 +45,7 @@ describe('reconcileWorkflowTermination', () => {
     mocks.arbitrate.mockResolvedValue(null)
     mocks.schedule.mockResolvedValue(undefined)
     mocks.attempts.mockResolvedValue([])
+    mocks.cancelRun.mockResolvedValue({ id: 'run-1' })
     mocks.decrypt.mockResolvedValue({ decrypted: 'secret-key' })
   })
 
@@ -212,6 +209,37 @@ describe('reconcileWorkflowTermination', () => {
     expect(mocks.infrastructure.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.arbitrate.mock.invocationCallOrder[0]
     )
+  })
+
+  it('requests cancellation for an active Trigger attempt without crossing the barrier', async () => {
+    mocks.attempts.mockResolvedValue([
+      { id: 'attempt-1', rootExecutionId: 'root-1', drainRunId: 'run-1' },
+    ])
+    mocks.retrieve.mockResolvedValue({ id: 'run-1', status: 'EXECUTING' })
+    mocks.claim.mockResolvedValue([])
+
+    await reconcileWorkflowTermination('root-1')
+
+    expect(mocks.cancelRun).toHaveBeenCalledWith('run-1')
+    expect(mocks.terminalAttempt).not.toHaveBeenCalled()
+    expect(mocks.cancelRun.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.arbitrate.mock.invocationCallOrder[0]
+    )
+    expect(mocks.schedule).toHaveBeenCalledWith('root-1', false)
+  })
+
+  it('keeps a Trigger attempt unresolved when its cancellation request fails', async () => {
+    mocks.attempts.mockResolvedValue([
+      { id: 'attempt-1', rootExecutionId: 'root-1', drainRunId: 'run-1' },
+    ])
+    mocks.retrieve.mockResolvedValue({ id: 'run-1', status: 'EXECUTING' })
+    mocks.cancelRun.mockRejectedValue(new Error('Trigger unavailable'))
+    mocks.claim.mockResolvedValue([])
+
+    await reconcileWorkflowTermination('root-1')
+
+    expect(mocks.terminalAttempt).not.toHaveBeenCalled()
+    expect(mocks.schedule).toHaveBeenCalledWith('root-1', false)
   })
 
   it.each(['COMPLETED', 'CANCELED'] as const)(

@@ -595,10 +595,6 @@ async function executeToolCore(
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
       options?.signal?.throwIfAborted()
-      if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
-        options.signal?.throwIfAborted()
-        throw new Error('Tool dispatch is closed')
-      }
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams, options)
 

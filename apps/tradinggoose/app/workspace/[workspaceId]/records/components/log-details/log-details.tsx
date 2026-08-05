@@ -302,7 +302,7 @@ export function LogDetails({
                       {t('deadline.limit', { seconds: deadlineResult.deadline.limitSeconds })}
                     </span>
                     <span className='break-all text-muted-foreground'>
-                      {t('deadline.tier', { tierId: deadlineResult.deadline.appliedTierId })}
+                      {t('deadline.tier', { tierName: deadlineResult.deadline.appliedTierName })}
                     </span>
                   </div>
                 </div>

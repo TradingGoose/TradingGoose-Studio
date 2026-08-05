@@ -45,6 +45,7 @@ describe('WorkflowBlockHandler', () => {
         kind: 'unlimited',
         rootExecutionId: 'execution-1',
         appliedTierId: 'tier-1',
+        appliedTierName: 'Tier 1',
         processingStartedAt: '2026-01-01T00:00:00.000Z',
       },
       workflowDepth: 0,

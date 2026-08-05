@@ -841,46 +841,48 @@ function TierFormSection({
   return (
     <section id={`tier-section-${sectionId}`} className='border-border/60 border-b last:border-b-0'>
       <Collapsible open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild>
-          <Button
-            type='button'
-            variant='ghost'
-            className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
-          >
-            <div className='min-w-0 flex-1 space-y-1'>
-              <div className='flex flex-wrap items-center gap-2'>
-                <span className='font-medium text-sm'>{title}</span>
-                <Badge
-                  variant='outline'
-                  className={cn(
-                    ADMIN_STATUS_BADGE_CLASSNAME,
-                    TIER_SECTION_STATUS_BADGE_CLASSNAME[summary.status]
-                  )}
-                >
-                  {summary.status === 'ready'
-                    ? statusLabels.ready
-                    : summary.status === 'review'
-                      ? statusLabels.review
-                      : statusLabels.optional}
-                </Badge>
-              </div>
-              <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
-                {summary.preview}
+        <CollapsibleTrigger
+          render={
+            <Button
+              type='button'
+              variant='ghost'
+              className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
+            />
+          }
+        >
+          <div className='min-w-0 flex-1 space-y-1'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <span className='font-medium text-sm'>{title}</span>
+              <Badge
+                variant='outline'
+                className={cn(
+                  ADMIN_STATUS_BADGE_CLASSNAME,
+                  TIER_SECTION_STATUS_BADGE_CLASSNAME[summary.status]
+                )}
+              >
+                {summary.status === 'ready'
+                  ? statusLabels.ready
+                  : summary.status === 'review'
+                    ? statusLabels.review
+                    : statusLabels.optional}
+              </Badge>
+            </div>
+            <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
+              {summary.preview}
+            </p>
+            {summary.missing ? (
+              <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
+                {summary.missing}
               </p>
-              {summary.missing ? (
-                <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
-                  {summary.missing}
-                </p>
-              ) : null}
-            </div>
-            <div className='flex items-center pt-0.5'>
-              {open ? (
-                <ChevronDown className='h-4 w-4 text-muted-foreground' />
-              ) : (
-                <ChevronRight className='h-4 w-4 text-muted-foreground' />
-              )}
-            </div>
-          </Button>
+            ) : null}
+          </div>
+          <div className='flex items-center pt-0.5'>
+            {open ? (
+              <ChevronDown className='h-4 w-4 text-muted-foreground' />
+            ) : (
+              <ChevronRight className='h-4 w-4 text-muted-foreground' />
+            )}
+          </div>
         </CollapsibleTrigger>
         <CollapsibleContent className='border-border/60 border-t bg-muted/10 px-4 py-4 sm:px-5'>
           {children}
@@ -917,14 +919,19 @@ function SelectField({
 }) {
   const selectProps =
     value !== undefined
-      ? { value, onValueChange }
+      ? {
+          value,
+          onValueChange: (nextValue: string | null | undefined) => {
+            if (nextValue != null) onValueChange?.(nextValue)
+          },
+        }
       : {
           defaultValue,
         }
 
   return (
     <FieldShell id={id} label={label} hint={hint} className={className}>
-      <Select name={name} disabled={disabled} {...selectProps}>
+      <Select name={name} disabled={disabled} items={options} {...selectProps}>
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue />
         </SelectTrigger>
@@ -1417,40 +1424,42 @@ function TierFormFields({
                   {copy.editor.limits.throughputDescription}
                 </p>
               </div>
-              <FieldShell
-                id='concurrencyLimit'
-                label={copy.editor.limits.concurrencyLimit}
-                hint={copy.editor.limits.concurrencyLimitHint}
-                nullable
-                blankHint={copy.editor.limits.concurrencyLimitBlank}
-                optionalLabel={copy.editor.optional}
-                defaultBlankHint={copy.editor.defaultBlankHint}
-              >
-                <Input
+              <div className='grid gap-4 md:grid-cols-2'>
+                <FieldShell
                   id='concurrencyLimit'
-                  name='concurrencyLimit'
-                  type='number'
-                  defaultValue={initialValues.concurrencyLimit}
-                />
-              </FieldShell>
-              <FieldShell
-                id='workflowExecutionTimeLimitSeconds'
-                label={copy.editor.limits.workflowExecutionTimeLimit}
-                hint={copy.editor.limits.workflowExecutionTimeLimitHint}
-                nullable
-                blankHint={copy.editor.limits.workflowExecutionTimeLimitBlank}
-                optionalLabel={copy.editor.optional}
-                defaultBlankHint={copy.editor.defaultBlankHint}
-              >
-                <Input
+                  label={copy.editor.limits.concurrencyLimit}
+                  hint={copy.editor.limits.concurrencyLimitHint}
+                  nullable
+                  blankHint={copy.editor.limits.concurrencyLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='concurrencyLimit'
+                    name='concurrencyLimit'
+                    type='number'
+                    defaultValue={initialValues.concurrencyLimit}
+                  />
+                </FieldShell>
+                <FieldShell
                   id='workflowExecutionTimeLimitSeconds'
-                  name='workflowExecutionTimeLimitSeconds'
-                  type='number'
-                  min='0'
-                  step='any'
-                  defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
-                />
-              </FieldShell>
+                  label={copy.editor.limits.workflowExecutionTimeLimit}
+                  hint={copy.editor.limits.workflowExecutionTimeLimitHint}
+                  nullable
+                  blankHint={copy.editor.limits.workflowExecutionTimeLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='workflowExecutionTimeLimitSeconds'
+                    name='workflowExecutionTimeLimitSeconds'
+                    type='number'
+                    min='0'
+                    step='any'
+                    defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
+                  />
+                </FieldShell>
+              </div>
               <div className='grid gap-4 md:grid-cols-2'>
                 <FieldShell
                   id='syncRateLimitPerMinute'

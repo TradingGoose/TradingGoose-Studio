@@ -418,6 +418,7 @@ export async function runPreparedWorkflowExecution(params: {
 
     const operationWaitStates = new Map<string, 'active' | 'waiting_child'>()
     const operationHandles = new Map<string, WorkflowExecutionOperationHandle>()
+    const settledOperationIds = new Set<string>()
     let waitTransitionQueue = Promise.resolve()
     let participantWaiting = false
     const updateOperationWaitState = async (
@@ -485,11 +486,15 @@ export async function runPreparedWorkflowExecution(params: {
       },
       completeWorkflowOperation: async (id, state, observation) => {
         const operation = operationHandles.get(id)
-        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
+        if (!operation) {
+          if (settledOperationIds.has(id)) return
+          throw new Error(`Unknown workflow operation ${id}`)
+        }
         const completed = await completeWorkflowOperation({ operation, state, observation })
         if (!completed) throw new Error('Workflow operation completion was rejected')
         await updateOperationWaitState(id, 'completed')
         operationHandles.delete(id)
+        settledOperationIds.add(id)
       },
       publishWorkflowOperationIdentity: async (id, identity) => {
         const operation = operationHandles.get(id)

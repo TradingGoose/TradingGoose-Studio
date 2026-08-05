@@ -1,13 +1,8 @@
 import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
-import { createWorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
-import { createLogger } from '@/lib/logs/console/logger'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
-import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import { disableMonitor } from './monitor-disable'
-
-const logger = createLogger('PortfolioMonitorExecution')
+import { executeWorkflowJob } from './workflow-execution'
 
 type PortfolioMonitorExecutionMonitor = {
   id: string
@@ -55,21 +50,8 @@ export function isPortfolioMonitorExecutionPayload(
 
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
   const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
-  const requestId = executionId.slice(0, 8)
   if (!payload.workflowExecutionLifecycle) {
     throw new Error(`Portfolio workflow execution ${executionId} is missing its claimed lifecycle`)
-  }
-  const deadlineRuntime = createWorkflowExecutionRuntime(
-    payload.workflowExecutionLifecycle,
-    (error) => logger.error(`[${requestId}] Workflow deadline heartbeat failed`, error)
-  )
-  try {
-    await deadlineRuntime.start()
-    deadlineRuntime.signal?.throwIfAborted()
-  } catch (error) {
-    await deadlineRuntime.settleStartup(deadlineRuntime.signal?.aborted ? 'local_abort' : 'failed')
-    deadlineRuntime.close()
-    throw error
   }
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
@@ -89,21 +71,17 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     condition: payload.monitor.condition,
   }
 
-  const { result, dispatchFailureReason } = await runWorkflowExecution({
+  const result = await executeWorkflowJob({
     workflowId: payload.monitor.workflowId,
-    actorUserId: payload.monitor.actorUserId,
-    requestId,
+    userId: payload.monitor.actorUserId,
+    workspaceId: payload.monitor.workspaceId,
     executionId,
-    lifecycle: payload.workflowExecutionLifecycle,
-    deadlineRuntime,
+    drainRunId: payload.drainRunId,
+    workflowExecutionLifecycle: payload.workflowExecutionLifecycle,
     triggerType: 'webhook',
-    workflowInput,
+    input: workflowInput,
     executionTarget: 'deployed',
-    workflowContext: { workspaceId: payload.monitor.workspaceId },
-    triggerTarget: {
-      kind: 'block',
-      blockId: payload.monitor.blockId,
-    },
+    triggerBlockId: payload.monitor.blockId,
     triggerData: {
       source: PORTFOLIO_MONITOR_TRIGGER_ID,
       executionTarget: 'deployed',
@@ -117,18 +95,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
         assetType: 'portfolio',
       },
     },
-  }).finally(() => deadlineRuntime.close())
-  deadlineRuntime.signal?.throwIfAborted()
-  if (dispatchFailureReason) {
-    await disableMonitor({
-      monitorId: payload.monitor.id,
-      provider: PORTFOLIO_MONITOR_PROVIDER,
-      logger,
-      reason: dispatchFailureReason,
-      workflowId: payload.monitor.workflowId,
-      blockId: payload.monitor.blockId,
-    })
-  }
+  })
 
   return {
     success: result.success,
@@ -136,7 +103,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     executionId,
     output: result.output,
     error: result.error,
-    executedAt: new Date().toISOString(),
+    executedAt: result.executedAt,
     provider: PORTFOLIO_MONITOR_PROVIDER,
   }
 }

@@ -9,3 +9,13 @@ describe('admin tier editor access-code contract', () => {
     expect(source).not.toContain('requireStripeMonthlyPriceId')
   })
 })
+
+describe('admin tier editor execution throughput layout', () => {
+  it('pairs concurrency and workflow execution time limits in one responsive row', () => {
+    const source = readFileSync(new URL('./tier-editor.tsx', import.meta.url), 'utf8')
+
+    expect(source).toMatch(
+      /<div className='grid gap-4 md:grid-cols-2'>\s*<FieldShell\s+id='concurrencyLimit'[\s\S]*?<\/FieldShell>\s*<FieldShell\s+id='workflowExecutionTimeLimitSeconds'[\s\S]*?<\/FieldShell>\s*<\/div>/
+    )
+  })
+})

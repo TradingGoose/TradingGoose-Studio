@@ -174,6 +174,7 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
       !root.dispatchOpen ||
       root.policyState !== inherited.kind ||
       root.appliedTierId !== inherited.appliedTierId ||
+      root.appliedTierName !== inherited.appliedTierName ||
       root.processingStartedAt?.toISOString() !== inherited.processingStartedAt ||
       (inherited.kind === 'bounded' && root.limitSeconds !== inherited.limitSeconds)
     ) {
@@ -267,6 +268,7 @@ export async function captureClaimedWorkflowLifecycleInTransaction(params: {
       actorUserId: params.pending.userId,
       policyState: policy.kind,
       appliedTierId: policy.appliedTierId,
+      appliedTierName: policy.appliedTierName,
       limitSeconds: policy.kind === 'bounded' ? policy.limitSeconds : null,
       processingStartedAt: params.processingStartedAt,
     })
@@ -592,6 +594,7 @@ export async function admitNestedWorkflowExecutionInTransaction(
     !root.dispatchOpen ||
     root.policyState !== params.policy.kind ||
     root.appliedTierId !== params.policy.appliedTierId ||
+    root.appliedTierName !== params.policy.appliedTierName ||
     root.processingStartedAt?.toISOString() !== params.policy.processingStartedAt ||
     (params.policy.kind === 'bounded' && root.limitSeconds !== params.policy.limitSeconds) ||
     !operation ||
@@ -1299,6 +1302,7 @@ export async function finalizeWorkflowExecution(params: {
       winner === 'deadline' &&
       terminal.processingStartedAt &&
       terminal.appliedTierId &&
+      terminal.appliedTierName &&
       terminal.limitSeconds &&
       terminal.deadlineCandidateAt
         ? createWorkflowDeadlineResult({
@@ -1306,6 +1310,7 @@ export async function finalizeWorkflowExecution(params: {
               kind: 'bounded',
               rootExecutionId: params.rootExecutionId,
               appliedTierId: terminal.appliedTierId,
+              appliedTierName: terminal.appliedTierName,
               processingStartedAt: terminal.processingStartedAt.toISOString(),
               limitSeconds: terminal.limitSeconds,
               limitMicroseconds: secondsToCeilMicroseconds(terminal.limitSeconds),
@@ -1372,8 +1377,7 @@ export async function finalizeWorkflowExecution(params: {
         .where(
           and(
             eq(workflowExecutionAttempt.rootExecutionId, params.rootExecutionId),
-            ne(workflowExecutionAttempt.pendingExecutionId, params.rootExecutionId),
-            isNull(workflowExecutionAttempt.processingCompletedAt)
+            ne(workflowExecutionAttempt.pendingExecutionId, params.rootExecutionId)
           )
         )
       for (const descendant of descendants) {
@@ -1381,7 +1385,7 @@ export async function finalizeWorkflowExecution(params: {
           .insert(workflowExecutionOutbox)
           .values({
             rootExecutionId: params.rootExecutionId,
-            kind: `child_pending:${descendant.pendingExecutionId}`,
+            kind: `child_terminal:${descendant.pendingExecutionId}`,
             version: updated.resultVersion,
             payload: {
               rootExecutionId: params.rootExecutionId,
@@ -1444,6 +1448,7 @@ export async function reconcileWorkflowDeadlineTermination(rootExecutionId: stri
       winner === 'deadline'
         ? terminal.processingStartedAt &&
           terminal.appliedTierId &&
+          terminal.appliedTierName &&
           terminal.limitSeconds &&
           terminal.deadlineCandidateAt
           ? createWorkflowDeadlineResult({
@@ -1451,6 +1456,7 @@ export async function reconcileWorkflowDeadlineTermination(rootExecutionId: stri
                 kind: 'bounded',
                 rootExecutionId,
                 appliedTierId: terminal.appliedTierId,
+                appliedTierName: terminal.appliedTierName,
                 processingStartedAt: terminal.processingStartedAt.toISOString(),
                 limitSeconds: terminal.limitSeconds,
                 limitMicroseconds: secondsToCeilMicroseconds(terminal.limitSeconds),
@@ -1518,8 +1524,7 @@ export async function reconcileWorkflowDeadlineTermination(rootExecutionId: stri
         .where(
           and(
             eq(workflowExecutionAttempt.rootExecutionId, rootExecutionId),
-            ne(workflowExecutionAttempt.pendingExecutionId, rootExecutionId),
-            isNull(workflowExecutionAttempt.processingCompletedAt)
+            ne(workflowExecutionAttempt.pendingExecutionId, rootExecutionId)
           )
         )
       for (const descendant of descendants) {
@@ -1527,7 +1532,7 @@ export async function reconcileWorkflowDeadlineTermination(rootExecutionId: stri
           .insert(workflowExecutionOutbox)
           .values({
             rootExecutionId,
-            kind: `child_pending:${descendant.pendingExecutionId}`,
+            kind: `child_terminal:${descendant.pendingExecutionId}`,
             version: updated.resultVersion,
             payload: {
               rootExecutionId,

@@ -22,7 +22,7 @@
     "test:coverage": "vitest run --coverage",
     "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit -p tsconfig.typecheck.json",
-    "test:billing:suite": "vitest run billing subscription"
+    "test:billing:suite": "bun run scripts/test-billing-suite.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.71.2",

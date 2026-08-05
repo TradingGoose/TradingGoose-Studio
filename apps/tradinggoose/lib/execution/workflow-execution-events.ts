@@ -232,7 +232,7 @@ export function createWorkflowExecutionResultFromLog(
     return {
       status: result.success ? 'completed' : 'failed',
       result,
-      errorMessage: result.error ?? null,
+      failureReason: result.error ?? null,
     }
   }
   const finalOutput = readFinalOutput(executionData)

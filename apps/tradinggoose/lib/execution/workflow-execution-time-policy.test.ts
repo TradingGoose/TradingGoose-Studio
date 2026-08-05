@@ -37,6 +37,7 @@ describe('workflow execution time policy', () => {
         processingStartedAt: '2026-01-01T00:00:00.000Z',
         tier: {
           id: 'tier',
+          displayName: 'Tier',
           workflowExecutionTimeLimitSeconds: null,
         } as never,
       })
@@ -44,6 +45,7 @@ describe('workflow execution time policy', () => {
       kind: 'unlimited',
       rootExecutionId: 'root',
       appliedTierId: 'tier',
+      appliedTierName: 'Tier',
       processingStartedAt: '2026-01-01T00:00:00.000Z',
     })
   })

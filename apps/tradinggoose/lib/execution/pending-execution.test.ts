@@ -216,6 +216,7 @@ describe('enqueuePendingExecution', () => {
         kind: 'unlimited',
         rootExecutionId: 'pending-1',
         appliedTierId: 'tier-1',
+        appliedTierName: 'Tier 1',
         processingStartedAt: new Date().toISOString(),
       },
       attemptId: 'attempt-1',

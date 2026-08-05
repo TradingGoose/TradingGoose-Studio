@@ -230,7 +230,7 @@ export class ExecutionLogger {
     }
     finalOutput: BlockOutputData
     success: boolean
-    errorMessage?: string
+    failureReason?: string
     traceSpans?: TraceSpan[]
     workflowInput?: any
     hasResponseBlock?: boolean
@@ -246,7 +246,7 @@ export class ExecutionLogger {
       costSummary,
       finalOutput,
       success,
-      errorMessage,
+      failureReason,
       traceSpans,
       workflowInput,
       hasResponseBlock,
@@ -297,7 +297,7 @@ export class ExecutionLogger {
       traceSpans,
       finalOutput,
       ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
-      ...(errorMessage ? { errorMessage } : {}),
+      ...(failureReason ? { errorMessage: failureReason } : {}),
       ...(result ? { canonicalResult: result } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,

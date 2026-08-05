@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
 import { runs, task } from '@trigger.dev/sdk'
-import { refreshWorkflowExecutionAttemptParticipant } from '@/lib/execution/workflow-execution-deadline-repository'
 import {
   cancelWorkflowExecutionAtomically,
   claimWorkflowOperationsForTermination,
@@ -203,7 +202,7 @@ export async function reconcileWorkflowTermination(rootExecutionId: string) {
           finishedAt: run.finishedAt,
         })
       } else if (!['COMPLETED', 'CANCELED'].includes(run.status)) {
-        await refreshWorkflowExecutionAttemptParticipant(attempt.id)
+        await runs.cancel(run.id)
       }
     } catch {
       // An unavailable Trigger snapshot is unresolved, not terminal.

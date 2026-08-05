@@ -166,6 +166,7 @@ const claimedLifecycle = {
     kind: 'unlimited' as const,
     rootExecutionId: 'execution-1',
     appliedTierId: 'tier-1',
+    appliedTierName: 'Tier 1',
     processingStartedAt: '2026-01-01T00:00:00.000Z',
   },
   attemptId: 'attempt-1',
@@ -299,6 +300,7 @@ describe('runPreparedWorkflowExecution', () => {
           kind: 'bounded',
           rootExecutionId: 'execution-1',
           appliedTierId: 'tier-1',
+          appliedTierName: 'Tier 1',
           processingStartedAt: '2026-01-01T00:00:00.000Z',
           limitSeconds: '1',
           limitMicroseconds: '1000000',
@@ -517,6 +519,7 @@ describe('runPreparedWorkflowExecution', () => {
           kind: 'bounded',
           rootExecutionId: 'execution-1',
           appliedTierId: 'tier-1',
+          appliedTierName: 'Tier 1',
           processingStartedAt: '2026-01-01T00:00:00.000Z',
           limitSeconds: '60',
           limitMicroseconds: '60000000',
@@ -530,6 +533,33 @@ describe('runPreparedWorkflowExecution', () => {
     })
 
     expect(states).toEqual(['waiting_child', 'active'])
+  })
+
+  it('acknowledges repeated terminal observations for a registered operation', async () => {
+    mocks.execute.mockImplementationOnce(async () => {
+      const context = mocks.executorConstructor.mock.calls.at(-1)?.[0].contextExtensions
+      mocks.registerWorkflowOperation.mockResolvedValueOnce({ id: 'operation-1' })
+      const operationId = await context.registerWorkflowOperation('block-1', 'generic')
+
+      await context.completeWorkflowOperation(operationId, 'completed')
+      await context.completeWorkflowOperation(operationId, 'failed')
+      await expect(context.completeWorkflowOperation('never-registered', 'failed')).rejects.toThrow(
+        'Unknown workflow operation never-registered'
+      )
+
+      return { success: true, output: {}, logs: [] }
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+    })
+
+    expect(mocks.completeWorkflowOperation).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -140,6 +140,7 @@ describe('TradingGooseClient', () => {
       const fetchMock = await getFetchMock()
       const deadline = {
         appliedTierId: 'tier-pro',
+        appliedTierName: 'Pro',
         limitSeconds: '300.5',
         processingStartedAt: '2026-01-01T00:00:00.000Z',
         terminatedAt: '2026-01-01T00:05:00.500Z',
