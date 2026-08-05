@@ -6,6 +6,7 @@ import {
   handleSheetsFormat,
   SOURCE_MIME_TYPES,
 } from '@/tools/google_drive/utils'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GoogleDriveUploadTool')
@@ -113,7 +114,11 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
     },
   },
 
-  transformResponse: async (response: Response, params?: GoogleDriveToolParams) => {
+  transformResponse: async (
+    response: Response,
+    params: GoogleDriveToolParams | undefined,
+    runtime
+  ) => {
     try {
       const data = await response.json()
 
@@ -175,7 +180,8 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
         uploadMimeType,
       })
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await dispatchToolFetch(
+        runtime,
         `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`,
         {
           method: 'PATCH',
@@ -203,7 +209,8 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
           fileName: params?.fileName,
         })
 
-        const updateNameResponse = await fetch(
+        const updateNameResponse = await dispatchToolFetch(
+          runtime,
           `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
           {
             method: 'PATCH',
@@ -225,7 +232,8 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
         }
       }
 
-      const finalFileResponse = await fetch(
+      const finalFileResponse = await dispatchToolFetch(
+        runtime,
         `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,webViewLink,webContentLink,size,createdTime,modifiedTime,parents`,
         {
           headers: {

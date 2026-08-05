@@ -12,7 +12,7 @@ import {
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('GoogleProvider')
 
@@ -334,6 +334,7 @@ export const googleProvider: ProviderConfig = {
 
       const response = await fetch(endpoint, {
         method: 'POST',
+        signal: request.abortSignal,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -525,7 +526,7 @@ export const googleProvider: ProviderConfig = {
               const toolCallStartTime = Date.now()
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-              const result = await executeTool(toolName, executionParams)
+              const result = await executeProviderTool(request, toolName, executionParams, false)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -653,6 +654,7 @@ export const googleProvider: ProviderConfig = {
                     `https://generativelanguage.googleapis.com/v1beta/models/${requestedModel}:generateContent?key=${request.apiKey}`,
                     {
                       method: 'POST',
+                      signal: request.abortSignal,
                       headers: {
                         'Content-Type': 'application/json',
                       },
@@ -723,6 +725,7 @@ export const googleProvider: ProviderConfig = {
                     `https://generativelanguage.googleapis.com/v1beta/models/${requestedModel}:streamGenerateContent?key=${request.apiKey}`,
                     {
                       method: 'POST',
+                      signal: request.abortSignal,
                       headers: {
                         'Content-Type': 'application/json',
                       },
@@ -841,6 +844,7 @@ export const googleProvider: ProviderConfig = {
                   `https://generativelanguage.googleapis.com/v1beta/models/${requestedModel}:generateContent?key=${request.apiKey}`,
                   {
                     method: 'POST',
+                    signal: request.abortSignal,
                     headers: {
                       'Content-Type': 'application/json',
                     },
@@ -887,6 +891,7 @@ export const googleProvider: ProviderConfig = {
 
                 iterationCount++
               } catch (error) {
+                request.abortSignal?.throwIfAborted()
                 logger.error('Error in Gemini follow-up request:', {
                   error: error instanceof Error ? error.message : String(error),
                   iterationCount,
@@ -894,6 +899,7 @@ export const googleProvider: ProviderConfig = {
                 break
               }
             } catch (error) {
+              request.abortSignal?.throwIfAborted()
               logger.error('Error processing function call:', {
                 error: error instanceof Error ? error.message : String(error),
                 functionName: latestFunctionCall?.name || 'unknown',
@@ -906,6 +912,7 @@ export const googleProvider: ProviderConfig = {
           content = extractTextContent(candidate)
         }
       } catch (error) {
+        request.abortSignal?.throwIfAborted()
         logger.error('Error processing Gemini response:', {
           error: error instanceof Error ? error.message : String(error),
           iterationCount,
@@ -952,6 +959,7 @@ export const googleProvider: ProviderConfig = {
         // Cost will be calculated in logger
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

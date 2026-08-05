@@ -10,6 +10,7 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { cancelWorkflowExecutionAtomically } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
@@ -19,7 +20,6 @@ import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
 import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
-import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -318,7 +318,10 @@ async function executeApiWorkflowThroughQueue(params: {
     })
   } catch (error) {
     if (error instanceof ApiWorkflowResultTimeoutError) {
-      await cancelPendingWorkflowExecution({ pendingExecutionId: executionId, userId: apiUserId })
+      await cancelWorkflowExecutionAtomically({
+        pendingExecutionId: executionId,
+        actorUserId: apiUserId,
+      })
     }
     throw error
   }

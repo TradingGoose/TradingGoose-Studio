@@ -1,0 +1,692 @@
+import { sql } from 'drizzle-orm'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  transaction: vi.fn(),
+  execute: vi.fn(),
+  select: vi.fn(),
+  selectRows: [] as unknown[][],
+  requireDatabaseDate: vi.fn(),
+  reconcileDeadline: vi.fn(),
+  transitionParticipant: vi.fn(),
+}))
+
+vi.mock('@tradinggoose/db', () => ({
+  db: { transaction: mocks.transaction },
+}))
+
+vi.mock('@tradinggoose/db/schema', () => {
+  const table = (name: string) =>
+    new Proxy(
+      {},
+      {
+        get: (_target, property) => `${name}.${String(property)}`,
+      }
+    )
+  return {
+    pendingExecution: table('pendingExecution'),
+    workflowExecutionAttempt: table('attempt'),
+    workflowExecutionDeadline: table('deadline'),
+    workflowExecutionOperation: table('operation'),
+    workflowExecutionOutbox: table('outbox'),
+    workflowExecutionParticipant: table('participant'),
+    workflowExecutionTerminal: table('terminal'),
+  }
+})
+
+vi.mock('drizzle-orm', () => ({
+  and: vi.fn((...values) => values),
+  asc: vi.fn((value) => value),
+  desc: vi.fn((value) => value),
+  eq: vi.fn((...values) => values),
+  gt: vi.fn((...values) => values),
+  inArray: vi.fn((...values) => values),
+  isNull: vi.fn((value) => value),
+  ne: vi.fn((...values) => values),
+  sql: Object.assign(
+    vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+      strings: [...strings],
+      values,
+    })),
+    {
+      param: vi.fn((value, encoder) => ({ encoder, value })),
+    }
+  ),
+}))
+
+vi.mock('./database-date', () => ({
+  requireDatabaseDate: mocks.requireDatabaseDate,
+}))
+
+vi.mock('./workflow-execution-deadline-repository', () => ({
+  reconcileWorkflowExecutionDeadline: vi.fn(),
+  reconcileWorkflowExecutionDeadlineInTransaction: mocks.reconcileDeadline,
+  transitionWorkflowExecutionParticipantInTransaction: mocks.transitionParticipant,
+}))
+
+import {
+  admitNestedWorkflowExecutionInTransaction,
+  cancelWorkflowExecutionAtomically,
+  completeWorkflowExecutionAttempt,
+  completeWorkflowOperation,
+  finalizeWorkflowExecution,
+  getWorkflowOperationCapability,
+  publishWorkflowOperationIdentity,
+  reconcileWorkflowDeadlineTermination,
+  recordWorkflowInfrastructureCandidate,
+  recordWorkflowOperationObservation,
+  sealWorkflowOperationCredential,
+} from './workflow-execution-lifecycle-repository'
+
+const rawTimestamp = '2026-07-29T15:47:39.061Z'
+const decoderSentinel = new Error('decoder reached')
+
+function selectChain() {
+  const chain = {
+    from: vi.fn(),
+    where: vi.fn(),
+    limit: vi.fn(),
+    orderBy: vi.fn(),
+  }
+  chain.from.mockReturnValue(chain)
+  chain.where.mockReturnValue(chain)
+  chain.orderBy.mockReturnValue(chain)
+  chain.limit.mockImplementation(() => Promise.resolve(mocks.selectRows.shift() ?? []))
+  return chain
+}
+
+describe('workflow lifecycle raw database clocks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.execute.mockReset()
+    mocks.selectRows = []
+    mocks.select.mockImplementation(selectChain)
+    mocks.requireDatabaseDate.mockImplementation(() => {
+      throw decoderSentinel
+    })
+    mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
+    mocks.transitionParticipant.mockResolvedValue({ state: 'accounted' })
+    mocks.transaction.mockImplementation(async (callback) =>
+      callback({
+        execute: mocks.execute,
+        select: mocks.select,
+      })
+    )
+  })
+
+  it('rejects a nested policy whose captured tier name differs from the durable root', async () => {
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: null,
+          remoteOperationId: null,
+          rootExecutionId: 'root-1',
+          state: 'registered',
+        },
+      ],
+      [{ id: 'attempt-1' }],
+      [{ id: 'attempt-1' }],
+      [
+        {
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Renamed tier',
+          dispatchOpen: true,
+          policyState: 'unlimited',
+          processingStartedAt: new Date('2026-01-01T00:00:00.000Z'),
+          state: 'running',
+        },
+      ],
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: null,
+          remoteOperationId: null,
+          rootExecutionId: 'root-1',
+          state: 'registered',
+        },
+      ],
+    ]
+    const update = vi.fn()
+    const tx = {
+      select: mocks.select,
+      update,
+    } as unknown as Parameters<typeof admitNestedWorkflowExecutionInTransaction>[0]
+
+    await expect(
+      admitNestedWorkflowExecutionInTransaction(tx, {
+        operationId: 'operation-1',
+        pendingExecutionId: 'pending-1',
+        policy: {
+          kind: 'unlimited',
+          rootExecutionId: 'root-1',
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Original tier',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+        },
+      })
+    ).rejects.toThrow('Nested workflow admission is closed')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('normalizes the durable cancellation-request clock before mutation', async () => {
+    mocks.selectRows = [
+      [
+        {
+          id: 'pending-1',
+          userId: 'user-1',
+          executionType: 'workflow',
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          status: 'pending',
+          payload: {},
+        },
+      ],
+      [],
+    ]
+    mocks.execute
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ now: rawTimestamp }])
+
+    await expect(
+      cancelWorkflowExecutionAtomically({
+        pendingExecutionId: 'pending-1',
+        actorUserId: 'user-1',
+      })
+    ).rejects.toBe(decoderSentinel)
+    expect(mocks.requireDatabaseDate).toHaveBeenCalledWith(
+      rawTimestamp,
+      'cancellation-request timestamp'
+    )
+  })
+
+  it('accounts a deadline through cancellation before closing dispatch', async () => {
+    const requestedAt = new Date(rawTimestamp)
+    const updateChain = {
+      set: vi.fn(),
+      where: vi.fn().mockResolvedValue(undefined),
+    }
+    updateChain.set.mockReturnValue(updateChain)
+    mocks.requireDatabaseDate.mockReturnValueOnce(requestedAt)
+    mocks.selectRows = [
+      [
+        {
+          id: 'pending-1',
+          userId: 'user-1',
+          executionType: 'workflow',
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          status: 'pending',
+          payload: {},
+        },
+      ],
+      [],
+    ]
+    mocks.execute
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ now: rawTimestamp }])
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        execute: mocks.execute,
+        select: mocks.select,
+        update: vi.fn(() => updateChain),
+      })
+    )
+
+    await expect(
+      cancelWorkflowExecutionAtomically({
+        pendingExecutionId: 'pending-1',
+        actorUserId: 'user-1',
+      })
+    ).rejects.toThrow()
+    expect(mocks.reconcileDeadline).toHaveBeenCalledWith(expect.anything(), 'pending-1', {
+      terminalCauseAt: requestedAt,
+    })
+  })
+
+  it.each([
+    [null, 'cancelling'],
+    [new Date(rawTimestamp), 'finished'],
+  ] as const)(
+    'resolves retained descendant lifecycle with completion %s as %s',
+    async (processingCompletedAt, status) => {
+      const requestedAt = new Date(rawTimestamp)
+      const updateChain = {
+        set: vi.fn(),
+        where: vi.fn().mockResolvedValue(undefined),
+      }
+      updateChain.set.mockReturnValue(updateChain)
+      mocks.requireDatabaseDate.mockReturnValueOnce(requestedAt)
+      mocks.selectRows = [
+        [
+          {
+            id: 'pending-1',
+            userId: 'user-1',
+            executionType: 'workflow',
+            workflowId: 'workflow-1',
+            workspaceId: 'workspace-1',
+            status: 'processing',
+            payload: {},
+          },
+        ],
+        [{ processingCompletedAt, rootExecutionId: 'root-1' }],
+      ]
+      mocks.execute
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([{ now: rawTimestamp }])
+      mocks.transaction.mockImplementationOnce(async (callback) =>
+        callback({
+          execute: mocks.execute,
+          select: mocks.select,
+          update: vi.fn(() => updateChain),
+        })
+      )
+
+      await expect(
+        cancelWorkflowExecutionAtomically({
+          pendingExecutionId: 'pending-1',
+          actorUserId: 'user-1',
+          descendantOnly: true,
+        })
+      ).resolves.toEqual({ status })
+      expect(mocks.reconcileDeadline).not.toHaveBeenCalled()
+    }
+  )
+
+  it('resolves an already removed queued execution from its durable terminal lifecycle', async () => {
+    mocks.selectRows = [[], [{ state: 'terminal' }]]
+    mocks.execute.mockResolvedValue(undefined)
+
+    await expect(
+      cancelWorkflowExecutionAtomically({
+        pendingExecutionId: 'pending-1',
+        actorUserId: 'user-1',
+        descendantOnly: true,
+      })
+    ).resolves.toEqual({ status: 'finished' })
+  })
+
+  it('normalizes the completion clock before participant and attempt writes', async () => {
+    mocks.selectRows = [[{ result: null }], [{ processingCompletedAt: null }]]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+
+    await expect(
+      finalizeWorkflowExecution({
+        rootExecutionId: 'execution-1',
+        attemptId: 'attempt-1',
+        result: { success: true, output: {} },
+      })
+    ).rejects.toBe(decoderSentinel)
+    expect(mocks.requireDatabaseDate).toHaveBeenCalledWith(rawTimestamp, 'completion timestamp')
+  })
+
+  it('normalizes the terminal-reconciliation clock before the terminal write', async () => {
+    mocks.selectRows = [
+      [
+        {
+          state: 'termination_pending',
+          result: null,
+          resultVersion: 0,
+        },
+      ],
+      [],
+      [],
+    ]
+    mocks.execute
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ cause: 'cancellation' }])
+      .mockResolvedValueOnce([{ now: rawTimestamp }])
+
+    await expect(reconcileWorkflowDeadlineTermination('execution-1')).rejects.toBe(decoderSentinel)
+    expect(mocks.requireDatabaseDate).toHaveBeenCalledWith(
+      rawTimestamp,
+      'terminal-reconciliation timestamp'
+    )
+  })
+
+  it('observes the failed participant before closing dispatch for infrastructure failure', async () => {
+    const failedAt = new Date(rawTimestamp)
+    mocks.selectRows = [
+      [{ processingCompletedAt: null }],
+      [{ id: 'participant-1' }],
+      [{ id: 'attempt-1' }],
+    ]
+    mocks.execute.mockResolvedValueOnce(undefined)
+
+    await expect(
+      recordWorkflowInfrastructureCandidate({
+        attemptId: 'attempt-1',
+        rootExecutionId: 'execution-1',
+        failedAt,
+      })
+    ).rejects.toThrow()
+    expect(mocks.transitionParticipant).toHaveBeenCalledWith(expect.anything(), {
+      rootExecutionId: 'execution-1',
+      attemptId: 'attempt-1',
+      participantId: 'participant-1',
+      state: 'failed',
+      observedAt: failedAt,
+    })
+  })
+})
+
+describe('nested workflow attempt completion', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.execute.mockReset()
+    mocks.selectRows = []
+    mocks.select.mockImplementation(selectChain)
+    mocks.reconcileDeadline.mockResolvedValue({ state: 'accounted' })
+    mocks.transitionParticipant.mockResolvedValue({ state: 'accounted' })
+    mocks.requireDatabaseDate.mockReturnValue(new Date(rawTimestamp))
+  })
+
+  it.each([
+    [{ success: true, output: {} }, 'completed'],
+    [{ success: false, output: {}, error: 'child failed' }, 'failed'],
+  ] as const)(
+    'accounts the final active interval before setting the participant to %s',
+    async (result, state) => {
+      const updateChain = {
+        set: vi.fn(),
+        where: vi.fn(),
+        returning: vi.fn().mockResolvedValue([{ id: 'attempt-1' }]),
+      }
+      updateChain.set.mockReturnValue(updateChain)
+      updateChain.where.mockReturnValue(updateChain)
+      const insertChain = {
+        values: vi.fn(),
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+      }
+      insertChain.values.mockReturnValue(insertChain)
+      const update = vi.fn(() => updateChain)
+      mocks.selectRows = [
+        [
+          {
+            id: 'attempt-1',
+            rootExecutionId: 'root-1',
+            pendingExecutionId: 'pending-1',
+            attemptNumber: 1,
+          },
+        ],
+        [{ id: 'participant-1' }],
+        [{ id: 'attempt-1' }],
+      ]
+      mocks.execute.mockReset().mockResolvedValueOnce([{ now: rawTimestamp }])
+      mocks.transaction.mockImplementationOnce(async (callback) =>
+        callback({
+          execute: mocks.execute,
+          insert: vi.fn(() => insertChain),
+          select: mocks.select,
+          update,
+        })
+      )
+
+      await completeWorkflowExecutionAttempt({ attemptId: 'attempt-1', result })
+
+      expect(mocks.transitionParticipant).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          rootExecutionId: 'root-1',
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          state,
+        })
+      )
+      expect(updateChain.set).toHaveBeenNthCalledWith(1, expect.objectContaining({ state }))
+      expect(mocks.transitionParticipant.mock.invocationCallOrder[0]).toBeLessThan(
+        update.mock.invocationCallOrder[0]
+      )
+    }
+  )
+})
+
+describe('workflow operation JSONB bindings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.selectRows = []
+    mocks.select.mockImplementation(selectChain)
+    mocks.transitionParticipant.mockResolvedValue({ state: 'accounted' })
+    mocks.requireDatabaseDate.mockReturnValue(new Date(rawTimestamp))
+  })
+
+  function transactionWithSuccessfulUpdate() {
+    const updateChain = {
+      set: vi.fn(),
+      where: vi.fn(),
+      returning: vi.fn().mockResolvedValue([{ id: 'operation-1' }]),
+    }
+    updateChain.set.mockReturnValue(updateChain)
+    updateChain.where.mockReturnValue(updateChain)
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        execute: mocks.execute,
+        select: mocks.select,
+        update: vi.fn(() => updateChain),
+      })
+    )
+    return updateChain
+  }
+
+  function expectEncodedCast(
+    expression: { strings: string[]; values: Array<{ encoder?: unknown; value?: unknown }> },
+    value: unknown,
+    encoder: string,
+    cast: 'jsonb' | 'timestamptz'
+  ) {
+    const parameterIndex = expression.values.findIndex(
+      (parameter) =>
+        parameter?.encoder === encoder && JSON.stringify(parameter.value) === JSON.stringify(value)
+    )
+    expect(parameterIndex).toBeGreaterThanOrEqual(0)
+    expect(expression.strings[parameterIndex + 1]?.trimStart()).toMatch(new RegExp(`^::${cast}\\b`))
+  }
+
+  it('encodes terminal observations with the operation JSONB column', async () => {
+    const observation = { outcome: 'startup_failed' }
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          rootExecutionId: 'root-1',
+          state: 'running',
+        },
+      ],
+      [{ capability: 'local' }],
+    ]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+    const update = transactionWithSuccessfulUpdate()
+
+    await completeWorkflowOperation({
+      operation: {
+        id: 'operation-1',
+        rootExecutionId: 'root-1',
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+      },
+      state: 'failed',
+      observation,
+    })
+
+    expect(sql.param).toHaveBeenCalledWith(observation, 'operation.observation')
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].observation,
+      observation,
+      'operation.observation',
+      'jsonb'
+    )
+  })
+
+  it('encodes nonterminal reconciliation observations with the operation JSONB column', async () => {
+    const observation = { adapter: 'workflow', outcome: 'unknown' }
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          fencingToken: 'fence-1',
+          participantId: 'participant-1',
+          rootExecutionId: 'root-1',
+          state: 'cancel_requested',
+        },
+      ],
+    ]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+    const update = transactionWithSuccessfulUpdate()
+
+    await recordWorkflowOperationObservation({
+      operation: {
+        id: 'operation-1',
+        rootExecutionId: 'root-1',
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+      },
+      fencingToken: 'fence-1',
+      observation,
+    })
+
+    expect(sql.param).toHaveBeenCalledWith(observation, 'operation.observation')
+    expect(sql.param).toHaveBeenCalledWith(expect.any(Date), 'operation.nextReconcileAt')
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].observation,
+      observation,
+      'operation.observation',
+      'jsonb'
+    )
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].nextReconcileAt,
+      new Date(rawTimestamp),
+      'operation.nextReconcileAt',
+      'timestamptz'
+    )
+  })
+
+  it('encodes remote local-abort observations before requesting cancellation', async () => {
+    const observation = { adapter: 'workflow' }
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          rootExecutionId: 'root-1',
+          state: 'running',
+        },
+      ],
+      [{ capability: 'native_cancel_status' }],
+    ]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+    const update = transactionWithSuccessfulUpdate()
+
+    await completeWorkflowOperation({
+      operation: {
+        id: 'operation-1',
+        rootExecutionId: 'root-1',
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+      },
+      state: 'local_abort',
+      observation,
+    })
+
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].observation,
+      { ...observation, outcome: 'local_abort_remote_settlement_unknown' },
+      'operation.observation',
+      'jsonb'
+    )
+  })
+
+  it('encodes published operation identity observations', async () => {
+    const observation = { provider: 'remote' }
+    mocks.selectRows = [
+      [
+        {
+          adapterKind: 'api',
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          remoteOperationId: null,
+          rootExecutionId: 'root-1',
+          state: 'running',
+        },
+      ],
+    ]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+    const update = transactionWithSuccessfulUpdate()
+
+    await publishWorkflowOperationIdentity({
+      operation: {
+        id: 'operation-1',
+        rootExecutionId: 'root-1',
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+      },
+      adapterKind: 'remote-api',
+      capability: 'status_only',
+      remoteOperationId: 'remote-1',
+      observation,
+    })
+
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].observation,
+      observation,
+      'operation.observation',
+      'jsonb'
+    )
+  })
+
+  it('encodes sealed operation credentials', async () => {
+    mocks.selectRows = [
+      [
+        {
+          attemptId: 'attempt-1',
+          participantId: 'participant-1',
+          rootExecutionId: 'root-1',
+          state: 'running',
+        },
+      ],
+    ]
+    mocks.execute.mockResolvedValueOnce([{ now: rawTimestamp }])
+    const update = transactionWithSuccessfulUpdate()
+
+    await sealWorkflowOperationCredential(
+      {
+        id: 'operation-1',
+        rootExecutionId: 'root-1',
+        attemptId: 'attempt-1',
+        participantId: 'participant-1',
+      },
+      'encrypted-secret'
+    )
+
+    expectEncodedCast(
+      update.set.mock.calls[0]?.[0].observation,
+      { _credentialLease: 'encrypted-secret' },
+      'operation.observation',
+      'jsonb'
+    )
+  })
+})
+
+describe('workflow operation capabilities', () => {
+  it.each(['wait', 'condition', 'loop', 'parallel', 'response', 'variables'])(
+    'classifies process-contained %s work as local',
+    (handlerType) => {
+      expect(getWorkflowOperationCapability(handlerType)).toBe('local')
+    }
+  )
+
+  it.each([
+    ['workflow', 'native_cancel_status'],
+    ['workflow_input', 'native_cancel_status'],
+    ['agent', 'local'],
+    ['agent_tool', 'local'],
+    ['api', 'local'],
+    ['function', 'local'],
+    ['tool:mcp-example', 'local'],
+  ] as const)('classifies %s as %s', (handlerType, capability) => {
+    expect(getWorkflowOperationCapability(handlerType)).toBe(capability)
+  })
+})

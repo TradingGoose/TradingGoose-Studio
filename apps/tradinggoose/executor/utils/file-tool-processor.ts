@@ -17,7 +17,8 @@ export class FileToolProcessor {
   static async processToolOutputs(
     toolOutput: any,
     toolConfig: ToolConfig,
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    signal?: AbortSignal
   ): Promise<any> {
     if (!toolConfig.outputs) {
       return toolOutput
@@ -27,6 +28,7 @@ export class FileToolProcessor {
 
     // Process each output that's marked as file or file[]
     for (const [outputKey, outputDef] of Object.entries(toolConfig.outputs)) {
+      signal?.throwIfAborted()
       if (!FileToolProcessor.isFileOutput(outputDef.type)) {
         continue
       }
@@ -42,9 +44,11 @@ export class FileToolProcessor {
           fileData,
           outputDef.type,
           outputKey,
-          executionContext
+          executionContext,
+          signal
         )
       } catch (error) {
+        signal?.throwIfAborted()
         logger.error(`Error processing file output '${outputKey}':`, error)
         const errorMessage = error instanceof Error ? error.message : String(error)
         throw new Error(`Failed to process file output '${outputKey}': ${errorMessage}`)
@@ -68,12 +72,13 @@ export class FileToolProcessor {
     fileData: any,
     outputType: string,
     outputKey: string,
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    signal?: AbortSignal
   ): Promise<UserFile | UserFile[]> {
     if (outputType === 'file[]') {
-      return FileToolProcessor.processFileArray(fileData, outputKey, executionContext)
+      return FileToolProcessor.processFileArray(fileData, outputKey, executionContext, signal)
     }
-    return FileToolProcessor.processFileData(fileData, executionContext, outputKey)
+    return FileToolProcessor.processFileData(fileData, executionContext, outputKey, signal)
   }
 
   /**
@@ -82,7 +87,8 @@ export class FileToolProcessor {
   private static async processFileArray(
     fileData: any,
     outputKey: string,
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    signal?: AbortSignal
   ): Promise<UserFile[]> {
     if (!Array.isArray(fileData)) {
       throw new Error(`Output '${outputKey}' is marked as file[] but is not an array`)
@@ -90,7 +96,7 @@ export class FileToolProcessor {
 
     return Promise.all(
       fileData.map((file, index) =>
-        FileToolProcessor.processFileData(file, executionContext, `${outputKey}[${index}]`)
+        FileToolProcessor.processFileData(file, executionContext, `${outputKey}[${index}]`, signal)
       )
     )
   }
@@ -101,7 +107,8 @@ export class FileToolProcessor {
   private static async processFileData(
     fileData: ToolFileData,
     context: ExecutionContext,
-    outputKey: string
+    outputKey: string,
+    signal?: AbortSignal
   ): Promise<UserFile> {
     logger.info(`Processing file data for output '${outputKey}': ${fileData.name}`)
     if (!context.workspaceId) {
@@ -146,7 +153,7 @@ export class FileToolProcessor {
       } else if (fileData.url) {
         // Download from URL
         logger.info(`Downloading file from URL: ${fileData.url}`)
-        const response = await fetch(fileData.url)
+        const response = await fetch(fileData.url, { signal })
 
         if (!response.ok) {
           throw new Error(`Failed to download file from ${fileData.url}: ${response.statusText}`)
@@ -177,12 +184,14 @@ export class FileToolProcessor {
         fileData.name,
         fileData.mimeType
       )
+      signal?.throwIfAborted()
 
       logger.info(
         `Successfully stored file '${fileData.name}' in execution filesystem with key: ${userFile.key}`
       )
       return userFile
     } catch (error) {
+      signal?.throwIfAborted()
       logger.error(`Error processing file data for '${fileData.name}':`, error)
       throw error
     }

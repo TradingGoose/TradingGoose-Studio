@@ -8,6 +8,7 @@ const {
   mockAnd,
   mockDb,
   mockEq,
+  mockGetBillingTierById,
   mockRequireDefaultBillingTier,
   mockGetResolvedBillingSettings,
   mockGetSubscriptionUsageAllowanceUsd,
@@ -23,6 +24,7 @@ const {
     insert: vi.fn(),
   },
   mockEq: vi.fn(),
+  mockGetBillingTierById: vi.fn(),
   mockRequireDefaultBillingTier: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
@@ -78,6 +80,7 @@ vi.mock('@/lib/billing/subscriptions/utils', () => ({
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
+  getBillingTierById: mockGetBillingTierById,
   getSubscriptionUsageAllowanceUsd: mockGetSubscriptionUsageAllowanceUsd,
   getTierDisplayName: vi.fn(),
   hydrateSubscriptionsWithTiers: mockHydrateSubscriptionsWithTiers,
@@ -249,15 +252,19 @@ describe('subscription billing helpers', () => {
     const row = {
       id: 'sub_123',
       stripeSubscriptionId: 'stripe_sub_123',
-      tier: { id: 'tier_default' },
+      billingTierId: 'tier_default',
     }
+    mockGetBillingTierById.mockResolvedValue({ id: 'tier_default' })
     mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
 
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
-    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(row)
+    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toEqual({
+      ...row,
+      tier: { id: 'tier_default' },
+    })
     expect(mockEq).toHaveBeenCalledWith('subscription.stripeSubscriptionId', 'stripe_sub_123')
-    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([row])
+    expect(mockGetBillingTierById).toHaveBeenCalledWith('tier_default')
   })
 
   it('returns null for an untracked Stripe subscription id', async () => {
@@ -266,7 +273,7 @@ describe('subscription billing helpers', () => {
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
     await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(null)
-    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
+    expect(mockGetBillingTierById).not.toHaveBeenCalled()
   })
 
   it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {

@@ -9,7 +9,7 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import { prepareToolExecution } from '@/providers/ai/utils'
-import { executeTool } from '@/tools'
+import { executeProviderTool } from '@/providers/ai/utils-server'
 
 const logger = createLogger('GroqProvider')
 
@@ -141,10 +141,10 @@ export const groqProvider: ProviderConfig = {
       const providerStartTime = Date.now()
       const providerStartTimeISO = new Date(providerStartTime).toISOString()
 
-      const streamResponse = await groq.chat.completions.create({
-        ...payload,
-        stream: true,
-      })
+      const streamResponse = await groq.chat.completions.create(
+        { ...payload, stream: true },
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
 
       // Start collecting token usage
       const tokenUsage = {
@@ -205,7 +205,10 @@ export const groqProvider: ProviderConfig = {
       // Make the initial API request
       const initialCallTime = Date.now()
 
-      let currentResponse = await groq.chat.completions.create(payload)
+      let currentResponse = await groq.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -261,7 +264,7 @@ export const groqProvider: ProviderConfig = {
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const result = await executeTool(toolName, executionParams)
+              const result = await executeProviderTool(request, toolName, executionParams, false)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -320,6 +323,7 @@ export const groqProvider: ProviderConfig = {
                 content: JSON.stringify(resultContent),
               })
             } catch (error) {
+              request.abortSignal?.throwIfAborted()
               logger.error('Error processing tool call:', { error })
             }
           }
@@ -338,7 +342,10 @@ export const groqProvider: ProviderConfig = {
           const nextModelStartTime = Date.now()
 
           // Make the next request
-          currentResponse = await groq.chat.completions.create(nextPayload)
+          currentResponse = await groq.chat.completions.create(
+            nextPayload,
+            request.abortSignal ? { signal: request.abortSignal } : undefined
+          )
 
           const nextModelEndTime = Date.now()
           const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -370,6 +377,7 @@ export const groqProvider: ProviderConfig = {
           iterationCount++
         }
       } catch (error) {
+        request.abortSignal?.throwIfAborted()
         logger.error('Error in Groq request:', { error })
       }
 
@@ -386,7 +394,10 @@ export const groqProvider: ProviderConfig = {
           stream: true,
         }
 
-        const streamResponse = await groq.chat.completions.create(streamingPayload)
+        const streamResponse = await groq.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
@@ -461,6 +472,7 @@ export const groqProvider: ProviderConfig = {
         },
       }
     } catch (error) {
+      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

@@ -6,20 +6,23 @@ import type {
   OutlookReadParams,
   OutlookReadResponse,
 } from '@/tools/outlook/types'
-import type { ToolConfig } from '@/tools/types'
+import { dispatchToolFetch } from '@/tools/runtime'
+import type { ToolConfig, ToolExecutionRuntime } from '@/tools/types'
 
 /**
  * Download attachments from an Outlook message
  */
 async function downloadAttachments(
   messageId: string,
-  accessToken: string
+  accessToken: string,
+  runtime?: ToolExecutionRuntime
 ): Promise<OutlookAttachment[]> {
   const attachments: OutlookAttachment[] = []
 
   try {
     // Fetch attachments list from Microsoft Graph API
-    const response = await fetch(
+    const response = await dispatchToolFetch(
+      runtime,
       `https://graph.microsoft.com/v1.0/me/messages/${messageId}/attachments`,
       {
         headers: {
@@ -129,7 +132,7 @@ export const outlookReadTool: ToolConfig<OutlookReadParams, OutlookReadResponse>
     },
   },
 
-  transformResponse: async (response: Response, params?: OutlookReadParams) => {
+  transformResponse: async (response: Response, params: OutlookReadParams | undefined, runtime) => {
     const data: OutlookMessagesResponse = await response.json()
 
     // Microsoft Graph API returns messages in a 'value' array
@@ -152,7 +155,7 @@ export const outlookReadTool: ToolConfig<OutlookReadParams, OutlookReadResponse>
         let attachments: OutlookAttachment[] | undefined
         if (params?.includeAttachments && message.hasAttachments && params?.accessToken) {
           try {
-            attachments = await downloadAttachments(message.id, params.accessToken)
+            attachments = await downloadAttachments(message.id, params.accessToken, runtime)
           } catch (error) {
             // Continue without attachments rather than failing the entire request
           }

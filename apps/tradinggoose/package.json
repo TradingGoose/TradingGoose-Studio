@@ -22,7 +22,7 @@
     "test:coverage": "vitest run --coverage",
     "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit -p tsconfig.typecheck.json",
-    "test:billing:suite": "vitest run billing subscription"
+    "test:billing:suite": "bun run scripts/test-billing-suite.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.71.2",
@@ -52,7 +52,7 @@
     "@opentelemetry/sdk-trace-node": "2.0.0",
     "@react-email/components": "^1.0.2",
     "@react-email/render": "2.0.4",
-    "@trigger.dev/sdk": "4.4.6",
+    "@trigger.dev/sdk": "4.5.9",
     "@types/three": "0.177.0",
     "@vercel/blob": "2.3.3",
     "@xyflow/react": "^12.10.2",
@@ -136,7 +136,7 @@
   "devDependencies": {
     "@react-email/preview-server": "^5.1.0",
     "@testing-library/jest-dom": "^6.6.3",
-    "@trigger.dev/build": "4.4.6",
+    "@trigger.dev/build": "4.5.9",
     "@types/html-to-text": "9.0.4",
     "@types/js-yaml": "4.0.9",
     "@types/jsdom": "21.1.7",

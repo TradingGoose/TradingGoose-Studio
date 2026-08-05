@@ -3,6 +3,7 @@ import {
   type GoogleCalendarQuickAddParams,
   type GoogleCalendarQuickAddResponse,
 } from '@/tools/google_calendar/types'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const quickAddTool: ToolConfig<
@@ -74,7 +75,7 @@ export const quickAddTool: ToolConfig<
     }),
   },
 
-  transformResponse: async (response: Response, params) => {
+  transformResponse: async (response: Response, params, runtime) => {
     const data = await response.json()
 
     // Handle attendees if provided
@@ -113,7 +114,7 @@ export const quickAddTool: ToolConfig<
           const updateUrl = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${eventId}${updateQueryParams.toString() ? `?${updateQueryParams.toString()}` : ''}`
 
           // Make the update request
-          const updateResponse = await fetch(updateUrl, {
+          const updateResponse = await dispatchToolFetch(runtime, updateUrl, {
             method: 'PATCH',
             headers: {
               Authorization: `Bearer ${params.accessToken}`,

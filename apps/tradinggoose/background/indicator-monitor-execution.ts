@@ -2,6 +2,7 @@ import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
+import type { WorkflowExecutionLifecycle } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -41,6 +42,8 @@ type IndicatorMonitorExecutionIndicator = {
 
 export type IndicatorMonitorExecutionPayload = {
   executionId?: string
+  drainRunId?: string
+  workflowExecutionLifecycle?: WorkflowExecutionLifecycle
   source: typeof INDICATOR_MONITOR_PROVIDER
   monitor: IndicatorMonitorExecutionMonitor
   indicator: IndicatorMonitorExecutionIndicator

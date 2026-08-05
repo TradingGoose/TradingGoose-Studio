@@ -23,6 +23,14 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
+        parentOperationId: 'operation-1',
+        workflowExecutionTimePolicy: {
+          kind: 'unlimited',
+          rootExecutionId: 'parent-execution-1',
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Tier 1',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+        },
       },
     })
 
@@ -34,6 +42,14 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
+        parentOperationId: 'operation-1',
+        workflowExecutionTimePolicy: {
+          kind: 'unlimited',
+          rootExecutionId: 'parent-execution-1',
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Tier 1',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+        },
       },
     })
   })

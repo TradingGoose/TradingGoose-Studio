@@ -260,7 +260,8 @@ export class AgentBlockHandler implements BlockHandler {
             isCustomTool: true,
           },
           false, // skipPostProcess
-          context // execution context for file processing
+          context, // execution context for file processing
+          { signal: context.workflowDeadlineSignal }
         )
 
         if (!result.success) {
@@ -309,6 +310,7 @@ export class AgentBlockHandler implements BlockHandler {
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers,
+      signal: context.workflowDeadlineSignal,
     })
     if (!response.ok) {
       const errorText = await response.text().catch(() => '')
@@ -368,6 +370,7 @@ export class AgentBlockHandler implements BlockHandler {
             workflowId: context.workflowId,
             isDeployedContext: context.isDeployedContext !== false,
           }),
+          signal: context.workflowDeadlineSignal,
         })
 
         if (!execResponse.ok) {
@@ -686,6 +689,44 @@ export class AgentBlockHandler implements BlockHandler {
       ...providerRequest,
       apiKey,
       userId: context.userId,
+      abortSignal: context.workflowDeadlineSignal,
+      claimRemoteDispatch:
+        context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
+          ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)
+          : undefined,
+      onOperationIdentity:
+        context.workflowOperationId && context.publishWorkflowOperationIdentity
+          ? (identity: {
+              adapterKind: string
+              capability: 'status_only'
+              remoteOperationId: string
+              observation?: Record<string, unknown>
+            }) => context.publishWorkflowOperationIdentity!(context.workflowOperationId!, identity)
+          : undefined,
+      beginToolOperation:
+        context.registerWorkflowOperation && context.completeWorkflowOperation
+          ? async (toolId: string) => {
+              const operationId = await context.registerWorkflowOperation!(block.id, 'agent_tool')
+              return {
+                runtime: {
+                  signal: context.workflowDeadlineSignal,
+                  prepareDurableCredential: context.prepareWorkflowOperationCredential
+                    ? (secret) => context.prepareWorkflowOperationCredential!(operationId, secret)
+                    : undefined,
+                  claimRemoteDispatch: context.claimWorkflowOperationRemoteDispatch
+                    ? () => context.claimWorkflowOperationRemoteDispatch!(operationId)
+                    : undefined,
+                  publishOperationIdentity: context.publishWorkflowOperationIdentity
+                    ? (identity) => context.publishWorkflowOperationIdentity!(operationId, identity)
+                    : undefined,
+                  recordTerminalObservation: (state, observation) =>
+                    context.completeWorkflowOperation!(operationId, state, observation),
+                },
+                finish: (state) =>
+                  context.completeWorkflowOperation!(operationId, state, { toolId }),
+              }
+            }
+          : undefined,
     })
 
     this.logExecutionSuccess(
@@ -739,7 +780,9 @@ export class AgentBlockHandler implements BlockHandler {
       method: 'POST',
       headers,
       body: JSON.stringify(providerRequest),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      signal: context.workflowDeadlineSignal
+        ? AbortSignal.any([context.workflowDeadlineSignal, AbortSignal.timeout(REQUEST_TIMEOUT)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT),
     })
 
     if (!response.ok) {

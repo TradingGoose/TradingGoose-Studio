@@ -11,7 +11,6 @@ const logger = createLogger('WorkflowBlockHandler')
 
 const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
-const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
 type WorkflowTraceSpan = TraceSpan & {
   metadata?: Record<string, unknown>
@@ -43,6 +42,7 @@ type ChildWorkflowWaitOptions = {
   childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
+  deadlineSignal?: AbortSignal
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -90,16 +90,24 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const childWorkflowInput = this.resolveChildWorkflowInput(inputs)
+    if (!context.workflowExecutionTimePolicy || !context.workflowOperationId) {
+      throw new Error('Nested workflow execution requires inherited lifecycle context')
+    }
+    const inheritedPolicy = context.workflowExecutionTimePolicy
+    const parentOperationId = context.workflowOperationId
 
     return {
       kind: 'deferred',
       wait: async () => {
+        let waitAcquired = false
         try {
           const workflowExecution: InternalWorkflowExecutionContext = {
             source: 'workflow_block',
             parentWorkflowId: context.workflowId,
             parentExecutionId: context.executionId,
             parentBlockId: block.id,
+            parentOperationId,
+            workflowExecutionTimePolicy: inheritedPolicy,
           }
           const headers = () => this.buildHeaders(context, workflowExecution)
           const queueResponse = await this.queueChildWorkflowExecution({
@@ -109,6 +117,8 @@ export class WorkflowBlockHandler implements BlockHandler {
             executionTarget: context.isDeployedContext ? 'deployed' : 'live',
             workflowDepth: currentDepth + 1,
           })
+          await context.setWorkflowParticipantWaiting?.(parentOperationId, true)
+          waitAcquired = true
 
           const childWorkflowName = queueResponse.workflowName
           const childResult = await this.waitForQueuedWorkflowResult({
@@ -116,6 +126,7 @@ export class WorkflowBlockHandler implements BlockHandler {
             childWorkflowName,
             headers,
             shouldCancelExecution: context.shouldCancelExecution,
+            deadlineSignal: context.workflowDeadlineSignal,
           })
           const childTraceSpans = this.transformChildWorkflowSpans(
             childResult.traceSpans,
@@ -154,6 +165,10 @@ export class WorkflowBlockHandler implements BlockHandler {
           }
 
           throw wrappedError
+        } finally {
+          if (waitAcquired) {
+            await context.setWorkflowParticipantWaiting?.(parentOperationId, false)
+          }
         }
       },
     }
@@ -255,13 +270,17 @@ export class WorkflowBlockHandler implements BlockHandler {
     childWorkflowName,
     headers,
     shouldCancelExecution,
+    deadlineSignal,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
-    const startedAt = Date.now()
+    let cancellationRequested = false
 
-    while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
-      if (await shouldCancelExecution?.()) {
+    while (true) {
+      if (
+        !cancellationRequested &&
+        (deadlineSignal?.aborted || (await shouldCancelExecution?.()))
+      ) {
         await this.cancelQueuedWorkflowExecution(taskId, headers)
-        throw new Error('Child workflow execution was cancelled')
+        cancellationRequested = true
       }
 
       const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
@@ -281,10 +300,16 @@ export class WorkflowBlockHandler implements BlockHandler {
       const body = (await response.json()) as JobStatusResponse
 
       if (body.status === 'completed') {
+        if (cancellationRequested) {
+          throw new Error('Child workflow execution was cancelled')
+        }
         return body.output ?? {}
       }
 
       if (body.status === 'failed') {
+        if (cancellationRequested) {
+          throw new Error('Child workflow execution was cancelled')
+        }
         const error = new Error(
           body.output?.error || body.error || 'Child workflow execution failed'
         ) as Error & {
@@ -303,9 +328,6 @@ export class WorkflowBlockHandler implements BlockHandler {
 
       await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
     }
-
-    await this.cancelQueuedWorkflowExecution(taskId, headers)
-    throw new Error('Child workflow execution timed out')
   }
 
   private transformChildWorkflowSpans(

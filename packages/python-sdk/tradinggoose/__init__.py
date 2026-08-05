@@ -30,6 +30,8 @@ class WorkflowExecutionResult:
     success: bool
     output: Optional[Any] = None
     error: Optional[str] = None
+    code: Optional[str] = None
+    deadline: Optional[Dict[str, str]] = None
     logs: Optional[list] = None
     metadata: Optional[Dict[str, Any]] = None
     trace_spans: Optional[list] = None
@@ -223,6 +225,8 @@ class TradingGooseClient:
                 success=result_data['success'],
                 output=result_data.get('output'),
                 error=result_data.get('error'),
+                code=result_data.get('code'),
+                deadline=result_data.get('deadline'),
                 logs=result_data.get('logs'),
                 metadata=result_data.get('metadata'),
                 trace_spans=result_data.get('traceSpans'),

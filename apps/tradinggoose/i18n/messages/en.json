@@ -1460,6 +1460,12 @@
         "unknownLevel": "unknown",
         "unknownValue": "Unknown",
         "runningMs": "{value} ms",
+        "deadline": {
+          "title": "Workflow execution time limit exceeded",
+          "reason": "This execution was stopped because it reached the time limit configured for its billing tier.",
+          "limit": "Applied limit: {seconds} seconds",
+          "tier": "Applied tier: {tierName}"
+        },
         "traceSpans": {
           "workflowExecution": "Workflow execution",
           "collapseAll": "Collapse all",
@@ -1979,6 +1985,21 @@
         "delete": "Delete"
       },
       "subscription": {
+        "privateAccess": {
+          "label": "Private tier access code",
+          "placeholder": "Enter access code",
+          "validate": "Validate",
+          "required": "Access code is required.",
+          "invalid": "Invalid access code.",
+          "success": "Private tier access unlocked."
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "description": "Custom pricing, security, and support for organizations.",
+          "customPricing": "Custom contract pricing",
+          "pooledBilling": "Organization-wide pooled billing",
+          "support": "Dedicated onboarding and support"
+        },
         "titles": {
           "manage": "Manage Subscription",
           "restore": "Restore Subscription",
@@ -2022,6 +2043,7 @@
           "failedToUpdate": "Failed to update billing owner."
         },
         "actions": {
+          "current": "Current",
           "manage": "Manage",
           "contact": "Contact",
           "upgradeTo": "Upgrade to {name}"
@@ -22132,9 +22154,8 @@
         "save": "Save Tier",
         "saving": "Saving…",
         "updated": "Tier updated",
-        "delete": "Delete Tier",
-        "deleting": "Deleting…",
-        "activeSubscriptionsWarning": "This tier has active subscriptions. Delete is disabled until they are moved off.",
+        "archive": "Archive Tier",
+        "activeSubscriptionsWarning": "This tier has entitled subscriptions. Archiving preserves the current paid period and cancels renewal.",
         "loading": "Loading billing tier...",
         "notFoundTitle": "Tier not found",
         "notFoundDescription": "Go back to billing and choose a different tier.",
@@ -22211,7 +22232,10 @@
           "canEditUsageLimit": "Can edit usage limit",
           "canEditUsageLimitHint": "Allow usage limit changes.",
           "canConfigureSso": "Can configure SSO",
-          "canConfigureSsoHint": "Allow SSO setup."
+          "canConfigureSsoHint": "Allow SSO setup.",
+          "accessCode": "Private tier access code",
+          "accessCodeHint": "Users enter this exact case-sensitive code to unlock the tier.",
+          "accessCodeBlank": "Leave blank to disable future grants until a new code is set."
         },
         "seats": {
           "seatCount": "Seat Count",
@@ -22237,6 +22261,10 @@
           "concurrencyLimit": "Max Concurrent Executions",
           "concurrencyLimitHint": "Max parallel executions.",
           "concurrencyLimitBlank": "Leave blank while drafting.",
+          "workflowExecutionTimeLimit": "Workflow Execution Time Limit",
+          "workflowExecutionTimeLimitHint": "Maximum processing time for one workflow, in seconds.",
+          "workflowExecutionTimeLimitBlank": "Leave blank for unlimited execution time.",
+          "workflowExecutionTimeLimitUnlimited": "Unlimited",
           "syncRateLimit": "Sync Executions / Min",
           "syncRateLimitHint": "Per-minute sync execution limit.",
           "syncRateLimitBlank": "Leave blank while drafting.",

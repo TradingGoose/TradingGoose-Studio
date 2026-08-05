@@ -193,6 +193,14 @@ describe('POST /api/workflows/[id]/queue', () => {
         parentWorkflowId: 'parent-1',
         parentExecutionId: 'execution-1',
         parentBlockId: 'block-1',
+        parentOperationId: 'operation-1',
+        workflowExecutionTimePolicy: {
+          kind: 'unlimited',
+          rootExecutionId: 'execution-1',
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Tier 1',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+        },
       },
     })
 
@@ -231,6 +239,14 @@ describe('POST /api/workflows/[id]/queue', () => {
             parentWorkflowId: 'parent-1',
             parentExecutionId: 'execution-1',
             parentBlockId: 'block-1',
+            parentOperationId: 'operation-1',
+            workflowExecutionTimePolicy: {
+              kind: 'unlimited',
+              rootExecutionId: 'execution-1',
+              appliedTierId: 'tier-1',
+              appliedTierName: 'Tier 1',
+              processingStartedAt: '2026-01-01T00:00:00.000Z',
+            },
           },
         }),
       })

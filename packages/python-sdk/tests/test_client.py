@@ -120,6 +120,35 @@ def test_sync_execution_returns_result(mock_post):
     assert not hasattr(result, 'task_id')
 
 
+@patch('tradinggoose.requests.Session.post')
+def test_sync_execution_preserves_workflow_deadline_diagnostic(mock_post):
+    """Deadline failures retain their canonical code and immutable policy snapshot."""
+    deadline = {
+        "appliedTierId": "tier-pro",
+        "appliedTierName": "Pro",
+        "limitSeconds": "300.5",
+        "processingStartedAt": "2026-01-01T00:00:00.000Z",
+        "terminatedAt": "2026-01-01T00:05:00.500Z",
+    }
+    mock_response = Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "success": False,
+        "output": {},
+        "error": "Workflow execution time limit exceeded",
+        "code": "WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED",
+        "deadline": deadline,
+    }
+    mock_response.headers.get.return_value = None
+    mock_post.return_value = mock_response
+
+    result = TradingGooseClient(api_key="test-api-key").execute_workflow("workflow-id")
+
+    assert result.code == "WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED"
+    assert result.deadline == deadline
+
+
 # Tests for retry with rate limiting
 @patch('tradinggoose.requests.Session.post')
 @patch('tradinggoose.time.sleep')

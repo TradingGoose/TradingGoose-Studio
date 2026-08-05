@@ -1460,6 +1460,12 @@
         "unknownLevel": "desconocido",
         "unknownValue": "Desconocido",
         "runningMs": "{value} ms",
+        "deadline": {
+          "title": "Se excedió el límite de tiempo de ejecución",
+          "reason": "Esta ejecución se detuvo porque alcanzó el límite de tiempo configurado para su nivel de facturación.",
+          "limit": "Límite aplicado: {seconds} segundos",
+          "tier": "Nivel aplicado: {tierName}"
+        },
         "traceSpans": {
           "workflowExecution": "Ejecución del flujo de trabajo",
           "collapseAll": "Contraer todo",
@@ -1979,6 +1985,21 @@
         "delete": "Eliminar"
       },
       "subscription": {
+        "privateAccess": {
+          "label": "Código de acceso del nivel privado",
+          "placeholder": "Ingrese el código de acceso",
+          "validate": "Validar",
+          "required": "El código de acceso es obligatorio.",
+          "invalid": "Código de acceso no válido.",
+          "success": "Acceso al nivel privado desbloqueado."
+        },
+        "enterprise": {
+          "name": "Empresa",
+          "description": "Precios, seguridad y soporte personalizados para organizaciones.",
+          "customPricing": "Precios de contrato personalizados",
+          "pooledBilling": "Facturación agrupada para toda la organización",
+          "support": "Incorporación y soporte dedicados"
+        },
         "titles": {
           "manage": "Gestionar suscripción",
           "restore": "Restaurar suscripción",
@@ -2022,6 +2043,7 @@
           "failedToUpdate": "No se pudo actualizar el propietario de facturación."
         },
         "actions": {
+          "current": "Actual",
           "manage": "Gestionar",
           "contact": "Contactar",
           "upgradeTo": "Actualizar a {name}"
@@ -22132,9 +22154,8 @@
         "save": "Guardar nivel",
         "saving": "Guardando…",
         "updated": "Nivel actualizado",
-        "delete": "Eliminar nivel",
-        "deleting": "Eliminando…",
-        "activeSubscriptionsWarning": "Este nivel tiene suscripciones activas. La eliminación se desactiva hasta que se muevan.",
+        "archive": "Archivar nivel",
+        "activeSubscriptionsWarning": "Este nivel tiene suscripciones con derecho. Archivarlo conserva el período pagado actual y cancela la renovación.",
         "loading": "Cargando nivel de facturación...",
         "notFoundTitle": "Nivel no encontrado",
         "notFoundDescription": "Vuelve a facturación y elige un nivel diferente.",
@@ -22211,7 +22232,10 @@
           "canEditUsageLimit": "Puede editar el límite de uso",
           "canEditUsageLimitHint": "Permite cambios en el límite de uso.",
           "canConfigureSso": "Puede configurar SSO",
-          "canConfigureSsoHint": "Permite configurar SSO."
+          "canConfigureSsoHint": "Permite configurar SSO.",
+          "accessCode": "Código de acceso del nivel privado",
+          "accessCodeHint": "Los usuarios ingresan este código exacto y sensible a mayúsculas para desbloquear el nivel.",
+          "accessCodeBlank": "Déjelo en blanco para desactivar nuevas concesiones hasta configurar otro código."
         },
         "seats": {
           "seatCount": "Cantidad de asientos",
@@ -22237,6 +22261,10 @@
           "concurrencyLimit": "Máx. ejecuciones concurrentes",
           "concurrencyLimitHint": "Máximo de ejecuciones en paralelo.",
           "concurrencyLimitBlank": "Déjalo en blanco mientras está en borrador.",
+          "workflowExecutionTimeLimit": "Límite de tiempo de ejecución del flujo",
+          "workflowExecutionTimeLimitHint": "Tiempo máximo de procesamiento de un flujo, en segundos.",
+          "workflowExecutionTimeLimitBlank": "Déjalo en blanco para tiempo de ejecución ilimitado.",
+          "workflowExecutionTimeLimitUnlimited": "Ilimitado",
           "syncRateLimit": "Ejecuciones síncronas / min",
           "syncRateLimitHint": "Límite de ejecuciones síncronas por minuto.",
           "syncRateLimitBlank": "Déjalo en blanco mientras está en borrador.",

@@ -1,7 +1,5 @@
-import type {
-  EnterprisePlaceholderDisplay,
-  PublicBillingTierDisplay,
-} from '@/lib/billing/public-catalog'
+import type { EnterprisePlaceholderDisplay } from '@/lib/billing/public-catalog'
+import type { SubscriptionTierDisplay } from '@/lib/billing/subscription-tier-display'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/subscription/types'
 
@@ -16,14 +14,14 @@ export interface UserRole {
 }
 
 export interface SubscriptionSurfaceState {
-  currentTier: PublicBillingTierDisplay | null
+  currentTier: SubscriptionTierDisplay | null
   isOrganizationPlan: boolean
   isAdjustableSeatPlan: boolean
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
   showTeamMemberView: boolean
-  visiblePlanTiers: PublicBillingTierDisplay[]
+  visiblePlanTiers: SubscriptionTierDisplay[]
   showEnterprisePlaceholder: boolean
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
@@ -31,16 +29,16 @@ export interface SubscriptionSurfaceState {
 interface SubscriptionSurfaceInput {
   subscription: SubscriptionState
   userRole: UserRole
-  publicTiers: PublicBillingTierDisplay[]
-  enterprisePlaceholder: EnterprisePlaceholderDisplay | null
+  subscriptionTiers: SubscriptionTierDisplay[]
+  enterpriseContactCard: EnterprisePlaceholderDisplay | null
 }
 
 function getCurrentTier(
   subscription: SubscriptionState,
-  publicTiers: PublicBillingTierDisplay[]
-): PublicBillingTierDisplay | null {
+  subscriptionTiers: SubscriptionTierDisplay[]
+): SubscriptionTierDisplay | null {
   const matchedTier = subscription.tier.id
-    ? publicTiers.find((tier) => tier.id === subscription.tier.id)
+    ? subscriptionTiers.find((tier) => tier.id === subscription.tier.id)
     : null
   if (matchedTier) {
     return matchedTier
@@ -50,45 +48,27 @@ function getCurrentTier(
     return null
   }
 
-  return publicTiers.find((tier) => tier.isDefault) ?? null
+  return subscriptionTiers.find((tier) => tier.isDefault) ?? null
 }
 
 export function getSubscriptionSurfaceState({
   subscription,
   userRole,
-  publicTiers,
-  enterprisePlaceholder,
+  subscriptionTiers,
+  enterpriseContactCard,
 }: SubscriptionSurfaceInput): SubscriptionSurfaceState {
-  const currentTier = getCurrentTier(subscription, publicTiers)
+  const currentTier = getCurrentTier(subscription, subscriptionTiers)
   const effectiveTier = currentTier ?? subscription.tier
   const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
   const isCurrentCustomOrganizationPlan =
-    isCurrentOrganizationPlan && !currentTier && !subscription.isFree
+    isCurrentOrganizationPlan && !subscription.isFree && (!currentTier || currentTier.isCurrentOnly)
   const isCurrentAdjustableSeatPlan =
     isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
   const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
   const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
 
-  let visiblePlanTiers: PublicBillingTierDisplay[] = []
-
-  if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
-    const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
-    const upgradableTiers = subscription.isFree
-      ? publicTiers.filter((tier) => !tier.isDefault)
-      : currentDisplayOrder !== null
-        ? publicTiers.filter(
-            (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
-          )
-        : []
-
-    visiblePlanTiers = currentTier
-      ? [currentTier, ...upgradableTiers.filter((tier) => tier.id !== currentTier.id)]
-      : upgradableTiers
-  }
-
-  const showEnterprisePlaceholder = Boolean(
-    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isTeamMemberView
-  )
+  const visiblePlanTiers = subscriptionTiers
+  const showEnterprisePlaceholder = Boolean(enterpriseContactCard)
 
   return {
     currentTier,
@@ -100,6 +80,6 @@ export function getSubscriptionSurfaceState({
     showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
     visiblePlanTiers,
     showEnterprisePlaceholder,
-    enterprisePlaceholder,
+    enterprisePlaceholder: enterpriseContactCard,
   }
 }

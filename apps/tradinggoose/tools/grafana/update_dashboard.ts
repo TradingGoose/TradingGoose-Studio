@@ -1,4 +1,5 @@
 import type { GrafanaUpdateDashboardParams } from '@/tools/grafana/types'
+import { dispatchToolRemote } from '@/tools/runtime'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 // Using ToolResponse for intermediate state since this tool fetches existing data first
@@ -113,7 +114,8 @@ export const updateDashboardTool: ToolConfig<GrafanaUpdateDashboardParams, ToolR
     }
   },
 
-  postProcess: async (result, params) => {
+  postProcess: async (result, params, _executeTool, runtime) => {
+    runtime?.signal?.throwIfAborted()
     // Merge user changes with existing dashboard and POST the complete object
     const existingDashboard = result.output._existingDashboard
     const existingMeta = result.output._existingMeta
@@ -182,11 +184,14 @@ export const updateDashboardTool: ToolConfig<GrafanaUpdateDashboardParams, ToolR
       headers['X-Grafana-Org-Id'] = params.organizationId
     }
 
-    const updateResponse = await fetch(`${params.baseUrl.replace(/\/$/, '')}/api/dashboards/db`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    })
+    const updateResponse = await dispatchToolRemote(runtime, () =>
+      fetch(`${params.baseUrl.replace(/\/$/, '')}/api/dashboards/db`, {
+        method: 'POST',
+        signal: runtime?.signal,
+        headers,
+        body: JSON.stringify(body),
+      })
+    )
 
     if (!updateResponse.ok) {
       const errorText = await updateResponse.text()

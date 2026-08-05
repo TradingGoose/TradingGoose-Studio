@@ -1447,6 +1447,12 @@
         "unknownLevel": "未知",
         "unknownValue": "未知",
         "runningMs": "{value} 毫秒",
+        "deadline": {
+          "title": "工作流执行时间已超出限制",
+          "reason": "此执行因达到其计费层级配置的时间限制而停止。",
+          "limit": "已应用限制：{seconds} 秒",
+          "tier": "已应用层级：{tierName}"
+        },
         "traceSpans": {
           "workflowExecution": "工作流执行",
           "collapseAll": "全部折叠",
@@ -1966,6 +1972,21 @@
         "delete": "删除"
       },
       "subscription": {
+        "privateAccess": {
+          "label": "私有层级访问码",
+          "placeholder": "输入访问码",
+          "validate": "验证",
+          "required": "必须输入访问码。",
+          "invalid": "访问码无效。",
+          "success": "已解锁私有层级访问。"
+        },
+        "enterprise": {
+          "name": "企业版",
+          "description": "面向组织的定制价格、安全性和支持。",
+          "customPricing": "定制合同价格",
+          "pooledBilling": "组织范围的共享计费",
+          "support": "专属入门和支持"
+        },
         "titles": {
           "manage": "管理订阅",
           "restore": "恢复订阅",
@@ -2009,6 +2030,7 @@
           "failedToUpdate": "更新账单所有者失败。"
         },
         "actions": {
+          "current": "当前",
           "manage": "管理",
           "contact": "联系",
           "upgradeTo": "升级至{name}"
@@ -22119,9 +22141,8 @@
         "save": "保存层级",
         "saving": "正在保存…",
         "updated": "层级已更新",
-        "delete": "删除层级",
-        "deleting": "正在删除…",
-        "activeSubscriptionsWarning": "该层级存在活跃订阅。在它们迁移前无法删除。",
+        "archive": "归档层级",
+        "activeSubscriptionsWarning": "此层级有享有权益的订阅。归档会保留当前已付费周期并取消续费。",
         "loading": "正在加载计费层级...",
         "notFoundTitle": "未找到层级",
         "notFoundDescription": "返回计费页面并选择其他层级。",
@@ -22198,7 +22219,10 @@
           "canEditUsageLimit": "可编辑使用上限",
           "canEditUsageLimitHint": "允许修改使用上限。",
           "canConfigureSso": "可配置 SSO",
-          "canConfigureSsoHint": "允许设置 SSO。"
+          "canConfigureSsoHint": "允许设置 SSO。",
+          "accessCode": "私有层级访问码",
+          "accessCodeHint": "用户可输入区分大小写的精确代码来解锁此层级。",
+          "accessCodeBlank": "留空将停止后续授权，直到设置新代码。"
         },
         "seats": {
           "seatCount": "席位数量",
@@ -22224,6 +22248,10 @@
           "concurrencyLimit": "最大并发执行数",
           "concurrencyLimitHint": "最大并行执行数。",
           "concurrencyLimitBlank": "草稿阶段可留空。",
+          "workflowExecutionTimeLimit": "工作流执行时间限制",
+          "workflowExecutionTimeLimitHint": "单个工作流的最长处理时间（秒）。",
+          "workflowExecutionTimeLimitBlank": "留空表示执行时间不受限制。",
+          "workflowExecutionTimeLimitUnlimited": "无限制",
           "syncRateLimit": "同步执行 / 分钟",
           "syncRateLimitHint": "每分钟同步执行限制。",
           "syncRateLimitBlank": "草稿阶段可留空。",

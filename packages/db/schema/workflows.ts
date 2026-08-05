@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   decimal,
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -348,6 +350,50 @@ export const pendingExecutionStatusEnum = pgEnum('pending_execution_status', [
   'processing',
 ])
 
+export const workflowExecutionPolicyStateEnum = pgEnum('workflow_execution_policy_state', [
+  'uncaptured',
+  'bounded',
+  'unlimited',
+])
+
+export const workflowExecutionTerminalStateEnum = pgEnum('workflow_execution_terminal_state', [
+  'running',
+  'termination_pending',
+  'terminal',
+])
+
+export const workflowExecutionAttemptStateEnum = pgEnum('workflow_execution_attempt_state', [
+  'processing',
+  'canceled',
+  'completed',
+  'failed',
+])
+
+export const workflowExecutionParticipantStateEnum = pgEnum(
+  'workflow_execution_participant_state',
+  ['active', 'waiting_child', 'canceled', 'completed', 'failed']
+)
+
+export const workflowExecutionOperationStateEnum = pgEnum('workflow_execution_operation_state', [
+  'registered',
+  'running',
+  'cancel_requested',
+  'canceled',
+  'completed',
+  'failed',
+])
+
+export const workflowExecutionOperationCapabilityEnum = pgEnum(
+  'workflow_execution_operation_capability',
+  ['local', 'native_cancel_status', 'status_only', 'uncancelable']
+)
+
+export const workflowExecutionOutboxStateEnum = pgEnum('workflow_execution_outbox_state', [
+  'pending',
+  'claimed',
+  'completed',
+])
+
 export const orderSubmissionSourceEnum = pgEnum('order_submission_source', [
   'manual',
   'copilot',
@@ -432,6 +478,273 @@ export const pendingExecution = pgTable(
     ),
     sourceIdx: index('pending_execution_source_idx').on(table.source),
     statusIdx: index('pending_execution_status_idx').on(table.status),
+  })
+)
+
+export const workflowExecutionTerminal = pgTable(
+  'workflow_execution_terminal',
+  {
+    rootExecutionId: text('root_execution_id').primaryKey(),
+    workflowId: text('workflow_id').references(() => workflow.id, { onDelete: 'set null' }),
+    workspaceId: text('workspace_id').references(() => workspace.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').references(() => user.id, { onDelete: 'set null' }),
+    policyState: workflowExecutionPolicyStateEnum('policy_state').notNull().default('uncaptured'),
+    state: workflowExecutionTerminalStateEnum('state').notNull().default('running'),
+    dispatchOpen: boolean('dispatch_open').notNull().default(true),
+    appliedTierId: text('applied_tier_id'),
+    appliedTierName: text('applied_tier_name'),
+    limitSeconds: decimal('limit_seconds'),
+    processingStartedAt: timestamp('processing_started_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    terminationRequestedAt: timestamp('termination_requested_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    deadlineCandidateAt: timestamp('deadline_candidate_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    cancellationCandidateAt: timestamp('cancellation_candidate_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    infrastructureCandidateAt: timestamp('infrastructure_candidate_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    infrastructureDiagnostics: jsonb('infrastructure_diagnostics'),
+    lateApplicationResult: jsonb('late_application_result'),
+    barrierVersion: integer('barrier_version').notNull().default(0),
+    winningCause: text('winning_cause'),
+    result: jsonb('result'),
+    resultVersion: integer('result_version').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    stateIdx: index('workflow_execution_terminal_state_idx').on(table.state),
+    workspaceIdx: index('workflow_execution_terminal_workspace_idx').on(table.workspaceId),
+    policyShape: check(
+      'workflow_execution_terminal_policy_shape_check',
+      sql`(
+        (${table.policyState} = 'uncaptured' and ${table.appliedTierId} is null and ${table.appliedTierName} is null and ${table.processingStartedAt} is null and ${table.limitSeconds} is null)
+        or (${table.policyState} = 'unlimited' and ${table.appliedTierId} is not null and ${table.appliedTierName} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} is null)
+        or (${table.policyState} = 'bounded' and ${table.appliedTierId} is not null and ${table.appliedTierName} is not null and ${table.processingStartedAt} is not null and ${table.limitSeconds} > 0 and ${table.limitSeconds} < 'Infinity'::numeric)
+      )`
+    ),
+    lifecycleShape: check(
+      'workflow_execution_terminal_lifecycle_shape_check',
+      sql`(
+        (${table.state} = 'running' and ${table.dispatchOpen} and ${table.result} is null)
+        or (${table.state} = 'termination_pending' and not ${table.dispatchOpen} and ${table.result} is null)
+        or (${table.state} = 'terminal' and not ${table.dispatchOpen} and ${table.result} is not null and ${table.winningCause} in ('application', 'deadline', 'cancellation', 'infrastructure') and ${table.resultVersion} > 0)
+      ) and ${table.barrierVersion} >= 0 and ${table.resultVersion} >= 0
+        and (${table.deadlineCandidateAt} is null or ${table.policyState} = 'bounded')`
+    ),
+  })
+)
+
+export const workflowExecutionDeadline = pgTable(
+  'workflow_execution_deadline',
+  {
+    rootExecutionId: text('root_execution_id')
+      .primaryKey()
+      .references(() => workflowExecutionTerminal.rootExecutionId, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').references(() => user.id, { onDelete: 'set null' }),
+    triggerType: text('trigger_type').notNull(),
+    appliedTierId: text('applied_tier_id').notNull(),
+    processingStartedAt: timestamp('processing_started_at', {
+      withTimezone: true,
+      precision: 6,
+    }).notNull(),
+    limitSeconds: decimal('limit_seconds').notNull(),
+    limitMicroseconds: decimal('limit_microseconds').notNull(),
+    countedMicroseconds: decimal('counted_microseconds').notNull().default('0'),
+    lastAccountedAt: timestamp('last_accounted_at', {
+      withTimezone: true,
+      precision: 6,
+    }).notNull(),
+    nextReconcileAt: timestamp('next_reconcile_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    scheduleVersion: integer('schedule_version').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    dueIdx: index('workflow_execution_deadline_due_idx').on(table.nextReconcileAt),
+    ledgerShape: check(
+      'workflow_execution_deadline_ledger_shape_check',
+      sql`${table.limitSeconds} > 0
+        and ${table.limitSeconds} < 'Infinity'::numeric
+        and ${table.limitMicroseconds} > 0
+        and scale(${table.limitMicroseconds}) = 0
+        and ${table.countedMicroseconds} >= 0
+        and scale(${table.countedMicroseconds}) = 0
+        and ${table.countedMicroseconds} <= ${table.limitMicroseconds}
+        and ${table.scheduleVersion} >= 0`
+    ),
+  })
+)
+
+export const workflowExecutionAttempt = pgTable(
+  'workflow_execution_attempt',
+  {
+    id: text('id').primaryKey(),
+    rootExecutionId: text('root_execution_id')
+      .notNull()
+      .references(() => workflowExecutionTerminal.rootExecutionId, { onDelete: 'cascade' }),
+    pendingExecutionId: text('pending_execution_id').notNull(),
+    attemptNumber: integer('attempt_number').notNull(),
+    drainRunId: text('drain_run_id'),
+    state: workflowExecutionAttemptStateEnum('state').notNull().default('processing'),
+    processingStartedAt: timestamp('processing_started_at', {
+      withTimezone: true,
+      precision: 6,
+    }).notNull(),
+    processingCompletedAt: timestamp('processing_completed_at', {
+      withTimezone: true,
+      precision: 6,
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    rootIdx: index('workflow_execution_attempt_root_idx').on(table.rootExecutionId),
+    pendingAttemptUnique: uniqueIndex('workflow_execution_attempt_pending_number_unique').on(
+      table.pendingExecutionId,
+      table.attemptNumber
+    ),
+    openIdx: index('workflow_execution_attempt_open_idx').on(table.processingCompletedAt),
+    lifecycleShape: check(
+      'workflow_execution_attempt_lifecycle_shape_check',
+      sql`${table.attemptNumber} > 0 and (
+        (${table.state} = 'processing' and ${table.processingCompletedAt} is null)
+        or (${table.state} in ('canceled', 'completed', 'failed') and ${table.processingCompletedAt} is not null and ${table.processingCompletedAt} >= ${table.processingStartedAt})
+      )`
+    ),
+  })
+)
+
+export const workflowExecutionParticipant = pgTable(
+  'workflow_execution_participant',
+  {
+    id: text('id').primaryKey(),
+    rootExecutionId: text('root_execution_id')
+      .notNull()
+      .references(() => workflowExecutionTerminal.rootExecutionId, { onDelete: 'cascade' }),
+    attemptId: text('attempt_id')
+      .notNull()
+      .references(() => workflowExecutionAttempt.id, { onDelete: 'cascade' }),
+    pendingExecutionId: text('pending_execution_id').notNull(),
+    state: workflowExecutionParticipantStateEnum('state').notNull().default('active'),
+    leaseExpiresAt: timestamp('lease_expires_at', {
+      withTimezone: true,
+      precision: 6,
+    }).notNull(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', {
+      withTimezone: true,
+      precision: 6,
+    }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    rootIdx: index('workflow_execution_participant_root_idx').on(table.rootExecutionId),
+    leaseIdx: index('workflow_execution_participant_lease_idx').on(table.leaseExpiresAt),
+    leaseOrder: check(
+      'workflow_execution_participant_lease_order_check',
+      sql`${table.leaseExpiresAt} >= ${table.lastHeartbeatAt}`
+    ),
+  })
+)
+
+export const workflowExecutionOperation = pgTable(
+  'workflow_execution_operation',
+  {
+    id: text('id').primaryKey(),
+    rootExecutionId: text('root_execution_id')
+      .notNull()
+      .references(() => workflowExecutionTerminal.rootExecutionId, { onDelete: 'cascade' }),
+    executionId: text('execution_id').notNull(),
+    attemptId: text('attempt_id')
+      .notNull()
+      .references(() => workflowExecutionAttempt.id, { onDelete: 'cascade' }),
+    participantId: text('participant_id').references(() => workflowExecutionParticipant.id, {
+      onDelete: 'set null',
+    }),
+    blockId: text('block_id'),
+    handlerType: text('handler_type').notNull(),
+    adapterKind: text('adapter_kind').notNull(),
+    capability: workflowExecutionOperationCapabilityEnum('capability').notNull(),
+    state: workflowExecutionOperationStateEnum('state').notNull().default('registered'),
+    remoteOperationId: text('remote_operation_id'),
+    observation: jsonb('observation'),
+    lastObservedAt: timestamp('last_observed_at', { withTimezone: true, precision: 6 }),
+    nextReconcileAt: timestamp('next_reconcile_at', { withTimezone: true, precision: 6 }),
+    leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true, precision: 6 }),
+    fencingToken: text('fencing_token'),
+    terminalAt: timestamp('terminal_at', { withTimezone: true, precision: 6 }),
+    result: jsonb('result'),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    rootStateIdx: index('workflow_execution_operation_root_state_idx').on(
+      table.rootExecutionId,
+      table.state
+    ),
+    leaseIdx: index('workflow_execution_operation_lease_idx').on(table.leaseExpiresAt),
+    lifecycleShape: check(
+      'workflow_execution_operation_lifecycle_shape_check',
+      sql`(
+        (${table.state} in ('registered', 'running', 'cancel_requested') and ${table.terminalAt} is null)
+        or (${table.state} in ('canceled', 'completed', 'failed') and ${table.terminalAt} is not null)
+      ) and ((${table.leaseExpiresAt} is null) = (${table.fencingToken} is null))`
+    ),
+  })
+)
+
+export const workflowExecutionOutbox = pgTable(
+  'workflow_execution_outbox',
+  {
+    rootExecutionId: text('root_execution_id')
+      .notNull()
+      .references(() => workflowExecutionTerminal.rootExecutionId, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    version: integer('version').notNull(),
+    payload: jsonb('payload').notNull(),
+    state: workflowExecutionOutboxStateEnum('state').notNull().default('pending'),
+    availableAt: timestamp('available_at', { withTimezone: true, precision: 6 })
+      .notNull()
+      .defaultNow(),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    lastError: text('last_error'),
+    claimExpiresAt: timestamp('claim_expires_at', { withTimezone: true, precision: 6 }),
+    fencingToken: text('fencing_token'),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true, precision: 6 }),
+  },
+  (table) => ({
+    pk: primaryKey({
+      name: 'workflow_execution_outbox_pkey',
+      columns: [table.rootExecutionId, table.kind, table.version],
+    }),
+    stateIdx: index('workflow_execution_outbox_state_idx').on(
+      table.state,
+      table.availableAt,
+      table.claimExpiresAt
+    ),
+    lifecycleShape: check(
+      'workflow_execution_outbox_lifecycle_shape_check',
+      sql`${table.version} >= 0 and ${table.attemptCount} >= 0 and (
+        (${table.state} = 'pending' and ${table.claimExpiresAt} is null and ${table.fencingToken} is null and ${table.completedAt} is null)
+        or (${table.state} = 'claimed' and ${table.claimExpiresAt} is not null and ${table.fencingToken} is not null and ${table.completedAt} is null)
+        or (${table.state} = 'completed' and ${table.claimExpiresAt} is null and ${table.completedAt} is not null)
+      )`
+    ),
   })
 )
 

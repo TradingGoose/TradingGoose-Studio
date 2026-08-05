@@ -27,7 +27,8 @@ export class WebhookAttachmentProcessor {
       workflowId: string
       executionId: string
       requestId: string
-    }
+    },
+    signal?: AbortSignal
   ): Promise<UserFile[]> {
     if (!attachments || attachments.length === 0) {
       return []
@@ -40,13 +41,16 @@ export class WebhookAttachmentProcessor {
     const processedFiles: UserFile[] = []
 
     for (const attachment of attachments) {
+      signal?.throwIfAborted()
       try {
         const userFile = await WebhookAttachmentProcessor.processAttachment(
           attachment,
           executionContext
         )
+        signal?.throwIfAborted()
         processedFiles.push(userFile)
       } catch (error) {
+        if (error === signal?.reason) throw error
         logger.error(
           `[${executionContext.requestId}] Error processing attachment '${attachment.name}':`,
           error

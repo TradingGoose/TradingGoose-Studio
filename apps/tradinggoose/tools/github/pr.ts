@@ -1,4 +1,5 @@
 import type { PROperationParams, PullRequestResponse } from '@/tools/github/types'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const prTool: ToolConfig<PROperationParams, PullRequestResponse> = {
@@ -44,15 +45,16 @@ export const prTool: ToolConfig<PROperationParams, PullRequestResponse> = {
     }),
   },
 
-  transformResponse: async (response) => {
+  transformResponse: async (response, _params, runtime) => {
     const pr = await response.json()
 
     // Fetch the PR diff
-    const diffResponse = await fetch(pr.diff_url)
+    const diffResponse = await dispatchToolFetch(runtime, pr.diff_url)
     const _diff = await diffResponse.text()
 
     // Fetch files changed
-    const filesResponse = await fetch(
+    const filesResponse = await dispatchToolFetch(
+      runtime,
       `https://api.github.com/repos/${pr.base.repo.owner.login}/${pr.base.repo.name}/pulls/${pr.number}/files`
     )
     const files = await filesResponse.json()

@@ -2,6 +2,24 @@ import { z } from 'zod'
 
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
+const positiveDecimalPattern = /^(?:0*[1-9]\d*(?:\.\d*)?|0*\.\d*[1-9]\d*)$/
+const nullablePositiveDecimalStringSchema = z
+  .union([z.string(), z.null()])
+  .transform((value, context): string | null => {
+    if (value === null) return null
+    const normalized = String(value).trim()
+    if (!positiveDecimalPattern.test(normalized)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Workflow execution time limit must be a finite positive number of seconds',
+      })
+      return z.NEVER
+    }
+    const [integerPart, fractionalPart] = normalized.split('.')
+    const normalizedInteger = integerPart.replace(/^0+(?=\d)/, '') || '0'
+    const normalizedFraction = fractionalPart?.replace(/0+$/, '')
+    return normalizedFraction ? `${normalizedInteger}.${normalizedFraction}` : normalizedInteger
+  })
 const nullableTrimmedStringSchema = z
   .string()
   .trim()
@@ -12,7 +30,7 @@ function hasPositiveNumber(value: number | null): value is number {
   return value !== null && value > 0
 }
 
-export const adminBillingTierMutationSchema = z.object({
+const adminBillingTierMutationShape = {
   displayName: z.string().trim().min(1),
   description: z.string().trim().min(1),
   status: z.enum(['draft', 'active', 'archived']),
@@ -29,6 +47,8 @@ export const adminBillingTierMutationSchema = z.object({
   stripeMonthlyPriceId: nullableTrimmedStringSchema,
   stripeYearlyPriceId: nullableTrimmedStringSchema,
   stripeProductId: nullableTrimmedStringSchema,
+  accessCode: nullableTrimmedStringSchema,
+  workflowExecutionTimeLimitSeconds: nullablePositiveDecimalStringSchema.optional(),
   syncRateLimitPerMinute: nullableIntegerSchema,
   asyncRateLimitPerMinute: nullableIntegerSchema,
   apiEndpointRateLimitPerMinute: nullableIntegerSchema,
@@ -45,21 +65,28 @@ export const adminBillingTierMutationSchema = z.object({
   isPublic: z.boolean(),
   isDefault: z.boolean(),
   displayOrder: z.number().int(),
-})
-
-export type AdminBillingTierMutationInput = z.infer<
-  typeof adminBillingTierMutationSchema
->
-
-type AdminBillingTierValidationOptions = {
-  requireStripeMonthlyPriceId?: boolean
 }
 
-export function validateAdminBillingTierInput(
-  input: AdminBillingTierMutationInput,
-  options: AdminBillingTierValidationOptions = {},
-): string | null {
+export const adminBillingTierMutationSchema = z
+  .object(adminBillingTierMutationShape)
+  .transform((input) => ({
+    ...input,
+    workflowExecutionTimeLimitSeconds: input.workflowExecutionTimeLimitSeconds ?? null,
+  }))
+
+export const adminBillingTierUpdateSchema = z.object(adminBillingTierMutationShape)
+
+export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
+
+export function validateAdminBillingTierInput(input: AdminBillingTierMutationInput): string | null {
+  if (input.isPublic && input.accessCode) {
+    return 'Public tiers cannot configure an access code'
+  }
   if (input.isDefault) {
+    if (input.status === 'archived') {
+      return 'The default tier cannot be archived'
+    }
+
     if (!input.isPublic) {
       return 'The default tier must be visible in the public catalog'
     }
@@ -72,10 +99,7 @@ export function validateAdminBillingTierInput(
       return 'The default tier must be a public user tier with individual usage and fixed seats'
     }
 
-    if (
-      hasPositiveNumber(input.monthlyPriceUsd) ||
-      hasPositiveNumber(input.yearlyPriceUsd)
-    ) {
+    if (hasPositiveNumber(input.monthlyPriceUsd) || hasPositiveNumber(input.yearlyPriceUsd)) {
       return 'The default tier cannot configure a recurring price'
     }
   }
@@ -124,27 +148,14 @@ export function validateAdminBillingTierInput(
     if (input.concurrencyLimit === null) {
       return 'Active tiers must configure a concurrency limit'
     }
-
   }
 
-  if (options.requireStripeMonthlyPriceId && !input.stripeMonthlyPriceId) {
-    return 'New tiers must configure a Stripe monthly price ID'
+  if (hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
+    return 'Tiers with a recurring monthly price must configure a Stripe monthly price ID'
   }
 
-  if (
-    input.isPublic &&
-    hasPositiveNumber(input.monthlyPriceUsd) &&
-    !input.stripeMonthlyPriceId
-  ) {
-    return 'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
-  }
-
-  if (
-    input.isPublic &&
-    hasPositiveNumber(input.yearlyPriceUsd) &&
-    !input.stripeYearlyPriceId
-  ) {
-    return 'Public tiers with a recurring yearly price must configure a Stripe yearly price ID'
+  if (hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
+    return 'Tiers with a recurring yearly price must configure a Stripe yearly price ID'
   }
 
   if (input.seatMode === 'fixed' && input.seatMaximum !== null) {

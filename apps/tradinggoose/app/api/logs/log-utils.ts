@@ -1,4 +1,8 @@
 import {
+  isWorkflowDeadlineMetadata,
+  WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+} from '@/lib/execution/workflow-execution-time-policy'
+import {
   areListingIdentitiesEqual,
   type ListingIdentity,
   ListingIdentitySchema,
@@ -6,6 +10,7 @@ import {
 import { splitQueryParamValues } from '@/lib/logs/query-parser'
 import type {
   TraceSpan,
+  WorkflowDeadlineLogResult,
   WorkflowLog,
   WorkflowLogOutcome,
   WorkflowLogWorkflowSummary,
@@ -14,6 +19,21 @@ import { normalizeOptionalString } from '@/lib/utils'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const readWorkflowDeadlineResult = (value: unknown): WorkflowDeadlineLogResult | undefined => {
+  if (!isRecord(value) || value.success !== false) return undefined
+  if (value.code !== WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED) return undefined
+  const error = normalizeOptionalString(value.error)
+  if (!error || !isWorkflowDeadlineMetadata(value.deadline)) return undefined
+  const { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt } =
+    value.deadline
+  return {
+    success: false,
+    error,
+    code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+    deadline: { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt },
+  }
+}
 
 const MONITOR_FIELDS = [
   'id',
@@ -24,6 +44,7 @@ const MONITOR_FIELDS = [
   'indicatorId',
   'assetType',
 ] as const
+
 const pickStringFields = (record: Record<string, unknown>, fields: readonly string[]) =>
   Object.fromEntries(
     fields.flatMap((field) => {
@@ -269,6 +290,7 @@ const buildPublicWorkflowLogExecutionData = (
   }
 
   const trigger = toPublicMonitorTrigger(row.executionData)
+  const canonicalResult = readWorkflowDeadlineResult(row.executionData.canonicalResult)
 
   return {
     traceSpans: synthesizeTraceSpans(row.executionData),
@@ -276,6 +298,7 @@ const buildPublicWorkflowLogExecutionData = (
       ? row.executionData.blockExecutions
       : undefined,
     finalOutput: row.executionData.finalOutput,
+    ...(canonicalResult ? { canonicalResult } : {}),
     enhanced: true,
     ...(trigger ? { trigger } : {}),
   } as WorkflowLog['executionData']

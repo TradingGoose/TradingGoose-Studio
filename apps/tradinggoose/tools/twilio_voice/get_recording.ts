@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { TwilioGetRecordingOutput, TwilioGetRecordingParams } from '@/tools/twilio_voice/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -55,7 +56,7 @@ export const getRecordingTool: ToolConfig<TwilioGetRecordingParams, TwilioGetRec
     },
   },
 
-  transformResponse: async (response, params) => {
+  transformResponse: async (response, params, runtime) => {
     const data = await response.json()
 
     logger.info('Twilio Get Recording Response:', data)
@@ -85,7 +86,7 @@ export const getRecordingTool: ToolConfig<TwilioGetRecordingParams, TwilioGetRec
       const transcriptionUrl = `https://api.twilio.com/2010-04-01/Accounts/${params?.accountSid}/Transcriptions.json?RecordingSid=${data.sid}`
       logger.info('Checking for transcriptions:', transcriptionUrl)
 
-      const transcriptionResponse = await fetch(transcriptionUrl, {
+      const transcriptionResponse = await dispatchToolFetch(runtime, transcriptionUrl, {
         method: 'GET',
         headers: { Authorization: `Basic ${authToken}` },
       })

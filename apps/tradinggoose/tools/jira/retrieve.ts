@@ -1,5 +1,6 @@
 import type { JiraRetrieveParams, JiraRetrieveResponse } from '@/tools/jira/types'
 import { getJiraCloudId } from '@/tools/jira/utils'
+import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const jiraRetrieveTool: ToolConfig<JiraRetrieveParams, JiraRetrieveResponse> = {
@@ -65,7 +66,11 @@ export const jiraRetrieveTool: ToolConfig<JiraRetrieveParams, JiraRetrieveRespon
     },
   },
 
-  transformResponse: async (response: Response, params?: JiraRetrieveParams) => {
+  transformResponse: async (
+    response: Response,
+    params: JiraRetrieveParams | undefined,
+    runtime
+  ) => {
     if (!params?.issueKey) {
       throw new Error(
         'Select a project to read issues, or provide an issue key to read a single issue.'
@@ -77,7 +82,7 @@ export const jiraRetrieveTool: ToolConfig<JiraRetrieveParams, JiraRetrieveRespon
       const cloudId = await getJiraCloudId(params!.domain, params!.accessToken)
       // Now fetch the actual issue with the found cloudId
       const issueUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/issue/${params?.issueKey}?expand=renderedFields,names,schema,transitions,operations,editmeta,changelog`
-      const issueResponse = await fetch(issueUrl, {
+      const issueResponse = await dispatchToolFetch(runtime, issueUrl, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
