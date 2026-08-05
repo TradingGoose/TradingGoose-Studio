@@ -3,11 +3,17 @@
     "logic",
     "syntax"
   ],
-  "strictness": 2,
-  "instructions": "Prioritize architectural regressions, data consistency bugs, billing entitlement mistakes, Yjs collaboration breakage, and provider-normalization drift. Ignore style-only nits unless they hide a correctness, maintainability, or contract issue.",
+  "strictness": 1,
+  "instructions": "Use a skeptical, behavior-first review. Review additions, edits, moves, and deletions end-to-end, not just locally: trace inputs, state, side effects, and failures through callers, callees, async boundaries, persistence, queues, retries, cancellation, cleanup, and API/worker boundaries. Flag concrete defects that could cause incorrect behavior, data loss/corruption, stale state, broken contracts, authorization or workspace-scope failures, security/privacy exposure, duplicate or lost work, resource leaks, incorrect billing/financial side effects, or swallowed/misreported failures. Compare changes with canonical helpers and adjacent implementations; types and happy-path tests do not prove runtime safety. Every comment must identify a plausible trigger and impact. Ignore style-only nits and speculative concerns.",
   "ignorePatterns": "**/migration/**\n**/migrations/**\nLICENSE*\nLICENSES/**\nNOTICE\nTHIRD-PARTY-LICENSES",
   "customContext": {
     "rules": [
+      {
+        "rule": "For every behavior-changing PR, verify that all affected producers, consumers, callers, and cleanup paths remain consistent. Flag stale call sites after refactors, moves, deletions, signature/type/ownership changes; missing validation at trust boundaries; non-idempotent retries or concurrent paths; and error, timeout, cancellation, or partial-failure paths that skip required state transitions, persistence, cleanup, logging, or response handling. Report only concrete failure modes supported by the diff and surrounding code."
+      },
+      {
+        "rule": "This codebase permits one canonical implementation, contract, data flow, and lifecycle for each concern. Flag any compatibility patch, legacy support, fallback, alias, deprecated wrapper or re-export, adapter maintained solely for an old interface, optional old/new behavior, dual read/write path, parallel state/data flow, or layered implementation that keeps a superseded path alive. A refactor is acceptable only as a first-class replacement: update every caller and consumer together, remove the superseded implementation and its supporting types, tests, configuration, and documentation, and leave one authoritative path. Do not accept a compatibility layer merely because it is described as temporary, incremental, safer, or less disruptive. Identify the coexisting paths and the concrete maintenance or correctness risk."
+      },
       {
         "rule": "This repo is Yjs-first for collaborative workflow and entity editing. Flag any PR that introduces a second authoritative collaborative state path, bypasses apps/tradinggoose/lib/yjs/* helpers, or treats local React/Zustand state as the durable source of truth for realtime collaborative data. Yjs is the live source; normalized DB writes are persistence/snapshot paths."
       },
